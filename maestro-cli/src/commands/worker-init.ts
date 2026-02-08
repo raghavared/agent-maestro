@@ -123,6 +123,12 @@ export class WorkerInitCommand {
     console.log(' Maestro Worker Init');
     console.log('══════════════════════════════════════════════════════════\n');
 
+    // Log server connection info for debugging environment routing
+    console.log(`[worker-init] Server URL env: MAESTRO_SERVER_URL=${process.env.MAESTRO_SERVER_URL || '(not set)'}`);
+    console.log(`[worker-init] Server URL env: MAESTRO_API_URL=${process.env.MAESTRO_API_URL || '(not set)'}`);
+    console.log(`[worker-init] DATA_DIR=${process.env.DATA_DIR || '(not set)'}`);
+    console.log(`[worker-init] Resolved API URL: ${api.getBaseUrl()}`);
+
     try {
       // Step 1: Get manifest path
       console.log('[worker-init] Step 1/7: Reading manifest from environment...');

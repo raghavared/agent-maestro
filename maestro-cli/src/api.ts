@@ -4,6 +4,10 @@ import { config } from './config.js';
 export class APIClient {
   constructor(private baseUrl: string = config.apiUrl) {}
 
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
   setBaseUrl(url: string) {
     this.baseUrl = url;
   }

@@ -1,6 +1,8 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
+import { writeFileSync, mkdirSync } from 'fs';
+import { dirname } from 'path';
 import { createContainer, Container } from './container';
 import { createProjectRoutes } from './api/projectRoutes';
 import { createTaskRoutes } from './api/taskRoutes';
@@ -122,6 +124,16 @@ async function startServer() {
     console.log(`🚀 Maestro Server running on http://localhost:${config.port}`);
     console.log(`   Health check: http://localhost:${config.port}/health`);
     console.log(`   WebSocket status: http://localhost:${config.port}/ws-status`);
+
+    // Write server URL to data dir so CLI can auto-discover it
+    try {
+      const serverUrlFile = `${config.dataDir}/server-url`;
+      mkdirSync(dirname(serverUrlFile), { recursive: true });
+      writeFileSync(serverUrlFile, config.serverUrl, 'utf-8');
+      console.log(`   Server URL written to: ${serverUrlFile}`);
+    } catch (err) {
+      console.warn('   Failed to write server-url file:', err);
+    }
   });
 
   // Start WebSocket server with event bus bridge
