@@ -1,9 +1,31 @@
 import React, { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { MentionsInput, Mention } from 'react-mentions';
-import { TaskPriority, AgentSkill, MaestroProject, ModelType } from "../../app/types/maestro";
+import { TaskPriority, AgentSkill, MaestroProject, MaestroTask, ModelType } from "../../app/types/maestro";
 import { maestroClient } from "../../utils/MaestroClient";
 import { Icon } from "../Icon";
+import { AgentSelector } from "./AgentSelector";
+import { useTaskBreadcrumb } from "../../hooks/useTaskBreadcrumb";
+import { useSubtaskProgress } from "../../hooks/useSubtaskProgress";
+import { useTaskSessions } from "../../hooks/useTaskSessions";
+
+const STATUS_LABELS: Record<string, string> = {
+    todo: "Todo",
+    in_progress: "In Progress",
+    completed: "Completed",
+    cancelled: "Cancelled",
+    blocked: "Blocked",
+};
+
+function formatDate(timestamp: number): string {
+    return new Date(timestamp).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
 
 type CreateTaskModalProps = {
     isOpen: boolean;
@@ -21,9 +43,43 @@ type CreateTaskModalProps = {
     project: MaestroProject;
     parentId?: string;
     parentTitle?: string;
+    // Edit mode props
+    mode?: "create" | "edit";
+    task?: MaestroTask;
+    onUpdateTask?: (taskId: string, updates: Partial<MaestroTask>) => void;
+    onAddSubtask?: (title: string) => void;
+    onToggleSubtask?: (subtaskId: string) => void;
+    onDeleteSubtask?: (subtaskId: string) => void;
+    onWorkOn?: () => void;
+    onNavigateToTask?: (taskId: string) => void;
+    onJumpToSession?: (sessionId: string) => void;
+    onWorkOnSubtask?: (subtask: MaestroTask) => void;
+    selectedAgentId?: string;
+    onAgentSelect?: (agentId: string) => void;
 };
 
-export function CreateTaskModal({ isOpen, onClose, onCreate, project, parentId, parentTitle }: CreateTaskModalProps) {
+export function CreateTaskModal({
+    isOpen,
+    onClose,
+    onCreate,
+    project,
+    parentId,
+    parentTitle,
+    mode = "create",
+    task,
+    onUpdateTask,
+    onAddSubtask,
+    onToggleSubtask,
+    onDeleteSubtask,
+    onWorkOn,
+    onNavigateToTask,
+    onJumpToSession,
+    onWorkOnSubtask,
+    selectedAgentId,
+    onAgentSelect,
+}: CreateTaskModalProps) {
+    const isEditMode = mode === "edit" && !!task;
+
     const [title, setTitle] = useState("");
     const [priority, setPriority] = useState<TaskPriority>("medium");
     const [model, setModel] = useState<ModelType>("sonnet");
@@ -36,9 +92,48 @@ export function CreateTaskModal({ isOpen, onClose, onCreate, project, parentId, 
     const [skillsError, setSkillsError] = useState<string | null>(null);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
+    // Edit mode state
+    const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+    const [showSubtaskInput, setShowSubtaskInput] = useState(false);
+
     const titleInputRef = useRef<HTMLInputElement>(null);
 
-    const hasUnsavedContent = title.trim() !== "" || prompt.trim() !== "";
+    // Hooks for edit mode (always called, but only used in edit mode)
+    const breadcrumb = useTaskBreadcrumb(isEditMode ? task!.id : null);
+    const subtaskProgress = useSubtaskProgress(isEditMode ? task!.id : null);
+    const { sessions } = useTaskSessions(isEditMode ? task!.id : null);
+
+    // Pre-fill form when task changes in edit mode
+    useEffect(() => {
+        if (isEditMode && task) {
+            setTitle(task.title);
+            setPrompt(task.initialPrompt || "");
+            setPriority(task.priority);
+            setModel(task.model || "sonnet");
+            setSelectedSkills(task.skillIds || []);
+        }
+    }, [isEditMode, task?.id, task?.title, task?.initialPrompt, task?.priority, task?.model]);
+
+    // Reset form when switching to create mode
+    useEffect(() => {
+        if (mode === "create" && isOpen) {
+            setTitle("");
+            setPrompt("");
+            setPriority("medium");
+            setModel("sonnet");
+            setSelectedSkills([]);
+            setShowAdvanced(false);
+        }
+    }, [mode, isOpen]);
+
+    const hasUnsavedContent = mode === "create"
+        ? (title.trim() !== "" || prompt.trim() !== "")
+        : (isEditMode && task && (
+            title !== task.title ||
+            prompt !== (task.initialPrompt || "") ||
+            priority !== task.priority ||
+            model !== (task.model || "sonnet")
+        ));
 
     const handleClose = () => {
         if (hasUnsavedContent) {
@@ -64,7 +159,7 @@ export function CreateTaskModal({ isOpen, onClose, onCreate, project, parentId, 
     };
 
     useEffect(() => {
-        if (isOpen && titleInputRef.current) {
+        if (isOpen && !isEditMode && titleInputRef.current) {
             setTimeout(() => titleInputRef.current?.focus(), 100);
         }
 
@@ -103,7 +198,7 @@ export function CreateTaskModal({ isOpen, onClose, onCreate, project, parentId, 
 
         onCreate({
             title: title.trim(),
-            description: prompt,  // Use prompt as description for manifest generation
+            description: prompt,
             priority,
             initialPrompt: prompt,
             startImmediately,
@@ -122,13 +217,41 @@ export function CreateTaskModal({ isOpen, onClose, onCreate, project, parentId, 
         onClose();
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        // Cmd/Ctrl + Enter to submit
-        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-            e.preventDefault();
-            handleSubmit(false);
+    const handleSave = () => {
+        if (!isEditMode || !task) return;
+        const updates: Partial<MaestroTask> = {};
+        if (title.trim() && title !== task.title) updates.title = title.trim();
+        if (prompt !== (task.initialPrompt || "")) updates.initialPrompt = prompt;
+        if (priority !== task.priority) updates.priority = priority;
+        if (model !== (task.model || "sonnet")) updates.model = model;
+        if (JSON.stringify(selectedSkills) !== JSON.stringify(task.skillIds || [])) updates.skillIds = selectedSkills;
+
+        if (Object.keys(updates).length > 0) {
+            onUpdateTask?.(task.id, updates);
         }
     };
+
+    const handleAddSubtask = () => {
+        if (newSubtaskTitle.trim()) {
+            onAddSubtask?.(newSubtaskTitle);
+            setNewSubtaskTitle("");
+            setShowSubtaskInput(false);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            e.preventDefault();
+            if (isEditMode) {
+                handleSave();
+            } else {
+                handleSubmit(false);
+            }
+        }
+    };
+
+    // Safely handle subtasks
+    const subtasks = isEditMode && task ? (task.subtasks || []) : [];
 
     // Style for react-mentions
     const mentionsStyle = {
@@ -147,13 +270,15 @@ export function CreateTaskModal({ isOpen, onClose, onCreate, project, parentId, 
             highlighter: {
                 padding: '12px',
                 border: '1px solid transparent',
+                color: '#e0e0e0',
             },
             input: {
                 padding: '12px',
-                border: '1px solid transparent', // match border width
+                border: '1px solid transparent',
                 outline: 'none',
-                color: '#e0e0e0',
+                color: 'transparent',
                 backgroundColor: 'transparent',
+                caretColor: '#e0e0e0',
             },
         },
         suggestions: {
@@ -165,7 +290,7 @@ export function CreateTaskModal({ isOpen, onClose, onCreate, project, parentId, 
                 overflowY: 'auto' as const,
                 boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
                 borderRadius: '4px',
-                zIndex: 9999, // Ensure it sits above everything
+                zIndex: 9999,
             },
             item: {
                 padding: '8px 12px',
@@ -181,19 +306,45 @@ export function CreateTaskModal({ isOpen, onClose, onCreate, project, parentId, 
     };
 
     return (
-        <div className="maestroModalOverlay terminalModal">
-            <div className="createTaskModal terminalTheme">
+        <div className="maestroModalOverlay terminalModal" onClick={isEditMode ? onClose : undefined}>
+            <div className="createTaskModal terminalTheme" onClick={isEditMode ? (e) => e.stopPropagation() : undefined}>
                 <div className="createTaskModalHeader">
                     <div className="createTaskModalHeaderContent">
                         <div className="createTaskModalIcon">
                             <Icon name="terminal" />
                         </div>
                         <div>
-                            <h2 className="createTaskModalTitle">{parentId ? 'New Subtask' : 'New Agent Task'}</h2>
+                            {isEditMode && breadcrumb.length > 1 && (
+                                <div className="terminalModalBreadcrumb" style={{ marginBottom: '4px' }}>
+                                    {breadcrumb.slice(0, -1).map(t => (
+                                        <span
+                                            key={t.id}
+                                            className="terminalBreadcrumbItem"
+                                            onClick={() => onNavigateToTask?.(t.id)}
+                                            style={{ cursor: 'pointer', color: 'var(--muted)', fontSize: '12px' }}
+                                        >
+                                            {t.title} ›{' '}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            <h2 className="createTaskModalTitle">
+                                {isEditMode ? 'Edit Task' : (parentId ? 'New Subtask' : 'New Agent Task')}
+                            </h2>
                             <p className="createTaskModalSubtitle">
-                                {parentId && parentTitle
+                                {isEditMode && task ? (
+                                    <>
+                                        <span className={`terminalModalStatusBadge terminalModalStatusBadge--${task.status}`} style={{ marginRight: '8px' }}>
+                                            {STATUS_LABELS[task.status] || task.status}
+                                        </span>
+                                        <span style={{ color: 'var(--muted)', fontSize: '12px' }}>
+                                            Created {formatDate(task.createdAt)}
+                                        </span>
+                                    </>
+                                ) : parentId && parentTitle
                                     ? `Creating subtask of: ${parentTitle}`
-                                    : 'Give your task a title and describe what you want Claude to build'}
+                                    : 'Give your task a title and describe what you want Claude to build'
+                                }
                             </p>
                         </div>
                     </div>
@@ -235,14 +386,6 @@ export function CreateTaskModal({ isOpen, onClose, onCreate, project, parentId, 
                                 <Mention
                                     trigger="@"
                                     data={files}
-                                    style={{
-                                        backgroundColor: "rgba(0, 255, 0, 0.2)",
-                                        color: "#00ff00",
-                                        fontWeight: "bold",
-                                        zIndex: 1,
-                                        position: 'relative',
-                                        pointerEvents: 'none', // Allow clicking through to text
-                                    }}
                                     renderSuggestion={(entry, search, highlightedDisplay, index, focused) => (
                                         <div className={`suggestionItem ${focused ? 'focused' : ''}`}>
                                             {entry.display}
@@ -313,7 +456,6 @@ export function CreateTaskModal({ isOpen, onClose, onCreate, project, parentId, 
                             </div>
                         </div>
 
-                        {/* Placeholder for future options */}
                         <button
                             type="button"
                             className="createTaskAdvancedToggle"
@@ -348,67 +490,279 @@ export function CreateTaskModal({ isOpen, onClose, onCreate, project, parentId, 
 
                                     {!loadingSkills && skills.length > 0 && (
                                         <div className="createTaskSkillsGrid">
-                                            {skills.map((skill) => (
-                                                <label key={skill.id} className="createTaskSkillCheckbox">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedSkills.includes(skill.id)}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) {
-                                                                setSelectedSkills([...selectedSkills, skill.id]);
-                                                            } else {
-                                                                setSelectedSkills(selectedSkills.filter(id => id !== skill.id));
-                                                            }
-                                                        }}
-                                                    />
-                                                    <div className="createTaskSkillInfo">
-                                                        <div className="createTaskSkillName">{skill.name}</div>
-                                                        <div className="createTaskSkillDescription">{skill.description}</div>
-                                                        <div className="createTaskSkillType">{skill.type}</div>
-                                                    </div>
-                                                </label>
-                                            ))}
+                                            {skills.map((skill) => {
+                                                const isAssigned = isEditMode && task?.skillIds?.includes(skill.id);
+                                                return (
+                                                    <label key={skill.id} className="createTaskSkillCheckbox">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedSkills.includes(skill.id)}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedSkills([...selectedSkills, skill.id]);
+                                                                } else {
+                                                                    setSelectedSkills(selectedSkills.filter(id => id !== skill.id));
+                                                                }
+                                                            }}
+                                                        />
+                                                        <div className="createTaskSkillInfo">
+                                                            <div className="createTaskSkillName">
+                                                                {isAssigned && <span style={{ color: 'var(--green, #00ff00)', marginRight: '4px' }}>[assigned]</span>}
+                                                                {skill.name}
+                                                            </div>
+                                                            <div className="createTaskSkillDescription">{skill.description}</div>
+                                                            <div className="createTaskSkillType">{skill.type}</div>
+                                                        </div>
+                                                    </label>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
                             </div>
                         )}
                     </div>
+
+                    {/* Edit mode: Subtasks Section */}
+                    {isEditMode && (
+                        <div className="terminalModalSection" style={{ marginTop: '16px', borderTop: '1px solid #333', paddingTop: '16px' }}>
+                            <div className="terminalModalSectionHeader">
+                                <h3 className="terminalModalSectionTitle">
+                                    &gt; Subtasks
+                                    {subtaskProgress.total > 0 && (
+                                        <span className="terminalModalSubtaskCount">
+                                            ({subtaskProgress.completed}/{subtaskProgress.total} — {subtaskProgress.percentage}%)
+                                        </span>
+                                    )}
+                                </h3>
+                                <button
+                                    className="terminalModalAddBtn"
+                                    onClick={() => setShowSubtaskInput(!showSubtaskInput)}
+                                >
+                                    + add
+                                </button>
+                            </div>
+
+                            {showSubtaskInput && (
+                                <div className="terminalModalSubtaskInput">
+                                    <input
+                                        type="text"
+                                        placeholder="$ enter subtask title..."
+                                        value={newSubtaskTitle}
+                                        onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") handleAddSubtask();
+                                            if (e.key === "Escape") {
+                                                setShowSubtaskInput(false);
+                                                setNewSubtaskTitle("");
+                                            }
+                                        }}
+                                        autoFocus
+                                    />
+                                    <div className="terminalModalSubtaskInputActions">
+                                        <button
+                                            className="terminalModalBtn terminalModalBtnSecondary"
+                                            onClick={() => {
+                                                setShowSubtaskInput(false);
+                                                setNewSubtaskTitle("");
+                                            }}
+                                        >
+                                            cancel
+                                        </button>
+                                        <button
+                                            className="terminalModalBtn terminalModalBtnPrimary"
+                                            onClick={handleAddSubtask}
+                                            disabled={!newSubtaskTitle.trim()}
+                                        >
+                                            add
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="terminalModalSubtaskList">
+                                {subtasks.length === 0 ? (
+                                    <div className="terminalModalEmptyState">
+                                        <p>No subtasks yet</p>
+                                    </div>
+                                ) : (
+                                    subtasks.map((subtask) => (
+                                        <div
+                                            key={subtask.id}
+                                            className={`terminalModalSubtaskItem ${subtask.status === "completed" ? "completed" : ""}`}
+                                            onClick={() => onNavigateToTask?.(subtask.id)}
+                                            style={{ cursor: onNavigateToTask ? 'pointer' : undefined }}
+                                        >
+                                            <div
+                                                className="terminalModalSubtaskCheckbox"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onToggleSubtask?.(subtask.id);
+                                                }}
+                                            >
+                                                {subtask.status === "completed" ? "[✓]" : "[ ]"}
+                                            </div>
+                                            <span className="terminalModalSubtaskTitle">{subtask.title}</span>
+                                            <span className="terminalModalSubtaskTime">
+                                                {formatDate(subtask.createdAt)}
+                                            </span>
+                                            {onWorkOnSubtask && (
+                                                <button
+                                                    className="terminalPlayBtn"
+                                                    style={{ fontSize: '10px', padding: '0 4px' }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onWorkOnSubtask(subtask);
+                                                    }}
+                                                    title="Work on subtask"
+                                                >
+                                                    ▶
+                                                </button>
+                                            )}
+                                            <button
+                                                className="terminalModalSubtaskDelete"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onDeleteSubtask?.(subtask.id);
+                                                }}
+                                                title="Delete subtask"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Edit mode: Sessions Section */}
+                    {isEditMode && sessions.length > 0 && (
+                        <div className="terminalModalSection" style={{ marginTop: '16px', borderTop: '1px solid #333', paddingTop: '16px' }}>
+                            <h3 className="terminalModalSectionTitle">
+                                &gt; Sessions ({sessions.length})
+                            </h3>
+                            {sessions.map(session => (
+                                <div key={session.id} className="terminalModalSessionItem" style={{
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    padding: '6px 8px', borderBottom: '1px solid #333'
+                                }}>
+                                    <span className={`terminalSessionStatusBadge terminalSessionStatusBadge--${session.status}`}
+                                        style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '2px' }}>
+                                        {session.status}
+                                    </span>
+                                    <span style={{ flex: 1, fontSize: '13px' }}>{session.name || session.id}</span>
+                                    {onJumpToSession && (
+                                        <button
+                                            className="terminalSessionBtn"
+                                            onClick={() => onJumpToSession(session.id)}
+                                            title="Jump to session"
+                                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--green, #00ff00)' }}
+                                        >
+                                            ↗
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Edit mode: Activity Stats */}
+                    {isEditMode && task && (task.sessionCount ?? 0) > 0 && (
+                        <div className="terminalModalSection" style={{ marginTop: '16px', borderTop: '1px solid #333', paddingTop: '16px' }}>
+                            <h3 className="terminalModalSectionTitle">
+                                &gt; Activity
+                            </h3>
+                            <div className="terminalModalStats">
+                                <div className="terminalModalStatItem">
+                                    <span className="terminalModalStatLabel">sessions:</span>
+                                    <span className="terminalModalStatValue">{task.sessionCount}</span>
+                                </div>
+                                <div className="terminalModalStatItem">
+                                    <span className="terminalModalStatLabel">updated:</span>
+                                    <span className="terminalModalStatValue">{formatDate(task.updatedAt)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="createTaskModalFooter">
-                    <div className="createTaskModalFooterLeft">
-                        <span className="createTaskModalKeyboardHint">
-                            ⌘↵ to create
-                        </span>
-                    </div>
-                    <div className="createTaskModalFooterRight">
-                        <button
-                            type="button"
-                            className="createTaskBtn createTaskBtnSecondary"
-                            onClick={handleClose}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            className="createTaskBtn createTaskBtnPrimary"
-                            onClick={() => handleSubmit(false)}
-                            disabled={!title.trim() || !prompt.trim()}
-                        >
-                            <Icon name="plus" />
-                            Create Task
-                        </button>
-                        <button
-                            type="button"
-                            className="createTaskBtn createTaskBtnSuccess"
-                            onClick={() => handleSubmit(true)}
-                            disabled={!title.trim() || !prompt.trim()}
-                        >
-                            <Icon name="play" />
-                            Create & Run
-                        </button>
-                    </div>
+                    {isEditMode ? (
+                        <>
+                            <div className="createTaskModalFooterLeft" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span className="terminalModalFooterLabel" style={{ fontSize: '12px', color: 'var(--muted)' }}>agent:</span>
+                                {selectedAgentId && onAgentSelect && (
+                                    <AgentSelector
+                                        selectedAgentId={selectedAgentId}
+                                        onSelectAgent={onAgentSelect}
+                                        compact={true}
+                                    />
+                                )}
+                            </div>
+                            <div className="createTaskModalFooterRight">
+                                <button
+                                    type="button"
+                                    className="createTaskBtn createTaskBtnSecondary"
+                                    onClick={handleClose}
+                                >
+                                    Close
+                                </button>
+                                <button
+                                    type="button"
+                                    className="createTaskBtn createTaskBtnPrimary"
+                                    onClick={handleSave}
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    type="button"
+                                    className="createTaskBtn createTaskBtnSuccess"
+                                    onClick={() => {
+                                        onWorkOn?.();
+                                        onClose();
+                                    }}
+                                >
+                                    $ exec
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="createTaskModalFooterLeft">
+                                <span className="createTaskModalKeyboardHint">
+                                    ⌘↵ to create
+                                </span>
+                            </div>
+                            <div className="createTaskModalFooterRight">
+                                <button
+                                    type="button"
+                                    className="createTaskBtn createTaskBtnSecondary"
+                                    onClick={handleClose}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className="createTaskBtn createTaskBtnPrimary"
+                                    onClick={() => handleSubmit(false)}
+                                    disabled={!title.trim() || !prompt.trim()}
+                                >
+                                    <Icon name="plus" />
+                                    Create Task
+                                </button>
+                                <button
+                                    type="button"
+                                    className="createTaskBtn createTaskBtnSuccess"
+                                    onClick={() => handleSubmit(true)}
+                                    disabled={!title.trim() || !prompt.trim()}
+                                >
+                                    <Icon name="play" />
+                                    Create & Run
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 

@@ -1,7 +1,6 @@
 import React, { useMemo, useEffect, useRef, useState } from "react";
 import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy } from "../../app/types/maestro";
 import { TaskListItem } from "./TaskListItem";
-import { TaskDetailModal } from "./TaskDetailModal";
 import { TaskFilters } from "./TaskFilters";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { TemplateList } from "./TemplateList";
@@ -713,28 +712,31 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 parentTitle={subtaskParentTitle}
             />
 
-            {selectedTask && (
-                <TaskDetailModal
-                    task={selectedTask}
+            {selectedTask && showDetailModal && (
+                <CreateTaskModal
                     isOpen={showDetailModal}
+                    mode="edit"
+                    task={selectedTask}
                     onClose={() => {
                         setShowDetailModal(false);
                         setSelectedTaskId(null);
+                    }}
+                    onCreate={handleCreateTask}
+                    project={project}
+                    onUpdateTask={async (taskId, updates) => {
+                        await updateTask(taskId, updates);
                     }}
                     onAddSubtask={(title: string) => handleAddSubtask(selectedTask.id)}
                     onToggleSubtask={(subtaskId: string) => handleToggleSubtask(selectedTask.id, subtaskId)}
                     onDeleteSubtask={(subtaskId: string) => handleDeleteSubtask(selectedTask.id, subtaskId)}
                     onWorkOn={() => handleWorkOnTask(selectedTask)}
-                    selectedAgentId={selectedAgentByTask[selectedTask.id] || 'claude'}
-                    onAgentSelect={(agentId) => handleAgentSelect(selectedTask.id, agentId)}
                     onNavigateToTask={(taskId: string) => {
                         setSelectedTaskId(taskId);
                     }}
                     onJumpToSession={(sessionId: string) => onJumpToSession?.(sessionId)}
                     onWorkOnSubtask={(subtask: MaestroTask) => handleWorkOnTask(subtask)}
-                    onUpdateTask={async (taskId, updates) => {
-                        await updateTask(taskId, updates);
-                    }}
+                    selectedAgentId={selectedAgentByTask[selectedTask.id] || 'claude'}
+                    onAgentSelect={(agentId) => handleAgentSelect(selectedTask.id, agentId)}
                 />
             )}
 

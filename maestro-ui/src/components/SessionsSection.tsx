@@ -354,6 +354,8 @@ export function SessionsSection({
               !hasAgentIcon &&
               !(isSshType && (chipLabel ?? "").trim().toLowerCase() === "ssh");
 
+            const maestroSession = s.maestroSessionId ? maestroSessions.get(s.maestroSessionId) : null;
+
             return (
               <div
                 key={s.id}
@@ -378,23 +380,6 @@ export function SessionsSection({
                     </button>
                   )}
                   <div className={`dot ${isActive ? "dotActive" : ""}`} />
-                  {/* Maestro session status and strategy badges */}
-                  {s.maestroSessionId && (() => {
-                    const maestroSession = maestroSessions.get(s.maestroSessionId);
-                    return maestroSession ? (
-                      <>
-                        <span className={`sessionStatusBadge sessionStatusBadge--${maestroSession.status} sessionStatusBadge--clickable`}
-                          style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '2px', marginRight: '4px' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSessionModalId(maestroSession.id);
-                          }}>
-                          {maestroSession.status === 'spawning' ? 'SPAWN' : maestroSession.status === 'stopped' ? 'STOP' : maestroSession.status.toUpperCase()}
-                        </span>
-                        <StrategyBadge strategy={maestroSession.strategy} compact />
-                      </>
-                    ) : null;
-                  })()}
                   <div className="sessionMeta">
                     <div className="sessionName">
                       {hasAgentIcon && chipLabel && effect?.iconSrc && (
@@ -421,29 +406,6 @@ export function SessionsSection({
                         </span>
                       ) : null}
                     </div>
-                    <div className="sessionCmd">
-                      {(() => {
-                        const parts: string[] = [];
-                        if (s.cwd) {
-                          let displayCwd = shortenPathSmart(s.cwd, 44);
-                          if (projectName && projectBasePath) {
-                            const normCwd = normalizeSeparators(s.cwd);
-                            const normBase = normalizeSeparators(projectBasePath).replace(/\/+$/, "");
-
-                            if (normCwd === normBase) {
-                              displayCwd = projectName;
-                            } else if (normCwd.startsWith(normBase + "/")) {
-                              const rel = normCwd.slice(normBase.length + 1);
-                              displayCwd = `${projectName}/${rel}`;
-                            }
-                          }
-                          parts.push(displayCwd);
-                        }
-                        if (launchOrRestore) parts.push(launchOrRestore);
-                        if (!parts.length) parts.push(s.command);
-                        return parts.join(" • ");
-                      })()}
-                    </div>
                   </div>
                   <button
                     className="closeBtn"
@@ -464,26 +426,37 @@ export function SessionsSection({
                   </button>
                 </div>
 
-                {/* Maestro Session Content - Enhanced */}
-                {expandedSessions.has(s.id) && s.maestroSessionId && (() => {
-                  const maestroSession = maestroSessions.get(s.maestroSessionId);
-                  const tasks = sessionTasks.get(s.id) || [];
+                {/* Session status indicator at bottom */}
+                {maestroSession && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingTop: '4px', paddingLeft: '24px' }}>
+                    <span className={`sessionStatusBadge sessionStatusBadge--${maestroSession.status} sessionStatusBadge--clickable`}
+                      style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '2px' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSessionModalId(maestroSession.id);
+                      }}>
+                      {maestroSession.status === 'spawning' ? 'SPAWN' : maestroSession.status === 'stopped' ? 'STOP' : maestroSession.status.toUpperCase()}
+                    </span>
+                    <StrategyBadge strategy={maestroSession.strategy} compact />
+                  </div>
+                )}
 
-                  return maestroSession ? (
-                    <MaestroSessionContent
-                      session={maestroSession}
-                      tasks={tasks}
-                      allTasks={maestroTasks}
-                      loading={loadingTasks.has(s.id)}
-                    />
-                  ) : loadingTasks.has(s.id) ? (
-                    <div className="terminalSubtasks" style={{ padding: '8px 24px' }}>
-                      <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic' }}>
-                        Loading session data...
-                      </div>
+                {/* Maestro Session Content - Enhanced */}
+                {expandedSessions.has(s.id) && maestroSession && (
+                  <MaestroSessionContent
+                    session={maestroSession}
+                    tasks={sessionTasks.get(s.id) || []}
+                    allTasks={maestroTasks}
+                    loading={loadingTasks.has(s.id)}
+                  />
+                )}
+                {expandedSessions.has(s.id) && !maestroSession && loadingTasks.has(s.id) && (
+                  <div className="terminalSubtasks" style={{ padding: '8px 24px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic' }}>
+                      Loading session data...
                     </div>
-                  ) : null;
-                })()}
+                  </div>
+                )}
               </div>
             );
           })

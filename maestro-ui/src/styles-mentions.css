@@ -15,19 +15,41 @@
     color: #e0e0e0;
 }
 
+/* Highlighter - shows the styled text including mentions */
+.mentionsInput div[class*="highlighter"] {
+    color: #e0e0e0 !important; /* Regular text color */
+    font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+    position: absolute !important;
+    z-index: 1 !important;
+    pointer-events: none !important;
+}
+
+/* Ensure all text nodes and child elements in highlighter are visible */
+.mentionsInput div[class*="highlighter"] > *,
+.mentionsInput div[class*="highlighter"] span,
+.mentions__highlighter,
+.mentions__highlighter > *,
+.mentions__highlighter__substring {
+    color: #e0e0e0 !important;
+    font-family: inherit !important;
+}
+
 .mentionsInput textarea {
     min-height: 150px !important;
     padding: 12px !important;
     border: 1px solid #444 !important;
     background-color: transparent !important;
-    color: #e0e0e0 !important;
+    color: transparent !important; /* Make text transparent to avoid overlap with highlighter */
+    caret-color: #e0e0e0 !important; /* Keep cursor visible */
     outline: none !important;
     border-radius: 4px;
+    position: relative !important;
+    z-index: 2 !important; /* Textarea above highlighter for interaction */
 }
 
 .mentionsInput textarea:focus {
-    border-color: #00ff00 !important;
-    box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+    border-color: var(--theme-primary) !important; /* Use theme color */
+    box-shadow: 0 0 10px rgba(var(--theme-primary-rgb), 0.1) !important;
 }
 
 .suggestionItem {
@@ -41,4 +63,13 @@
 .suggestionItem.focused {
     background-color: #2a4a3a;
     color: #fff;
+}
+
+/* Mention styling - uses theme color */
+.mentionsInput strong[data-markup] {
+    background-color: rgba(var(--theme-primary-rgb), 0.2) !important;
+    color: var(--theme-primary) !important;
+    font-weight: bold !important;
+    position: relative;
+    z-index: 1;
 }

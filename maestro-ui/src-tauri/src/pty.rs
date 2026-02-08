@@ -497,7 +497,7 @@ fn ensure_zellij_config(window: &WebviewWindow) -> Option<PathBuf> {
 // This is stored in an app-private HOME so it won't affect system zellij installs.
 
 simplified_ui true
-support_kitty_keyboard_protocol false
+support_kitty_keyboard_protocol true
 show_startup_tips false
 show_release_notes false
 "#;
