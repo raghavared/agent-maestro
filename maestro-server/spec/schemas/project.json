@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/project.json",
+  "title": "Project",
+  "description": "A project represents a top-level work context with its own working directory and associated tasks",
+  "type": "object",
+  "required": ["id", "name", "workingDir", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^proj_[a-zA-Z0-9]+$",
+      "description": "Unique project identifier with 'proj_' prefix",
+      "examples": ["proj_abc123def456"]
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Human-readable project name",
+      "examples": ["Website Redesign", "API Refactoring"]
+    },
+    "workingDir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Absolute path to the project's working directory",
+      "examples": ["/Users/username/projects/my-app", "/home/user/workspace/api"]
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "Optional detailed description of the project's purpose and scope",
+      "examples": ["A complete redesign of the company website with focus on mobile responsiveness"]
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix timestamp (milliseconds) when the project was created",
+      "examples": [1704067200000]
+    },
+    "updatedAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix timestamp (milliseconds) when the project was last updated",
+      "examples": [1704153600000]
+    }
+  },
+  "additionalProperties": false
+}

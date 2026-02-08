@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/spawn-event.json",
+  "title": "SpawnRequestEvent",
+  "description": "Event emitted by server to UI when a session spawn is requested, containing all information needed to launch the session",
+  "type": "object",
+  "required": [
+    "session",
+    "projectId",
+    "taskIds",
+    "command",
+    "cwd",
+    "envVars"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "https://agents-ui.maestro.dev/schemas/session.json",
+      "description": "The session object that was created for this spawn request"
+    },
+    "projectId": {
+      "type": "string",
+      "pattern": "^proj_[a-zA-Z0-9]+$",
+      "description": "ID of the project this spawned session belongs to",
+      "examples": ["proj_abc123def456"]
+    },
+    "taskIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^task_[a-zA-Z0-9]+$"
+      },
+      "uniqueItems": true,
+      "minItems": 1,
+      "description": "Array of task IDs this spawned session will work on",
+      "examples": [["task_xyz789", "task_abc123"]]
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Command to execute to start the session (e.g., CLI command with arguments)",
+      "examples": [
+        "claude-code --session sess_abc123",
+        "maestro-cli execute --task task_xyz789"
+      ]
+    },
+    "cwd": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Working directory where the command should be executed",
+      "examples": ["/Users/username/projects/my-app", "/home/user/workspace"]
+    },
+    "envVars": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Environment variables to set for the spawned session",
+      "examples": [{
+        "MAESTRO_SESSION_ID": "sess_abc123",
+        "MAESTRO_PROJECT_ID": "proj_abc123",
+        "NODE_ENV": "development"
+      }]
+    },
+    "manifest": {
+      "description": "Optional manifest data (skills, instructions, etc.) to provide to the spawned session",
+      "examples": [{
+        "skills": ["maestro-cli", "maestro-worker"],
+        "role": "worker",
+        "context": {"taskInfo": "Build authentication system"}
+      }]
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/delete-response.json",
+  "title": "DeleteResponse",
+  "description": "Standard response format for successful delete operations",
+  "type": "object",
+  "required": ["success", "id"],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true,
+      "description": "Always true to indicate successful deletion",
+      "examples": [true]
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ID of the deleted resource",
+      "examples": [
+        "proj_abc123def456",
+        "task_xyz789abc123",
+        "sess_abc123def456"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

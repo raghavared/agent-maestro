@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/websocket-message.json",
+  "title": "WebSocketMessage",
+  "description": "Standard envelope format for WebSocket messages exchanged between server and clients",
+  "type": "object",
+  "required": ["type", "event"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Message type category (e.g., project, task, session, spawn)",
+      "examples": ["project", "task", "session", "spawn", "error"]
+    },
+    "event": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Specific event name within the type category",
+      "examples": [
+        "created",
+        "updated",
+        "deleted",
+        "status_changed",
+        "spawn_requested",
+        "session_output"
+      ]
+    },
+    "data": {
+      "description": "Event payload, structure varies by type and event combination",
+      "examples": [
+        {"project": {"id": "proj_123", "name": "My Project"}},
+        {"task": {"id": "task_456", "status": "completed"}},
+        {"session": {"id": "sess_789", "status": "running"}},
+        {"output": "Command executed successfully"}
+      ]
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,37 @@
+{
+  "name": "maestro-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Maestro - Multi-agent task orchestration system",
+  "workspaces": [
+    "maestro-ui",
+    "maestro-server",
+    "maestro-cli"
+  ],
+  "scripts": {
+    "dev:ui": "npm run dev --workspace=maestro-ui",
+    "dev:server": "npm run dev --workspace=maestro-server",
+    "dev:all": "npm run dev:all --workspace=maestro-ui",
+    "build:ui": "npm run build --workspace=maestro-ui",
+    "build:server": "npm run build --workspace=maestro-server",
+    "build:cli": "npm run build --workspace=maestro-cli",
+    "build:all": "npm run build:ui && npm run build:server && npm run build:cli",
+    "prod:server": "PORT=3001 DATA_DIR=~/.maestro/data SESSION_DIR=~/.maestro/sessions NODE_ENV=production node maestro-server/dist/server.js",
+    "prod:build": "cd maestro-ui && VITE_API_URL=http://localhost:3001/api VITE_WS_URL=ws://localhost:3001 npx tauri build --config src-tauri/tauri.conf.prod.json",
+    "prod": "concurrently \"npm run prod:server\" \"sleep 2 && open maestro-ui/src-tauri/target/release/bundle/macos/Maestro\\ Prod.app\"",
+    "staging:server": "PORT=3002 DATA_DIR=~/.maestro-staging/data SESSION_DIR=~/.maestro-staging/sessions NODE_ENV=development node maestro-server/dist/server.js",
+    "staging": "concurrently \"npm run staging:server\" \"cd maestro-ui && VITE_API_URL=http://localhost:3002/api VITE_WS_URL=ws://localhost:3002 npx tauri dev\""
+  },
+  "keywords": [
+    "maestro",
+    "agents",
+    "orchestration",
+    "cli",
+    "ui"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

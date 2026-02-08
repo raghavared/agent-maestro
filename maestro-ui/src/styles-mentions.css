@@ -1,0 +1,44 @@
+
+/* React Mentions Styles */
+.mentionsWrapper {
+    position: relative;
+    width: 100%;
+}
+
+.mentionsInput {
+    width: 100%;
+    min-height: 150px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    background-color: transparent;
+    color: #e0e0e0;
+}
+
+.mentionsInput textarea {
+    min-height: 150px !important;
+    padding: 12px !important;
+    border: 1px solid #444 !important;
+    background-color: transparent !important;
+    color: #e0e0e0 !important;
+    outline: none !important;
+    border-radius: 4px;
+}
+
+.mentionsInput textarea:focus {
+    border-color: #00ff00 !important;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+}
+
+.suggestionItem {
+    padding: 8px 12px;
+    border-bottom: 1px solid #333;
+    color: #ccc;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.suggestionItem.focused {
+    background-color: #2a4a3a;
+    color: #fff;
+}

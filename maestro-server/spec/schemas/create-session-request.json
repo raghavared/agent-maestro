@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/create-session-request.json",
+  "title": "CreateSessionRequest",
+  "description": "Payload for creating a new session. Used for internal session creation with full control over session properties",
+  "type": "object",
+  "required": ["projectId", "taskIds"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^sess_[a-zA-Z0-9]+$",
+      "description": "Optional pre-generated session ID. If not provided, server will generate one",
+      "examples": ["sess_abc123def456"]
+    },
+    "projectId": {
+      "type": "string",
+      "pattern": "^proj_[a-zA-Z0-9]+$",
+      "description": "ID of the project this session belongs to (required)",
+      "examples": ["proj_abc123def456"]
+    },
+    "taskIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^task_[a-zA-Z0-9]+$"
+      },
+      "uniqueItems": true,
+      "description": "Array of task IDs to be worked on in this session (required)",
+      "examples": [["task_xyz789", "task_abc123"]]
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Optional human-readable name for this session. If not provided, server may generate one",
+      "examples": ["Authentication Implementation Session"]
+    },
+    "agentId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional identifier of the agent running this session",
+      "examples": ["agent_001", "claude-opus"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["spawning", "running", "completed", "failed"],
+      "description": "Optional initial status. Defaults to 'spawning' if not provided",
+      "examples": ["spawning"]
+    },
+    "env": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Optional environment variables for this session",
+      "examples": [{
+        "NODE_ENV": "development",
+        "API_KEY": "secret123"
+      }]
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Optional additional metadata (skill info, spawn source, etc.)",
+      "examples": [{
+        "skill": "maestro-worker",
+        "spawnedBy": "sess_parent123"
+      }]
+    },
+    "_suppressCreatedEvent": {
+      "type": "boolean",
+      "description": "Internal flag to suppress session:created event emission. For internal use only",
+      "examples": [true]
+    }
+  },
+  "additionalProperties": false
+}

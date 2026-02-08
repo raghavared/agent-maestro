@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/create-task-request.json",
+  "title": "CreateTaskRequest",
+  "description": "Payload for creating a new task within a project",
+  "type": "object",
+  "required": ["projectId", "title"],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "pattern": "^proj_[a-zA-Z0-9]+$",
+      "description": "ID of the project this task belongs to (required)",
+      "examples": ["proj_abc123def456"]
+    },
+    "parentId": {
+      "type": "string",
+      "pattern": "^task_[a-zA-Z0-9]+$",
+      "description": "Optional ID of parent task for creating hierarchical task relationships",
+      "examples": ["task_parent123"]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Brief, descriptive title of the task (required)",
+      "examples": ["Implement user authentication", "Fix header layout bug"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional detailed description of what needs to be accomplished",
+      "examples": ["Implement OAuth 2.0 authentication flow with support for Google and GitHub providers"]
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Optional priority level for task execution. Defaults to 'medium' if not specified",
+      "examples": ["high"]
+    },
+    "initialPrompt": {
+      "type": "string",
+      "description": "Optional initial prompt or instruction for this task",
+      "examples": ["Build a login page with email and password fields"]
+    },
+    "skillIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true,
+      "description": "Optional array of skill identifiers to assign to this task",
+      "examples": [["maestro-worker", "code-review"]]
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/skill-manifest.json",
+  "title": "SkillManifest",
+  "description": "Manifest file describing a skill's metadata, type, capabilities, and dependencies",
+  "type": "object",
+  "required": [
+    "name",
+    "version",
+    "description",
+    "type",
+    "assignTo",
+    "capabilities",
+    "dependencies"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Unique skill name using kebab-case (lowercase with hyphens)",
+      "examples": ["maestro-cli", "maestro-worker", "code-review"]
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of the skill (major.minor.patch)",
+      "examples": ["1.0.0", "2.3.1"]
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Human-readable description of what this skill provides",
+      "examples": [
+        "CLI interface for Maestro task management",
+        "Worker agent skill for executing development tasks"
+      ]
+    },
+    "type": {
+      "type": "string",
+      "enum": ["system", "role"],
+      "description": "Skill type: 'system' for foundational skills (like CLI), 'role' for role-specific skills",
+      "examples": ["system", "role"]
+    },
+    "assignTo": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["all", "worker", "orchestrator"]
+      },
+      "uniqueItems": true,
+      "minItems": 1,
+      "description": "Which roles this skill should be assigned to. 'all' means both worker and orchestrator",
+      "examples": [["all"], ["worker"], ["orchestrator"], ["worker", "orchestrator"]]
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true,
+      "description": "Array of capability identifiers this skill provides",
+      "examples": [
+        ["task-management", "session-control"],
+        ["code-execution", "file-operations"],
+        ["task-delegation", "progress-monitoring"]
+      ]
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[a-z0-9-]+$"
+      },
+      "uniqueItems": true,
+      "description": "Array of other skill names this skill depends on (must be loaded first)",
+      "examples": [
+        ["maestro-cli"],
+        ["maestro-cli", "code-review"],
+        []
+      ]
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Optional configuration object with skill-specific settings",
+      "examples": [
+        {"maxConcurrentTasks": 3, "timeout": 30000},
+        {"verboseLogging": true, "retryAttempts": 3}
+      ]
+    }
+  },
+  "additionalProperties": false
+}

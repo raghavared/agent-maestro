@@ -1,0 +1,356 @@
+import { create } from 'zustand';
+import { invoke } from '@tauri-apps/api/core';
+import { AppInfo } from '../app/types/app-state';
+import { UpdateCheckState } from '../components/modals/UpdateModal';
+import { formatError } from '../utils/formatters';
+import * as DEFAULTS from '../app/constants/defaults';
+
+/* ------------------------------------------------------------------ */
+/*  Helper functions (semver / github)                                  */
+/* ------------------------------------------------------------------ */
+
+function parseGithubRepo(value: string | null | undefined): { owner: string; repo: string } | null {
+  const raw = value?.trim() ?? '';
+  if (!raw) return null;
+
+  const direct = raw.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(?:\.git)?\/?$/);
+  if (direct) {
+    return { owner: direct[1], repo: direct[2] };
+  }
+
+  try {
+    const url = new URL(raw);
+    if (url.hostname !== 'github.com') return null;
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length < 2) return null;
+    let repo = parts[1];
+    if (repo.endsWith('.git')) repo = repo.slice(0, -4);
+    return { owner: parts[0], repo };
+  } catch {
+    return null;
+  }
+}
+
+function parseSemver(input: string): number[] | null {
+  const match = input.trim().match(/\d+(?:\.\d+)+/);
+  if (!match) return null;
+  const parts = match[0].split('.').filter(Boolean);
+  const nums = parts.map((p) => Number.parseInt(p, 10));
+  if (nums.some((n) => Number.isNaN(n))) return null;
+  return nums;
+}
+
+function compareSemver(a: string, b: string): number | null {
+  const pa = parseSemver(a);
+  const pb = parseSemver(b);
+  if (!pa || !pb) return null;
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const av = pa[i] ?? 0;
+    const bv = pb[i] ?? 0;
+    if (av !== bv) return av > bv ? 1 : -1;
+  }
+  return 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Module-level notice timer (replaces useRef)                         */
+/* ------------------------------------------------------------------ */
+
+let noticeTimerRef: number | null = null;
+
+/* ------------------------------------------------------------------ */
+/*  Helper: read clamped numeric value from localStorage                */
+/* ------------------------------------------------------------------ */
+
+function readClampedFromStorage(key: string, min: number, max: number, fallback: number): number {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw != null ? Number(raw) : NaN;
+    if (Number.isFinite(parsed)) {
+      return Math.min(max, Math.max(min, parsed));
+    }
+  } catch {
+    // best-effort
+  }
+  return fallback;
+}
+
+function readProjectsListHeightMode(): 'auto' | 'manual' {
+  try {
+    const raw = localStorage.getItem(DEFAULTS.STORAGE_SIDEBAR_PROJECTS_LIST_MAX_HEIGHT_KEY);
+    const parsed = raw != null ? Number(raw) : NaN;
+    return Number.isFinite(parsed) ? 'manual' : 'auto';
+  } catch {
+    return 'auto';
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Store interface                                                     */
+/* ------------------------------------------------------------------ */
+
+interface UIState {
+  // Notifications
+  error: string | null;
+  notice: string | null;
+  setError: (error: string | null) => void;
+  setNotice: (notice: string | null) => void;
+  reportError: (prefix: string, err: unknown) => void;
+  showNotice: (message: string, timeoutMs?: number) => void;
+  dismissNotice: () => void;
+
+  // Layout
+  sidebarWidth: number;
+  rightPanelWidth: number;
+  activeRightPanel: 'none' | 'maestro' | 'files';
+  projectsListHeightMode: 'auto' | 'manual';
+  projectsListMaxHeight: number;
+  setSidebarWidth: (width: number) => void;
+  setRightPanelWidth: (width: number) => void;
+  setActiveRightPanel: (panel: 'none' | 'maestro' | 'files') => void;
+  setProjectsListHeightMode: (mode: 'auto' | 'manual') => void;
+  setProjectsListMaxHeight: (height: number | ((prev: number) => number)) => void;
+  persistSidebarWidth: (value: number) => void;
+  persistRightPanelWidth: (value: number) => void;
+
+  // Slide panel
+  slidePanelOpen: boolean;
+  slidePanelTab: string;
+  slidePanelWidth: number;
+  setSlidePanelOpen: (open: boolean) => void;
+  setSlidePanelTab: (tab: string) => void;
+  setSlidePanelWidth: (width: number) => void;
+
+  // Command palette
+  commandPaletteOpen: boolean;
+  setCommandPaletteOpen: (open: boolean) => void;
+
+  // App update
+  appInfo: AppInfo | null;
+  updatesOpen: boolean;
+  updateCheckState: UpdateCheckState;
+  setAppInfo: (info: AppInfo | null) => void;
+  setUpdatesOpen: (open: boolean) => void;
+  setUpdateCheckState: (state: UpdateCheckState) => void;
+  checkForUpdates: () => Promise<void>;
+  loadAppInfo: () => Promise<void>;
+
+  // Home directory
+  homeDir: string | null;
+  setHomeDir: (dir: string | null) => void;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Store creation                                                      */
+/* ------------------------------------------------------------------ */
+
+export const useUIStore = create<UIState>((set, get) => ({
+  // -- Notifications --
+  error: null,
+  notice: null,
+  setError: (error) => set({ error }),
+  setNotice: (notice) => set({ notice }),
+  reportError: (prefix, err) => {
+    set({ error: `${prefix}: ${formatError(err)}` });
+  },
+  showNotice: (message, timeoutMs = 4500) => {
+    set({ notice: message });
+    if (noticeTimerRef !== null) {
+      window.clearTimeout(noticeTimerRef);
+    }
+    noticeTimerRef = window.setTimeout(() => {
+      noticeTimerRef = null;
+      set({ notice: null });
+    }, timeoutMs);
+  },
+  dismissNotice: () => {
+    set({ notice: null });
+    if (noticeTimerRef !== null) {
+      window.clearTimeout(noticeTimerRef);
+      noticeTimerRef = null;
+    }
+  },
+
+  // -- Layout --
+  sidebarWidth: readClampedFromStorage(
+    DEFAULTS.STORAGE_SIDEBAR_WIDTH_KEY,
+    DEFAULTS.MIN_SIDEBAR_WIDTH,
+    DEFAULTS.MAX_SIDEBAR_WIDTH,
+    DEFAULTS.DEFAULT_SIDEBAR_WIDTH,
+  ),
+  rightPanelWidth: readClampedFromStorage(
+    DEFAULTS.STORAGE_RIGHT_PANEL_WIDTH_KEY,
+    DEFAULTS.MIN_RIGHT_PANEL_WIDTH,
+    DEFAULTS.MAX_RIGHT_PANEL_WIDTH,
+    DEFAULTS.DEFAULT_RIGHT_PANEL_WIDTH,
+  ),
+  activeRightPanel: 'maestro',
+  projectsListHeightMode: readProjectsListHeightMode(),
+  projectsListMaxHeight: readClampedFromStorage(
+    DEFAULTS.STORAGE_SIDEBAR_PROJECTS_LIST_MAX_HEIGHT_KEY,
+    DEFAULTS.MIN_SIDEBAR_PROJECTS_LIST_MAX_HEIGHT,
+    DEFAULTS.MAX_SIDEBAR_PROJECTS_LIST_MAX_HEIGHT,
+    DEFAULTS.DEFAULT_SIDEBAR_PROJECTS_LIST_MAX_HEIGHT,
+  ),
+  setSidebarWidth: (width) => set({ sidebarWidth: width }),
+  setRightPanelWidth: (width) => set({ rightPanelWidth: width }),
+  setActiveRightPanel: (panel) => set({ activeRightPanel: panel }),
+  setProjectsListHeightMode: (mode) => set({ projectsListHeightMode: mode }),
+  setProjectsListMaxHeight: (height) =>
+    set((state) => ({
+      projectsListMaxHeight:
+        typeof height === 'function' ? height(state.projectsListMaxHeight) : height,
+    })),
+  persistSidebarWidth: (value) => {
+    try {
+      localStorage.setItem(DEFAULTS.STORAGE_SIDEBAR_WIDTH_KEY, String(value));
+    } catch {
+      // best-effort
+    }
+  },
+  persistRightPanelWidth: (value) => {
+    try {
+      localStorage.setItem(DEFAULTS.STORAGE_RIGHT_PANEL_WIDTH_KEY, String(value));
+    } catch {
+      // best-effort
+    }
+  },
+
+  // -- Slide panel --
+  slidePanelOpen: false,
+  slidePanelTab: '',
+  slidePanelWidth: 400,
+  setSlidePanelOpen: (open) => set({ slidePanelOpen: open }),
+  setSlidePanelTab: (tab) => set({ slidePanelTab: tab }),
+  setSlidePanelWidth: (width) => set({ slidePanelWidth: width }),
+
+  // -- Command palette --
+  commandPaletteOpen: false,
+  setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
+
+  // -- App update --
+  appInfo: null,
+  updatesOpen: false,
+  updateCheckState: { status: 'idle' },
+  setAppInfo: (info) => set({ appInfo: info }),
+  setUpdatesOpen: (open) => set({ updatesOpen: open }),
+  setUpdateCheckState: (state) => set({ updateCheckState: state }),
+  loadAppInfo: async () => {
+    try {
+      const info = await invoke<AppInfo>('get_app_info');
+      set({ appInfo: info });
+    } catch {
+      // best-effort
+    }
+  },
+  checkForUpdates: async () => {
+    set({ updateCheckState: { status: 'checking' } });
+
+    let info: AppInfo | null = null;
+    try {
+      info = await invoke<AppInfo>('get_app_info');
+      set({ appInfo: info });
+    } catch {
+      info = null;
+    }
+
+    if (!info) {
+      set({ updateCheckState: { status: 'error', message: 'Unable to read app info.' } });
+      return;
+    }
+
+    const repo = parseGithubRepo(info.homepage);
+    if (!repo) {
+      set({
+        updateCheckState: {
+          status: 'error',
+          message: 'Update source not configured. Set bundle.homepage to your GitHub repo URL.',
+        },
+      });
+      return;
+    }
+
+    const fallbackReleaseUrl = `https://github.com/${repo.owner}/${repo.repo}/releases/latest`;
+    const apiUrl = `https://api.github.com/repos/${repo.owner}/${repo.repo}/releases/latest`;
+
+    try {
+      const response = await fetch(apiUrl, {
+        headers: { Accept: 'application/vnd.github+json' },
+      });
+      if (!response.ok) {
+        throw new Error(`GitHub API returned ${response.status}`);
+      }
+      const data = (await response.json()) as { tag_name?: string };
+      const tag = data.tag_name?.trim();
+      if (!tag) {
+        set({ updateCheckState: { status: 'error', message: 'Latest release has no tag name.' } });
+        return;
+      }
+
+      const current = info.version;
+      const cmp = compareSemver(tag, current);
+
+      const releaseUrl = fallbackReleaseUrl;
+      const isNewer =
+        cmp === null
+          ? tag.trim().replace(/^v/i, '') !== current.trim().replace(/^v/i, '')
+          : cmp > 0;
+
+      if (isNewer) {
+        set({
+          updateCheckState: {
+            status: 'updateAvailable',
+            latestVersion: tag,
+            releaseUrl,
+          },
+        });
+        return;
+      }
+
+      set({
+        updateCheckState: {
+          status: 'upToDate',
+          latestVersion: tag,
+          releaseUrl,
+        },
+      });
+    } catch (err) {
+      set({
+        updateCheckState: {
+          status: 'error',
+          message: `Update check failed: ${formatError(err)}`,
+        },
+      });
+    }
+  },
+
+  // -- Home directory --
+  homeDir: null,
+  setHomeDir: (dir) => set({ homeDir: dir }),
+}));
+
+/* ------------------------------------------------------------------ */
+/*  Global error handlers                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Initialise global error / unhandled-rejection handlers that forward
+ * to the UI store's reportError.  Call once during app bootstrap.
+ */
+export function initGlobalErrorHandlers(): () => void {
+  const handleError = (event: ErrorEvent) => {
+    useUIStore.getState().reportError('Unexpected error', event.error ?? event.message);
+  };
+  const handleRejection = (event: PromiseRejectionEvent) => {
+    useUIStore.getState().reportError('Unhandled promise rejection', event.reason);
+  };
+
+  window.addEventListener('error', handleError);
+  window.addEventListener('unhandledrejection', handleRejection);
+
+  return () => {
+    window.removeEventListener('error', handleError);
+    window.removeEventListener('unhandledrejection', handleRejection);
+  };
+}

@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/session.json",
+  "title": "Session",
+  "description": "A session represents an active or completed work session with execution environment and event tracking",
+  "type": "object",
+  "required": [
+    "id",
+    "projectId",
+    "taskIds",
+    "name",
+    "env",
+    "status",
+    "startedAt",
+    "lastActivity",
+    "completedAt",
+    "hostname",
+    "platform",
+    "events"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^sess_[a-zA-Z0-9]+$",
+      "description": "Unique session identifier with 'sess_' prefix",
+      "examples": ["sess_abc123def456"]
+    },
+    "projectId": {
+      "type": "string",
+      "pattern": "^proj_[a-zA-Z0-9]+$",
+      "description": "ID of the project this session belongs to",
+      "examples": ["proj_abc123def456"]
+    },
+    "taskIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^task_[a-zA-Z0-9]+$"
+      },
+      "uniqueItems": true,
+      "minItems": 0,
+      "description": "Array of task IDs being worked on in this session (many-to-many relationship)",
+      "examples": [["task_xyz789", "task_abc123"]]
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Human-readable name for this session",
+      "examples": ["Authentication Implementation Session", "Bug Fix Session"]
+    },
+    "agentId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional identifier of the agent running this session",
+      "examples": ["agent_001", "claude-opus"]
+    },
+    "env": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Environment variables for this session",
+      "examples": [{
+        "NODE_ENV": "development",
+        "API_KEY": "secret123",
+        "DEBUG": "true"
+      }]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["spawning", "running", "completed", "failed"],
+      "description": "Current status of the session",
+      "examples": ["running"]
+    },
+    "startedAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix timestamp (milliseconds) when the session started",
+      "examples": [1704067200000]
+    },
+    "lastActivity": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix timestamp (milliseconds) of the last recorded activity",
+      "examples": [1704153600000]
+    },
+    "completedAt": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Unix timestamp (milliseconds) when the session completed, null if still active",
+      "examples": [1704157200000, null]
+    },
+    "hostname": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Hostname of the machine where the session is running",
+      "examples": ["macbook-pro.local", "server-01"]
+    },
+    "platform": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Operating system platform (darwin, linux, win32, etc.)",
+      "examples": ["darwin", "linux", "win32"]
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "https://agents-ui.maestro.dev/schemas/session-event.json"
+      },
+      "description": "Array of events that occurred during this session",
+      "examples": [[
+        {
+          "id": "evt_001",
+          "timestamp": 1704067200000,
+          "type": "session_started",
+          "data": {}
+        }
+      ]]
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Additional metadata such as skill info, spawn source, spawned by, etc.",
+      "examples": [{
+        "skill": "maestro-worker",
+        "spawnedBy": "sess_parent123",
+        "spawnSource": "session"
+      }]
+    }
+  },
+  "additionalProperties": false
+}

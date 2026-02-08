@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/update-project-request.json",
+  "title": "UpdateProjectRequest",
+  "description": "Payload for updating an existing project. All fields are optional; only provided fields will be updated",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Updated project name",
+      "examples": ["Website Redesign v2"]
+    },
+    "workingDir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Updated absolute path to the project's working directory",
+      "examples": ["/Users/username/projects/my-app-v2"]
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "Updated project description",
+      "examples": ["Phase 2: Adding dark mode support and performance optimizations"]
+    }
+  },
+  "additionalProperties": false,
+  "minProperties": 1
+}

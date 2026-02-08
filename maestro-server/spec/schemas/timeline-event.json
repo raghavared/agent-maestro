@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/timeline-event.json",
+  "title": "TimelineEvent",
+  "description": "An event in a task's timeline representing significant state changes or milestones",
+  "type": "object",
+  "required": ["id", "type", "timestamp"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for this timeline event",
+      "examples": ["evt_abc123", "event_001"]
+    },
+    "type": {
+      "type": "string",
+      "enum": ["created", "session_started", "session_ended", "update", "milestone", "blocker"],
+      "description": "Type of timeline event indicating what occurred",
+      "examples": ["session_started"]
+    },
+    "timestamp": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix timestamp (milliseconds) when this event occurred",
+      "examples": [1704067200000]
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional human-readable message describing the event",
+      "examples": ["Session started by agent_001", "Task blocked waiting for dependency"]
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^sess_[a-zA-Z0-9]+$",
+      "description": "Optional ID of the session associated with this event",
+      "examples": ["sess_abc123"]
+    }
+  },
+  "additionalProperties": false
+}

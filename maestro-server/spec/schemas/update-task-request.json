@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/update-task-request.json",
+  "title": "UpdateTaskRequest",
+  "description": "Payload for updating an existing task. All fields are optional; only provided fields will be updated",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Updated task title",
+      "examples": ["Implement OAuth authentication"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Updated task description",
+      "examples": ["Implement OAuth 2.0 with Google, GitHub, and Microsoft providers"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "completed", "blocked"],
+      "description": "Updated task status",
+      "examples": ["in_progress"]
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Updated priority level",
+      "examples": ["high"]
+    },
+    "sessionIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^sess_[a-zA-Z0-9]+$"
+      },
+      "uniqueItems": true,
+      "description": "Updated array of session IDs working on this task",
+      "examples": [["sess_abc123", "sess_def456"]]
+    },
+    "skillIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true,
+      "description": "Updated array of skill identifiers assigned to this task",
+      "examples": [["maestro-worker", "code-review"]]
+    },
+    "agentIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true,
+      "description": "Updated array of agent identifiers assigned to this task",
+      "examples": [["agent_001", "agent_002"]]
+    },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "$ref": "https://agents-ui.maestro.dev/schemas/timeline-event.json"
+      },
+      "description": "Updated timeline events array (typically appended to, not replaced)",
+      "examples": [[
+        {
+          "id": "evt_123",
+          "type": "milestone",
+          "timestamp": 1704067200000,
+          "message": "Authentication flow completed"
+        }
+      ]]
+    }
+  },
+  "additionalProperties": false,
+  "minProperties": 1
+}

@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/task.json",
+  "title": "Task",
+  "description": "A task represents a unit of work within a project, with status tracking and relationships to sessions, skills, and agents",
+  "type": "object",
+  "required": [
+    "id",
+    "projectId",
+    "parentId",
+    "title",
+    "description",
+    "status",
+    "priority",
+    "createdAt",
+    "updatedAt",
+    "startedAt",
+    "completedAt",
+    "initialPrompt",
+    "sessionIds",
+    "skillIds",
+    "agentIds",
+    "dependencies",
+    "timeline"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^task_[a-zA-Z0-9]+$",
+      "description": "Unique task identifier with 'task_' prefix",
+      "examples": ["task_xyz789abc123"]
+    },
+    "projectId": {
+      "type": "string",
+      "pattern": "^proj_[a-zA-Z0-9]+$",
+      "description": "ID of the project this task belongs to",
+      "examples": ["proj_abc123def456"]
+    },
+    "parentId": {
+      "type": ["string", "null"],
+      "pattern": "^task_[a-zA-Z0-9]+$",
+      "description": "ID of the parent task for hierarchical task relationships, null if top-level",
+      "examples": ["task_parent123", null]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Brief, descriptive title of the task",
+      "examples": ["Implement user authentication", "Fix header layout bug"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of what needs to be accomplished",
+      "examples": ["Implement OAuth 2.0 authentication flow with support for Google and GitHub providers"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "completed", "blocked"],
+      "description": "Current status of the task",
+      "examples": ["in_progress"]
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Priority level for task execution",
+      "examples": ["high"]
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix timestamp (milliseconds) when the task was created",
+      "examples": [1704067200000]
+    },
+    "updatedAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix timestamp (milliseconds) when the task was last updated",
+      "examples": [1704153600000]
+    },
+    "startedAt": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Unix timestamp (milliseconds) when work on the task started, null if not yet started",
+      "examples": [1704070800000, null]
+    },
+    "completedAt": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Unix timestamp (milliseconds) when the task was completed, null if not yet completed",
+      "examples": [1704157200000, null]
+    },
+    "initialPrompt": {
+      "type": "string",
+      "description": "The initial prompt or instruction that created this task",
+      "examples": ["Build a login page with email and password fields"]
+    },
+    "sessionIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^sess_[a-zA-Z0-9]+$"
+      },
+      "uniqueItems": true,
+      "description": "Array of session IDs working on this task (many-to-many relationship)",
+      "examples": [["sess_abc123", "sess_def456"]]
+    },
+    "skillIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true,
+      "description": "Array of skill identifiers assigned to this task",
+      "examples": [["maestro-worker", "code-review"]]
+    },
+    "agentIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true,
+      "description": "Array of agent identifiers assigned to this task",
+      "examples": [["agent_001", "agent_002"]]
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^task_[a-zA-Z0-9]+$"
+      },
+      "uniqueItems": true,
+      "description": "Array of task IDs that must be completed before this task can start",
+      "examples": [["task_prerequisite1", "task_prerequisite2"]]
+    },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "$ref": "https://agents-ui.maestro.dev/schemas/timeline-event.json"
+      },
+      "description": "Chronological array of events in the task's lifecycle",
+      "examples": [[
+        {
+          "id": "evt_123",
+          "type": "created",
+          "timestamp": 1704067200000,
+          "message": "Task created"
+        }
+      ]]
+    }
+  },
+  "additionalProperties": false
+}

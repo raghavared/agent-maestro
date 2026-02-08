@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/spawn-session-request.json",
+  "title": "SpawnSessionRequest",
+  "description": "Payload for spawning a new session with server-generated manifests. Higher-level API than CreateSessionRequest",
+  "type": "object",
+  "required": ["projectId", "taskIds"],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "pattern": "^proj_[a-zA-Z0-9]+$",
+      "description": "ID of the project for the spawned session (required)",
+      "examples": ["proj_abc123def456"]
+    },
+    "taskIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^task_[a-zA-Z0-9]+$"
+      },
+      "uniqueItems": true,
+      "minItems": 1,
+      "description": "Array of task IDs the spawned session will work on (required)",
+      "examples": [["task_xyz789", "task_abc123"]]
+    },
+    "role": {
+      "type": "string",
+      "enum": ["worker", "orchestrator"],
+      "description": "Optional role for the spawned session, determines which skills are loaded",
+      "examples": ["worker"]
+    },
+    "spawnSource": {
+      "type": "string",
+      "enum": ["ui", "session"],
+      "description": "Optional source indicating what triggered this spawn - 'ui' for user-initiated, 'session' for agent-spawned",
+      "examples": ["session"]
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^sess_[a-zA-Z0-9]+$",
+      "description": "Required when spawnSource is 'session' - ID of the parent session that spawned this one",
+      "examples": ["sess_parent123"]
+    },
+    "sessionName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Optional custom name for the spawned session",
+      "examples": ["Worker Session for Task XYZ"]
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true,
+      "description": "Optional array of skill names to load for this session",
+      "examples": [["maestro-cli", "maestro-worker"]]
+    },
+    "spawnedBy": {
+      "type": "string",
+      "pattern": "^sess_[a-zA-Z0-9]+$",
+      "description": "DEPRECATED - use 'sessionId' instead. Optional ID of the session that spawned this one",
+      "examples": ["sess_orchestrator123"]
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Optional arbitrary context data to pass to the spawned session",
+      "examples": [{
+        "parentTaskId": "task_parent",
+        "priority": "high",
+        "deadline": "2024-01-15"
+      }]
+    }
+  },
+  "additionalProperties": false
+}

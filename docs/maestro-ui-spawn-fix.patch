@@ -1,0 +1,98 @@
+# Fix for UI Spawn Flow - Replace createMaestroSession function
+
+## Location: maestro-ui/src/App.tsx around line 4555
+
+Replace the entire `createMaestroSession` function (lines 4550-4607) with this:
+
+```typescript
+  /**
+   * Creates a Maestro task session using Server-Generated Manifests:
+   * 1. Calls server spawn endpoint with task IDs
+   * 2. Server generates manifest via CLI
+   * 3. Server emits spawn_request via WebSocket
+   * 4. MaestroContext receives event and spawns terminal automatically
+   */
+  async function createMaestroSession(input: {
+    task?: Task;              // Single task (backward compatible)
+    tasks?: Task[];           // Multiple tasks (PHASE IV-A)
+    projectBasePath: string | null;
+    agentCommand: string;
+    skillIds?: string[];      // NEW: Skill IDs to load
+  }): Promise<Session> {
+    const { task, tasks, skillIds } = input;
+
+    // Normalize to array (support both single and multi-task)
+    const taskList = tasks || (task ? [task] : []);
+    if (taskList.length === 0) {
+      throw new Error('At least one task is required');
+    }
+
+    const project = projects.find(p => p.id === activeProjectId);
+    if (!project) throw new Error('Active project not found');
+
+    console.log('[App.createMaestroSession] Using server spawn flow');
+    console.log('[App.createMaestroSession] Tasks:', taskList.map(t => t.id).join(', '));
+
+    // NEW: Use server spawn endpoint (Server-Generated Manifests architecture)
+    // The server will:
+    // 1. Generate manifest via CLI
+    // 2. Emit spawn_request via WebSocket
+    // 3. MaestroContext will receive and spawn terminal automatically
+    const taskIds = taskList.map(t => t.id);
+
+    try {
+      const response = await maestroClient.spawnSession({
+        projectId: project.id,
+        taskIds,
+        role: 'worker',
+        spawnSource: 'manual',
+        sessionName: taskList.length > 1
+          ? `Multi-Task: ${taskList[0].title}`
+          : taskList[0].title,
+        skills: skillIds || ['maestro-worker'],
+      });
+
+      console.log('[App.createMaestroSession] ✓ Server spawn request sent:', response.sessionId);
+      console.log('[App.createMaestroSession] Manifest:', response.manifestPath);
+
+      // Return a placeholder session - the actual UI session will be created
+      // by MaestroContext when it receives the spawn_request WebSocket event
+      return {
+        id: 'pending',
+        maestroSessionId: response.sessionId,
+        projectId: project.id,
+      } as Session;
+
+    } catch (error: any) {
+      console.error('[App.createMaestroSession] ✗ Failed to spawn session:', error);
+      throw new Error(`Failed to spawn session: ${error.message}`);
+    }
+  }
+```
+
+## Summary of Changes:
+
+1. **Removed**: `buildMaestroSessionConfig()` call (old local config building)
+2. **Removed**: `createSession()` call (old terminal spawning)
+3. **Added**: `maestroClient.spawnSession()` call (new server spawn endpoint)
+4. **Added**: Console logs for debugging
+5. **Changed**: Function now calls server and returns immediately
+
+## What This Does:
+
+- Calls the server spawn endpoint with task IDs
+- Server generates manifest and emits WebSocket event
+- MaestroContext automatically spawns terminal with correct env vars
+- No more manual environment variable building in UI
+
+## After Making This Change:
+
+1. Save the file
+2. Restart the UI dev server (if running)
+3. Test by clicking "Start Task" in the UI
+4. Check the spawned terminal env vars: `env | grep MAESTRO`
+
+You should now see ONLY 3 env vars:
+- MAESTRO_SESSION_ID
+- MAESTRO_MANIFEST_PATH
+- MAESTRO_SERVER_URL

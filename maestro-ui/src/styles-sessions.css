@@ -1,0 +1,209 @@
+/* Terminal Sessions (Task Panel - Phase IV UI) */
+.terminalTaskExpanded {
+    display: flex;
+    flex-direction: column;
+}
+
+.terminalSessions {
+    border-top: 1px solid var(--terminal-border);
+    background: rgba(0, 0, 0, 0.3);
+    padding: 8px 12px 8px 40px;
+}
+
+.terminalSubsectionHeader {
+    background: transparent;
+    border: 1px solid var(--terminal-border);
+    color: var(--terminal-text);
+    padding: 6px 10px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+    margin-bottom: 8px;
+    width: 100%;
+    text-align: left;
+}
+
+.terminalSubsectionHeader:hover {
+    border-color: var(--terminal-green);
+    background: rgba(0, 255, 65, 0.05);
+    color: var(--terminal-green);
+    box-shadow: 0 0 8px rgba(0, 255, 65, 0.2);
+}
+
+.terminalSubsectionContent {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.terminalLoading {
+    padding: 8px 12px;
+    color: var(--muted);
+    font-size: 11px;
+    font-style: italic;
+}
+
+.terminalSessionItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    transition: all 0.15s ease;
+}
+
+.terminalSessionItem:hover {
+    background: rgba(139, 92, 246, 0.15);
+    border-color: rgba(139, 92, 246, 0.4);
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.2);
+}
+
+.terminalSessionName {
+    flex: 1;
+    color: var(--terminal-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.terminalSessionActions {
+    display: flex;
+    gap: 4px;
+}
+
+.terminalSessionBtn {
+    background: transparent;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    color: rgba(139, 92, 246, 0.8);
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    border-radius: 2px;
+}
+
+.terminalSessionBtn:hover {
+    border-color: rgba(139, 92, 246, 0.6);
+    background: rgba(139, 92, 246, 0.15);
+    color: rgba(139, 92, 246, 1);
+    box-shadow: 0 0 6px rgba(139, 92, 246, 0.3);
+}
+
+.terminalSessionBtn.remove {
+    border-color: rgba(255, 59, 59, 0.3);
+    color: rgba(255, 59, 59, 0.8);
+}
+
+.terminalSessionBtn.remove:hover {
+    border-color: rgba(255, 59, 59, 0.6);
+    background: rgba(255, 59, 59, 0.15);
+    color: var(--terminal-red);
+    box-shadow: 0 0 6px rgba(255, 59, 59, 0.3);
+}
+
+.terminalSessionFooter {
+    padding-top: 6px;
+    margin-top: 4px;
+    border-top: 1px solid rgba(139, 92, 246, 0.15);
+}
+
+.terminalAddSessionBtn {
+    background: transparent;
+    border: 1px dashed rgba(139, 92, 246, 0.3);
+    color: rgba(139, 92, 246, 0.8);
+    padding: 6px 10px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.terminalAddSessionBtn:hover {
+    border-color: rgba(139, 92, 246, 0.6);
+    border-style: solid;
+    background: rgba(139, 92, 246, 0.1);
+    color: rgba(139, 92, 246, 1);
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.2);
+}
+/* Sessions Section Expansion */
+.terminalExpandBtn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    border-radius: 2px;
+}
+
+.terminalExpandBtn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--terminal-text);
+}
+
+.terminalSubtasks {
+    padding-left: 28px;
+    padding-bottom: 4px;
+    animation: slideDown 0.15s ease;
+}
+
+.terminalSubtaskRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 2px 0;
+}
+
+.terminalSubtaskTitle {
+    color: var(--terminal-text);
+}
+
+.terminalStatusLabel {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.terminalStatusLabel--pending { background: rgba(255, 255, 255, 0.1); color: var(--muted); }
+.terminalStatusLabel--in_progress { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+.terminalStatusLabel--completed { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.terminalStatusLabel--failed { background: rgba(239, 68, 68, 0.2); color: #f87171; }

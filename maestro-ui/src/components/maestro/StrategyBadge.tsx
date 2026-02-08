@@ -1,0 +1,116 @@
+import React from "react";
+import type { WorkerStrategy } from "../../app/types/maestro";
+
+interface StrategyBadgeProps {
+  strategy: WorkerStrategy | undefined;
+  queuePosition?: number;
+  queueTotal?: number;
+  compact?: boolean;
+}
+
+export function StrategyBadge({
+  strategy,
+  queuePosition,
+  queueTotal,
+  compact = false,
+}: StrategyBadgeProps) {
+  if (!strategy) return null;
+
+  const isQueue = strategy === "queue";
+  const isTree = strategy === "queue";
+  const hasQueueInfo = isQueue && queuePosition !== undefined && queueTotal !== undefined;
+
+  const titleText = isTree
+    ? "Tree strategy: works through task tree holistically"
+    : isQueue
+      ? `Queue strategy: position ${queuePosition} of ${queueTotal}`
+      : "Simple strategy: sequential task processing";
+
+  const label = isTree
+    ? (compact ? "T" : "TREE")
+    : isQueue
+      ? (compact
+          ? (hasQueueInfo ? `Q:${queuePosition}/${queueTotal}` : "Q")
+          : (hasQueueInfo ? `QUEUE: ${queuePosition}/${queueTotal}` : "QUEUE"))
+      : (compact ? "S" : "SIMPLE");
+
+  return (
+    <span
+      className={`strategyBadge strategyBadge--${strategy} ${compact ? "strategyBadge--compact" : ""}`}
+      title={titleText}
+    >
+      {label}
+    </span>
+  );
+}
+
+// Queue item status badge
+export type QueueItemStatus = "queued" | "processing" | "completed" | "failed" | "skipped";
+
+interface QueueItemStatusBadgeProps {
+  status: QueueItemStatus;
+  compact?: boolean;
+}
+
+const QUEUE_STATUS_SYMBOLS: Record<QueueItemStatus, string> = {
+  queued: "○",
+  processing: "◉",
+  completed: "✓",
+  failed: "✗",
+  skipped: "⊘",
+};
+
+const QUEUE_STATUS_LABELS: Record<QueueItemStatus, string> = {
+  queued: "QUEUED",
+  processing: "PROCESSING",
+  completed: "COMPLETED",
+  failed: "FAILED",
+  skipped: "SKIPPED",
+};
+
+export function QueueItemStatusBadge({ status, compact = false }: QueueItemStatusBadgeProps) {
+  return (
+    <span
+      className={`queueItemStatusBadge queueItemStatusBadge--${status} ${compact ? "queueItemStatusBadge--compact" : ""}`}
+      title={QUEUE_STATUS_LABELS[status]}
+    >
+      <span className="queueItemStatusSymbol">{QUEUE_STATUS_SYMBOLS[status]}</span>
+      {!compact && <span className="queueItemStatusLabel">{QUEUE_STATUS_LABELS[status]}</span>}
+    </span>
+  );
+}
+
+// Priority badge component
+export type TaskPriority = "low" | "medium" | "high";
+
+interface PriorityBadgeProps {
+  priority: TaskPriority;
+  compact?: boolean;
+}
+
+const PRIORITY_SYMBOLS: Record<TaskPriority, string> = {
+  low: "●",
+  medium: "●",
+  high: "●",
+};
+
+const PRIORITY_LABELS: Record<TaskPriority, string> = {
+  low: "LOW",
+  medium: "MED",
+  high: "HIGH",
+};
+
+export function PriorityBadge({ priority, compact = false }: PriorityBadgeProps) {
+  return (
+    <span
+      className={`priorityBadge priorityBadge--${priority} ${compact ? "priorityBadge--compact" : ""}`}
+      title={`Priority: ${priority}`}
+    >
+      {compact ? (
+        PRIORITY_SYMBOLS[priority]
+      ) : (
+        PRIORITY_LABELS[priority]
+      )}
+    </span>
+  );
+}

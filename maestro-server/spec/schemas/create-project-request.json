@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ui.maestro.dev/schemas/create-project-request.json",
+  "title": "CreateProjectRequest",
+  "description": "Payload for creating a new project",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Human-readable project name (required)",
+      "examples": ["Website Redesign", "API Refactoring"]
+    },
+    "workingDir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Absolute path to the project's working directory. If not provided, server may use a default or current directory",
+      "examples": ["/Users/username/projects/my-app", "/home/user/workspace/api"]
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "Optional detailed description of the project's purpose and scope",
+      "examples": ["A complete redesign of the company website with focus on mobile responsiveness"]
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,16 @@
+{
+  "manifestVersion": "1.0",
+  "role": "manager",
+  "task": {
+    "id": "task-1",
+    "title": "Test",
+    "description": "Test",
+    "acceptanceCriteria": ["Done"],
+    "projectId": "proj-1",
+    "createdAt": "2026-02-02T00:00:00Z"
+  },
+  "session": {
+    "model": "sonnet",
+    "permissionMode": "acceptEdits"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "manifestVersion": "1.0",
+  "role": "worker",
+  "task": {
+    "id": "task-123",
+    "title": "Implement user authentication",
+    "description": "Add OAuth2 authentication to the API endpoints",
+    "acceptanceCriteria": [
+      "Users can log in with OAuth2",
+      "Access tokens are validated",
+      "Session management works correctly"
+    ],
+    "technicalNotes": "Use Passport.js for OAuth2 integration",
+    "complexity": "high",
+    "priority": "critical",
+    "projectId": "proj-456",
+    "createdAt": "2026-02-02T10:00:00Z"
+  },
+  "session": {
+    "model": "sonnet",
+    "permissionMode": "acceptEdits",
+    "thinkingMode": "interleaved",
+    "maxTurns": 50
+  },
+  "context": {
+    "codebaseContext": {
+      "recentChanges": ["Added user model", "Set up database"],
+      "relevantFiles": ["src/auth/index.ts", "src/models/user.ts"],
+      "architecture": "microservices",
+      "techStack": ["TypeScript", "Express", "PostgreSQL"]
+    },
+    "relatedTasks": [
+      {
+        "id": "task-122",
+        "title": "Set up database",
+        "relationship": "blocks",
+        "status": "completed"
+      }
+    ]
+  }
+}

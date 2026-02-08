@@ -1,0 +1,23 @@
+{
+  "name": "@maestro/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP Server that exposes Maestro CLI commands as MCP tools",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "maestro-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "maestro",
+    "model-context-protocol"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  }
+}

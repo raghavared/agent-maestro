@@ -1,0 +1,22 @@
+#!/bin/bash
+# Track file modifications from PostToolUse hook
+# Reads HOOK_INPUT (JSON) and extracts file path, then calls maestro CLI
+
+set -euo pipefail
+
+# Read hook input from stdin or environment
+if [ -n "${HOOK_INPUT:-}" ]; then
+  INPUT="$HOOK_INPUT"
+else
+  INPUT=$(cat)
+fi
+
+# Extract file path from hook input
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || echo "")
+
+# If we have a file path, track it
+if [ -n "$FILE_PATH" ]; then
+  maestro track-file "$FILE_PATH" 2>/dev/null || true
+fi
+
+exit 0

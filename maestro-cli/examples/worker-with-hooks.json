@@ -1,0 +1,28 @@
+{
+  "manifestVersion": "1.0",
+  "role": "worker",
+  "task": {
+    "id": "task-001",
+    "title": "Implement user authentication",
+    "description": "Add JWT-based authentication to the API",
+    "acceptanceCriteria": [
+      "Users can register with email/password",
+      "Users can login and receive JWT token",
+      "Protected routes validate JWT tokens",
+      "Password reset functionality works"
+    ],
+    "technicalNotes": "Use bcrypt for password hashing, jsonwebtoken for JWT generation",
+    "dependencies": ["task-database-setup"],
+    "complexity": "medium",
+    "priority": "high",
+    "projectId": "proj-001",
+    "createdAt": "2026-02-02T12:00:00Z"
+  },
+  "session": {
+    "model": "sonnet",
+    "permissionMode": "acceptEdits",
+    "thinkingMode": "auto",
+    "maxTurns": 50,
+    "workingDirectory": "/Users/subhang/Desktop/Projects/my-api"
+  }
+}

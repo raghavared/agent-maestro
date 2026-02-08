@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "maestro": {
+      "command": "node",
+      "args": ["maestro-mcp-server/index.js"],
+      "env": {
+        "MAESTRO_API_URL": "http://localhost:3000",
+        "MAESTRO_PROJECT_ID": ""
+      }
+    }
+  }
+}

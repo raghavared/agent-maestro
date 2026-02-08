@@ -1,0 +1,255 @@
+import React, { useState } from "react";
+import type { MaestroSession, WorkerStrategy } from "../../app/types/maestro";
+
+interface SessionDetailsSectionProps {
+  session: MaestroSession;
+  compact?: boolean;
+  showEnv?: boolean;
+  showMetadata?: boolean;
+  showSystemInfo?: boolean;
+}
+
+function formatTimeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
+function formatDateTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatDuration(startMs: number, endMs?: number | null): string {
+  const end = endMs || Date.now();
+  const seconds = Math.floor((end - startMs) / 1000);
+
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  return `${hours}h ${mins}m`;
+}
+
+export function SessionDetailsSection({
+  session,
+  compact = false,
+  showEnv = true,
+  showMetadata = true,
+  showSystemInfo = true,
+}: SessionDetailsSectionProps) {
+  const [isExpanded, setIsExpanded] = useState(!compact);
+  const [showFullEnv, setShowFullEnv] = useState(false);
+
+  const envVars = Object.entries(session.env || {});
+  const metadata: [string, any][] = [];
+
+  // Mask sensitive env vars
+  const sensitiveKeys = ["KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL"];
+  const maskValue = (key: string, value: string): string => {
+    if (sensitiveKeys.some((sk) => key.toUpperCase().includes(sk))) {
+      return "***hidden***";
+    }
+    return value;
+  };
+
+  return (
+    <div className={`sessionDetailsSection ${compact ? "sessionDetailsSection--compact" : ""}`}>
+      <button
+        className="sessionDetailsSectionHeader"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <span className="sessionDetailsSectionToggle">
+          {isExpanded ? "▾" : "▸"}
+        </span>
+        <span className="sessionDetailsSectionTitle">Session Details</span>
+      </button>
+
+      {isExpanded && (
+        <div className="sessionDetailsSectionContent">
+          {/* Core Info */}
+          <div className="sessionDetailsGrid">
+            <div className="sessionDetailsRow">
+              <span className="sessionDetailsLabel">Strategy:</span>
+              <span className={`sessionDetailsValue sessionDetailsValue--strategy-${session.strategy || "simple"}`}>
+                {session.strategy || "simple"}
+              </span>
+            </div>
+
+            <div className="sessionDetailsRow">
+              <span className="sessionDetailsLabel">Status:</span>
+              <span className={`sessionDetailsValue sessionDetailsValue--status-${session.status}`}>
+                {session.status}
+              </span>
+            </div>
+
+            <div className="sessionDetailsRow">
+              <span className="sessionDetailsLabel">Started:</span>
+              <span className="sessionDetailsValue">
+                {formatDateTime(session.startedAt)}
+              </span>
+            </div>
+
+            <div className="sessionDetailsRow">
+              <span className="sessionDetailsLabel">Last Activity:</span>
+              <span className="sessionDetailsValue">
+                {formatTimeAgo(session.lastActivity)}
+              </span>
+            </div>
+
+            <div className="sessionDetailsRow">
+              <span className="sessionDetailsLabel">Duration:</span>
+              <span className="sessionDetailsValue">
+                {formatDuration(session.startedAt, session.completedAt)}
+              </span>
+            </div>
+
+            {session.completedAt && (
+              <div className="sessionDetailsRow">
+                <span className="sessionDetailsLabel">Completed:</span>
+                <span className="sessionDetailsValue">
+                  {formatDateTime(session.completedAt)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* System Info */}
+          {showSystemInfo && (session.hostname || session.platform) && (
+            <div className="sessionDetailsGroup">
+              <div className="sessionDetailsGroupTitle">System Information</div>
+              <div className="sessionDetailsGrid">
+                {session.hostname && (
+                  <div className="sessionDetailsRow">
+                    <span className="sessionDetailsLabel">Hostname:</span>
+                    <span className="sessionDetailsValue sessionDetailsValue--mono">
+                      {session.hostname}
+                    </span>
+                  </div>
+                )}
+                {session.platform && (
+                  <div className="sessionDetailsRow">
+                    <span className="sessionDetailsLabel">Platform:</span>
+                    <span className="sessionDetailsValue sessionDetailsValue--mono">
+                      {session.platform}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Environment Variables */}
+          {showEnv && envVars.length > 0 && (
+            <div className="sessionDetailsGroup">
+              <div className="sessionDetailsGroupHeader">
+                <span className="sessionDetailsGroupTitle">
+                  Environment ({envVars.length} variable{envVars.length !== 1 ? "s" : ""})
+                </span>
+                <button
+                  className="sessionDetailsShowBtn"
+                  onClick={() => setShowFullEnv(!showFullEnv)}
+                >
+                  {showFullEnv ? "Hide" : "Show"}
+                </button>
+              </div>
+              {showFullEnv && (
+                <div className="sessionDetailsEnvList">
+                  {envVars.map(([key, value]) => (
+                    <div key={key} className="sessionDetailsEnvRow">
+                      <span className="sessionDetailsEnvKey">{key}:</span>
+                      <span className="sessionDetailsEnvValue">
+                        {maskValue(key, value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Metadata */}
+          {showMetadata && metadata.length > 0 && (
+            <div className="sessionDetailsGroup">
+              <div className="sessionDetailsGroupTitle">Metadata</div>
+              <div className="sessionDetailsGrid">
+                {metadata.map(([key, value]) => (
+                  <div key={key} className="sessionDetailsRow">
+                    <span className="sessionDetailsLabel">{key}:</span>
+                    <span className="sessionDetailsValue sessionDetailsValue--mono">
+                      {typeof value === "object" ? JSON.stringify(value) : String(value)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Role & Spawn Info */}
+          {(session.role || session.spawnSource || session.spawnedBy) && (
+            <div className="sessionDetailsGroup">
+              <div className="sessionDetailsGroupTitle">Spawn Information</div>
+              <div className="sessionDetailsGrid">
+                {session.role && (
+                  <div className="sessionDetailsRow">
+                    <span className="sessionDetailsLabel">Role:</span>
+                    <span className={`sessionDetailsValue sessionDetailsValue--role-${session.role}`}>
+                      {session.role}
+                    </span>
+                  </div>
+                )}
+                {session.spawnSource && (
+                  <div className="sessionDetailsRow">
+                    <span className="sessionDetailsLabel">Spawn Source:</span>
+                    <span className="sessionDetailsValue">
+                      {session.spawnSource}
+                    </span>
+                  </div>
+                )}
+                {session.spawnedBy && (
+                  <div className="sessionDetailsRow">
+                    <span className="sessionDetailsLabel">Spawned By:</span>
+                    <span className="sessionDetailsValue sessionDetailsValue--mono">
+                      {session.spawnedBy}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Compact summary version for inline display
+interface SessionDetailsSummaryProps {
+  session: MaestroSession;
+}
+
+export function SessionDetailsSummary({ session }: SessionDetailsSummaryProps) {
+  return (
+    <div className="sessionDetailsSummary">
+      <span className="sessionDetailsSummaryItem">
+        Started {formatTimeAgo(session.startedAt)}
+      </span>
+      <span className="sessionDetailsSummarySep">•</span>
+      <span className="sessionDetailsSummaryItem">{session.platform}</span>
+      {session.hostname && (
+        <>
+          <span className="sessionDetailsSummarySep">•</span>
+          <span className="sessionDetailsSummaryItem">{session.hostname}</span>
+        </>
+      )}
+    </div>
+  );
+}

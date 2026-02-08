@@ -1,0 +1,7 @@
+{
+  "productName": "Maestro Prod",
+  "identifier": "com.maestro.prod",
+  "app": {
+    "windows": [{ "label": "main", "title": "Maestro Prod", "devtools": true }]
+  }
+}
