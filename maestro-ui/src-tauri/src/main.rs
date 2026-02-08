@@ -7,6 +7,7 @@ mod pty;
 mod persist;
 mod recording;
 mod secure;
+mod skills;
 mod ssh;
 mod ssh_fs;
 mod startup;
@@ -17,6 +18,7 @@ use assets::apply_text_assets;
 use app_menu::{build_app_menu, handle_app_menu_event};
 use files::{copy_fs_entry, delete_fs_entry, list_fs_entries, list_project_files, read_text_file, rename_fs_entry, write_text_file};
 use file_manager::{open_path_in_file_manager, open_path_in_vscode};
+use skills::{get_claude_code_skill, get_skill_categories, list_claude_code_skills};
 use pty::{
     close_session, create_session, detach_session, kill_persistent_session, list_persistent_sessions,
     list_sessions, resize_session, start_session_recording, stop_session_recording, write_to_session,
@@ -133,7 +135,10 @@ fn main() {
             set_tray_recent_sessions,
             open_path_in_file_manager,
             open_path_in_vscode,
-            get_app_info
+            get_app_info,
+            list_claude_code_skills,
+            get_claude_code_skill,
+            get_skill_categories
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

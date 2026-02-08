@@ -1,0 +1,380 @@
+/* Claude Code Skills Selector Styles */
+
+.claudeCodeSkillsSelector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.claudeCodeSkillsLoading,
+.claudeCodeSkillsError,
+.claudeCodeSkillsEmpty {
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.claudeCodeSkillsSpinner {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+  font-size: 16px;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.claudeCodeSkillsError {
+  color: #ff6b6b;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.claudeCodeSkillsRetry {
+  padding: 6px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.claudeCodeSkillsRetry:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--accent);
+}
+
+/* Toolbar */
+.claudeCodeSkillsToolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.claudeCodeSkillsSearch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.claudeCodeSkillsSearchInput {
+  flex: 1;
+  padding: 8px 32px 8px 32px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  border-radius: 4px;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.claudeCodeSkillsSearchInput:focus {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.claudeCodeSkillsSearchInput::placeholder {
+  color: var(--muted);
+}
+
+.claudeCodeSkillsSearch > svg,
+.claudeCodeSkillsSearch > .icon {
+  position: absolute;
+  left: 10px;
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.claudeCodeSkillsSearchClear {
+  position: absolute;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 50%;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.claudeCodeSkillsSearchClear:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Filters */
+.claudeCodeSkillsFilters {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.claudeCodeSkillsFilterSelect {
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.claudeCodeSkillsFilterSelect:hover,
+.claudeCodeSkillsFilterSelect:focus {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.claudeCodeSkillsClearFilters {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.claudeCodeSkillsClearFilters:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Results count */
+.claudeCodeSkillsCount {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 4px 0;
+}
+
+.claudeCodeSkillsSelected {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Skills grid */
+.claudeCodeSkillsGrid {
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.claudeCodeSkillsGrid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.claudeCodeSkillsGrid::-webkit-scrollbar-track {
+  background: var(--panel);
+  border-radius: 4px;
+}
+
+.claudeCodeSkillsGrid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.claudeCodeSkillsGrid::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.claudeCodeSkillsNoResults {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Skill card */
+.claudeCodeSkillCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.claudeCodeSkillCard:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.claudeCodeSkillCard.selected {
+  border-color: var(--accent);
+  background: rgba(107, 138, 253, 0.05);
+}
+
+.claudeCodeSkillCardHeader {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.claudeCodeSkillCheckbox {
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.claudeCodeSkillInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.claudeCodeSkillName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.claudeCodeSkillDescription {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.claudeCodeSkillExpand {
+  width: 24px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.claudeCodeSkillExpand:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent);
+}
+
+/* Skill details (expanded) */
+.claudeCodeSkillDetails {
+  padding: 0 12px 12px 12px;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 8px;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.claudeCodeSkillMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.claudeCodeSkillBadge {
+  padding: 2px 8px;
+  font-size: 10px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.claudeCodeSkillBadgeRole {
+  background: rgba(107, 138, 253, 0.2);
+  color: #6b8afd;
+  border: 1px solid rgba(107, 138, 253, 0.3);
+}
+
+.claudeCodeSkillBadgeScope {
+  background: rgba(34, 211, 238, 0.2);
+  color: #22d3ee;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+}
+
+.claudeCodeSkillBadgeCategory {
+  background: rgba(129, 140, 248, 0.2);
+  color: #818cf8;
+  border: 1px solid rgba(129, 140, 248, 0.3);
+}
+
+.claudeCodeSkillBadgeLang {
+  background: rgba(244, 114, 182, 0.2);
+  color: #f472b6;
+  border: 1px solid rgba(244, 114, 182, 0.3);
+}
+
+.claudeCodeSkillBadgeFramework {
+  background: rgba(251, 146, 60, 0.2);
+  color: #fb923c;
+  border: 1px solid rgba(251, 146, 60, 0.3);
+}
+
+.claudeCodeSkillTriggers,
+.claudeCodeSkillTags,
+.claudeCodeSkillReferences {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.claudeCodeSkillTriggers strong,
+.claudeCodeSkillTags strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.claudeCodeSkillReferences {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+}
+
+.claudeCodeSkillReferences svg,
+.claudeCodeSkillReferences .icon {
+  width: 12px;
+  height: 12px;
+}

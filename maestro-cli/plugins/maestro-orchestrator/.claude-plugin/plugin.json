@@ -1,0 +1,8 @@
+{
+  "name": "maestro-orchestrator",
+  "version": "1.0.0",
+  "description": "Maestro orchestrator plugin with hooks for multi-agent coordination",
+  "author": {
+    "name": "Maestro Team"
+  }
+}

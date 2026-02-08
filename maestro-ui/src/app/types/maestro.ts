@@ -3,7 +3,7 @@
 
 export type TaskStatus = 'todo' | 'in_progress' | 'completed' | 'cancelled' | 'blocked';
 export type TaskPriority = 'low' | 'medium' | 'high';
-export type MaestroSessionStatus = 'spawning' | 'idle' | 'working' | 'completed' | 'failed' | 'stopped';
+export type MaestroSessionStatus = 'spawning' | 'idle' | 'working' | 'needs-user-input' | 'completed' | 'failed' | 'stopped';
 export type SpawnSource = 'ui' | 'session';
 export type TaskSessionStatus = 'queued' | 'working' | 'needs_input' | 'blocked' | 'completed' | 'failed' | 'skipped';
 export type WorkerStrategy = 'simple' | 'queue';
@@ -171,6 +171,25 @@ export interface AgentSkill {
   description: string;
   type: 'system' | 'role';
   version: string;
+}
+
+export interface ClaudeCodeSkill {
+  id: string;
+  name: string;
+  description: string;
+  triggers?: string[];
+  role?: string;
+  scope?: string;
+  outputFormat?: string;
+  version?: string;
+  language?: string;
+  framework?: string;
+  tags?: string[];
+  category?: string;
+  license?: string;
+  content: string;
+  hasReferences: boolean;
+  referenceCount: number;
 }
 
 export interface SpawnSessionPayload {

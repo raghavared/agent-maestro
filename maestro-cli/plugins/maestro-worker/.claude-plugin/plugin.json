@@ -1,0 +1,8 @@
+{
+  "name": "maestro-worker",
+  "version": "1.0.0",
+  "description": "Maestro worker plugin with hooks for session tracking and file monitoring",
+  "author": {
+    "name": "Maestro Team"
+  }
+}

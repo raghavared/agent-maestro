@@ -355,6 +355,7 @@ export function SessionsSection({
               !(isSshType && (chipLabel ?? "").trim().toLowerCase() === "ssh");
 
             const maestroSession = s.maestroSessionId ? maestroSessions.get(s.maestroSessionId) : null;
+            const needsInput = maestroSession?.status === 'needs-user-input';
 
             return (
               <div
@@ -362,7 +363,7 @@ export function SessionsSection({
                 className={`sessionItem ${isActive ? "sessionItemActive" : ""} ${isExited ? "sessionItemExited" : ""
                   } ${isClosing ? "sessionItemClosing" : ""} ${isSshType ? "sessionItemSsh" : ""
                   } ${isPersistent ? "sessionItemPersistent" : ""} ${isDefaultType ? "sessionItemDefault" : ""
-                  }`}
+                  } ${needsInput ? "sessionItemNeedsInput" : ""}`}
                 onClick={() => onSelectSession(s.id)}
                 style={{ flexDirection: 'column', alignItems: 'stretch' }}
               >
@@ -435,7 +436,7 @@ export function SessionsSection({
                         e.stopPropagation();
                         setSessionModalId(maestroSession.id);
                       }}>
-                      {maestroSession.status === 'spawning' ? 'SPAWN' : maestroSession.status === 'stopped' ? 'STOP' : maestroSession.status.toUpperCase()}
+                      {maestroSession.status === 'spawning' ? 'SPAWN' : maestroSession.status === 'stopped' ? 'STOP' : maestroSession.status === 'needs-user-input' ? 'NEEDS INPUT' : maestroSession.status.toUpperCase()}
                     </span>
                     <StrategyBadge strategy={maestroSession.strategy} compact />
                   </div>

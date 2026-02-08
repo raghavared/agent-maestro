@@ -83,7 +83,7 @@ export interface Session {
 export type TaskStatus = 'todo' | 'in_progress' | 'completed' | 'cancelled' | 'blocked';
 export type TaskSessionStatus = 'queued' | 'working' | 'needs_input' | 'blocked' | 'completed' | 'failed' | 'skipped';
 export type TaskPriority = 'low' | 'medium' | 'high';
-export type SessionStatus = 'spawning' | 'idle' | 'working' | 'completed' | 'failed' | 'stopped';
+export type SessionStatus = 'spawning' | 'idle' | 'working' | 'needs-user-input' | 'completed' | 'failed' | 'stopped';
 
 // Session timeline event types
 export type SessionTimelineEventType =

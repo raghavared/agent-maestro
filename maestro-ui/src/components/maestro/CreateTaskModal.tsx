@@ -5,6 +5,7 @@ import { TaskPriority, AgentSkill, MaestroProject, MaestroTask, ModelType } from
 import { maestroClient } from "../../utils/MaestroClient";
 import { Icon } from "../Icon";
 import { AgentSelector } from "./AgentSelector";
+import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
 import { useTaskBreadcrumb } from "../../hooks/useTaskBreadcrumb";
 import { useSubtaskProgress } from "../../hooks/useSubtaskProgress";
 import { useTaskSessions } from "../../hooks/useTaskSessions";
@@ -86,10 +87,7 @@ export function CreateTaskModal({
     const [prompt, setPrompt] = useState("");
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [files, setFiles] = useState<{ id: string, display: string }[]>([]);
-    const [skills, setSkills] = useState<AgentSkill[]>([]);
     const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
-    const [loadingSkills, setLoadingSkills] = useState(false);
-    const [skillsError, setSkillsError] = useState<string | null>(null);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
     // Edit mode state
@@ -171,23 +169,6 @@ export function CreateTaskModal({
                     setFiles(formattedFiles);
                 })
                 .catch(err => console.error("Failed to list project files:", err));
-        }
-
-        // Load skills
-        if (isOpen) {
-            setLoadingSkills(true);
-            setSkillsError(null);
-            maestroClient.getSkills()
-                .then(skillsList => {
-                    setSkills(skillsList);
-                })
-                .catch(err => {
-                    console.error("Failed to load skills:", err);
-                    setSkillsError("Failed to load skills");
-                })
-                .finally(() => {
-                    setLoadingSkills(false);
-                });
         }
     }, [isOpen, project?.basePath]);
 
@@ -472,56 +453,11 @@ export function CreateTaskModal({
                         {showAdvanced && (
                             <div className="createTaskAdvancedOptions">
                                 <div className="createTaskAdvancedSection">
-                                    <label className="createTaskAdvancedLabel">Skills</label>
-
-                                    {loadingSkills && (
-                                        <div className="createTaskSkillsLoading">
-                                            <span className="createTaskSkillsSpinner">⟳</span> Loading skills...
-                                        </div>
-                                    )}
-
-                                    {skillsError && (
-                                        <div className="createTaskSkillsError">
-                                            {skillsError}
-                                        </div>
-                                    )}
-
-                                    {!loadingSkills && skills.length === 0 && !skillsError && (
-                                        <div className="createTaskSkillsEmpty">
-                                            No skills installed. Add skills to <code>~/.agents-ui/maestro-skills</code> to see them here.
-                                        </div>
-                                    )}
-
-                                    {!loadingSkills && skills.length > 0 && (
-                                        <div className="createTaskSkillsGrid">
-                                            {skills.map((skill) => {
-                                                const isAssigned = isEditMode && task?.skillIds?.includes(skill.id);
-                                                return (
-                                                    <label key={skill.id} className="createTaskSkillCheckbox">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedSkills.includes(skill.id)}
-                                                            onChange={(e) => {
-                                                                if (e.target.checked) {
-                                                                    setSelectedSkills([...selectedSkills, skill.id]);
-                                                                } else {
-                                                                    setSelectedSkills(selectedSkills.filter(id => id !== skill.id));
-                                                                }
-                                                            }}
-                                                        />
-                                                        <div className="createTaskSkillInfo">
-                                                            <div className="createTaskSkillName">
-                                                                {isAssigned && <span style={{ color: 'var(--green, #00ff00)', marginRight: '4px' }}>[assigned]</span>}
-                                                                {skill.name}
-                                                            </div>
-                                                            <div className="createTaskSkillDescription">{skill.description}</div>
-                                                            <div className="createTaskSkillType">{skill.type}</div>
-                                                        </div>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
+                                    <label className="createTaskAdvancedLabel">Claude Code Skills</label>
+                                    <ClaudeCodeSkillsSelector
+                                        selectedSkills={selectedSkills}
+                                        onSelectionChange={setSelectedSkills}
+                                    />
                                 </div>
                             </div>
                         )}

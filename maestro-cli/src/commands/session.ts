@@ -350,4 +350,86 @@ export function registerSessionCommands(program: Command) {
                 process.exit(0);
             }
         });
+
+    // session needs-input - Mark session as needing user input (called by Stop hook)
+    session
+        .command('needs-input')
+        .description('Mark session as needing user input (called by Stop hook)')
+        .action(async () => {
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const sessionId = config.sessionId;
+
+            if (!isJson) {
+                console.log(`[session:needs-input] Hook fired (Stop)`);
+                console.log(`[session:needs-input]    Session ID: ${sessionId || '(not set)'}`);
+            }
+
+            if (!sessionId) {
+                if (!isJson) console.log(`[session:needs-input] ABORT: no session ID`);
+                process.exit(0);
+            }
+
+            try {
+                if (!isJson) console.log(`[session:needs-input]    PATCH /api/sessions/${sessionId} -> status: 'needs-user-input'`);
+                await api.patch(`/api/sessions/${sessionId}`, {
+                    status: 'needs-user-input',
+                    timeline: [{
+                        id: `evt-${Date.now()}`,
+                        type: 'needs_input',
+                        timestamp: Date.now(),
+                        message: 'Session is waiting for user input',
+                    }],
+                });
+
+                if (!isJson) {
+                    console.log(`[session:needs-input] Done: session ${sessionId} marked as needs-user-input`);
+                } else {
+                    outputJSON({ sessionId, status: 'needs-user-input' });
+                }
+            } catch (err: any) {
+                if (!isJson) {
+                    console.error(`[session:needs-input] FAILED: ${err.message}`);
+                }
+                process.exit(0);
+            }
+        });
+
+    // session resume-working - Resume session to working status (called by UserPromptSubmit hook)
+    session
+        .command('resume-working')
+        .description('Resume session to working status (called by UserPromptSubmit hook)')
+        .action(async () => {
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const sessionId = config.sessionId;
+
+            if (!isJson) {
+                console.log(`[session:resume-working] Hook fired (UserPromptSubmit)`);
+                console.log(`[session:resume-working]    Session ID: ${sessionId || '(not set)'}`);
+            }
+
+            if (!sessionId) {
+                if (!isJson) console.log(`[session:resume-working] ABORT: no session ID`);
+                process.exit(0);
+            }
+
+            try {
+                if (!isJson) console.log(`[session:resume-working]    PATCH /api/sessions/${sessionId} -> status: 'working'`);
+                await api.patch(`/api/sessions/${sessionId}`, {
+                    status: 'working',
+                });
+
+                if (!isJson) {
+                    console.log(`[session:resume-working] Done: session ${sessionId} resumed to working`);
+                } else {
+                    outputJSON({ sessionId, status: 'working' });
+                }
+            } catch (err: any) {
+                if (!isJson) {
+                    console.error(`[session:resume-working] FAILED: ${err.message}`);
+                }
+                process.exit(0);
+            }
+        });
 }
