@@ -406,6 +406,72 @@ Workers are restricted from using `task:update`, `task:complete`, and `task:bloc
 
 ---
 
-**Last Updated**: 2026-02-06
-**Reviewed By**: Implementation analysis
-**Status**: ✅ Ready for use
+## Full Spec Sync (2026-02-08)
+
+### Overview
+
+Comprehensive sync of all spec documents with actual codebase implementation. This pass covered all 13 spec files (00-12).
+
+### Key Changes
+
+**05-HOOKS-SYSTEM.md** — Major rewrite:
+- Changed from "Future Implementation" to "Implemented"
+- Documented actual plugin hooks.json files for worker and orchestrator
+- Documented PostToolUse hook and track-file utility
+- Documented HookExecutor service
+
+**02-CLI-ARCHITECTURE.md** — Architecture update:
+- Added WhoamiRenderer, SessionBriefGenerator, LocalStorage, APIClient, CommandPermissions
+- Updated directory structure to match actual codebase
+- Added missing command modules (queue.ts, report.ts, project.ts, etc.)
+
+**01-MANIFEST-SCHEMA.md** — Interface fixes:
+- Fixed CodebaseContext to use flat fields (recentChanges, architecture, techStack, dependencies)
+- Fixed RelatedTask relationship values
+- Fixed ProjectStandards to use flat fields
+- Added clarification that sessionStatus is storage-level only
+
+**03-SYSTEM-PROMPTS.md** — Template updates:
+- Added worker-tree-prompt.md
+- Added missing template variables (ALL_TASKS, TASK_COUNT, STRATEGY, STRATEGY_INSTRUCTIONS)
+- Documented server-side template fetching with bundled fallback
+
+**04-STANDARD-SKILLS.md** — Plugin system:
+- Documented built-in plugins (maestro-worker, maestro-orchestrator)
+- Documented hooks.json format and track-file utility
+- Documented how plugins → --plugin-dir in ClaudeSpawner
+
+**11-CONFIGURATION-AND-VALIDATION.md** — Config updates:
+- Added 10+ missing environment variables
+- Documented dotenv loading from .env and ~/.maestro/config
+- Documented LocalStorage system (~/.maestro/data/)
+
+**12-COMMAND-PERMISSIONS.md** — Registry updates:
+- Added queue:status, queue:push, track-file to documentation
+- Documented guardCommandSync() and generateCommandBrief()
+
+**Other files**: Updated implementation status, hook references, directory structures, and command lists across 00, 06, 07, 08, 09, 10.
+
+### Files Modified
+
+All 14 spec files updated:
+- 00-README.md
+- 01-MANIFEST-SCHEMA.md
+- 02-CLI-ARCHITECTURE.md
+- 03-SYSTEM-PROMPTS.md
+- 04-STANDARD-SKILLS.md
+- 05-HOOKS-SYSTEM.md
+- 06-IMPLEMENTATION-SUMMARY.md
+- 07-CLI-COMMANDS-REFERENCE.md
+- 08-SESSION-INITIALIZATION.md
+- 09-ARCHITECTURE-DIAGRAMS.md
+- 10-FUTURE-ENHANCEMENTS.md
+- 11-CONFIGURATION-AND-VALIDATION.md
+- 12-COMMAND-PERMISSIONS.md
+- SPEC-UPDATE-SUMMARY.md
+
+---
+
+**Last Updated**: 2026-02-08
+**Reviewed By**: Code analysis
+**Status**: ✅ Complete

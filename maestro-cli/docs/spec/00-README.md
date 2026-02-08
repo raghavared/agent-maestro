@@ -41,26 +41,42 @@ The only "skills" in Maestro are standard Claude Code skills from `.skills/`:
 
 Users select these in the UI, and they're listed in the manifest.
 
-### 4. Minimal Environment Variables
+### 4. Environment Variables
 
-Only essential session tracking:
+Core session tracking plus runtime context injected by ClaudeSpawner:
 ```bash
+# Core (set by UI/server before spawning)
 MAESTRO_MANIFEST_PATH=/path/to/manifest.json
 MAESTRO_PROJECT_ID=proj-123
 MAESTRO_SESSION_ID=sess-456
-MAESTRO_API_URL=http://localhost:3000
+MAESTRO_API_URL=http://localhost:3000        # or MAESTRO_SERVER_URL (alias)
+
+# Set by ClaudeSpawner for child sessions
+MAESTRO_TASK_IDS=task-1,task-2
+MAESTRO_ROLE=worker
+MAESTRO_STRATEGY=simple
+MAESTRO_TASK_TITLE=...
+MAESTRO_TASK_PRIORITY=medium
+MAESTRO_ALL_TASKS=<JSON>
+MAESTRO_TASK_ACCEPTANCE=<JSON>
+MAESTRO_TASK_DEPENDENCIES=<JSON>
+
+# Operational
+MAESTRO_RETRIES=3
+MAESTRO_RETRY_DELAY=1000
+MAESTRO_DEBUG=true
 ```
 
 All task data goes in the manifest.
 
-### 5. Minimal Hooks
+### 5. Hooks System (Implemented)
 
-Hooks are not extensible. They're built into the CLI for:
-- Reporting session start to server
-- Reporting session end to server
-- Basic progress tracking
+Hooks are implemented via Claude Code plugin hooks.json files:
+- `SessionStart`: Register session with server (`maestro session register`)
+- `SessionEnd`: Complete session (`maestro session complete`)
+- `PostToolUse` (Worker only): Track file modifications on Write/Edit
 
-That's it. Keep it simple.
+Plugins: `plugins/maestro-worker/` and `plugins/maestro-orchestrator/`
 
 ## Architecture Diagram
 
@@ -246,41 +262,41 @@ Core functionality works with zero external dependencies:
 ## Implementation Phases
 
 ### Phase 1: Core Manifest System (Week 1)
-- [ ] Define manifest schema
-- [ ] Implement manifest validator
-- [ ] Create TypeScript types
-- [ ] Write unit tests
+- [x] Define manifest schema
+- [x] Implement manifest validator
+- [x] Create TypeScript types
+- [x] Write unit tests
 
 ### Phase 2: System Prompt Templates (Week 1)
-- [ ] Write worker system prompt template
-- [ ] Write orchestrator system prompt template
-- [ ] Implement template variable injection
-- [ ] Test prompt generation
+- [x] Write worker system prompt template
+- [x] Write orchestrator system prompt template
+- [x] Implement template variable injection
+- [x] Test prompt generation
 
 ### Phase 3: Standard Skills Integration (Week 2)
-- [ ] Implement skill discovery
-- [ ] Implement skill loader
-- [ ] Test with standard skills
-- [ ] Handle missing skills gracefully
+- [x] Implement skill discovery
+- [x] Implement skill loader
+- [x] Test with standard skills
+- [x] Handle missing skills gracefully
 
 ### Phase 4: CLI Commands (Week 2)
-- [ ] Implement `maestro worker init`
-- [ ] Implement `maestro orchestrator init`
-- [ ] Implement `maestro whoami`
-- [ ] Implement task/subtask commands
-- [ ] Implement context commands
+- [x] Implement `maestro worker init`
+- [x] Implement `maestro orchestrator init`
+- [x] Implement `maestro whoami`
+- [x] Implement task/subtask commands
+- [x] Implement context commands
 
 ### Phase 5: Minimal Hooks (Week 3)
-- [ ] Implement SessionStart hook
-- [ ] Implement SessionEnd hook
-- [ ] Add server integration
-- [ ] Handle offline mode
+- [x] Implement SessionStart hook
+- [x] Implement SessionEnd hook
+- [x] Add server integration
+- [x] Handle offline mode
 
 ### Phase 6: Testing & Documentation (Week 3)
-- [ ] Write integration tests
-- [ ] Write end-to-end tests
-- [ ] Create usage examples
-- [ ] Write migration guide
+- [x] Write integration tests
+- [x] Write end-to-end tests
+- [x] Create usage examples
+- [x] Write migration guide
 
 ## Success Criteria
 
@@ -396,12 +412,28 @@ For architecture diagrams, see [09-ARCHITECTURE-DIAGRAMS.md](./09-ARCHITECTURE-D
    - `--debug` for troubleshooting
    - Not a priority unless impacts agent capabilities
 
-8. **Environment Variables**: Minimal set
+8. **Environment Variables**: Full set
    ```bash
-   MAESTRO_MANIFEST_PATH    # Required: Path to manifest
-   MAESTRO_PROJECT_ID       # Required: Project identifier
-   MAESTRO_SESSION_ID       # Required: Session identifier
-   MAESTRO_API_URL          # Optional: Server URL (default: http://localhost:3000)
+   # Core (set by UI/server before spawning)
+   MAESTRO_MANIFEST_PATH=/path/to/manifest.json
+   MAESTRO_PROJECT_ID=proj-123
+   MAESTRO_SESSION_ID=sess-456
+   MAESTRO_API_URL=http://localhost:3000        # or MAESTRO_SERVER_URL (alias)
+
+   # Set by ClaudeSpawner for child sessions
+   MAESTRO_TASK_IDS=task-1,task-2
+   MAESTRO_ROLE=worker
+   MAESTRO_STRATEGY=simple
+   MAESTRO_TASK_TITLE=...
+   MAESTRO_TASK_PRIORITY=medium
+   MAESTRO_ALL_TASKS=<JSON>
+   MAESTRO_TASK_ACCEPTANCE=<JSON>
+   MAESTRO_TASK_DEPENDENCIES=<JSON>
+
+   # Operational
+   MAESTRO_RETRIES=3
+   MAESTRO_RETRY_DELAY=1000
+   MAESTRO_DEBUG=true
    ```
 
 ### 📋 Documentation Status
@@ -419,8 +451,8 @@ For architecture diagrams, see [09-ARCHITECTURE-DIAGRAMS.md](./09-ARCHITECTURE-D
 
 ---
 
-**Last Updated**: 2026-02-06
-**Status**: ✅ Updated - Report commands migration complete
+**Last Updated**: 2026-02-08
+**Status**: ✅ Updated - Spec sync with actual code
 **Version**: 1.0.0
 **Implementation Plan**: See `../IMPLEMENTATION-PLAN.md`
 **Clarifications**: See `../CLARIFICATIONS-SUMMARY.md`

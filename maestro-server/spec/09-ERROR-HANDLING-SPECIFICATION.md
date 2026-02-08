@@ -1,12 +1,66 @@
 # Error Handling Specification
 
-**Version:** 1.0.0
-**Last Updated:** 2026-02-04
+**Version:** 2.0.0
+**Last Updated:** 2026-02-08
 **Status:** Stable
 
 ## Overview
 
-The Maestro Server implements a standardized error handling approach across all API endpoints. Errors use consistent response formats, HTTP status codes, and error codes to facilitate client error handling and debugging.
+The Maestro Server implements a standardized error handling approach using a typed error class hierarchy. The `AppError` base class and its subclasses provide consistent error responses across all API endpoints.
+
+## Error Class Hierarchy
+
+```typescript
+// Base error class (src/domain/common/Errors.ts)
+AppError (base)
+├── ValidationError      (400 VALIDATION_ERROR)
+├── NotFoundError         (404 NOT_FOUND)
+├── ForbiddenError        (403 FORBIDDEN)
+├── UnauthorizedError     (401 UNAUTHORIZED)
+├── BusinessRuleError     (422 BUSINESS_RULE_ERROR)
+├── ConfigError           (500 CONFIG_ERROR)
+├── ManifestGenerationError (500 MANIFEST_GENERATION_ERROR)
+└── SkillLoadError        (500 SKILL_LOAD_ERROR)
+```
+
+### AppError Base Class
+
+```typescript
+export class AppError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    public readonly code: string,
+    message: string,
+    public readonly details?: any
+  ) {
+    super(message);
+    this.name = this.constructor.name;
+  }
+
+  toJSON() {
+    return {
+      error: true,
+      statusCode: this.statusCode,
+      code: this.code,
+      message: this.message,
+      details: this.details
+    };
+  }
+}
+```
+
+### Error Subclasses
+
+| Class | Status | Code | Usage |
+|-------|--------|------|-------|
+| `ValidationError` | 400 | `VALIDATION_ERROR` | Invalid input data |
+| `NotFoundError` | 404 | `NOT_FOUND` | Resource not found |
+| `ForbiddenError` | 403 | `FORBIDDEN` | Access denied |
+| `UnauthorizedError` | 401 | `UNAUTHORIZED` | Not authenticated |
+| `BusinessRuleError` | 422 | `BUSINESS_RULE_ERROR` | Business rule violation |
+| `ConfigError` | 500 | `CONFIG_ERROR` | Configuration error |
+| `ManifestGenerationError` | 500 | `MANIFEST_GENERATION_ERROR` | Manifest generation failed |
+| `SkillLoadError` | 500 | `SKILL_LOAD_ERROR` | Failed to load skill |
 
 ## Standard Error Response Format
 
@@ -19,6 +73,7 @@ interface ErrorResponse {
   error: true;              // Always true for errors
   code: string;             // Machine-readable error code (UPPER_SNAKE_CASE or snake_case)
   message: string;          // Human-readable error message
+  statusCode?: number;      // HTTP status code (from AppError.toJSON())
   details?: any;            // Optional: Additional error context
 }
 ```
@@ -44,9 +99,13 @@ interface ErrorResponse {
 |-------------|----------|-----------|
 | `200 OK` | Success | Successful GET, PATCH, DELETE operations |
 | `201 Created` | Success | Successful POST creation |
-| `400 Bad Request` | Client Error | Invalid request data, validation failures |
-| `404 Not Found` | Client Error | Resource not found |
-| `500 Internal Server Error` | Server Error | Unexpected server errors, exceptions |
+| `400 Bad Request` | Client Error | Invalid request data, validation failures (`ValidationError`) |
+| `401 Unauthorized` | Client Error | Not authenticated (`UnauthorizedError`) - reserved for future |
+| `403 Forbidden` | Client Error | Access denied (`ForbiddenError`) - reserved for future |
+| `404 Not Found` | Client Error | Resource not found (`NotFoundError`) |
+| `422 Unprocessable Entity` | Client Error | Business rule violation (`BusinessRuleError`) |
+| `500 Internal Server Error` | Server Error | Unexpected server errors, `ConfigError`, `ManifestGenerationError`, `SkillLoadError` |
+| `501 Not Implemented` | Server Error | Feature not available (e.g., skill reload not supported) |
 
 ### Status Code Guidelines
 
@@ -91,32 +150,38 @@ Used when:
 
 | Code | HTTP Status | Message | Used In |
 |------|-------------|---------|---------|
-| `VALIDATION_ERROR` | 400 | Generic validation failure message | tasks.ts, projects.ts, sessions.ts |
-| `missing_project_id` | 400 | `projectId is required` | sessions.ts (spawn) |
-| `invalid_task_ids` | 400 | `taskIds must be a non-empty array` | sessions.ts (spawn) |
-| `invalid_spawn_source` | 400 | `spawnSource must be "ui" or "session"` | sessions.ts (spawn) |
-| `missing_session_id` | 400 | `sessionId is required when spawnSource is "session"` | sessions.ts (spawn) |
-| `invalid_role` | 400 | `role must be "worker" or "orchestrator"` | sessions.ts (spawn) |
-| `PROJECT_HAS_DEPENDENCIES` | 400 | `Cannot delete project...` | projects.ts (delete) |
+| `VALIDATION_ERROR` | 400 | Generic validation failure message | taskRoutes.ts, projectRoutes.ts, sessionRoutes.ts, skillRoutes.ts |
+| `missing_project_id` | 400 | `projectId is required` | sessionRoutes.ts (spawn) |
+| `invalid_task_ids` | 400 | `taskIds must be a non-empty array` | sessionRoutes.ts (spawn) |
+| `invalid_spawn_source` | 400 | `spawnSource must be "ui" or "session"` | sessionRoutes.ts (spawn) |
+| `missing_session_id` | 400 | `sessionId is required when spawnSource is "session"` | sessionRoutes.ts (spawn) |
+| `invalid_role` | 400 | `role must be "worker" or "orchestrator"` | sessionRoutes.ts (spawn) |
+| `invalid_strategy` | 400 | `strategy must be "simple", "queue", or "tree"` | sessionRoutes.ts (spawn) |
+| `PROJECT_HAS_DEPENDENCIES` | 400 | `Cannot delete project...` | projectRoutes.ts (delete) |
 
 ### Not Found Errors (404)
 
 | Code | HTTP Status | Message | Used In |
 |------|-------------|---------|---------|
-| `TASK_NOT_FOUND` | 404 | `Task not found` | tasks.ts (get, update, delete, timeline, children) |
-| `task_not_found` | 404 | `Task {taskId} not found` | sessions.ts (spawn) |
-| `PROJECT_NOT_FOUND` | 404 | `Project not found` | projects.ts (get, update, delete) |
-| `project_not_found` | 404 | `Project {projectId} not found` | sessions.ts (spawn) |
-| `SESSION_NOT_FOUND` | 404 | `Session not found` | sessions.ts (get, update, delete) |
-| `NOT_FOUND` | 404 | Generic not found message | sessions.ts (task operations) |
+| `TASK_NOT_FOUND` | 404 | `Task not found` | taskRoutes.ts (get, update, delete, timeline, children) |
+| `task_not_found` | 404 | `Task {taskId} not found` | sessionRoutes.ts (spawn) |
+| `PROJECT_NOT_FOUND` | 404 | `Project not found` | projectRoutes.ts (get, update, delete) |
+| `project_not_found` | 404 | `Project {projectId} not found` | sessionRoutes.ts (spawn) |
+| `SESSION_NOT_FOUND` | 404 | `Session not found` | sessionRoutes.ts (get, update, delete) |
+| `parent_session_not_found` | 404 | `Parent session {sessionId} not found` | sessionRoutes.ts (spawn) |
+| `NOT_FOUND` | 404 | Generic not found message | sessionRoutes.ts (task ops), skillRoutes.ts |
 
 ### Server Errors (500)
 
 | Code | HTTP Status | Message | Used In |
 |------|-------------|---------|---------|
 | `INTERNAL_ERROR` | 500 | `[exception message]` | All API routes (catch-all) |
-| `manifest_generation_failed` | 500 | `Failed to generate manifest: [details]` | sessions.ts (spawn) |
-| `spawn_error` | 500 | `[exception message]` | sessions.ts (spawn) |
+| `manifest_generation_failed` | 500 | `Failed to generate manifest: [details]` | sessionRoutes.ts (spawn) |
+| `spawn_error` | 500 | `[exception message]` | sessionRoutes.ts (spawn) |
+| `CONFIG_ERROR` | 500 | Configuration validation failure | Config class |
+| `MANIFEST_GENERATION_ERROR` | 500 | Manifest generation failed | ManifestGenerationError |
+| `SKILL_LOAD_ERROR` | 500 | Failed to load skill | FileSystemSkillLoader |
+| `NOT_IMPLEMENTED` | 501 | Feature not supported | skillRoutes.ts (reload) |
 
 ## Error Handling Patterns in API Routes
 
@@ -271,13 +336,35 @@ try {
 **Used in:**
 - `POST /api/sessions/spawn`
 
+## Error Handler Helper
+
+Each route module uses a `handleError` helper that detects `AppError` instances and returns appropriate responses:
+
+```typescript
+const handleError = (err: any, res: Response) => {
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json(err.toJSON());
+  }
+  return res.status(500).json({
+    error: true,
+    message: err.message,
+    code: 'INTERNAL_ERROR'
+  });
+};
+```
+
+This pattern is used in `sessionRoutes.ts`, `taskRoutes.ts`, `projectRoutes.ts`, `queueRoutes.ts`, and `templateRoutes.ts`.
+
 ## Error Middleware
 
 The server includes a global error handling middleware that catches unhandled errors:
 
 ```typescript
-// Error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+// Error handling middleware (src/server.ts)
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json(err.toJSON());
+  }
   console.error('Server error:', err);
   res.status(500).json({
     error: true,
@@ -287,12 +374,10 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 ```
 
-**Location:** `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/server.ts` (lines 44-51)
-
 **Purpose:**
-- Catch errors that bubble up from routes
+- Catch `AppError` instances and return their `toJSON()` response
+- Catch other errors and return generic `INTERNAL_ERROR`
 - Log errors to console
-- Return standardized error response
 - Prevent server crashes
 
 **Note:** This middleware is registered after all routes using `app.use()`.
@@ -391,20 +476,36 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 - `400 missing_project_id` - Missing projectId
 - `400 invalid_task_ids` - Invalid or empty taskIds
 - `400 invalid_spawn_source` - Invalid spawnSource value
+- `400 missing_session_id` - Missing sessionId when spawnSource is "session"
 - `400 invalid_role` - Invalid role value
+- `400 invalid_strategy` - Invalid strategy value
 - `404 task_not_found` - Task doesn't exist (includes details)
 - `404 project_not_found` - Project doesn't exist
+- `404 parent_session_not_found` - Parent session doesn't exist
 - `500 manifest_generation_failed` - CLI manifest generation failed
 - `500 spawn_error` - Unexpected spawn error
 
 ### Skills API
 
-**File:** `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/api/skills.ts`
+**File:** `src/api/skillRoutes.ts`
 
 #### GET /api/skills
 - Returns `[]` on error (no explicit error response)
 
-**Note:** The skills endpoint doesn't return error responses, instead returning an empty array if the skills directory is missing or cannot be read. This is intentional to prevent blocking the UI.
+#### GET /api/skills/:id
+- `404 NOT_FOUND` - Skill not found
+- `500 INTERNAL_ERROR` - Load error
+
+#### GET /api/skills/role/:role
+- `400 VALIDATION_ERROR` - Invalid role value
+- `500 INTERNAL_ERROR` - Load error
+
+#### POST /api/skills/:id/reload
+- `404 NOT_FOUND` - Skill not found
+- `501 NOT_IMPLEMENTED` - Reload not supported
+- `500 INTERNAL_ERROR` - Reload error
+
+**Note:** `GET /api/skills` returns an empty array on error instead of an error response. This is intentional to prevent blocking the UI.
 
 ## Client Error Handling Patterns
 
@@ -466,7 +567,10 @@ function isValidationError(code: string): boolean {
     'missing_project_id',
     'invalid_task_ids',
     'invalid_spawn_source',
-    'invalid_role'
+    'invalid_role',
+    'invalid_strategy',
+    'missing_session_id',
+    'BUSINESS_RULE_ERROR'
   ].includes(code);
 }
 
@@ -478,6 +582,7 @@ function isNotFoundError(code: string): boolean {
     'PROJECT_NOT_FOUND',
     'project_not_found',
     'SESSION_NOT_FOUND',
+    'parent_session_not_found',
     'NOT_FOUND'
   ].includes(code);
 }
@@ -487,7 +592,10 @@ function isServerError(code: string): boolean {
   return [
     'INTERNAL_ERROR',
     'manifest_generation_failed',
-    'spawn_error'
+    'spawn_error',
+    'CONFIG_ERROR',
+    'MANIFEST_GENERATION_ERROR',
+    'SKILL_LOAD_ERROR'
   ].includes(code);
 }
 
@@ -583,8 +691,11 @@ Used for specific, context-dependent error codes:
 - `invalid_task_ids`
 - `invalid_spawn_source`
 - `invalid_role`
+- `invalid_strategy`
+- `missing_session_id`
 - `task_not_found` (with details)
 - `project_not_found` (in spawn context)
+- `parent_session_not_found`
 - `manifest_generation_failed`
 - `spawn_error`
 
@@ -656,14 +767,19 @@ function createError<T>(
 
 ## Implementation Reference
 
-**Error Middleware:**
-- File: `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/server.ts` (lines 44-51)
+**Error Classes:**
+- File: `src/domain/common/Errors.ts` - `AppError`, `ValidationError`, `NotFoundError`, `ForbiddenError`, `UnauthorizedError`, `BusinessRuleError`, `ConfigError`, `ManifestGenerationError`, `SkillLoadError`
 
-**Error Handling Examples:**
-- Tasks API: `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/api/tasks.ts`
-- Projects API: `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/api/projects.ts`
-- Sessions API: `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/api/sessions.ts`
-- Skills API: `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/api/skills.ts`
+**Error Middleware:**
+- File: `src/server.ts` - Global `AppError`-aware error middleware
+
+**Error Handling in Routes:**
+- Tasks API: `src/api/taskRoutes.ts` - Uses `handleError` helper
+- Projects API: `src/api/projectRoutes.ts` - Uses `handleError` helper
+- Sessions API: `src/api/sessionRoutes.ts` - Uses `handleError` helper
+- Skills API: `src/api/skillRoutes.ts` - Direct error handling
+- Queue API: `src/api/queueRoutes.ts` - Uses `handleError` helper
+- Templates API: `src/api/templateRoutes.ts` - Uses `handleError` helper
 
 **Complete Error Code List:**
 See "Complete Error Code Catalog" section above for all error codes, status codes, messages, and locations.

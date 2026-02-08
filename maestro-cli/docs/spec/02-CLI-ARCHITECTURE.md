@@ -36,26 +36,37 @@ Everything else (task management, progress tracking, UI) is external to the CLI.
 │  │                                                  │  │
 │  │  ┌──────────────────┐  ┌──────────────────┐   │  │
 │  │  │ ManifestReader   │  │ PromptGenerator  │   │  │
-│  │  │                  │  │                  │   │  │
 │  │  │ • Read manifest  │  │ • Load template  │   │  │
 │  │  │ • Validate       │  │ • Inject vars    │   │  │
-│  │  │ • Parse          │  │ • Generate       │   │  │
+│  │  │ • Parse          │  │ • Server fetch   │   │  │
 │  │  └──────────────────┘  └──────────────────┘   │  │
 │  │                                                  │  │
 │  │  ┌──────────────────┐  ┌──────────────────┐   │  │
 │  │  │  SkillLoader     │  │  ClaudeSpawner   │   │  │
-│  │  │                  │  │                  │   │  │
 │  │  │ • Discover       │  │ • Build args     │   │  │
-│  │  │ • Validate       │  │ • Spawn process  │   │  │
-│  │  │ • Load           │  │ • Monitor        │   │  │
+│  │  │ • Validate       │  │ • Plugin dirs    │   │  │
+│  │  │ • Load           │  │ • Spawn process  │   │  │
 │  │  └──────────────────┘  └──────────────────┘   │  │
 │  │                                                  │  │
 │  │  ┌──────────────────┐  ┌──────────────────┐   │  │
-│  │  │   HookExecutor   │  │   ServerClient   │   │  │
-│  │  │                  │  │                  │   │  │
-│  │  │ • SessionStart   │  │ • HTTP client    │   │  │
-│  │  │ • SessionEnd     │  │ • API calls      │   │  │
-│  │  │ • Report         │  │ • Error handling │   │  │
+│  │  │   HookExecutor   │  │   APIClient      │   │  │
+│  │  │ • Execute cmds   │  │ • HTTP client    │   │  │
+│  │  │ • Timeout        │  │ • Retry logic    │   │  │
+│  │  │ • Error handling │  │ • Error handling │   │  │
+│  │  └──────────────────┘  └──────────────────┘   │  │
+│  │                                                  │  │
+│  │  ┌──────────────────┐  ┌──────────────────┐   │  │
+│  │  │ WhoamiRenderer   │  │SessionBriefGen.  │   │  │
+│  │  │ • Identity hdr   │  │ • Task summary   │   │  │
+│  │  │ • Template subs  │  │ • Criteria       │   │  │
+│  │  │ • Commands list  │  │ • Config display │   │  │
+│  │  └──────────────────┘  └──────────────────┘   │  │
+│  │                                                  │  │
+│  │  ┌──────────────────┐  ┌──────────────────┐   │  │
+│  │  │  LocalStorage    │  │ CommandPerms     │   │  │
+│  │  │ • Read ~/.maestro│  │ • Role defaults  │   │  │
+│  │  │ • Projects cache │  │ • Guard commands │   │  │
+│  │  │ • Tasks cache    │  │ • Generate brief │   │  │
 │  │  └──────────────────┘  └──────────────────┘   │  │
 │  └─────────────────────────────────────────────── ┘  │
 │                                                         │
@@ -78,46 +89,57 @@ maestro-cli/
 │
 ├── src/
 │   ├── commands/
-│   │   ├── worker.ts           # maestro worker init
-│   │   ├── orchestrator.ts    # maestro orchestrator init
-│   │   ├── manifest.ts        # maestro manifest generate
-│   │   ├── task.ts            # Task CRUD commands (including hierarchy)
-│   │   ├── context.ts         # Context loading commands
-│   │   └── session.ts         # Session management
+│   │   ├── worker.ts           # maestro worker commands
+│   │   ├── worker-init.ts      # WorkerInitCommand class
+│   │   ├── orchestrator.ts     # maestro orchestrator commands
+│   │   ├── orchestrator-init.ts # OrchestratorInitCommand class
+│   │   ├── manifest-generator.ts # maestro manifest generate
+│   │   ├── task.ts             # Task CRUD commands (inc. hierarchy)
+│   │   ├── session.ts          # Session management
+│   │   ├── queue.ts            # Queue strategy commands
+│   │   ├── report.ts           # Report commands (progress, complete, etc.)
+│   │   ├── project.ts          # Project management commands
+│   │   └── skill.ts            # Skill discovery commands
 │   │
 │   ├── services/
-│   │   ├── manifest-reader.ts     # Read and validate manifests
-│   │   ├── manifest-generator.ts  # Generate manifests (for manifest command)
-│   │   ├── prompt-generator.ts    # Generate system prompts
-│   │   ├── skill-loader.ts        # Discover and load skills
-│   │   ├── claude-spawner.ts      # Spawn Claude Code
-│   │   ├── hook-executor.ts       # Execute hooks
-│   │   └── server-client.ts       # HTTP client for server
-│   │
-│   ├── templates/
-│   │   ├── worker-prompt.md    # Worker system prompt
-│   │   └── orchestrator-prompt.md # Orchestrator system prompt
+│   │   ├── manifest-reader.ts      # Read and validate manifests
+│   │   ├── prompt-generator.ts     # Generate system prompts (server + bundled)
+│   │   ├── skill-loader.ts         # Discover and load skills
+│   │   ├── claude-spawner.ts       # Spawn Claude Code with plugins
+│   │   ├── hook-executor.ts        # Execute shell command hooks
+│   │   ├── command-permissions.ts  # Command registry and permissions
+│   │   ├── whoami-renderer.ts      # Render full session context
+│   │   └── session-brief-generator.ts # Formatted session brief display
 │   │
 │   ├── types/
-│   │   ├── manifest.ts         # Manifest types
-│   │   ├── session.ts          # Session types
-│   │   └── config.ts           # Config types
+│   │   ├── manifest.ts         # Manifest types (source of truth)
+│   │   └── storage.ts          # Storage entity types
 │   │
-│   ├── utils/
-│   │   ├── config.ts           # Load environment config
-│   │   ├── logger.ts           # Logging utility
-│   │   ├── errors.ts           # Error classes
-│   │   └── validator.ts        # Schema validation
+│   ├── schemas/                 # JSON validation schemas
 │   │
+│   ├── api.ts                  # APIClient (HTTP with retry)
+│   ├── storage.ts              # LocalStorage (read-only ~/.maestro/data/)
+│   ├── config.ts               # Environment variable config + dotenv
 │   └── index.ts                # Main CLI setup
 │
 ├── templates/                   # System prompt templates
-│   ├── worker-prompt.md
+│   ├── worker-simple-prompt.md
+│   ├── worker-queue-prompt.md
+│   ├── worker-tree-prompt.md
 │   └── orchestrator-prompt.md
 │
+├── plugins/                     # Claude Code plugin directories
+│   ├── maestro-worker/
+│   │   ├── hooks/
+│   │   │   └── hooks.json      # SessionStart, SessionEnd, PostToolUse
+│   │   └── bin/
+│   │       └── track-file      # File tracking utility
+│   └── maestro-orchestrator/
+│       └── hooks/
+│           └── hooks.json      # SessionStart, SessionEnd
+│
 ├── package.json
-├── tsconfig.json
-└── README.md
+└── tsconfig.json
 ```
 
 ## Data Flow
@@ -162,7 +184,15 @@ maestro-cli/
    ├─ Spawn claude process
    └─ Monitor process
 
-8. Process monitoring:
+8. Agent starts:
+   ├─ Claude receives initial prompt: 'Run `maestro whoami`'
+   ├─ Agent runs maestro whoami → WhoamiRenderer
+   │  ├─ Renders identity header (role, strategy, session ID)
+   │  ├─ Loads and substitutes template content
+   │  └─ Generates available commands list
+   └─ Agent understands full context and begins work
+
+9. Process monitoring:
    ├─ Wait for Claude to exit
    └─ On exit: HookExecutor.SessionEnd
 
@@ -171,7 +201,7 @@ maestro-cli/
    └─ Report session completed
 ```
 
-**Note**: Steps 6 and 9 (hooks) are marked for future implementation and not currently active.
+**Note**: Hooks are implemented via plugin hooks.json files loaded as `--plugin-dir`. The CLI itself does not call hooks directly — Claude Code's plugin system handles hook execution.
 
 ### Complete Spawn Flow (UI → CLI → Claude)
 

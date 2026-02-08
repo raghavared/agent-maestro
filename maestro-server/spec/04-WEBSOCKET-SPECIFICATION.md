@@ -1,22 +1,23 @@
 # Maestro Server - WebSocket Specification
 
-**Version:** 1.0.0
-**Last Updated:** 2026-02-04
+**Version:** 2.0.0
+**Last Updated:** 2026-02-08
 **Purpose:** Complete WebSocket protocol and event catalog
 
 ---
 
 ## Overview
 
-Maestro Server broadcasts real-time events to connected clients via WebSocket. The protocol is **unidirectional**: server sends events, clients only receive (no client messages accepted).
+Maestro Server broadcasts real-time events to connected clients via WebSocket. The protocol is **primarily unidirectional**: server broadcasts events to clients, with limited client-to-server messaging support (ping/pong heartbeat).
 
 ### Key Characteristics
 
-- **Direction:** Server → Client only (unidirectional)
+- **Direction:** Primarily Server → Client (with ping/pong support from clients)
 - **Transport:** WebSocket over HTTP upgrade
-- **Format:** JSON messages
+- **Format:** JSON messages with `timestamp` field
 - **Connection:** Long-lived, persistent
 - **URL:** `ws://localhost:3000` (same port as HTTP server)
+- **Bridge:** `WebSocketBridge` class subscribes to `InMemoryEventBus` and broadcasts to all connected clients
 
 ---
 
@@ -28,19 +29,23 @@ Maestro Server broadcasts real-time events to connected clients via WebSocket. T
 sequenceDiagram
     participant Client
     participant Server
-    participant Storage
+    participant EventBus as InMemoryEventBus
+    participant Bridge as WebSocketBridge
 
     Client->>Server: HTTP Upgrade (WebSocket)
     Server->>Client: 101 Switching Protocols
-    Note over Server: Add client to Set<WebSocket>
+    Note over Bridge: Track client via wss.clients
 
-    loop Storage Events
-        Storage->>Server: emit('task:created', task)
-        Server->>Client: broadcast('task:created', task)
+    loop Domain Events
+        EventBus->>Bridge: emit('task:created', task)
+        Bridge->>Client: broadcast('task:created', task)
     end
 
+    Client->>Server: { type: 'ping' }
+    Server->>Client: { type: 'pong', timestamp }
+
     Client->>Server: close()
-    Note over Server: Remove client from Set
+    Note over Bridge: Client removed from wss.clients
 ```
 
 ### Connecting
@@ -98,30 +103,72 @@ ws.onerror = (error) => {
 ### Connection Lifecycle
 
 1. **Connection:** Client opens WebSocket to server
-2. **Active:** Client receives broadcast events
+2. **Active:** Client receives broadcast events, can send ping messages
 3. **Disconnection:** Client closes connection or network failure
-4. **Cleanup:** Server removes client from broadcast set
+4. **Cleanup:** Server removes client from `wss.clients` set automatically
 
 ### Server-Side Connection Tracking
 
+Connection tracking is handled by the `WebSocketBridge` class which wraps the `WebSocketServer`:
+
 ```typescript
-const clients = new Set<WebSocket>();
+// WebSocketBridge class (src/infrastructure/websocket/WebSocketBridge.ts)
+export class WebSocketBridge {
+  constructor(
+    private wss: WebSocketServer,
+    private eventBus: IEventBus,
+    logger: ILogger
+  ) {
+    this.setupEventHandlers();
+    this.setupConnectionHandlers();
+  }
 
-wss.on('connection', (ws: WebSocket) => {
-  console.log('WebSocket client connected. Total clients:', clients.size + 1);
-  clients.add(ws);
+  private setupConnectionHandlers(): void {
+    this.wss.on('connection', (ws: WebSocket, req) => {
+      const origin = req.headers.origin || 'unknown';
+      const remoteAddr = req.socket.remoteAddress || 'unknown';
+      console.log(`🔌 WebSocket client connected (origin=${origin}, addr=${remoteAddr}, total=${this.wss.clients.size})`);
 
-  ws.on('close', () => {
-    console.log('WebSocket client disconnected. Total clients:', clients.size - 1);
-    clients.delete(ws);
-  });
+      ws.on('close', (code, reason) => {
+        console.log(`🔌 WebSocket client disconnected (origin=${origin}, code=${code}, total=${this.wss.clients.size})`);
+      });
 
-  ws.on('error', (err: Error) => {
-    console.error('WebSocket error:', err);
-    clients.delete(ws);
-  });
-});
+      ws.on('error', (error) => {
+        this.logger.error('WebSocket client error:', error);
+      });
+
+      ws.on('message', (data) => {
+        try {
+          const message = JSON.parse(data.toString());
+          this.handleClientMessage(ws, message);
+        } catch (err) {
+          this.logger.warn('Failed to parse WebSocket message');
+        }
+      });
+    });
+  }
+}
 ```
+
+### Client-to-Server Messages
+
+The server accepts limited client messages:
+
+#### Ping/Pong
+
+Clients can send `ping` messages and receive `pong` responses:
+
+```typescript
+// Client sends:
+{ "type": "ping" }
+
+// Server responds:
+{ "type": "pong", "timestamp": 1738713800000 }
+```
+
+#### Other Messages
+
+Other client messages are logged but not acted upon. High-frequency messages (`heartbeat`, `keepalive`) are silently ignored.
 
 ---
 
@@ -134,6 +181,7 @@ interface WebSocketMessage {
   type: string;      // Event type (same as event)
   event: string;     // Event type (redundant for compatibility)
   data: any;         // Event payload
+  timestamp: number; // Unix milliseconds when broadcast was sent
 }
 ```
 
@@ -148,11 +196,12 @@ interface WebSocketMessage {
     "projectId": "proj_1738713600000_x7k9m2p4q",
     "title": "Build API",
     "status": "pending"
-  }
+  },
+  "timestamp": 1738713700050
 }
 ```
 
-**Note:** Both `type` and `event` fields contain the same value for backward compatibility.
+**Note:** Both `type` and `event` fields contain the same value for backward compatibility. The `timestamp` field is added by the `WebSocketBridge` at broadcast time.
 
 ---
 
@@ -257,6 +306,7 @@ interface WebSocketMessage {
   title: string;
   description: string;
   status: TaskStatus;
+  sessionStatus?: TaskSessionStatus;
   priority: TaskPriority;
   createdAt: number;
   updatedAt: number;
@@ -267,7 +317,8 @@ interface WebSocketMessage {
   skillIds: string[];
   agentIds: string[];
   dependencies: string[];
-  timeline: TimelineEvent[];
+  model?: 'haiku' | 'sonnet' | 'opus';
+  // NOTE: timeline moved to Session - each session has its own timeline
 }
 ```
 
@@ -293,15 +344,9 @@ interface WebSocketMessage {
     "skillIds": [],
     "agentIds": [],
     "dependencies": [],
-    "timeline": [
-      {
-        "id": "evt_1738713700000_z1y2x3w4v",
-        "type": "created",
-        "timestamp": 1738713700000,
-        "message": "Task created"
-      }
-    ]
-  }
+    "model": "sonnet"
+  },
+  "timestamp": 1738713700050
 }
 ```
 
@@ -416,9 +461,9 @@ interface WebSocketMessage {
 
 **Emitted When:**
 - Regular session created (via `POST /api/sessions`)
-- Session spawned (via `POST /api/sessions/spawn`) - **SPECIAL FORMAT**
+- **NOT emitted** for spawned sessions (spawn uses `_suppressCreatedEvent: true` and emits `session:spawn` instead)
 
-**Data Schema (Regular):**
+**Data Schema:**
 ```typescript
 {
   id: string;
@@ -427,6 +472,7 @@ interface WebSocketMessage {
   name: string;
   agentId?: string;
   env: Record<string, string>;
+  strategy: WorkerStrategy;
   status: SessionStatus;
   startedAt: number;
   lastActivity: number;
@@ -434,25 +480,12 @@ interface WebSocketMessage {
   hostname: string;
   platform: string;
   events: SessionEvent[];
+  timeline: SessionTimelineEvent[];
   metadata?: Record<string, any>;
 }
 ```
 
-**Data Schema (Spawn - SPECIAL):**
-```typescript
-{
-  session: Session;                    // Full session object
-  command: string;                     // Command to run (e.g., "maestro worker init")
-  cwd: string;                         // Working directory
-  envVars: Record<string, string>;     // Environment variables
-  manifest: any;                       // Generated manifest object
-  projectId: string;                   // Project ID
-  taskIds: string[];                   // Task IDs
-  _isSpawnCreated: true;               // Flag to identify spawn event
-}
-```
-
-**Example (Regular):**
+**Example:**
 ```json
 {
   "type": "session:created",
@@ -463,110 +496,46 @@ interface WebSocketMessage {
     "taskIds": ["task_1738713700000_p9q2r5t8w"],
     "name": "Worker Session",
     "env": {},
-    "status": "running",
+    "strategy": "simple",
+    "status": "idle",
     "startedAt": 1738713800000,
     "lastActivity": 1738713800000,
     "completedAt": null,
     "hostname": "johns-macbook.local",
     "platform": "darwin",
     "events": [],
+    "timeline": [],
     "metadata": null
-  }
+  },
+  "timestamp": 1738713800050
 }
 ```
-
-**Example (Spawn):**
-```json
-{
-  "type": "session:created",
-  "event": "session:created",
-  "data": {
-    "session": {
-      "id": "sess_1738713800000_a1b2c3d4e",
-      "projectId": "proj_1738713600000_x7k9m2p4q",
-      "taskIds": ["task_1738713700000_p9q2r5t8w"],
-      "name": "Worker for task_1738713700000_p9q2r5t8w",
-      "env": {
-        "MAESTRO_SESSION_ID": "sess_1738713800000_a1b2c3d4e",
-        "MAESTRO_MANIFEST_PATH": "/Users/john/.maestro/sessions/sess_1738713800000_a1b2c3d4e/manifest.json",
-        "MAESTRO_SERVER_URL": "http://localhost:3000"
-      },
-      "status": "spawning",
-      "startedAt": 1738713800000,
-      "lastActivity": 1738713800000,
-      "completedAt": null,
-      "hostname": "johns-macbook.local",
-      "platform": "darwin",
-      "events": [],
-      "metadata": {
-        "skills": ["maestro-worker"],
-        "role": "worker",
-        "spawnSource": "session",
-        "context": {}
-      }
-    },
-    "command": "maestro worker init",
-    "cwd": "/Users/john/Projects/agents-ui",
-    "envVars": {
-      "MAESTRO_SESSION_ID": "sess_1738713800000_a1b2c3d4e",
-      "MAESTRO_MANIFEST_PATH": "/Users/john/.maestro/sessions/sess_1738713800000_a1b2c3d4e/manifest.json",
-      "MAESTRO_SERVER_URL": "http://localhost:3000"
-    },
-    "manifest": {
-      "manifestVersion": "1.0",
-      "role": "worker",
-      "session": {
-        "id": "sess_1738713800000_a1b2c3d4e",
-        "model": "claude-sonnet-4"
-      },
-      "tasks": [
-        {
-          "id": "task_1738713700000_p9q2r5t8w",
-          "title": "Build API",
-          "description": "Implement REST API"
-        }
-      ],
-      "skills": ["maestro-worker"],
-      "apiUrl": "http://localhost:3000"
-    },
-    "projectId": "proj_1738713600000_x7k9m2p4q",
-    "taskIds": ["task_1738713700000_p9q2r5t8w"],
-    "_isSpawnCreated": true
-  }
-}
-```
-
-**Special Handling:**
-
-The `_isSpawnCreated` flag indicates this is a spawn event. UI clients should:
-1. Extract `command`, `cwd`, and `envVars`
-2. Create new terminal window
-3. Set environment variables from `envVars`
-4. Change directory to `cwd`
-5. Execute `command`
 
 ---
 
 #### `session:spawn`
 
 **Emitted When:**
-- Agent-initiated session spawn (when `spawnSource: "session"`)
-- CLI sends `POST /api/sessions/spawn` with `spawnSource: "session"`
-- **NOT emitted for UI-initiated spawns** (when `spawnSource: "ui"`)
+- **ALWAYS emitted** for all session spawns via `POST /api/sessions/spawn`
+- Emitted for both `spawnSource: "ui"` and `spawnSource: "session"` spawns
+- The `spawnSource` field in the data indicates who initiated the spawn
 
 **Purpose:**
-This event tells the UI to automatically spawn a new terminal when an agent (running in CLI) requests to create a new session. The UI receives this event and spawns the terminal without user intervention.
+This event tells the UI to spawn a new terminal with the session's configuration. The UI receives this event and creates the terminal.
 
 **Data Schema:**
 ```typescript
 {
-  session: Session;                    // Full session object
+  session: Session;                    // Full session object with env vars
   command: string;                     // Command to run (e.g., "maestro worker init")
   cwd: string;                         // Working directory
   envVars: Record<string, string>;     // Environment variables
   manifest: any;                       // Generated manifest object
   projectId: string;                   // Project ID
   taskIds: string[];                   // Task IDs
+  spawnSource: 'ui' | 'session';       // Who initiated the spawn
+  parentSessionId?: string;            // Parent session ID if session-initiated
+  _isSpawnCreated: true;               // Backward compatibility flag
 }
 ```
 
@@ -580,17 +549,22 @@ This event tells the UI to automatically spawn a new terminal when an agent (run
       "id": "sess_1738714000000_x9y8z7w6v",
       "projectId": "proj_1738713600000_x7k9m2p4q",
       "taskIds": ["task_1738713700000_p9q2r5t8w"],
-      "name": "Agent-spawned worker",
+      "name": "Worker for task_1738713700000_p9q2r5t8w",
       "env": {
         "MAESTRO_SESSION_ID": "sess_1738714000000_x9y8z7w6v",
         "MAESTRO_MANIFEST_PATH": "/Users/john/.maestro/sessions/sess_1738714000000_x9y8z7w6v/manifest.json",
-        "MAESTRO_SERVER_URL": "http://localhost:3000"
+        "MAESTRO_SERVER_URL": "http://localhost:3000",
+        "MAESTRO_STRATEGY": "simple"
       },
+      "strategy": "simple",
       "status": "spawning",
       "metadata": {
+        "skills": ["maestro-worker"],
         "role": "worker",
         "spawnSource": "session",
-        "spawnedBy": "sess_parent_123"
+        "spawnedBy": "sess_parent_123",
+        "strategy": "simple",
+        "context": {}
       }
     },
     "command": "maestro worker init",
@@ -598,31 +572,36 @@ This event tells the UI to automatically spawn a new terminal when an agent (run
     "envVars": {
       "MAESTRO_SESSION_ID": "sess_1738714000000_x9y8z7w6v",
       "MAESTRO_MANIFEST_PATH": "/Users/john/.maestro/sessions/sess_1738714000000_x9y8z7w6v/manifest.json",
-      "MAESTRO_SERVER_URL": "http://localhost:3000"
+      "MAESTRO_SERVER_URL": "http://localhost:3000",
+      "MAESTRO_STRATEGY": "simple"
     },
     "manifest": {
       "manifestVersion": "1.0",
       "role": "worker",
-      "session": { "model": "claude-3-5-sonnet-20241022" },
+      "session": { "model": "claude-sonnet-4-5-20250929" },
       "tasks": [...]
     },
     "projectId": "proj_1738713600000_x7k9m2p4q",
-    "taskIds": ["task_1738713700000_p9q2r5t8w"]
-  }
+    "taskIds": ["task_1738713700000_p9q2r5t8w"],
+    "spawnSource": "session",
+    "parentSessionId": "sess_parent_123",
+    "_isSpawnCreated": true
+  },
+  "timestamp": 1738714000050
 }
 ```
 
 **UI Handling:**
-When receiving this event, the UI should automatically:
+When receiving this event, the UI should:
 1. Extract `command`, `cwd`, and `envVars` from the event data
-2. Create new terminal window (without user interaction)
+2. Create new terminal window
 3. Set environment variables from `envVars`
 4. Change directory to `cwd`
 5. Execute `command`
 
 **Difference from `session:created`:**
-- `session:spawn` - Only for agent-initiated spawns, tells UI to auto-spawn terminal
-- `session:created` - For all session creations, just notifies of new session record
+- `session:spawn` - Emitted for all spawned sessions (via `/sessions/spawn`), includes full spawn data (command, cwd, envVars, manifest)
+- `session:created` - Emitted for regular session creation (via `/sessions`), contains only the session object
 
 ---
 
@@ -736,15 +715,19 @@ When receiving this event, the UI should automatically:
 sequenceDiagram
     participant Client
     participant API
-    participant Storage
-    participant WebSocket
+    participant Service as Application Service
+    participant Repo as Repository
+    participant EventBus as InMemoryEventBus
+    participant Bridge as WebSocketBridge
     participant UI
 
     Client->>API: POST /api/tasks
-    API->>Storage: createTask()
-    Storage->>Storage: Save to disk
-    Storage->>WebSocket: emit('task:created', task)
-    WebSocket->>UI: broadcast('task:created', task)
+    API->>Service: createTask()
+    Service->>Repo: save(task)
+    Repo->>Repo: Save to memory + disk
+    Service->>EventBus: emit('task:created', task)
+    EventBus->>Bridge: on('task:created')
+    Bridge->>UI: broadcast('task:created', task)
     API->>Client: 201 Created
 ```
 
@@ -754,22 +737,26 @@ sequenceDiagram
 sequenceDiagram
     participant Client
     participant API
-    participant Storage
-    participant WebSocket
+    participant Service as SessionService
+    participant EventBus as InMemoryEventBus
+    participant Bridge as WebSocketBridge
     participant UI
 
     Client->>API: POST /api/sessions/:id/tasks/:taskId
-    API->>Storage: addTaskToSession()
+    API->>Service: addTaskToSession()
 
-    Note over Storage: Update session.taskIds
-    Note over Storage: Update task.sessionIds
-    Note over Storage: Save both to disk
+    Note over Service: Update session.taskIds
+    Note over Service: Update task.sessionIds
+    Note over Service: Save both to disk
 
-    Storage->>WebSocket: emit('session:task_added')
-    Storage->>WebSocket: emit('task:session_added')
+    Service->>EventBus: emit('session:task_added')
+    Service->>EventBus: emit('task:session_added')
 
-    WebSocket->>UI: broadcast('session:task_added')
-    WebSocket->>UI: broadcast('task:session_added')
+    EventBus->>Bridge: on('session:task_added')
+    EventBus->>Bridge: on('task:session_added')
+
+    Bridge->>UI: broadcast('session:task_added')
+    Bridge->>UI: broadcast('task:session_added')
 
     API->>Client: 200 OK
 ```
@@ -780,133 +767,126 @@ sequenceDiagram
 sequenceDiagram
     participant Client
     participant API
-    participant Storage
+    participant Service as SessionService
     participant CLI
-    participant WebSocket
+    participant EventBus as InMemoryEventBus
+    participant Bridge as WebSocketBridge
     participant UI
 
     Client->>API: POST /api/sessions/spawn
-    API->>Storage: createSession(_suppressCreatedEvent=true)
-    Note over Storage: No event emitted yet
+    API->>Service: createSession(_suppressCreatedEvent=true)
+    Note over Service: No session:created event emitted
 
     API->>CLI: maestro manifest generate
     CLI->>CLI: Generate manifest.json
     CLI->>API: Return manifest path
 
-    API->>Storage: updateSession(env vars)
-    Note over Storage: No event emitted
+    API->>Service: updateSession(env vars)
 
-    API->>Storage: emit('session:created' with spawn data)
-    Storage->>WebSocket: broadcast(session:created + spawn data)
-    WebSocket->>UI: Receive spawn event
+    API->>EventBus: emit('session:spawn', spawnData)
+    EventBus->>Bridge: on('session:spawn')
+    Bridge->>UI: broadcast('session:spawn', spawnData)
 
     Note over UI: Extract command, cwd, envVars
     Note over UI: Create terminal
     Note over UI: Run command with env
 
-    API->>Storage: emit('task:session_added') for each task
-    Storage->>WebSocket: broadcast('task:session_added')
+    API->>EventBus: emit('task:session_added') for each task
+    EventBus->>Bridge: on('task:session_added')
+    Bridge->>UI: broadcast('task:session_added')
 
     API->>Client: 201 Created
 ```
+
+**Note:** The `session:spawn` event is emitted for ALL spawn requests (both `spawnSource: "ui"` and `spawnSource: "session"`). The `spawnSource` field in the event data indicates who initiated the spawn.
 
 ---
 
 ## Broadcast Implementation
 
-### Server-Side Broadcast Function
+### WebSocketBridge Class
+
+The `WebSocketBridge` class (in `src/infrastructure/websocket/WebSocketBridge.ts`) bridges domain events from the `InMemoryEventBus` to WebSocket clients:
 
 ```typescript
-function broadcast(event: string, data: any) {
-  // Create message
-  const message = JSON.stringify({
-    type: event,
-    event,
-    data
-  });
+export class WebSocketBridge {
+  constructor(
+    private wss: WebSocketServer,
+    private eventBus: IEventBus,
+    logger: ILogger
+  ) {
+    this.setupEventHandlers();
+    this.setupConnectionHandlers();
+  }
 
-  let sent = 0;
-  const startTime = Date.now();
+  private setupEventHandlers(): void {
+    // List of all domain events to bridge
+    const events: EventName[] = [
+      'project:created',
+      'project:updated',
+      'project:deleted',
+      'task:created',
+      'task:updated',
+      'task:deleted',
+      'task:session_added',
+      'task:session_removed',
+      'session:created',
+      'session:spawn',
+      'session:updated',
+      'session:deleted',
+      'session:task_added',
+      'session:task_removed'
+    ];
 
-  // Send to all connected clients
-  clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      try {
+    // Subscribe to each event
+    for (const event of events) {
+      this.eventBus.on(event, (data) => {
+        this.broadcast(event, data);
+      });
+    }
+  }
+
+  private broadcast(event: string, data: any): void {
+    const message = JSON.stringify({
+      type: event,
+      event,
+      data,
+      timestamp: Date.now()
+    });
+
+    let sent = 0;
+    this.wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
         client.send(message);
         sent++;
-      } catch (error) {
-        console.error(`Failed to send to client: ${error}`);
       }
-    }
-  });
+    });
 
-  const duration = Date.now() - startTime;
-
-  if (process.env.DEBUG) {
-    console.log(`Broadcast to ${sent}/${clients.size} clients: ${event} (${duration}ms)`);
+    console.log(`📡 Broadcast ${event} → ${sent}/${this.wss.clients.size} clients`);
   }
 }
 ```
 
-### Storage Event Listeners
+### Bridged Events (14 Total)
 
-```typescript
-// Project events
-storage.on('project:created', (project) => {
-  broadcast('project:created', project);
-});
+| Category | Event | Data |
+|----------|-------|------|
+| Project | `project:created` | Full project object |
+| Project | `project:updated` | Full project object |
+| Project | `project:deleted` | `{ id: string }` |
+| Task | `task:created` | Full task object |
+| Task | `task:updated` | Full task object |
+| Task | `task:deleted` | `{ id: string }` |
+| Task | `task:session_added` | `{ taskId, sessionId }` |
+| Task | `task:session_removed` | `{ taskId, sessionId }` |
+| Session | `session:created` | Full session object |
+| Session | `session:spawn` | SpawnRequestEvent (full spawn data) |
+| Session | `session:updated` | Full session object |
+| Session | `session:deleted` | `{ id: string }` |
+| Session | `session:task_added` | `{ sessionId, taskId }` |
+| Session | `session:task_removed` | `{ sessionId, taskId }` |
 
-storage.on('project:updated', (project) => {
-  broadcast('project:updated', project);
-});
-
-storage.on('project:deleted', (data) => {
-  broadcast('project:deleted', data);
-});
-
-// Task events
-storage.on('task:created', (task) => {
-  broadcast('task:created', task);
-});
-
-storage.on('task:updated', (task) => {
-  broadcast('task:updated', task);
-});
-
-storage.on('task:deleted', (data) => {
-  broadcast('task:deleted', data);
-});
-
-// Session events
-storage.on('session:created', (data) => {
-  broadcast('session:created', data);
-});
-
-storage.on('session:updated', (session) => {
-  broadcast('session:updated', session);
-});
-
-storage.on('session:deleted', (data) => {
-  broadcast('session:deleted', data);
-});
-
-// Many-to-many relationship events
-storage.on('session:task_added', (data) => {
-  broadcast('session:task_added', data);
-});
-
-storage.on('session:task_removed', (data) => {
-  broadcast('session:task_removed', data);
-});
-
-storage.on('task:session_added', (data) => {
-  broadcast('task:session_added', data);
-});
-
-storage.on('task:session_removed', (data) => {
-  broadcast('task:session_removed', data);
-});
-```
+**Note:** Queue events (`queue:created`, `queue:updated`, etc.) are NOT bridged to WebSocket. Queue state is only accessible via the REST API.
 
 ---
 
@@ -973,14 +953,13 @@ client.on('task:created', (task) => {
   console.log('New task:', task.title);
 });
 
-client.on('session:created', (data) => {
-  if (data._isSpawnCreated) {
-    console.log('Spawn event received!');
-    console.log('Command:', data.command);
-    console.log('Working directory:', data.cwd);
-    console.log('Environment:', data.envVars);
-    // Create terminal and run command
-  }
+client.on('session:spawn', (data) => {
+  console.log('Spawn event received!');
+  console.log('Command:', data.command);
+  console.log('Working directory:', data.cwd);
+  console.log('Environment:', data.envVars);
+  console.log('Spawn source:', data.spawnSource);
+  // Create terminal and run command
 });
 
 client.connect();
@@ -1132,10 +1111,10 @@ class ReconnectingWebSocket {
 
 ## Event Ordering Guarantees
 
-### Guarantee 1: Session Creation Order
+### Guarantee 1: Session Spawn Order
 
 For session spawn:
-1. `session:created` (with spawn data) emitted **first**
+1. `session:spawn` (with full spawn data) emitted **first**
 2. `task:session_added` emitted **after** for each task
 
 ### Guarantee 2: Bidirectional Events
@@ -1220,19 +1199,22 @@ ws.onclose = (event) => {
 
 ### Server-Side Error Handling
 
-Server logs errors but continues broadcasting to other clients:
+The `WebSocketBridge` logs errors but continues broadcasting to other clients:
 
 ```typescript
-clients.forEach(client => {
+this.wss.clients.forEach((client) => {
   if (client.readyState === WebSocket.OPEN) {
-    try {
-      client.send(message);
-      sent++;
-    } catch (error) {
-      console.error(`Failed to send to client: ${error}`);
-      // Don't crash - continue to other clients
-    }
+    client.send(message);
+    sent++;
   }
+});
+```
+
+Connection-level errors are handled per-client:
+
+```typescript
+ws.on('error', (error) => {
+  this.logger.error('WebSocket client error:', error);
 });
 ```
 

@@ -118,6 +118,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
       skillIds: input.skillIds || [],
       agentIds: [],
       dependencies: [],
+      model: input.model,
       // NOTE: timeline is now on Session, not Task
     };
 
@@ -191,6 +192,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
     if (updates.skillIds !== undefined) task.skillIds = updates.skillIds;
     if (updates.agentIds !== undefined) task.agentIds = updates.agentIds;
     if (updates.sessionStatus !== undefined) task.sessionStatus = updates.sessionStatus;
+    if (updates.model !== undefined) task.model = updates.model;
 
     // Handle status changes
     if (updates.status !== undefined) {

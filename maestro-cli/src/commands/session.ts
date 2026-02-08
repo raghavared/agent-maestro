@@ -249,11 +249,20 @@ export function registerSessionCommands(program: Command) {
             const projectId = config.projectId;
             const role = process.env.MAESTRO_ROLE || 'worker';
             const taskIds = config.taskIds;
-            const strategy = config.strategy; // Get strategy from config (loaded from manifest)
+            const strategy = config.strategy;
+
+            if (!isJson) {
+                console.log(`[session:register] Hook fired (SessionStart)`);
+                console.log(`[session:register]    Session ID: ${sessionId || '(not set)'}`);
+                console.log(`[session:register]    Project ID: ${projectId || '(not set)'}`);
+                console.log(`[session:register]    Role: ${role}`);
+                console.log(`[session:register]    Task IDs: ${taskIds?.join(', ') || '(none)'}`);
+                console.log(`[session:register]    Strategy: ${strategy || '(not set)'}`);
+            }
 
             if (!sessionId) {
                 if (!isJson) {
-                    console.error('MAESTRO_SESSION_ID not set');
+                    console.error('[session:register] ABORT: MAESTRO_SESSION_ID not set');
                 }
                 process.exit(1);
             }
@@ -262,41 +271,43 @@ export function registerSessionCommands(program: Command) {
                 // Check if session already exists (created by spawn endpoint)
                 let sessionExists = false;
                 try {
+                    if (!isJson) console.log(`[session:register]    GET /api/sessions/${sessionId} ...`);
                     await api.get(`/api/sessions/${sessionId}`);
                     sessionExists = true;
+                    if (!isJson) console.log(`[session:register]    Session exists on server`);
                 } catch {
-                    // Session doesn't exist yet
+                    if (!isJson) console.log(`[session:register]    Session not found on server`);
                 }
 
                 if (sessionExists) {
-                    // Update existing session to 'running' status
+                    if (!isJson) console.log(`[session:register]    PATCH /api/sessions/${sessionId} -> status: 'running'`);
                     await api.patch(`/api/sessions/${sessionId}`, {
                         status: 'running',
                     });
+                    if (!isJson) console.log(`[session:register]    Session status updated to 'running'`);
                 } else {
-                    // Create new session (fallback for sessions not created via spawn)
+                    if (!isJson) console.log(`[session:register]    POST /api/sessions (creating new session)`);
                     await api.post('/api/sessions', {
                         id: sessionId,
                         projectId,
                         taskIds,
                         name: `${role}: ${sessionId.substring(0, 16)}`,
                         status: 'running',
-                        strategy, // ✅ FIX: Pass strategy from manifest
+                        strategy,
                         metadata: { role },
                     });
+                    if (!isJson) console.log(`[session:register]    New session created with status 'running'`);
                 }
 
                 if (!isJson) {
-                    console.log(`Session ${sessionId} registered`);
+                    console.log(`[session:register] Done: session ${sessionId} registered`);
                 } else {
                     outputJSON({ sessionId, status: 'registered' });
                 }
             } catch (err: any) {
-                // Fail gracefully in hooks - don't crash Claude
                 if (!isJson) {
-                    console.error('Failed to register session:', err.message);
+                    console.error(`[session:register] FAILED: ${err.message}`);
                 }
-                // Exit 0 so hook doesn't fail Claude session
                 process.exit(0);
             }
         });
@@ -310,26 +321,31 @@ export function registerSessionCommands(program: Command) {
             const isJson = globalOpts.json;
             const sessionId = config.sessionId;
 
+            if (!isJson) {
+                console.log(`[session:complete] Hook fired (SessionEnd)`);
+                console.log(`[session:complete]    Session ID: ${sessionId || '(not set)'}`);
+            }
+
             if (!sessionId) {
-                process.exit(0); // Silent exit
+                if (!isJson) console.log(`[session:complete] ABORT: no session ID`);
+                process.exit(0);
             }
 
             try {
-                // Update session via server API
+                if (!isJson) console.log(`[session:complete]    PATCH /api/sessions/${sessionId} -> status: 'completed'`);
                 await api.patch(`/api/sessions/${sessionId}`, {
                     status: 'completed',
                     completedAt: Date.now(),
                 });
 
                 if (!isJson) {
-                    console.log(`Session ${sessionId} completed`);
+                    console.log(`[session:complete] Done: session ${sessionId} completed`);
                 } else {
                     outputJSON({ sessionId, status: 'completed' });
                 }
             } catch (err: any) {
-                // Fail gracefully - don't crash Claude
                 if (!isJson) {
-                    console.error('Failed to complete session:', err.message);
+                    console.error(`[session:complete] FAILED: ${err.message}`);
                 }
                 process.exit(0);
             }

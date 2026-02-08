@@ -97,6 +97,8 @@ export class ClaudeSpawner {
       MAESTRO_ROLE: manifest.role,
       MAESTRO_STRATEGY: manifest.strategy || 'simple',
       MAESTRO_MANIFEST_PATH: process.env.MAESTRO_MANIFEST_PATH || '',
+      // Server URL - explicitly forward so child processes connect to the correct server
+      MAESTRO_SERVER_URL: process.env.MAESTRO_SERVER_URL || process.env.MAESTRO_API_URL || '',
       // Primary task metadata (for backward compatibility)
       MAESTRO_TASK_TITLE: primaryTask.title,
       MAESTRO_TASK_PRIORITY: primaryTask.priority || 'medium',

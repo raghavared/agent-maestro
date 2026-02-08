@@ -61,6 +61,16 @@ Visual representations of the Maestro CLI architecture, data flows, and componen
 │  • maestro report <cmd>       - Report session status              │
 │  • maestro status             - Project status                     │
 │  • maestro whoami             - Show context                       │
+│  • maestro queue <cmd>       - Queue strategy commands             │
+│  • maestro project <cmd>     - Project management                  │
+│  • maestro track-file        - Track file modifications            │
+│                                                                     │
+│  Services:                                                          │
+│  ✓ WhoamiRenderer     — Full context for maestro whoami           │
+│  ✓ SessionBriefGenerator — Pre-spawn task summary                 │
+│  ✓ LocalStorage       — Read-only cache of ~/.maestro/data/       │
+│  ✓ APIClient          — HTTP client with retry logic              │
+│  ✓ CommandPermissions — Role/strategy-based command filtering     │
 └────────────────────────────┬────────────────────────────────────────┘
                              │
                              │ HTTP/REST API
@@ -225,6 +235,17 @@ Visual representations of the Maestro CLI architecture, data flows, and componen
 │
 ├── config.json                    # CLI configuration
 │
+├── config                        # dotenv config file (key=value)
+│
+├── data/                         # Server-synced data (read by LocalStorage)
+│   ├── projects/
+│   │   └── proj-1.json
+│   ├── tasks/
+│   │   └── proj-1/
+│   │       └── task-1.json
+│   └── sessions/
+│       └── sess-1.json
+│
 └── logs/                          # CLI logs (optional)
     └── maestro-cli.log
 
@@ -273,6 +294,16 @@ env:
   MAESTRO_PROJECT_ID=proj-1
   MAESTRO_API_URL=http://localhost:3000
 ```
+
+### 4. CLI → Local Storage (File System Read)
+
+```
+READ   ~/.maestro/data/projects/*.json    - Cached project data
+READ   ~/.maestro/data/tasks/**/*.json    - Cached task data
+READ   ~/.maestro/data/sessions/*.json    - Cached session data
+```
+
+The LocalStorage service provides read-only access to data written by the server. This enables fast, offline-capable reads without API calls.
 
 ---
 

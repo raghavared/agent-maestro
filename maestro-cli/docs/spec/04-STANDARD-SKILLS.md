@@ -31,6 +31,60 @@ These skills:
 - Work with any Claude Code session
 - Can be selected per-session in Maestro
 
+## Built-in Plugins (Maestro-Specific)
+
+In addition to standard user skills from `~/.skills/`, Maestro includes **built-in plugins** that provide hooks and CLI integration. These are loaded automatically based on role:
+
+### Plugin Structure
+
+```
+maestro-cli/plugins/
+├── maestro-worker/
+│   ├── hooks/
+│   │   └── hooks.json          # SessionStart, SessionEnd, PostToolUse hooks
+│   └── bin/
+│       └── track-file          # File tracking utility for PostToolUse
+└── maestro-orchestrator/
+    └── hooks/
+        └── hooks.json          # SessionStart, SessionEnd hooks
+```
+
+### How Plugins Load
+
+`ClaudeSpawner.getPluginDir(role)` determines the plugin directory based on role:
+- Worker → `plugins/maestro-worker/`
+- Orchestrator → `plugins/maestro-orchestrator/`
+
+The plugin directory is passed to Claude as `--plugin-dir`, which provides both hooks (via `hooks/hooks.json`) and any skills in the plugin.
+
+### hooks.json Format
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": "*",
+      "hooks": [{ "type": "command", "command": "maestro session register", "timeout": 5 }]
+    }],
+    "SessionEnd": [{
+      "matcher": "*",
+      "hooks": [{ "type": "command", "command": "maestro session complete", "timeout": 3 }]
+    }],
+    "PostToolUse": [{
+      "matcher": "Write|Edit",
+      "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/track-file", "timeout": 2 }]
+    }]
+  }
+}
+```
+
+### track-file Utility
+
+The `track-file` script in `plugins/maestro-worker/bin/` is triggered on every Write or Edit tool use. It:
+1. Reads hook input (JSON from stdin or `HOOK_INPUT` env var)
+2. Extracts `tool_input.file_path` from the hook input
+3. Calls `maestro track-file <path>` to record the modification
+
 ## Architecture
 
 ```
@@ -67,6 +121,7 @@ These skills:
 │  • Maestro Worker system prompt                     │
 │  • Maestro CLI commands                             │
 │  • code-visualizer skill                            │
+│  • Maestro plugin hooks (auto-loaded by role)       │
 └──────────────────────────────────────────────────────┘
 ```
 

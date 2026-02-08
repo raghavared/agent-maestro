@@ -51,6 +51,9 @@ export interface Task {
 
   dependencies: string[];
   // NOTE: timeline moved to Session - each session has its own timeline
+
+  // Model configuration
+  model?: 'haiku' | 'sonnet' | 'opus';
 }
 
 export interface Session {
@@ -121,6 +124,7 @@ export interface CreateTaskPayload {
   priority?: TaskPriority;
   initialPrompt?: string;
   skillIds?: string[];
+  model?: 'haiku' | 'sonnet' | 'opus';
 }
 
 export type UpdateSource = 'user' | 'session';
@@ -134,6 +138,7 @@ export interface UpdateTaskPayload {
   sessionIds?: string[];      // PHASE IV-A: Update sessions
   skillIds?: string[];         // PHASE IV-B
   agentIds?: string[];         // PHASE IV-C
+  model?: 'haiku' | 'sonnet' | 'opus';
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline
   // Update source tracking
   updateSource?: UpdateSource;  // Who is making the update

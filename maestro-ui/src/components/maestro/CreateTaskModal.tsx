@@ -229,6 +229,7 @@ export function CreateTaskModal({
         if (Object.keys(updates).length > 0) {
             onUpdateTask?.(task.id, updates);
         }
+        onClose();
     };
 
     const handleAddSubtask = () => {
@@ -270,15 +271,21 @@ export function CreateTaskModal({
             highlighter: {
                 padding: '12px',
                 border: '1px solid transparent',
-                color: '#e0e0e0',
+                color: 'transparent',
+                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                fontSize: '14px',
+                lineHeight: '1.5',
             },
             input: {
                 padding: '12px',
                 border: '1px solid transparent',
                 outline: 'none',
-                color: 'transparent',
+                color: '#e0e0e0',
                 backgroundColor: 'transparent',
                 caretColor: '#e0e0e0',
+                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                fontSize: '14px',
+                lineHeight: '1.5',
             },
         },
         suggestions: {
@@ -379,9 +386,6 @@ export function CreateTaskModal({
                                 placeholder="Describe the requirements... Use @ to tag files"
                                 className="mentionsInput"
                                 onKeyDown={handleKeyDown}
-                                classNames={{
-                                    mentions__input: 'createTaskPromptArea',
-                                }}
                             >
                                 <Mention
                                     trigger="@"

@@ -1,7 +1,7 @@
 # Skills Specification
 
-**Version:** 1.0.0
-**Last Updated:** 2026-02-04
+**Version:** 2.0.0
+**Last Updated:** 2026-02-08
 **Status:** Stable
 
 ## Overview
@@ -101,14 +101,16 @@ maestro-skills/
 
 ```typescript
 interface SkillManifest {
-  name: string;                    // Required: Display name
-  version: string;                 // Required: Semantic version
-  description: string;             // Required: Brief description
-  type: 'system' | 'role';         // Required: Skill type
-  assignTo: string[];              // Required: Roles (worker, orchestrator, all)
-  capabilities: string[];          // Required: Capability list
-  dependencies: string[];          // Required: Dependent skill names (can be empty)
-  config?: Record<string, any>;    // Optional: Custom configuration
+  name: string;                              // Required: Display name
+  version: string;                           // Required: Semantic version
+  description: string;                       // Required: Brief description
+  type?: 'system' | 'role' | 'custom';      // Optional: Skill type (default: 'system')
+  assignTo?: string[];                       // Optional: Roles (worker, orchestrator, all)
+  capabilities?: string[];                   // Optional: Capability list
+  dependencies?: string[];                   // Optional: Dependent skill names
+  author?: string;                           // Optional: Skill author
+  license?: string;                          // Optional: License identifier
+  config?: Record<string, any>;              // Optional: Custom configuration
 }
 ```
 
@@ -119,10 +121,12 @@ interface SkillManifest {
 | `name` | string | Yes | Human-readable skill name |
 | `version` | string | Yes | Semantic version (e.g., "1.0.0") |
 | `description` | string | Yes | Short description of skill purpose |
-| `type` | enum | Yes | `system` (core) or `role` (role-specific) |
-| `assignTo` | string[] | Yes | Roles: `["worker"]`, `["orchestrator"]`, `["worker", "orchestrator"]`, or `["all"]` |
-| `capabilities` | string[] | Yes | List of capabilities this skill provides |
-| `dependencies` | string[] | Yes | Skill names this skill depends on (empty array if none) |
+| `type` | enum | No | `system` (core), `role` (role-specific), or `custom` (user-created). Default: `system` |
+| `assignTo` | string[] | No | Roles: `["worker"]`, `["orchestrator"]`, `["worker", "orchestrator"]`, or `["all"]` |
+| `capabilities` | string[] | No | List of capabilities this skill provides |
+| `dependencies` | string[] | No | Skill names this skill depends on |
+| `author` | string | No | Author name or identifier |
+| `license` | string | No | License identifier (e.g., "MIT") |
 | `config` | object | No | Custom configuration data |
 
 ### Example Manifests
@@ -269,8 +273,6 @@ maestro task update <task-id> --status blocked --message "Waiting for API creden
 
 Returns array of available skills with metadata.
 
-**Endpoint:** `GET /api/skills`
-
 **Request:**
 ```http
 GET /api/skills HTTP/1.1
@@ -304,56 +306,128 @@ Host: localhost:3000
 ]
 ```
 
-**Error Response:**
+**Error Response:** Returns empty array `[]` if skills directory is missing or cannot be read (no error status).
+
+---
+
+### GET /api/skills/:id
+
+Returns a single skill by ID, including its instructions content.
+
+**Request:**
+```http
+GET /api/skills/maestro-worker HTTP/1.1
+Host: localhost:3000
+```
+
+**Response (200):**
 ```json
-[]
+{
+  "id": "maestro-worker",
+  "name": "Maestro Worker",
+  "description": "Worker-specific capabilities for task execution",
+  "type": "role",
+  "version": "1.0.0",
+  "instructions": "# Maestro Worker Skill\n\n## Overview\n..."
+}
 ```
-(Returns empty array if skills directory is missing or cannot be read)
 
-**Implementation:**
-```typescript
-router.get('/skills', (req: Request, res: Response) => {
-  try {
-    const skillIds = listAvailableSkills();
-    const skills = [];
+**Error Responses:**
+- `404 NOT_FOUND` - Skill not found
+- `500 INTERNAL_ERROR` - Failed to load skill
 
-    for (const id of skillIds) {
-      try {
-        const skill = loadSkill(id);
-        if (skill && skill.manifest) {
-          skills.push({
-            id,
-            name: skill.manifest.name || id,
-            description: skill.manifest.description || '',
-            type: skill.manifest.type || 'system',
-            version: skill.manifest.version || '1.0.0',
-          });
-        }
-      } catch (err) {
-        console.warn(`[Skills API] Failed to load skill ${id}:`, err);
-      }
-    }
+---
 
-    res.json(skills);
-  } catch (err) {
-    console.error('[Skills API] Failed to list skills:', err);
-    res.json([]);
+### GET /api/skills/role/:role
+
+Returns skills appropriate for a specific role.
+
+**Request:**
+```http
+GET /api/skills/role/worker HTTP/1.1
+Host: localhost:3000
+```
+
+**Parameters:**
+- `role` - Must be `"worker"` or `"orchestrator"`
+
+**Response (200):**
+```json
+[
+  {
+    "id": "Maestro CLI",
+    "name": "Maestro CLI",
+    "description": "Core CLI commands and capabilities for all Maestro sessions",
+    "type": "system",
+    "version": "1.0.0"
+  },
+  {
+    "id": "Maestro Worker",
+    "name": "Maestro Worker",
+    "description": "Worker-specific capabilities for task execution",
+    "type": "role",
+    "version": "1.0.0"
   }
-});
+]
 ```
 
-**Location:** `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/api/skills.ts` (lines 1-46)
+**Error Responses:**
+- `400 VALIDATION_ERROR` - Invalid role value
+- `500 INTERNAL_ERROR` - Failed to load skills
 
-## Loading Skills from Filesystem
+---
 
-### loadSkill(skillName)
+### POST /api/skills/:id/reload
+
+Reload a skill from disk (clears cache and reloads). Useful during development.
+
+**Request:**
+```http
+POST /api/skills/maestro-worker/reload HTTP/1.1
+Host: localhost:3000
+```
+
+**Response (200):**
+```json
+{
+  "id": "maestro-worker",
+  "name": "Maestro Worker",
+  "description": "Worker-specific capabilities for task execution",
+  "type": "role",
+  "version": "1.0.0",
+  "reloaded": true
+}
+```
+
+**Error Responses:**
+- `404 NOT_FOUND` - Skill not found
+- `501 NOT_IMPLEMENTED` - Reload not supported by the skill loader
+- `500 INTERNAL_ERROR` - Failed to reload skill
+
+## Loading Skills
+
+### ISkillLoader Interface
+
+Skills are loaded via the `ISkillLoader` interface (domain layer), with a `FileSystemSkillLoader` implementation (infrastructure layer):
+
+```typescript
+interface ISkillLoader {
+  load(skillName: string): Promise<Skill | null>;
+  loadForRole(role: 'worker' | 'orchestrator'): Promise<Skill[]>;
+  listAvailable(): Promise<string[]>;
+  validateDependencies(skill: Skill): Promise<boolean>;
+  reload?(skillName: string): Promise<Skill | null>;
+  formatForPrompt?(skills: Skill[]): string;
+}
+```
+
+### FileSystemSkillLoader
+
+The `FileSystemSkillLoader` loads skills from disk with in-memory caching:
+
+#### load(skillName)
 
 Loads a single skill by name from the skills directory.
-
-**Function Signature:**
-```typescript
-function loadSkill(skillName: string): Skill | null
-```
 
 **Parameters:**
 - `skillName` - The skill directory name (e.g., "maestro-cli")
@@ -364,51 +438,24 @@ function loadSkill(skillName: string): Skill | null
 
 **Process:**
 ```
-1. Build skill path: ~/.agents-ui/maestro-skills/{skillName}
-2. Check if directory exists
-3. Read manifest.json
-4. Parse manifest JSON
-5. Read skill.md
-6. Return { manifest, instructions }
+1. Check in-memory cache first
+2. Build skill path: {SKILLS_DIR}/{skillName}
+3. Check if directory exists
+4. Read manifest.json
+5. Parse manifest JSON
+6. Read skill.md
+7. Cache and return { manifest, instructions }
 ```
 
 **Error Handling:**
-```typescript
-// Directory not found
-if (!existsSync(skillPath)) {
-  console.warn(`Skill not found: ${skillName} (looked in ${skillPath})`);
-  return null;
-}
+- Directory not found → returns `null`
+- Manifest not found → returns `null`
+- Instructions not found → continues with empty instructions (warning)
+- Parse error → throws `SkillLoadError`
 
-// Manifest not found
-if (!existsSync(manifestPath)) {
-  console.warn(`Manifest not found for skill: ${skillName}`);
-  return null;
-}
-
-// Instructions not found (warning, not fatal)
-if (!existsSync(instructionsPath)) {
-  console.warn(`Instructions not found for skill: ${skillName}`);
-  instructions = '';  // Continue with empty instructions
-}
-
-// Parse error
-catch (err) {
-  console.error(`Failed to load skill ${skillName}:`, err);
-  return null;
-}
-```
-
-**Location:** `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/skills.ts` (lines 26-57)
-
-### listAvailableSkills()
+#### listAvailable()
 
 Lists all available skills in the skills directory.
-
-**Function Signature:**
-```typescript
-function listAvailableSkills(): string[]
-```
 
 **Returns:**
 - Array of skill names (directory names)
@@ -416,48 +463,28 @@ function listAvailableSkills(): string[]
 
 **Process:**
 ```
-1. Check if ~/.agents-ui/maestro-skills/ exists
+1. Check if {SKILLS_DIR} exists
 2. Read directory contents
 3. Filter for directories containing manifest.json
 4. Sort alphabetically
 5. Return skill names
 ```
 
-**Implementation:**
-```typescript
-export function listAvailableSkills(): string[] {
-  if (!existsSync(SKILLS_DIR)) {
-    console.warn(`Skills directory not found: ${SKILLS_DIR}`);
-    return [];
-  }
+#### reload(skillName)
 
-  try {
-    const { readdirSync } = require('fs');
-    return readdirSync(SKILLS_DIR)
-      .filter((f: string) => existsSync(join(SKILLS_DIR, f, 'manifest.json')))
-      .sort();
-  } catch (err) {
-    console.error('Failed to list skills:', err);
-    return [];
-  }
-}
-```
+Clears cached skill and reloads from disk. Useful during development.
 
-**Location:** `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/skills.ts` (lines 97-112)
+**Returns:**
+- Reloaded `Skill` object, or `null` if not found
 
 ## Skills for Roles
 
-### getSkillsForRole(role)
+### loadForRole(role)
 
-Gets all skills appropriate for a specific role.
-
-**Function Signature:**
-```typescript
-function getSkillsForRole(role: 'worker' | 'orchestrator' | 'all'): Skill[]
-```
+Gets all skills appropriate for a specific role via `ISkillLoader.loadForRole()`.
 
 **Parameters:**
-- `role` - The session role type
+- `role` - `'worker'` or `'orchestrator'`
 
 **Returns:**
 - Array of Skill objects for the role
@@ -468,33 +495,10 @@ function getSkillsForRole(role: 'worker' | 'orchestrator' | 'all'): Skill[]
 2. Add role-specific skill:
    - role='worker' → add 'maestro-worker'
    - role='orchestrator' → add 'maestro-orchestrator'
-   - role='all' → add both
 3. Return skills array
 ```
 
-**Implementation:**
-```typescript
-export function getSkillsForRole(role: 'worker' | 'orchestrator' | 'all'): Skill[] {
-  const skills: Skill[] = [];
-
-  // All sessions get maestro-cli
-  const cliSkill = loadSkill('maestro-cli');
-  if (cliSkill) skills.push(cliSkill);
-
-  // Add role-specific skill
-  if (role === 'worker') {
-    const workerSkill = loadSkill('maestro-worker');
-    if (workerSkill) skills.push(workerSkill);
-  } else if (role === 'orchestrator') {
-    const orchestratorSkill = loadSkill('maestro-orchestrator');
-    if (orchestratorSkill) skills.push(orchestratorSkill);
-  }
-
-  return skills;
-}
-```
-
-**Location:** `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/skills.ts` (lines 62-79)
+**API Endpoint:** `GET /api/skills/role/:role`
 
 ## Skill Validation and Dependencies
 
@@ -616,15 +620,17 @@ export function formatSkillsForPrompt(skills: Skill[]): string {
 ### TypeScript Interfaces
 
 ```typescript
-// Skill manifest metadata
+// Skill manifest metadata (src/domain/services/ISkillLoader.ts)
 export interface SkillManifest {
   name: string;
   version: string;
   description: string;
-  type: 'system' | 'role';
-  assignTo: string[];
-  capabilities: string[];
-  dependencies: string[];
+  type?: 'system' | 'role' | 'custom';
+  assignTo?: string[];
+  capabilities?: string[];
+  dependencies?: string[];
+  author?: string;
+  license?: string;
   config?: Record<string, any>;
 }
 
@@ -635,7 +641,7 @@ export interface Skill {
 }
 ```
 
-**Location:** `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/skills.ts` (lines 7-21)
+**Location:** `src/domain/services/ISkillLoader.ts`
 
 ## Usage in Session Spawning
 
@@ -744,18 +750,24 @@ if (!existsSync(instructionsPath)) {
 
 ## Implementation Reference
 
-**Primary Implementation:**
-- File: `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/skills.ts` (lines 1-132)
-- API: `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/api/skills.ts` (lines 1-46)
+**Domain Interface:**
+- `src/domain/services/ISkillLoader.ts` - `ISkillLoader` interface, `SkillManifest`, `Skill` types
 
-**Constants:**
+**Infrastructure Implementation:**
+- `src/infrastructure/skills/FileSystemSkillLoader.ts` - Filesystem-based skill loader with caching
+
+**API Routes:**
+- `src/api/skillRoutes.ts` - REST endpoints for skill management
+
+**Skills Directory (default):**
 ```typescript
-const SKILLS_DIR = join(homedir(), '.agents-ui', 'maestro-skills');
+const SKILLS_DIR = config.skillsDir;  // Default: ~/.agents-ui/maestro-skills
 ```
 
-**Exports:**
-- `loadSkill(skillName)` - Load single skill
-- `listAvailableSkills()` - List all skills
-- `getSkillsForRole(role)` - Get skills for role
-- `formatSkillsForPrompt(skills)` - Format for LLM
-- `validateSkillDependencies(skill)` - Validate deps
+**ISkillLoader Methods:**
+- `load(skillName)` - Load single skill
+- `loadForRole(role)` - Get skills for role
+- `listAvailable()` - List all skills
+- `validateDependencies(skill)` - Validate deps
+- `reload?(skillName)` - Reload from disk (optional)
+- `formatForPrompt?(skills)` - Format for LLM (optional)

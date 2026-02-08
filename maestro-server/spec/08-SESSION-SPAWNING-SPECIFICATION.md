@@ -1,7 +1,7 @@
 # Session Spawning Specification
 
 **Version:** 2.0.0
-**Last Updated:** 2026-02-04
+**Last Updated:** 2026-02-08
 **Status:** Stable
 
 ## Overview
@@ -11,7 +11,7 @@ Session spawning is the process of creating a new Maestro session and launching 
 1. **UI-Initiated (Manual) Spawning** - User clicks spawn button in UI
 2. **Agent-Initiated Spawning** - Agent executes `maestro session spawn` command
 
-The key difference is that UI-initiated spawning uses HTTP response only, while agent-initiated spawning emits a WebSocket event for automatic terminal spawning.
+**Both flows emit a `session:spawn` WebSocket event.** The `spawnSource` field in the event data indicates who initiated the spawn (`"ui"` or `"session"`). Both flows also include `strategy` and `MAESTRO_STRATEGY` environment variable support.
 
 ---
 
@@ -29,21 +29,22 @@ The key difference is that UI-initiated spawning uses HTTP response only, while 
 │         │                                  │                │
 │         ▼                                  ▼                │
 │  POST /api/sessions/spawn          POST /api/sessions/spawn │
-│  { spawnSource: "ui" }             { spawnSource: "session" } │
+│  { spawnSource: "ui" }             { spawnSource: "session",│
+│                                      sessionId: "parent" }  │
 │         │                                  │                │
 │         ▼                                  ▼                │
 │  Server creates session            Server creates session   │
 │  Server generates manifest         Server generates manifest│
+│  Init queue (if strategy=queue)    Init queue (if strategy) │
 │         │                                  │                │
 │         ▼                                  ▼                │
-│  HTTP Response ONLY                HTTP Response + Event    │
-│  { sessionId, manifestPath }       { sessionId, ... }       │
-│         │                                  │                │
-│         ▼                                  ▼                │
-│  UI spawns terminal locally        WebSocket: session:spawn │
-│  (using response data)                     │                │
-│                                            ▼                │
-│                                    UI spawns terminal        │
+│  HTTP Response + Event             HTTP Response + Event    │
+│  session:spawn emitted             session:spawn emitted    │
+│  { spawnSource: "ui" }             { spawnSource: "session" │
+│         │                            parentSessionId }      │
+│         ▼                                  │                │
+│  UI spawns terminal                        ▼                │
+│  (from WS event or response)       UI spawns terminal       │
 │                                    automatically             │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
@@ -55,7 +56,7 @@ The key difference is that UI-initiated spawning uses HTTP response only, while 
 
 ### Description
 
-When a user clicks the "Spawn" button in the UI, the UI sends a spawn request with `spawnSource: "ui"` and receives an HTTP response containing all the information needed to spawn the terminal locally. NO WebSocket event is emitted.
+When a user clicks the "Spawn" button in the UI, the UI sends a spawn request with `spawnSource: "ui"`. The server creates the session, generates a manifest, and emits a `session:spawn` WebSocket event (with `spawnSource: "ui"` in the data). The UI can spawn the terminal from either the HTTP response or the WebSocket event.
 
 ### Architecture Diagram
 
@@ -81,9 +82,10 @@ When a user clicks the "Spawn" button in the UI, the UI sends a spawn request wi
 │  1. Validate request            │
 │  2. Create session in DB        │
 │     (status: "spawning")        │
-│  3. Generate manifest via CLI   │
-│  4. Prepare spawn data          │
-│  5. NO WebSocket event          │◄─── NO EVENT
+│  3. Init queue (if queue strat) │
+│  4. Generate manifest via CLI   │
+│  5. Prepare spawn data          │
+│  6. Emit session:spawn event    │◄─── EMITS EVENT
 │                                 │
 │  HTTP Response:                 │
 │  {                              │
@@ -92,7 +94,8 @@ When a user clicks the "Spawn" button in the UI, the UI sends a spawn request wi
 │    envVars: {                   │
 │      MAESTRO_SESSION_ID,        │
 │      MAESTRO_MANIFEST_PATH,     │
-│      MAESTRO_SERVER_URL         │
+│      MAESTRO_SERVER_URL,        │
+│      MAESTRO_STRATEGY           │
 │    },                           │
 │    initialCommand,              │
 │    session: { ... }             │
@@ -176,6 +179,7 @@ curl -X POST http://localhost:3000/api/sessions/spawn \
   taskIds: string[];              // Required
   spawnSource: "ui";              // Required: Indicates UI-initiated spawn
   role?: "worker" | "orchestrator";  // Optional (default: "worker")
+  strategy?: "simple" | "queue" | "tree";  // Optional (default: "simple")
   sessionName?: string;           // Optional
   skills?: string[];              // Optional
   context?: Record<string, any>;  // Optional
@@ -189,21 +193,26 @@ curl -X POST http://localhost:3000/api/sessions/spawn \
   "success": true,
   "sessionId": "ses_abc123",
   "manifestPath": "/Users/user/.maestro/sessions/ses_abc123/manifest.json",
-  "envVars": {
-    "MAESTRO_SESSION_ID": "ses_abc123",
-    "MAESTRO_MANIFEST_PATH": "/Users/user/.maestro/sessions/ses_abc123/manifest.json",
-    "MAESTRO_SERVER_URL": "http://localhost:3000"
-  },
-  "initialCommand": "maestro worker init",
-  "cwd": "/Users/user/projects/myproject",
+  "message": "Spawn request sent to Agents UI",
   "session": {
     "id": "ses_abc123",
     "projectId": "proj_abc123",
     "taskIds": ["task_001"],
+    "strategy": "simple",
     "status": "spawning",
+    "env": {
+      "MAESTRO_SESSION_ID": "ses_abc123",
+      "MAESTRO_MANIFEST_PATH": "/Users/user/.maestro/sessions/ses_abc123/manifest.json",
+      "MAESTRO_SERVER_URL": "http://localhost:3000",
+      "MAESTRO_STRATEGY": "simple"
+    },
     "metadata": {
+      "skills": [],
+      "spawnedBy": null,
+      "spawnSource": "ui",
       "role": "worker",
-      "spawnSource": "ui"
+      "strategy": "simple",
+      "context": {}
     }
   }
 }
@@ -242,13 +251,15 @@ async function handleManualSpawn(payload: SpawnPayload) {
 
 ### Events Emitted
 
-**WebSocket Events:** NONE
+**WebSocket Events:**
+- `session:spawn` - Full spawn data with `spawnSource: "ui"`
+- `task:session_added` - For each task in `taskIds`
 
 **Side Effects:**
 - Session created in database with `status: "spawning"`
+- Queue initialized (if `strategy: "queue"`)
 - Manifest generated and saved to disk
 - Session associated with tasks
-- `task:session_added` events emitted for each task
 
 ---
 
@@ -378,14 +389,17 @@ curl -X POST http://localhost:3000/api/sessions/spawn \
 {
   projectId: string;              // Required
   taskIds: string[];              // Required
-  spawnSource: "session";           // Required: Indicates agent-initiated spawn
-  spawnedBy: string;              // Required: Parent session ID
+  spawnSource: "session";         // Required: Indicates agent-initiated spawn
+  sessionId: string;              // Required: Parent session ID
   role?: "worker" | "orchestrator";  // Optional (default: "worker")
+  strategy?: "simple" | "queue" | "tree";  // Optional (default: "simple")
   sessionName?: string;           // Optional
   skills?: string[];              // Optional
   context?: Record<string, any>;  // Optional
 }
 ```
+
+**Note:** When `spawnSource` is `"session"`, the `sessionId` field is required and must reference an existing session. The server validates that the parent session exists.
 
 ### Response Format
 
@@ -398,35 +412,50 @@ Same as UI-initiated spawning (HTTP response is identical).
   "type": "session:spawn",
   "event": "session:spawn",
   "data": {
-    "sessionId": "ses_abc123",
-    "manifestPath": "/Users/user/.maestro/sessions/ses_abc123/manifest.json",
-    "envVars": {
-      "MAESTRO_SESSION_ID": "ses_abc123",
-      "MAESTRO_MANIFEST_PATH": "/Users/user/.maestro/sessions/ses_abc123/manifest.json",
-      "MAESTRO_SERVER_URL": "http://localhost:3000"
-    },
-    "initialCommand": "maestro worker init",
-    "cwd": "/Users/user/projects/myproject",
     "session": {
       "id": "ses_abc123",
       "projectId": "proj_abc123",
       "taskIds": ["task_001"],
+      "strategy": "simple",
       "status": "spawning",
+      "env": {
+        "MAESTRO_SESSION_ID": "ses_abc123",
+        "MAESTRO_MANIFEST_PATH": "/Users/user/.maestro/sessions/ses_abc123/manifest.json",
+        "MAESTRO_SERVER_URL": "http://localhost:3000",
+        "MAESTRO_STRATEGY": "simple"
+      },
       "metadata": {
-        "role": "worker",
+        "skills": [],
+        "spawnedBy": "ses_parent_orchestrator",
         "spawnSource": "session",
-        "spawnedBy": "ses_parent_orchestrator"
+        "role": "worker",
+        "strategy": "simple",
+        "context": {}
       }
+    },
+    "command": "maestro worker init",
+    "cwd": "/Users/user/projects/myproject",
+    "envVars": {
+      "MAESTRO_SESSION_ID": "ses_abc123",
+      "MAESTRO_MANIFEST_PATH": "/Users/user/.maestro/sessions/ses_abc123/manifest.json",
+      "MAESTRO_SERVER_URL": "http://localhost:3000",
+      "MAESTRO_STRATEGY": "simple"
     },
     "manifest": {
       "manifestVersion": "1.0.0",
       "role": "worker",
-      "session": { "model": "claude-opus-4.5" },
+      "session": { "model": "claude-sonnet-4-5-20250929" },
       "project": { "id": "proj_abc123", "name": "My Project" },
       "tasks": [{ "id": "task_001", "title": "Build feature" }],
       "skills": []
-    }
-  }
+    },
+    "projectId": "proj_abc123",
+    "taskIds": ["task_001"],
+    "spawnSource": "session",
+    "parentSessionId": "ses_parent_orchestrator",
+    "_isSpawnCreated": true
+  },
+  "timestamp": 1738714000050
 }
 ```
 
@@ -483,10 +512,11 @@ function handleAgentSpawn(spawnData) {
 | **Trigger** | User clicks "Spawn" button | Agent runs `maestro session spawn` |
 | **Request Field** | `spawnSource: "ui"` | `spawnSource: "session"` |
 | **HTTP Response** | Full spawn data | Full spawn data |
-| **WebSocket Event** | NO event emitted | `session:spawn` event emitted |
-| **Terminal Spawning** | UI spawns from HTTP response | UI spawns from WebSocket event |
+| **WebSocket Event** | `session:spawn` (spawnSource: "ui") | `session:spawn` (spawnSource: "session") |
+| **Terminal Spawning** | UI spawns from WS event or HTTP response | UI spawns from WebSocket event |
 | **Use Case** | Manual user-initiated spawning | Orchestrator spawning workers |
-| **spawnedBy Field** | Not required | Required (parent session ID) |
+| **sessionId Field** | Not required | Required (parent session ID) |
+| **Parent Validation** | No | Yes (parent session must exist) |
 
 ---
 
@@ -495,38 +525,50 @@ function handleAgentSpawn(spawnData) {
 ### Single Endpoint Handles Both Flows
 
 ```typescript
-app.post('/api/sessions/spawn', async (req, res) => {
-  const { projectId, taskIds, spawnSource = 'ui', spawnedBy, ... } = req.body;
+router.post('/sessions/spawn', async (req, res) => {
+  const { projectId, taskIds, spawnSource = 'ui', sessionId, strategy = 'simple', ... } = req.body;
 
-  // 1. Validate request
-  // 2. Create session in DB (optimistic)
-  // 3. Generate manifest via CLI
-  // 4. Prepare spawn data
+  // 1. Validate request (projectId, taskIds, spawnSource, role, strategy)
+  // 2. Validate parent session if spawnSource === 'session'
+  // 3. Create session with _suppressCreatedEvent: true
+  // 4. Initialize queue if strategy === 'queue'
+  // 5. Generate manifest via CLI
+  // 6. Update session with env vars
 
-  const spawnData = {
-    sessionId: session.id,
-    manifestPath,
-    envVars: {
-      MAESTRO_SESSION_ID: session.id,
-      MAESTRO_MANIFEST_PATH: manifestPath,
-      MAESTRO_SERVER_URL: serverUrl
-    },
-    initialCommand: `maestro ${role} init`,
-    cwd: project.workingDir,
-    session
+  const finalEnvVars = {
+    MAESTRO_SESSION_ID: session.id,
+    MAESTRO_MANIFEST_PATH: manifestPath,
+    MAESTRO_SERVER_URL: config.serverUrl,
+    MAESTRO_STRATEGY: strategy
   };
 
-  // 5. Conditional WebSocket event emission
-  if (spawnSource === 'session') {
-    // Agent-initiated: emit WebSocket event
-    storage.emit('session:spawn', spawnData);
-  }
-  // If spawnSource === 'ui', NO event emitted
+  // 7. Emit session:spawn event (ALWAYS - for both UI and session spawns)
+  const spawnEvent = {
+    session: { ...session, env: finalEnvVars },
+    command: `maestro ${role} init`,
+    cwd: project.workingDir,
+    envVars: finalEnvVars,
+    manifest,
+    projectId,
+    taskIds,
+    spawnSource,                        // 'ui' or 'session'
+    parentSessionId: sessionId || null, // Parent session if session-initiated
+    _isSpawnCreated: true               // Backward compatibility
+  };
+  await eventBus.emit('session:spawn', spawnEvent);
 
-  // 6. Return HTTP response (same for both flows)
+  // 8. Emit task:session_added for each task
+  for (const taskId of taskIds) {
+    await eventBus.emit('task:session_added', { taskId, sessionId: session.id });
+  }
+
+  // 9. Return HTTP response
   return res.status(201).json({
     success: true,
-    ...spawnData
+    sessionId: session.id,
+    manifestPath,
+    message: 'Spawn request sent to Agents UI',
+    session: { ...session, env: finalEnvVars }
   });
 });
 ```
@@ -559,7 +601,31 @@ Both flows share the same error handling:
 {
   "error": true,
   "code": "invalid_spawn_source",
-  "message": "spawnSource must be 'ui' or 'session'"
+  "message": "spawnSource must be \"ui\" or \"session\""
+}
+```
+
+```json
+{
+  "error": true,
+  "code": "missing_session_id",
+  "message": "sessionId is required when spawnSource is \"session\""
+}
+```
+
+```json
+{
+  "error": true,
+  "code": "invalid_role",
+  "message": "role must be \"worker\" or \"orchestrator\""
+}
+```
+
+```json
+{
+  "error": true,
+  "code": "invalid_strategy",
+  "message": "strategy must be \"simple\", \"queue\", or \"tree\""
 }
 ```
 
@@ -577,7 +643,16 @@ Both flows share the same error handling:
 {
   "error": true,
   "code": "task_not_found",
-  "message": "Task task_001 not found"
+  "message": "Task task_001 not found",
+  "details": { "taskId": "task_001" }
+}
+```
+
+```json
+{
+  "error": true,
+  "code": "parent_session_not_found",
+  "message": "Parent session ses_parent_123 not found"
 }
 ```
 
@@ -721,15 +796,15 @@ Both flows share the same error handling:
 ## Implementation Reference
 
 **Primary Implementation:**
-- File: `/Users/subhang/Desktop/Projects/agents-ui/maestro-server/src/api/sessions.ts`
+- File: `src/api/sessionRoutes.ts`
 - Endpoint: `POST /api/sessions/spawn`
 - Helper: `generateManifestViaCLI`
 
-**Key Decision Point:**
+**Key Behavior:**
 ```typescript
-// Line where spawnSource determines behavior
-if (spawnSource === 'session') {
-  storage.emit('session:spawn', spawnData);
-}
-// If spawnSource === 'ui', no event emitted
+// session:spawn is ALWAYS emitted for both UI and session spawns
+// The spawnSource field in the event data indicates the initiator
+await eventBus.emit('session:spawn', spawnEvent);
+// spawnEvent.spawnSource === 'ui' | 'session'
+// spawnEvent.parentSessionId === sessionId (if session-initiated) | null
 ```

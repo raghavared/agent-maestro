@@ -105,7 +105,7 @@ Visual representations of key data flows in the Maestro UI application.
 │  • Generates task ID (task_xxx)                                 │
 │  • Adds timestamps (createdAt, updatedAt)                       │
 │  • Sets default status: 'todo'                                  │
-│  • Inserts into SQLite database                                 │
+│  • Saves to file system (JSON)                                  │
 └────────────────────┬────────────────────────────────────────────┘
                      │
          ┌───────────┴───────────┐
@@ -199,7 +199,7 @@ Visual representations of key data flows in the Maestro UI application.
                      ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ Server: Receives spawn request                                  │
-│  • Creates session record in database                           │
+│  • Creates session record (JSON file)                           │
 │  • Fetches project for working directory                        │
 │  • Fetches all tasks for this session                           │
 └────────────────────┬────────────────────────────────────────────┘
@@ -354,7 +354,7 @@ Visual representations of key data flows in the Maestro UI application.
 ┌─────────────────────────────────────────────────────────────────┐
 │ Server: Receives PATCH request                                  │
 │  • Validates update payload                                     │
-│  • Updates task in database                                     │
+│  • Updates task in file system                                  │
 │  • Updates 'updatedAt' timestamp                                │
 └────────────────────┬────────────────────────────────────────────┘
                      │
@@ -641,4 +641,4 @@ App
 
 ---
 
-**Last Updated**: February 7, 2026
+**Last Updated**: February 8, 2026

@@ -88,20 +88,30 @@ export class WorkerInitCommand {
    */
   private async autoUpdateSessionStatus(manifest: MaestroManifest, sessionId: string): Promise<void> {
     try {
+      // Update the SESSION status from 'spawning' to 'running'
+      console.log(`[worker-init] Registering session with server...`);
+      console.log(`[worker-init]    PATCH /api/sessions/${sessionId} -> status: 'running'`);
+      await api.patch(`/api/sessions/${sessionId}`, {
+        status: 'running',
+      });
+      console.log(`[worker-init]    Session status updated: spawning -> running`);
+
       for (const task of manifest.tasks) {
-        // Update session status via server API
+        // Update task's session status
         try {
+          console.log(`[worker-init]    PATCH /api/tasks/${task.id} -> sessionStatus: 'working'`);
           await api.patch(`/api/tasks/${task.id}`, {
             sessionStatus: 'working',
             updateSource: 'session',
             sessionId,
           });
-        } catch {
-          // Task might not exist on server yet, skip
+          console.log(`[worker-init]    Task ${task.id} session status updated to 'working'`);
+        } catch (err: any) {
+          console.warn(`[worker-init]    Failed to update task ${task.id}: ${err.message}`);
         }
       }
-    } catch {
-      // Don't fail init on status update errors
+    } catch (err: any) {
+      console.warn(`[worker-init]    Failed to update session status: ${err.message}`);
     }
   }
 
@@ -109,15 +119,18 @@ export class WorkerInitCommand {
    * Execute the worker init command
    */
   async execute(): Promise<void> {
-    console.log('Initializing Maestro Worker Session\n');
+    console.log('══════════════════════════════════════════════════════════');
+    console.log(' Maestro Worker Init');
+    console.log('══════════════════════════════════════════════════════════\n');
 
     try {
       // Step 1: Get manifest path
-      console.log('Reading manifest...');
+      console.log('[worker-init] Step 1/7: Reading manifest from environment...');
       const manifestPath = this.getManifestPath();
-      console.log(`   Manifest: ${manifestPath}`);
+      console.log(`[worker-init]    MAESTRO_MANIFEST_PATH = ${manifestPath}`);
 
       // Step 2: Read and validate manifest
+      console.log('[worker-init] Step 2/7: Parsing manifest...');
       const result = await readManifestFromEnv();
 
       if (!result.success || !result.manifest) {
@@ -125,75 +138,81 @@ export class WorkerInitCommand {
       }
 
       const manifest = result.manifest;
+      console.log(`[worker-init]    Role: ${manifest.role}`);
+      console.log(`[worker-init]    Strategy: ${manifest.strategy || 'simple'}`);
+      console.log(`[worker-init]    Model: ${manifest.session.model}`);
+      console.log(`[worker-init]    Max turns: ${manifest.session.maxTurns || 'unlimited'}`);
+      console.log(`[worker-init]    Working directory: ${manifest.session.workingDirectory || process.cwd()}`);
+      console.log(`[worker-init]    Tasks: ${manifest.tasks.length}`);
 
       // Step 3: Validate role
+      console.log('[worker-init] Step 3/7: Validating worker role...');
       if (!this.validateWorkerManifest(manifest)) {
         throw new Error(this.formatError('wrong_role', manifest.role));
       }
+      console.log(`[worker-init]    Role "${manifest.role}" validated`);
 
       // Step 4: Load command permissions from manifest
-      console.log('Loading command permissions...');
+      console.log('[worker-init] Step 4/7: Loading command permissions...');
       const permissions = getPermissionsFromManifest(manifest);
       setCachedPermissions(permissions);
-      console.log(`   Role: ${permissions.role}`);
-      console.log(`   Strategy: ${permissions.strategy}`);
-      console.log(`   Allowed: ${permissions.allowedCommands.length} commands`);
-      console.log(`   Hidden: ${permissions.hiddenCommands.length} commands`);
-      console.log('');
+      console.log(`[worker-init]    Allowed commands: ${permissions.allowedCommands.length}`);
+      console.log(`[worker-init]    Hidden commands: ${permissions.hiddenCommands.length}`);
 
       // Show task information
+      console.log('[worker-init] Task details:');
       const primaryTask = manifest.tasks[0];
-      if (manifest.tasks.length === 1) {
-        console.log(`   Task: ${primaryTask.title} (${primaryTask.id})`);
-      } else {
-        console.log(`   Tasks: ${manifest.tasks.length} tasks`);
-        console.log(`   Primary: ${primaryTask.title} (${primaryTask.id})`);
-        manifest.tasks.slice(1).forEach((task, idx) => {
-          console.log(`   Task ${idx + 2}: ${task.title} (${task.id})`);
-        });
-      }
-      console.log(`   Project: ${primaryTask.projectId}`);
+      manifest.tasks.forEach((task, idx) => {
+        const label = idx === 0 ? 'Primary' : `Task ${idx + 1}`;
+        console.log(`[worker-init]    ${label}: ${task.title} (${task.id})`);
+        console.log(`[worker-init]       Project: ${task.projectId}`);
+        console.log(`[worker-init]       Priority: ${task.priority || 'medium'}`);
+        if (task.acceptanceCriteria && task.acceptanceCriteria.length > 0) {
+          console.log(`[worker-init]       Acceptance criteria: ${task.acceptanceCriteria.length}`);
+        }
+        if (task.dependencies && task.dependencies.length > 0) {
+          console.log(`[worker-init]       Dependencies: ${task.dependencies.join(', ')}`);
+        }
+      });
       if (manifest.skills && manifest.skills.length > 0) {
-        console.log(`   Skills: ${manifest.skills.join(', ')}`);
+        console.log(`[worker-init]    Skills: ${manifest.skills.join(', ')}`);
       }
-      console.log('');
 
       // Step 5: Get session ID
+      console.log('[worker-init] Step 5/7: Resolving session ID...');
       const sessionId = this.getSessionId();
-      console.log(`   Session ID: ${sessionId}\n`);
+      const sessionIdSource = process.env.MAESTRO_SESSION_ID ? 'env (MAESTRO_SESSION_ID)' : 'generated';
+      console.log(`[worker-init]    Session ID: ${sessionId}`);
+      console.log(`[worker-init]    Source: ${sessionIdSource}`);
 
-      // Step 6: Auto-update session status to working
+      // Step 6: Register session with server
+      console.log('[worker-init] Step 6/7: Registering session with server...');
       await this.autoUpdateSessionStatus(manifest, sessionId);
 
       // Step 7: Spawn Claude
-      console.log('Spawning Claude Code session...\n');
+      console.log('[worker-init] Step 7/7: Spawning Claude Code process...');
 
       const spawnResult = await this.spawner.spawn(manifest, sessionId, {
         interactive: true,
       });
 
-      console.log('Worker session started successfully!\n');
+      const pid = spawnResult.process.pid;
+      console.log(`[worker-init] Claude Code spawned (PID: ${pid})`);
+      console.log('[worker-init] Worker session started successfully');
+      console.log('══════════════════════════════════════════════════════════\n');
 
       // Wait for process to exit
       spawnResult.process.on('exit', async (code) => {
-        console.log(`\nWorker session exited with code ${code}`);
-
-        // Clean up manifest file (disabled for debugging)
-        // try {
-        //   const { unlink } = await import('fs/promises');
-        //   const manifestPath = process.env.MAESTRO_MANIFEST_PATH;
-        //   if (manifestPath) {
-        //     await unlink(manifestPath);
-        //     console.log('Cleaned up manifest file');
-        //   }
-        // } catch (error) {
-        //   // Ignore cleanup errors
-        // }
+        console.log(`\n[worker-init] Claude Code process exited (PID: ${pid}, code: ${code})`);
+        console.log(`[worker-init] Session ${sessionId} ended`);
       });
 
     } catch (error: any) {
-      console.error(`\nFailed to initialize worker session:\n`);
-      console.error(error.message);
+      console.error(`\n[worker-init] FATAL: Failed to initialize worker session`);
+      console.error(`[worker-init] Error: ${error.message}`);
+      if (error.stack) {
+        console.error(`[worker-init] Stack: ${error.stack}`);
+      }
       process.exit(1);
     }
   }

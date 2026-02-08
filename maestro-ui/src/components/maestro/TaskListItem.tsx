@@ -490,16 +490,6 @@ export function TaskListItem({
                                     </div>
                                 )}
 
-                                {/* Initial Prompt */}
-                                {task.initialPrompt && (
-                                    <div className="terminalDetailBlock">
-                                        <div className="terminalDetailBlockLabel">Initial Prompt</div>
-                                        <div className="terminalDetailBlockContent">
-                                            {task.initialPrompt}
-                                        </div>
-                                    </div>
-                                )}
-
                                 {/* Metadata Grid */}
                                 <div className="terminalDetailGrid">
                                     {/* Dependencies */}
@@ -560,7 +550,7 @@ export function TaskListItem({
                                 </div>
 
                                 {/* Empty state if no details at all */}
-                                {!task.description && !task.initialPrompt &&
+                                {!task.description &&
                                  (!task.dependencies || task.dependencies.length === 0) &&
                                  (!task.skillIds || task.skillIds.length === 0) &&
                                  (!task.agentIds || task.agentIds.length === 0) && (

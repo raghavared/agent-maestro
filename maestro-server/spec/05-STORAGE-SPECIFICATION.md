@@ -1,7 +1,7 @@
 # Maestro Server - Storage Specification
 
-**Version:** 1.0.0
-**Last Updated:** 2026-02-04
+**Version:** 2.0.0
+**Last Updated:** 2026-02-08
 **Purpose:** Define persistence requirements, file structure, and data integrity
 
 ---
@@ -23,34 +23,43 @@ Maestro Server uses a **file-based storage system** with in-memory caching for f
 
 ## Storage Architecture
 
+The storage layer follows a **clean architecture** pattern with repository interfaces in the domain layer and filesystem implementations in the infrastructure layer. Events are emitted via the `InMemoryEventBus` (not directly by storage).
+
 ```mermaid
 graph TB
-    API[API Layer]
-    Storage[Storage Class]
+    API[API Routes]
+    Services[Application Services]
+    RepoInterfaces[Repository Interfaces<br/>Domain Layer]
+    FSRepos[FileSystem Repositories<br/>Infrastructure Layer]
     Memory[In-Memory Cache]
     Disk[File System]
-    Events[Event Emitter]
+    EventBus[InMemoryEventBus]
 
-    API --> Storage
-    Storage --> Memory
-    Storage --> Disk
-    Storage --> Events
+    API --> Services
+    Services --> RepoInterfaces
+    RepoInterfaces -->|implemented by| FSRepos
+    FSRepos --> Memory
+    FSRepos --> Disk
+    Services --> EventBus
 
-    Memory -->|Read| Storage
+    Memory -->|Read| FSRepos
     Disk -->|Load on startup| Memory
-    Storage -->|Save on mutation| Disk
+    FSRepos -->|Save on mutation| Disk
 
     style Memory fill:#e1f5ff
     style Disk fill:#ffe1e1
-    style Events fill:#e1ffe1
+    style EventBus fill:#e1ffe1
+    style RepoInterfaces fill:#f5f5ff
 ```
 
 ### Components
 
-1. **Storage Class** - Main storage interface (extends EventEmitter)
-2. **In-Memory Cache** - Three Maps: projects, tasks, sessions
-3. **File System** - JSON files organized by entity type
-4. **Event Emitter** - Broadcasts state changes to WebSocket
+1. **Repository Interfaces** (Domain Layer) - `IProjectRepository`, `ITaskRepository`, `ISessionRepository`, `IQueueRepository`, `ITemplateRepository`
+2. **FileSystem Repositories** (Infrastructure Layer) - Concrete implementations using JSON files with in-memory Maps
+3. **In-Memory Cache** - Five Maps: projects, tasks, sessions, queues, templates
+4. **File System** - JSON files organized by entity type
+5. **InMemoryEventBus** - Typed domain event bus (separate from storage, used by Application Services)
+6. **DI Container** (`container.ts`) - Wires repositories, services, and event bus together
 
 ---
 
@@ -60,7 +69,7 @@ graph TB
 
 ```
 ~/.maestro/
-├── data/                           # Storage root
+├── data/                           # Storage root (configurable via DATA_DIR)
 │   ├── projects/                  # Project entities
 │   │   ├── proj_123.json
 │   │   ├── proj_456.json
@@ -73,11 +82,16 @@ graph TB
 │   │   └── proj_456/
 │   │       ├── task_004.json
 │   │       └── task_005.json
-│   └── sessions/                  # Session entities
-│       ├── sess_abc.json
-│       ├── sess_def.json
-│       └── sess_ghi.json
-└── sessions/                       # CLI-generated manifests (not storage data)
+│   ├── sessions/                  # Session entities
+│   │   ├── sess_abc.json
+│   │   ├── sess_def.json
+│   │   └── sess_ghi.json
+│   ├── queues/                    # Queue state (for queue-strategy sessions)
+│   │   └── sess_abc.json
+│   └── templates/                 # Prompt templates
+│       ├── tmpl_worker.json
+│       └── tmpl_orchestrator.json
+└── sessions/                       # CLI-generated manifests (configurable via SESSION_DIR)
     ├── sess_abc/
     │   └── manifest.json
     └── sess_def/
@@ -86,19 +100,24 @@ graph TB
 
 ### Path Configuration
 
-**Default paths:**
+**Default paths (from Config class):**
 ```typescript
-const dataDir = path.join(os.homedir(), '.maestro', 'data');
+// Config defaults (supports ~ expansion)
+dataDir: '~/.maestro/data'        // DATA_DIR env
+sessionDir: '~/.maestro/sessions' // SESSION_DIR env
+skillsDir: '~/.agents-ui/maestro-skills' // SKILLS_DIR env
 
-// Entity-specific paths
+// Entity-specific subdirectories
 const projectsDir = path.join(dataDir, 'projects');
 const tasksDir = path.join(dataDir, 'tasks');
 const sessionsDir = path.join(dataDir, 'sessions');
+const queuesDir = path.join(dataDir, 'queues');
+const templatesDir = path.join(dataDir, 'templates');
 ```
 
 **Override via environment:**
 ```bash
-DATA_DIR=/custom/path npm start
+DATA_DIR=/custom/path SESSION_DIR=/custom/sessions npm start
 ```
 
 ---
@@ -153,16 +172,11 @@ await fs.writeFile(
   "skillIds": [],
   "agentIds": [],
   "dependencies": [],
-  "timeline": [
-    {
-      "id": "evt_1738713700000_z1y2x3w4v",
-      "type": "created",
-      "timestamp": 1738713700000,
-      "message": "Task created"
-    }
-  ]
+  "model": "sonnet"
 }
 ```
+
+**Note:** Timeline has been moved to Session entities. Each session has its own timeline of events.
 
 ### Session File Example
 
@@ -177,19 +191,30 @@ await fs.writeFile(
   "env": {
     "MAESTRO_SESSION_ID": "sess_1738713800000_a1b2c3d4e",
     "MAESTRO_MANIFEST_PATH": "/Users/john/.maestro/sessions/sess_1738713800000_a1b2c3d4e/manifest.json",
-    "MAESTRO_SERVER_URL": "http://localhost:3000"
+    "MAESTRO_SERVER_URL": "http://localhost:3000",
+    "MAESTRO_STRATEGY": "simple"
   },
-  "status": "running",
+  "strategy": "simple",
+  "status": "working",
   "startedAt": 1738713800000,
   "lastActivity": 1738713800000,
   "completedAt": null,
   "hostname": "johns-macbook.local",
   "platform": "darwin",
   "events": [],
+  "timeline": [
+    {
+      "id": "evt_1738713800000_z1y2x3w4v",
+      "type": "session_started",
+      "timestamp": 1738713800000,
+      "message": "Session started"
+    }
+  ],
   "metadata": {
     "skills": ["maestro-worker"],
     "role": "worker",
     "spawnSource": "ui",
+    "strategy": "simple",
     "context": {}
   }
 }
@@ -201,11 +226,28 @@ await fs.writeFile(
 
 ### Cache Structure
 
+Each FileSystem repository maintains its own in-memory Map:
+
 ```typescript
-class Storage extends EventEmitter {
+// Each repository has its own cache
+class FileSystemProjectRepository implements IProjectRepository {
   private projects: Map<string, Project>;    // Key: project.id
+}
+
+class FileSystemTaskRepository implements ITaskRepository {
   private tasks: Map<string, Task>;          // Key: task.id
+}
+
+class FileSystemSessionRepository implements ISessionRepository {
   private sessions: Map<string, Session>;    // Key: session.id
+}
+
+class FileSystemQueueRepository implements IQueueRepository {
+  private queues: Map<string, QueueState>;   // Key: session.id
+}
+
+class FileSystemTemplateRepository implements ITemplateRepository {
+  private templates: Map<string, Template>;  // Key: template.id
 }
 ```
 
@@ -214,31 +256,32 @@ class Storage extends EventEmitter {
 ```mermaid
 sequenceDiagram
     participant Server
-    participant Storage
+    participant Container as DI Container
+    participant Repos as FileSystem Repos
     participant Memory
     participant Disk
 
     Note over Server: Server Start
-    Server->>Storage: new Storage()
-    Storage->>Storage: initialize()
-    Storage->>Disk: Load all files
+    Server->>Container: new Container()
+    Container->>Repos: create repositories
+    Container->>Container: initialize()
+    Repos->>Disk: Load all files
     Disk->>Memory: Populate Maps
-    Note over Memory: projects: Map<br/>tasks: Map<br/>sessions: Map
+    Note over Memory: projects: Map<br/>tasks: Map<br/>sessions: Map<br/>queues: Map<br/>templates: Map
 
     Note over Server: API Request (Create)
-    Server->>Storage: createTask()
-    Storage->>Memory: tasks.set(id, task)
-    Storage->>Disk: writeFile(task)
-    Storage->>Server: emit('task:created')
+    Server->>Repos: save(task)
+    Repos->>Memory: tasks.set(id, task)
+    Repos->>Disk: writeFile(task)
 
     Note over Server: API Request (Read)
-    Server->>Storage: getTask(id)
-    Storage->>Memory: tasks.get(id)
+    Server->>Repos: findById(id)
+    Repos->>Memory: tasks.get(id)
     Memory->>Server: return task
 
     Note over Server: Server Shutdown
-    Server->>Storage: save()
-    Storage->>Disk: Write all entities
+    Server->>Container: shutdown()
+    Container->>Repos: cleanup
 ```
 
 ### Cache Consistency
@@ -415,11 +458,15 @@ async save(): Promise<void> {
 
 ## ID Generation
 
-### makeId Pattern
+### TimestampIdGenerator
+
+ID generation is handled by the `TimestampIdGenerator` class (implementing `IIdGenerator` interface):
 
 ```typescript
-makeId(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+class TimestampIdGenerator implements IIdGenerator {
+  generate(prefix: string): string {
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
 }
 ```
 
@@ -442,6 +489,7 @@ Components:
 | Task | `task` | `task_1738713700000_p9q2r5t8w` |
 | Session | `sess` | `sess_1738713800000_a1b2c3d4e` |
 | Event | `evt` | `evt_1738713900000_z1y2x3w4v` |
+| Template | `tmpl` | `tmpl_1738714000000_m3n4o5p6q` |
 
 ### Properties
 
@@ -454,25 +502,31 @@ Components:
 
 ## Event Emission
 
-### Event Emitter Pattern
+### Event Bus Pattern
 
-Storage class extends Node.js EventEmitter:
+Events are emitted by **Application Services** (not repositories) via the `InMemoryEventBus`:
 
 ```typescript
-class Storage extends EventEmitter {
-  // ...
+// Application Service emits events
+class TaskService {
+  constructor(
+    private taskRepo: ITaskRepository,
+    private eventBus: IEventBus,
+    private idGenerator: IIdGenerator
+  ) {}
 
-  createTask(taskData: CreateTaskPayload): Task {
+  async createTask(taskData: CreateTaskPayload): Promise<Task> {
     const task: Task = { /* ... */ };
 
-    this.tasks.set(task.id, task);
-    this.save();
-    this.emit('task:created', task);  // Emit event
+    await this.taskRepo.save(task);
+    await this.eventBus.emit('task:created', task);  // Emit event via EventBus
 
     return task;
   }
 }
 ```
+
+**Note:** Repositories are responsible only for persistence. Event emission is the responsibility of Application Services, following clean architecture separation of concerns.
 
 ### Events Emitted
 
@@ -570,16 +624,16 @@ if (!session.env) session.env = {};
 4. Save to disk (synchronous)
 5. Emit event
 
-**Example (Create Task):**
+**Example (Create Task via TaskService):**
 ```typescript
-createTask(taskData: CreateTaskPayload): Task {
+async createTask(taskData: CreateTaskPayload): Promise<Task> {
   const task: Task = {
-    id: this.makeId('task'),
+    id: this.idGenerator.generate('task'),
     projectId: taskData.projectId,
     parentId: taskData.parentId || null,
     title: taskData.title,
     description: taskData.description || '',
-    status: 'pending' as TaskStatus,
+    status: 'todo' as TaskStatus,
     priority: taskData.priority || 'medium',
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -590,19 +644,11 @@ createTask(taskData: CreateTaskPayload): Task {
     skillIds: taskData.skillIds || [],
     agentIds: [],
     dependencies: [],
-    timeline: [
-      {
-        id: this.makeId('evt'),
-        type: 'created',
-        timestamp: Date.now(),
-        message: 'Task created'
-      }
-    ]
+    model: taskData.model
   };
 
-  this.tasks.set(task.id, task);
-  this.save();
-  this.emit('task:created', task);
+  await this.taskRepo.save(task);          // Repository: persist
+  await this.eventBus.emit('task:created', task); // EventBus: notify
 
   return task;
 }
@@ -964,16 +1010,21 @@ updateTask(id: string, updates: UpdateTaskPayload): Task {
 1. **No transactions** - Multiple operations not atomic
 2. **No write buffering** - Every mutation writes to disk
 3. **No query indexes** - Filters scan all entities
-4. **No database** - File-based storage not scalable
-5. **No backup/restore** - Manual file copying required
+4. **No backup/restore** - Manual file copying required
 
-### Proposed Improvements (see spec-review/)
+### Achieved Improvements
 
-1. **Abstract storage interface** - Swap file-based for database
+1. **Abstract storage interface** - Repository interfaces allow swapping implementations
+2. **Clean architecture** - Domain/Application/Infrastructure layer separation
+3. **DI Container** - All dependencies wired via container
+4. **Config support** - `DATABASE_TYPE=postgres` config prepared (no Postgres implementation yet)
+
+### Remaining Improvements (see spec-review/)
+
+1. **PostgreSQL repositories** - Implement behind existing interfaces
 2. **Async writes with WAL** - Write-ahead log for consistency
-3. **Database backend** - PostgreSQL for production
-4. **Backup/restore API** - Automated data management
-5. **Query optimization** - Indexes for common filters
+3. **Backup/restore API** - Automated data management
+4. **Query optimization** - Indexes for common filters
 
 ---
 

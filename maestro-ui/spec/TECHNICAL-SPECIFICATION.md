@@ -1,7 +1,7 @@
 # Maestro UI - Technical Specification
 
-**Version:** 0.3.0
-**Last Updated:** February 7, 2026
+**Version:** 0.3.1
+**Last Updated:** February 8, 2026
 **Status:** Living Document
 
 ---
@@ -82,7 +82,7 @@
         │  │ REST API  │    │  WebSocket   │ │
         │  └───────────┘    └──────────────┘ │
         │  ┌───────────────────────────────┐ │
-        │  │   SQLite Database             │ │
+        │  │   File System (JSON)          │ │
         │  │   (Tasks, Sessions, Projects) │ │
         │  └───────────────────────────────┘ │
         └─────────────────────────────────────┘
@@ -194,7 +194,6 @@ maestro-ui/
 │   │   │   ├── MaestroPanel.tsx            # Main Maestro panel
 │   │   │   ├── CreateTaskModal.tsx         # Task creation modal
 │   │   │   ├── TaskListItem.tsx            # Task list item
-│   │   │   ├── TaskDetailModal.tsx         # Task detail view
 │   │   │   ├── TaskFilters.tsx             # Task filtering
 │   │   │   ├── TaskStatusControl.tsx       # Task status UI
 │   │   │   ├── TaskTimeline.tsx            # Task timeline
@@ -214,7 +213,8 @@ maestro-ui/
 │   │   │   ├── AddSubtaskInput.tsx         # Add subtask input
 │   │   │   ├── TimelineEvent.tsx           # Timeline event
 │   │   │   ├── MaestroSessionContent.tsx   # Session content
-│   │   │   └── ExecutionBar.tsx            # Execution bar
+│   │   │   ├── ExecutionBar.tsx            # Execution bar
+│   │   │   └── SessionDetailModal.tsx     # Session detail modal
 │   │   │
 │   │   ├── app/                   # App-level components
 │   │   │   ├── AppWorkspace.tsx            # Main workspace
@@ -226,13 +226,28 @@ maestro-ui/
 │   │   │   └── Topbar.tsx                  # Topbar component
 │   │   │
 │   │   ├── modals/                # Modal components
-│   │   │   └── (17 modal components)
+│   │   │   ├── ApplyAssetModal.tsx           # Asset application dialog
+│   │   │   ├── ConfirmActionModal.tsx        # Generic confirmation
+│   │   │   ├── ConfirmDeleteProjectModal.tsx # Project delete confirm
+│   │   │   ├── ConfirmDeleteRecordingModal.tsx # Recording delete confirm
+│   │   │   ├── ManageTerminalsModal.tsx      # Terminal management
+│   │   │   ├── NewSessionModal.tsx           # New terminal session
+│   │   │   ├── PathPickerModal.tsx           # File path selection
+│   │   │   ├── PersistentSessionsModal.tsx   # Persistent session list
+│   │   │   ├── ProjectModal.tsx             # Create/rename project
+│   │   │   ├── RecordingsListModal.tsx      # Recording list
+│   │   │   ├── ReplayModal.tsx              # Recording replay
+│   │   │   ├── SecureStorageModal.tsx        # Credential storage
+│   │   │   ├── SshManagerModal.tsx          # SSH connection manager
+│   │   │   ├── StartRecordingModal.tsx      # Start recording
+│   │   │   └── UpdateModal.tsx              # Version update notification
 │   │   │
 │   │   ├── AgentShortcutsModal.tsx        # Agent shortcuts config
 │   │   ├── AppRightPanel.tsx              # Right panel container
 │   │   ├── AppSlidePanel.tsx              # Slide panel container
 │   │   ├── CodeEditorPanel.tsx            # Monaco editor panel
 │   │   ├── FileExplorerPanel.tsx          # File explorer
+│   │   ├── InlineFolderBrowser.tsx        # Folder picker component
 │   │   ├── Icon.tsx                       # Icon component
 │   │   ├── ProjectTabBar.tsx              # Project tabs
 │   │   ├── ProjectsSection.tsx            # Projects section
@@ -321,6 +336,7 @@ maestro-ui/
 │   │   ├── maestroHelpers.ts             # Maestro helpers
 │   │   ├── workSpaceStorage.ts           # Workspace storage
 │   │   ├── formatters.ts                 # Formatters
+│   │   ├── serverConfig.ts              # Server URL configuration
 │   │   └── promptTemplate.ts             # Prompt templates
 │   │
 │   ├── assets/                    # Static assets
@@ -415,6 +431,16 @@ interface MaestroTask {
 }
 ```
 
+#### Task Tree & Subtask Types
+
+```typescript
+// Subtask alias - subtasks are just Tasks with parentId set
+type MaestroSubtask = MaestroTask;
+
+// Tree node for hierarchical task rendering
+type TaskTreeNode = MaestroTask & { children: TaskTreeNode[] };
+```
+
 #### Session Types
 
 ```typescript
@@ -428,6 +454,7 @@ type MaestroSessionStatus =
   | 'stopped';    // Manually stopped
 
 // Worker strategy
+// Note: Server supports 'simple' | 'queue' | 'tree', but UI currently uses 'simple' | 'queue'
 type WorkerStrategy = 'simple' | 'queue';
 
 // Spawn source (where session was created)
@@ -623,6 +650,121 @@ interface SpawnSessionResponse {
   sessionId: string;
   manifestPath: string;
   session: MaestroSession;
+}
+```
+
+#### Server-Side Types (maestro-server)
+
+These types exist on the server and are relevant for understanding the full data model:
+
+```typescript
+// Server's worker strategy includes 'tree' (not yet used in UI)
+type ServerWorkerStrategy = 'simple' | 'queue' | 'tree';
+
+// Queue management types
+interface QueueItem {
+  taskId: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed' | 'skipped';
+  addedAt: number;
+  startedAt?: number;
+  completedAt?: number;
+  failReason?: string;
+}
+
+interface QueueState {
+  sessionId: string;
+  strategy: WorkerStrategy;
+  items: QueueItem[];
+  currentIndex: number;  // -1 if no item is being processed
+  createdAt: number;
+  updatedAt: number;
+}
+
+// Spawn request event (emitted by server to UI via WebSocket)
+interface SpawnRequestEvent {
+  session: MaestroSession;
+  projectId: string;
+  taskIds: string[];
+  command: string;
+  cwd: string;
+  envVars: Record<string, string>;
+  manifest?: any;
+  spawnSource: 'ui' | 'session';
+  parentSessionId?: string;
+}
+
+// Update source tracking
+type UpdateSource = 'user' | 'session';
+```
+
+#### Session Management Payloads
+
+```typescript
+interface CreateSessionPayload {
+  id?: string;
+  projectId: string;
+  taskIds: string[];
+  name?: string;
+  agentId?: string;
+}
+
+interface UpdateSessionPayload {
+  taskIds?: string[];
+  status?: MaestroSessionStatus;
+  agentId?: string;
+  events?: MaestroSessionEvent[];
+  timeline?: SessionTimelineEvent[];
+  completedAt?: number;
+}
+```
+
+#### Session Event Types
+
+```typescript
+interface MaestroSessionEvent {
+  id: string;
+  timestamp: number;
+  type: string;
+  data?: any;
+}
+```
+
+#### Agent Skill Types
+
+```typescript
+interface AgentSkill {
+  id: string;
+  name: string;
+  description: string;
+  type: 'system' | 'role';
+  version: string;
+}
+```
+
+#### Template Types
+
+```typescript
+type TemplateRole = 'worker' | 'orchestrator';
+
+interface MaestroTemplate {
+  id: string;
+  name: string;
+  role: TemplateRole;
+  content: string;
+  isDefault: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface CreateTemplatePayload {
+  name: string;
+  role: TemplateRole;
+  content: string;
+}
+
+interface UpdateTemplatePayload {
+  name?: string;
+  content?: string;
 }
 ```
 
@@ -958,9 +1100,9 @@ App
 │   │   │
 │   │   ├── AppModals
 │   │   │   ├── NewSessionModal
-│   │   │   ├── ProjectConfigModal
+│   │   │   ├── ProjectModal
 │   │   │   ├── SshManagerModal
-│   │   │   └── [15+ other modals]
+│   │   │   └── [12 other modals]
 │   │   │
 │   │   └── AppSlidePanel
 │   │       ├── PromptsTab
@@ -975,7 +1117,7 @@ App
 │           │   ├── TaskStatusControl
 │           │   ├── TaskFilters
 │           │   └── TaskTimeline
-│           ├── TaskDetailModal
+│           ├── SessionDetailModal
 │           │   ├── SessionDetailsSection
 │           │   ├── SessionTimeline
 │           │   └── AddSubtaskInput
@@ -1183,6 +1325,29 @@ Location: `src/components/CodeEditorPanel.tsx`
 
 ## Services & API Integration
 
+### Server Configuration
+
+Location: `src/utils/serverConfig.ts`
+
+**Purpose**: Single source of truth for API and WebSocket URLs.
+
+```typescript
+// Base API URL (configurable via VITE_API_URL)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+// WebSocket URL (derived from API_BASE_URL or overridden via VITE_WS_URL)
+const WS_URL = import.meta.env.VITE_WS_URL || deriveWsUrl(API_BASE_URL);
+
+// Server URL without /api path (e.g. "http://localhost:3001")
+// Used for MAESTRO_API_URL env var passed to CLI workers
+const SERVER_URL = deriveServerUrl(API_BASE_URL);
+```
+
+**Key Behavior:**
+- If `VITE_WS_URL` is not set, the WebSocket URL is automatically derived from `API_BASE_URL`
+- Protocol is automatically upgraded (`http:` → `ws:`, `https:` → `wss:`)
+- This ensures API and WebSocket always point to the same server
+
 ### MaestroClient
 
 Location: `src/utils/MaestroClient.ts`
@@ -1193,7 +1358,7 @@ Location: `src/utils/MaestroClient.ts`
 
 ```typescript
 class MaestroClient {
-  private baseUrl = 'http://localhost:3000/api';
+  private baseUrl = API_BASE_URL;  // from serverConfig.ts
 
   // Generic fetch with error handling
   private async fetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -2001,7 +2166,7 @@ function detectLanguage(filePath: string): string {
                      ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ 3. Server (maestro-server) receives spawn request               │
-│    - Creates session record in database                         │
+│    - Creates session record in storage                         │
 │    - Calls `maestro worker init` CLI command                    │
 │    - CLI generates session manifest                             │
 │    - Server emits 'session:spawn' WebSocket event with:         │
@@ -2082,6 +2247,9 @@ MAESTRO_API_URL=http://localhost:3000
 # Agent configuration
 MAESTRO_AGENT_ID=claude
 MAESTRO_AGENT_MODEL=sonnet  # or opus, haiku
+
+# Manifest path (generated by server, read by CLI)
+MAESTRO_MANIFEST_PATH=/path/to/.maestro/manifests/ses_123.json
 ```
 
 **Read by CLI:**
@@ -2372,7 +2540,7 @@ User clicks "Create Task"
   → User clicks "Create"
   → maestroClient.createTask(payload)
   → POST /api/tasks
-  → Server creates task in database
+  → Server creates task in storage
   → Server emits 'task:created' WebSocket event
   → useMaestroStore receives event
   → Updates tasks Map
@@ -2614,7 +2782,7 @@ This specification serves as the **source of truth** for the Maestro UI codebase
 
 ---
 
-**Document Version:** 1.0.0
-**Generated:** February 7, 2026
+**Document Version:** 1.1.0
+**Generated:** February 8, 2026
 **Author:** Maestro Development Team
 **Repository:** https://github.com/FusionbaseHQ/agents-ui

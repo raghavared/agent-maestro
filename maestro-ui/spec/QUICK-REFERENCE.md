@@ -91,11 +91,54 @@ interface MaestroSession {
   taskIds: string[];
   name: string;
   agentId?: string;
+  env: Record<string, string>;
   status: MaestroSessionStatus;
   strategy?: WorkerStrategy;
   timeline: SessionTimelineEvent[];
+  role?: 'orchestrator' | 'worker';
+  spawnSource?: SpawnSource;
   model?: ModelType;
 }
+
+// Subtask alias - subtasks are just Tasks with parentId set
+type MaestroSubtask = MaestroTask;
+
+// Tree node for hierarchical task rendering
+type TaskTreeNode = MaestroTask & { children: TaskTreeNode[] };
+```
+
+### Agent & Template Types
+
+```typescript
+interface AgentSkill {
+  id: string;
+  name: string;
+  description: string;
+  type: 'system' | 'role';
+  version: string;
+}
+
+type TemplateRole = 'worker' | 'orchestrator';
+
+interface MaestroTemplate {
+  id: string;
+  name: string;
+  role: TemplateRole;
+  content: string;
+  isDefault: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+### Server Configuration
+
+```typescript
+import { API_BASE_URL, WS_URL, SERVER_URL } from '../utils/serverConfig';
+
+// API_BASE_URL: http://localhost:3000/api (via VITE_API_URL)
+// WS_URL: ws://localhost:3000 (derived from API_BASE_URL or VITE_WS_URL)
+// SERVER_URL: http://localhost:3000 (for MAESTRO_API_URL env var)
 ```
 
 ---
@@ -509,4 +552,4 @@ src-tauri/target/release/bundle/
 
 ---
 
-**Last Updated**: February 7, 2026
+**Last Updated**: February 8, 2026

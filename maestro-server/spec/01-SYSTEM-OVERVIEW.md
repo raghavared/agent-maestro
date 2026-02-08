@@ -1,7 +1,7 @@
 # Maestro Server - System Overview
 
-**Version:** 1.0.0
-**Last Updated:** 2026-02-04
+**Version:** 2.0.0
+**Last Updated:** 2026-02-08
 **Purpose:** Define architecture boundaries and system philosophy
 
 ---
@@ -19,22 +19,40 @@ Maestro Server is a **project coordination backend** that provides:
 ### Core Responsibilities
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│                    Maestro Server                          │
-│                                                            │
-│  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐  │
-│  │   REST API  │  │  WebSocket   │  │  CLI Integration│  │
-│  │  (HTTP/JSON)│  │  (Events)    │  │  (Manifest Gen) │  │
-│  └──────┬──────┘  └──────┬───────┘  └────────┬────────┘  │
-│         │                │                    │           │
-│         └────────────────┼────────────────────┘           │
-│                         │                                 │
-│         ┌───────────────▼─────────────────┐               │
-│         │      Storage Layer              │               │
-│         │  (Projects, Tasks, Sessions)    │               │
-│         └─────────────────────────────────┘               │
-│                                                            │
-└────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                        Maestro Server                                │
+│                                                                      │
+│  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐            │
+│  │   REST API  │  │  WebSocket   │  │  CLI Integration│            │
+│  │  (HTTP/JSON)│  │  (Events)    │  │  (Manifest Gen) │            │
+│  └──────┬──────┘  └──────┬───────┘  └────────┬────────┘            │
+│         │                │                    │                      │
+│  ┌──────▼────────────────▼────────────────────▼──────────────────┐  │
+│  │               Application Services Layer                      │  │
+│  │  (ProjectService, TaskService, SessionService, QueueService,  │  │
+│  │   TemplateService)                                            │  │
+│  └──────────────────────────┬────────────────────────────────────┘  │
+│                             │                                       │
+│  ┌──────────────────────────▼────────────────────────────────────┐  │
+│  │                  Domain Layer (Interfaces)                     │  │
+│  │  (IProjectRepository, ITaskRepository, ISessionRepository,    │  │
+│  │   IQueueRepository, ITemplateRepository, IEventBus,           │  │
+│  │   ISkillLoader, ILogger, IIdGenerator)                        │  │
+│  └──────────────────────────┬────────────────────────────────────┘  │
+│                             │                                       │
+│  ┌──────────────────────────▼────────────────────────────────────┐  │
+│  │               Infrastructure Layer                            │  │
+│  │  FileSystem Repositories, InMemoryEventBus, ConsoleLogger,    │  │
+│  │  WebSocketBridge, Config, TimestampIdGenerator,               │  │
+│  │  FileSystemSkillLoader                                        │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐    │
+│  │                  DI Container (container.ts)                  │    │
+│  │  Wires all components, manages lifecycle (init/shutdown)      │    │
+│  └──────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
               │                           │
               │                           │
     ┌─────────▼──────────┐     ┌─────────▼──────────┐
@@ -150,30 +168,47 @@ graph TB
 
 #### HTTP Server (Express)
 - **Port:** 3000 (configurable via `PORT` env)
-- **Middleware:** CORS, JSON body parser
-- **Routes:** `/api/projects`, `/api/tasks`, `/api/sessions`, `/api/skills`, `/health`
+- **Middleware:** CORS, JSON body parser, API request logging
+- **Routes:** `/api/projects`, `/api/tasks`, `/api/sessions`, `/api/skills`, `/api/templates`, `/health`, `/ws-status`
 
 #### WebSocket Server (ws)
 - **Protocol:** WebSocket over HTTP upgrade
-- **Direction:** Server → Client only (unidirectional)
-- **Events:** 15+ event types (project:*, task:*, session:*)
+- **Direction:** Primarily Server → Client (broadcasts), with client ping/pong support
+- **Bridge:** `WebSocketBridge` subscribes to `InMemoryEventBus` and broadcasts to all connected clients
+- **Events:** 14 bridged event types (project:*, task:*, session:*)
 
-#### Storage Layer
-- **Type:** File-based JSON storage
-- **Location:** `~/.maestro/data/` (configurable via `DATA_DIR`)
-- **Structure:** Individual JSON files per entity
-- **In-Memory:** Maps for fast reads (loaded on startup)
+#### Application Services Layer
+- **ProjectService:** Project CRUD with dependency validation
+- **TaskService:** Task CRUD with session association, update source tracking
+- **SessionService:** Session CRUD with spawn orchestration, timeline events
+- **QueueService:** FIFO queue management for queue-strategy sessions
+- **TemplateService:** Prompt template management with defaults
 
-#### API Routes
-- **Projects:** CRUD operations for project entities
-- **Tasks:** CRUD + timeline, hierarchical tasks
-- **Sessions:** CRUD + spawn orchestration
-- **Skills:** List available skills
+#### Domain Layer (Interfaces)
+- **Repository Interfaces:** `IProjectRepository`, `ITaskRepository`, `ISessionRepository`, `IQueueRepository`, `ITemplateRepository`
+- **Service Interfaces:** `ISkillLoader`, `IManifestGenerator`
+- **Infrastructure Interfaces:** `IEventBus`, `ILogger`, `IIdGenerator`
+- **Domain Events:** Type-safe event definitions (`DomainEvents.ts`)
+- **Error Classes:** `AppError`, `ValidationError`, `NotFoundError`, `ForbiddenError`, `UnauthorizedError`, `BusinessRuleError`, `ConfigError`, `ManifestGenerationError`, `SkillLoadError`
+
+#### Infrastructure Layer
+- **FileSystem Repositories:** JSON file storage per entity
+- **InMemoryEventBus:** EventEmitter-based typed event bus
+- **WebSocketBridge:** Bridges domain events to WebSocket clients
+- **ConsoleLogger:** Structured logging with configurable levels
+- **TimestampIdGenerator:** ID generation with prefix_timestamp_random pattern
+- **FileSystemSkillLoader:** Loads skills from filesystem with caching
+- **Config:** Centralized configuration from environment variables
+
+#### DI Container (`container.ts`)
+- Wires all dependencies together
+- Manages lifecycle: `initialize()` loads repos from disk, `shutdown()` cleans up
+- Provides typed access to all services and repositories
 
 #### CLI Integration
 - **Command:** `maestro manifest generate`
 - **Purpose:** Generate session manifests with full context
-- **Dependency:** Requires `maestro` CLI installed globally
+- **Dependency:** Requires `maestro` CLI in PATH (resolved from monorepo `node_modules/.bin`)
 
 ---
 
@@ -277,7 +312,8 @@ Client A             Server              Storage             Client B (WebSocket
 - **child_process** - Spawn `maestro` CLI (built-in)
 
 ### Event System
-- **EventEmitter** - Storage event broadcasting (built-in)
+- **InMemoryEventBus** - Typed domain event bus (wraps Node.js EventEmitter)
+- **WebSocketBridge** - Bridges event bus to WebSocket clients
 
 ---
 
@@ -286,16 +322,18 @@ Client A             Server              Storage             Client B (WebSocket
 ### Current: Local Development Server
 ```
 ~/.maestro/
-├── data/                    # Storage root
+├── data/                    # Storage root (configurable via DATA_DIR)
 │   ├── projects/           # Project JSON files
 │   ├── tasks/              # Task JSON files (organized by project)
-│   └── sessions/           # Session JSON files
-└── sessions/               # Generated manifests (by CLI)
+│   ├── sessions/           # Session JSON files
+│   ├── queues/             # Queue state JSON files (for queue-strategy sessions)
+│   └── templates/          # Template JSON files
+└── sessions/               # Generated manifests (configurable via SESSION_DIR)
     └── {session-id}/
         └── manifest.json
 
 ~/.agents-ui/
-└── maestro-skills/         # Skills directory
+└── maestro-skills/         # Skills directory (configurable via SKILLS_DIR)
     ├── maestro-cli/
     ├── maestro-worker/
     └── maestro-orchestrator/
@@ -312,10 +350,11 @@ Client A             Server              Storage             Client B (WebSocket
 
 ## Key Design Decisions
 
-### Decision 1: File-Based Storage
+### Decision 1: File-Based Storage (with Postgres Support Prepared)
 **Rationale:** Simple, no database dependency, easy to inspect
 **Trade-off:** Not suitable for high concurrency or large datasets
-**Future:** Abstract storage behind interface (see `spec-review/02-DECOUPLING-PLAN.md`)
+**Current:** Storage abstracted behind repository interfaces (`IProjectRepository`, etc.). Config supports `DATABASE_TYPE=postgres` but only filesystem implementation exists.
+**Future:** Implement `PostgresProjectRepository`, etc. behind existing interfaces
 
 ### Decision 2: Synchronous File Writes
 **Rationale:** Ensure data persistence on every mutation
@@ -327,9 +366,9 @@ Client A             Server              Storage             Client B (WebSocket
 **Trade-off:** Server depends on CLI being installed
 **Future:** Server-side manifest generation (see `spec-review/`)
 
-### Decision 4: Unidirectional WebSocket
-**Rationale:** Server only broadcasts state changes, clients don't send commands
-**Trade-off:** Clients must use HTTP API for mutations
+### Decision 4: Primarily Unidirectional WebSocket
+**Rationale:** Server primarily broadcasts state changes; clients use HTTP API for mutations
+**Client Messages:** Ping/pong heartbeat supported; other client messages logged but not acted upon
 **Benefit:** Simple protocol, no WebSocket authentication needed
 
 ### Decision 5: No Authentication
@@ -350,7 +389,8 @@ Client A             Server              Storage             Client B (WebSocket
 ### Soft Constraints
 1. **Port 3000** - Configurable via `PORT` env
 2. **Data Directory** - Configurable via `DATA_DIR` env
-3. **Skills Directory** - Configurable (hardcoded to `~/.agents-ui/maestro-skills/`)
+3. **Session Directory** - Configurable via `SESSION_DIR` env
+4. **Skills Directory** - Configurable via `SKILLS_DIR` env (default: `~/.agents-ui/maestro-skills/`)
 
 ---
 

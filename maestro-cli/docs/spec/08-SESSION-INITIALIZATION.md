@@ -33,6 +33,15 @@ When `maestro worker init` or `maestro orchestrator init` runs, the CLI performs
                │
                ▼
 ┌─────────────────────────────────────┐
+│  3a. Load Command Permissions       │
+│     - Read role from manifest       │
+│     - Determine strategy            │
+│     - Build allowed commands list   │
+│     - Cache permissions             │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────┐
 │  4. Load Standard Skills            │
 │     - Read manifest.skills[]        │
 │     - Discover in ~/.skills/        │
@@ -51,10 +60,10 @@ When `maestro worker init` or `maestro orchestrator init` runs, the CLI performs
                │
                ▼
 ┌─────────────────────────────────────┐
-│  6. Auto-Update Task Status ✅      │
-│     - Task status → 'in_progress'   │
-│     - No manual commands needed     │
-│     (Replaces old 'task start')     │
+│  6. Auto-Update Status ✅           │
+│     - Session → 'running'           │
+│     - Task sessionStatus → 'working'│
+│     - Via autoUpdateSessionStatus() │
 └──────────────┬──────────────────────┘
                │
                ▼
@@ -77,9 +86,10 @@ When `maestro worker init` or `maestro orchestrator init` runs, the CLI performs
 
 ---
 
-**Future Enhancements** (not currently implemented):
-- Step 5a: Execute SessionStart Hook (report to server)
-- Step 8a: Execute SessionEnd Hook (report completion)
+**Hooks** (implemented via plugin hooks.json):
+- SessionStart hook: `maestro session register` (auto-executed by Claude Code plugin system)
+- SessionEnd hook: `maestro session complete` (auto-executed on exit)
+- PostToolUse hook (Worker only): `track-file` (auto-executed on Write/Edit)
 ```
 
 ## Session Brief Display
@@ -230,12 +240,18 @@ $ maestro task start task-123
 ### Current Approach (Automatic)
 
 ```typescript
-// When session spawns (automatic)
-on('session:created', ({ sessionId, taskIds }) => {
-  for (const taskId of taskIds) {
-    updateTaskStatus(taskId, 'in_progress');
-  }
-});
+// In WorkerInitCommand.autoUpdateSessionStatus():
+// 1. Update SESSION status: spawning → running
+await api.patch(`/api/sessions/${sessionId}`, { status: 'running' });
+
+// 2. Update TASK session status for each task
+for (const task of manifest.tasks) {
+  await api.patch(`/api/tasks/${task.id}`, {
+    sessionStatus: 'working',
+    updateSource: 'session',
+    sessionId
+  });
+}
 ```
 
 **Benefits**:
@@ -330,10 +346,10 @@ Session Context:
 
 ───────────────────────────────────────────────────────────
 
-Spawning: claude --model sonnet \
-                 --permission-mode acceptEdits \
+Spawning: claude --plugin-dir plugins/maestro-worker \
                  --plugin-dir ~/.skills/code-visualizer \
-                 --append-system-prompt /tmp/maestro-prompt-123.md
+                 --model sonnet \
+                 "Run `maestro whoami` to understand your assignment and begin working."
 
 ───────────────────────────────────────────────────────────
 

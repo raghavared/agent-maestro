@@ -475,7 +475,10 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         MAESTRO_SESSION_ID: session.id,
         MAESTRO_MANIFEST_PATH: manifestPath,
         MAESTRO_SERVER_URL: config.serverUrl,
-        MAESTRO_STRATEGY: strategy  // ✅ FIX: Pass strategy via environment variable
+        MAESTRO_STRATEGY: strategy,
+        // Pass storage paths so CLI reads/writes to the correct environment directories
+        DATA_DIR: config.dataDir,
+        SESSION_DIR: config.sessionDir,
       };
 
       // Update session env

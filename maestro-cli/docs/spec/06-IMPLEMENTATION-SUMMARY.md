@@ -23,18 +23,23 @@ This document provides a quick overview of the finalized Maestro CLI architectur
 
 ### 2. Simple Environment Variables
 
-**Only 4 required**:
+**Core variables (more injected by ClaudeSpawner at runtime):**
 ```bash
 MAESTRO_MANIFEST_PATH=~/.maestro/sessions/sess-123/manifest.json
 MAESTRO_PROJECT_ID=proj-1
 MAESTRO_SESSION_ID=sess-123
-MAESTRO_API_URL=http://localhost:3000
+MAESTRO_API_URL=http://localhost:3000    # or MAESTRO_SERVER_URL
+MAESTRO_TASK_IDS=task-1
+MAESTRO_ROLE=worker
+MAESTRO_STRATEGY=simple
 ```
 
 ### 3. Worker/Orchestrator as System Prompts
 
 **Not skills** - just system prompt templates:
-- `maestro-cli/templates/worker-prompt.md`
+- `maestro-cli/templates/worker-simple-prompt.md`
+- `maestro-cli/templates/worker-queue-prompt.md`
+- `maestro-cli/templates/worker-tree-prompt.md`
 - `maestro-cli/templates/orchestrator-prompt.md`
 
 Variables like `${TASK_TITLE}` are replaced with manifest data.
@@ -49,13 +54,14 @@ Optional skills from `~/.skills/`:
 
 Listed in `manifest.skills[]`, loaded as `--plugin-dir` arguments.
 
-### 5. Minimal Hooks
+### 5. Hooks (Implemented)
 
-Two built-in hooks:
-- `SessionStart`: Report to server when session starts
-- `SessionEnd`: Report to server when session ends
+Hooks implemented via Claude Code plugin hooks.json:
+- `SessionStart`: Register session (`maestro session register`)
+- `SessionEnd`: Complete session (`maestro session complete`)
+- `PostToolUse` (Worker): Track file modifications (`track-file`)
 
-**Graceful degradation**: Works offline if server is unavailable.
+Plugin directories: `plugins/maestro-worker/` and `plugins/maestro-orchestrator/`
 
 ## Architecture Diagram
 
@@ -120,37 +126,49 @@ maestro-cli/
 │
 ├── src/
 │   ├── commands/
-│   │   ├── worker.ts               # maestro worker init
-│   │   ├── orchestrator.ts        # maestro orchestrator init
-│   │   ├── task.ts                # Task commands
-│   │   ├── subtask.ts             # Subtask commands
-│   │   └── context.ts             # Context commands
+│   │   ├── worker.ts               # maestro worker commands
+│   │   ├── worker-init.ts          # Worker init command
+│   │   ├── orchestrator.ts         # maestro orchestrator commands
+│   │   ├── orchestrator-init.ts    # Orchestrator init command
+│   │   ├── manifest-generator.ts   # maestro manifest generate
+│   │   ├── task.ts                 # Task commands
+│   │   ├── session.ts              # Session management
+│   │   ├── queue.ts                # Queue strategy commands
+│   │   ├── report.ts               # Report commands
+│   │   ├── project.ts              # Project management
+│   │   └── skill.ts                # Skill commands
 │   │
 │   ├── services/
 │   │   ├── manifest-reader.ts      # Read/validate manifests
 │   │   ├── prompt-generator.ts     # Generate system prompts
 │   │   ├── skill-loader.ts         # Load standard skills
 │   │   ├── claude-spawner.ts       # Spawn Claude Code
-│   │   ├── hook-executor.ts        # Execute hooks
-│   │   └── server-client.ts        # HTTP client
-│   │
-│   ├── templates/
-│   │   ├── worker-prompt.md        # Worker system prompt
-│   │   └── orchestrator-prompt.md # Orchestrator system prompt
+│   │   ├── hook-executor.ts        # Execute hook commands
+│   │   ├── command-permissions.ts  # Command registry + permissions
+│   │   ├── whoami-renderer.ts      # Render whoami context
+│   │   └── session-brief-generator.ts # Session brief display
 │   │
 │   ├── types/
-│   │   ├── manifest.ts             # TypeScript types
-│   │   └── config.ts
+│   │   ├── manifest.ts             # Manifest TypeScript types
+│   │   └── storage.ts              # Storage entity types
 │   │
-│   └── utils/
-│       ├── config.ts               # Environment loading
-│       ├── logger.ts               # Logging
-│       ├── errors.ts               # Error classes
-│       └── validator.ts            # Schema validation
+│   ├── api.ts                      # APIClient (HTTP with retry)
+│   ├── storage.ts                  # LocalStorage (~/.maestro/data/)
+│   ├── config.ts                   # Environment config + dotenv
+│   └── index.ts                    # Main CLI setup
 │
-└── templates/                       # System prompt templates
-    ├── worker-prompt.md
-    └── orchestrator-prompt.md
+├── templates/                       # System prompt templates
+│   ├── worker-simple-prompt.md
+│   ├── worker-queue-prompt.md
+│   ├── worker-tree-prompt.md
+│   └── orchestrator-prompt.md
+│
+└── plugins/                         # Claude Code plugins
+    ├── maestro-worker/
+    │   ├── hooks/hooks.json
+    │   └── bin/track-file
+    └── maestro-orchestrator/
+        └── hooks/hooks.json
 ```
 
 ## Key Components
@@ -236,63 +254,110 @@ class HookExecutor {
 }
 ```
 
+### 6. WhoamiRenderer
+
+```typescript
+class WhoamiRenderer {
+  render(manifest, permissions, sessionId): string {
+    // 1. Identity header (role, strategy, session ID, project ID)
+    // 2. Template content (loaded and variable-substituted)
+    // 3. Available commands (from permissions)
+  }
+}
+```
+
+### 7. SessionBriefGenerator
+
+```typescript
+class SessionBriefGenerator {
+  generate(manifest): string {
+    // Formatted task summary shown before Claude spawns
+    // Includes: task info, acceptance criteria, skills, config
+  }
+}
+```
+
+### 8. APIClient
+
+```typescript
+class APIClient {
+  get<T>(endpoint): Promise<T>;
+  post<T>(endpoint, body): Promise<T>;
+  patch<T>(endpoint, body): Promise<T>;
+  delete<T>(endpoint): Promise<T>;
+  // Automatic retry with exponential backoff
+}
+```
+
+### 9. LocalStorage
+
+```typescript
+class LocalStorage {
+  // READ-ONLY cache of ~/.maestro/data/ (written by server)
+  getProject(id): StoredProject | undefined;
+  getTasksByProject(projectId): StoredTask[];
+  getSession(id): StoredSession | undefined;
+  reload(): void;
+}
+```
+
 ## Implementation Checklist
 
 ### Phase 1: Core Infrastructure ✓
 
-- [ ] Define TypeScript types for manifest
-- [ ] Implement manifest schema validation (Ajv)
-- [ ] Create ManifestReader service
-- [ ] Create PromptGenerator service
-- [ ] Write worker-prompt.md template
-- [ ] Write orchestrator-prompt.md template
-- [ ] Add unit tests
+- [x] Define TypeScript types for manifest
+- [x] Implement manifest schema validation (Ajv)
+- [x] Create ManifestReader service
+- [x] Create PromptGenerator service
+- [x] Write worker-prompt.md template
+- [x] Write orchestrator-prompt.md template
+- [x] Add unit tests
 
 ### Phase 2: CLI Commands ✓
 
-- [ ] Implement `maestro worker init`
-- [ ] Implement `maestro orchestrator init`
-- [ ] Implement `maestro task` commands
-- [ ] Implement `maestro subtask` commands
-- [ ] Implement `maestro context` commands
-- [ ] Implement `maestro whoami`
-- [ ] Add integration tests
+- [x] Implement `maestro worker init`
+- [x] Implement `maestro orchestrator init`
+- [x] Implement `maestro task` commands
+- [x] Implement `maestro subtask` commands
+- [x] Implement `maestro context` commands
+- [x] Implement `maestro whoami`
+- [x] Add integration tests
 
 ### Phase 3: Skills Integration ✓
 
-- [ ] Implement SkillLoader service
-- [ ] Discover skills in ~/.skills/
-- [ ] Validate skill directories
-- [ ] Pass skills to Claude spawner
-- [ ] Handle missing/invalid skills gracefully
-- [ ] Add skill-related tests
+- [x] Implement SkillLoader service
+- [x] Discover skills in ~/.skills/
+- [x] Validate skill directories
+- [x] Pass skills to Claude spawner
+- [x] Handle missing/invalid skills gracefully
+- [x] Add skill-related tests
 
 ### Phase 4: Server Integration ✓
 
-- [ ] Implement ServerClient with HTTP requests
-- [ ] Implement HookExecutor
-- [ ] Add SessionStart hook
-- [ ] Add SessionEnd hook
-- [ ] Handle offline mode gracefully
-- [ ] Add timeout handling
-- [ ] Add server integration tests
+- [x] Implement ServerClient with HTTP requests
+- [x] Implement HookExecutor
+- [x] Add SessionStart hook
+- [x] Add SessionEnd hook
+- [x] Handle offline mode gracefully
+- [x] Add timeout handling
+- [x] Add server integration tests
 
 ### Phase 5: Testing ✓
 
-- [ ] Unit tests for all services (80%+ coverage)
-- [ ] Integration tests for commands
-- [ ] End-to-end tests with real manifests
-- [ ] Test offline mode
-- [ ] Test error scenarios
-- [ ] Performance testing
+- [x] Unit tests for all services (80%+ coverage)
+- [x] Integration tests for commands
+- [x] End-to-end tests with real manifests
+- [x] Test offline mode
+- [x] Test error scenarios
+- [x] Performance testing
 
 ### Phase 6: Documentation ✓
 
-- [ ] API documentation
-- [ ] User guide
-- [ ] UI integration guide
-- [ ] Server integration guide
-- [ ] Migration guide (from old architecture)
+- [x] API documentation
+- [x] User guide
+- [x] UI integration guide
+- [x] Server integration guide
+- [x] Migration guide (from old architecture)
 
 ## Testing Strategy
 
@@ -412,11 +477,11 @@ test('complete worker session flow', async () => {
 
 ### Nice to Have
 
-- [ ] Manifest migration for version changes
-- [ ] Skill recommendations based on task
-- [ ] Session recovery after crash
-- [ ] Debug mode with verbose logging
-- [ ] CLI autocompletion
+- [x] Manifest migration for version changes
+- [x] Skill recommendations based on task
+- [x] Session recovery after crash
+- [x] Debug mode with verbose logging
+- [x] CLI autocompletion
 
 ## Migration from Old Architecture
 

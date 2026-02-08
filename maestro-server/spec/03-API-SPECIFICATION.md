@@ -1,7 +1,7 @@
 # Maestro Server - API Specification
 
-**Version:** 1.0.0
-**Last Updated:** 2026-02-04
+**Version:** 2.0.0
+**Last Updated:** 2026-02-08
 **Purpose:** Complete REST API documentation with endpoints, schemas, and examples
 
 ---
@@ -59,6 +59,7 @@ interface ErrorResponse {
 | POST | `/api/tasks` | Create task |
 | GET | `/api/tasks/:id` | Get task by ID |
 | PATCH | `/api/tasks/:id` | Update task |
+| POST | `/api/tasks/:id/timeline` | Add timeline event to task |
 | GET | `/api/tasks/:id/children` | Get child tasks |
 | DELETE | `/api/tasks/:id` | Delete task |
 
@@ -71,6 +72,8 @@ interface ErrorResponse {
 | GET | `/api/sessions/:id` | Get session by ID |
 | PATCH | `/api/sessions/:id` | Update session |
 | DELETE | `/api/sessions/:id` | Delete session |
+| POST | `/api/sessions/:id/events` | Add event to session |
+| POST | `/api/sessions/:id/timeline` | Add timeline event to session |
 | POST | `/api/sessions/spawn` | Spawn session (server-generated manifest) |
 | POST | `/api/sessions/:id/tasks/:taskId` | Add task to session |
 | DELETE | `/api/sessions/:id/tasks/:taskId` | Remove task from session |
@@ -80,6 +83,9 @@ interface ErrorResponse {
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/skills` | List available skills |
+| GET | `/api/skills/:id` | Get skill by ID |
+| GET | `/api/skills/role/:role` | Get skills for role |
+| POST | `/api/skills/:id/reload` | Reload skill from disk |
 
 ### Queue (Session Task Queues)
 
@@ -107,11 +113,12 @@ interface ErrorResponse {
 | DELETE | `/api/templates/:id` | Delete template |
 | GET | `/api/templates/default/:role` | Get default content for role |
 
-### Health
+### Health & Status
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/health` | Health check |
+| GET | `/ws-status` | WebSocket connection status |
 
 ---
 
@@ -420,6 +427,7 @@ curl http://localhost:3000/api/tasks?projectId=proj_123&status=pending&parentId=
   priority?: TaskPriority;    // Optional (default: "medium")
   initialPrompt?: string;     // Optional
   skillIds?: string[];        // Optional
+  model?: 'haiku' | 'sonnet' | 'opus';  // Optional (LLM model)
 }
 ```
 
@@ -548,6 +556,7 @@ curl http://localhost:3000/api/tasks/task_1738713700000_p9q2r5t8w
   sessionIds?: string[];
   skillIds?: string[];
   agentIds?: string[];
+  model?: 'haiku' | 'sonnet' | 'opus';  // LLM model
   updateSource?: 'user' | 'session';  // Who is making the update
   sessionId?: string;                  // Session ID if updateSource === 'session'
 }
@@ -675,6 +684,52 @@ curl -X DELETE http://localhost:3000/api/tasks/task_1738713700000_p9q2r5t8w
 | Status | Code | Message | Condition |
 |--------|------|---------|-----------|
 | 404 | `TASK_NOT_FOUND` | "Task not found" | Task ID doesn't exist |
+| 500 | `INTERNAL_ERROR` | Error message | Server error |
+
+### Add Timeline Event to Task
+
+**Endpoint:** `POST /api/tasks/:id/timeline`
+
+**Description:** Add a timeline event to a task. Proxies the event to the session's timeline.
+
+**Request Schema:**
+```typescript
+{
+  type?: string;              // Event type (default: "progress")
+  message: string;            // Required - event message
+  sessionId: string;          // Required - session to add timeline event to
+}
+```
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/api/tasks/task_123/timeline \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "progress",
+    "message": "Completed API implementation",
+    "sessionId": "sess_456"
+  }'
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "taskId": "task_123",
+  "sessionId": "sess_456",
+  "message": "Completed API implementation",
+  "type": "progress"
+}
+```
+
+**Errors:**
+
+| Status | Code | Message | Condition |
+|--------|------|---------|-----------|
+| 400 | `VALIDATION_ERROR` | "message is required" | Missing `message` |
+| 400 | `VALIDATION_ERROR` | "sessionId is required" | Missing `sessionId` |
+| 404 | `NOT_FOUND` | "Task not found" | Task doesn't exist |
 | 500 | `INTERNAL_ERROR` | Error message | Server error |
 
 ---
@@ -977,6 +1032,85 @@ curl -X DELETE http://localhost:3000/api/sessions/sess_1738713800000_a1b2c3d4e
 
 ---
 
+### Add Event to Session
+
+**Endpoint:** `POST /api/sessions/:id/events`
+
+**Description:** Add a generic event to the session's events log.
+
+**Request Schema:**
+```typescript
+{
+  type: string;               // Required - event type
+  data?: any;                 // Optional - event payload
+}
+```
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/api/sessions/sess_123/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "tool_call",
+    "data": { "tool": "read_file", "path": "/src/index.ts" }
+  }'
+```
+
+**Response:** `200 OK` - Full session object with updated events array.
+
+**Events Emitted:**
+- `session:updated` - Full session object
+
+**Errors:**
+
+| Status | Code | Message | Condition |
+|--------|------|---------|-----------|
+| 400 | `VALIDATION_ERROR` | "type is required" | Missing `type` |
+| 404 | `NOT_FOUND` | "Session not found" | Session doesn't exist |
+
+---
+
+### Add Timeline Event to Session
+
+**Endpoint:** `POST /api/sessions/:id/timeline`
+
+**Description:** Add a structured timeline event to the session.
+
+**Request Schema:**
+```typescript
+{
+  type?: SessionTimelineEventType;  // Optional (default: "progress")
+  message: string;                  // Required
+  taskId?: string;                  // Optional - associated task
+  metadata?: Record<string, any>;   // Optional
+}
+```
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/api/sessions/sess_123/timeline \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "task_completed",
+    "message": "Finished implementing API endpoints",
+    "taskId": "task_456"
+  }'
+```
+
+**Response:** `200 OK` - Full session object with updated timeline.
+
+**Events Emitted:**
+- `session:updated` - Full session object
+
+**Errors:**
+
+| Status | Code | Message | Condition |
+|--------|------|---------|-----------|
+| 400 | `VALIDATION_ERROR` | "message is required" | Missing `message` |
+| 404 | `NOT_FOUND` | "Session not found" | Session doesn't exist |
+
+---
+
 ### Spawn Session (Server-Generated Manifest)
 
 **Endpoint:** `POST /api/sessions/spawn`
@@ -1046,7 +1180,7 @@ curl -X POST http://localhost:3000/api/sessions/spawn \
 5. Timeline events added to tasks
 
 **Events Emitted:**
-- `session:created` - **SPECIAL FORMAT** with spawn data:
+- `session:spawn` - **ALWAYS emitted** (for both UI and session spawns):
   ```json
   {
     "session": { ... },
@@ -1055,11 +1189,14 @@ curl -X POST http://localhost:3000/api/sessions/spawn \
     "envVars": {
       "MAESTRO_SESSION_ID": "sess_...",
       "MAESTRO_MANIFEST_PATH": "/path/to/manifest.json",
-      "MAESTRO_SERVER_URL": "http://localhost:3000"
+      "MAESTRO_SERVER_URL": "http://localhost:3000",
+      "MAESTRO_STRATEGY": "simple"
     },
     "manifest": { ... },
     "projectId": "proj_...",
     "taskIds": ["task_..."],
+    "spawnSource": "ui",
+    "parentSessionId": null,
     "_isSpawnCreated": true
   }
   ```
@@ -1074,6 +1211,7 @@ curl -X POST http://localhost:3000/api/sessions/spawn \
 | 400 | `invalid_spawn_source` | "spawnSource must be 'ui' or 'session'" | Invalid `spawnSource` |
 | 400 | `missing_session_id` | "sessionId is required when spawnSource is 'session'" | Missing parent `sessionId` |
 | 400 | `invalid_role` | "role must be 'worker' or 'orchestrator'" | Invalid `role` |
+| 400 | `invalid_strategy` | "strategy must be 'simple', 'queue', or 'tree'" | Invalid `strategy` |
 | 404 | `task_not_found` | "Task {taskId} not found" | Task doesn't exist |
 | 404 | `project_not_found` | "Project {projectId} not found" | Project doesn't exist |
 | 404 | `parent_session_not_found` | "Parent session {sessionId} not found" | Parent session doesn't exist |
@@ -1204,6 +1342,109 @@ curl http://localhost:3000/api/skills
 | 200 | (none) | `[]` | Skills directory not found or empty |
 
 **Note:** This endpoint never returns errors, only empty array if skills unavailable.
+
+---
+
+### Get Skill by ID
+
+**Endpoint:** `GET /api/skills/:id`
+
+**Description:** Get a single skill by its ID, including instructions content.
+
+**Request:**
+```bash
+curl http://localhost:3000/api/skills/maestro-worker
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": "maestro-worker",
+  "name": "Maestro Worker",
+  "description": "Worker agent for executing tasks",
+  "type": "role",
+  "version": "1.0.0",
+  "instructions": "# Maestro Worker\n\nYou are a worker agent..."
+}
+```
+
+**Errors:**
+
+| Status | Code | Message | Condition |
+|--------|------|---------|-----------|
+| 404 | `NOT_FOUND` | "Skill not found: {id}" | Skill doesn't exist |
+| 500 | `INTERNAL_ERROR` | Error message | Load error |
+
+---
+
+### Get Skills by Role
+
+**Endpoint:** `GET /api/skills/role/:role`
+
+**Description:** Get skills assigned to a specific role (worker or orchestrator).
+
+**Request:**
+```bash
+curl http://localhost:3000/api/skills/role/worker
+```
+
+**Response:** `200 OK`
+```json
+[
+  {
+    "id": "maestro-cli",
+    "name": "Maestro CLI",
+    "description": "CLI skill for all roles",
+    "type": "system",
+    "version": "1.0.0"
+  },
+  {
+    "id": "maestro-worker",
+    "name": "Maestro Worker",
+    "description": "Worker agent skill",
+    "type": "role",
+    "version": "1.0.0"
+  }
+]
+```
+
+**Errors:**
+
+| Status | Code | Message | Condition |
+|--------|------|---------|-----------|
+| 400 | `VALIDATION_ERROR` | "Role must be 'worker' or 'orchestrator'" | Invalid role |
+
+---
+
+### Reload Skill
+
+**Endpoint:** `POST /api/skills/:id/reload`
+
+**Description:** Clear cache and reload a skill from disk. Useful for development/hot-reload.
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/api/skills/maestro-worker/reload
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": "maestro-worker",
+  "name": "Maestro Worker",
+  "description": "Worker agent for executing tasks",
+  "type": "role",
+  "version": "1.0.0",
+  "reloaded": true
+}
+```
+
+**Errors:**
+
+| Status | Code | Message | Condition |
+|--------|------|---------|-----------|
+| 404 | `NOT_FOUND` | "Skill not found: {id}" | Skill doesn't exist |
+| 501 | `NOT_IMPLEMENTED` | "Reload not supported" | Loader doesn't support reload |
 
 ---
 
@@ -1617,9 +1858,9 @@ curl -X PUT http://localhost:3000/api/templates/tmpl_123 \
 
 ---
 
-## Health Check
+## Health & Status
 
-### Health
+### Health Check
 
 **Endpoint:** `GET /health`
 
@@ -1634,7 +1875,38 @@ curl http://localhost:3000/health
 ```json
 {
   "status": "ok",
-  "timestamp": 1738713800000
+  "timestamp": 1738713800000,
+  "uptime": 3600.5
+}
+```
+
+**Side Effects:**
+- None
+
+**Events Emitted:**
+- None
+
+---
+
+### WebSocket Status
+
+**Endpoint:** `GET /ws-status`
+
+**Description:** Get WebSocket server status and connected client information.
+
+**Request:**
+```bash
+curl http://localhost:3000/ws-status
+```
+
+**Response:** `200 OK`
+```json
+{
+  "connectedClients": 2,
+  "clients": [
+    { "readyState": 1, "readyStateText": "OPEN" },
+    { "readyState": 1, "readyStateText": "OPEN" }
+  ]
 }
 ```
 
@@ -1685,6 +1957,8 @@ interface ErrorResponse {
 | `invalid_task_ids` | 400 | Spawn: taskIds must be non-empty array |
 | `invalid_spawn_source` | 400 | Spawn: invalid spawnSource value |
 | `invalid_role` | 400 | Spawn: invalid role value |
+| `invalid_strategy` | 400 | Spawn: invalid strategy value |
+| `parent_session_not_found` | 404 | Spawn: parent session doesn't exist |
 | `task_not_found` | 404 | Spawn: task doesn't exist |
 | `project_not_found` | 404 | Spawn: project doesn't exist |
 | `manifest_generation_failed` | 500 | Spawn: CLI manifest generation failed |

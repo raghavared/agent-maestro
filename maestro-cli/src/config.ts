@@ -2,10 +2,17 @@ import dotenv from 'dotenv';
 import path from 'path';
 import os from 'os';
 
-// Load env vars
+// Load env vars from CWD .env
 dotenv.config();
 
-// Try to load from home dir config
+// Try to load from home dir config (staging first if detected, then prod)
+// Staging sessions have SESSION_DIR pointing to ~/.maestro-staging
+const isStaging = process.env.SESSION_DIR?.includes('maestro-staging') ||
+                  process.env.DATA_DIR?.includes('maestro-staging') ||
+                  process.env.MAESTRO_SERVER_URL?.includes('3002');
+if (isStaging) {
+  dotenv.config({ path: path.join(os.homedir(), '.maestro-staging', 'config') });
+}
 dotenv.config({ path: path.join(os.homedir(), '.maestro', 'config') });
 
 export const config = {

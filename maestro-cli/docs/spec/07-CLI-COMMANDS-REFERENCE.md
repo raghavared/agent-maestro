@@ -1077,6 +1077,57 @@ GET /api/sessions/{sessionId}/queue/items
 
 ---
 
+### `maestro queue status`
+
+**Purpose**: Show overall queue processing status
+
+**Example**:
+```bash
+$ maestro queue status
+
+Queue Status:
+  Total:      5
+  Completed:  2
+  Processing: 1
+  Pending:    2
+  Failed:     0
+  Skipped:    0
+```
+
+**API Call**:
+```http
+GET /api/sessions/{sessionId}/queue/status
+```
+
+---
+
+### `maestro queue push`
+
+**Purpose**: Add a task to the queue
+
+**Arguments**:
+- `<taskId>` - Task ID to add to queue
+
+**Example**:
+```bash
+$ maestro queue push task-789
+
+✅ Task task-789 added to queue
+   Position: 6
+```
+
+**API Call**:
+```http
+POST /api/sessions/{sessionId}/queue/push
+Content-Type: application/json
+
+{
+  "taskId": "task-789"
+}
+```
+
+---
+
 ### Queue Workflow Example
 
 ```bash
@@ -1127,32 +1178,66 @@ $ maestro queue top
 
 ### `maestro whoami`
 
-**Purpose**: Show current session context
+**Purpose**: Show full session context — this is the primary way agents understand their assignment
+
+**What It Renders** (via WhoamiRenderer):
+1. **Identity Header**: Role, strategy, session ID, project ID
+2. **Template Content**: Full role-specific template with task data substituted
+3. **Available Commands**: Dynamically generated from permissions
 
 **Example**:
 ```bash
 $ maestro whoami
 
-Session Context:
-  Project ID: proj-1
-  Session ID: sess-1
-  Role: worker
-  Manifest: ~/.maestro/sessions/sess-1/manifest.json
+---
+# Maestro Session Context
 
-Task:
-  ID: task-1
-  Title: Implement user authentication
-  Status: in_progress
+**Role:** worker
+**Strategy:** simple
+**Session ID:** sess-123
+**Project ID:** proj-1
+---
 
-Skills:
-  • code-visualizer
+[Full worker template content with task details...]
 
-Server:
-  API URL: http://localhost:3000
-  Connected: ✅
+---
+## Available Maestro Commands
+
+Role: worker | Strategy: simple
+
+**Core Commands:**
+- `maestro whoami` - Print current context
+- `maestro status` - Show project status
+- `maestro commands` - Show available commands
+
+**report Commands:**
+- `maestro report progress` - Report work progress
+- `maestro report complete` - Report completion
+...
 ```
 
-**Uses**: Environment variables only (no API call)
+**Note**: `maestro whoami` is the **primary context delivery mechanism**. When Claude is spawned, it receives the minimal prompt "Run `maestro whoami` to understand your assignment and begin working." The full template, task context, and command permissions are all delivered through this command.
+
+**Options**:
+```bash
+--json    # Output as JSON (includes manifest, permissions, tasks)
+```
+
+---
+
+### `maestro track-file <path>`
+
+**Purpose**: Record a file modification (called by PostToolUse hook)
+
+**Arguments**:
+- `<path>` - Path to the modified file
+
+**Example**:
+```bash
+$ maestro track-file src/auth/login.ts
+```
+
+**Note**: This command is typically called automatically by the PostToolUse hook in `plugins/maestro-worker/hooks/hooks.json`, not manually by the agent.
 
 ---
 
@@ -1399,6 +1484,47 @@ $ maestro version
 Maestro CLI v1.0.0
 Node: v20.10.0
 Platform: darwin (arm64)
+```
+
+---
+
+## Project Commands
+
+### `maestro project list`
+
+**Purpose**: List all projects
+
+**Example**:
+```bash
+$ maestro project list
+
+Projects:
+  ID          Name                    Created
+  proj-1      E-commerce Platform     2026-02-01
+  proj-2      Mobile App              2026-02-03
+```
+
+---
+
+### `maestro project get <id>`
+
+**Purpose**: Get project details
+
+---
+
+### `maestro project create <name>`
+
+**Purpose**: Create a new project
+
+---
+
+### `maestro project delete <id>`
+
+**Purpose**: Delete a project
+
+**Options**:
+```bash
+--force    # Delete without confirmation
 ```
 
 ---

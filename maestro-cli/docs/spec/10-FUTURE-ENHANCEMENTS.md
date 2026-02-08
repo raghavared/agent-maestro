@@ -6,6 +6,39 @@ This document outlines potential enhancements for future versions of Maestro CLI
 
 ---
 
+## Completed Features (Moved from Future)
+
+The following features were originally planned as future enhancements but have been implemented:
+
+### ✅ Hooks System (Implemented in v1.0)
+
+Hooks are live via Claude Code plugin hooks.json files:
+- `SessionStart` → `maestro session register`
+- `SessionEnd` → `maestro session complete`
+- `PostToolUse` (Worker) → `track-file` for Write/Edit tracking
+- Plugin directories: `plugins/maestro-worker/` and `plugins/maestro-orchestrator/`
+
+### ✅ Queue Strategy (Implemented in v1.0)
+
+FIFO queue-based task processing with 8 commands:
+- `queue:top`, `queue:start`, `queue:complete`, `queue:fail`, `queue:skip`, `queue:list`, `queue:status`, `queue:push`
+- Enabled via `strategy: "queue"` in manifest
+
+### ✅ Dynamic Template System (Implemented in v1.0)
+
+Server-side template fetching with bundled fallback:
+- `PromptGenerator.fetchTemplateById()` and `fetchTemplateByRole()`
+- Falls back to local templates when server unavailable
+- Template ID can be specified in manifest via `templateId`
+
+### ✅ Multi-Project Support (Implemented in v1.0)
+
+Project CRUD via CLI commands:
+- `maestro project list`, `project get`, `project create`, `project delete`
+- LocalStorage reads from `~/.maestro/data/projects/`
+
+---
+
 ## Phase 2 Enhancements
 
 ### 1. Custom Init Scripts Per Skill
@@ -45,39 +78,7 @@ for (const skillPath of skillPaths) {
 
 ---
 
-### 2. Skill-Specific Hooks
-
-**Description**: Allow skills to define hooks that execute during session lifecycle.
-
-**Use Case**: Skills can track usage, log activities, or integrate with external tools.
-
-**Implementation**:
-```bash
-~/.skills/code-visualizer/
-  ├── skill.md
-  └── hooks/
-      ├── session-start.js
-      ├── session-end.js
-      └── post-tool-use.js
-```
-
-**Hook Example**:
-```javascript
-// hooks/session-start.js
-module.exports = async function(context) {
-  console.log('Code visualizer skill loaded');
-  // Initialize diagram cache
-  await initDiagramCache(context.sessionId);
-};
-```
-
-**Priority**: Low
-**Estimated Effort**: 4-5 days
-**Note**: Could conflict with minimal hooks philosophy - requires careful design
-
----
-
-### 3. Session Recovery
+### 2. Session Recovery
 
 **Description**: Resume a crashed or interrupted session from where it left off.
 
@@ -434,10 +435,15 @@ module.exports = {
 
 ## Implementation Roadmap
 
+### v1.0 (Completed)
+- ✅ Hooks System (via plugin hooks.json)
+- ✅ Queue Strategy (8 commands)
+- ✅ Dynamic Template System (server + bundled)
+- ✅ Multi-Project Support
+
 ### v1.1 (Q2 2026)
-- ✅ CI/CD Integration
-- ✅ Task Templates
-- ✅ Dynamic Template System
+- CI/CD Integration
+- Task Templates
 
 ### v1.2 (Q3 2026)
 - ✅ Session Recovery

@@ -55,7 +55,8 @@ const queueCommands = [
   'queue:fail',      // Fail current task
   'queue:skip',      // Skip current task
   'queue:list',      // List all queue items
-  'queue:status'     // Show queue status
+  'queue:status',    // Show queue status
+  'queue:push'       // Add task to queue
 ];
 ```
 
@@ -87,6 +88,7 @@ const defaultCommands = [
   'project:list',      // List projects
   'project:get',       // Get project details
   'project:create',    // Create projects
+  'project:delete',    // Delete projects
   'track-file',
   'orchestrator:init'  // Initialize orchestrator
 ];
@@ -243,6 +245,33 @@ export async function guardCommand(commandName: string): Promise<void> {
   }
 }
 ```
+
+### Synchronous Guard
+
+For cases where permissions are already cached:
+
+```typescript
+function guardCommandSync(commandName: string): boolean {
+  // Uses cached permissions (no async)
+  // Returns false if permissions aren't loaded yet
+  // Returns true if no manifest loaded (allow all)
+}
+```
+
+### Command Brief Generation
+
+Generate markdown listing available commands for inclusion in session prompts:
+
+```typescript
+function generateCommandBrief(permissions: CommandPermissions): string {
+  // Returns formatted markdown with:
+  // - Role and strategy header
+  // - Grouped commands (Core, report, task, session, etc.)
+  // - Count of hidden commands
+}
+```
+
+This is used by `WhoamiRenderer` to include available commands in the `maestro whoami` output.
 
 ## Key Design Decisions
 

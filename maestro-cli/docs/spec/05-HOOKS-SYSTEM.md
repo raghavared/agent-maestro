@@ -1,19 +1,63 @@
-# Minimal Hooks System
+# Hooks System
 
-**Status**: 🚧 **Future Implementation** - Not currently implemented
-**Priority**: Medium
-**Planned For**: v1.1
+**Status**: ✅ **Implemented** — Hooks are live via Claude Code plugin hooks.json files
+**Since**: v1.0
 
 ---
 
 ## Overview
 
-Maestro CLI will use a **minimal hooks system** for essential lifecycle events. This is a planned feature for future implementation. When implemented, hooks will be:
+Maestro uses Claude Code's **plugin hook system** for lifecycle events. Hooks are defined in `hooks.json` files within plugin directories and executed by Claude Code's hook runtime — not by the Maestro CLI directly.
 
-- **Built into the CLI** (not extensible by users)
-- **Minimal** (only SessionStart and SessionEnd)
-- **Optional** (work without server)
-- **Server integration only** (report session state)
+### Architecture
+
+Hooks are **NOT** built into the CLI. Instead:
+- Each role has a plugin directory: `plugins/maestro-worker/` and `plugins/maestro-orchestrator/`
+- Plugin directories contain `hooks/hooks.json` defining hook handlers
+- Plugins are loaded via `--plugin-dir` argument to Claude
+- Claude Code's plugin system executes hooks at lifecycle points
+
+### Implemented Hooks
+
+#### Worker Hooks (`plugins/maestro-worker/hooks/hooks.json`)
+
+| Hook | Trigger | Command | Timeout |
+|------|---------|---------|---------|
+| `SessionStart` | Session begins | `maestro session register` | 5s |
+| `SessionEnd` | Session ends | `maestro session complete` | 3s |
+| `PostToolUse` | After Write or Edit | `${CLAUDE_PLUGIN_ROOT}/bin/track-file` | 2s |
+
+#### Orchestrator Hooks (`plugins/maestro-orchestrator/hooks/hooks.json`)
+
+| Hook | Trigger | Command | Timeout |
+|------|---------|---------|---------|
+| `SessionStart` | Session begins | `maestro session register` | 5s |
+| `SessionEnd` | Session ends | `maestro session complete` | 3s |
+
+**Note**: Orchestrator does NOT have PostToolUse hooks (no file tracking).
+
+### track-file Utility
+
+The worker plugin includes `bin/track-file`, a bash script that:
+1. Reads hook input JSON (from stdin or `$HOOK_INPUT`)
+2. Extracts `tool_input.file_path` using `jq`
+3. Calls `maestro track-file "$FILE_PATH"` to record the modification
+4. Exits 0 regardless of errors (non-blocking)
+
+### HookExecutor Service
+
+The CLI also includes `src/services/hook-executor.ts` — a general-purpose shell command executor used internally:
+
+```typescript
+class HookExecutor {
+  async executeHook(command: string, options?: HookOptions): Promise<HookResult>;
+  async executeHooks(commands: string[], options?: HookOptions): Promise<HookResult[]>;
+  hasFailures(results: HookResult[]): boolean;
+  getFailures(results: HookResult[]): HookResult[];
+}
+```
+
+This is used for executing arbitrary hook commands with timeout and error handling support.
 
 ## Philosophy
 
@@ -602,23 +646,24 @@ curl http://localhost:3000/api/sessions/test-session
 ❌ Complex error handling
 ```
 
-### New: Minimal Built-in Hooks
+### Current: Plugin-Based Hooks
 
 ```
-✅ Two hooks only (SessionStart, SessionEnd)
-✅ Built into CLI (no user files)
-✅ Server integration only
-✅ Graceful degradation
-✅ Simple and predictable
+✅ Three hook types (SessionStart, SessionEnd, PostToolUse)
+✅ Defined in plugin hooks.json files
+✅ Executed by Claude Code's plugin runtime
+✅ Server integration via CLI commands
+✅ Graceful degradation (non-blocking)
+✅ File tracking via PostToolUse
 ```
 
 ## Summary
 
-Minimal hooks system:
-- ✅ Two hooks: SessionStart and SessionEnd
-- ✅ Built into CLI (not extensible)
-- ✅ Server integration only
-- ✅ Graceful offline mode
-- ✅ Never fail the session
+Hooks system:
+- ✅ Three hook types: SessionStart, SessionEnd, PostToolUse
+- ✅ Defined in plugin hooks.json files (not hardcoded in CLI)
+- ✅ Executed by Claude Code's plugin runtime
+- ✅ Worker-specific file tracking via track-file utility
+- ✅ Non-blocking — hooks don't fail the session
 
 Next: [06-CLI-COMMANDS.md](./06-CLI-COMMANDS.md) - Complete CLI command reference

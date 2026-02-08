@@ -92,7 +92,6 @@ Comprehensive index of all source files in the Maestro UI codebase with descript
 | `MaestroPanel.tsx` | 1047 | Main task management panel |
 | `CreateTaskModal.tsx` | 631 | Task creation modal |
 | `TaskListItem.tsx` | 961 | Task list item (recursive tree) |
-| `TaskDetailModal.tsx` | 897 | Task detail view modal |
 | `TaskFilters.tsx` | 165 | Task filtering controls |
 | `TaskStatusControl.tsx` | 166 | Task status dropdown |
 | `TaskTimeline.tsx` | 111 | Task timeline display |
@@ -113,6 +112,7 @@ Comprehensive index of all source files in the Maestro UI codebase with descript
 | `AddSubtaskInput.tsx` | 95 | Add subtask input |
 | `TimelineEvent.tsx` | 108 | Timeline event item |
 | `ExecutionBar.tsx` | 72 | Execution progress bar |
+| `SessionDetailModal.tsx` | ~300 | Session detail modal |
 
 ### src/components/app/ - App-Level Components
 
@@ -127,11 +127,25 @@ Comprehensive index of all source files in the Maestro UI codebase with descript
 | `ResizeHandle.tsx` | 25 | Resize handle component |
 | `index.ts` | 10 | Component exports |
 
-### src/components/modals/ - Modal Components
+### src/components/modals/ - Modal Components (15 files)
 
 | File | LOC | Purpose |
 |------|-----|---------|
-| 17 modal files | ~3000 | Various modal dialogs |
+| `ApplyAssetModal.tsx` | ~100 | Asset application dialog |
+| `ConfirmActionModal.tsx` | ~80 | Generic confirmation dialog |
+| `ConfirmDeleteProjectModal.tsx` | ~60 | Project delete confirmation |
+| `ConfirmDeleteRecordingModal.tsx` | ~60 | Recording delete confirmation |
+| `ManageTerminalsModal.tsx` | ~200 | Terminal management |
+| `NewSessionModal.tsx` | ~300 | Create new terminal session |
+| `PathPickerModal.tsx` | ~150 | File path selection |
+| `PersistentSessionsModal.tsx` | ~200 | Persistent session list |
+| `ProjectModal.tsx` | ~250 | Create/rename project |
+| `RecordingsListModal.tsx` | ~200 | Recording list |
+| `ReplayModal.tsx` | ~150 | Recording replay |
+| `SecureStorageModal.tsx` | ~200 | Password/credential storage |
+| `SshManagerModal.tsx` | ~300 | SSH connection manager |
+| `StartRecordingModal.tsx` | ~100 | Start recording dialog |
+| `UpdateModal.tsx` | ~150 | Version update notification |
 
 ### src/components/ - Other Components
 
@@ -142,6 +156,7 @@ Comprehensive index of all source files in the Maestro UI codebase with descript
 | `AppSlidePanel.tsx` | 783 | Slide panel with tabs |
 | `CodeEditorPanel.tsx` | 1166 | Monaco editor panel |
 | `FileExplorerPanel.tsx` | 1391 | File explorer (commented out in workspace) |
+| `InlineFolderBrowser.tsx` | ~200 | Folder picker component |
 | `Icon.tsx` | 208 | Icon component |
 | `ProjectTabBar.tsx` | 219 | Project tabs |
 | `ProjectsSection.tsx` | 397 | Projects section |
@@ -255,6 +270,7 @@ Comprehensive index of all source files in the Maestro UI codebase with descript
 | `maestroHelpers.ts` | ~100 | Maestro helpers |
 | `workSpaceStorage.ts` | ~80 | Workspace storage |
 | `formatters.ts` | ~60 | Formatters (date, time, etc.) |
+| `serverConfig.ts` | 34 | Server URL configuration (API_BASE_URL, WS_URL, SERVER_URL) |
 | `promptTemplate.ts` | ~70 | Prompt template utilities |
 
 ---
@@ -328,7 +344,7 @@ Comprehensive index of all source files in the Maestro UI codebase with descript
 | `MaestroPanel.tsx` | 1,047 | Component |
 | `TaskListItem.tsx` | 961 | Component |
 | `AppModals.tsx` | 914 | Component |
-| `TaskDetailModal.tsx` | 897 | Component |
+| `SessionDetailModal.tsx` | ~300 | Component |
 | `initApp.ts` | 866 | Store |
 | `AppSlidePanel.tsx` | 783 | Component |
 | `useAppInit.ts` | 782 | Hook |
@@ -457,5 +473,5 @@ import { formatDate } from '../utils/formatters';
 
 ---
 
-**Last Updated**: February 7, 2026
+**Last Updated**: February 8, 2026
 **Total Files Documented**: ~170

@@ -186,67 +186,48 @@ interface AdditionalContext {
 }
 
 interface CodebaseContext {
-  // Relevant files identified during analysis
+  // Recent changes relevant to this task
+  recentChanges?: string[];
+
+  // Files relevant to this task
   relevantFiles?: string[];
 
-  // Codebase patterns and conventions
-  patterns?: {
-    fileStructure?: string;
-    namingConventions?: string;
-    architectureNotes?: string;
-  };
+  // Architecture pattern (e.g., "microservices", "monolithic")
+  architecture?: string;
 
-  // Testing setup information
-  testingSetup?: {
-    framework?: string;
-    testLocation?: string;
-    runCommand?: string;
-  };
+  // Technology stack
+  techStack?: string[];
 
-  // Build and development commands
-  commands?: {
-    install?: string;
-    dev?: string;
-    build?: string;
-    test?: string;
-  };
+  // Key dependencies
+  dependencies?: Record<string, string>;
 }
 
 interface RelatedTask {
   id: string;
   title: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'blocked';
-  relationship: 'dependency' | 'related' | 'blocking';
-  summary?: string;
+  relationship: 'blocks' | 'blocked_by' | 'depends_on' | 'related_to';
+  status: string;
+  description?: string;
 }
 
 interface ProjectStandards {
-  // Code style preferences
-  codeStyle?: {
-    formatter?: string;
-    linter?: string;
-    conventions?: string;
-  };
+  // Coding style guide
+  codingStyle?: string;
 
-  // Testing requirements
-  testing?: {
-    required: boolean;
-    minimumCoverage?: number;
-    frameworks?: string[];
-  };
+  // Testing approach
+  testingApproach?: string;
 
-  // Documentation requirements
-  documentation?: {
-    required: boolean;
-    format?: string;
-  };
+  // Documentation format
+  documentation?: string;
 
-  // Git workflow
-  gitWorkflow?: {
-    branchNaming?: string;
-    commitConventions?: string;
-    prProcess?: string;
-  };
+  // Git branching strategy
+  branchingStrategy?: string;
+
+  // CI/CD pipeline description
+  cicdPipeline?: string;
+
+  // Custom project-specific guidelines
+  customGuidelines?: string[];
 }
 ```
 
@@ -305,6 +286,8 @@ FIFO (First-In-First-Out) queue-based task processing:
 ---
 
 ## Two-Status Model
+
+> **Note**: `sessionStatus` is tracked on `StoredTask` at the storage/API level only — it is NOT part of the manifest `TaskData` interface. Manifests only carry `status` (optional). The `sessionStatus` field exists in the server's `StoredTask` entity for real-time tracking.
 
 **IMPLEMENTATION**: Maestro uses a **two-status model** with strict ownership separation between task status and session status.
 
@@ -544,59 +527,38 @@ POST /api/sessions/{sessionId}/timeline
         "src/routes/auth.js",
         "src/middleware/auth.js"
       ],
-      "patterns": {
-        "fileStructure": "MVC pattern with routes, controllers, models, middleware",
-        "namingConventions": "camelCase for variables, PascalCase for classes",
-        "architectureNotes": "Express.js REST API with MongoDB"
-      },
-      "testingSetup": {
-        "framework": "Jest + Supertest",
-        "testLocation": "src/__tests__/",
-        "runCommand": "npm test"
-      },
-      "commands": {
-        "install": "npm install",
-        "dev": "npm run dev",
-        "build": "npm run build",
-        "test": "npm test"
-      }
+      "recentChanges": [
+        "Added Express server setup",
+        "Created initial MongoDB connection"
+      ],
+      "architecture": "Express.js REST API with MongoDB (MVC pattern)",
+      "techStack": ["Node.js", "Express", "MongoDB", "Jest"]
     },
     "relatedTasks": [
       {
         "id": "task-100",
         "title": "Setup database schema",
         "status": "completed",
-        "relationship": "dependency",
-        "summary": "Created MongoDB schema with User collection"
+        "relationship": "depends_on",
+        "description": "Created MongoDB schema with User collection"
       },
       {
         "id": "task-101",
         "title": "Setup Express server",
         "status": "completed",
-        "relationship": "dependency",
-        "summary": "Basic Express server with middleware configured"
+        "relationship": "depends_on",
+        "description": "Basic Express server with middleware configured"
       }
     ],
     "projectStandards": {
-      "codeStyle": {
-        "formatter": "prettier",
-        "linter": "eslint",
-        "conventions": "Airbnb style guide"
-      },
-      "testing": {
-        "required": true,
-        "minimumCoverage": 80,
-        "frameworks": ["jest", "supertest"]
-      },
-      "documentation": {
-        "required": true,
-        "format": "JSDoc for functions, README for APIs"
-      },
-      "gitWorkflow": {
-        "branchNaming": "feature/task-{id}-{description}",
-        "commitConventions": "Conventional Commits (feat, fix, docs, etc.)",
-        "prProcess": "PR requires 1 approval, all tests must pass"
-      }
+      "codingStyle": "Airbnb (prettier + eslint)",
+      "testingApproach": "TDD with Jest + Supertest (80% min coverage)",
+      "documentation": "JSDoc for functions, README for APIs",
+      "branchingStrategy": "feature/task-{id}-{description}",
+      "cicdPipeline": "PR requires 1 approval, all tests must pass",
+      "customGuidelines": [
+        "Use conventional commits (feat, fix, docs, etc.)"
+      ]
     }
   }
 }
@@ -710,7 +672,7 @@ POST /api/sessions/{sessionId}/timeline
       {
         "id": "task-100",
         "title": "Authentication System",
-        "relationship": "blocks",
+        "relationship": "blocked_by",
         "status": "in_progress",
         "description": "Parent task for all auth features"
       }

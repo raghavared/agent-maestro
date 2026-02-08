@@ -51,16 +51,29 @@ const DEFAULT_API_URL = 'http://localhost:3000';
 MAESTRO_MANIFEST_PATH=/path/to/manifest.json   # Required: Manifest location
 MAESTRO_PROJECT_ID=proj-123                    # Required: Project identifier
 MAESTRO_SESSION_ID=sess-456                    # Required: Session identifier
+MAESTRO_TASK_IDS=task-1,task-2                 # Set by ClaudeSpawner: Comma-separated task IDs
+MAESTRO_ROLE=worker                            # Set by ClaudeSpawner: Agent role
+MAESTRO_STRATEGY=simple                        # Set by ClaudeSpawner: Worker strategy
 ```
 
 ### Optional Configuration
 
 ```bash
-MAESTRO_API_URL=http://localhost:3000          # Optional: Server URL (default: http://localhost:3000)
-MAESTRO_DEBUG=true                             # Optional: Enable debug logging (default: false)
-MAESTRO_LOG_FILE=/path/to/log                  # Optional: Log file location
-MAESTRO_SHOW_BRIEF=false                       # Optional: Skip session brief display
-MAESTRO_SKIP_INITIAL_COMMANDS=true             # Optional: Skip initial commands
+# Server connection
+MAESTRO_API_URL=http://localhost:3000          # Server URL (default: http://localhost:3000)
+MAESTRO_SERVER_URL=http://localhost:3000        # Alias for MAESTRO_API_URL
+
+# Operational
+MAESTRO_DEBUG=true                             # Enable debug logging (default: false)
+MAESTRO_RETRIES=3                              # API retry count (default: 3)
+MAESTRO_RETRY_DELAY=1000                       # Retry delay in ms (default: 1000)
+
+# Task context (set by ClaudeSpawner for child sessions)
+MAESTRO_TASK_TITLE=...                         # Primary task title
+MAESTRO_TASK_PRIORITY=medium                   # Primary task priority
+MAESTRO_ALL_TASKS=<JSON>                       # All tasks as JSON array
+MAESTRO_TASK_ACCEPTANCE=<JSON>                 # Acceptance criteria as JSON
+MAESTRO_TASK_DEPENDENCIES=<JSON>               # Task dependencies as JSON
 ```
 
 ### Validation
@@ -259,6 +272,53 @@ export function loadConfig(): MaestroConfig {
     )
   };
 }
+```
+
+---
+
+## Dotenv Loading
+
+The CLI loads environment variables from two dotenv sources (via `config.ts`):
+
+1. **Project `.env`** — `dotenv.config()` loads from current directory
+2. **User config** — `dotenv.config({ path: '~/.maestro/config' })` loads from home directory
+
+The `~/.maestro/config` file uses dotenv format (key=value pairs), not JSON:
+```bash
+# ~/.maestro/config
+MAESTRO_API_URL=http://localhost:3000
+MAESTRO_DEBUG=true
+```
+
+---
+
+## Local Storage
+
+The CLI includes a read-only local storage system that caches server data:
+
+**Location**: `~/.maestro/data/` (configurable via `DATA_DIR` env var)
+
+**Structure**:
+```
+~/.maestro/data/
+├── projects/
+│   └── proj-1.json
+├── tasks/
+│   └── proj-1/
+│       ├── task-1.json
+│       └── task-2.json
+└── sessions/
+    └── sess-1.json
+```
+
+**Important**: This is a **read-only cache**. All writes go through the server API. The `LocalStorage` class loads data from disk on initialization and provides fast lookups without network calls.
+
+```typescript
+// Usage
+import { storage } from './storage.js';
+await storage.initialize();
+const project = storage.getProject('proj-1');
+const tasks = storage.getTasksByProject('proj-1');
 ```
 
 ---

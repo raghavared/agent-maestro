@@ -5,7 +5,7 @@ This directory contains the complete technical documentation for the Maestro UI 
 ## Documents
 
 ### [TECHNICAL-SPECIFICATION.md](./TECHNICAL-SPECIFICATION.md)
-**The Source of Truth** - Comprehensive technical specification covering:
+**The Source of Truth** - Comprehensive technical specification covering (~2,700 lines):
 - Architecture overview
 - Technology stack
 - Directory structure
@@ -103,6 +103,15 @@ npm run tauri build
 
 See the [Build & Development](./TECHNICAL-SPECIFICATION.md#build--development) section for detailed setup instructions.
 
+### [DATA-FLOW-DIAGRAMS.md](./DATA-FLOW-DIAGRAMS.md)
+Visual ASCII diagrams of key data flows including app initialization, task creation, session spawning, real-time updates, terminal I/O, state persistence, and component rendering.
+
+### [FILE-INDEX.md](./FILE-INDEX.md)
+Comprehensive index of all ~170 source files with line counts, organized by directory and feature area.
+
+### [QUICK-REFERENCE.md](./QUICK-REFERENCE.md)
+Quick developer reference covering core stores, types, API usage, WebSocket events, component patterns, keyboard shortcuts, debugging tips, and common tasks.
+
 ## Contributing
 
 When making changes to the codebase:
@@ -122,5 +131,5 @@ If something is unclear or missing from this specification:
 
 ---
 
-**Last Updated**: February 7, 2026
+**Last Updated**: February 8, 2026
 **Maintainer**: Maestro Development Team
