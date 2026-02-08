@@ -169,6 +169,7 @@ export function registerSessionCommands(program: Command) {
         .option('--name <name>', 'Session name (auto-generated if not provided)')
         .option('--reason <reason>', 'Reason for spawning this session')
         .option('--include-related', 'Include related tasks in context')
+        .option('--orchestrator-strategy <strategy>', 'Orchestrator strategy (default, intelligent-batching, or dag)')
         .action(async (cmdOpts) => {
             await guardCommand('session:spawn');
             const globalOpts = program.opts();
@@ -201,10 +202,11 @@ export function registerSessionCommands(program: Command) {
                 const sessionName = cmdOpts.name || generateSessionName(task, skill);
 
                 // Prepare spawn request with spawnSource and role
-                const spawnRequest = {
+                const role = skill === 'maestro-orchestrator' ? 'orchestrator' : 'worker';
+                const spawnRequest: any = {
                     projectId,
                     taskIds: [taskId],
-                    role: skill === 'maestro-orchestrator' ? 'orchestrator' : 'worker',
+                    role,
                     spawnSource: 'session',                     // Session-initiated spawn
                     sessionId: config.sessionId || undefined,   // Parent session ID
                     skills: [skill],
@@ -214,6 +216,11 @@ export function registerSessionCommands(program: Command) {
                         reason: cmdOpts.reason || `Execute task: ${task.title}`  // Move reason into context
                     }
                 };
+
+                // Include orchestratorStrategy when spawning an orchestrator
+                if (role === 'orchestrator' && cmdOpts.orchestratorStrategy) {
+                    spawnRequest.orchestratorStrategy = cmdOpts.orchestratorStrategy;
+                }
 
                 const spinner3 = !isJson ? ora('Requesting session spawn...').start() : null;
                 const result: any = await api.post('/api/sessions/spawn', spawnRequest);

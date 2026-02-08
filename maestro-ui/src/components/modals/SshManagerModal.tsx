@@ -223,7 +223,7 @@ export function SshManagerModal({
                   checked={persistent}
                   onChange={(e) => onChangePersistent(e.target.checked)}
                 />
-                Persistent terminal (zellij)
+                Persistent terminal (tmux)
               </label>
               <label className="checkRow">
                 <input

@@ -88,11 +88,10 @@ export function NewSessionModal({
                 checked={persistent}
                 onChange={(e) => onChangePersistent(e.target.checked)}
               />
-              Persistent terminal (zellij)
+              Persistent terminal (tmux)
             </label>
             <div className="hint">
-              Keeps the shell running after you close the app so you can resume later (uses a bundled{" "}
-              <code>zellij</code>).
+              Keeps the shell running after you close the app so you can resume later (uses tmux).
             </div>
           </div>
           <div className="formRow">

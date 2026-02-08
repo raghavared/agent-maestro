@@ -176,7 +176,7 @@ export function TreeSessionItem({
 
         <span className="simpleSessionItemName">{session.name}</span>
 
-        <StrategyBadge strategy={session.strategy} compact />
+        <StrategyBadge strategy={session.strategy} orchestratorStrategy={session.orchestratorStrategy} compact />
 
         <span className="simpleSessionItemActivity">
           {formatTimeAgo(session.lastActivity)}

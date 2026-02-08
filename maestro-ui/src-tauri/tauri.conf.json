@@ -40,7 +40,7 @@
     "targets": "all",
     "externalBin": [
       "bin/nu",
-      "bin/zellij"
+      "bin/tmux"
     ]
   }
 }

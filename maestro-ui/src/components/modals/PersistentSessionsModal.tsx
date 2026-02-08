@@ -35,7 +35,7 @@ export function PersistentSessionsModal({
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h3 className="modalTitle">Persistent terminals</h3>
         <div className="hint" style={{ marginTop: 0 }}>
-          Running bundled <code>zellij</code> sessions started by Agents UI. Kill them to stop background shells.
+          Running tmux sessions started by Agents UI. Kill them to stop background shells.
         </div>
 
         <div className="agentShortcutEditorSection">

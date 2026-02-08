@@ -1,8 +1,9 @@
 import React from "react";
-import type { WorkerStrategy } from "../../app/types/maestro";
+import type { WorkerStrategy, OrchestratorStrategy } from "../../app/types/maestro";
 
 interface StrategyBadgeProps {
   strategy: WorkerStrategy | undefined;
+  orchestratorStrategy?: OrchestratorStrategy;
   queuePosition?: number;
   queueTotal?: number;
   compact?: boolean;
@@ -10,11 +11,12 @@ interface StrategyBadgeProps {
 
 export function StrategyBadge({
   strategy,
+  orchestratorStrategy,
   queuePosition,
   queueTotal,
   compact = false,
 }: StrategyBadgeProps) {
-  if (!strategy) return null;
+  if (!strategy && !orchestratorStrategy) return null;
 
   const isQueue = strategy === "queue";
   const isTree = strategy === "queue";
@@ -35,11 +37,59 @@ export function StrategyBadge({
       : (compact ? "S" : "SIMPLE");
 
   return (
+    <>
+      <span
+        className={`strategyBadge strategyBadge--${strategy || "simple"} ${compact ? "strategyBadge--compact" : ""}`}
+        title={titleText}
+      >
+        {label}
+      </span>
+      {orchestratorStrategy && (
+        <OrchestratorStrategyBadge
+          orchestratorStrategy={orchestratorStrategy}
+          compact={compact}
+        />
+      )}
+    </>
+  );
+}
+
+// Orchestrator strategy badge
+interface OrchestratorStrategyBadgeProps {
+  orchestratorStrategy: OrchestratorStrategy;
+  compact?: boolean;
+}
+
+const ORCHESTRATOR_STRATEGY_LABELS: Record<OrchestratorStrategy, string> = {
+  default: "DEFAULT",
+  "intelligent-batching": "BATCHING",
+  dag: "DAG",
+};
+
+const ORCHESTRATOR_STRATEGY_LABELS_COMPACT: Record<OrchestratorStrategy, string> = {
+  default: "D",
+  "intelligent-batching": "B",
+  dag: "G",
+};
+
+const ORCHESTRATOR_STRATEGY_TITLES: Record<OrchestratorStrategy, string> = {
+  default: "Default orchestrator: full autonomy to analyze, decompose, and delegate",
+  "intelligent-batching": "Intelligent batching: groups related tasks for parallel execution",
+  dag: "DAG: directed acyclic graph execution with topological ordering",
+};
+
+export function OrchestratorStrategyBadge({
+  orchestratorStrategy,
+  compact = false,
+}: OrchestratorStrategyBadgeProps) {
+  return (
     <span
-      className={`strategyBadge strategyBadge--${strategy} ${compact ? "strategyBadge--compact" : ""}`}
-      title={titleText}
+      className={`strategyBadge strategyBadge--orchestrator strategyBadge--orchestrator-${orchestratorStrategy} ${compact ? "strategyBadge--compact" : ""}`}
+      title={ORCHESTRATOR_STRATEGY_TITLES[orchestratorStrategy]}
     >
-      {label}
+      {compact
+        ? ORCHESTRATOR_STRATEGY_LABELS_COMPACT[orchestratorStrategy]
+        : ORCHESTRATOR_STRATEGY_LABELS[orchestratorStrategy]}
     </span>
   );
 }

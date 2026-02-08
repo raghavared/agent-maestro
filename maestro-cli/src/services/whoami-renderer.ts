@@ -37,7 +37,7 @@ export class WhoamiRenderer {
    */
   private getTemplateName(manifest: MaestroManifest): string {
     if (manifest.role === 'orchestrator') {
-      return 'orchestrator';
+      return `orchestrator-${manifest.orchestratorStrategy || 'default'}`;
     }
 
     // Worker: select based on strategy
@@ -61,9 +61,16 @@ export class WhoamiRenderer {
       '',
       `**Role:** ${manifest.role}`,
       `**Strategy:** ${strategy}`,
+    ];
+
+    if (manifest.role === 'orchestrator') {
+      lines.push(`**Orchestrator Strategy:** ${manifest.orchestratorStrategy || 'default'}`);
+    }
+
+    lines.push(
       `**Session ID:** ${sessionId || 'N/A'}`,
       `**Project ID:** ${primaryTask.projectId}`,
-    ];
+    );
 
     lines.push('---', '');
 

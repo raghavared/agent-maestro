@@ -101,7 +101,7 @@ export function SimpleSessionItem({
 
         <span className="simpleSessionItemName">{session.name}</span>
 
-        <StrategyBadge strategy={session.strategy} />
+        <StrategyBadge strategy={session.strategy} orchestratorStrategy={session.orchestratorStrategy} />
 
         <span className="simpleSessionItemActivity">
           {formatTimeAgo(session.lastActivity)}

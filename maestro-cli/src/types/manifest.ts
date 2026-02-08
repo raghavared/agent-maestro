@@ -9,6 +9,9 @@
 /** Worker strategy type */
 export type WorkerStrategy = 'simple' | 'queue';
 
+/** Orchestrator strategy type */
+export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
+
 /**
  * Main manifest interface - contains all configuration for a Maestro session
  */
@@ -21,6 +24,9 @@ export interface MaestroManifest {
 
   /** Worker strategy: 'simple' (default) or 'queue' (FIFO task processing) */
   strategy?: WorkerStrategy;
+
+  /** Orchestrator strategy: 'default', 'intelligent-batching', or 'dag' */
+  orchestratorStrategy?: OrchestratorStrategy;
 
   /** Tasks information and context (array to support multi-task sessions) */
   tasks: TaskData[];

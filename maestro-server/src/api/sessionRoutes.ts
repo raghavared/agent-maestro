@@ -23,8 +23,10 @@ async function generateManifestViaCLI(options: {
   skills: string[];
   sessionId: string;
   strategy?: WorkerStrategy;
+  model?: 'sonnet' | 'opus' | 'haiku';
+  orchestratorStrategy?: string;
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { role, projectId, taskIds, skills, sessionId, strategy } = options;
+  const { role, projectId, taskIds, skills, sessionId, strategy, model, orchestratorStrategy } = options;
 
   console.log('\n   📋 GENERATING MANIFEST VIA CLI:');
   console.log(`      • Session ID: ${sessionId}`);
@@ -46,6 +48,8 @@ async function generateManifestViaCLI(options: {
     '--skills', skills.join(','),
     '--strategy', strategy || 'simple',
     '--output', manifestPath,
+    ...(model ? ['--model', model] : []),
+    ...(orchestratorStrategy ? ['--orchestrator-strategy', orchestratorStrategy] : []),
   ];
 
   // Resolve maestro binary from monorepo node_modules/.bin (workspace link)
@@ -294,7 +298,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         spawnSource = 'ui',     // CHANGED: default to 'ui'
         role = 'worker',
         strategy = 'simple',    // Worker strategy: 'simple' or 'queue'
-        context
+        context,
+        model,                  // Model selection: 'sonnet' | 'opus' | 'haiku'
+        orchestratorStrategy,   // Orchestrator strategy: 'default' | 'intelligent-batching' | 'dag'
       } = req.body;
 
       console.log('\n🚀 SESSION SPAWN EVENT RECEIVED');
@@ -302,6 +308,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       console.log(`   • taskIds: [${taskIds?.join(', ') || 'NONE'}]`);
       console.log(`   • role: ${role}`);
       console.log(`   • strategy: ${strategy}`);
+      console.log(`   • orchestratorStrategy: ${orchestratorStrategy || '(not set)'}`);
 
       // Validation
       if (!projectId) {
@@ -391,6 +398,19 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       const skillsToUse = skills && Array.isArray(skills) ? skills : [];
 
+      // Validate orchestratorStrategy (only when role is orchestrator)
+      const validOrchestratorStrategies = ['default', 'intelligent-batching', 'dag'];
+      const resolvedOrchestratorStrategy = role === 'orchestrator'
+        ? (orchestratorStrategy || 'default')
+        : orchestratorStrategy;
+      if (resolvedOrchestratorStrategy && !validOrchestratorStrategies.includes(resolvedOrchestratorStrategy)) {
+        return res.status(400).json({
+          error: true,
+          code: 'invalid_orchestrator_strategy',
+          message: `orchestratorStrategy must be one of: ${validOrchestratorStrategies.join(', ')}`
+        });
+      }
+
       // Validate strategy
       if (strategy !== 'simple' && strategy !== 'queue' && strategy !== 'tree') {
         return res.status(400).json({
@@ -414,6 +434,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           spawnSource,                        // 'ui' or 'session'
           role,
           strategy,                           // Also store in metadata for easy access
+          ...(resolvedOrchestratorStrategy && { orchestratorStrategy: resolvedOrchestratorStrategy }),
           context: context || {}
         },
         _suppressCreatedEvent: true
@@ -444,6 +465,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           skills: skillsToUse,
           sessionId: session.id,
           strategy,
+          model,
+          orchestratorStrategy: resolvedOrchestratorStrategy,
         });
         manifestPath = result.manifestPath;
         manifest = result.manifest;

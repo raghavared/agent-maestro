@@ -16,6 +16,7 @@ import { registerManifestCommands } from './commands/manifest-generator.js';
 import { registerProjectCommands } from './commands/project.js';
 import { registerQueueCommands } from './commands/queue.js';
 import { registerReportCommands, executeReport } from './commands/report.js';
+import { registerCoordinateCommands } from './commands/coordinate.js';
 import {
   loadCommandPermissions,
   printAvailableCommands,
@@ -150,6 +151,7 @@ registerSkillCommands(program);
 registerManifestCommands(program);
 registerQueueCommands(program);
 registerReportCommands(program);
+registerCoordinateCommands(program);
 
 // Legacy update commands — deprecated, delegate to report.ts
 // These remain so old sessions (with update:* in their prompts) still work.

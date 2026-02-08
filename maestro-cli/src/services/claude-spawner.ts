@@ -33,6 +33,10 @@ export interface SpawnOptions {
   env?: Record<string, string>;
   /** Whether to inherit stdio (for interactive sessions) */
   interactive?: boolean;
+  /** Tmux session name (for spawning in tmux) */
+  tmuxSession?: string;
+  /** Tmux pane ID (for spawning in specific pane) */
+  tmuxPane?: string;
 }
 
 /**
@@ -114,6 +118,11 @@ export class ClaudeSpawner {
     // Add dependencies if present
     if (primaryTask.dependencies && primaryTask.dependencies.length > 0) {
       env.MAESTRO_TASK_DEPENDENCIES = JSON.stringify(primaryTask.dependencies);
+    }
+
+    // Add orchestrator strategy when role is orchestrator
+    if (manifest.role === 'orchestrator') {
+      env.MAESTRO_ORCHESTRATOR_STRATEGY = manifest.orchestratorStrategy || 'default';
     }
 
     return env as Record<string, string>;
@@ -205,6 +214,103 @@ export class ClaudeSpawner {
   }
 
   /**
+   * Spawn Claude Code session in tmux
+   *
+   * @param manifest - The manifest
+   * @param sessionId - Unique session ID
+   * @param options - Spawn options with tmux settings
+   * @returns Spawn result with process and metadata
+   */
+  async spawnInTmux(
+    manifest: MaestroManifest,
+    sessionId: string,
+    options: SpawnOptions & { tmuxSession: string; tmuxPane?: string }
+  ): Promise<SpawnResult> {
+    // Minimal prompt — the agent runs `maestro whoami` to get full context
+    const prompt = 'Run `maestro whoami` to understand your assignment and begin working.';
+
+    // Prepare environment
+    const env = {
+      ...this.prepareEnvironment(manifest, sessionId),
+      ...(options.env || {}),
+    };
+
+    // Build arguments (now async to load skills)
+    const args = await this.buildClaudeArgs(manifest);
+
+    // Add prompt directly as the last argument
+    args.push(prompt);
+
+    // Determine working directory
+    const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
+
+    // Build the full claude command
+    const claudeCommand = `claude ${args.map(arg => {
+      // Escape arguments that contain spaces or special characters
+      if (arg.includes(' ') || arg.includes('"') || arg.includes("'")) {
+        return `'${arg.replace(/'/g, "'\\''")}'`;
+      }
+      return arg;
+    }).join(' ')}`;
+
+    // Set environment variables in tmux and send command
+    const tmuxCommands: string[] = [];
+
+    // Target for tmux commands (session:pane or just session)
+    const tmuxTarget = options.tmuxPane
+      ? `${options.tmuxSession}:${options.tmuxPane}`
+      : options.tmuxSession;
+
+    // Set each environment variable
+    for (const [key, value] of Object.entries(env)) {
+      if (value !== undefined && value !== null) {
+        tmuxCommands.push(`tmux setenv -t ${tmuxTarget} ${key} "${value.toString().replace(/"/g, '\\"')}"`);
+      }
+    }
+
+    // Change directory and run claude command
+    tmuxCommands.push(`tmux send-keys -t ${tmuxTarget} "cd ${cwd}" C-m`);
+    tmuxCommands.push(`tmux send-keys -t ${tmuxTarget} "${claudeCommand}" C-m`);
+
+    // Print what we're doing
+    console.log('╭─────────────────────────────────────────────────────────────────╮');
+    console.log('│ Tmux Claude Code Command                                        │');
+    console.log('╰─────────────────────────────────────────────────────────────────╯');
+    console.log(`Tmux Session: ${options.tmuxSession}`);
+    if (options.tmuxPane) {
+      console.log(`Tmux Pane: ${options.tmuxPane}`);
+    }
+    console.log(`Working Directory: ${cwd}`);
+    console.log(`Command: ${claudeCommand}`);
+    console.log('');
+
+    // Execute tmux commands
+    const tmuxProcess = spawn('sh', ['-c', tmuxCommands.join(' && ')], {
+      stdio: 'inherit',
+    });
+
+    return new Promise((resolve, reject) => {
+      tmuxProcess.on('exit', (code) => {
+        if (code === 0) {
+          resolve({
+            sessionId,
+            promptFile: '',
+            process: tmuxProcess,
+            sendInput: (text: string) => {
+              // Send input via tmux send-keys
+              spawn('tmux', ['send-keys', '-t', tmuxTarget, text, 'C-m']);
+            },
+          });
+        } else {
+          reject(new Error(`Tmux spawn failed with code ${code}`));
+        }
+      });
+
+      tmuxProcess.on('error', reject);
+    });
+  }
+
+  /**
    * Spawn Claude Code session with manifest
    *
    * @param manifest - The manifest
@@ -217,6 +323,14 @@ export class ClaudeSpawner {
     sessionId: string,
     options: SpawnOptions = {}
   ): Promise<SpawnResult> {
+    // Check if we should spawn in tmux
+    if (options.tmuxSession) {
+      return this.spawnInTmux(manifest, sessionId, {
+        ...options,
+        tmuxSession: options.tmuxSession,
+      });
+    }
+
     // Minimal prompt — the agent runs `maestro whoami` to get full context
     const prompt = 'Run `maestro whoami` to understand your assignment and begin working.';
 

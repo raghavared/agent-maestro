@@ -108,6 +108,7 @@ export function SessionInTaskView({
         {/* Strategy Badge */}
         <StrategyBadge
           strategy={session.strategy}
+          orchestratorStrategy={session.orchestratorStrategy}
           queuePosition={queuePosition}
           queueTotal={queueState?.items.length}
           compact

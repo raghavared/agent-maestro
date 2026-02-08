@@ -61,5 +61,8 @@ export const config = {
   },
   get debug() {
     return process.env.MAESTRO_DEBUG === 'true';
+  },
+  get orchestratorStrategy() {
+    return (process.env.MAESTRO_ORCHESTRATOR_STRATEGY || 'default') as 'default' | 'intelligent-batching' | 'dag';
   }
 };

@@ -115,7 +115,7 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
                 <span className={`sessionDetailStatusBadge sessionDetailStatusBadge--${session.status}`}>
                   {SESSION_STATUS_LABELS[session.status]}
                 </span>
-                <StrategyBadge strategy={session.strategy} />
+                <StrategyBadge strategy={session.strategy} orchestratorStrategy={session.orchestratorStrategy} />
                 {session.model && (
                   <span className="sessionDetailModelBadge">
                     {session.model.toUpperCase()}
