@@ -1158,7 +1158,7 @@ pub fn create_session(
     #[cfg(not(target_family = "unix"))]
     let shell = std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string());
 
-    let persistent = persistent.unwrap_or(false);
+    let persistent = persistent.unwrap_or(true);
     let persist_id = persist_id
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());

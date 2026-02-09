@@ -192,10 +192,6 @@ export function useSessionActions({
     const name = newName.trim() || undefined;
     try {
       const launchCommand = newCommand.trim() || null;
-      if (newPersistent && launchCommand) {
-        setError("Persistent terminals require an empty command (run commands inside the terminal).");
-        return;
-      }
       const desiredCwd =
         newCwd.trim() || activeProject?.basePath || homeDirRef.current || "";
       const validatedCwd = await invoke<string | null>("validate_directory", {

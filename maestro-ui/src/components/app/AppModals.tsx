@@ -376,8 +376,6 @@ export function AppModals() {
         command={newCommand}
         onChangeCommand={(value) => setNewCommand(normalizeSmartQuotes(value))}
         commandSuggestions={commandSuggestions}
-        persistent={newPersistent}
-        onChangePersistent={setNewPersistent}
         cwd={newCwd}
         onChangeCwd={(value) => setNewCwd(normalizeSmartQuotes(value))}
         cwdPlaceholder={cwdPlaceholder}
@@ -399,8 +397,6 @@ export function AppModals() {
         host={sshHost}
         hostInputRef={sshHostInputRef}
         onChangeHost={setSshHost}
-        persistent={sshPersistent}
-        onChangePersistent={setSshPersistent}
         forwardOnly={sshForwardOnly}
         onChangeForwardOnly={setSshForwardOnly}
         exitOnForwardFailure={sshExitOnForwardFailure}

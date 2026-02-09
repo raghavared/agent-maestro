@@ -24,8 +24,6 @@ type SshManagerModalProps = {
   hostInputRef: React.RefObject<HTMLInputElement>;
   onChangeHost: (value: string) => void;
 
-  persistent: boolean;
-  onChangePersistent: (value: boolean) => void;
   forwardOnly: boolean;
   onChangeForwardOnly: (value: boolean) => void;
   exitOnForwardFailure: boolean;
@@ -53,8 +51,6 @@ export function SshManagerModal({
   host,
   hostInputRef,
   onChangeHost,
-  persistent,
-  onChangePersistent,
   forwardOnly,
   onChangeForwardOnly,
   exitOnForwardFailure,
@@ -217,14 +213,6 @@ export function SshManagerModal({
           <div className="formRow">
             <div className="label">Options</div>
             <div className="sshOptionGrid">
-              <label className="checkRow">
-                <input
-                  type="checkbox"
-                  checked={persistent}
-                  onChange={(e) => onChangePersistent(e.target.checked)}
-                />
-                Persistent terminal (tmux)
-              </label>
               <label className="checkRow">
                 <input
                   type="checkbox"
