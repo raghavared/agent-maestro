@@ -106,8 +106,8 @@ export const createSessionSchema = z.object({
   agentId: safeId.optional(),
   strategy: z.union([workerStrategySchema, orchestratorStrategySchema]).optional(),
   status: sessionStatusSchema.optional(),
-  env: z.record(z.string().max(5000)).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  env: z.record(z.string(), z.string().max(5000)).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   _suppressCreatedEvent: z.boolean().optional(),
 }).strict();
 
@@ -115,7 +115,7 @@ export const updateSessionSchema = z.object({
   taskIds: z.array(safeId).optional(),
   status: sessionStatusSchema.optional(),
   agentId: safeId.optional(),
-  env: z.record(z.string().max(5000)).optional(),
+  env: z.record(z.string(), z.string().max(5000)).optional(),
   events: z.array(z.object({
     id: safeId,
     timestamp: z.number(),
@@ -128,7 +128,7 @@ export const updateSessionSchema = z.object({
     timestamp: z.number(),
     message: shortString.optional(),
     taskId: safeId.optional(),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
   })).optional(),
 }).strict();
 
@@ -141,7 +141,7 @@ export const sessionTimelineSchema = z.object({
   type: timelineEventTypeSchema.optional().default('progress'),
   message: shortString,
   taskId: safeId.optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 }).strict();
 
 export const listSessionsQuerySchema = z.object({
@@ -162,7 +162,7 @@ export const spawnSessionSchema = z.object({
   spawnSource: z.enum(['ui', 'session']).optional().default('ui'),
   role: z.enum(['worker', 'orchestrator']).optional().default('worker'),
   strategy: workerStrategySchema.optional().default('simple'),
-  context: z.record(z.unknown()).optional(),
+  context: z.record(z.string(), z.unknown()).optional(),
   model: modelSchema.optional(),
   orchestratorStrategy: orchestratorStrategySchema.optional(),
 }).strict();

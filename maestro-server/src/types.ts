@@ -179,6 +179,7 @@ export interface SpawnSessionPayload {
   sessionId?: string;                   // Required when spawnSource === 'session' (parent session ID)
   sessionName?: string;
   skills?: string[];
+  model?: 'haiku' | 'sonnet' | 'opus';  // Model to use for the session
   spawnedBy?: string;                   // Deprecated: use sessionId instead
   context?: Record<string, any>;
 }

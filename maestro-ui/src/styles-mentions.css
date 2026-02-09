@@ -3,6 +3,7 @@
 .mentionsWrapper {
     position: relative;
     width: 100%;
+    isolation: isolate;
 }
 
 .mentionsInput {
@@ -13,62 +14,202 @@
     line-height: 1.5;
     background-color: transparent;
     color: var(--terminal-text, #e0e0e0);
+    position: relative;
 }
 
-/* Textarea - the actual editable text (visible) */
+/* Container for suggestions - ensure proper width */
+.mentionsInput > div {
+    width: 100%;
+}
+
+/* Textarea - the actual input layer - TEXT IS VISIBLE HERE */
 .mentionsInput textarea {
     min-height: 150px !important;
     padding: 12px !important;
-    border: 1px solid #444 !important;
-    background-color: transparent !important;
-    color: var(--terminal-text, #e0e0e0) !important;
-    caret-color: var(--terminal-text, #e0e0e0) !important;
+    border: 1px solid var(--theme-border, rgba(0, 51, 0, 1)) !important;
+    background: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.03) !important;
+    color: var(--theme-text, #f0f4f8) !important;
+    caret-color: var(--theme-primary, #00ff41) !important;
     outline: none !important;
     border-radius: 4px;
     font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
     font-size: 14px !important;
     line-height: 1.5 !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    position: relative !important;
+    z-index: 2 !important;
+}
+
+.mentionsInput textarea::selection {
+    background: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.3);
+    color: var(--theme-text, #f0f4f8);
 }
 
 .mentionsInput textarea:focus {
-    border-color: var(--theme-primary, var(--terminal-green, #00ff00)) !important;
-    box-shadow: 0 0 10px rgba(var(--theme-primary-rgb, 0, 255, 0), 0.1) !important;
+    border-color: var(--theme-primary, #00ff41) !important;
+    box-shadow:
+        0 0 12px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.3),
+        inset 0 0 20px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.05) !important;
+    background: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.06) !important;
 }
 
-/* Highlighter - overlay layer for mention styling only */
+/* Highlighter - overlay layer BEHIND textarea - only mentions are visible */
 .mentionsInput div[class*="highlighter"] {
     font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
     font-size: 14px !important;
     line-height: 1.5 !important;
     pointer-events: none !important;
     color: transparent !important;
+    padding: 12px !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 1 !important;
+    border: 1px solid transparent !important;
+    overflow: hidden !important;
 }
 
-/* Hide all regular text in highlighter so it doesn't double up with textarea */
-.mentionsInput div[class*="highlighter"] > *,
-.mentionsInput div[class*="highlighter"] span[class*="substring"] {
+/* All text in highlighter is transparent by default */
+.mentionsInput div[class*="highlighter"] * {
     color: transparent !important;
-    visibility: visible !important;
 }
 
-/* Mention styling - colored text, no background */
+/* Mention highlights - these show through as colored overlays on the textarea text */
 .mentionsInput div[class*="highlighter"] strong,
 .mentionsInput div[class*="highlighter"] [class*="mention"] {
-    background-color: transparent !important;
-    color: var(--theme-primary, var(--terminal-green, #00ff00)) !important;
-    font-weight: normal !important;
-    visibility: visible !important;
+    background-color: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.1) !important;
+    color: transparent !important;
+    font-weight: inherit !important;
+    position: relative;
+    border-radius: 2px;
 }
 
+/* ===================================
+   TERMINAL-THEMED MENTIONS POPUP
+   CYBERPUNK RETRO CLI AESTHETIC
+   =================================== */
+
+/* Suggestions popup container - terminal theme */
+.mentionsInput__suggestions,
+.mentionsInput [class*="suggestions__list"],
+.mentionsWrapper [class*="suggestions__list"] {
+    background: #000000 !important;
+    border: 2px solid var(--theme-primary, #00ff41) !important;
+    border-radius: 4px !important;
+    box-shadow:
+        0 0 20px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.4),
+        0 10px 40px rgba(0, 0, 0, 0.9),
+        inset 0 0 60px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.03) !important;
+    padding: 6px !important;
+    max-height: 240px !important;
+    overflow-y: auto !important;
+    z-index: 9999 !important;
+    backdrop-filter: blur(8px);
+    position: relative;
+    width: 100% !important;
+    min-width: 300px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin-top: 4px !important;
+}
+
+/* Scanline effect for terminal aesthetic */
+.mentionsInput__suggestions::before,
+.mentionsInput [class*="suggestions__list"]::before,
+.mentionsWrapper [class*="suggestions__list"]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(0deg,
+        rgba(0, 0, 0, 0.15) 0px,
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 2px);
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.3;
+    border-radius: 2px;
+}
+
+/* Custom scrollbar for terminal theme */
+.mentionsInput__suggestions::-webkit-scrollbar,
+.mentionsInput [class*="suggestions__list"]::-webkit-scrollbar,
+.mentionsWrapper [class*="suggestions__list"]::-webkit-scrollbar {
+    width: 8px;
+}
+
+.mentionsInput__suggestions::-webkit-scrollbar-track,
+.mentionsInput [class*="suggestions__list"]::-webkit-scrollbar-track,
+.mentionsWrapper [class*="suggestions__list"]::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 2px;
+}
+
+.mentionsInput__suggestions::-webkit-scrollbar-thumb,
+.mentionsInput [class*="suggestions__list"]::-webkit-scrollbar-thumb,
+.mentionsWrapper [class*="suggestions__list"]::-webkit-scrollbar-thumb {
+    background: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.3);
+    border-radius: 2px;
+    border: 1px solid rgba(var(--theme-primary-rgb, 0, 255, 65), 0.2);
+}
+
+.mentionsInput__suggestions::-webkit-scrollbar-thumb:hover,
+.mentionsInput [class*="suggestions__list"]::-webkit-scrollbar-thumb:hover,
+.mentionsWrapper [class*="suggestions__list"]::-webkit-scrollbar-thumb:hover {
+    background: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.5);
+    box-shadow: 0 0 8px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.4);
+}
+
+/* Individual suggestion items - terminal style */
 .suggestionItem {
     padding: 8px 12px;
-    border-bottom: 1px solid #333;
-    color: #ccc;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    color: var(--theme-text, #f0f4f8);
     cursor: pointer;
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    position: relative;
+    z-index: 2;
+    background: transparent;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    display: block;
 }
 
+/* File path styling within suggestions */
+.suggestionItem::before {
+    content: '>';
+    color: var(--theme-primary, #00ff41);
+    margin-right: 8px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.suggestionItem:hover,
 .suggestionItem.focused {
-    background-color: #2a4a3a;
-    color: #fff;
+    border-color: var(--theme-primary, #00ff41);
+    background: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.12);
+    color: var(--theme-primary, #00ff41);
+    box-shadow:
+        0 0 12px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.2),
+        inset 0 0 20px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.05);
+    text-shadow: 0 0 8px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.3);
+}
+
+.suggestionItem:hover::before,
+.suggestionItem.focused::before {
+    opacity: 1;
 }
