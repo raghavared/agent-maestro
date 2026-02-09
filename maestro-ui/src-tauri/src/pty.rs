@@ -522,6 +522,11 @@ set -g renumber-windows on
 
 # Enable focus events
 set -g focus-events on
+
+# Enable extended keys (CSI u / Kitty keyboard protocol) so that
+# Shift+Enter (\x1b[13;2u) is passed through to programs like Claude Code
+set -s extended-keys on
+set -as terminal-features 'xterm-256color:extkeys'
 "#;
 
     let needs_write = match fs::read_to_string(config_path) {

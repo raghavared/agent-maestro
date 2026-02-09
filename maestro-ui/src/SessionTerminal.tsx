@@ -231,6 +231,16 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
       };
 
       term.attachCustomKeyEventHandler((event) => {
+        // Block Shift+Enter across ALL event types (keydown, keypress, keyup)
+        // to prevent keypress from sending \r through onData.
+        const isEnter = event.key === "Enter";
+        if (event.shiftKey && isEnter && !event.metaKey && !event.ctrlKey && !event.altKey) {
+          if (event.type === "keydown") {
+            void invoke("write_to_session", { id: props.id, data: "\x1b[13;2u", source: "user" }).catch(() => {});
+          }
+          return false;
+        }
+
         if (event.type !== "keydown") return true;
         const key = event.key;
         const isCopy =
@@ -253,6 +263,16 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
       });
     } else {
       term.attachCustomKeyEventHandler((event) => {
+        // Block Shift+Enter across ALL event types (keydown, keypress, keyup)
+        // to prevent keypress from sending \r through onData.
+        const isEnter = event.key === "Enter";
+        if (event.shiftKey && isEnter && !event.metaKey && !event.ctrlKey && !event.altKey) {
+          if (event.type === "keydown") {
+            void invoke("write_to_session", { id: props.id, data: "\x1b[13;2u", source: "user" }).catch(() => {});
+          }
+          return false;
+        }
+
         if (event.type !== "keydown") return true;
         const key = event.key;
         const isCopy =
