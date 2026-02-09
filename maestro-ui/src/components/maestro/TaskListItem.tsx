@@ -54,6 +54,7 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
     completed: "Done",
     failed: "Failed",
     stopped: "Stopped",
+    "needs-user-input": "Needs Input",
 };
 
 const SESSION_STATUS_SYMBOLS: Record<MaestroSessionStatus, string> = {
@@ -63,6 +64,7 @@ const SESSION_STATUS_SYMBOLS: Record<MaestroSessionStatus, string> = {
     completed: "✓",
     failed: "✗",
     stopped: "⊘",
+    "needs-user-input": "⚠",
 };
 
 function formatTimeAgo(timestamp: number): string {

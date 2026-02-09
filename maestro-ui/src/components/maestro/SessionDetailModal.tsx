@@ -17,6 +17,7 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   completed: "Completed",
   failed: "Failed",
   stopped: "Stopped",
+  "needs-user-input": "Needs Input",
 };
 
 const TASK_STATUS_SYMBOLS: Record<string, string> = {

@@ -23,6 +23,7 @@ const SESSION_STATUS_SYMBOLS: Record<MaestroSessionStatus, string> = {
   completed: "\u2713",
   failed: "\u2717",
   stopped: "\u2298",
+  "needs-user-input": "\u26A0",
 };
 
 const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
@@ -32,6 +33,7 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   completed: "Completed",
   failed: "Failed",
   stopped: "Stopped",
+  "needs-user-input": "Needs Input",
 };
 
 // Task status symbols
