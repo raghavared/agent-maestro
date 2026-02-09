@@ -13,9 +13,9 @@ const longString = z.string().min(1).max(10000);
 // --- Enums ---
 
 const taskStatusSchema = z.enum(['todo', 'in_progress', 'completed', 'cancelled', 'blocked']);
-const taskSessionStatusSchema = z.enum(['queued', 'working', 'needs_input', 'blocked', 'completed', 'failed', 'skipped']);
+const taskSessionStatusSchema = z.enum(['queued', 'working', 'blocked', 'completed', 'failed', 'skipped']);
 const taskPrioritySchema = z.enum(['low', 'medium', 'high']);
-const sessionStatusSchema = z.enum(['spawning', 'idle', 'working', 'needs-user-input', 'completed', 'failed', 'stopped']);
+const sessionStatusSchema = z.enum(['spawning', 'idle', 'working', 'completed', 'failed', 'stopped']);
 const workerStrategySchema = z.enum(['simple', 'queue', 'tree']);
 const orchestratorStrategySchema = z.enum(['default', 'intelligent-batching', 'dag']);
 const templateRoleSchema = z.enum(['worker', 'orchestrator']);
@@ -131,6 +131,11 @@ export const updateSessionSchema = z.object({
     taskId: safeId.optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
   })).optional(),
+  needsInput: z.object({
+    active: z.boolean(),
+    message: z.string().max(1000).optional(),
+    since: z.number().optional(),
+  }).optional(),
 }).strict();
 
 export const sessionEventSchema = z.object({

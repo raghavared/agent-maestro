@@ -14050,7 +14050,7 @@ select.input {
   border: 1px solid rgba(251, 191, 36, 0.5);
 }
 
-.sessionStatusBadge--needs-user-input {
+.sessionStatusBadge--needsInput {
   background: rgba(251, 191, 36, 0.15);
   color: #fbbf24;
   border: 1px solid rgba(251, 191, 36, 0.3);

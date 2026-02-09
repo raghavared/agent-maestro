@@ -23,7 +23,6 @@ const SESSION_STATUS_SYMBOLS: Record<MaestroSessionStatus, string> = {
   completed: "✓",
   failed: "✗",
   stopped: "⊘",
-  "needs-user-input": "⚠",
 };
 
 const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
@@ -33,7 +32,6 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   completed: "Completed",
   failed: "Failed",
   stopped: "Stopped",
-  "needs-user-input": "Needs Input",
 };
 
 // Task status symbols
@@ -97,8 +95,8 @@ export function SimpleSessionItem({
           {isExpanded ? "▾" : "▸"}
         </button>
 
-        <span className={`simpleSessionItemStatus simpleSessionItemStatus--${session.status}`}>
-          {SESSION_STATUS_SYMBOLS[session.status]} {SESSION_STATUS_LABELS[session.status]}
+        <span className={`simpleSessionItemStatus simpleSessionItemStatus--${session.status} ${session.needsInput?.active ? 'simpleSessionItemStatus--needsInput' : ''}`}>
+          {session.needsInput?.active ? '⚠' : SESSION_STATUS_SYMBOLS[session.status]} {session.needsInput?.active ? 'Needs Input' : SESSION_STATUS_LABELS[session.status]}
         </span>
 
         <span className="simpleSessionItemName">{session.name}</span>
@@ -164,8 +162,8 @@ export function SimpleSessionItem({
                           <span className="simpleSessionItemTaskTitle">{task.title}</span>
 
                           {task.taskSessionStatuses?.[session.id] && (
-                            <span className={`simpleSessionItemTaskSessionStatus simpleSessionItemTaskSessionStatus--${task.taskSessionStatuses[session.id]}`}>
-                              {task.taskSessionStatuses[session.id].replace("_", " ")}
+                            <span className={`simpleSessionItemTaskSessionStatus simpleSessionItemTaskSessionStatus--${task.taskSessionStatuses?.[session.id]}`}>
+                              {task.taskSessionStatuses?.[session.id]?.replace("_", " ")}
                             </span>
                           )}
 

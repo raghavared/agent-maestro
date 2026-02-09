@@ -3,9 +3,9 @@
 
 export type TaskStatus = 'todo' | 'in_progress' | 'completed' | 'cancelled' | 'blocked';
 export type TaskPriority = 'low' | 'medium' | 'high';
-export type MaestroSessionStatus = 'spawning' | 'idle' | 'working' | 'needs-user-input' | 'completed' | 'failed' | 'stopped';
+export type MaestroSessionStatus = 'spawning' | 'idle' | 'working' | 'completed' | 'failed' | 'stopped';
 export type SpawnSource = 'ui' | 'session';
-export type TaskSessionStatus = 'queued' | 'working' | 'needs_input' | 'blocked' | 'completed' | 'failed' | 'skipped';
+export type TaskSessionStatus = 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'skipped';
 export type WorkerStrategy = 'simple' | 'queue';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 export type ModelType = 'sonnet' | 'opus' | 'haiku';
@@ -116,6 +116,11 @@ export interface MaestroSession {
   platform: string;
   events: MaestroSessionEvent[];
   timeline: SessionTimelineEvent[];  // Session's activity timeline
+  needsInput?: {
+    active: boolean;
+    message?: string;
+    since?: number;
+  };
   role?: 'orchestrator' | 'worker';
   spawnSource?: SpawnSource;
   spawnedBy?: string;
@@ -166,6 +171,11 @@ export interface UpdateSessionPayload {
   events?: MaestroSessionEvent[];
   timeline?: SessionTimelineEvent[];
   completedAt?: number;
+  needsInput?: {
+    active: boolean;
+    message?: string;
+    since?: number;
+  };
 }
 
 export interface AgentSkill {

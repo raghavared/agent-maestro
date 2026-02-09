@@ -10,8 +10,9 @@ import ora from 'ora';
  * Report subcommand definitions mapping subcommand name to sessionStatus and timeline event type.
  */
 interface ReportSubcommand {
-  sessionStatus: string;
+  sessionStatus: string | null;
   timelineType: string;
+  needsInput?: boolean;
 }
 
 const REPORT_SUBCOMMANDS: Record<string, ReportSubcommand> = {
@@ -19,7 +20,7 @@ const REPORT_SUBCOMMANDS: Record<string, ReportSubcommand> = {
   complete: { sessionStatus: 'completed', timelineType: 'task_completed' },
   blocked: { sessionStatus: 'blocked', timelineType: 'task_blocked' },
   error: { sessionStatus: 'failed', timelineType: 'error' },
-  'needs-input': { sessionStatus: 'needs_input', timelineType: 'needs_input' },
+  'needs-input': { sessionStatus: null, timelineType: 'needs_input', needsInput: true },
 };
 
 /**
@@ -55,7 +56,22 @@ export async function executeReport(
   const spinner = !isJson ? ora(`Reporting ${subcommand}...`).start() : null;
 
   try {
-    if (taskIds && taskIds.length > 0) {
+    // Handle needs-input: update session's needsInput flag instead of task sessionStatus
+    if (def.needsInput) {
+      await api.patch(`/api/sessions/${sessionId}`, {
+        needsInput: {
+          active: true,
+          message,
+          since: Date.now(),
+        },
+      });
+
+      await api.post(`/api/sessions/${sessionId}/timeline`, {
+        type: def.timelineType,
+        message,
+        ...(taskIds && taskIds.length > 0 ? { taskId: taskIds[0] } : {}),
+      });
+    } else if (taskIds && taskIds.length > 0) {
       // Update sessionStatus on each specified task + post timeline event per task
       for (const taskId of taskIds) {
         await api.patch(`/api/tasks/${taskId}`, {
@@ -94,6 +110,7 @@ export async function executeReport(
         taskIds: taskIds || [],
         sessionId,
         sessionStatus: taskIds && taskIds.length > 0 ? def.sessionStatus : undefined,
+        needsInput: def.needsInput || false,
         sessionCompleted: subcommand === 'complete' && (!taskIds || taskIds.length === 0),
       });
     }

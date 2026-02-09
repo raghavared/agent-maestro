@@ -259,8 +259,8 @@ export function MaestroSessionContent({
                       </span>
 
                       {task.taskSessionStatuses?.[session.id] && (
-                        <span className={`maestroSessionContentTaskSessionStatus maestroSessionContentTaskSessionStatus--${task.taskSessionStatuses[session.id]}`}>
-                          {task.taskSessionStatuses[session.id].replace("_", " ")}
+                        <span className={`maestroSessionContentTaskSessionStatus maestroSessionContentTaskSessionStatus--${task.taskSessionStatuses?.[session.id]}`}>
+                          {task.taskSessionStatuses?.[session.id]?.replace("_", " ")}
                         </span>
                       )}
 

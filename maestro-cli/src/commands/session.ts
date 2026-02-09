@@ -378,9 +378,13 @@ export function registerSessionCommands(program: Command) {
             }
 
             try {
-                if (!isJson) console.log(`[session:needs-input]    PATCH /api/sessions/${sessionId} -> status: 'needs-user-input'`);
+                if (!isJson) console.log(`[session:needs-input]    PATCH /api/sessions/${sessionId} -> needsInput: { active: true }`);
                 await api.patch(`/api/sessions/${sessionId}`, {
-                    status: 'needs-user-input',
+                    needsInput: {
+                        active: true,
+                        message: 'Session is waiting for user input',
+                        since: Date.now(),
+                    },
                     timeline: [{
                         id: `evt-${Date.now()}`,
                         type: 'needs_input',
@@ -390,9 +394,9 @@ export function registerSessionCommands(program: Command) {
                 });
 
                 if (!isJson) {
-                    console.log(`[session:needs-input] Done: session ${sessionId} marked as needs-user-input`);
+                    console.log(`[session:needs-input] Done: session ${sessionId} marked as needsInput`);
                 } else {
-                    outputJSON({ sessionId, status: 'needs-user-input' });
+                    outputJSON({ sessionId, needsInput: true });
                 }
             } catch (err: any) {
                 if (!isJson) {
@@ -422,9 +426,10 @@ export function registerSessionCommands(program: Command) {
             }
 
             try {
-                if (!isJson) console.log(`[session:resume-working]    PATCH /api/sessions/${sessionId} -> status: 'working'`);
+                if (!isJson) console.log(`[session:resume-working]    PATCH /api/sessions/${sessionId} -> status: 'working', needsInput: { active: false }`);
                 await api.patch(`/api/sessions/${sessionId}`, {
                     status: 'working',
+                    needsInput: { active: false },
                 });
 
                 if (!isJson) {

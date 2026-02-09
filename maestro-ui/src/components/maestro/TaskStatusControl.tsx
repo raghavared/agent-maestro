@@ -29,7 +29,6 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 const SESSION_STATUS_LABELS: Record<TaskSessionStatus, string> = {
   queued: "Queued",
   working: "Working",
-  needs_input: "Needs Input",
   blocked: "Blocked",
   completed: "Completed",
   failed: "Failed",

@@ -43,6 +43,11 @@ export interface StoredSession {
   completedAt: number | null;
   timeline: SessionTimelineEvent[];  // Session's activity timeline
   metadata?: Record<string, any>;
+  needsInput?: {
+    active: boolean;
+    message?: string;
+    since?: number;
+  };
 }
 
 export interface SessionTimelineEvent {

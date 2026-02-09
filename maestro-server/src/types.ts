@@ -78,13 +78,18 @@ export interface Session {
   events: SessionEvent[];
   timeline: SessionTimelineEvent[];  // Session's activity timeline
   metadata?: Record<string, any>;  // Additional metadata (skill, spawnedBy, etc.)
+  needsInput?: {
+    active: boolean;
+    message?: string;
+    since?: number;
+  };
 }
 
 // Supporting types
 export type TaskStatus = 'todo' | 'in_progress' | 'completed' | 'cancelled' | 'blocked';
-export type TaskSessionStatus = 'queued' | 'working' | 'needs_input' | 'blocked' | 'completed' | 'failed' | 'skipped';
+export type TaskSessionStatus = 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'skipped';
 export type TaskPriority = 'low' | 'medium' | 'high';
-export type SessionStatus = 'spawning' | 'idle' | 'working' | 'needs-user-input' | 'completed' | 'failed' | 'stopped';
+export type SessionStatus = 'spawning' | 'idle' | 'working' | 'completed' | 'failed' | 'stopped';
 
 // Session timeline event types
 export type SessionTimelineEventType =
@@ -167,6 +172,11 @@ export interface UpdateSessionPayload {
   env?: Record<string, string>;  // Environment variables
   events?: SessionEvent[];
   timeline?: SessionTimelineEvent[];  // Append timeline events
+  needsInput?: {
+    active: boolean;
+    message?: string;
+    since?: number;
+  };
 }
 
 // Spawn session payload (Server-Generated Manifests)

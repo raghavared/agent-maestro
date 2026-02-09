@@ -50,6 +50,7 @@ export class FileSystemSessionRepository implements ISessionRepository {
 
           // Initialize Phase IV-A fields if missing
           let needsSave = false;
+
           if (!session.taskIds) { session.taskIds = []; needsSave = true; }
           if (!session.name) { session.name = `Session ${session.id}`; needsSave = true; }
           if (!session.env) { session.env = {}; needsSave = true; }
@@ -195,6 +196,10 @@ export class FileSystemSessionRepository implements ISessionRepository {
     if (updates.env !== undefined) session.env = { ...session.env, ...updates.env };
     if (updates.events !== undefined) session.events = [...session.events, ...updates.events];
     if (updates.timeline !== undefined) session.timeline = [...session.timeline, ...updates.timeline];
+    if (updates.needsInput !== undefined) {
+      console.log(`[SessionRepo] Setting needsInput for session ${id}:`, JSON.stringify(updates.needsInput));
+      session.needsInput = updates.needsInput;
+    }
 
     session.lastActivity = Date.now();
 
