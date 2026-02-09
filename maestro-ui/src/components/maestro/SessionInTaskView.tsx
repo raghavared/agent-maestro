@@ -22,7 +22,6 @@ const SESSION_STATUS_SYMBOLS: Record<MaestroSessionStatus, string> = {
   completed: "✓",
   failed: "✗",
   stopped: "⊘",
-  "needs-user-input": "⚠",
 };
 
 const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
@@ -32,7 +31,6 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   completed: "Completed",
   failed: "Failed",
   stopped: "Stopped",
-  "needs-user-input": "Needs Input",
 };
 
 function formatTimeAgo(timestamp: number): string {
@@ -68,21 +66,22 @@ export function SessionInTaskView({
   }, [queueState, taskId]);
 
   // Count other tasks this session is working on
-  const otherTasksCount = session.taskIds.length - 1;
+  const otherTasksCount = (session.taskIds?.length ?? 1) - 1;
 
   // Filter timeline events related to this task
+  const timeline = session.timeline ?? [];
   const taskTimelineEvents = useMemo(() => {
-    return session.timeline.filter(
+    return timeline.filter(
       (event) => event.taskId === taskId || !event.taskId
     );
-  }, [session.timeline, taskId]);
+  }, [timeline, taskId]);
 
   // Get last activity for this task specifically
   const lastTaskActivity = useMemo(() => {
-    const taskEvents = session.timeline.filter((e) => e.taskId === taskId);
+    const taskEvents = timeline.filter((e) => e.taskId === taskId);
     if (taskEvents.length === 0) return session.lastActivity;
     return Math.max(...taskEvents.map((e) => e.timestamp));
-  }, [session.timeline, taskId, session.lastActivity]);
+  }, [timeline, taskId, session.lastActivity]);
 
   const isQueue = session.strategy === "queue";
 
@@ -100,8 +99,8 @@ export function SessionInTaskView({
         </button>
 
         {/* Status Badge */}
-        <span className={`sessionInTaskViewStatus sessionInTaskViewStatus--${session.status}`}>
-          {SESSION_STATUS_SYMBOLS[session.status]} {SESSION_STATUS_LABELS[session.status]}
+        <span className={`sessionInTaskViewStatus sessionInTaskViewStatus--${session.status} ${session.needsInput?.active ? 'sessionInTaskViewStatus--needsInput' : ''}`}>
+          {session.needsInput?.active ? '⚠' : (SESSION_STATUS_SYMBOLS[session.status] || '?')} {session.needsInput?.active ? 'Needs Input' : (SESSION_STATUS_LABELS[session.status] || session.status || 'Unknown')}
         </span>
 
         {/* Session Name */}

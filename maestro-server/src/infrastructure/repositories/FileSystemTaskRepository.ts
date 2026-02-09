@@ -70,6 +70,15 @@ export class FileSystemTaskRepository implements ITaskRepository {
       if (!task.agentIds) task.agentIds = [];
       // NOTE: timeline removed from Task - now lives on Session
 
+      // Migrate legacy sessionStatus -> taskSessionStatuses
+      if ((task as any).sessionStatus && !task.taskSessionStatuses) {
+        if (task.sessionIds.length > 0) {
+          task.taskSessionStatuses = { [task.sessionIds[0]]: (task as any).sessionStatus };
+        }
+        delete (task as any).sessionStatus;
+      }
+      if (!task.taskSessionStatuses) task.taskSessionStatuses = {};
+
       this.tasks.set(task.id, task);
     } catch (err) {
       this.logger.warn(`Failed to load task file: ${filePath}`, { error: (err as Error).message });
@@ -191,7 +200,9 @@ export class FileSystemTaskRepository implements ITaskRepository {
     if (updates.sessionIds !== undefined) task.sessionIds = updates.sessionIds;
     if (updates.skillIds !== undefined) task.skillIds = updates.skillIds;
     if (updates.agentIds !== undefined) task.agentIds = updates.agentIds;
-    if (updates.sessionStatus !== undefined) task.sessionStatus = updates.sessionStatus;
+    if (updates.taskSessionStatuses !== undefined) {
+      task.taskSessionStatuses = { ...(task.taskSessionStatuses || {}), ...updates.taskSessionStatuses };
+    }
     if (updates.model !== undefined) task.model = updates.model;
 
     // Handle status changes

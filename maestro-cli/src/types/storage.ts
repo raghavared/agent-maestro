@@ -19,7 +19,7 @@ export interface StoredTask {
   title: string;
   description: string;
   status: string;
-  sessionStatus?: string;        // Session's status while working on task (renamed from agentStatus)
+  taskSessionStatuses?: Record<string, string>;  // Per-session status map: { [sessionId]: status }
   priority: string;
   createdAt: number;
   updatedAt: number;
@@ -43,6 +43,11 @@ export interface StoredSession {
   completedAt: number | null;
   timeline: SessionTimelineEvent[];  // Session's activity timeline
   metadata?: Record<string, any>;
+  needsInput?: {
+    active: boolean;
+    message?: string;
+    since?: number;
+  };
 }
 
 export interface SessionTimelineEvent {
