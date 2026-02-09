@@ -99,23 +99,18 @@ export class TaskService {
       throw new ValidationError('Task title cannot be empty');
     }
 
-    // ENFORCEMENT: Sessions can only update sessionStatus, not user status
+    // ENFORCEMENT: Sessions can only update taskSessionStatuses, not user status
     if (updates.updateSource === 'session') {
-      // Strip user-controlled fields - sessions can only update sessionStatus
-      const {
-        status,           // BLOCKED: user status
-        title,            // BLOCKED: user field
-        description,      // BLOCKED: user field
-        priority,         // BLOCKED: user field
-        updateSource,     // Remove from payload (internal)
-        sessionId,        // Remove from payload (internal)
-        ...allowedUpdates
-      } = updates;
-
-      // Only allow sessionStatus from sessions
       const sessionAllowedUpdates: UpdateTaskPayload = {};
-      if (updates.sessionStatus !== undefined) {
-        sessionAllowedUpdates.sessionStatus = updates.sessionStatus;
+
+      // Map sessionStatus + sessionId -> taskSessionStatuses[sessionId] (backward compat)
+      if (updates.sessionStatus !== undefined && updates.sessionId) {
+        const existingTask = await this.taskRepo.findById(id);
+        const existing = existingTask?.taskSessionStatuses || {};
+        sessionAllowedUpdates.taskSessionStatuses = {
+          ...existing,
+          [updates.sessionId]: updates.sessionStatus,
+        };
       }
 
       const task = await this.taskRepo.update(id, sessionAllowedUpdates);
@@ -124,7 +119,7 @@ export class TaskService {
     }
 
     // User updates - allow all fields (but remove internal tracking fields)
-    const { updateSource, sessionId, ...userUpdates } = updates;
+    const { updateSource, sessionId, sessionStatus: _ss, ...userUpdates } = updates;
     const task = await this.taskRepo.update(id, userUpdates);
 
     await this.eventBus.emit('task:updated', task);

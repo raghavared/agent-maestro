@@ -74,7 +74,8 @@ export const updateTaskSchema = z.object({
   title: shortString.optional(),
   description: longString.optional(),
   status: taskStatusSchema.optional(),
-  sessionStatus: taskSessionStatusSchema.optional(),
+  sessionStatus: taskSessionStatusSchema.optional(),  // Backward compat for session-source updates
+  taskSessionStatuses: z.record(safeId, taskSessionStatusSchema).optional(),
   priority: taskPrioritySchema.optional(),
   sessionIds: z.array(safeId).optional(),
   skillIds: z.array(safeId).optional(),

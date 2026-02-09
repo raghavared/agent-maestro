@@ -163,9 +163,9 @@ export function SimpleSessionItem({
 
                           <span className="simpleSessionItemTaskTitle">{task.title}</span>
 
-                          {task.sessionStatus && (
-                            <span className={`simpleSessionItemTaskSessionStatus simpleSessionItemTaskSessionStatus--${task.sessionStatus}`}>
-                              {task.sessionStatus.replace("_", " ")}
+                          {task.taskSessionStatuses?.[session.id] && (
+                            <span className={`simpleSessionItemTaskSessionStatus simpleSessionItemTaskSessionStatus--${task.taskSessionStatuses[session.id]}`}>
+                              {task.taskSessionStatuses[session.id].replace("_", " ")}
                             </span>
                           )}
 

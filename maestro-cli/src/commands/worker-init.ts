@@ -99,13 +99,13 @@ export class WorkerInitCommand {
       for (const task of manifest.tasks) {
         // Update task's session status
         try {
-          console.log(`[worker-init]    PATCH /api/tasks/${task.id} -> sessionStatus: 'working'`);
+          console.log(`[worker-init]    PATCH /api/tasks/${task.id} -> taskSessionStatuses[${sessionId}]: 'working'`);
           await api.patch(`/api/tasks/${task.id}`, {
             sessionStatus: 'working',
             updateSource: 'session',
             sessionId,
           });
-          console.log(`[worker-init]    Task ${task.id} session status updated to 'working'`);
+          console.log(`[worker-init]    Task ${task.id} taskSessionStatuses[${sessionId}] updated to 'working'`);
         } catch (err: any) {
           console.warn(`[worker-init]    Failed to update task ${task.id}: ${err.message}`);
         }

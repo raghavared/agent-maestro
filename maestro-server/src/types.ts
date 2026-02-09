@@ -37,7 +37,7 @@ export interface Task {
   title: string;
   description: string;
   status: TaskStatus;
-  sessionStatus?: TaskSessionStatus;   // Session's status while working on task (renamed from agentStatus)
+  taskSessionStatuses?: Record<string, TaskSessionStatus>;  // Per-session status map: { [sessionId]: status }
   priority: TaskPriority;
   createdAt: number;
   updatedAt: number;
@@ -134,7 +134,8 @@ export interface UpdateTaskPayload {
   title?: string;
   description?: string;
   status?: TaskStatus;
-  sessionStatus?: TaskSessionStatus;  // Renamed from agentStatus
+  sessionStatus?: TaskSessionStatus;  // Backward compat: session-source updates send single status (mapped to taskSessionStatuses[sessionId])
+  taskSessionStatuses?: Record<string, TaskSessionStatus>;  // Direct map update (for user/internal updates)
   priority?: TaskPriority;
   sessionIds?: string[];      // PHASE IV-A: Update sessions
   skillIds?: string[];         // PHASE IV-B

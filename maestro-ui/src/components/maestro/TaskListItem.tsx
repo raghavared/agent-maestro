@@ -374,38 +374,37 @@ export function TaskListItem({
                             )}
                         </div>
 
-                        {/* Session Status Badge */}
-                        {task.sessionStatus && (
-                            <span className={`terminalMetaBadge terminalMetaBadge--session terminalMetaBadge--session-${task.sessionStatus}`}>
-                                {task.sessionStatus.toUpperCase().replace('_', ' ')}
-                            </span>
-                        )}
-
-                        {/* Session statuses with strategy indicators */}
+                        {/* Combined session status chips: show task-session status with breathing animation when working */}
                         {sessionCount > 0 && (
                             <div className="terminalSessionStatuses">
                                 {loadingSessions ? (
                                     <span className="terminalSessionIndicator">
-                                        <span className="terminalSessionDot"></span>
                                         <span className="terminalSessionNumber">{sessionCount}</span>
                                     </span>
                                 ) : (
-                                    taskSessions.slice(0, 3).map(session => (
-                                        <span
-                                            key={session.id}
-                                            className={`terminalSessionStatusChip terminalSessionStatusChip--${session.status} terminalSessionStatusChip--clickable`}
-                                            title={`${session.name || session.id}: ${SESSION_STATUS_LABELS[session.status]}${session.strategy ? ` [${session.strategy}]` : ''}`}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSessionModalId(session.id);
-                                            }}
-                                        >
-                                            {session.strategy === 'queue' && (
-                                                <span className="terminalSessionStrategyTag">Q</span>
-                                            )}
-                                            <span className="terminalSessionStatusIcon">{SESSION_STATUS_SYMBOLS[session.status]}</span>
-                                        </span>
-                                    ))
+                                    taskSessions.slice(0, 3).map(session => {
+                                        const taskStatus = task.taskSessionStatuses?.[session.id];
+                                        const displayStatus = taskStatus || session.status;
+                                        const isWorking = displayStatus === 'working';
+                                        return (
+                                            <span
+                                                key={session.id}
+                                                className={`terminalSessionStatusChip terminalSessionStatusChip--${session.status} terminalSessionStatusChip--clickable ${isWorking ? 'terminalSessionStatusChip--breathing' : ''}`}
+                                                title={`${session.name || session.id}: ${taskStatus ? taskStatus.replace('_', ' ') : SESSION_STATUS_LABELS[session.status]}${session.strategy ? ` [${session.strategy}]` : ''}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSessionModalId(session.id);
+                                                }}
+                                            >
+                                                {session.strategy === 'queue' && (
+                                                    <span className="terminalSessionStrategyTag">Q</span>
+                                                )}
+                                                <span className="terminalSessionStatusLabel">
+                                                    {taskStatus ? taskStatus.toUpperCase().replace('_', ' ') : SESSION_STATUS_LABELS[session.status].toUpperCase()}
+                                                </span>
+                                            </span>
+                                        );
+                                    })
                                 )}
                                 {taskSessions.length > 3 && (
                                     <span className="terminalSessionMore">+{taskSessions.length - 3}</span>

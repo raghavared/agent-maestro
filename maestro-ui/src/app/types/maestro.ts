@@ -72,7 +72,7 @@ export interface MaestroTask {
   // Status & Priority
   status: TaskStatus;
   priority: TaskPriority;
-  sessionStatus?: TaskSessionStatus;  // Renamed from agentStatus
+  taskSessionStatuses?: Record<string, TaskSessionStatus>;  // Per-session status map: { [sessionId]: status }
 
   // Timestamps
   createdAt: number;
@@ -139,7 +139,8 @@ export interface UpdateTaskPayload {
   title?: string;
   description?: string;
   status?: TaskStatus;
-  sessionStatus?: TaskSessionStatus;  // Renamed from agentStatus
+  sessionStatus?: TaskSessionStatus;  // Backward compat for session-source updates
+  taskSessionStatuses?: Record<string, TaskSessionStatus>;  // Direct map update
   priority?: TaskPriority;
   initialPrompt?: string;
   sessionIds?: string[];

@@ -148,8 +148,16 @@ export function registerTaskCommands(program: Command) {
                      outputKeyValue('ID', t.id);
                      outputKeyValue('Title', t.title);
                      outputKeyValue('Status', t.status);
-                     if (t.sessionStatus) {
-                         outputKeyValue('Session Status', t.sessionStatus);
+                     if (t.taskSessionStatuses && Object.keys(t.taskSessionStatuses).length > 0) {
+                         const entries = Object.entries(t.taskSessionStatuses as Record<string, string>);
+                         if (entries.length === 1) {
+                             outputKeyValue('Session Status', `${entries[0][1]} (${entries[0][0]})`);
+                         } else {
+                             outputKeyValue('Session Statuses', '');
+                             for (const [sid, status] of entries) {
+                                 outputKeyValue(`  ${sid}`, status as string);
+                             }
+                         }
                      }
                      outputKeyValue('Priority', t.priority);
                      outputKeyValue('Description', t.description || '');
