@@ -100,7 +100,7 @@ fn agents_ui_tmux_session_name(persist_id: &str) -> String {
 }
 
 #[cfg(target_family = "unix")]
-fn find_bundled_tmux() -> Option<PathBuf> {
+pub fn find_bundled_tmux() -> Option<PathBuf> {
     let sidecar = sidecar_path("tmux").filter(|p| p.is_file());
     if sidecar.is_some() {
         return sidecar;
@@ -357,9 +357,9 @@ fn ensure_shell_xdg_paths(window: &WebviewWindow) -> Option<ShellXdgPaths> {
 }
 
 #[cfg(target_family = "unix")]
-struct TmuxPaths {
-    socket_dir: PathBuf,
-    config_path: PathBuf,
+pub struct TmuxPaths {
+    pub socket_dir: PathBuf,
+    pub config_path: PathBuf,
 }
 
 #[cfg(target_family = "unix")]
@@ -427,7 +427,7 @@ fn tmux_socket_dir_candidates(preferred: &Path) -> Vec<PathBuf> {
 }
 
 #[cfg(target_family = "unix")]
-fn ensure_tmux_paths(window: &WebviewWindow) -> Option<TmuxPaths> {
+pub fn ensure_tmux_paths(window: &WebviewWindow) -> Option<TmuxPaths> {
     let home = window.app_handle().path().home_dir().ok()?;
     let base = home.join(".agents-ui-tmux");
     fs::create_dir_all(&base).ok()?;

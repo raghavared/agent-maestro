@@ -14,6 +14,7 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   spawning: "Spawning",
   idle: "Idle",
   working: "Working",
+  "needs-user-input": "Needs Input",
   completed: "Completed",
   failed: "Failed",
   stopped: "Stopped",
