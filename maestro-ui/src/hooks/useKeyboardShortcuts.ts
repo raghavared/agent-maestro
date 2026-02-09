@@ -185,7 +185,14 @@ export function useKeyboardShortcuts() {
             const projectSessions = sessions.filter((s) => s.projectId === activeProjectId);
 
             if (isMac) {
-                if (e.metaKey && e.key.toLowerCase() === "t") {
+                // Cmd+T - Create new Maestro task
+                if (e.metaKey && !e.shiftKey && e.key.toLowerCase() === "t") {
+                    e.preventDefault();
+                    useUIStore.getState().setCreateTaskRequested(true);
+                    return;
+                }
+                // Cmd+N - New terminal session
+                if (e.metaKey && !e.shiftKey && e.key.toLowerCase() === "n") {
                     e.preventDefault();
                     useProjectStore.getState().setProjectOpen(false);
                     useSessionStore.getState().setNewOpen(true);
@@ -198,6 +205,24 @@ export function useKeyboardShortcuts() {
                         title: "Terminal",
                         command: null,
                     });
+                    return;
+                }
+                // Cmd+E - Next session
+                if (e.metaKey && !e.shiftKey && e.key.toLowerCase() === "e") {
+                    e.preventDefault();
+                    if (!projectSessions.length) return;
+                    const idx = projectSessions.findIndex((s) => s.id === activeId);
+                    const next = projectSessions[(idx + 1) % projectSessions.length];
+                    useSessionStore.getState().setActiveId(next.id);
+                    return;
+                }
+                // Cmd+R - Previous session
+                if (e.metaKey && !e.shiftKey && e.key.toLowerCase() === "r") {
+                    e.preventDefault();
+                    if (!projectSessions.length) return;
+                    const idx = projectSessions.findIndex((s) => s.id === activeId);
+                    const prev = projectSessions[(idx - 1 + projectSessions.length) % projectSessions.length];
+                    useSessionStore.getState().setActiveId(prev.id);
                     return;
                 }
                 if (e.metaKey && e.key.toLowerCase() === "w") {
@@ -263,7 +288,14 @@ export function useKeyboardShortcuts() {
                     return;
                 }
             } else {
+                // Ctrl+Shift+T - Create new Maestro task
                 if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "t") {
+                    e.preventDefault();
+                    useUIStore.getState().setCreateTaskRequested(true);
+                    return;
+                }
+                // Ctrl+Shift+N - New terminal session
+                if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "n") {
                     e.preventDefault();
                     useProjectStore.getState().setProjectOpen(false);
                     useSessionStore.getState().setNewOpen(true);

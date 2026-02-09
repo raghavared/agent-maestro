@@ -258,6 +258,8 @@ POST /api/sessions/:sessionId/timeline
 
 2. **Single `sessionStatus` for many-to-many.** The Task has one `sessionStatus` field but can have multiple sessions. Last writer wins, which means the field is unreliable when multiple sessions work on the same task.
 
+
+
 3. **No cascade delete.** Deleting a parent task leaves orphaned children with dangling `parentId` references.
 
 4. **No bidirectional sync for Task-Session association.** `addSessionToTask` updates the task but not the session. Callers must manually keep both sides consistent.

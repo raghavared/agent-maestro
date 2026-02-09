@@ -9,6 +9,7 @@ import { AddSubtaskInput } from "./AddSubtaskInput";
 import { useTasks } from "../../hooks/useTasks";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useTaskTree } from "../../hooks/useTaskTree";
+import { useUIStore } from "../../stores/useUIStore";
 
 type PanelTab = "tasks" | "completed" | "config";
 
@@ -61,6 +62,15 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [collapsedTasks, setCollapsedTasks] = React.useState<Set<string>>(new Set());
     const [addingSubtaskTo, setAddingSubtaskTo] = React.useState<string | null>(null);
     const [slidingOutTasks, setSlidingOutTasks] = React.useState<Set<string>>(new Set());
+
+    // Listen for global create-task shortcut trigger
+    const createTaskRequested = useUIStore(s => s.createTaskRequested);
+    useEffect(() => {
+        if (createTaskRequested) {
+            setShowCreateModal(true);
+            useUIStore.getState().setCreateTaskRequested(false);
+        }
+    }, [createTaskRequested]);
 
     // Track previous task statuses to detect completions
     const prevTaskStatusesRef = useRef<Map<string, string>>(new Map());
