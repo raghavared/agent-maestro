@@ -31,6 +31,12 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       nullable: true,
       description: 'Worker strategy: simple (default) or queue (FIFO task processing)',
     },
+    orchestratorStrategy: {
+      type: 'string',
+      enum: ['default', 'intelligent-batching', 'dag'],
+      nullable: true,
+      description: 'Orchestrator strategy: default, intelligent-batching, or dag',
+    },
     tasks: {
       type: 'array',
       items: {

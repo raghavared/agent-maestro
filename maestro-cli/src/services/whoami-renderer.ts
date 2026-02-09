@@ -37,7 +37,7 @@ export class WhoamiRenderer {
    */
   private getTemplateName(manifest: MaestroManifest): string {
     if (manifest.role === 'orchestrator') {
-      return 'orchestrator';
+      return `orchestrator-${manifest.orchestratorStrategy || 'default'}`;
     }
 
     // Worker: select based on strategy
@@ -61,9 +61,16 @@ export class WhoamiRenderer {
       '',
       `**Role:** ${manifest.role}`,
       `**Strategy:** ${strategy}`,
+    ];
+
+    if (manifest.role === 'orchestrator') {
+      lines.push(`**Orchestrator Strategy:** ${manifest.orchestratorStrategy || 'default'}`);
+    }
+
+    lines.push(
       `**Session ID:** ${sessionId || 'N/A'}`,
       `**Project ID:** ${primaryTask.projectId}`,
-    ];
+    );
 
     lines.push('---', '');
 
@@ -107,6 +114,8 @@ export class WhoamiRenderer {
       TASK_COUNT: manifest.tasks.length.toString(),
       STRATEGY: manifest.strategy || 'simple',
       STRATEGY_INSTRUCTIONS: '',
+      ORCHESTRATOR_STRATEGY: manifest.orchestratorStrategy || 'default',
+      ORCHESTRATOR_STRATEGY_INSTRUCTIONS: '',
     };
 
     for (const [key, value] of Object.entries(replacements)) {
@@ -252,7 +261,7 @@ ${tasksList}
   ): object {
     const primaryTask = manifest.tasks[0];
 
-    return {
+    const result: any = {
       role: manifest.role,
       strategy: manifest.strategy || 'simple',
       sessionId: sessionId || null,
@@ -271,5 +280,11 @@ ${tasksList}
       },
       context: manifest.context || null,
     };
+
+    if (manifest.role === 'orchestrator') {
+      result.orchestratorStrategy = manifest.orchestratorStrategy || 'default';
+    }
+
+    return result;
   }
 }

@@ -1,5 +1,6 @@
 // Worker strategy types
 export type WorkerStrategy = 'simple' | 'queue' | 'tree';
+export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 
 export interface QueueItem {
   taskId: string;
@@ -66,7 +67,7 @@ export interface Session {
   name: string;                // Session name
   agentId?: string;            // Agent running this session (Phase IV-C)
   env: Record<string, string>; // Environment variables
-  strategy: WorkerStrategy;    // Worker strategy ('simple' or 'queue')
+  strategy: WorkerStrategy | OrchestratorStrategy;    // Worker strategy ('simple' or 'queue') or orchestrator strategy
 
   status: SessionStatus;
   startedAt: number;
@@ -151,7 +152,7 @@ export interface CreateSessionPayload {
   taskIds: string[];           // PHASE IV-A: Array of task IDs
   name?: string;
   agentId?: string;
-  strategy?: WorkerStrategy;   // Worker strategy, defaults to 'simple'
+  strategy?: WorkerStrategy | OrchestratorStrategy;   // Worker or orchestrator strategy, defaults to 'simple'
   status?: SessionStatus;
   env?: Record<string, string>;
   metadata?: Record<string, any>;
@@ -173,6 +174,7 @@ export interface SpawnSessionPayload {
   taskIds: string[];
   role?: 'worker' | 'orchestrator';
   strategy?: WorkerStrategy;            // Worker strategy ('simple' or 'queue'), defaults to 'simple'
+  orchestratorStrategy?: OrchestratorStrategy;  // Orchestrator strategy ('default', 'intelligent-batching', or 'dag')
   spawnSource?: 'ui' | 'session';      // Changed: who is calling (ui or session)
   sessionId?: string;                   // Required when spawnSource === 'session' (parent session ID)
   sessionName?: string;

@@ -1,10 +1,10 @@
 import React, { useMemo, useEffect, useRef, useState } from "react";
-import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy } from "../../app/types/maestro";
+import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy } from "../../app/types/maestro";
 import { TaskListItem } from "./TaskListItem";
 import { TaskFilters } from "./TaskFilters";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { TemplateList } from "./TemplateList";
-import { WorkOnModal } from "./WorkOnModal";
+import { WorkOnModal, WorkOnModalResult } from "./WorkOnModal";
 import { ExecutionBar } from "./ExecutionBar";
 import { AddSubtaskInput } from "./AddSubtaskInput";
 import { useTasks } from "../../hooks/useTasks";
@@ -18,7 +18,7 @@ type MaestroPanelProps = {
     onClose: () => void;
     projectId: string;
     project: MaestroProject;
-    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy }) => Promise<any>;
+    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy; role?: 'worker' | 'orchestrator'; orchestratorStrategy?: OrchestratorStrategy }) => Promise<any>;
     onJumpToSession?: (maestroSessionId: string) => void;
     onAddTaskToSession?: (taskId: string) => void;
 };
@@ -55,6 +55,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [showDetailModal, setShowDetailModal] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
     const [executionMode, setExecutionMode] = React.useState(false);
+    const [activeBarMode, setActiveBarMode] = React.useState<'none' | 'execute' | 'orchestrate'>('none');
     const [selectedForExecution, setSelectedForExecution] = React.useState<Set<string>>(new Set());
     const [selectedAgentByTask, setSelectedAgentByTask] = React.useState<Record<string, string>>({});
     const [subtaskParentId, setSubtaskParentId] = React.useState<string | null>(null);
@@ -273,13 +274,17 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         setShowWorkOnModal(true);
     };
 
-    const handleWorkOnConfirm = async (strategy: WorkerStrategy) => {
+    const handleWorkOnConfirm = async (result: WorkOnModalResult) => {
         if (!workOnTask) return;
 
         console.log('[MaestroPanel.handleWorkOnConfirm] ========================================');
         console.log('[MaestroPanel.handleWorkOnConfirm] Starting work on task');
         console.log('[MaestroPanel.handleWorkOnConfirm] Task ID:', workOnTask.id);
-        console.log('[MaestroPanel.handleWorkOnConfirm] Strategy:', strategy);
+        console.log('[MaestroPanel.handleWorkOnConfirm] Role:', result.role);
+        console.log('[MaestroPanel.handleWorkOnConfirm] Strategy:', result.strategy);
+        if (result.orchestratorStrategy) {
+            console.log('[MaestroPanel.handleWorkOnConfirm] Orchestrator Strategy:', result.orchestratorStrategy);
+        }
         console.log('[MaestroPanel.handleWorkOnConfirm] ========================================');
 
         try {
@@ -287,12 +292,17 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             const selectedAgentId = selectedAgentByTask[workOnTask.id] || 'claude';
             console.log('[MaestroPanel.handleWorkOnConfirm] Selected agent:', selectedAgentId);
 
+            // Determine skill based on role
+            const skill = result.role === 'orchestrator' ? 'maestro-orchestrator' : selectedAgentId;
+
             // Create Maestro session via App.tsx (creates both Maestro server session and UI terminal session)
             await onCreateMaestroSession({
                 task: workOnTask,
                 project,
-                skillIds: [selectedAgentId],
-                strategy,
+                skillIds: [skill],
+                strategy: result.strategy,
+                role: result.role,
+                orchestratorStrategy: result.orchestratorStrategy,
             });
 
             console.log('[MaestroPanel.handleWorkOnConfirm] ✓ Session created successfully!');
@@ -322,10 +332,32 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 strategy,
             });
             setExecutionMode(false);
+            setActiveBarMode('none');
             setSelectedForExecution(new Set());
         } catch (err: any) {
             console.error('[MaestroPanel] Failed to create batch session:', err);
             setError(`Failed to create session: ${err.message}`);
+        }
+    };
+
+    const handleBatchOrchestrate = async (orchestratorStrategy: OrchestratorStrategy) => {
+        const selectedTasks = normalizedTasks.filter(t => selectedForExecution.has(t.id));
+        if (selectedTasks.length === 0) return;
+
+        try {
+            await onCreateMaestroSession({
+                tasks: selectedTasks,
+                project,
+                role: 'orchestrator',
+                orchestratorStrategy,
+                skillIds: ['maestro-orchestrator'],
+            });
+            setExecutionMode(false);
+            setActiveBarMode('none');
+            setSelectedForExecution(new Set());
+        } catch (err: any) {
+            console.error('[MaestroPanel] Failed to create orchestrate session:', err);
+            setError(`Failed to create orchestrator session: ${err.message}`);
         }
     };
 
@@ -343,6 +375,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     const handleCancelExecution = () => {
         setExecutionMode(false);
+        setActiveBarMode('none');
         setSelectedForExecution(new Set());
     };
 
@@ -605,9 +638,12 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
                 <ExecutionBar
                     isActive={executionMode}
-                    onActivate={() => setExecutionMode(true)}
+                    activeMode={activeBarMode}
+                    onActivate={() => { setExecutionMode(true); setActiveBarMode('execute'); }}
+                    onActivateOrchestrate={() => { setExecutionMode(true); setActiveBarMode('orchestrate'); }}
                     onCancel={handleCancelExecution}
                     onExecute={handleBatchExecute}
+                    onOrchestrate={handleBatchOrchestrate}
                     selectedCount={selectedForExecution.size}
                 />
 
