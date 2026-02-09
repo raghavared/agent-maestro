@@ -97,7 +97,18 @@ export class WorkerInitCommand {
       console.log(`[worker-init]    Session status updated: spawning -> running`);
 
       for (const task of manifest.tasks) {
-        // Update task's session status
+        // Update task's main status to in_progress
+        try {
+          console.log(`[worker-init]    PATCH /api/tasks/${task.id} -> status: 'in_progress'`);
+          await api.patch(`/api/tasks/${task.id}`, {
+            status: 'in_progress',
+          });
+          console.log(`[worker-init]    Task ${task.id} status updated to 'in_progress'`);
+        } catch (err: any) {
+          console.warn(`[worker-init]    Failed to update task ${task.id} status: ${err.message}`);
+        }
+
+        // Update task's per-session status to working
         try {
           console.log(`[worker-init]    PATCH /api/tasks/${task.id} -> taskSessionStatuses[${sessionId}]: 'working'`);
           await api.patch(`/api/tasks/${task.id}`, {
@@ -107,7 +118,7 @@ export class WorkerInitCommand {
           });
           console.log(`[worker-init]    Task ${task.id} taskSessionStatuses[${sessionId}] updated to 'working'`);
         } catch (err: any) {
-          console.warn(`[worker-init]    Failed to update task ${task.id}: ${err.message}`);
+          console.warn(`[worker-init]    Failed to update task ${task.id} session status: ${err.message}`);
         }
       }
     } catch (err: any) {

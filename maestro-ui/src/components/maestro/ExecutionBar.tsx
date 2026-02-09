@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { WorkerStrategy, OrchestratorStrategy } from "../../app/types/maestro";
+import { MaestroTask, WorkerStrategy, OrchestratorStrategy } from "../../app/types/maestro";
+import { WhoamiPreview } from "./WhoamiPreview";
 
 type ExecutionMode = 'none' | 'execute' | 'orchestrate';
 
@@ -12,6 +13,8 @@ type ExecutionBarProps = {
     selectedCount: number;
     activeMode?: ExecutionMode;
     onActivateOrchestrate: () => void;
+    selectedTasks?: MaestroTask[];
+    projectId?: string;
 };
 
 const WORKER_STRATEGIES: { key: WorkerStrategy; label: string; description: string }[] = [
@@ -34,6 +37,8 @@ export function ExecutionBar({
     selectedCount,
     activeMode = 'none',
     onActivateOrchestrate,
+    selectedTasks = [],
+    projectId = '',
 }: ExecutionBarProps) {
     const [workerStrategy, setWorkerStrategy] = useState<WorkerStrategy>("simple");
     const [orchestratorStrategy, setOrchestratorStrategy] = useState<OrchestratorStrategy>("default");
@@ -59,13 +64,58 @@ export function ExecutionBar({
 
     if (activeMode === 'orchestrate') {
         return (
-            <div className="executionBar executionBar--active executionBar--orchestrate">
+            <>
+                <div className="executionBar executionBar--active executionBar--orchestrate">
+                    <div className="executionBarStrategy">
+                        {ORCHESTRATOR_STRATEGIES.map((s) => (
+                            <button
+                                key={s.key}
+                                className={`executionBarStrategyChip ${orchestratorStrategy === s.key ? "executionBarStrategyChip--selected" : ""}`}
+                                onClick={() => setOrchestratorStrategy(s.key)}
+                                title={s.description}
+                            >
+                                {s.label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="executionBarActions">
+                        <button
+                            className="terminalCmd"
+                            onClick={onCancel}
+                        >
+                            cancel
+                        </button>
+                        <button
+                            className="terminalCmd terminalCmdOrchestrate"
+                            onClick={() => onOrchestrate(orchestratorStrategy)}
+                            disabled={selectedCount === 0}
+                        >
+                            <span className="terminalPrompt">$</span> orchestrate ({selectedCount} task{selectedCount !== 1 ? "s" : ""})
+                        </button>
+                    </div>
+                </div>
+                {selectedTasks.length > 0 && projectId && (
+                    <WhoamiPreview
+                        mode="orchestrate"
+                        strategy={orchestratorStrategy}
+                        selectedTasks={selectedTasks}
+                        projectId={projectId}
+                    />
+                )}
+            </>
+        );
+    }
+
+    // Default: execute mode
+    return (
+        <>
+            <div className="executionBar executionBar--active">
                 <div className="executionBarStrategy">
-                    {ORCHESTRATOR_STRATEGIES.map((s) => (
+                    {WORKER_STRATEGIES.map((s) => (
                         <button
                             key={s.key}
-                            className={`executionBarStrategyChip ${orchestratorStrategy === s.key ? "executionBarStrategyChip--selected" : ""}`}
-                            onClick={() => setOrchestratorStrategy(s.key)}
+                            className={`executionBarStrategyChip ${workerStrategy === s.key ? "executionBarStrategyChip--selected" : ""}`}
+                            onClick={() => setWorkerStrategy(s.key)}
                             title={s.description}
                         >
                             {s.label}
@@ -80,47 +130,22 @@ export function ExecutionBar({
                         cancel
                     </button>
                     <button
-                        className="terminalCmd terminalCmdOrchestrate"
-                        onClick={() => onOrchestrate(orchestratorStrategy)}
+                        className="terminalCmd terminalCmdPrimary"
+                        onClick={() => onExecute(workerStrategy)}
                         disabled={selectedCount === 0}
                     >
-                        <span className="terminalPrompt">$</span> orchestrate ({selectedCount} task{selectedCount !== 1 ? "s" : ""})
+                        <span className="terminalPrompt">$</span> execute ({selectedCount} task{selectedCount !== 1 ? "s" : ""})
                     </button>
                 </div>
             </div>
-        );
-    }
-
-    // Default: execute mode
-    return (
-        <div className="executionBar executionBar--active">
-            <div className="executionBarStrategy">
-                {WORKER_STRATEGIES.map((s) => (
-                    <button
-                        key={s.key}
-                        className={`executionBarStrategyChip ${workerStrategy === s.key ? "executionBarStrategyChip--selected" : ""}`}
-                        onClick={() => setWorkerStrategy(s.key)}
-                        title={s.description}
-                    >
-                        {s.label}
-                    </button>
-                ))}
-            </div>
-            <div className="executionBarActions">
-                <button
-                    className="terminalCmd"
-                    onClick={onCancel}
-                >
-                    cancel
-                </button>
-                <button
-                    className="terminalCmd terminalCmdPrimary"
-                    onClick={() => onExecute(workerStrategy)}
-                    disabled={selectedCount === 0}
-                >
-                    <span className="terminalPrompt">$</span> execute ({selectedCount} task{selectedCount !== 1 ? "s" : ""})
-                </button>
-            </div>
-        </div>
+            {selectedTasks.length > 0 && projectId && (
+                <WhoamiPreview
+                    mode="execute"
+                    strategy={workerStrategy}
+                    selectedTasks={selectedTasks}
+                    projectId={projectId}
+                />
+            )}
+        </>
     );
 }

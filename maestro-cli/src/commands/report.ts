@@ -7,34 +7,27 @@ import { guardCommand } from '../services/command-permissions.js';
 import ora from 'ora';
 
 /**
- * Report subcommand definitions mapping subcommand name to sessionStatus and timeline event type.
+ * Report subcommand definitions mapping subcommand name to timeline event type.
  */
 interface ReportSubcommand {
-  sessionStatus: string | null;
   timelineType: string;
-  needsInput?: boolean;
 }
 
 const REPORT_SUBCOMMANDS: Record<string, ReportSubcommand> = {
-  progress: { sessionStatus: 'working', timelineType: 'progress' },
-  complete: { sessionStatus: 'completed', timelineType: 'task_completed' },
-  blocked: { sessionStatus: 'blocked', timelineType: 'task_blocked' },
-  error: { sessionStatus: 'failed', timelineType: 'error' },
-  'needs-input': { sessionStatus: null, timelineType: 'needs_input', needsInput: true },
+  progress: { timelineType: 'progress' },
+  complete: { timelineType: 'task_completed' },
+  blocked: { timelineType: 'task_blocked' },
+  error: { timelineType: 'error' },
 };
 
 /**
- * Core report logic: optionally updates sessionStatus on targeted tasks and posts a timeline event to the session.
- *
- * - If taskIds provided: updates sessionStatus on each task + posts timeline event per task
- * - If no taskIds: posts timeline event to session only (no task sessionStatus change)
- * - Special: report complete without taskIds also marks the session as completed
+ * Core report logic: posts a timeline event to the session.
+ * Special case: report complete also marks the session as completed.
  */
 export async function executeReport(
   subcommand: string,
   message: string,
   opts: { json?: boolean },
-  taskIds?: string[]
 ): Promise<void> {
   const isJson = !!opts.json;
   const sessionId = config.sessionId;
@@ -56,49 +49,17 @@ export async function executeReport(
   const spinner = !isJson ? ora(`Reporting ${subcommand}...`).start() : null;
 
   try {
-    // Handle needs-input: update session's needsInput flag instead of task sessionStatus
-    if (def.needsInput) {
+    // Post session timeline event
+    await api.post(`/api/sessions/${sessionId}/timeline`, {
+      type: def.timelineType,
+      message,
+    });
+
+    // Special case: report complete also marks session as completed
+    if (subcommand === 'complete') {
       await api.patch(`/api/sessions/${sessionId}`, {
-        needsInput: {
-          active: true,
-          message,
-          since: Date.now(),
-        },
+        status: 'completed',
       });
-
-      await api.post(`/api/sessions/${sessionId}/timeline`, {
-        type: def.timelineType,
-        message,
-        ...(taskIds && taskIds.length > 0 ? { taskId: taskIds[0] } : {}),
-      });
-    } else if (taskIds && taskIds.length > 0) {
-      // Update sessionStatus on each specified task + post timeline event per task
-      for (const taskId of taskIds) {
-        await api.patch(`/api/tasks/${taskId}`, {
-          sessionStatus: def.sessionStatus,
-          updateSource: 'session',
-          sessionId,
-        });
-
-        await api.post(`/api/sessions/${sessionId}/timeline`, {
-          type: def.timelineType,
-          message,
-          taskId,
-        });
-      }
-    } else {
-      // No task targeting: post session timeline event only
-      await api.post(`/api/sessions/${sessionId}/timeline`, {
-        type: def.timelineType,
-        message,
-      });
-
-      // Special case: report complete without --task also marks session as completed
-      if (subcommand === 'complete') {
-        await api.patch(`/api/sessions/${sessionId}`, {
-          status: 'completed',
-        });
-      }
     }
 
     spinner?.succeed(`${subcommand} reported`);
@@ -107,25 +68,14 @@ export async function executeReport(
       outputJSON({
         success: true,
         subcommand,
-        taskIds: taskIds || [],
         sessionId,
-        sessionStatus: taskIds && taskIds.length > 0 ? def.sessionStatus : undefined,
-        needsInput: def.needsInput || false,
-        sessionCompleted: subcommand === 'complete' && (!taskIds || taskIds.length === 0),
+        sessionCompleted: subcommand === 'complete',
       });
     }
   } catch (err: any) {
     spinner?.fail(`Failed to report ${subcommand}`);
     handleError(err, isJson);
   }
-}
-
-/**
- * Parse comma-separated task IDs from --task option
- */
-function parseTaskIds(taskOption?: string): string[] | undefined {
-  if (!taskOption) return undefined;
-  return taskOption.split(',').map(id => id.trim()).filter(Boolean);
 }
 
 /**
@@ -137,45 +87,32 @@ export function registerReportCommands(program: Command) {
   // report progress <message>
   report.command('progress <message>')
     .description('Report work progress')
-    .option('--task <ids>', 'Comma-separated task IDs to update sessionStatus on')
-    .action(async (message: string, cmdOpts: any) => {
+    .action(async (message: string) => {
       await guardCommand('report:progress');
-      await executeReport('progress', message, program.opts(), parseTaskIds(cmdOpts.task));
+      await executeReport('progress', message, program.opts());
     });
 
   // report complete <summary>
   report.command('complete <summary>')
-    .description('Report task completion. Without --task, also marks session as completed.')
-    .option('--task <ids>', 'Comma-separated task IDs to update sessionStatus on')
-    .action(async (summary: string, cmdOpts: any) => {
+    .description('Report completion and mark session as completed')
+    .action(async (summary: string) => {
       await guardCommand('report:complete');
-      await executeReport('complete', summary, program.opts(), parseTaskIds(cmdOpts.task));
+      await executeReport('complete', summary, program.opts());
     });
 
   // report blocked <reason>
   report.command('blocked <reason>')
     .description('Report blocker')
-    .option('--task <ids>', 'Comma-separated task IDs to update sessionStatus on')
-    .action(async (reason: string, cmdOpts: any) => {
+    .action(async (reason: string) => {
       await guardCommand('report:blocked');
-      await executeReport('blocked', reason, program.opts(), parseTaskIds(cmdOpts.task));
+      await executeReport('blocked', reason, program.opts());
     });
 
   // report error <description>
   report.command('error <description>')
     .description('Report error encountered')
-    .option('--task <ids>', 'Comma-separated task IDs to update sessionStatus on')
-    .action(async (description: string, cmdOpts: any) => {
+    .action(async (description: string) => {
       await guardCommand('report:error');
-      await executeReport('error', description, program.opts(), parseTaskIds(cmdOpts.task));
-    });
-
-  // report needs-input <question>
-  report.command('needs-input <question>')
-    .description('Request user input')
-    .option('--task <ids>', 'Comma-separated task IDs to update sessionStatus on')
-    .action(async (question: string, cmdOpts: any) => {
-      await guardCommand('report:needs-input');
-      await executeReport('needs-input', question, program.opts(), parseTaskIds(cmdOpts.task));
+      await executeReport('error', description, program.opts());
     });
 }

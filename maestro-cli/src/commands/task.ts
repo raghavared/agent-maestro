@@ -351,6 +351,161 @@ export function registerTaskCommands(program: Command) {
             }
         });
 
+    // task report <subcommand> — report task-session status
+    const taskReport = task.command('report').description('Report task-session status');
+
+    taskReport.command('progress <taskId> <message>')
+        .description('Report work progress on a task')
+        .action(async (taskId: string, message: string) => {
+            await guardCommand('task:report:progress');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const sessionId = config.sessionId;
+
+            if (!sessionId) {
+                const err = { message: 'No session context found. MAESTRO_SESSION_ID must be set.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Reporting task progress...').start() : null;
+            try {
+                await api.patch(`/api/tasks/${taskId}`, {
+                    sessionStatus: 'working',
+                    updateSource: 'session',
+                    sessionId,
+                });
+
+                await api.post(`/api/sessions/${sessionId}/timeline`, {
+                    type: 'progress',
+                    message,
+                    taskId,
+                });
+
+                spinner?.succeed('Task progress reported');
+                if (isJson) {
+                    outputJSON({ success: true, taskId, sessionStatus: 'working', sessionId });
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    taskReport.command('complete <taskId> <summary>')
+        .description('Report task completion (does NOT complete session)')
+        .action(async (taskId: string, summary: string) => {
+            await guardCommand('task:report:complete');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const sessionId = config.sessionId;
+
+            if (!sessionId) {
+                const err = { message: 'No session context found. MAESTRO_SESSION_ID must be set.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Reporting task completion...').start() : null;
+            try {
+                await api.patch(`/api/tasks/${taskId}`, {
+                    sessionStatus: 'completed',
+                    updateSource: 'session',
+                    sessionId,
+                });
+
+                await api.post(`/api/sessions/${sessionId}/timeline`, {
+                    type: 'task_completed',
+                    message: summary,
+                    taskId,
+                });
+
+                spinner?.succeed('Task completion reported');
+                if (isJson) {
+                    outputJSON({ success: true, taskId, sessionStatus: 'completed', sessionId });
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    taskReport.command('blocked <taskId> <reason>')
+        .description('Report task is blocked')
+        .action(async (taskId: string, reason: string) => {
+            await guardCommand('task:report:blocked');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const sessionId = config.sessionId;
+
+            if (!sessionId) {
+                const err = { message: 'No session context found. MAESTRO_SESSION_ID must be set.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Reporting task blocked...').start() : null;
+            try {
+                await api.patch(`/api/tasks/${taskId}`, {
+                    sessionStatus: 'blocked',
+                    updateSource: 'session',
+                    sessionId,
+                });
+
+                await api.post(`/api/sessions/${sessionId}/timeline`, {
+                    type: 'task_blocked',
+                    message: reason,
+                    taskId,
+                });
+
+                spinner?.succeed('Task blocked reported');
+                if (isJson) {
+                    outputJSON({ success: true, taskId, sessionStatus: 'blocked', sessionId });
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    taskReport.command('error <taskId> <description>')
+        .description('Report error on task')
+        .action(async (taskId: string, description: string) => {
+            await guardCommand('task:report:error');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const sessionId = config.sessionId;
+
+            if (!sessionId) {
+                const err = { message: 'No session context found. MAESTRO_SESSION_ID must be set.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Reporting task error...').start() : null;
+            try {
+                await api.patch(`/api/tasks/${taskId}`, {
+                    sessionStatus: 'failed',
+                    updateSource: 'session',
+                    sessionId,
+                });
+
+                await api.post(`/api/sessions/${sessionId}/timeline`, {
+                    type: 'error',
+                    message: description,
+                    taskId,
+                });
+
+                spinner?.succeed('Task error reported');
+                if (isJson) {
+                    outputJSON({ success: true, taskId, sessionStatus: 'failed', sessionId });
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
     task.command('tree')
         .description('Show hierarchical tree of all project tasks')
         .option('--root <taskId>', 'Start from specific task')

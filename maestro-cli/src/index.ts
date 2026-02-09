@@ -15,7 +15,7 @@ import { registerSkillCommands } from './commands/skill.js';
 import { registerManifestCommands } from './commands/manifest-generator.js';
 import { registerProjectCommands } from './commands/project.js';
 import { registerQueueCommands } from './commands/queue.js';
-import { registerReportCommands, executeReport } from './commands/report.js';
+import { registerReportCommands } from './commands/report.js';
 import { registerCoordinateCommands } from './commands/coordinate.js';
 import {
   loadCommandPermissions,
@@ -152,40 +152,6 @@ registerManifestCommands(program);
 registerQueueCommands(program);
 registerReportCommands(program);
 registerCoordinateCommands(program);
-
-// Legacy update commands — deprecated, delegate to report.ts
-// These remain so old sessions (with update:* in their prompts) still work.
-
-function deprecatedUpdateAction(legacyName: string, reportSub: string) {
-  return async (message: string) => {
-    console.warn(`Warning: "maestro ${legacyName}" is deprecated. Use "maestro report ${reportSub}" instead.`);
-    await executeReport(reportSub, message, program.opts());
-  };
-}
-
-program.command('update <message>')
-  .description('[Deprecated] Use "maestro report progress" instead')
-  .action(deprecatedUpdateAction('update', 'progress'));
-
-program.command('update:progress <message>')
-  .description('[Deprecated] Use "maestro report progress" instead')
-  .action(deprecatedUpdateAction('update:progress', 'progress'));
-
-program.command('update:blocked <message>')
-  .description('[Deprecated] Use "maestro report blocked" instead')
-  .action(deprecatedUpdateAction('update:blocked', 'blocked'));
-
-program.command('update:needs-input <question>')
-  .description('[Deprecated] Use "maestro report needs-input" instead')
-  .action(deprecatedUpdateAction('update:needs-input', 'needs-input'));
-
-program.command('update:complete <summary>')
-  .description('[Deprecated] Use "maestro report complete" instead')
-  .action(deprecatedUpdateAction('update:complete', 'complete'));
-
-program.command('update:error <description>')
-  .description('[Deprecated] Use "maestro report error" instead')
-  .action(deprecatedUpdateAction('update:error', 'error'));
 
 program.command('status')
   .description('Show summary of current project state')
