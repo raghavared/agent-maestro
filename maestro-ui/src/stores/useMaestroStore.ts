@@ -36,6 +36,8 @@ interface MaestroState {
   deleteMaestroSession: (sessionId: string) => Promise<void>;
   addTaskToSession: (sessionId: string, taskId: string) => Promise<void>;
   removeTaskFromSession: (sessionId: string, taskId: string) => Promise<void>;
+  clearNeedsInput: (maestroSessionId: string) => void;
+  checkAndClearNeedsInputForActiveSession: () => void;
   clearCache: () => void;
   hardRefresh: (projectId: string) => Promise<void>;
   initWebSocket: () => void;
@@ -51,6 +53,26 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     'status:ping',
     'keepalive',
   ]);
+
+  // Normalize session data to ensure required fields exist
+  const normalizeSession = (session: any): any => {
+    if (!session) return session;
+    if (!Array.isArray(session.taskIds)) {
+      console.warn('[useMaestroStore] Session missing taskIds, defaulting to []:', session.id);
+      session.taskIds = [];
+    }
+    if (!Array.isArray(session.timeline)) {
+      session.timeline = [];
+    }
+    if (!Array.isArray(session.events)) {
+      session.events = [];
+    }
+    if (!session.status) {
+      console.warn('[useMaestroStore] Session missing status, defaulting to "spawning":', session.id);
+      session.status = 'spawning';
+    }
+    return session;
+  };
 
   const setLoading = (key: string, isLoading: boolean) => {
     set((prev) => {
@@ -88,44 +110,75 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
 
       switch (message.event) {
         case 'task:created':
-        case 'task:updated':
-          set((prev) => ({ tasks: new Map(prev.tasks).set(message.data.id, message.data) }));
+        case 'task:updated': {
+          const taskData = message.data;
+          // Ensure taskSessionStatuses is always an object (never null/undefined)
+          if (!taskData.taskSessionStatuses || typeof taskData.taskSessionStatuses !== 'object') {
+            taskData.taskSessionStatuses = {};
+          }
+          set((prev) => ({ tasks: new Map(prev.tasks).set(taskData.id, taskData) }));
           break;
+        }
         case 'task:deleted':
           set((prev) => { const tasks = new Map(prev.tasks); tasks.delete(message.data.id); return { tasks }; });
           break;
         case 'session:created': {
-          const session = message.data.session || message.data;
+          const session = normalizeSession(message.data.session || message.data);
           set((prev) => ({ sessions: new Map(prev.sessions).set(session.id, session) }));
           break;
         }
-        case 'session:updated':
-          set((prev) => ({ sessions: new Map(prev.sessions).set(message.data.id, message.data) }));
+        case 'session:updated': {
+          const updatedSession = normalizeSession(message.data);
+          if (updatedSession.needsInput) {
+            console.log('[useMaestroStore] session:updated has needsInput:', updatedSession.id, updatedSession.needsInput);
+          }
+          set((prev) => ({ sessions: new Map(prev.sessions).set(updatedSession.id, updatedSession) }));
+
+          // Trigger 2: If needsInput just became active and user is viewing this session, auto-clear
+          if (updatedSession.needsInput?.active) {
+            const activeLocalSession = useSessionStore.getState().sessions.find(
+              (s) => s.maestroSessionId === updatedSession.id
+            );
+            const activeId = useSessionStore.getState().activeId;
+            const { activeProjectIdRef } = get();
+            if (
+              activeLocalSession &&
+              activeLocalSession.id === activeId &&
+              activeProjectIdRef === updatedSession.projectId
+            ) {
+              get().clearNeedsInput(updatedSession.id);
+            }
+          }
           break;
+        }
         case 'session:deleted':
           set((prev) => { const sessions = new Map(prev.sessions); sessions.delete(message.data.id); return { sessions }; });
           break;
         case 'session:spawn': {
-          const session = message.data.session || message.data;
+          const session = normalizeSession(message.data.session || message.data);
+          if (!session?.id) {
+            console.error('session:spawn event missing session id', message.data);
+            break;
+          }
           set((prev) => ({ sessions: new Map(prev.sessions).set(session.id, session) }));
           void useSessionStore.getState().handleSpawnTerminalSession({
             maestroSessionId: session.id,
-            name: session.name,
-            command: message.data.command,
+            name: session.name || '',
+            command: message.data.command ?? null,
             args: [],
-            cwd: message.data.cwd,
-            envVars: message.data.envVars,
-            projectId: message.data.projectId,
+            cwd: message.data.cwd || '',
+            envVars: message.data.envVars || {},
+            projectId: message.data.projectId || '',
           });
           break;
         }
         case 'task:session_added':
         case 'task:session_removed':
-          get().fetchTask(message.data.taskId);
+          if (message.data?.taskId) get().fetchTask(message.data.taskId);
           break;
         case 'session:task_added':
         case 'session:task_removed':
-          get().fetchSession(message.data.sessionId);
+          if (message.data?.sessionId) get().fetchSession(message.data.sessionId);
           break;
       }
     } catch (err) {
@@ -238,7 +291,12 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         const tasks = await maestroClient.getTasks(projectId);
         set((prev) => {
           const taskMap = new Map(prev.tasks);
-          tasks.forEach((task) => taskMap.set(task.id, task));
+          tasks.forEach((task) => {
+            if (!task.taskSessionStatuses || typeof task.taskSessionStatuses !== 'object') {
+              task.taskSessionStatuses = {};
+            }
+            taskMap.set(task.id, task);
+          });
           return { tasks: taskMap };
         });
       } catch (err) {
@@ -254,6 +312,9 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       setError(key, null);
       try {
         const task = await maestroClient.getTask(taskId);
+        if (!task.taskSessionStatuses || typeof task.taskSessionStatuses !== 'object') {
+          task.taskSessionStatuses = {};
+        }
         set((prev) => ({ tasks: new Map(prev.tasks).set(task.id, task) }));
       } catch (err) {
         setError(key, err instanceof Error ? err.message : String(err));
@@ -270,7 +331,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         const sessions = await maestroClient.getSessions(taskId);
         set((prev) => {
           const sessionMap = new Map(prev.sessions);
-          sessions.forEach((session) => sessionMap.set(session.id, session));
+          sessions.forEach((session) => sessionMap.set(session.id, normalizeSession(session)));
           return { sessions: sessionMap };
         });
       } catch (err) {
@@ -285,7 +346,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       setLoading(key, true);
       setError(key, null);
       try {
-        const session = await maestroClient.getSession(sessionId);
+        const session = normalizeSession(await maestroClient.getSession(sessionId));
         set((prev) => ({ sessions: new Map(prev.sessions).set(session.id, session) }));
         for (const taskId of session.taskIds) {
           if (!get().tasks.has(taskId)) get().fetchTask(taskId);
@@ -305,6 +366,36 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     deleteMaestroSession: async (sessionId) => { await maestroClient.deleteSession(sessionId); },
     addTaskToSession: async (sessionId, taskId) => { await maestroClient.addTaskToSession(sessionId, taskId); },
     removeTaskFromSession: async (sessionId, taskId) => { await maestroClient.removeTaskFromSession(sessionId, taskId); },
+
+    clearNeedsInput: (maestroSessionId) => {
+      const session = get().sessions.get(maestroSessionId);
+      if (!session?.needsInput?.active) return;
+      // Optimistically update local state
+      set((prev) => {
+        const sessions = new Map(prev.sessions);
+        const s = sessions.get(maestroSessionId);
+        if (s) {
+          sessions.set(maestroSessionId, { ...s, needsInput: { active: false } });
+        }
+        return { sessions };
+      });
+      // PATCH server
+      maestroClient.updateSession(maestroSessionId, { needsInput: { active: false } }).catch((err) => {
+        console.error('[useMaestroStore] Failed to clear needsInput:', err);
+      });
+    },
+
+    checkAndClearNeedsInputForActiveSession: () => {
+      const activeId = useSessionStore.getState().activeId;
+      if (!activeId) return;
+      const activeLocalSession = useSessionStore.getState().sessions.find((s) => s.id === activeId);
+      if (!activeLocalSession?.maestroSessionId) return;
+      const maestroSession = get().sessions.get(activeLocalSession.maestroSessionId);
+      if (!maestroSession?.needsInput?.active) return;
+      const { activeProjectIdRef } = get();
+      if (activeProjectIdRef !== maestroSession.projectId) return;
+      get().clearNeedsInput(activeLocalSession.maestroSessionId);
+    },
 
     clearCache: () => set({ tasks: new Map(), sessions: new Map(), loading: new Set(), errors: new Map() }),
 

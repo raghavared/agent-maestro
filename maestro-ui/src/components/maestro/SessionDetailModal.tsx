@@ -17,7 +17,6 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   completed: "Completed",
   failed: "Failed",
   stopped: "Stopped",
-  "needs-user-input": "Needs Input",
 };
 
 const TASK_STATUS_SYMBOLS: Record<string, string> = {
@@ -113,8 +112,8 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
             </div>
             {session && (
               <div className="terminalModalMeta">
-                <span className={`sessionDetailStatusBadge sessionDetailStatusBadge--${session.status}`}>
-                  {SESSION_STATUS_LABELS[session.status]}
+                <span className={`sessionDetailStatusBadge sessionDetailStatusBadge--${session.status} ${session.needsInput?.active ? 'sessionDetailStatusBadge--needsInput' : ''}`}>
+                  {session.needsInput?.active ? 'Needs Input' : SESSION_STATUS_LABELS[session.status]}
                 </span>
                 <StrategyBadge strategy={session.strategy} orchestratorStrategy={session.orchestratorStrategy} />
                 {session.model && (
@@ -154,6 +153,12 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
                     <div className="sessionDetailInfoRow">
                       <span className="terminalDetailLabel">Completed:</span>
                       <span className="terminalDetailValue">{formatDate(session.completedAt)}</span>
+                    </div>
+                  )}
+                  {session.needsInput?.active && (
+                    <div className="sessionDetailInfoRow">
+                      <span className="terminalDetailLabel">Needs Input:</span>
+                      <span className="terminalDetailValue">{session.needsInput.message || 'Waiting for user input'}</span>
                     </div>
                   )}
                   {session.agentId && (

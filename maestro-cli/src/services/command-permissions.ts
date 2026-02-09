@@ -40,8 +40,6 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'report:complete', description: 'Report completion', allowedRoles: ['worker', 'orchestrator'], parent: 'report' },
   { name: 'report:blocked', description: 'Report blocker', allowedRoles: ['worker', 'orchestrator'], parent: 'report' },
   { name: 'report:error', description: 'Report error', allowedRoles: ['worker', 'orchestrator'], parent: 'report' },
-  { name: 'report:needs-input', description: 'Request user input', allowedRoles: ['worker', 'orchestrator'], parent: 'report' },
-
   // Commands (always available)
   { name: 'commands', description: 'Show available commands', allowedRoles: ['worker', 'orchestrator'], isCore: true },
 
@@ -54,6 +52,10 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'task:block', description: 'Mark task blocked', allowedRoles: ['orchestrator'], parent: 'task' },
   { name: 'task:children', description: 'List child tasks', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
   { name: 'task:tree', description: 'Show task tree', allowedRoles: ['orchestrator'], parent: 'task' },
+  { name: 'task:report:progress', description: 'Report task progress', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
+  { name: 'task:report:complete', description: 'Report task completion', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
+  { name: 'task:report:blocked', description: 'Report task blocked', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
+  { name: 'task:report:error', description: 'Report task error', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
 
   // Session commands
   { name: 'session:list', description: 'List sessions', allowedRoles: ['orchestrator'], parent: 'session' },
@@ -98,11 +100,14 @@ export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
     'report:complete',
     'report:blocked',
     'report:error',
-    'report:needs-input',
     'task:list',
     'task:get',
     'task:create',
     'task:children',
+    'task:report:progress',
+    'task:report:complete',
+    'task:report:blocked',
+    'task:report:error',
     'session:info',
     'session:register',
     'session:complete',
@@ -117,7 +122,6 @@ export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
     'report:complete',
     'report:blocked',
     'report:error',
-    'report:needs-input',
     'task:list',
     'task:get',
     'task:create',
@@ -126,6 +130,10 @@ export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
     'task:block',
     'task:children',
     'task:tree',
+    'task:report:progress',
+    'task:report:complete',
+    'task:report:blocked',
+    'task:report:error',
     'session:list',
     'session:info',
     'session:spawn',
@@ -315,7 +323,7 @@ export function printAvailableCommands(permissions: CommandPermissions): void {
 
     console.log(`\n  ${parent}:`);
     for (const cmd of commands) {
-      const subCmd = cmd.name.replace(`${parent}:`, '');
+      const subCmd = cmd.name.replace(`${parent}:`, '').replace(/:/g, ' ');
       console.log(`    maestro ${parent} ${subCmd.padEnd(15)} ${cmd.description}`);
     }
   }
@@ -422,7 +430,7 @@ export function generateCommandBrief(permissions: CommandPermissions): string {
         // Parent command itself (e.g., name: 'update', parent: 'update')
         lines.push(`- \`maestro ${cmd.name}\` - ${cmd.description}`);
       } else {
-        const subCmd = cmd.name.replace(`${parent}:`, '');
+        const subCmd = cmd.name.replace(`${parent}:`, '').replace(/:/g, ' ');
         lines.push(`- \`maestro ${parent} ${subCmd}\` - ${cmd.description}`);
       }
     }

@@ -37,7 +37,7 @@ export interface Task {
   title: string;
   description: string;
   status: TaskStatus;
-  sessionStatus?: TaskSessionStatus;   // Session's status while working on task (renamed from agentStatus)
+  taskSessionStatuses?: Record<string, TaskSessionStatus>;  // Per-session status map: { [sessionId]: status }
   priority: TaskPriority;
   createdAt: number;
   updatedAt: number;
@@ -78,13 +78,18 @@ export interface Session {
   events: SessionEvent[];
   timeline: SessionTimelineEvent[];  // Session's activity timeline
   metadata?: Record<string, any>;  // Additional metadata (skill, spawnedBy, etc.)
+  needsInput?: {
+    active: boolean;
+    message?: string;
+    since?: number;
+  };
 }
 
 // Supporting types
 export type TaskStatus = 'todo' | 'in_progress' | 'completed' | 'cancelled' | 'blocked';
-export type TaskSessionStatus = 'queued' | 'working' | 'needs_input' | 'blocked' | 'completed' | 'failed' | 'skipped';
+export type TaskSessionStatus = 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'skipped';
 export type TaskPriority = 'low' | 'medium' | 'high';
-export type SessionStatus = 'spawning' | 'idle' | 'working' | 'needs-user-input' | 'completed' | 'failed' | 'stopped';
+export type SessionStatus = 'spawning' | 'idle' | 'working' | 'completed' | 'failed' | 'stopped';
 
 // Session timeline event types
 export type SessionTimelineEventType =
@@ -134,7 +139,8 @@ export interface UpdateTaskPayload {
   title?: string;
   description?: string;
   status?: TaskStatus;
-  sessionStatus?: TaskSessionStatus;  // Renamed from agentStatus
+  sessionStatus?: TaskSessionStatus;  // Backward compat: session-source updates send single status (mapped to taskSessionStatuses[sessionId])
+  taskSessionStatuses?: Record<string, TaskSessionStatus>;  // Direct map update (for user/internal updates)
   priority?: TaskPriority;
   sessionIds?: string[];      // PHASE IV-A: Update sessions
   skillIds?: string[];         // PHASE IV-B
@@ -166,6 +172,11 @@ export interface UpdateSessionPayload {
   env?: Record<string, string>;  // Environment variables
   events?: SessionEvent[];
   timeline?: SessionTimelineEvent[];  // Append timeline events
+  needsInput?: {
+    active: boolean;
+    message?: string;
+    since?: number;
+  };
 }
 
 // Spawn session payload (Server-Generated Manifests)

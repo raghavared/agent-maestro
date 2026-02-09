@@ -112,6 +112,10 @@ export class SessionService {
   async updateSession(id: string, updates: UpdateSessionPayload): Promise<Session> {
     const session = await this.sessionRepo.update(id, updates);
 
+    if (session.needsInput) {
+      console.log(`[SessionService] Emitting session:updated with needsInput for ${id}:`, JSON.stringify(session.needsInput));
+    }
+
     await this.eventBus.emit('session:updated', session);
 
     return session;
@@ -262,7 +266,20 @@ export class SessionService {
       metadata,
     };
 
-    const updatedSession = await this.sessionRepo.addTimelineEvent(sessionId, event);
+    await this.sessionRepo.addTimelineEvent(sessionId, event);
+
+    // Auto-set needsInput flag when needs_input timeline event is added
+    if (type === 'needs_input') {
+      await this.sessionRepo.update(sessionId, {
+        needsInput: { active: true, message, since: Date.now() },
+      });
+    }
+
+    // Fetch the fully updated session after all mutations
+    const updatedSession = await this.sessionRepo.findById(sessionId);
+    if (!updatedSession) {
+      throw new NotFoundError('Session', sessionId);
+    }
 
     await this.eventBus.emit('session:updated', updatedSession);
 

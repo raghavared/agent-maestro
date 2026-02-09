@@ -25,7 +25,6 @@ const SESSION_STATUS_SYMBOLS: Record<MaestroSessionStatus, string> = {
   completed: "✓",
   failed: "✗",
   stopped: "⊘",
-  "needs-user-input": "⚠",
 };
 
 const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
@@ -35,7 +34,6 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   completed: "Completed",
   failed: "Failed",
   stopped: "Stopped",
-  "needs-user-input": "Needs Input",
 };
 
 function formatTimeAgo(timestamp: number): string {
@@ -99,8 +97,8 @@ export function QueueSessionItem({
           {isExpanded ? "▾" : "▸"}
         </button>
 
-        <span className={`queueSessionItemStatus queueSessionItemStatus--${session.status}`}>
-          {SESSION_STATUS_SYMBOLS[session.status]} {SESSION_STATUS_LABELS[session.status]}
+        <span className={`queueSessionItemStatus queueSessionItemStatus--${session.status} ${session.needsInput?.active ? 'queueSessionItemStatus--needsInput' : ''}`}>
+          {session.needsInput?.active ? '⚠' : SESSION_STATUS_SYMBOLS[session.status]} {session.needsInput?.active ? 'Needs Input' : SESSION_STATUS_LABELS[session.status]}
         </span>
 
         <span className="queueSessionItemName">{session.name}</span>

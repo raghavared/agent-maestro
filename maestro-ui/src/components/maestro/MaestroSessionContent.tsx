@@ -258,9 +258,9 @@ export function MaestroSessionContent({
                         {TASK_STATUS_LABELS[task.status] || task.status.toUpperCase()}
                       </span>
 
-                      {task.sessionStatus && (
-                        <span className={`maestroSessionContentTaskSessionStatus maestroSessionContentTaskSessionStatus--${task.sessionStatus}`}>
-                          {task.sessionStatus.replace("_", " ")}
+                      {task.taskSessionStatuses?.[session.id] && (
+                        <span className={`maestroSessionContentTaskSessionStatus maestroSessionContentTaskSessionStatus--${task.taskSessionStatuses?.[session.id]}`}>
+                          {task.taskSessionStatuses?.[session.id]?.replace("_", " ")}
                         </span>
                       )}
 

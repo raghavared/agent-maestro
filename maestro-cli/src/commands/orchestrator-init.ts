@@ -84,7 +84,16 @@ export class OrchestratorInitCommand {
   private async autoUpdateSessionStatus(manifest: MaestroManifest, sessionId: string): Promise<void> {
     try {
       for (const task of manifest.tasks) {
-        // Update session status via server API
+        // Update task's main status to in_progress
+        try {
+          await api.patch(`/api/tasks/${task.id}`, {
+            status: 'in_progress',
+          });
+        } catch {
+          // Task might not exist on server yet, skip
+        }
+
+        // Update task's per-session status to working
         try {
           await api.patch(`/api/tasks/${task.id}`, {
             sessionStatus: 'working',

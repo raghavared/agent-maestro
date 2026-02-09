@@ -126,6 +126,10 @@ interface UIState {
   commandPaletteOpen: boolean;
   setCommandPaletteOpen: (open: boolean) => void;
 
+  // Maestro create task trigger (consumed by MaestroPanel)
+  createTaskRequested: boolean;
+  setCreateTaskRequested: (requested: boolean) => void;
+
   // App update
   appInfo: AppInfo | null;
   updatesOpen: boolean;
@@ -228,6 +232,10 @@ export const useUIStore = create<UIState>((set, get) => ({
   // -- Command palette --
   commandPaletteOpen: false,
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
+
+  // -- Maestro create task trigger --
+  createTaskRequested: false,
+  setCreateTaskRequested: (requested) => set({ createTaskRequested: requested }),
 
   // -- App update --
   appInfo: null,
