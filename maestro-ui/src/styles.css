@@ -9924,95 +9924,305 @@ select.input {
   animation: blinkAlert 1s infinite;
 }
 
-/* Terminal Filters */
-.terminalFilters {
-  padding: 12px 16px;
+/* ========== Filter Bar (Redesigned) ========== */
+
+.filterBar {
+  padding: 0 16px;
   border-bottom: 1px solid var(--terminal-border);
-  background: rgba(0, 0, 0, 0.3);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  background: rgba(0, 0, 0, 0.2);
   position: relative;
   z-index: 1001;
 }
 
-.terminalFilterSection {
+.filterBar--expanded {
+  padding-bottom: 12px;
+}
+
+/* Toggle button */
+.filterBar__toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.terminalFilterLabel {
-  font-size: 10px;
-  color: var(--terminal-amber);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  min-width: 140px;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.terminalFilterButtons {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.terminalFilterBtn {
-  background: transparent;
-  border: 1px solid var(--terminal-border);
+  gap: 6px;
+  padding: 8px 0;
+  background: none;
+  border: none;
   color: var(--terminal-text-dim);
-  padding: 4px 10px;
-  font-size: 10px;
+  font-size: 11px;
   font-family: 'JetBrains Mono', monospace;
-  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
-  text-transform: lowercase;
+  transition: color 0.15s ease;
+  width: 100%;
+}
+
+.filterBar__toggle:hover {
+  color: var(--terminal-text);
+}
+
+.filterBar__toggleIcon {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.filterBar__toggleLabel {
+  font-weight: 600;
   letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 10px;
 }
 
-.terminalFilterBtn:hover {
-  border-color: var(--terminal-green);
-  color: var(--terminal-green);
-  background: rgba(var(--theme-primary-rgb), 0.08);
-}
-
-.terminalFilterBtnActive {
-  border-color: var(--terminal-green);
-  color: var(--terminal-green);
-  background: rgba(var(--theme-primary-rgb), 0.12);
-  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.3);
+.filterBar__badge {
+  background: var(--terminal-green);
+  color: #000;
+  font-size: 9px;
   font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
 }
 
-.terminalFilterSelect {
-  background: rgba(var(--theme-primary-rgb), 0.05);
+.filterBar__arrow {
+  margin-left: auto;
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+
+.filterBar__arrow--open {
+  transform: rotate(180deg);
+}
+
+/* Active filter summary (collapsed state) */
+.filterBar__activeSummary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 0 0 8px 0;
+}
+
+/* Expanded panel */
+.filterBar__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+/* Filter groups */
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filterGroup__label {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: var(--terminal-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 56px;
+  flex-shrink: 0;
+}
+
+.filterGroup__chips {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+/* Filter chips (pill buttons) */
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
   border: 1px solid var(--terminal-border);
-  color: var(--terminal-text);
-  padding: 4px 10px;
+  background: transparent;
+  color: var(--terminal-text-dim);
   font-size: 10px;
   font-family: 'JetBrains Mono', monospace;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
-  text-transform: lowercase;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
-.terminalFilterSelect:hover {
-  border-color: var(--terminal-green);
-  background: rgba(var(--theme-primary-rgb), 0.1);
-}
-
-.terminalFilterSelect:focus {
-  outline: none;
-  border-color: var(--terminal-green);
-  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.3);
-}
-
-.terminalFilterSelect option {
-  background: #000000;
+.filterChip:hover {
+  border-color: var(--terminal-text-dim);
   color: var(--terminal-text);
+}
+
+.filterChip__icon {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.filterChip__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.filterChip__remove {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 0 0 2px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.filterChip__remove:hover {
+  opacity: 1;
+}
+
+/* Status semantic colors */
+.filterChip--todo:hover,
+.filterChip--todo.filterChip--active {
+  border-color: var(--terminal-amber);
+  color: var(--terminal-amber);
+}
+.filterChip--todo.filterChip--active {
+  background: rgba(255, 176, 0, 0.15);
+}
+
+.filterChip--inProgress:hover,
+.filterChip--inProgress.filterChip--active {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+}
+.filterChip--inProgress.filterChip--active {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+}
+
+.filterChip--completed:hover,
+.filterChip--completed.filterChip--active {
+  border-color: var(--terminal-cyan);
+  color: var(--terminal-cyan);
+}
+.filterChip--completed.filterChip--active {
+  background: rgba(0, 217, 255, 0.12);
+}
+
+.filterChip--blocked:hover,
+.filterChip--blocked.filterChip--active {
+  border-color: var(--terminal-red);
+  color: var(--terminal-red);
+}
+.filterChip--blocked.filterChip--active {
+  background: rgba(255, 59, 59, 0.12);
+}
+
+.filterChip--cancelled:hover,
+.filterChip--cancelled.filterChip--active {
+  border-color: var(--terminal-text-dim);
+  color: var(--terminal-text-dim);
+}
+.filterChip--cancelled.filterChip--active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Priority semantic colors */
+.filterChip--high:hover,
+.filterChip--high.filterChip--active {
+  border-color: var(--terminal-red);
+  color: var(--terminal-red);
+}
+.filterChip--high.filterChip--active {
+  background: rgba(255, 59, 59, 0.12);
+}
+
+.filterChip--medium:hover,
+.filterChip--medium.filterChip--active {
+  border-color: var(--terminal-amber);
+  color: var(--terminal-amber);
+}
+.filterChip--medium.filterChip--active {
+  background: rgba(255, 176, 0, 0.12);
+}
+
+.filterChip--low:hover,
+.filterChip--low.filterChip--active {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+}
+.filterChip--low.filterChip--active {
+  background: rgba(var(--theme-primary-rgb), 0.12);
+}
+
+/* Sort chip */
+.filterChip--sort:hover,
+.filterChip--sort.filterChip--active {
+  border-color: var(--terminal-blue);
+  color: var(--terminal-blue);
+}
+.filterChip--sort.filterChip--active {
+  background: rgba(107, 138, 253, 0.12);
+}
+
+/* Segmented control for sort */
+.filterGroup__segmented {
+  display: flex;
+  border: 1px solid var(--terminal-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.filterSegment {
+  padding: 4px 12px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--terminal-border);
+  color: var(--terminal-text-dim);
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filterSegment:last-child {
+  border-right: none;
+}
+
+.filterSegment:hover {
+  color: var(--terminal-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.filterSegment--active {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  color: var(--terminal-green);
+  font-weight: 600;
+}
+
+/* Clear all button */
+.filterBar__clearAll {
+  background: none;
+  border: none;
+  color: var(--terminal-text-dim);
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  padding: 2px 6px;
+  transition: color 0.15s ease;
+  opacity: 0.7;
+}
+
+.filterBar__clearAll:hover {
+  color: var(--terminal-red);
+  opacity: 1;
 }
 
 /* Terminal Modal Styles */

@@ -46,6 +46,11 @@ export class SessionBriefGenerator {
       brief += this.renderQueueStrategy();
     }
 
+    // Orchestrator strategy information
+    if (manifest.role === 'orchestrator') {
+      brief += this.renderOrchestratorStrategy(manifest.orchestratorStrategy);
+    }
+
     brief += this.renderFooter();
 
     return brief;
@@ -65,6 +70,26 @@ export class SessionBriefGenerator {
     section += `  maestro queue skip      - Skip the current task\n`;
     section += `  maestro queue list      - List all tasks in the queue\n`;
     section += `\n`;
+    return section;
+  }
+
+  /**
+   * Render orchestrator strategy information
+   */
+  private renderOrchestratorStrategy(orchestratorStrategy?: string): string {
+    const strategy = orchestratorStrategy || 'default';
+
+    const descriptions: Record<string, string> = {
+      'default': 'The default orchestrator coordinates worker sessions, distributes tasks, and monitors progress.',
+      'intelligent-batching': 'Groups related tasks into optimal batches for parallel execution to maximize throughput.',
+      'dag': 'Organizes tasks as a directed acyclic graph, executing in topological order with parallel branches.',
+    };
+
+    const description = descriptions[strategy] || descriptions['default'];
+
+    let section = `## Orchestrator Strategy\n\n`;
+    section += `**Strategy**: ${strategy}\n\n`;
+    section += `${description}\n\n`;
     return section;
   }
 

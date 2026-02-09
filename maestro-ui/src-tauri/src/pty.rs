@@ -10,9 +10,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager, State, WebviewWindow};
 
-const AGENTS_UI_ZELLIJ_PREFIX: &str = "agents-ui-";
+const AGENTS_UI_TMUX_PREFIX: &str = "agents-ui-";
 #[cfg(target_family = "unix")]
-const AGENTS_UI_ZELLIJ_LEGACY_SOCKET_BASE: &str = "/tmp/agents-ui-zellij";
+const AGENTS_UI_TMUX_LEGACY_SOCKET_BASE: &str = "/tmp/agents-ui-tmux";
 
 #[cfg(target_os = "macos")]
 #[derive(Default)]
@@ -83,9 +83,9 @@ fn now_epoch_ms() -> u64 {
 }
 
 #[cfg(target_family = "unix")]
-fn agents_ui_zellij_session_name(persist_id: &str) -> String {
-    let mut out = String::with_capacity(AGENTS_UI_ZELLIJ_PREFIX.len() + persist_id.len());
-    out.push_str(AGENTS_UI_ZELLIJ_PREFIX);
+fn agents_ui_tmux_session_name(persist_id: &str) -> String {
+    let mut out = String::with_capacity(AGENTS_UI_TMUX_PREFIX.len() + persist_id.len());
+    out.push_str(AGENTS_UI_TMUX_PREFIX);
     for ch in persist_id.chars() {
         if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
             out.push(ch);
@@ -93,21 +93,21 @@ fn agents_ui_zellij_session_name(persist_id: &str) -> String {
             out.push('_');
         }
     }
-    if out == AGENTS_UI_ZELLIJ_PREFIX {
+    if out == AGENTS_UI_TMUX_PREFIX {
         out.push_str("session");
     }
     out
 }
 
 #[cfg(target_family = "unix")]
-fn find_bundled_zellij() -> Option<PathBuf> {
-    let sidecar = sidecar_path("zellij").filter(|p| p.is_file());
+pub fn find_bundled_tmux() -> Option<PathBuf> {
+    let sidecar = sidecar_path("tmux").filter(|p| p.is_file());
     if sidecar.is_some() {
         return sidecar;
     }
     #[cfg(debug_assertions)]
     {
-        let dev = dev_sidecar_path("zellij").filter(|p| p.is_file());
+        let dev = dev_sidecar_path("tmux").filter(|p| p.is_file());
         if dev.is_some() {
             return dev;
         }
@@ -357,15 +357,15 @@ fn ensure_shell_xdg_paths(window: &WebviewWindow) -> Option<ShellXdgPaths> {
 }
 
 #[cfg(target_family = "unix")]
-struct ZellijPaths {
-    home_dir: PathBuf,
-    socket_dir: PathBuf,
+pub struct TmuxPaths {
+    pub socket_dir: PathBuf,
+    pub config_path: PathBuf,
 }
 
 #[cfg(target_family = "unix")]
-fn ensure_preferred_zellij_socket_dir(window: &WebviewWindow) -> Option<PathBuf> {
+fn ensure_preferred_tmux_socket_dir(window: &WebviewWindow) -> Option<PathBuf> {
     let home = window.app_handle().path().home_dir().ok()?;
-    let base = home.join(".agents-ui-zellij");
+    let base = home.join(".agents-ui-tmux");
     fs::create_dir_all(&base).ok()?;
     let socket_dir = base.join("sockets");
     fs::create_dir_all(&socket_dir).ok()?;
@@ -381,13 +381,13 @@ fn ensure_preferred_zellij_socket_dir(window: &WebviewWindow) -> Option<PathBuf>
 }
 
 #[cfg(target_family = "unix")]
-fn legacy_zellij_socket_dir() -> PathBuf {
-    PathBuf::from(AGENTS_UI_ZELLIJ_LEGACY_SOCKET_BASE).join("sockets")
+fn legacy_tmux_socket_dir() -> PathBuf {
+    PathBuf::from(AGENTS_UI_TMUX_LEGACY_SOCKET_BASE).join("sockets")
 }
 
 #[cfg(target_family = "unix")]
-fn existing_legacy_zellij_socket_dir() -> Option<PathBuf> {
-    let socket_dir = legacy_zellij_socket_dir();
+fn existing_legacy_tmux_socket_dir() -> Option<PathBuf> {
+    let socket_dir = legacy_tmux_socket_dir();
     if socket_dir.is_dir() {
         Some(socket_dir)
     } else {
@@ -396,8 +396,8 @@ fn existing_legacy_zellij_socket_dir() -> Option<PathBuf> {
 }
 
 #[cfg(target_family = "unix")]
-fn ensure_legacy_zellij_socket_dir() -> Option<PathBuf> {
-    let socket_base = PathBuf::from(AGENTS_UI_ZELLIJ_LEGACY_SOCKET_BASE);
+fn ensure_legacy_tmux_socket_dir() -> Option<PathBuf> {
+    let socket_base = PathBuf::from(AGENTS_UI_TMUX_LEGACY_SOCKET_BASE);
     fs::create_dir_all(&socket_base).ok()?;
     let socket_dir = socket_base.join("sockets");
     fs::create_dir_all(&socket_dir).ok()?;
@@ -413,11 +413,11 @@ fn ensure_legacy_zellij_socket_dir() -> Option<PathBuf> {
 }
 
 #[cfg(target_family = "unix")]
-fn zellij_socket_dir_candidates(preferred: &Path) -> Vec<PathBuf> {
+fn tmux_socket_dir_candidates(preferred: &Path) -> Vec<PathBuf> {
     let mut out = Vec::new();
     out.push(preferred.to_path_buf());
 
-    if let Some(legacy) = existing_legacy_zellij_socket_dir() {
+    if let Some(legacy) = existing_legacy_tmux_socket_dir() {
         if legacy != preferred {
             out.push(legacy);
         }
@@ -427,34 +427,34 @@ fn zellij_socket_dir_candidates(preferred: &Path) -> Vec<PathBuf> {
 }
 
 #[cfg(target_family = "unix")]
-fn ensure_zellij_paths(window: &WebviewWindow) -> Option<ZellijPaths> {
-    let app_data = window.app_handle().path().app_data_dir().ok()?;
-    let base = app_data.join("zellij");
+pub fn ensure_tmux_paths(window: &WebviewWindow) -> Option<TmuxPaths> {
+    let home = window.app_handle().path().home_dir().ok()?;
+    let base = home.join(".agents-ui-tmux");
     fs::create_dir_all(&base).ok()?;
 
     // Store sockets in a stable per-user path so sessions survive app restarts without relying on /tmp.
     // Fallback to the legacy /tmp dir if we cannot create the preferred location (or in older installs).
     let socket_dir =
-        ensure_preferred_zellij_socket_dir(window).or_else(|| ensure_legacy_zellij_socket_dir())?;
+        ensure_preferred_tmux_socket_dir(window).or_else(|| ensure_legacy_tmux_socket_dir())?;
 
-    Some(ZellijPaths {
-        home_dir: base,
+    let config_path = base.join("tmux.conf");
+
+    Some(TmuxPaths {
         socket_dir,
+        config_path,
     })
 }
 
 #[cfg(target_family = "unix")]
-fn zellij_list_sessions(
-    zellij: &Path,
-    zellij_home: &Path,
+fn tmux_list_sessions(
+    tmux: &Path,
     socket_dir: &Path,
 ) -> Result<Vec<String>, String> {
-    let out = Command::new(zellij)
-        .args(["list-sessions", "--short", "--no-formatting"])
-        .env("HOME", zellij_home.to_string_lossy().to_string())
-        .env("ZELLIJ_SOCKET_DIR", socket_dir.to_string_lossy().to_string())
+    let socket_path = socket_dir.join("default");
+    let out = Command::new(tmux)
+        .args(["-S", socket_path.to_string_lossy().as_ref(), "list-sessions", "-F", "#{session_name}"])
         .output()
-        .map_err(|e| format!("failed to run bundled zellij: {e}"))?;
+        .map_err(|e| format!("failed to run bundled tmux: {e}"))?;
 
     if out.status.success() {
         let stdout = String::from_utf8_lossy(&out.stdout);
@@ -470,8 +470,9 @@ fn zellij_list_sessions(
 
     let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
     let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    let combined = format!("{stdout}\n{stderr}");
-    if out.status.code() == Some(1) && combined.contains("No active zellij sessions found") {
+
+    // tmux returns exit code 1 when no sessions exist
+    if out.status.code() == Some(1) && (stderr.contains("no server running") || stderr.contains("can't find session")) {
         return Ok(Vec::new());
     }
 
@@ -480,46 +481,72 @@ fn zellij_list_sessions(
     } else if !stdout.is_empty() {
         stdout
     } else {
-        "zellij list-sessions failed".to_string()
+        "tmux list-sessions failed".to_string()
     };
     Err(msg)
 }
 
 #[cfg(target_family = "unix")]
-fn ensure_zellij_config(window: &WebviewWindow) -> Option<PathBuf> {
-    let zellij_paths = ensure_zellij_paths(window)?;
-    let config_dir = zellij_paths.home_dir.join(".config").join("zellij");
-    fs::create_dir_all(&config_dir).ok()?;
-    let config_path = config_dir.join("config.kdl");
+fn ensure_tmux_config(window: &WebviewWindow) -> Option<PathBuf> {
+    let tmux_paths = ensure_tmux_paths(window)?;
+    let config_path = &tmux_paths.config_path;
 
-    // Minimal config tuned for embedded terminals (xterm.js) to avoid feature probes that can hang.
-    let contents = r#"// Agents UI managed Zellij config
-// This is stored in an app-private HOME so it won't affect system zellij installs.
+    // Minimal tmux config tuned for embedded terminals (xterm.js)
+    let contents = r#"# Agents UI managed tmux config
+# This is stored in ~/.agents-ui-tmux/tmux.conf
 
-simplified_ui true
-support_kitty_keyboard_protocol true
-show_startup_tips false
-show_release_notes false
+# Enable mouse support
+set -g mouse on
+
+# Disable status bar for clean embedded UI
+set -g status off
+
+# Use 256 color terminal
+set -g default-terminal "screen-256color"
+
+# Enable true color support
+set -ga terminal-overrides ",xterm-256color:Tc"
+
+# Disable escape key delay
+set -sg escape-time 0
+
+# Increase history limit
+set -g history-limit 50000
+
+# Start window numbering at 1
+set -g base-index 1
+set -g pane-base-index 1
+
+# Renumber windows on close
+set -g renumber-windows on
+
+# Enable focus events
+set -g focus-events on
+
+# Enable extended keys (CSI u / Kitty keyboard protocol) so that
+# Shift+Enter (\x1b[13;2u) is passed through to programs like Claude Code
+set -s extended-keys on
+set -as terminal-features 'xterm-256color:extkeys'
 "#;
 
-    let needs_write = match fs::read_to_string(&config_path) {
+    let needs_write = match fs::read_to_string(config_path) {
         Ok(existing) => existing != contents,
         Err(_) => true,
     };
     if needs_write {
-        fs::write(&config_path, contents).ok()?;
+        fs::write(config_path, contents).ok()?;
     }
 
-    Some(config_path)
+    Some(config_path.clone())
 }
 
 #[cfg(target_family = "unix")]
-fn ensure_zellij_shell_wrapper(window: &WebviewWindow) -> Option<PathBuf> {
+fn ensure_tmux_shell_wrapper(window: &WebviewWindow) -> Option<PathBuf> {
     let app_data = window.app_handle().path().app_data_dir().ok()?;
     let base = app_data.join("shell");
     fs::create_dir_all(&base).ok()?;
 
-    let path = base.join("zellij-shell-wrapper.sh");
+    let path = base.join("tmux-shell-wrapper.sh");
     let contents = r#"#!/bin/sh
 set -e
 
@@ -536,15 +563,15 @@ restore() {
 
 restore HOME "${AGENTS_UI_ORIG_HOME_PRESENT:-0}" "${AGENTS_UI_ORIG_HOME:-}"
 
-if [ "${AGENTS_UI_ZELLIJ_RESTORE_XDG:-0}" = "1" ]; then
+if [ "${AGENTS_UI_TMUX_RESTORE_XDG:-0}" = "1" ]; then
   restore XDG_CONFIG_HOME "${AGENTS_UI_ORIG_XDG_CONFIG_HOME_PRESENT:-0}" "${AGENTS_UI_ORIG_XDG_CONFIG_HOME:-}"
   restore XDG_DATA_HOME "${AGENTS_UI_ORIG_XDG_DATA_HOME_PRESENT:-0}" "${AGENTS_UI_ORIG_XDG_DATA_HOME:-}"
   restore XDG_CACHE_HOME "${AGENTS_UI_ORIG_XDG_CACHE_HOME_PRESENT:-0}" "${AGENTS_UI_ORIG_XDG_CACHE_HOME:-}"
   restore XDG_RUNTIME_DIR "${AGENTS_UI_ORIG_XDG_RUNTIME_DIR_PRESENT:-0}" "${AGENTS_UI_ORIG_XDG_RUNTIME_DIR:-}"
 fi
 
-shell="${AGENTS_UI_ZELLIJ_REAL_SHELL:-/bin/sh}"
-if [ "${AGENTS_UI_ZELLIJ_LOGIN:-1}" = "1" ]; then
+shell="${AGENTS_UI_TMUX_REAL_SHELL:-/bin/sh}"
+if [ "${AGENTS_UI_TMUX_LOGIN:-1}" = "1" ]; then
   exec "$shell" -l "$@"
 fi
 exec "$shell" "$@"
@@ -571,7 +598,7 @@ fn zsh_zdotdir_path(window: &WebviewWindow, key: &str) -> Option<PathBuf> {
     let app_data = window.app_handle().path().app_data_dir().ok()?;
     let base = app_data.join("shell").join("zsh");
     fs::create_dir_all(&base).ok()?;
-    let safe = agents_ui_zellij_session_name(key);
+    let safe = agents_ui_tmux_session_name(key);
     let dir = base.join(format!("zdotdir-{safe}"));
     fs::create_dir_all(&dir).ok()?;
     Some(dir)
@@ -593,20 +620,20 @@ pub fn list_persistent_sessions(window: WebviewWindow) -> Result<Vec<PersistentS
 
     #[cfg(target_family = "unix")]
     {
-        let zellij = find_bundled_zellij().ok_or("bundled zellij missing in this build".to_string())?;
-        let zellij_paths = ensure_zellij_paths(&window).ok_or("unable to determine app data dir".to_string())?;
+        let tmux = find_bundled_tmux().ok_or("bundled tmux missing in this build".to_string())?;
+        let tmux_paths = ensure_tmux_paths(&window).ok_or("unable to determine app data dir".to_string())?;
         let mut sessions: Vec<PersistentSessionInfo> = Vec::new();
         let mut list_errors: Vec<String> = Vec::new();
 
-        for socket_dir in zellij_socket_dir_candidates(&zellij_paths.socket_dir) {
-            match zellij_list_sessions(&zellij, &zellij_paths.home_dir, &socket_dir) {
+        for socket_dir in tmux_socket_dir_candidates(&tmux_paths.socket_dir) {
+            match tmux_list_sessions(&tmux, &socket_dir) {
                 Ok(list) => {
                     for session_name in list {
-                        if !session_name.starts_with(AGENTS_UI_ZELLIJ_PREFIX) {
+                        if !session_name.starts_with(AGENTS_UI_TMUX_PREFIX) {
                             continue;
                         }
                         let persist_id = session_name
-                            .strip_prefix(AGENTS_UI_ZELLIJ_PREFIX)
+                            .strip_prefix(AGENTS_UI_TMUX_PREFIX)
                             .unwrap_or("")
                             .to_string();
                         sessions.push(PersistentSessionInfo {
@@ -638,53 +665,36 @@ pub fn kill_persistent_session(window: WebviewWindow, persist_id: String) -> Res
 
     #[cfg(target_family = "unix")]
     {
-        let zellij = find_bundled_zellij().ok_or("bundled zellij missing in this build".to_string())?;
-        let zellij_paths = ensure_zellij_paths(&window).ok_or("unable to determine app data dir".to_string())?;
+        let tmux = find_bundled_tmux().ok_or("bundled tmux missing in this build".to_string())?;
+        let tmux_paths = ensure_tmux_paths(&window).ok_or("unable to determine app data dir".to_string())?;
         let trimmed = persist_id.trim();
         if trimmed.is_empty() {
             return Err("missing persist id".to_string());
         }
-        let session_name = agents_ui_zellij_session_name(trimmed);
-        if !session_name.starts_with(AGENTS_UI_ZELLIJ_PREFIX) {
+        let session_name = agents_ui_tmux_session_name(trimmed);
+        if !session_name.starts_with(AGENTS_UI_TMUX_PREFIX) {
             return Err("refusing to kill non agents-ui session".to_string());
         }
 
         let mut last_err: Option<String> = None;
 
-        for socket_dir in zellij_socket_dir_candidates(&zellij_paths.socket_dir) {
-            let out = Command::new(&zellij)
-                .args(["kill-session", &session_name])
-                .env("HOME", zellij_paths.home_dir.to_string_lossy().to_string())
-                .env("ZELLIJ_SOCKET_DIR", socket_dir.to_string_lossy().to_string())
+        for socket_dir in tmux_socket_dir_candidates(&tmux_paths.socket_dir) {
+            let socket_path = socket_dir.join("default");
+            let out = Command::new(&tmux)
+                .args(["-S", socket_path.to_string_lossy().as_ref(), "kill-session", "-t", &session_name])
                 .output()
-                .map_err(|e| format!("failed to run bundled zellij: {e}"))?;
+                .map_err(|e| format!("failed to run bundled tmux: {e}"))?;
             if out.status.success() {
                 return Ok(());
             }
 
-            let fallback = Command::new(&zellij)
-                .args(["delete-session", "--force", &session_name])
-                .env("HOME", zellij_paths.home_dir.to_string_lossy().to_string())
-                .env("ZELLIJ_SOCKET_DIR", socket_dir.to_string_lossy().to_string())
-                .output()
-                .ok();
-            if let Some(out) = fallback {
-                if out.status.success() {
-                    return Ok(());
-                }
-                let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-                if !stderr.is_empty() {
-                    last_err = Some(stderr);
-                }
-            } else {
-                let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-                if !stderr.is_empty() {
-                    last_err = Some(stderr);
-                }
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            if !stderr.is_empty() {
+                last_err = Some(stderr);
             }
         }
 
-        Err(last_err.unwrap_or_else(|| format!("failed to kill zellij session {session_name}")))
+        Err(last_err.unwrap_or_else(|| format!("failed to kill tmux session {session_name}")))
     }
 }
 
@@ -1153,7 +1163,7 @@ pub fn create_session(
     #[cfg(not(target_family = "unix"))]
     let shell = std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string());
 
-    let persistent = persistent.unwrap_or(false);
+    let persistent = persistent.unwrap_or(true);
     let persist_id = persist_id
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
@@ -1193,15 +1203,12 @@ pub fn create_session(
         });
 
     #[cfg(target_family = "unix")]
-    let mut persistent_zellij_env: Option<(String, String)> = None;
-
-    #[cfg(target_family = "unix")]
     let (program, args, shown_command, use_nu, inner_shell) = if persistent {
-        let zellij = find_bundled_zellij().ok_or("bundled zellij missing in this build".to_string())?;
+        let tmux = find_bundled_tmux().ok_or("bundled tmux missing in this build".to_string())?;
         let persist_id = persist_id.clone().ok_or("persistId is required for persistent sessions")?;
-        let zellij_session = agents_ui_zellij_session_name(&persist_id);
-        let zellij_config = ensure_zellij_config(&window).map(|p| p.to_string_lossy().to_string());
-        let zellij_paths = ensure_zellij_paths(&window).ok_or("unable to determine app data dir".to_string())?;
+        let tmux_session = agents_ui_tmux_session_name(&persist_id);
+        let tmux_paths = ensure_tmux_paths(&window).ok_or("unable to determine app data dir".to_string())?;
+        let tmux_config = ensure_tmux_config(&window).map(|p| p.to_string_lossy().to_string());
 
         let nu = find_bundled_nu();
         let inner_shell = if let Some(nu) = &nu {
@@ -1210,38 +1217,39 @@ pub fn create_session(
             shell.clone()
         };
 
-        let mut socket_dir = zellij_paths.socket_dir.clone();
-        for candidate in zellij_socket_dir_candidates(&zellij_paths.socket_dir) {
-            if let Ok(existing) = zellij_list_sessions(&zellij, &zellij_paths.home_dir, &candidate) {
-                if existing.iter().any(|s| s == &zellij_session) {
+        let mut socket_dir = tmux_paths.socket_dir.clone();
+        for candidate in tmux_socket_dir_candidates(&tmux_paths.socket_dir) {
+            if let Ok(existing) = tmux_list_sessions(&tmux, &candidate) {
+                if existing.iter().any(|s| s == &tmux_session) {
                     socket_dir = candidate;
                     break;
                 }
             }
         }
-        persistent_zellij_env = Some((
-            zellij_paths.home_dir.to_string_lossy().to_string(),
-            socket_dir.to_string_lossy().to_string(),
-        ));
 
-        let mut zellij_args: Vec<String> = Vec::new();
-        if let Some(cfg) = &zellij_config {
-            zellij_args.push("--config".to_string());
-            zellij_args.push(cfg.clone());
+        let socket_path = socket_dir.join("default");
+
+        let mut tmux_args: Vec<String> = Vec::new();
+        tmux_args.push("-S".to_string());
+        tmux_args.push(socket_path.to_string_lossy().to_string());
+        if let Some(cfg) = &tmux_config {
+            tmux_args.push("-f".to_string());
+            tmux_args.push(cfg.clone());
         }
-        zellij_args.push("attach".to_string());
-        zellij_args.push("-c".to_string());
-        zellij_args.push(zellij_session.clone());
+        tmux_args.push("new-session".to_string());
+        tmux_args.push("-A".to_string()); // Attach if exists, create if not
+        tmux_args.push("-s".to_string());
+        tmux_args.push(tmux_session.clone());
 
-        let shown_command = if let Some(cfg) = zellij_config {
-            format!("zellij --config {cfg} attach -c {zellij_session}")
+        let shown_command = if let Some(cfg) = tmux_config {
+            format!("tmux -S {} -f {cfg} new-session -A -s {tmux_session}", socket_path.display())
         } else {
-            format!("zellij attach -c {zellij_session}")
+            format!("tmux -S {} new-session -A -s {tmux_session}", socket_path.display())
         };
 
         (
-            zellij.to_string_lossy().to_string(),
-            zellij_args,
+            tmux.to_string_lossy().to_string(),
+            tmux_args,
             shown_command,
             nu.is_some(),
             inner_shell,
@@ -1348,19 +1356,13 @@ pub fn create_session(
     }
     #[cfg(target_family = "unix")]
     if persistent {
-        if let Some((zellij_home, zellij_socket_dir)) = persistent_zellij_env.as_ref() {
-            cmd.env("HOME", zellij_home.clone());
-            cmd.env("ZELLIJ_SOCKET_DIR", zellij_socket_dir.clone());
-        } else if let Some(zellij_paths) = ensure_zellij_paths(&window) {
-            cmd.env("HOME", zellij_paths.home_dir.to_string_lossy().to_string());
-            cmd.env("ZELLIJ_SOCKET_DIR", zellij_paths.socket_dir.to_string_lossy().to_string());
-        }
-
-        if let Some(wrapper) = ensure_zellij_shell_wrapper(&window) {
+        // For tmux, we don't need to modify HOME or set socket env vars since we use -S flag
+        // We still use the shell wrapper to restore environment inside the session
+        if let Some(wrapper) = ensure_tmux_shell_wrapper(&window) {
             cmd.env("SHELL", wrapper.to_string_lossy().to_string());
-            cmd.env("AGENTS_UI_ZELLIJ_REAL_SHELL", inner_shell.clone());
-            cmd.env("AGENTS_UI_ZELLIJ_LOGIN", "1");
-            cmd.env("AGENTS_UI_ZELLIJ_RESTORE_XDG", if use_nu { "0" } else { "1" });
+            cmd.env("AGENTS_UI_TMUX_REAL_SHELL", inner_shell.clone());
+            cmd.env("AGENTS_UI_TMUX_LOGIN", "1");
+            cmd.env("AGENTS_UI_TMUX_RESTORE_XDG", if use_nu { "0" } else { "1" });
 
             capture_original_env(&mut cmd, "HOME", "AGENTS_UI_ORIG_HOME_PRESENT", "AGENTS_UI_ORIG_HOME");
             capture_original_env(
@@ -1867,9 +1869,9 @@ pub fn detach_session(state: State<'_, AppState>, id: String) -> Result<(), Stri
             return Ok(());
         };
 
-        // Default zellij detach: Ctrl+o then d.
+        // Default tmux detach: Ctrl+b then d.
         s.writer
-            .write_all(&[0x0f, b'd'])
+            .write_all(&[0x02, b'd'])
             .map_err(|e| format!("write failed: {e}"))?;
         s.writer.flush().ok();
         Ok(())

@@ -7,6 +7,7 @@ export type MaestroSessionStatus = 'spawning' | 'idle' | 'working' | 'needs-user
 export type SpawnSource = 'ui' | 'session';
 export type TaskSessionStatus = 'queued' | 'working' | 'needs_input' | 'blocked' | 'completed' | 'failed' | 'skipped';
 export type WorkerStrategy = 'simple' | 'queue';
+export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 export type ModelType = 'sonnet' | 'opus' | 'haiku';
 
 // Session timeline event types
@@ -106,6 +107,7 @@ export interface MaestroSession {
   agentId?: string;
   env: Record<string, string>;
   strategy?: WorkerStrategy;
+  orchestratorStrategy?: OrchestratorStrategy;
   status: MaestroSessionStatus;
   startedAt: number;
   lastActivity: number;
@@ -197,6 +199,7 @@ export interface SpawnSessionPayload {
   taskIds: string[];
   role?: 'worker' | 'orchestrator';
   strategy?: WorkerStrategy;          // 'simple' (default) or 'queue'
+  orchestratorStrategy?: OrchestratorStrategy;  // 'default', 'intelligent-batching', or 'dag'
   spawnSource?: SpawnSource;          // 'ui' or 'session'
   sessionId?: string;                  // Required when spawnSource === 'session' (parent session ID)
   sessionName?: string;

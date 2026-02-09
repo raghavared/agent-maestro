@@ -1,4 +1,4 @@
-import type { MaestroManifest, AdditionalContext, WorkerStrategy } from '../types/manifest.js';
+import type { MaestroManifest, AdditionalContext, WorkerStrategy, OrchestratorStrategy } from '../types/manifest.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
 
@@ -103,6 +103,8 @@ export class ManifestGeneratorCLICommand {
     skills?: string[];
     output: string;
     strategy?: string;
+    model?: 'sonnet' | 'opus' | 'haiku';
+    orchestratorStrategy?: string;
   }): Promise<void> {
     try {
       console.error('Generating manifest...');
@@ -125,7 +127,7 @@ export class ManifestGeneratorCLICommand {
 
       // 3. Build session options
       const sessionOptions: SessionOptions = {
-        model: 'sonnet',
+        model: options.model || 'sonnet',
         permissionMode: 'acceptEdits',
         thinkingMode: 'auto',
         workingDirectory: project.workingDir,
@@ -149,6 +151,11 @@ export class ManifestGeneratorCLICommand {
       // Add strategy to manifest (if specified)
       if (options.strategy) {
         manifest.strategy = options.strategy as WorkerStrategy;
+      }
+
+      // Add orchestrator strategy to manifest (when role is orchestrator)
+      if (options.role === 'orchestrator') {
+        manifest.orchestratorStrategy = (options.orchestratorStrategy || 'default') as OrchestratorStrategy;
       }
 
       // 5. Validate manifest
@@ -314,6 +321,8 @@ export function registerManifestCommands(program: any): void {
     .requiredOption('--task-ids <ids>', 'Comma-separated task IDs')
     .option('--skills <skills>', 'Comma-separated skills', 'maestro-worker')
     .option('--strategy <strategy>', 'Worker strategy (simple or queue)', 'simple')
+    .option('--orchestrator-strategy <strategy>', 'Orchestrator strategy (default, intelligent-batching, or dag)', 'default')
+    .option('--model <model>', 'Claude model to use (sonnet, opus, haiku)', 'sonnet')
     .requiredOption('--output <path>', 'Output file path')
     .action(async (options: any) => {
       // Parse comma-separated values
@@ -326,6 +335,13 @@ export function registerManifestCommands(program: any): void {
         process.exit(1);
       }
 
+      // Validate model
+      const validModels = ['sonnet', 'opus', 'haiku'];
+      if (options.model && !validModels.includes(options.model)) {
+        console.error(`Error: model must be one of: ${validModels.join(', ')}`);
+        process.exit(1);
+      }
+
       // Create and execute command (reads from local storage, no API needed)
       const command = new ManifestGeneratorCLICommand();
       await command.execute({
@@ -335,6 +351,8 @@ export function registerManifestCommands(program: any): void {
         skills,
         output: options.output,
         strategy: options.strategy,
+        model: options.model,
+        orchestratorStrategy: options.orchestratorStrategy,
       });
     });
 }

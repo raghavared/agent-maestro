@@ -26,5 +26,8 @@ tauri-plugin-drag = "2.1.0"
 [target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
 fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs" }
 
+[dev-dependencies]
+which = "6.0"
+
 [features]
 custom-protocol = ["tauri/custom-protocol"]

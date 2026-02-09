@@ -1,7 +1,7 @@
 import { maestroClient } from "../utils/MaestroClient";
 
 import { TerminalSession } from "../app/types/session";
-import { MaestroProject, MaestroTask, WorkerStrategy } from "../app/types/maestro";
+import { MaestroProject, MaestroTask, WorkerStrategy, OrchestratorStrategy } from "../app/types/maestro";
 
 export async function createMaestroSession(input: {
     task?: MaestroTask;              // Single task (backward compatible)
@@ -9,8 +9,10 @@ export async function createMaestroSession(input: {
     project: MaestroProject;
     skillIds?: string[];      // NEW: Skill IDs to load
     strategy?: WorkerStrategy;       // Worker strategy
+    role?: 'worker' | 'orchestrator';
+    orchestratorStrategy?: OrchestratorStrategy;
   }): Promise<TerminalSession> {
-    const { task, tasks, skillIds, project, strategy } = input;
+    const { task, tasks, skillIds, project, strategy, role, orchestratorStrategy } = input;
 
     // Normalize to array (support both single and multi-task)
     const taskList = tasks || (task ? [task] : []);
@@ -18,9 +20,11 @@ export async function createMaestroSession(input: {
       throw new Error('At least one task is required');
     }
 
+    const resolvedRole = role || 'worker';
 
     console.log('[App.createMaestroSession] Using server spawn flow');
     console.log('[App.createMaestroSession] Tasks:', taskList.map(t => t.id).join(', '));
+    console.log('[App.createMaestroSession] Role:', resolvedRole);
 
     // NEW: Use server spawn endpoint (Server-Generated Manifests architecture)
     // The server will:
@@ -32,17 +36,21 @@ export async function createMaestroSession(input: {
     // Get model from the first task (for multi-task sessions, use the first task's model)
     const model = taskList[0].model || 'sonnet';
 
+    // Determine skill based on role
+    const defaultSkill = resolvedRole === 'orchestrator' ? 'maestro-orchestrator' : 'maestro-worker';
+
     try {
       const response = await maestroClient.spawnSession({
         projectId: project.id,
         taskIds,
-        role: 'worker',
+        role: resolvedRole,
         strategy: strategy || 'simple',
+        ...(resolvedRole === 'orchestrator' && orchestratorStrategy ? { orchestratorStrategy } : {}),
         spawnSource: 'ui',      // CHANGED: from 'manual' to 'ui'
         sessionName: taskList.length > 1
           ? `Multi-Task: ${taskList[0].title}`
           : taskList[0].title,
-        skills: skillIds || ['maestro-worker'],
+        skills: skillIds || [defaultSkill],
         model,
       });
 

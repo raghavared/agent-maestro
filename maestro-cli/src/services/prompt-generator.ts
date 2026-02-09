@@ -132,7 +132,7 @@ export class PromptGenerator {
 
     const templateName = role === 'worker'
       ? `worker-${manifest.strategy || 'simple'}`
-      : 'orchestrator';
+      : `orchestrator-${manifest.orchestratorStrategy || 'default'}`;
 
     let template = this.loadTemplate(templateName);
 
@@ -178,7 +178,7 @@ export class PromptGenerator {
     if (!templateContent) {
       const templateName = role === 'worker'
         ? `worker-${manifest.strategy || 'simple'}`
-        : 'orchestrator';
+        : `orchestrator-${manifest.orchestratorStrategy || 'default'}`;
       console.error(`Using bundled ${templateName} template (server unavailable)`);
       templateContent = this.loadTemplate(templateName);
     }
@@ -212,6 +212,8 @@ export class PromptGenerator {
       // Strategy support
       STRATEGY: manifest.strategy || 'simple',
       STRATEGY_INSTRUCTIONS: this.formatStrategyInstructions(manifest.strategy),
+      ORCHESTRATOR_STRATEGY: manifest.orchestratorStrategy || 'default',
+      ORCHESTRATOR_STRATEGY_INSTRUCTIONS: this.formatOrchestratorStrategyInstructions(manifest.orchestratorStrategy),
     };
 
     let result = template;
@@ -239,6 +241,25 @@ Do NOT work on tasks directly. Instead, use the queue commands to process tasks 
 **Tree Strategy Active**: This session owns a root task and its full subtask tree.
 Work through all subtasks holistically — you decide the order based on dependencies and logical flow.
 Report progress per subtask using \`maestro report progress "SUBTASK COMPLETE [task-id]: summary"\`.
+`;
+    }
+    return '';
+  }
+
+  /**
+   * Format orchestrator-strategy-specific instructions for template variable
+   */
+  private formatOrchestratorStrategyInstructions(orchestratorStrategy?: string): string {
+    if (orchestratorStrategy === 'intelligent-batching') {
+      return `
+**Intelligent Batching Strategy Active**: Group related tasks into optimal batches for parallel execution.
+Analyze task dependencies and group independent tasks together for maximum throughput.
+`;
+    }
+    if (orchestratorStrategy === 'dag') {
+      return `
+**DAG Strategy Active**: Tasks are organized as a directed acyclic graph.
+Respect dependency edges and execute tasks in topological order, parallelizing independent branches.
 `;
     }
     return '';

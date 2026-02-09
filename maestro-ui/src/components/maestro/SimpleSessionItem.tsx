@@ -20,6 +20,7 @@ const SESSION_STATUS_SYMBOLS: Record<MaestroSessionStatus, string> = {
   spawning: "◌",
   idle: "○",
   working: "◉",
+  "needs-user-input": "⚡",
   completed: "✓",
   failed: "✗",
   stopped: "⊘",
@@ -29,6 +30,7 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   spawning: "Spawning",
   idle: "Idle",
   working: "Working",
+  "needs-user-input": "Needs Input",
   completed: "Completed",
   failed: "Failed",
   stopped: "Stopped",
@@ -101,7 +103,7 @@ export function SimpleSessionItem({
 
         <span className="simpleSessionItemName">{session.name}</span>
 
-        <StrategyBadge strategy={session.strategy} />
+        <StrategyBadge strategy={session.strategy} orchestratorStrategy={session.orchestratorStrategy} />
 
         <span className="simpleSessionItemActivity">
           {formatTimeAgo(session.lastActivity)}

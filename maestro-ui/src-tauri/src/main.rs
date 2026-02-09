@@ -11,6 +11,7 @@ mod skills;
 mod ssh;
 mod ssh_fs;
 mod startup;
+mod tmux_coordination;
 mod tray;
 
 use app_info::get_app_info;
@@ -34,6 +35,10 @@ use ssh_fs::{
     ssh_write_text_file,
 };
 use startup::get_startup_flags;
+use tmux_coordination::{
+    tmux_attach_shared, tmux_get_pane_info, tmux_list_panes, tmux_send_to_pane,
+    tmux_setenv, tmux_split_pane,
+};
 use tray::{build_status_tray, set_tray_agent_count, set_tray_recent_sessions, set_tray_status};
 use tauri::Manager;
 
@@ -138,7 +143,13 @@ fn main() {
             get_app_info,
             list_claude_code_skills,
             get_claude_code_skill,
-            get_skill_categories
+            get_skill_categories,
+            tmux_attach_shared,
+            tmux_send_to_pane,
+            tmux_split_pane,
+            tmux_setenv,
+            tmux_list_panes,
+            tmux_get_pane_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -14,6 +14,7 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   spawning: "Spawning",
   idle: "Idle",
   working: "Working",
+  "needs-user-input": "Needs Input",
   completed: "Completed",
   failed: "Failed",
   stopped: "Stopped",
@@ -115,7 +116,7 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
                 <span className={`sessionDetailStatusBadge sessionDetailStatusBadge--${session.status}`}>
                   {SESSION_STATUS_LABELS[session.status]}
                 </span>
-                <StrategyBadge strategy={session.strategy} />
+                <StrategyBadge strategy={session.strategy} orchestratorStrategy={session.orchestratorStrategy} />
                 {session.model && (
                   <span className="sessionDetailModelBadge">
                     {session.model.toUpperCase()}
