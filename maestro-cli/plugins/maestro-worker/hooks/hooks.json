@@ -39,6 +39,7 @@
     ],
     "Notification": [
       {
+        "matcher": "permission_prompt|idle_prompt|elicitation_dialog",
         "hooks": [
           {
             "type": "command",
@@ -68,6 +69,18 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/bin/track-file",
             "timeout": 2
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "maestro session needs-input",
+            "timeout": 3
           }
         ]
       }
