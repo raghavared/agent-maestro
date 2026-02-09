@@ -1266,12 +1266,19 @@ pub fn create_session(
             )
         // }
     } else {
-        // Use -c instead of -lc when env_vars are provided to avoid profile files overwriting them
+        // When running a command, always use a POSIX-compatible shell (/bin/sh)
+        // because the command string uses POSIX syntax (;, $VAR, exec, etc.)
+        // which is incompatible with non-POSIX shells like Nushell.
+        let posix_shell = if Path::new("/bin/bash").is_file() {
+            "/bin/bash".to_string()
+        } else {
+            "/bin/sh".to_string()
+        };
         let shell_flag = if env_vars.is_some() { "-c" } else { "-lc" };
         (
-            shell.clone(),
+            posix_shell.clone(),
             vec![shell_flag.to_string(), command.clone()],
-            format!("{shell} {shell_flag} {command}"),
+            format!("{posix_shell} {shell_flag} {command}"),
             false,
             shell.clone(),
         )
