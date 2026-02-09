@@ -16,6 +16,7 @@ import type {
     TemplateRole,
     CreateTemplatePayload,
     UpdateTemplatePayload,
+    DocEntry,
 } from '../app/types/maestro';
 
 import { API_BASE_URL } from './serverConfig';
@@ -240,6 +241,16 @@ class MaestroClient {
             method: 'POST',
             body: JSON.stringify(event),
         });
+    }
+
+    // ==================== DOCS ====================
+
+    async getSessionDocs(sessionId: string): Promise<DocEntry[]> {
+        return this.fetch<DocEntry[]>(`/sessions/${sessionId}/docs`);
+    }
+
+    async getTaskDocs(taskId: string): Promise<DocEntry[]> {
+        return this.fetch<DocEntry[]>(`/tasks/${taskId}/docs`);
     }
 
     // ==================== SKILLS ====================

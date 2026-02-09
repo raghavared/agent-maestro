@@ -46,3 +46,14 @@ ${PROJECT_STANDARDS}
 - Use `maestro task children ${TASK_ID}` to check subtask statuses
 - If a subtask is blocked, report it and move to another subtask
 - Mark the session complete only when ALL subtasks are done
+
+## Documentation
+
+When you create documentation or artifacts, add them to the docs timeline:
+
+```
+maestro task docs add ${TASK_ID} "Doc Title" --file ./path/to/doc.md
+maestro session docs add "Doc Title" --file ./path/to/doc.md
+```
+
+List docs: `maestro task docs list ${TASK_ID}` or `maestro session docs list`

@@ -59,3 +59,14 @@ If no new tasks arrive after 30 minutes, the command will time out — at that p
 - Always run `maestro queue start` BEFORE working on a task
 - Always run `maestro queue complete` or `maestro queue fail` AFTER finishing a task
 - Process tasks in order — do not skip ahead
+
+## Documentation
+
+When you create documentation or artifacts, add them to the docs timeline:
+
+```
+maestro task docs add ${TASK_ID} "Doc Title" --file ./path/to/doc.md
+maestro session docs add "Doc Title" --file ./path/to/doc.md
+```
+
+List docs: `maestro task docs list ${TASK_ID}` or `maestro session docs list`

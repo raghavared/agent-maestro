@@ -5,6 +5,7 @@ import { outputJSON, outputTable, outputErrorJSON, outputKeyValue, outputTaskTre
 import { handleError } from '../utils/errors.js';
 import { guardCommand } from '../services/command-permissions.js';
 import ora from 'ora';
+import { readFileSync } from 'fs';
 
 export function registerTaskCommands(program: Command) {
     const task = program.command('task').description('Manage tasks');
@@ -499,6 +500,91 @@ export function registerTaskCommands(program: Command) {
                 spinner?.succeed('Task error reported');
                 if (isJson) {
                     outputJSON({ success: true, taskId, sessionStatus: 'failed', sessionId });
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    // task docs <subcommand> — manage task documentation
+    const taskDocs = task.command('docs').description('Manage task documentation');
+
+    taskDocs.command('add <taskId> <title>')
+        .description('Add a doc entry to a task')
+        .requiredOption('--file <filePath>', 'File path for the doc')
+        .option('--content <content>', 'Content of the doc (reads file if not provided)')
+        .action(async (taskId: string, title: string, cmdOpts: any) => {
+            await guardCommand('task:docs:add');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const sessionId = config.sessionId;
+
+            if (!sessionId) {
+                const err = { message: 'No session context found. MAESTRO_SESSION_ID must be set.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            let content = cmdOpts.content;
+            if (!content && cmdOpts.file) {
+                try {
+                    content = readFileSync(cmdOpts.file, 'utf-8');
+                } catch (e: any) {
+                    const err = { message: `Failed to read file: ${e.message}` };
+                    if (isJson) { outputErrorJSON(err); process.exit(1); }
+                    else { console.error(err.message); process.exit(1); }
+                }
+            }
+
+            const spinner = !isJson ? ora('Adding doc to task...').start() : null;
+            try {
+                const doc = await api.post(`/api/sessions/${sessionId}/docs`, {
+                    title,
+                    filePath: cmdOpts.file,
+                    taskId,
+                    content,
+                });
+
+                spinner?.succeed('Doc added to task');
+
+                if (isJson) {
+                    outputJSON(doc);
+                } else {
+                    outputKeyValue('Title', title);
+                    outputKeyValue('File', cmdOpts.file);
+                    outputKeyValue('Task', taskId);
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    taskDocs.command('list <taskId>')
+        .description('List docs for a task (aggregated from all sessions)')
+        .action(async (taskId: string) => {
+            await guardCommand('task:docs:list');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const spinner = !isJson ? ora('Fetching task docs...').start() : null;
+
+            try {
+                const docs: any[] = await api.get(`/api/tasks/${taskId}/docs`);
+
+                spinner?.stop();
+
+                if (isJson) {
+                    outputJSON(docs);
+                } else {
+                    if (docs.length === 0) {
+                        console.log('No docs found for this task.');
+                    } else {
+                        outputTable(
+                            ['ID', 'Title', 'File Path', 'Added At'],
+                            docs.map(d => [d.id, d.title, d.filePath, new Date(d.addedAt).toLocaleString()])
+                        );
+                    }
                 }
             } catch (err) {
                 spinner?.stop();

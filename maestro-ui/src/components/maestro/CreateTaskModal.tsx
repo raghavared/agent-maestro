@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { MentionsInput, Mention } from 'react-mentions';
 import { TaskPriority, AgentSkill, MaestroProject, MaestroTask, ModelType } from "../../app/types/maestro";
@@ -235,35 +236,35 @@ export function CreateTaskModal({
     // Safely handle subtasks
     const subtasks = isEditMode && task ? (task.subtasks || []) : [];
 
-    // Style for react-mentions - CSS handles visual styling
+    // Style for react-mentions
     const mentionsStyle = {
         control: {
             backgroundColor: 'transparent',
-            fontSize: '14px',
+            fontSize: '12px',
             fontWeight: 'normal' as const,
             lineHeight: '1.5',
-            minHeight: '150px',
+            minHeight: '120px',
         },
         '&multiLine': {
             control: {
                 fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                minHeight: '150px',
+                minHeight: '120px',
             },
             highlighter: {
-                padding: '12px',
+                padding: '8px 10px',
                 border: '1px solid transparent',
                 color: 'transparent',
                 fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                fontSize: '14px',
+                fontSize: '12px',
                 lineHeight: '1.5',
                 pointerEvents: 'none' as const,
             },
             input: {
-                padding: '12px',
+                padding: '8px 10px',
                 border: '1px solid transparent',
                 outline: 'none',
                 fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                fontSize: '14px',
+                fontSize: '12px',
                 lineHeight: '1.5',
             },
         },
@@ -282,62 +283,66 @@ export function CreateTaskModal({
         },
     };
 
-    return (
-        <div className="maestroModalOverlay terminalModal" onClick={isEditMode ? onClose : undefined}>
-            <div className="createTaskModal terminalTheme" onClick={isEditMode ? (e) => e.stopPropagation() : undefined}>
-                <div className="createTaskModalHeader">
-                    <div className="createTaskModalHeaderContent">
-                        <div className="createTaskModalIcon">
-                            <Icon name="terminal" />
-                        </div>
-                        <div>
-                            {isEditMode && breadcrumb.length > 1 && (
-                                <div className="terminalModalBreadcrumb" style={{ marginBottom: '4px' }}>
-                                    {breadcrumb.slice(0, -1).map(t => (
-                                        <span
-                                            key={t.id}
-                                            className="terminalBreadcrumbItem"
-                                            onClick={() => onNavigateToTask?.(t.id)}
-                                            style={{ cursor: 'pointer', color: 'var(--muted)', fontSize: '12px' }}
-                                        >
-                                            {t.title} ›{' '}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                            <h2 className="createTaskModalTitle">
-                                {isEditMode ? 'Edit Task' : (parentId ? 'New Subtask' : 'New Agent Task')}
-                            </h2>
-                            <p className="createTaskModalSubtitle">
-                                {isEditMode && task ? (
-                                    <>
-                                        <span className={`terminalModalStatusBadge terminalModalStatusBadge--${task.status}`} style={{ marginRight: '8px' }}>
-                                            {STATUS_LABELS[task.status] || task.status}
-                                        </span>
-                                        <span style={{ color: 'var(--muted)', fontSize: '12px' }}>
-                                            Created {formatDate(task.createdAt)}
-                                        </span>
-                                    </>
-                                ) : parentId && parentTitle
-                                    ? `Creating subtask of: ${parentTitle}`
-                                    : 'Give your task a title and describe what you want Claude to build'
-                                }
-                            </p>
-                        </div>
-                    </div>
-                    <button className="createTaskModalClose" onClick={handleClose}>
-                        <Icon name="close" />
-                    </button>
+    const modalTitle = isEditMode
+        ? 'EDIT TASK'
+        : parentId
+            ? 'NEW SUBTASK'
+            : 'NEW AGENT TASK';
+
+    return createPortal(
+        <div className="themedModalBackdrop" onClick={handleClose}>
+            <div className="themedModal themedModal--wide" onClick={(e) => e.stopPropagation()}>
+                <div className="themedModalHeader">
+                    <span className="themedModalTitle">[ {modalTitle} ]</span>
+                    <button className="themedModalClose" onClick={handleClose}>×</button>
                 </div>
 
-                <div className="createTaskModalBody">
+                <div className="themedModalContent">
+                    {/* Breadcrumb for edit mode */}
+                    {isEditMode && breadcrumb.length > 1 && (
+                        <div className="themedFormHint" style={{ marginBottom: '8px' }}>
+                            {breadcrumb.slice(0, -1).map(t => (
+                                <span
+                                    key={t.id}
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => onNavigateToTask?.(t.id)}
+                                >
+                                    {t.title} &rsaquo;{' '}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Status info for edit mode */}
+                    {isEditMode && task && (
+                        <div className="themedFormRow">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span className="themedTaskStatusBadge" data-status={task.status}>
+                                    {STATUS_LABELS[task.status] || task.status}
+                                </span>
+                                <span className="themedFormHint">
+                                    Created {formatDate(task.createdAt)}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Subtitle for create mode */}
+                    {!isEditMode && (
+                        <div className="themedFormHint" style={{ marginBottom: '10px' }}>
+                            {parentId && parentTitle
+                                ? `Creating subtask of: ${parentTitle}`
+                                : 'Give your task a title and describe what you want Claude to build'}
+                        </div>
+                    )}
+
                     {/* Title Input */}
-                    <div className="createTaskTitleContainer">
-                        <label className="createTaskLabel">Task Title</label>
+                    <div className="themedFormRow">
+                        <div className="themedFormLabel">Title</div>
                         <input
                             ref={titleInputRef}
                             type="text"
-                            className="createTaskTitleInput"
+                            className="themedFormInput"
                             placeholder="e.g., Build user authentication system"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
@@ -346,9 +351,9 @@ export function CreateTaskModal({
                     </div>
 
                     {/* Prompt/Description Textarea */}
-                    <div className="createTaskPromptContainer">
-                        <label className="createTaskLabel">Task Description</label>
-                        <div className="createTaskPromptWrapper mentionsWrapper">
+                    <div className="themedFormRow">
+                        <div className="themedFormLabel">Description</div>
+                        <div className="mentionsWrapper">
                             <MentionsInput
                                 value={prompt}
                                 onChange={(e) => setPrompt(e.target.value)}
@@ -367,115 +372,117 @@ export function CreateTaskModal({
                                     )}
                                 />
                             </MentionsInput>
-                            <div className="createTaskPromptGlow"></div>
                         </div>
-                        <div className="createTaskPromptHint">
-                            <Icon name="message" />
-                            <span>Tip: Be specific about requirements. Use <strong>@</strong> to tag files.</span>
+                        <div className="themedFormHint">
+                            Tip: Be specific about requirements. Use @ to tag files.
                         </div>
                     </div>
 
-                    <div className="createTaskOptions">
-                        <div className="createTaskOptionRow">
-                            <span className="createTaskOptionLabel">Priority</span>
-                            <div className="createTaskPrioritySelector">
-                                <button
-                                    type="button"
-                                    className={`createTaskPriorityBtn ${priority === "low" ? "active" : ""}`}
-                                    onClick={() => setPriority("low")}
-                                >
-                                    Low
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`createTaskPriorityBtn ${priority === "medium" ? "active" : ""}`}
-                                    onClick={() => setPriority("medium")}
-                                >
-                                    Medium
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`createTaskPriorityBtn ${priority === "high" ? "active" : ""}`}
-                                    onClick={() => setPriority("high")}
-                                >
-                                    High
-                                </button>
-                            </div>
+                    {/* Priority */}
+                    <div className="themedFormRow">
+                        <div className="themedFormLabel">Priority</div>
+                        <div className="themedSegmentedControl">
+                            <button
+                                type="button"
+                                className={`themedSegmentedBtn ${priority === "low" ? "active" : ""}`}
+                                onClick={() => setPriority("low")}
+                            >
+                                Low
+                            </button>
+                            <button
+                                type="button"
+                                className={`themedSegmentedBtn ${priority === "medium" ? "active" : ""}`}
+                                onClick={() => setPriority("medium")}
+                            >
+                                Medium
+                            </button>
+                            <button
+                                type="button"
+                                className={`themedSegmentedBtn ${priority === "high" ? "active" : ""}`}
+                                onClick={() => setPriority("high")}
+                            >
+                                High
+                            </button>
                         </div>
-
-                        <div className="createTaskOptionRow">
-                            <span className="createTaskOptionLabel">Model</span>
-                            <div className="createTaskPrioritySelector">
-                                <button
-                                    type="button"
-                                    className={`createTaskPriorityBtn ${model === "haiku" ? "active" : ""}`}
-                                    onClick={() => setModel("haiku")}
-                                >
-                                    Haiku
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`createTaskPriorityBtn ${model === "sonnet" ? "active" : ""}`}
-                                    onClick={() => setModel("sonnet")}
-                                >
-                                    Sonnet
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`createTaskPriorityBtn ${model === "opus" ? "active" : ""}`}
-                                    onClick={() => setModel("opus")}
-                                >
-                                    Opus
-                                </button>
-                            </div>
-                        </div>
-
-                        <button
-                            type="button"
-                            className="createTaskAdvancedToggle"
-                            onClick={() => setShowAdvanced(!showAdvanced)}
-                        >
-                            Advanced options
-                            <span className={`createTaskAdvancedChevron ${showAdvanced ? "open" : ""}`}>›</span>
-                        </button>
-
-                        {showAdvanced && (
-                            <div className="createTaskAdvancedOptions">
-                                <div className="createTaskAdvancedSection">
-                                    <label className="createTaskAdvancedLabel">Claude Code Skills</label>
-                                    <ClaudeCodeSkillsSelector
-                                        selectedSkills={selectedSkills}
-                                        onSelectionChange={setSelectedSkills}
-                                    />
-                                </div>
-                            </div>
-                        )}
                     </div>
+
+                    {/* Model */}
+                    <div className="themedFormRow">
+                        <div className="themedFormLabel">Model</div>
+                        <div className="themedSegmentedControl">
+                            <button
+                                type="button"
+                                className={`themedSegmentedBtn ${model === "haiku" ? "active" : ""}`}
+                                onClick={() => setModel("haiku")}
+                            >
+                                Haiku
+                            </button>
+                            <button
+                                type="button"
+                                className={`themedSegmentedBtn ${model === "sonnet" ? "active" : ""}`}
+                                onClick={() => setModel("sonnet")}
+                            >
+                                Sonnet
+                            </button>
+                            <button
+                                type="button"
+                                className={`themedSegmentedBtn ${model === "opus" ? "active" : ""}`}
+                                onClick={() => setModel("opus")}
+                            >
+                                Opus
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Advanced Options */}
+                    <button
+                        type="button"
+                        className="themedBrowseToggle"
+                        onClick={() => setShowAdvanced(!showAdvanced)}
+                    >
+                        <span className={`themedBrowseToggleArrow${showAdvanced ? " themedBrowseToggleArrow--open" : ""}`}>
+                            &#9654;
+                        </span>
+                        Advanced options
+                    </button>
+
+                    {showAdvanced && (
+                        <div className="themedFormRow" style={{ paddingLeft: '12px', borderLeft: '1px solid var(--theme-border)' }}>
+                            <div className="themedFormLabel">Claude Code Skills</div>
+                            <ClaudeCodeSkillsSelector
+                                selectedSkills={selectedSkills}
+                                onSelectionChange={setSelectedSkills}
+                            />
+                        </div>
+                    )}
 
                     {/* Edit mode: Subtasks Section */}
                     {isEditMode && (
-                        <div className="terminalModalSection" style={{ marginTop: '16px', borderTop: '1px solid #333', paddingTop: '16px' }}>
-                            <div className="terminalModalSectionHeader">
-                                <h3 className="terminalModalSectionTitle">
+                        <div className="themedFormRow" style={{ borderTop: '1px solid var(--theme-border)', paddingTop: '14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div className="themedFormLabel" style={{ marginBottom: 0 }}>
                                     &gt; Subtasks
                                     {subtaskProgress.total > 0 && (
-                                        <span className="terminalModalSubtaskCount">
+                                        <span style={{ fontWeight: 400, marginLeft: '8px' }}>
                                             ({subtaskProgress.completed}/{subtaskProgress.total} — {subtaskProgress.percentage}%)
                                         </span>
                                     )}
-                                </h3>
+                                </div>
                                 <button
-                                    className="terminalModalAddBtn"
+                                    type="button"
+                                    className="themedBtn"
                                     onClick={() => setShowSubtaskInput(!showSubtaskInput)}
+                                    style={{ padding: '2px 8px', fontSize: '10px' }}
                                 >
                                     + add
                                 </button>
                             </div>
 
                             {showSubtaskInput && (
-                                <div className="terminalModalSubtaskInput">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
                                     <input
                                         type="text"
+                                        className="themedFormInput"
                                         placeholder="$ enter subtask title..."
                                         value={newSubtaskTitle}
                                         onChange={(e) => setNewSubtaskTitle(e.target.value)}
@@ -488,9 +495,10 @@ export function CreateTaskModal({
                                         }}
                                         autoFocus
                                     />
-                                    <div className="terminalModalSubtaskInputActions">
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                                         <button
-                                            className="terminalModalBtn terminalModalBtnSecondary"
+                                            type="button"
+                                            className="themedBtn"
                                             onClick={() => {
                                                 setShowSubtaskInput(false);
                                                 setNewSubtaskTitle("");
@@ -499,7 +507,8 @@ export function CreateTaskModal({
                                             cancel
                                         </button>
                                         <button
-                                            className="terminalModalBtn terminalModalBtnPrimary"
+                                            type="button"
+                                            className="themedBtn themedBtnPrimary"
                                             onClick={handleAddSubtask}
                                             disabled={!newSubtaskTitle.trim()}
                                         >
@@ -509,36 +518,36 @@ export function CreateTaskModal({
                                 </div>
                             )}
 
-                            <div className="terminalModalSubtaskList">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '6px' }}>
                                 {subtasks.length === 0 ? (
-                                    <div className="terminalModalEmptyState">
-                                        <p>No subtasks yet</p>
-                                    </div>
+                                    <div className="themedFormHint">No subtasks yet</div>
                                 ) : (
                                     subtasks.map((subtask) => (
                                         <div
                                             key={subtask.id}
-                                            className={`terminalModalSubtaskItem ${subtask.status === "completed" ? "completed" : ""}`}
+                                            className="themedSubtaskItem"
+                                            data-completed={subtask.status === "completed"}
                                             onClick={() => onNavigateToTask?.(subtask.id)}
                                             style={{ cursor: onNavigateToTask ? 'pointer' : undefined }}
                                         >
-                                            <div
-                                                className="terminalModalSubtaskCheckbox"
+                                            <span
+                                                className="themedSubtaskCheckbox"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     onToggleSubtask?.(subtask.id);
                                                 }}
                                             >
                                                 {subtask.status === "completed" ? "[✓]" : "[ ]"}
-                                            </div>
-                                            <span className="terminalModalSubtaskTitle">{subtask.title}</span>
-                                            <span className="terminalModalSubtaskTime">
+                                            </span>
+                                            <span className="themedSubtaskTitle">{subtask.title}</span>
+                                            <span className="themedFormHint" style={{ flexShrink: 0 }}>
                                                 {formatDate(subtask.createdAt)}
                                             </span>
                                             {onWorkOnSubtask && (
                                                 <button
-                                                    className="terminalPlayBtn"
-                                                    style={{ fontSize: '10px', padding: '0 4px' }}
+                                                    type="button"
+                                                    className="themedBtn"
+                                                    style={{ padding: '0 4px', fontSize: '10px' }}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         onWorkOnSubtask(subtask);
@@ -549,7 +558,9 @@ export function CreateTaskModal({
                                                 </button>
                                             )}
                                             <button
-                                                className="terminalModalSubtaskDelete"
+                                                type="button"
+                                                className="themedBtn themedBtnDanger"
+                                                style={{ padding: '0 4px', fontSize: '12px' }}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     onDeleteSubtask?.(subtask.id);
@@ -567,26 +578,28 @@ export function CreateTaskModal({
 
                     {/* Edit mode: Sessions Section */}
                     {isEditMode && sessions.length > 0 && (
-                        <div className="terminalModalSection" style={{ marginTop: '16px', borderTop: '1px solid #333', paddingTop: '16px' }}>
-                            <h3 className="terminalModalSectionTitle">
+                        <div className="themedFormRow" style={{ borderTop: '1px solid var(--theme-border)', paddingTop: '14px' }}>
+                            <div className="themedFormLabel">
                                 &gt; Sessions ({sessions.length})
-                            </h3>
+                            </div>
                             {sessions.map(session => (
-                                <div key={session.id} className="terminalModalSessionItem" style={{
+                                <div key={session.id} style={{
                                     display: 'flex', alignItems: 'center', gap: '8px',
-                                    padding: '6px 8px', borderBottom: '1px solid #333'
+                                    padding: '4px 0', borderBottom: '1px solid var(--theme-border)'
                                 }}>
-                                    <span className={`terminalSessionStatusBadge terminalSessionStatusBadge--${session.status}`}
-                                        style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '2px' }}>
+                                    <span className="themedTaskStatusBadge" data-status={session.status}>
                                         {session.status}
                                     </span>
-                                    <span style={{ flex: 1, fontSize: '13px' }}>{session.name || session.id}</span>
+                                    <span style={{ flex: 1, fontSize: '11px', color: 'var(--theme-primary)' }}>
+                                        {session.name || session.id}
+                                    </span>
                                     {onJumpToSession && (
                                         <button
-                                            className="terminalSessionBtn"
+                                            type="button"
+                                            className="themedBtn"
                                             onClick={() => onJumpToSession(session.id)}
                                             title="Jump to session"
-                                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--green, #00ff00)' }}
+                                            style={{ padding: '0 4px', fontSize: '11px' }}
                                         >
                                             ↗
                                         </button>
@@ -598,29 +611,27 @@ export function CreateTaskModal({
 
                     {/* Edit mode: Activity Stats */}
                     {isEditMode && task && (task.sessionCount ?? 0) > 0 && (
-                        <div className="terminalModalSection" style={{ marginTop: '16px', borderTop: '1px solid #333', paddingTop: '16px' }}>
-                            <h3 className="terminalModalSectionTitle">
-                                &gt; Activity
-                            </h3>
-                            <div className="terminalModalStats">
-                                <div className="terminalModalStatItem">
-                                    <span className="terminalModalStatLabel">sessions:</span>
-                                    <span className="terminalModalStatValue">{task.sessionCount}</span>
-                                </div>
-                                <div className="terminalModalStatItem">
-                                    <span className="terminalModalStatLabel">updated:</span>
-                                    <span className="terminalModalStatValue">{formatDate(task.updatedAt)}</span>
-                                </div>
+                        <div className="themedFormRow" style={{ borderTop: '1px solid var(--theme-border)', paddingTop: '14px' }}>
+                            <div className="themedFormLabel">&gt; Activity</div>
+                            <div style={{ display: 'flex', gap: '16px', fontSize: '11px' }}>
+                                <span>
+                                    <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)' }}>sessions:</span>{' '}
+                                    <span style={{ color: 'var(--theme-primary)' }}>{task.sessionCount}</span>
+                                </span>
+                                <span>
+                                    <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)' }}>updated:</span>{' '}
+                                    <span style={{ color: 'var(--theme-primary)' }}>{formatDate(task.updatedAt)}</span>
+                                </span>
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div className="createTaskModalFooter">
+                <div className="themedFormActions">
                     {isEditMode ? (
                         <>
-                            <div className="createTaskModalFooterLeft" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span className="terminalModalFooterLabel" style={{ fontSize: '12px', color: 'var(--muted)' }}>agent:</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                                <span className="themedFormHint">agent:</span>
                                 {selectedAgentId && onAgentSelect && (
                                     <AgentSelector
                                         selectedAgentId={selectedAgentId}
@@ -629,67 +640,45 @@ export function CreateTaskModal({
                                     />
                                 )}
                             </div>
-                            <div className="createTaskModalFooterRight">
-                                <button
-                                    type="button"
-                                    className="createTaskBtn createTaskBtnSecondary"
-                                    onClick={handleClose}
-                                >
-                                    Close
-                                </button>
-                                <button
-                                    type="button"
-                                    className="createTaskBtn createTaskBtnPrimary"
-                                    onClick={handleSave}
-                                >
-                                    Save
-                                </button>
-                                <button
-                                    type="button"
-                                    className="createTaskBtn createTaskBtnSuccess"
-                                    onClick={() => {
-                                        onWorkOn?.();
-                                        onClose();
-                                    }}
-                                >
-                                    $ exec
-                                </button>
-                            </div>
+                            <button type="button" className="themedBtn" onClick={handleClose}>
+                                Close
+                            </button>
+                            <button type="button" className="themedBtn themedBtnPrimary" onClick={handleSave}>
+                                Save
+                            </button>
+                            <button
+                                type="button"
+                                className="themedBtn themedBtnSuccess"
+                                onClick={() => {
+                                    onWorkOn?.();
+                                    onClose();
+                                }}
+                            >
+                                $ exec
+                            </button>
                         </>
                     ) : (
                         <>
-                            <div className="createTaskModalFooterLeft">
-                                <span className="createTaskModalKeyboardHint">
-                                    ⌘↵ to create
-                                </span>
-                            </div>
-                            <div className="createTaskModalFooterRight">
-                                <button
-                                    type="button"
-                                    className="createTaskBtn createTaskBtnSecondary"
-                                    onClick={handleClose}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    className="createTaskBtn createTaskBtnPrimary"
-                                    onClick={() => handleSubmit(false)}
-                                    disabled={!title.trim() || !prompt.trim()}
-                                >
-                                    <Icon name="plus" />
-                                    Create Task
-                                </button>
-                                <button
-                                    type="button"
-                                    className="createTaskBtn createTaskBtnSuccess"
-                                    onClick={() => handleSubmit(true)}
-                                    disabled={!title.trim() || !prompt.trim()}
-                                >
-                                    <Icon name="play" />
-                                    Create & Run
-                                </button>
-                            </div>
+                            <span className="themedFormHint" style={{ flex: 1 }}>⌘↵ to create</span>
+                            <button type="button" className="themedBtn" onClick={handleClose}>
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="themedBtn themedBtnPrimary"
+                                onClick={() => handleSubmit(false)}
+                                disabled={!title.trim() || !prompt.trim()}
+                            >
+                                Create Task
+                            </button>
+                            <button
+                                type="button"
+                                className="themedBtn themedBtnSuccess"
+                                onClick={() => handleSubmit(true)}
+                                disabled={!title.trim() || !prompt.trim()}
+                            >
+                                Create &amp; Run
+                            </button>
                         </>
                     )}
                 </div>
@@ -697,34 +686,28 @@ export function CreateTaskModal({
 
             {/* Confirmation Dialog */}
             {showConfirmDialog && (
-                <div className="maestroModalOverlay confirmDialogOverlay" onClick={handleCancelDiscard}>
-                    <div className="confirmDialog terminalTheme" onClick={(e) => e.stopPropagation()}>
-                        <div className="confirmDialogHeader">
-                            <span className="confirmDialogIcon">⚠</span>
-                            <span>Unsaved Changes</span>
+                <div className="themedModalBackdrop" onClick={handleCancelDiscard}>
+                    <div className="themedModal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+                        <div className="themedModalHeader">
+                            <span className="themedModalTitle">[ UNSAVED CHANGES ]</span>
                         </div>
-                        <div className="confirmDialogBody">
-                            You have unsaved task details. Are you sure you want to discard them?
+                        <div className="themedModalContent">
+                            <p style={{ margin: 0, fontSize: '12px', color: 'rgba(var(--theme-primary-rgb), 0.7)' }}>
+                                You have unsaved task details. Are you sure you want to discard them?
+                            </p>
                         </div>
-                        <div className="confirmDialogFooter">
-                            <button
-                                type="button"
-                                className="createTaskBtn createTaskBtnSecondary"
-                                onClick={handleCancelDiscard}
-                            >
+                        <div className="themedFormActions">
+                            <button type="button" className="themedBtn" onClick={handleCancelDiscard}>
                                 Keep Editing
                             </button>
-                            <button
-                                type="button"
-                                className="createTaskBtn createTaskBtnDanger"
-                                onClick={handleConfirmDiscard}
-                            >
+                            <button type="button" className="themedBtn themedBtnDanger" onClick={handleConfirmDiscard}>
                                 Discard
                             </button>
                         </div>
                     </div>
                 </div>
             )}
-        </div>
+        </div>,
+        document.body
     );
 }

@@ -1,4 +1,4 @@
-import { Session, SessionStatus, CreateSessionPayload, UpdateSessionPayload, SessionTimelineEvent, SessionTimelineEventType } from '../../types';
+import { Session, SessionStatus, CreateSessionPayload, UpdateSessionPayload, SessionTimelineEvent, SessionTimelineEventType, DocEntry } from '../../types';
 import { ISessionRepository, SessionFilter } from '../../domain/repositories/ISessionRepository';
 import { ITaskRepository } from '../../domain/repositories/ITaskRepository';
 import { IProjectRepository } from '../../domain/repositories/IProjectRepository';
@@ -276,6 +276,54 @@ export class SessionService {
     }
 
     // Fetch the fully updated session after all mutations
+    const updatedSession = await this.sessionRepo.findById(sessionId);
+    if (!updatedSession) {
+      throw new NotFoundError('Session', sessionId);
+    }
+
+    await this.eventBus.emit('session:updated', updatedSession);
+
+    return updatedSession;
+  }
+
+  /**
+   * Add a document to a session and create a timeline event.
+   */
+  async addDoc(
+    sessionId: string,
+    title: string,
+    filePath: string,
+    content?: string,
+    taskId?: string,
+  ): Promise<Session> {
+    const session = await this.sessionRepo.findById(sessionId);
+    if (!session) {
+      throw new NotFoundError('Session', sessionId);
+    }
+
+    const doc: DocEntry = {
+      id: this.idGenerator.generate('doc'),
+      title,
+      filePath,
+      content,
+      taskId,
+      addedAt: Date.now(),
+      addedBy: sessionId,
+    };
+
+    await this.sessionRepo.addDoc(sessionId, doc);
+
+    // Also add a timeline event
+    const event: SessionTimelineEvent = {
+      id: this.idGenerator.generate('evt'),
+      type: 'doc_added',
+      timestamp: Date.now(),
+      message: `Doc added: ${title}`,
+      taskId,
+      metadata: { docId: doc.id, filePath, title },
+    };
+    await this.sessionRepo.addTimelineEvent(sessionId, event);
+
     const updatedSession = await this.sessionRepo.findById(sessionId);
     if (!updatedSession) {
       throw new NotFoundError('Session', sessionId);

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { getProcessEffectById, type ProcessEffect } from "../processEffects";
 import { shortenPathSmart, normalizeSeparators } from "../pathDisplay";
@@ -73,10 +73,24 @@ export function SessionsSection({
 }: SessionsSectionProps) {
   // ==================== STATE MANAGEMENT (PHASE V) ====================
 
-  const createMenuRef = React.useRef<HTMLDivElement | null>(null);
   const settingsMenuRef = React.useRef<HTMLDivElement | null>(null);
-  const [createOpen, setCreateOpen] = React.useState(false);
+  const settingsBtnRef = React.useRef<HTMLButtonElement | null>(null);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [settingsDropdownPos, setSettingsDropdownPos] = React.useState<{ top: number; right: number } | null>(null);
+
+  const computeDropdownPos = useCallback((btnRef: React.RefObject<HTMLButtonElement | null>) => {
+    const btn = btnRef.current;
+    if (!btn) return null;
+    const rect = btn.getBoundingClientRect();
+    return { top: rect.bottom + 4, right: window.innerWidth - rect.right };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (settingsOpen) {
+      setSettingsDropdownPos(computeDropdownPos(settingsBtnRef));
+    }
+  }, [settingsOpen, computeDropdownPos]);
+
 
   const [sessionModalId, setSessionModalId] = React.useState<string | null>(null);
 
@@ -151,99 +165,31 @@ export function SessionsSection({
   };
 
   React.useEffect(() => {
-    if (!createOpen && !settingsOpen) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (createMenuRef.current?.contains(target)) return;
-      if (settingsMenuRef.current?.contains(target)) return;
-      setCreateOpen(false);
-      setSettingsOpen(false);
-    };
+    if (!settingsOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setCreateOpen(false);
       setSettingsOpen(false);
     };
 
-    document.addEventListener("mousedown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [createOpen, settingsOpen]);
+  }, [settingsOpen]);
 
   return (
     <>
       <div className="sidebarHeader">
         <div className="title">Sessions</div>
         <div className="sidebarHeaderActions">
-          <div className="sidebarActionMenu" ref={createMenuRef}>
-            <button
-              type="button"
-              className={`btnSmall btnIcon ${createOpen ? "btnIconActive" : ""}`}
-              onClick={() =>
-                setCreateOpen((prev) => {
-                  const next = !prev;
-                  if (next) setSettingsOpen(false);
-                  return next;
-                })
-              }
-              title="New terminal"
-              aria-label="New terminal"
-              aria-haspopup="menu"
-              aria-expanded={createOpen}
-            >
-              <Icon name="plus" />
-            </button>
-            {createOpen && (
-              <div className="sidebarActionMenuDropdown" role="menu" aria-label="New terminal">
-                <button
-                  type="button"
-                  className="sidebarActionMenuItem"
-                  role="menuitem"
-                  onClick={() => {
-                    setCreateOpen(false);
-                    onOpenNewSession();
-                  }}
-                >
-                  <Icon name="plus" />
-                  <span
-                    className="sessionLegendSwatch sessionLegendSwatchDefault"
-                    aria-hidden="true"
-                  />
-                  <span>New terminal</span>
-                </button>
-                <button
-                  type="button"
-                  className="sidebarActionMenuItem"
-                  role="menuitem"
-                  onClick={() => {
-                    setCreateOpen(false);
-                    onOpenSshManager();
-                  }}
-                >
-                  <Icon name="ssh" />
-                  <span className="sessionLegendSwatch sessionLegendSwatchSsh" aria-hidden="true" />
-                  <span>SSH connect</span>
-                </button>
-              </div>
-            )}
-          </div>
-
           <div className="sidebarActionMenu" ref={settingsMenuRef}>
             <button
+              ref={settingsBtnRef}
               type="button"
               className={`btnSmall btnIcon ${settingsOpen ? "btnIconActive" : ""}`}
               onClick={() =>
-                setSettingsOpen((prev) => {
-                  const next = !prev;
-                  if (next) setCreateOpen(false);
-                  return next;
-                })
+                setSettingsOpen((prev) => !prev)
               }
               title="Session tools"
               aria-label="Session tools"
@@ -252,76 +198,97 @@ export function SessionsSection({
             >
               <Icon name="settings" />
             </button>
-            {settingsOpen && (
-              <div className="sidebarActionMenuDropdown" role="menu" aria-label="Session tools">
-                <button
-                  type="button"
-                  className="sidebarActionMenuItem"
-                  role="menuitem"
-                  onClick={() => {
-                    setSettingsOpen(false);
-                    onOpenAgentShortcuts();
-                  }}
+            {settingsOpen && settingsDropdownPos && createPortal(
+              <>
+                <div
+                  className="terminalInlineStatusOverlay"
+                  onClick={() => setSettingsOpen(false)}
+                />
+                <div
+                  className="sidebarActionMenuDropdown sidebarActionMenuDropdown--fixed"
+                  role="menu"
+                  aria-label="Session tools"
+                  style={{ position: 'fixed', top: settingsDropdownPos.top, right: settingsDropdownPos.right }}
                 >
-                  <Icon name="bolt" />
-                  <span>Agent shortcuts</span>
-                </button>
-                <button
-                  type="button"
-                  className="sidebarActionMenuItem"
-                  role="menuitem"
-                  onClick={() => {
-                    setSettingsOpen(false);
-                    onOpenManageTerminals();
-                  }}
-                >
-                  <Icon name="files" />
-                  <span>Manage terminals</span>
-                </button>
-                <button
-                  type="button"
-                  className="sidebarActionMenuItem"
-                  role="menuitem"
-                  onClick={() => {
-                    setSettingsOpen(false);
-                    onOpenPersistentSessions();
-                  }}
-                >
-                  <Icon name="layers" />
-                  <span
-                    className="sessionLegendSwatch sessionLegendSwatchPersistent"
-                    aria-hidden="true"
-                  />
-                  <span>Manage persistent terminals</span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    className="sidebarActionMenuItem"
+                    role="menuitem"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      onOpenAgentShortcuts();
+                    }}
+                  >
+                    <Icon name="bolt" />
+                    <span>Agent shortcuts</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="sidebarActionMenuItem"
+                    role="menuitem"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      onOpenManageTerminals();
+                    }}
+                  >
+                    <Icon name="files" />
+                    <span>Manage terminals</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="sidebarActionMenuItem"
+                    role="menuitem"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      onOpenPersistentSessions();
+                    }}
+                  >
+                    <Icon name="layers" />
+                    <span
+                      className="sessionLegendSwatch sessionLegendSwatchPersistent"
+                      aria-hidden="true"
+                    />
+                    <span>Manage persistent terminals</span>
+                  </button>
+                </div>
+              </>,
+              document.body
             )}
           </div>
         </div>
       </div>
 
-      {agentShortcuts.length > 0 && (
-        <div className="agentShortcutRow" role="toolbar" aria-label="Agent shortcuts">
-          {agentShortcuts.map((effect) => (
-            <button
-              key={effect.id}
-              type="button"
-              className="agentShortcutBtn"
-              onClick={() => onQuickStart(effect)}
-              title={`Start ${effect.label}`}
-            >
-              {effect.iconSrc ? (
-                <img className="agentShortcutIcon" src={effect.iconSrc} alt="" aria-hidden="true" />
-              ) : (
-                <span className="agentShortcutIconFallback" aria-hidden="true">
-                  {"\u25B6"}
-                </span>
-              )}
-              <span className="agentShortcutLabel">{effect.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="agentShortcutRow" role="toolbar" aria-label="Quick launch">
+        <button
+          type="button"
+          className="agentShortcutBtn"
+          onClick={onOpenNewSession}
+          title="New terminal"
+        >
+          <span className="agentShortcutIconFallback" aria-hidden="true">
+            {">_"}
+          </span>
+          <span className="agentShortcutLabel">Terminal</span>
+        </button>
+        {agentShortcuts.map((effect) => (
+          <button
+            key={effect.id}
+            type="button"
+            className="agentShortcutBtn"
+            onClick={() => onQuickStart(effect)}
+            title={`Start ${effect.label}`}
+          >
+            {effect.iconSrc ? (
+              <img className="agentShortcutIcon" src={effect.iconSrc} alt="" aria-hidden="true" />
+            ) : (
+              <span className="agentShortcutIconFallback" aria-hidden="true">
+                {"\u25B6"}
+              </span>
+            )}
+            <span className="agentShortcutLabel">{effect.label}</span>
+          </button>
+        ))}
+      </div>
 
       <div className="sessionList">
         {sessions.length === 0 ? (
@@ -507,6 +474,7 @@ export function SessionsSection({
         />,
         document.body
       )}
+
     </>
   );
 }

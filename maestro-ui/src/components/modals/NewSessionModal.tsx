@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 
 type NewSessionModalProps = {
   isOpen: boolean;
@@ -42,83 +43,44 @@ export function NewSessionModal({
   onSubmit,
 }: NewSessionModalProps) {
   if (!isOpen) return null;
-  const datalistId = "newSessionCommandSuggestions";
 
-  return (
-      <div className="modalBackdrop" onClick={onClose}>
-        <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3 className="modalTitle">New terminal{projectName ? ` — ${projectName}` : ""}</h3>
+  return createPortal(
+    <div className="themedModalBackdrop" onClick={onClose}>
+      <div className="themedModal" onClick={(e) => e.stopPropagation()}>
+        <div className="themedModalHeader">
+          <span className="themedModalTitle">[ NEW TERMINAL ]</span>
+          <button className="themedModalClose" onClick={onClose}>×</button>
+        </div>
+
         <form onSubmit={onSubmit}>
-          <div className="formRow">
-            <div className="label">Name (optional)</div>
-            <input
-              className="input"
-              ref={nameInputRef}
-              value={name}
-              onChange={(e) => onChangeName(e.target.value)}
-              placeholder="e.g. codex"
-            />
-          </div>
-          <div className="formRow">
-            <div className="label">Command (optional)</div>
-            <input
-              className="input"
-              value={command}
-              onChange={(e) => onChangeCommand(e.target.value)}
-              list={commandSuggestions && commandSuggestions.length ? datalistId : undefined}
-              placeholder="e.g. codex  (leave blank for a shell)"
-            />
-            {commandSuggestions && commandSuggestions.length ? (
-              <datalist id={datalistId}>
-                {commandSuggestions.map((cmd) => (
-                  <option key={cmd} value={cmd} />
-                ))}
-              </datalist>
-            ) : null}
-            <div className="hint">Uses your $SHELL by default; commands run as "$SHELL -lc".</div>
-          </div>
-          <div className="formRow">
-            <div className="label">Working directory</div>
-            <div className="pathRow">
+          <div className="themedModalContent">
+            <div className="themedFormHint" style={{ marginBottom: '10px' }}>
+              Enter a name for your new terminal session
+            </div>
+
+            <div className="themedFormRow">
+              <div className="themedFormLabel">Terminal Name</div>
               <input
-                className="input"
-                value={cwd}
-                onChange={(e) => onChangeCwd(e.target.value)}
-                placeholder={cwdPlaceholder}
+                className="themedFormInput"
+                ref={nameInputRef}
+                value={name}
+                onChange={(e) => onChangeName(e.target.value)}
+                placeholder="e.g., main shell"
               />
-              <button type="button" className="btn" onClick={onBrowseCwd}>
-                Browse
-              </button>
-            </div>
-            <div className="pathActions">
-              <button
-                type="button"
-                className="btnSmall"
-                onClick={onUseProjectBase}
-                disabled={!canUseProjectBase}
-              >
-                Use project base
-              </button>
-              <button
-                type="button"
-                className="btnSmall"
-                onClick={onUseCurrentTab}
-                disabled={!canUseCurrentTab}
-              >
-                Use current tab
-              </button>
             </div>
           </div>
-          <div className="modalActions">
-            <button type="button" className="btn" onClick={onClose}>
+
+          <div className="themedFormActions">
+            <button type="button" className="themedBtn" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn">
-              Create
+            <button type="submit" className="themedBtn themedBtnPrimary">
+              Create Terminal
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

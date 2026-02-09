@@ -6,6 +6,7 @@ import { validateRequired, validateTaskId } from '../utils/validation.js';
 import { handleError } from '../utils/errors.js';
 import { guardCommand } from '../services/command-permissions.js';
 import ora from 'ora';
+import { readFileSync } from 'fs';
 
 /**
  * Build comprehensive session context for spawning
@@ -154,6 +155,96 @@ export function registerSessionCommands(program: Command) {
                     outputKeyValue('Name', s.name);
                     outputKeyValue('Status', s.status);
                     outputKeyValue('Tasks', (s.taskIds || []).join(', '));
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    // session docs <subcommand> — manage session documentation
+    const sessionDocs = session.command('docs').description('Manage session documentation');
+
+    sessionDocs.command('add <title>')
+        .description('Add a doc entry to the current session')
+        .requiredOption('--file <filePath>', 'File path for the doc')
+        .option('--content <content>', 'Content of the doc (reads file if not provided)')
+        .action(async (title: string, cmdOpts: any) => {
+            await guardCommand('session:docs:add');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const sessionId = config.sessionId;
+
+            if (!sessionId) {
+                const err = { message: 'No session context found. MAESTRO_SESSION_ID must be set.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            let content = cmdOpts.content;
+            if (!content && cmdOpts.file) {
+                try {
+                    content = readFileSync(cmdOpts.file, 'utf-8');
+                } catch (e: any) {
+                    const err = { message: `Failed to read file: ${e.message}` };
+                    if (isJson) { outputErrorJSON(err); process.exit(1); }
+                    else { console.error(err.message); process.exit(1); }
+                }
+            }
+
+            const spinner = !isJson ? ora('Adding doc to session...').start() : null;
+            try {
+                const doc = await api.post(`/api/sessions/${sessionId}/docs`, {
+                    title,
+                    filePath: cmdOpts.file,
+                    content,
+                });
+
+                spinner?.succeed('Doc added to session');
+
+                if (isJson) {
+                    outputJSON(doc);
+                } else {
+                    outputKeyValue('Title', title);
+                    outputKeyValue('File', cmdOpts.file);
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    sessionDocs.command('list')
+        .description('List docs for the current session')
+        .action(async () => {
+            await guardCommand('session:docs:list');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const sessionId = config.sessionId;
+
+            if (!sessionId) {
+                const err = { message: 'No session context found. MAESTRO_SESSION_ID must be set.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Fetching session docs...').start() : null;
+            try {
+                const docs: any[] = await api.get(`/api/sessions/${sessionId}/docs`);
+
+                spinner?.stop();
+
+                if (isJson) {
+                    outputJSON(docs);
+                } else {
+                    if (docs.length === 0) {
+                        console.log('No docs found for this session.');
+                    } else {
+                        outputTable(
+                            ['ID', 'Title', 'File Path', 'Added At'],
+                            docs.map(d => [d.id, d.title, d.filePath, new Date(d.addedAt).toLocaleString()])
+                        );
+                    }
                 }
             } catch (err) {
                 spinner?.stop();
