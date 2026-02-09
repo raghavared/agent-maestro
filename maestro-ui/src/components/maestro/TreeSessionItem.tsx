@@ -23,7 +23,6 @@ const SESSION_STATUS_SYMBOLS: Record<MaestroSessionStatus, string> = {
   completed: "\u2713",
   failed: "\u2717",
   stopped: "\u2298",
-  "needs-user-input": "\u26A0",
 };
 
 const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
@@ -33,7 +32,6 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   completed: "Completed",
   failed: "Failed",
   stopped: "Stopped",
-  "needs-user-input": "Needs Input",
 };
 
 // Task status symbols
@@ -172,8 +170,8 @@ export function TreeSessionItem({
           {isExpanded ? "\u25BE" : "\u25B8"}
         </button>
 
-        <span className={`simpleSessionItemStatus simpleSessionItemStatus--${session.status}`}>
-          {SESSION_STATUS_SYMBOLS[session.status]} {SESSION_STATUS_LABELS[session.status]}
+        <span className={`simpleSessionItemStatus simpleSessionItemStatus--${session.status} ${session.needsInput?.active ? 'simpleSessionItemStatus--needsInput' : ''}`}>
+          {session.needsInput?.active ? '\u26A0' : SESSION_STATUS_SYMBOLS[session.status]} {session.needsInput?.active ? 'Needs Input' : SESSION_STATUS_LABELS[session.status]}
         </span>
 
         <span className="simpleSessionItemName">{session.name}</span>

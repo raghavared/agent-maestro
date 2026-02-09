@@ -355,7 +355,10 @@ export function SessionsSection({
               !(isSshType && (chipLabel ?? "").trim().toLowerCase() === "ssh");
 
             const maestroSession = s.maestroSessionId ? maestroSessions.get(s.maestroSessionId) : null;
-            const needsInput = maestroSession?.status === 'needs-user-input';
+            if (maestroSession?.needsInput) {
+              console.log('[SessionsSection] Session needsInput:', s.maestroSessionId, maestroSession.needsInput);
+            }
+            const needsInput = maestroSession?.needsInput?.active;
 
             return (
               <div
@@ -436,8 +439,14 @@ export function SessionsSection({
                         e.stopPropagation();
                         setSessionModalId(maestroSession.id);
                       }}>
-                      {maestroSession.status === 'spawning' ? 'SPAWN' : maestroSession.status === 'stopped' ? 'STOP' : maestroSession.status === 'needs-user-input' ? 'NEEDS INPUT' : maestroSession.status.toUpperCase()}
+                      {maestroSession.status === 'spawning' ? 'SPAWN' : maestroSession.status === 'stopped' ? 'STOP' : maestroSession.status.toUpperCase()}
                     </span>
+                    {maestroSession.needsInput?.active && (
+                      <span className="sessionStatusBadge sessionStatusBadge--needsInput"
+                        style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '2px' }}>
+                        NEEDS INPUT
+                      </span>
+                    )}
                     <StrategyBadge strategy={maestroSession.strategy} orchestratorStrategy={maestroSession.orchestratorStrategy} compact />
                   </div>
                 )}

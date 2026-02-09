@@ -256,11 +256,8 @@ POST /api/sessions/:sessionId/timeline
 
 1. **No status transition validation.** Any status can transition to any other status. This allows nonsensical flows like `completed -> todo` or `cancelled -> blocked`. The `startedAt`/`completedAt` one-time guards are a partial mitigation but create their own inconsistency (a re-opened task has a stale `completedAt`).
 
-2. **Single `sessionStatus` for many-to-many.** The Task has one `sessionStatus` field but can have multiple sessions. Last writer wins, which means the field is unreliable when multiple sessions work on the same task.
 
 
-
-3. **No cascade delete.** Deleting a parent task leaves orphaned children with dangling `parentId` references.
 
 4. **No bidirectional sync for Task-Session association.** `addSessionToTask` updates the task but not the session. Callers must manually keep both sides consistent.
 

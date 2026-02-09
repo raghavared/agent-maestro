@@ -3,7 +3,6 @@ import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, Orchestrator
 import { TaskListItem } from "./TaskListItem";
 import { TaskFilters } from "./TaskFilters";
 import { CreateTaskModal } from "./CreateTaskModal";
-import { TemplateList } from "./TemplateList";
 import { ExecutionBar } from "./ExecutionBar";
 import { AddSubtaskInput } from "./AddSubtaskInput";
 import { useTasks } from "../../hooks/useTasks";
@@ -11,7 +10,7 @@ import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useTaskTree } from "../../hooks/useTaskTree";
 import { useUIStore } from "../../stores/useUIStore";
 
-type PanelTab = "tasks" | "completed" | "config";
+type PanelTab = "tasks" | "completed";
 
 type MaestroPanelProps = {
     isOpen: boolean;
@@ -552,13 +551,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                             {normalizedTasks.filter(t => t.status === 'completed').length}
                         </span>
                     </button>
-                    <button
-                        className={`maestroPanelTab ${activeTab === "config" ? "maestroPanelTabActive" : ""}`}
-                        onClick={() => setActiveTab("config")}
-                    >
-                        <span className="maestroPanelTabIcon">▸</span>
-                        Config
-                    </button>
                 </div>
 
                 {(error || fetchError) && activeTab === "tasks" && (
@@ -566,13 +558,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         <span className="terminalErrorSymbol">[ERROR]</span>
                         <span className="terminalErrorText">{error || fetchError}</span>
                         <button className="terminalErrorClose" onClick={() => setError(null)}>×</button>
-                    </div>
-                )}
-
-                {/* Config Tab */}
-                {activeTab === "config" && (
-                    <div className="maestroPanelTabContent">
-                        <TemplateList />
                     </div>
                 )}
 
@@ -636,6 +621,8 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     onExecute={handleBatchExecute}
                     onOrchestrate={handleBatchOrchestrate}
                     selectedCount={selectedForExecution.size}
+                    selectedTasks={normalizedTasks.filter(t => selectedForExecution.has(t.id))}
+                    projectId={projectId}
                 />
 
                 <div className="terminalContent">

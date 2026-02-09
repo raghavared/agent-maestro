@@ -39,7 +39,7 @@
     ],
     "Notification": [
       {
-        "matcher": "permission_prompt|idle_prompt|elicitation_dialog",
+        "matcher": "*",
         "hooks": [
           {
             "type": "command",
@@ -56,17 +56,6 @@
           {
             "type": "command",
             "command": "maestro session resume-working",
-            "timeout": 3
-          }
-        ]
-      }
-    ],
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "maestro session needs-input",
             "timeout": 3
           }
         ]

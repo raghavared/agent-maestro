@@ -148,7 +148,6 @@ When all tasks and subtasks are finished:
 | `maestro session list` | List active sessions |
 | `maestro report progress "<msg>"` | Report orchestration progress |
 | `maestro report blocked "<msg>"` | Report a blocker |
-| `maestro report needs-input "<question>"` | Request input from the user |
 | `maestro report complete "<summary>"` | Mark orchestration as complete |
 
 ## Rules

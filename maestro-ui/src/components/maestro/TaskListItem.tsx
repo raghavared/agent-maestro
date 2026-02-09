@@ -7,6 +7,7 @@ import { SessionInTaskView } from "./SessionInTaskView";
 import { AggregatedTimeline } from "./SessionTimeline";
 import { StrategyBadge } from "./StrategyBadge";
 import { SessionDetailModal } from "./SessionDetailModal";
+import { ConfirmActionModal } from "../modals/ConfirmActionModal";
 
 type TaskListItemProps = {
     task: MaestroTask;
@@ -54,17 +55,6 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
     completed: "Done",
     failed: "Failed",
     stopped: "Stopped",
-    "needs-user-input": "Needs Input",
-};
-
-const SESSION_STATUS_SYMBOLS: Record<MaestroSessionStatus, string> = {
-    spawning: "◌",
-    idle: "○",
-    working: "◉",
-    completed: "✓",
-    failed: "✗",
-    stopped: "⊘",
-    "needs-user-input": "⚠",
 };
 
 function formatTimeAgo(timestamp: number): string {
@@ -105,6 +95,8 @@ export function TaskListItem({
     const [isExpanded, setIsExpanded] = useState(false);
     const [sessionModalId, setSessionModalId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<TaskTab>('details');
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
@@ -145,8 +137,17 @@ export function TaskListItem({
     const hasSessions = sessionCount > 0;
     const isSubtask = task.parentId !== null;
 
-    // Calculate subtask count
+    // Calculate subtask count (direct children)
     const subtaskCount = Array.from(tasks.values()).filter(t => t.parentId === task.id).length;
+
+    // Calculate total descendant count (recursive) for delete confirmation
+    const totalDescendantCount = useMemo(() => {
+        const countDescendants = (parentId: string): number => {
+            const children = Array.from(tasks.values()).filter(t => t.parentId === parentId);
+            return children.reduce((sum, child) => sum + 1 + countDescendants(child.id), 0);
+        };
+        return countDescendants(task.id);
+    }, [tasks, task.id]);
 
     // Prepare aggregated timeline data from all sessions
     const aggregatedTimelineData = useMemo(() => {
@@ -176,12 +177,18 @@ export function TaskListItem({
     };
 
     const handleDeleteTask = async () => {
-        if (window.confirm(`Are you sure you want to delete task "${task.title}"?`)) {
-            try {
-                await deleteTask(task.id);
-            } catch (error) {
-                console.error("Failed to delete task:", error);
-            }
+        setShowDeleteConfirm(true);
+    };
+
+    const confirmDeleteTask = async () => {
+        setIsDeleting(true);
+        try {
+            await deleteTask(task.id);
+            setShowDeleteConfirm(false);
+        } catch (error) {
+            console.error("Failed to delete task:", error);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -374,38 +381,39 @@ export function TaskListItem({
                             )}
                         </div>
 
-                        {/* Session Status Badge */}
-                        {task.sessionStatus && (
-                            <span className={`terminalMetaBadge terminalMetaBadge--session terminalMetaBadge--session-${task.sessionStatus}`}>
-                                {task.sessionStatus.toUpperCase().replace('_', ' ')}
-                            </span>
-                        )}
-
-                        {/* Session statuses with strategy indicators */}
+                        {/* Combined session status chips: show task-session status with breathing animation when working */}
                         {sessionCount > 0 && (
                             <div className="terminalSessionStatuses">
                                 {loadingSessions ? (
                                     <span className="terminalSessionIndicator">
-                                        <span className="terminalSessionDot"></span>
                                         <span className="terminalSessionNumber">{sessionCount}</span>
                                     </span>
                                 ) : (
-                                    taskSessions.slice(0, 3).map(session => (
-                                        <span
-                                            key={session.id}
-                                            className={`terminalSessionStatusChip terminalSessionStatusChip--${session.status} terminalSessionStatusChip--clickable`}
-                                            title={`${session.name || session.id}: ${SESSION_STATUS_LABELS[session.status]}${session.strategy ? ` [${session.strategy}]` : ''}`}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSessionModalId(session.id);
-                                            }}
-                                        >
-                                            {session.strategy === 'queue' && (
-                                                <span className="terminalSessionStrategyTag">Q</span>
-                                            )}
-                                            <span className="terminalSessionStatusIcon">{SESSION_STATUS_SYMBOLS[session.status]}</span>
-                                        </span>
-                                    ))
+                                    taskSessions.slice(0, 3).map(session => {
+                                        const taskStatus = task.taskSessionStatuses?.[session.id];
+                                        const displayStatus = taskStatus || session.status;
+                                        const taskIsTerminal = task.status === 'completed' || task.status === 'cancelled';
+                                        const isWorking = !taskIsTerminal && displayStatus === 'working';
+                                        const sessionNeedsInput = !taskIsTerminal && session.needsInput?.active;
+                                        return (
+                                            <span
+                                                key={session.id}
+                                                className={`terminalSessionStatusChip terminalSessionStatusChip--${taskIsTerminal ? 'completed' : displayStatus} terminalSessionStatusChip--clickable ${isWorking && !sessionNeedsInput ? 'terminalSessionStatusChip--breathing' : ''} ${sessionNeedsInput ? 'terminalSessionStatusChip--needsInput' : ''}`}
+                                                title={`${session.name || session.id}: ${taskIsTerminal ? 'Completed' : sessionNeedsInput ? 'Needs Input' : taskStatus ? taskStatus.replace('_', ' ') : (SESSION_STATUS_LABELS[session.status] || session.status || 'Unknown')}${session.strategy ? ` [${session.strategy}]` : ''}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSessionModalId(session.id);
+                                                }}
+                                            >
+                                                {session.strategy === 'queue' && (
+                                                    <span className="terminalSessionStrategyTag">Q</span>
+                                                )}
+                                                <span className="terminalSessionStatusLabel">
+                                                    {taskIsTerminal ? 'DONE' : sessionNeedsInput ? 'NEEDS INPUT' : taskStatus ? taskStatus.toUpperCase().replace('_', ' ') : (SESSION_STATUS_LABELS[session.status] || session.status || 'UNKNOWN').toUpperCase()}
+                                                </span>
+                                            </span>
+                                        );
+                                    })
                                 )}
                                 {taskSessions.length > 3 && (
                                     <span className="terminalSessionMore">+{taskSessions.length - 3}</span>
@@ -643,6 +651,25 @@ export function TaskListItem({
                     sessionId={sessionModalId}
                     isOpen={true}
                     onClose={() => setSessionModalId(null)}
+                />,
+                document.body
+            )}
+
+            {showDeleteConfirm && createPortal(
+                <ConfirmActionModal
+                    isOpen={showDeleteConfirm}
+                    title="[ DELETE TASK ]"
+                    message={
+                        totalDescendantCount > 0
+                            ? <>Are you sure you want to delete <strong>"{task.title}"</strong>? This task has <strong>{totalDescendantCount} subtask{totalDescendantCount !== 1 ? 's' : ''}</strong> that will also be deleted.</>
+                            : <>Are you sure you want to delete <strong>"{task.title}"</strong>?</>
+                    }
+                    confirmLabel={totalDescendantCount > 0 ? `Delete All (${totalDescendantCount + 1})` : "Delete"}
+                    cancelLabel="Cancel"
+                    confirmDanger
+                    busy={isDeleting}
+                    onClose={() => setShowDeleteConfirm(false)}
+                    onConfirm={confirmDeleteTask}
                 />,
                 document.body
             )}

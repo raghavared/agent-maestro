@@ -4,7 +4,7 @@ import { TaskStatus, TaskSessionStatus } from "../../app/types/maestro";
 type TaskStatusControlProps = {
   taskId: string;
   currentStatus: TaskStatus;
-  sessionStatus?: TaskSessionStatus;  // Renamed from agentStatus
+  taskSessionStatuses?: Record<string, TaskSessionStatus>;  // Per-session status map
   onStatusChange: (taskId: string, newStatus: TaskStatus) => Promise<void>;
   disabled?: boolean;
 };
@@ -29,7 +29,6 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 const SESSION_STATUS_LABELS: Record<TaskSessionStatus, string> = {
   queued: "Queued",
   working: "Working",
-  needs_input: "Needs Input",
   blocked: "Blocked",
   completed: "Completed",
   failed: "Failed",
@@ -39,7 +38,7 @@ const SESSION_STATUS_LABELS: Record<TaskSessionStatus, string> = {
 export function TaskStatusControl({
   taskId,
   currentStatus,
-  sessionStatus,
+  taskSessionStatuses,
   onStatusChange,
   disabled = false,
 }: TaskStatusControlProps) {
@@ -165,13 +164,22 @@ export function TaskStatusControl({
         )}
       </div>
 
-      {/* Session Status Display (Read-only) */}
-      <div className={`terminalSessionStatusDisplay ${sessionStatus ? `terminalSessionStatusDisplay--${sessionStatus}` : 'terminalSessionStatusDisplay--none'}`}>
-        <span className="terminalSessionStatusPrefix">SESSION:</span>
-        <span className="terminalSessionStatusLabel">
-          {sessionStatus ? SESSION_STATUS_LABELS[sessionStatus] : "NONE"}
-        </span>
-      </div>
+      {/* Session Status Display (Read-only, per-session) */}
+      {taskSessionStatuses && Object.keys(taskSessionStatuses).length > 0 ? (
+        Object.entries(taskSessionStatuses).map(([sid, sstatus]) => (
+          <div key={sid} className={`terminalSessionStatusDisplay terminalSessionStatusDisplay--${sstatus}`}>
+            <span className="terminalSessionStatusPrefix">SESSION:</span>
+            <span className="terminalSessionStatusLabel">
+              {SESSION_STATUS_LABELS[sstatus] || sstatus}
+            </span>
+          </div>
+        ))
+      ) : (
+        <div className="terminalSessionStatusDisplay terminalSessionStatusDisplay--none">
+          <span className="terminalSessionStatusPrefix">SESSION:</span>
+          <span className="terminalSessionStatusLabel">NONE</span>
+        </div>
+      )}
 
       {/* Screen reader announcements */}
       <div role="status" aria-live="polite" className="sr-only">

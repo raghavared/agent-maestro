@@ -11,6 +11,7 @@ import { usePromptStore } from "./stores/usePromptStore";
 import { useAgentShortcutStore } from "./stores/useAgentShortcutStore";
 import { usePersistentSessionStore } from "./stores/usePersistentSessionStore";
 import { useSshStore } from "./stores/useSshStore";
+import { useMaestroStore } from "./stores/useMaestroStore";
 
 // Store initialisation
 import { initApp } from "./stores/initApp";
@@ -98,6 +99,12 @@ export default function App() {
   const quickStart = useSessionStore((s) => s.quickStart);
   const reorderSessions = useSessionStore((s) => s.reorderSessions);
   const sendPromptToActive = useSessionStore((s) => s.sendPromptToActive);
+
+  // ---------- auto-clear needsInput when user views a session ----------
+  const checkAndClearNeedsInput = useMaestroStore((s) => s.checkAndClearNeedsInputForActiveSession);
+  useEffect(() => {
+    if (activeId) checkAndClearNeedsInput();
+  }, [activeId, checkAndClearNeedsInput]);
 
   const projectSessions = useMemo(
     () => sessions.filter((s) => s.projectId === activeProjectId),

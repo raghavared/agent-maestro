@@ -114,9 +114,10 @@ export class QueueService {
     // Update current index
     await this.queueRepo.update(sessionId, { currentIndex: nextIndex });
 
-    // Update task session status
+    // Update task session status for this session
+    const startTask = await this.taskRepo.findById(item.taskId);
     await this.taskRepo.update(item.taskId, {
-      sessionStatus: 'working',
+      taskSessionStatuses: { ...(startTask?.taskSessionStatuses || {}), [sessionId]: 'working' },
     });
 
     await this.eventBus.emit('queue:item_started', { sessionId, taskId: item.taskId });
@@ -147,9 +148,10 @@ export class QueueService {
     // Reset current index
     await this.queueRepo.update(sessionId, { currentIndex: -1 });
 
-    // Update task session status
+    // Update task session status for this session
+    const completeTask = await this.taskRepo.findById(currentItem.taskId);
     await this.taskRepo.update(currentItem.taskId, {
-      sessionStatus: 'completed',
+      taskSessionStatuses: { ...(completeTask?.taskSessionStatuses || {}), [sessionId]: 'completed' },
     });
 
     await this.eventBus.emit('queue:item_completed', { sessionId, taskId: currentItem.taskId });
@@ -181,9 +183,10 @@ export class QueueService {
     // Reset current index
     await this.queueRepo.update(sessionId, { currentIndex: -1 });
 
-    // Update task session status
+    // Update task session status for this session
+    const failTask = await this.taskRepo.findById(currentItem.taskId);
     await this.taskRepo.update(currentItem.taskId, {
-      sessionStatus: 'failed',
+      taskSessionStatuses: { ...(failTask?.taskSessionStatuses || {}), [sessionId]: 'failed' },
     });
 
     await this.eventBus.emit('queue:item_failed', { sessionId, taskId: currentItem.taskId, reason });
