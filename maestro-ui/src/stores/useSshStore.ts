@@ -41,7 +41,7 @@ export const useSshStore = create<SshState>((set, get) => ({
   sshHostsLoading: false,
   sshHostsError: null,
   sshHost: '',
-  sshPersistent: false,
+  sshPersistent: true,
   sshForwardOnly: false,
   sshExitOnForwardFailure: true,
   sshForwards: [],

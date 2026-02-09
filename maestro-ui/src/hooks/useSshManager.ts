@@ -16,7 +16,7 @@ export function useSshManager({ showNotice }: UseSshManagerProps) {
   const [sshHostsError, setSshHostsError] = useState<string | null>(null);
   const [sshHost, setSshHost] = useState("");
   const sshHostInputRef = useRef<HTMLInputElement>(null);
-  const [sshPersistent, setSshPersistent] = useState(false);
+  const [sshPersistent, setSshPersistent] = useState(true);
   const [sshForwardOnly, setSshForwardOnly] = useState(false);
   const [sshExitOnForwardFailure, setSshExitOnForwardFailure] = useState(true);
   const [sshForwards, setSshForwards] = useState<SshForward[]>([]);

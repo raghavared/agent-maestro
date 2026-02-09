@@ -84,6 +84,15 @@ export function SessionDetailsSection({
               </span>
             </div>
 
+            {session.orchestratorStrategy && (
+              <div className="sessionDetailsRow">
+                <span className="sessionDetailsLabel">Orchestrator Strategy:</span>
+                <span className="sessionDetailsValue sessionDetailsValue--strategy-orchestrator">
+                  {session.orchestratorStrategy}
+                </span>
+              </div>
+            )}
+
             <div className="sessionDetailsRow">
               <span className="sessionDetailsLabel">Status:</span>
               <span className={`sessionDetailsValue sessionDetailsValue--status-${session.status}`}>

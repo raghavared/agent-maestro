@@ -213,7 +213,7 @@ maestro queue skip        # Skip this one for now
 
 The desktop app is a full workspace built for working with Claude:
 
-- **Terminals** -- real terminal sessions (not emulated) that persist even if you close the app
+- **Terminals** -- real terminal sessions with tmux integration for persistence
 - **Agent detection** -- automatically recognizes when Claude is running in a terminal
 - **File explorer** -- browse local and remote (SSH) files
 - **Code editor** -- Monaco-based editor with syntax highlighting
@@ -221,6 +221,47 @@ The desktop app is a full workspace built for working with Claude:
 - **Session recording** -- record what happens in a session and replay it later
 - **Command palette** -- quick access to everything with keyboard shortcuts
 - **SSH support** -- connect to remote machines, transfer files, forward ports
+
+---
+
+## Tmux Integration
+
+Maestro uses tmux for persistent terminal sessions, allowing your Claude agents to keep working even when you close the app.
+
+### What is tmux?
+
+tmux is a terminal multiplexer that lets you:
+- Create persistent sessions that survive app restarts
+- Detach and reattach to running sessions
+- Manage multiple windows and panes (though Maestro handles this at the app level)
+
+### Persistent Sessions
+
+When you create a terminal with "Persistent terminal (tmux)" checked:
+- The terminal keeps running in the background when you close the app
+- You can reattach to it later from the "Manage persistent terminals" menu
+- Perfect for long-running tasks, monitoring, or SSH connections
+
+### Basic tmux Keybindings
+
+| Keybinding | Action |
+|------------|--------|
+| **Ctrl+B** then **D** | Detach from session |
+| **Ctrl+B** then **[** | Enter scroll mode |
+| **q** (in scroll mode) | Exit scroll mode |
+| **Mouse wheel** | Scroll (enabled by default) |
+
+### Multi-Agent Benefits
+
+tmux enables better coordination between multiple Claude agents:
+- Each agent gets an isolated tmux session
+- Agents can work in parallel without interfering with each other
+- Sessions persist independently, so one agent crashing doesn't affect others
+- Better status tracking and automatic reconnection
+
+### Migration from Zellij
+
+If you're upgrading from an older version that used zellij, see [TMUX_MIGRATION.md](./TMUX_MIGRATION.md) for a detailed migration guide.
 
 ---
 
@@ -372,6 +413,6 @@ AGPL-3.0-only. See [LICENSE](./LICENSE) for details.
 
 ## Acknowledgments
 
-Built with [Tauri](https://tauri.app/), [React](https://react.dev/), [xterm.js](https://xtermjs.org/), [Monaco Editor](https://microsoft.github.io/monaco-editor/), and [zellij](https://zellij.dev/).
+Built with [Tauri](https://tauri.app/), [React](https://react.dev/), [xterm.js](https://xtermjs.org/), [Monaco Editor](https://microsoft.github.io/monaco-editor/), and [tmux](https://github.com/tmux/tmux).
 
 Built for [Claude](https://anthropic.com/) by [Anthropic](https://anthropic.com/).

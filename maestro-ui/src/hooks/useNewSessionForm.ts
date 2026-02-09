@@ -13,7 +13,7 @@ export function useNewSessionForm({
 }: UseNewSessionFormProps) {
   const [newName, setNewName] = useState("");
   const [newCommand, setNewCommand] = useState("");
-  const [newPersistent, setNewPersistent] = useState(false);
+  const [newPersistent, setNewPersistent] = useState(true);
   const [newCwd, setNewCwd] = useState("");
   const newNameRef = useRef<HTMLInputElement | null>(null);
 
@@ -21,7 +21,7 @@ export function useNewSessionForm({
     if (!newOpen) return;
     const base = activeProjectBasePath ?? homeDir ?? "";
     setNewCwd(base);
-    setNewPersistent(false);
+    setNewPersistent(true);
     window.setTimeout(() => {
       newNameRef.current?.focus();
     }, 0);
@@ -30,7 +30,7 @@ export function useNewSessionForm({
   const resetForm = () => {
     setNewName("");
     setNewCommand("");
-    setNewPersistent(false);
+    setNewPersistent(true);
     setNewCwd("");
   };
 

@@ -438,7 +438,7 @@ export function SessionsSection({
                       }}>
                       {maestroSession.status === 'spawning' ? 'SPAWN' : maestroSession.status === 'stopped' ? 'STOP' : maestroSession.status === 'needs-user-input' ? 'NEEDS INPUT' : maestroSession.status.toUpperCase()}
                     </span>
-                    <StrategyBadge strategy={maestroSession.strategy} compact />
+                    <StrategyBadge strategy={maestroSession.strategy} orchestratorStrategy={maestroSession.orchestratorStrategy} compact />
                   </div>
                 )}
 

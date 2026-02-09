@@ -171,6 +171,7 @@ export function MaestroSessionContent({
       <div className="maestroSessionContentHeader">
         <StrategyBadge
           strategy={session.strategy}
+          orchestratorStrategy={session.orchestratorStrategy}
           queuePosition={queueState?.currentIndex !== undefined ? queueState.currentIndex + 1 : undefined}
           queueTotal={queueState?.items?.length}
         />

@@ -291,7 +291,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   newOpen: false,
   newName: '',
   newCommand: '',
-  newPersistent: false,
+  newPersistent: true,
   newCwd: '',
   sessionOrderByProject: (() => {
     try {
@@ -364,7 +364,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       recentSessionKeys: typeof keys === 'function' ? keys(s.recentSessionKeys) : keys,
     })),
   resetNewSessionForm: () =>
-    set({ newName: '', newCommand: '', newPersistent: false, newCwd: '' }),
+    set({ newName: '', newCommand: '', newPersistent: true, newCwd: '' }),
 
   /* ---------------------------------------------------------------- */
   /*  Session lifecycle                                                */
@@ -695,12 +695,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const name = newName.trim() || undefined;
     try {
       const launchCommand = newCommand.trim() || null;
-      if (newPersistent && launchCommand) {
-        setError(
-          'Persistent terminals require an empty command (run commands inside the terminal).',
-        );
-        return;
-      }
       const desiredCwd =
         newCwd.trim() || activeProject?.basePath || homeDirRef?.current || '';
       const validatedCwd = await invoke<string | null>('validate_directory', {
