@@ -114,6 +114,8 @@ export class WhoamiRenderer {
       TASK_COUNT: manifest.tasks.length.toString(),
       STRATEGY: manifest.strategy || 'simple',
       STRATEGY_INSTRUCTIONS: '',
+      ORCHESTRATOR_STRATEGY: manifest.orchestratorStrategy || 'default',
+      ORCHESTRATOR_STRATEGY_INSTRUCTIONS: '',
     };
 
     for (const [key, value] of Object.entries(replacements)) {
@@ -259,7 +261,7 @@ ${tasksList}
   ): object {
     const primaryTask = manifest.tasks[0];
 
-    return {
+    const result: any = {
       role: manifest.role,
       strategy: manifest.strategy || 'simple',
       sessionId: sessionId || null,
@@ -278,5 +280,11 @@ ${tasksList}
       },
       context: manifest.context || null,
     };
+
+    if (manifest.role === 'orchestrator') {
+      result.orchestratorStrategy = manifest.orchestratorStrategy || 'default';
+    }
+
+    return result;
   }
 }

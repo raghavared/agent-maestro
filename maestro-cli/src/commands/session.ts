@@ -287,11 +287,11 @@ export function registerSessionCommands(program: Command) {
                 }
 
                 if (sessionExists) {
-                    if (!isJson) console.log(`[session:register]    PATCH /api/sessions/${sessionId} -> status: 'running'`);
+                    if (!isJson) console.log(`[session:register]    PATCH /api/sessions/${sessionId} -> status: 'working'`);
                     await api.patch(`/api/sessions/${sessionId}`, {
-                        status: 'running',
+                        status: 'working',
                     });
-                    if (!isJson) console.log(`[session:register]    Session status updated to 'running'`);
+                    if (!isJson) console.log(`[session:register]    Session status updated to 'working'`);
                 } else {
                     if (!isJson) console.log(`[session:register]    POST /api/sessions (creating new session)`);
                     await api.post('/api/sessions', {
@@ -299,11 +299,11 @@ export function registerSessionCommands(program: Command) {
                         projectId,
                         taskIds,
                         name: `${role}: ${sessionId.substring(0, 16)}`,
-                        status: 'running',
+                        status: 'working',
                         strategy,
                         metadata: { role },
                     });
-                    if (!isJson) console.log(`[session:register]    New session created with status 'running'`);
+                    if (!isJson) console.log(`[session:register]    New session created with status 'working'`);
                 }
 
                 if (!isJson) {

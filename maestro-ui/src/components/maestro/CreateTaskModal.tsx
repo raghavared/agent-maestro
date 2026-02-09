@@ -235,12 +235,12 @@ export function CreateTaskModal({
     // Safely handle subtasks
     const subtasks = isEditMode && task ? (task.subtasks || []) : [];
 
-    // Style for react-mentions
+    // Style for react-mentions - CSS handles visual styling
     const mentionsStyle = {
         control: {
             backgroundColor: 'transparent',
             fontSize: '14px',
-            fontWeight: 'normal',
+            fontWeight: 'normal' as const,
             lineHeight: '1.5',
             minHeight: '150px',
         },
@@ -256,14 +256,12 @@ export function CreateTaskModal({
                 fontFamily: '"JetBrains Mono", "Fira Code", monospace',
                 fontSize: '14px',
                 lineHeight: '1.5',
+                pointerEvents: 'none' as const,
             },
             input: {
                 padding: '12px',
                 border: '1px solid transparent',
                 outline: 'none',
-                color: '#e0e0e0',
-                backgroundColor: 'transparent',
-                caretColor: '#e0e0e0',
                 fontFamily: '"JetBrains Mono", "Fira Code", monospace',
                 fontSize: '14px',
                 lineHeight: '1.5',
@@ -271,24 +269,15 @@ export function CreateTaskModal({
         },
         suggestions: {
             list: {
-                backgroundColor: '#1a1a1a',
-                border: '1px solid #444',
-                fontSize: '13px',
-                maxHeight: '200px',
-                overflowY: 'auto' as const,
-                boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
-                borderRadius: '4px',
                 zIndex: 9999,
+                width: '100%',
+                maxWidth: '100%',
+                left: 0,
+                right: 0,
+                boxSizing: 'border-box' as const,
             },
             item: {
-                padding: '8px 12px',
-                borderBottom: '1px solid #333',
-                color: '#ccc',
-                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                '&focused': {
-                    backgroundColor: '#2a4a3a',
-                    color: '#fff',
-                },
+                boxSizing: 'border-box' as const,
             },
         },
     };

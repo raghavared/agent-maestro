@@ -13330,6 +13330,36 @@ select.input {
   pointer-events: none;
 }
 
+/* Orchestrate button */
+.terminalCmdOrchestrate {
+  border-color: var(--terminal-amber, #ffab00);
+  background: rgba(255, 171, 0, 0.08);
+  box-shadow: 0 0 8px rgba(255, 171, 0, 0.2);
+}
+
+.terminalCmdOrchestrate:hover {
+  background: rgba(255, 171, 0, 0.15);
+  box-shadow: 0 0 16px rgba(255, 171, 0, 0.4);
+}
+
+/* Orchestrate active mode */
+.executionBar--orchestrate {
+  border-bottom-color: var(--terminal-amber, #ffab00);
+  background: rgba(255, 171, 0, 0.06);
+}
+
+.executionBar--orchestrate .executionBarStrategyChip:hover {
+  border-color: var(--terminal-amber, #ffab00);
+  color: var(--terminal-text);
+}
+
+.executionBar--orchestrate .executionBarStrategyChip--selected {
+  border-color: var(--terminal-amber, #ffab00);
+  background: rgba(255, 171, 0, 0.15);
+  color: var(--terminal-amber, #ffab00);
+  box-shadow: 0 0 8px rgba(255, 171, 0, 0.2);
+}
+
 /* ==================== Execution Mode Panel Glow ==================== */
 
 .maestroPanel--executionMode {

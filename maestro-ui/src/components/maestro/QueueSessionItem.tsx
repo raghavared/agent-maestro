@@ -22,20 +22,20 @@ const SESSION_STATUS_SYMBOLS: Record<MaestroSessionStatus, string> = {
   spawning: "◌",
   idle: "○",
   working: "◉",
-  "needs-user-input": "⚡",
   completed: "✓",
   failed: "✗",
   stopped: "⊘",
+  "needs-user-input": "⚠",
 };
 
 const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   spawning: "Spawning",
   idle: "Idle",
   working: "Working",
-  "needs-user-input": "Needs Input",
   completed: "Completed",
   failed: "Failed",
   stopped: "Stopped",
+  "needs-user-input": "Needs Input",
 };
 
 function formatTimeAgo(timestamp: number): string {

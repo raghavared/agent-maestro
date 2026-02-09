@@ -308,6 +308,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       console.log(`   • taskIds: [${taskIds?.join(', ') || 'NONE'}]`);
       console.log(`   • role: ${role}`);
       console.log(`   • strategy: ${strategy}`);
+      console.log(`   • model: ${model || '(not set - will default to sonnet)'}`);
       console.log(`   • orchestratorStrategy: ${orchestratorStrategy || '(not set)'}`);
 
       // Validation

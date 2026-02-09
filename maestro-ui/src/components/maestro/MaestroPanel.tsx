@@ -1,10 +1,9 @@
-import React, { useMemo, useEffect, useRef, useState } from "react";
+import React, { useMemo, useEffect, useRef } from "react";
 import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy } from "../../app/types/maestro";
 import { TaskListItem } from "./TaskListItem";
 import { TaskFilters } from "./TaskFilters";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { TemplateList } from "./TemplateList";
-import { WorkOnModal, WorkOnModalResult } from "./WorkOnModal";
 import { ExecutionBar } from "./ExecutionBar";
 import { AddSubtaskInput } from "./AddSubtaskInput";
 import { useTasks } from "../../hooks/useTasks";
@@ -55,14 +54,13 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [showDetailModal, setShowDetailModal] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
     const [executionMode, setExecutionMode] = React.useState(false);
+    const [activeBarMode, setActiveBarMode] = React.useState<'none' | 'execute' | 'orchestrate'>('none');
     const [selectedForExecution, setSelectedForExecution] = React.useState<Set<string>>(new Set());
     const [selectedAgentByTask, setSelectedAgentByTask] = React.useState<Record<string, string>>({});
     const [subtaskParentId, setSubtaskParentId] = React.useState<string | null>(null);
     const [collapsedTasks, setCollapsedTasks] = React.useState<Set<string>>(new Set());
     const [addingSubtaskTo, setAddingSubtaskTo] = React.useState<string | null>(null);
     const [slidingOutTasks, setSlidingOutTasks] = React.useState<Set<string>>(new Set());
-    const [workOnTask, setWorkOnTask] = useState<MaestroTask | null>(null);
-    const [showWorkOnModal, setShowWorkOnModal] = useState(false);
 
     // Track previous task statuses to detect completions
     const prevTaskStatusesRef = useRef<Map<string, string>>(new Map());
@@ -268,47 +266,31 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     };
 
     const handleWorkOnTask = async (task: MaestroTask) => {
-        // Show the strategy selection modal
-        setWorkOnTask(task);
-        setShowWorkOnModal(true);
-    };
-
-    const handleWorkOnConfirm = async (result: WorkOnModalResult) => {
-        if (!workOnTask) return;
-
-        console.log('[MaestroPanel.handleWorkOnConfirm] ========================================');
-        console.log('[MaestroPanel.handleWorkOnConfirm] Starting work on task');
-        console.log('[MaestroPanel.handleWorkOnConfirm] Task ID:', workOnTask.id);
-        console.log('[MaestroPanel.handleWorkOnConfirm] Role:', result.role);
-        console.log('[MaestroPanel.handleWorkOnConfirm] Strategy:', result.strategy);
-        if (result.orchestratorStrategy) {
-            console.log('[MaestroPanel.handleWorkOnConfirm] Orchestrator Strategy:', result.orchestratorStrategy);
-        }
-        console.log('[MaestroPanel.handleWorkOnConfirm] ========================================');
+        // Directly execute task with 'simple' worker strategy
+        console.log('[MaestroPanel.handleWorkOnTask] ========================================');
+        console.log('[MaestroPanel.handleWorkOnTask] Starting work on task');
+        console.log('[MaestroPanel.handleWorkOnTask] Task ID:', task.id);
+        console.log('[MaestroPanel.handleWorkOnTask] Role: worker');
+        console.log('[MaestroPanel.handleWorkOnTask] Strategy: simple');
+        console.log('[MaestroPanel.handleWorkOnTask] ========================================');
 
         try {
             // Get selected agent for this task (default to claude)
-            const selectedAgentId = selectedAgentByTask[workOnTask.id] || 'claude';
-            console.log('[MaestroPanel.handleWorkOnConfirm] Selected agent:', selectedAgentId);
+            const selectedAgentId = selectedAgentByTask[task.id] || 'claude';
+            console.log('[MaestroPanel.handleWorkOnTask] Selected agent:', selectedAgentId);
 
-            // Determine skill based on role
-            const skill = result.role === 'orchestrator' ? 'maestro-orchestrator' : selectedAgentId;
-
-            // Create Maestro session via App.tsx (creates both Maestro server session and UI terminal session)
+            // Create Maestro session with simple worker strategy
             await onCreateMaestroSession({
-                task: workOnTask,
+                task,
                 project,
-                skillIds: [skill],
-                strategy: result.strategy,
-                role: result.role,
-                orchestratorStrategy: result.orchestratorStrategy,
+                skillIds: [selectedAgentId],
+                strategy: 'simple',
+                role: 'worker',
             });
 
-            console.log('[MaestroPanel.handleWorkOnConfirm] ✓ Session created successfully!');
-            setShowWorkOnModal(false);
-            setWorkOnTask(null);
+            console.log('[MaestroPanel.handleWorkOnTask] ✓ Session created successfully!');
         } catch (err: any) {
-            console.error('[MaestroPanel.handleWorkOnConfirm] ✗ CAUGHT ERROR:', err);
+            console.error('[MaestroPanel.handleWorkOnTask] ✗ CAUGHT ERROR:', err);
             setError(`Failed to open terminal: ${err.message}`);
         }
     };
@@ -331,10 +313,32 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 strategy,
             });
             setExecutionMode(false);
+            setActiveBarMode('none');
             setSelectedForExecution(new Set());
         } catch (err: any) {
             console.error('[MaestroPanel] Failed to create batch session:', err);
             setError(`Failed to create session: ${err.message}`);
+        }
+    };
+
+    const handleBatchOrchestrate = async (orchestratorStrategy: OrchestratorStrategy) => {
+        const selectedTasks = normalizedTasks.filter(t => selectedForExecution.has(t.id));
+        if (selectedTasks.length === 0) return;
+
+        try {
+            await onCreateMaestroSession({
+                tasks: selectedTasks,
+                project,
+                role: 'orchestrator',
+                orchestratorStrategy,
+                skillIds: ['maestro-orchestrator'],
+            });
+            setExecutionMode(false);
+            setActiveBarMode('none');
+            setSelectedForExecution(new Set());
+        } catch (err: any) {
+            console.error('[MaestroPanel] Failed to create orchestrate session:', err);
+            setError(`Failed to create orchestrator session: ${err.message}`);
         }
     };
 
@@ -352,6 +356,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     const handleCancelExecution = () => {
         setExecutionMode(false);
+        setActiveBarMode('none');
         setSelectedForExecution(new Set());
     };
 
@@ -614,9 +619,12 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
                 <ExecutionBar
                     isActive={executionMode}
-                    onActivate={() => setExecutionMode(true)}
+                    activeMode={activeBarMode}
+                    onActivate={() => { setExecutionMode(true); setActiveBarMode('execute'); }}
+                    onActivateOrchestrate={() => { setExecutionMode(true); setActiveBarMode('orchestrate'); }}
                     onCancel={handleCancelExecution}
                     onExecute={handleBatchExecute}
+                    onOrchestrate={handleBatchOrchestrate}
                     selectedCount={selectedForExecution.size}
                 />
 
@@ -749,18 +757,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 />
             )}
 
-            {workOnTask && (
-                <WorkOnModal
-                    isOpen={showWorkOnModal}
-                    onClose={() => {
-                        setShowWorkOnModal(false);
-                        setWorkOnTask(null);
-                    }}
-                    task={workOnTask}
-                    project={project}
-                    onConfirm={handleWorkOnConfirm}
-                />
-            )}
         </>
     );
 });
