@@ -401,7 +401,8 @@ export function TaskListItem({
                                 ) : (
                                     taskSessions.slice(0, 3).map(session => {
                                         const taskStatus = task.taskSessionStatuses?.[session.id];
-                                        const displayStatus = taskStatus || session.status;
+                                        const sessionIsTerminal = ['stopped', 'completed', 'failed'].includes(session.status);
+                                        const displayStatus = sessionIsTerminal ? session.status : (taskStatus || session.status);
                                         const taskIsTerminal = task.status === 'completed' || task.status === 'cancelled';
                                         const isWorking = !taskIsTerminal && displayStatus === 'working';
                                         const sessionNeedsInput = !taskIsTerminal && session.needsInput?.active;
@@ -512,6 +513,18 @@ export function TaskListItem({
 
                                 {/* Metadata Grid */}
                                 <div className="terminalDetailGrid">
+                                    {/* Model */}
+                                    {task.model && (
+                                        <div className="terminalDetailRow">
+                                            <span className="terminalDetailLabel">Model:</span>
+                                            <span className="terminalDetailValue">
+                                                <span className={`terminalMetaBadge terminalMetaBadge--model terminalMetaBadge--model-${task.model}`}>
+                                                    {task.model.toUpperCase()}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    )}
+
                                     {/* Dependencies */}
                                     {task.dependencies && task.dependencies.length > 0 && (
                                         <div className="terminalDetailRow">
