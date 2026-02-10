@@ -21,6 +21,7 @@ const EVENT_SYMBOLS: Record<SessionTimelineEventType, string> = {
   progress: "⚡",
   error: "⨯",
   milestone: "★",
+  doc_added: "📄",
 };
 
 // CSS class suffixes for event types
@@ -36,6 +37,7 @@ const EVENT_TYPE_CLASSES: Record<SessionTimelineEventType, string> = {
   progress: "progress",
   error: "error",
   milestone: "milestone",
+  doc_added: "doc",
 };
 
 // Human-readable labels for event types
@@ -51,6 +53,7 @@ const EVENT_LABELS: Record<SessionTimelineEventType, string> = {
   progress: "Progress",
   error: "Error",
   milestone: "Milestone",
+  doc_added: "Doc Added",
 };
 
 function formatTime(timestamp: number): string {

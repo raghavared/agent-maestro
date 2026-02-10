@@ -265,7 +265,6 @@ POST /api/sessions/:sessionId/timeline
 
 5. **`dependencies: string[]` is completely inert.** No creation, management, enforcement, or query support exists for this field.
 
-6. **Priority has no functional impact.** It is stored and displayed but never used for ordering, scheduling, or any business logic.
 
 ### Missing Functionality
 

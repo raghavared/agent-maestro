@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback } from "react";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { MaestroSessionStatus } from "../../app/types/maestro";
 import { SessionTimeline } from "./SessionTimeline";
+import { DocsList } from "./DocsList";
 import { StrategyBadge } from "./StrategyBadge";
 
 interface SessionDetailModalProps {
@@ -207,6 +208,13 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Docs */}
+              {session.docs && session.docs.length > 0 && (
+                <div className="terminalModalSection">
+                  <DocsList docs={session.docs} />
                 </div>
               )}
 

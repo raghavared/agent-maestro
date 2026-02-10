@@ -149,6 +149,10 @@ When all tasks and subtasks are finished:
 | `maestro report progress "<msg>"` | Report orchestration progress |
 | `maestro report blocked "<msg>"` | Report a blocker |
 | `maestro report complete "<summary>"` | Mark orchestration as complete |
+| `maestro task docs add <taskId> "<title>" --file <path>` | Add a doc to a task |
+| `maestro task docs list <taskId>` | List docs for a task |
+| `maestro session docs add "<title>" --file <path>` | Add a doc to session |
+| `maestro session docs list` | List docs for current session |
 
 ## Rules
 

@@ -56,6 +56,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'task:report:complete', description: 'Report task completion', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
   { name: 'task:report:blocked', description: 'Report task blocked', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
   { name: 'task:report:error', description: 'Report task error', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
+  { name: 'task:docs:add', description: 'Add doc to task', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
+  { name: 'task:docs:list', description: 'List task docs', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
 
   // Session commands
   { name: 'session:list', description: 'List sessions', allowedRoles: ['orchestrator'], parent: 'session' },
@@ -63,6 +65,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'session:spawn', description: 'Spawn new session', allowedRoles: ['orchestrator'], parent: 'session' },
   { name: 'session:register', description: 'Register session', allowedRoles: ['worker', 'orchestrator'], parent: 'session', isCore: true },
   { name: 'session:complete', description: 'Complete session', allowedRoles: ['worker', 'orchestrator'], parent: 'session', isCore: true },
+  { name: 'session:docs:add', description: 'Add doc to session', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
+  { name: 'session:docs:list', description: 'List session docs', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
 
   // Queue commands (only for queue strategy)
   { name: 'queue:top', description: 'Show next task in queue', allowedRoles: ['worker'], parent: 'queue', allowedStrategies: ['queue'] },
@@ -111,6 +115,10 @@ export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
     'session:info',
     'session:register',
     'session:complete',
+    'task:docs:add',
+    'task:docs:list',
+    'session:docs:add',
+    'session:docs:list',
     'track-file',
     'worker:init',
   ],
@@ -139,6 +147,10 @@ export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
     'session:spawn',
     'session:register',
     'session:complete',
+    'task:docs:add',
+    'task:docs:list',
+    'session:docs:add',
+    'session:docs:list',
     'project:list',
     'project:get',
     'project:create',

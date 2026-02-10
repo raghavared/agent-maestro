@@ -49,3 +49,25 @@ There are two levels of reporting:
 - `maestro task report error ${TASK_ID} "Build fails due to missing dependency"`
 
 Use `maestro report` for overall session updates every 5-10 minutes. Use `maestro task report` to update the status of the specific task you are working on at key milestones.
+
+## Documentation
+
+When you create documentation, reports, or other artifacts during your session, **add them to the docs timeline** so they are visible in the UI:
+
+**Add a doc to your task:**
+```
+maestro task docs add ${TASK_ID} "Architecture Review" --file ./docs/architecture-review.md
+```
+
+**Add a doc to your session:**
+```
+maestro session docs add "Implementation Notes" --file ./notes/implementation.md
+```
+
+**List docs for a task or session:**
+```
+maestro task docs list ${TASK_ID}
+maestro session docs list
+```
+
+Always add docs after creating them so the user can view them in the Maestro UI.

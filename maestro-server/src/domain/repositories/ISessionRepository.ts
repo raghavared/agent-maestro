@@ -1,4 +1,4 @@
-import { Session, SessionStatus, CreateSessionPayload, UpdateSessionPayload, SessionTimelineEvent } from '../../types';
+import { Session, SessionStatus, CreateSessionPayload, UpdateSessionPayload, SessionTimelineEvent, DocEntry } from '../../types';
 
 /**
  * Filter options for listing sessions.
@@ -120,4 +120,12 @@ export interface ISessionRepository {
    * @returns The updated session
    */
   addTimelineEvent(sessionId: string, event: SessionTimelineEvent): Promise<Session>;
+
+  /**
+   * Add a document entry to a session.
+   * @param sessionId - Session ID
+   * @param doc - Document entry to add
+   * @returns The updated session
+   */
+  addDoc(sessionId: string, doc: DocEntry): Promise<Session>;
 }

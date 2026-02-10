@@ -72,6 +72,30 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
       }
     >
       <div className="terminalPane" aria-label="Terminal">
+        {sessions.length === 0 && (
+          <div className="terminalEmptyState">
+            <div className="terminalEmptyAscii" aria-hidden="true">
+{`  ╔══════════════════════════════╗
+  ║                              ║
+  ║   ▓▓▓  ▓▓▓▓  ▓▓▓▓  ▓▓▓▓    ║
+  ║   ▓  ▓ ▓  ▓  ▓     ▓       ║
+  ║   ▓▓▓  ▓▓▓▓  ▓▓▓▓  ▓▓▓▓    ║
+  ║   ▓  ▓ ▓  ▓     ▓  ▓       ║
+  ║   ▓▓▓  ▓  ▓  ▓▓▓▓  ▓▓▓▓    ║
+  ║                              ║
+  ╚══════════════════════════════╝`}
+            </div>
+            <div className="terminalEmptyPrompt">
+              <span className="terminalEmptyCaretLine">
+                <span className="terminalEmptyCaret">{">"}</span>{" "}
+                <span className="terminalEmptyTyping">ready for instructions_</span>
+              </span>
+            </div>
+            <div className="terminalEmptyHint">
+              Launch a session from the sidebar to begin
+            </div>
+          </div>
+        )}
         {sessions.map((s) => (
           <div
             key={s.id}
