@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-bin_dir="$repo_root/src-tauri/bin"
+bin_dir="$repo_root/maestro-ui/src-tauri/bin"
 
 version="${1:-}"
 if [[ -z "$version" ]]; then
