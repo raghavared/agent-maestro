@@ -110,12 +110,18 @@ export class SessionService {
    * Update a session.
    */
   async updateSession(id: string, updates: UpdateSessionPayload): Promise<Session> {
+    // Fetch old session state for comparison
+    const oldSession = await this.sessionRepo.findById(id);
+
+    // Snapshot old values BEFORE mutation (findById returns a mutable reference)
+    const oldStatus = oldSession?.status;
+    const oldNeedsInputActive = oldSession?.needsInput?.active ?? false;
+
     // Guard: don't overwrite 'completed' with 'stopped'
     if (updates.status === 'stopped') {
-      const existing = await this.sessionRepo.findById(id);
-      if (existing && existing.status === 'completed') {
+      if (oldSession && oldStatus === 'completed') {
         delete updates.status;
-        if (Object.keys(updates).length === 0) return existing;
+        if (Object.keys(updates).length === 0) return oldSession;
       }
     }
 
@@ -151,6 +157,31 @@ export class SessionService {
     }
 
     await this.eventBus.emit('session:updated', session);
+
+    // Emit notification events for session status transitions (using snapshot)
+    if (oldSession && oldStatus !== session.status) {
+      console.log(`[SessionService] Status transition for ${id}: ${oldStatus} -> ${session.status}`);
+      if (session.status === 'completed') {
+        console.log(`[SessionService] Emitting notify:session_completed for ${id}`);
+        await this.eventBus.emit('notify:session_completed', { sessionId: session.id, name: session.name });
+      } else if (session.status === 'failed') {
+        console.log(`[SessionService] Emitting notify:session_failed for ${id}`);
+        await this.eventBus.emit('notify:session_failed', { sessionId: session.id, name: session.name });
+      }
+    }
+
+    // Emit notify:needs_input when needsInput.active becomes true (using snapshot)
+    console.log(`[SessionService] needsInput check for ${id}: updates.needsInput?.active=${updates.needsInput?.active}, oldNeedsInputActive=${oldNeedsInputActive}`);
+    if (oldSession && updates.needsInput?.active && !oldNeedsInputActive) {
+      console.log(`[SessionService] Emitting notify:needs_input for ${id} (name=${session.name})`);
+      await this.eventBus.emit('notify:needs_input', {
+        sessionId: session.id,
+        name: session.name,
+        message: updates.needsInput.message,
+      });
+    } else if (updates.needsInput !== undefined) {
+      console.log(`[SessionService] NOT emitting notify:needs_input for ${id}: oldSession=${!!oldSession}, updates.needsInput?.active=${updates.needsInput?.active}, oldNeedsInputActive=${oldNeedsInputActive}`);
+    }
 
     return session;
   }
@@ -316,6 +347,23 @@ export class SessionService {
     }
 
     await this.eventBus.emit('session:updated', updatedSession);
+
+    // Emit notification events for specific timeline event types
+    if (type === 'progress') {
+      console.log(`[SessionService] Timeline event 'progress' -> emitting notify:progress for ${sessionId}`);
+      await this.eventBus.emit('notify:progress', {
+        sessionId,
+        taskId,
+        message,
+      });
+    } else if (type === 'needs_input') {
+      console.log(`[SessionService] Timeline event 'needs_input' -> emitting notify:needs_input for ${sessionId}`);
+      await this.eventBus.emit('notify:needs_input', {
+        sessionId,
+        name: updatedSession.name,
+        message,
+      });
+    }
 
     return updatedSession;
   }

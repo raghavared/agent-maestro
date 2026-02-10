@@ -99,6 +99,11 @@ export class TaskService {
       throw new ValidationError('Task title cannot be empty');
     }
 
+    // Fetch old task state for comparison — snapshot values before mutation
+    const oldTask = await this.taskRepo.findById(id);
+    const oldStatus = oldTask?.status;
+    const oldTaskSessionStatuses = oldTask?.taskSessionStatuses ? { ...oldTask.taskSessionStatuses } : {};
+
     // ENFORCEMENT: Sessions can only update taskSessionStatuses, not user status
     if (updates.updateSource === 'session') {
       const sessionAllowedUpdates: UpdateTaskPayload = {};
@@ -115,6 +120,12 @@ export class TaskService {
 
       const task = await this.taskRepo.update(id, sessionAllowedUpdates);
       await this.eventBus.emit('task:updated', task);
+
+      // Emit notification events for taskSessionStatuses changes (using snapshot)
+      if (oldTask && sessionAllowedUpdates.taskSessionStatuses) {
+        await this.emitTaskSessionStatusNotifications(oldStatus!, oldTaskSessionStatuses, task);
+      }
+
       return task;
     }
 
@@ -124,7 +135,56 @@ export class TaskService {
 
     await this.eventBus.emit('task:updated', task);
 
+    // Emit notification events for task status transitions (using snapshot)
+    if (oldTask) {
+      await this.emitTaskStatusNotifications(oldStatus!, task);
+      await this.emitTaskSessionStatusNotifications(oldStatus!, oldTaskSessionStatuses, task);
+    }
+
     return task;
+  }
+
+  /**
+   * Emit notification events for task-level status transitions.
+   */
+  private async emitTaskStatusNotifications(oldStatus: string, newTask: Task): Promise<void> {
+    console.log(`[TaskService] Task status check for ${newTask.id}: ${oldStatus} -> ${newTask.status}`);
+    if (oldStatus === newTask.status) return;
+
+    if (newTask.status === 'completed') {
+      console.log(`[TaskService] Emitting notify:task_completed for ${newTask.id} (${newTask.title})`);
+      await this.eventBus.emit('notify:task_completed', { taskId: newTask.id, title: newTask.title });
+    } else if (newTask.status === 'cancelled') {
+      console.log(`[TaskService] Emitting notify:task_failed for ${newTask.id} (${newTask.title})`);
+      await this.eventBus.emit('notify:task_failed', { taskId: newTask.id, title: newTask.title });
+    } else if (newTask.status === 'blocked') {
+      console.log(`[TaskService] Emitting notify:task_blocked for ${newTask.id} (${newTask.title})`);
+      await this.eventBus.emit('notify:task_blocked', { taskId: newTask.id, title: newTask.title });
+    }
+  }
+
+  /**
+   * Emit notification events for taskSessionStatuses changes.
+   * Uses snapshotted oldStatuses to avoid mutation bugs (repo returns mutable references).
+   */
+  private async emitTaskSessionStatusNotifications(oldTaskStatus: string, oldStatuses: Record<string, string>, newTask: Task): Promise<void> {
+    const newStatuses = newTask.taskSessionStatuses || {};
+
+    for (const sessionId of Object.keys(newStatuses)) {
+      const oldStatus = oldStatuses[sessionId];
+      const newStatus = newStatuses[sessionId];
+
+      if (oldStatus === newStatus) continue;
+
+      console.log(`[TaskService] TaskSession status change for task=${newTask.id}, session=${sessionId}: ${oldStatus} -> ${newStatus}`);
+      if (newStatus === 'completed') {
+        console.log(`[TaskService] Emitting notify:task_session_completed for task=${newTask.id}, session=${sessionId}`);
+        await this.eventBus.emit('notify:task_session_completed', { taskId: newTask.id, sessionId, title: newTask.title });
+      } else if (newStatus === 'failed') {
+        console.log(`[TaskService] Emitting notify:task_session_failed for task=${newTask.id}, session=${sessionId}`);
+        await this.eventBus.emit('notify:task_session_failed', { taskId: newTask.id, sessionId, title: newTask.title });
+      }
+    }
   }
 
   /**
