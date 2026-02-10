@@ -314,6 +314,10 @@ export function ProjectTabBar({
 
     const onUp = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return;
+      // If we didn't drag, treat it as a normal click
+      if (!dragging) {
+        onSelectProject(project.id);
+      }
       stop();
     };
 

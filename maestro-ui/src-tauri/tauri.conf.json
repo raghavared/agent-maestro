@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:3001 ws://localhost:3001 http://localhost:3002 ws://localhost:3002 http://localhost:3000 ws://localhost:3000 https://api.github.com"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc://localhost http://localhost:3001 ws://localhost:3001 http://localhost:3002 ws://localhost:3002 http://localhost:3000 ws://localhost:3000 https://api.github.com; media-src 'self'"
     }
   },
   "bundle": {
