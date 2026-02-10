@@ -10,6 +10,7 @@ import type {
 } from '../app/types/maestro';
 import { useSessionStore } from './useSessionStore';
 import { WS_URL } from '../utils/serverConfig';
+import { playEventSound } from '../services/soundManager';
 
 // Global WebSocket singleton
 let globalWs: WebSocket | null = null;
@@ -117,14 +118,20 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
             taskData.taskSessionStatuses = {};
           }
           set((prev) => ({ tasks: new Map(prev.tasks).set(taskData.id, taskData) }));
+          // Play sound for event
+          playEventSound(message.event as any);
           break;
         }
         case 'task:deleted':
           set((prev) => { const tasks = new Map(prev.tasks); tasks.delete(message.data.id); return { tasks }; });
+          // Play sound for event
+          playEventSound(message.event as any);
           break;
         case 'session:created': {
           const session = normalizeSession(message.data.session || message.data);
           set((prev) => ({ sessions: new Map(prev.sessions).set(session.id, session) }));
+          // Play sound for event
+          playEventSound(message.event as any);
           break;
         }
         case 'session:updated': {
@@ -149,10 +156,16 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
               get().clearNeedsInput(updatedSession.id);
             }
           }
+          // Play sound for event (only if not a high-frequency update)
+          if (shouldLogDetails) {
+            playEventSound(message.event as any);
+          }
           break;
         }
         case 'session:deleted':
           set((prev) => { const sessions = new Map(prev.sessions); sessions.delete(message.data.id); return { sessions }; });
+          // Play sound for event
+          playEventSound(message.event as any);
           break;
         case 'session:spawn': {
           const session = normalizeSession(message.data.session || message.data);
@@ -170,15 +183,35 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
             envVars: message.data.envVars || {},
             projectId: message.data.projectId || '',
           });
+          // Play sound for session creation
+          playEventSound('session:created');
           break;
         }
         case 'task:session_added':
         case 'task:session_removed':
           if (message.data?.taskId) get().fetchTask(message.data.taskId);
+          // Play sound for event
+          playEventSound(message.event as any);
           break;
         case 'session:task_added':
         case 'session:task_removed':
           if (message.data?.sessionId) get().fetchSession(message.data.sessionId);
+          // Play sound for event
+          playEventSound(message.event as any);
+          break;
+        // Notification events — play dedicated sounds
+        case 'notify:task_completed':
+        case 'notify:task_failed':
+        case 'notify:task_blocked':
+        case 'notify:task_session_completed':
+        case 'notify:task_session_failed':
+        case 'notify:session_completed':
+        case 'notify:session_failed':
+        case 'notify:needs_input':
+        case 'notify:progress':
+          console.log(`[useMaestroStore] 🔔 NOTIFY EVENT RECEIVED: ${message.event}`, JSON.stringify(message.data));
+          console.log(`[useMaestroStore] 🔔 Playing sound for: ${message.event}`);
+          playEventSound(message.event as any);
           break;
       }
     } catch (err) {

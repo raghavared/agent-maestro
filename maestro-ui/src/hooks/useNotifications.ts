@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { formatError } from "../utils/formatters";
+import { playEventSound } from "../services/soundManager";
 
 export interface UseNotificationsReturn {
     error: string | null;
@@ -27,6 +28,7 @@ export function useNotifications(): UseNotificationsReturn {
 
     const reportError = useCallback((prefix: string, err: unknown) => {
         setError(`${prefix}: ${formatError(err)}`);
+        playEventSound('notification:error');
     }, []);
 
     const reportErrorRef = useRef(reportError);
@@ -37,9 +39,11 @@ export function useNotifications(): UseNotificationsReturn {
     useEffect(() => {
         const handleError = (event: ErrorEvent) => {
             reportErrorRef.current("Unexpected error", event.error ?? event.message);
+            playEventSound('notification:critical');
         };
         const handleRejection = (event: PromiseRejectionEvent) => {
             reportErrorRef.current("Unhandled promise rejection", event.reason);
+            playEventSound('notification:critical');
         };
         window.addEventListener("error", handleError);
         window.addEventListener("unhandledrejection", handleRejection);
@@ -59,6 +63,7 @@ export function useNotifications(): UseNotificationsReturn {
 
     const showNotice = useCallback((message: string, timeoutMs = 4500) => {
         setNotice(message);
+        playEventSound('notification:notice');
         if (noticeTimerRef.current !== null) {
             window.clearTimeout(noticeTimerRef.current);
         }

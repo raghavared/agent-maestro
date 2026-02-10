@@ -29,7 +29,9 @@ export type IconName =
   | "message"
   | "check-square"
   | "inbox"
-  | "arrow-left";
+  | "arrow-left"
+  | "volume"
+  | "volume-off";
 
 type IconProps = {
   name: IconName;
@@ -270,6 +272,22 @@ export function Icon({ name, size = 16, className }: IconProps) {
         <svg {...common}>
           <path d="M19 12H5" />
           <path d="M12 19l-7-7 7-7" />
+        </svg>
+      );
+    case "volume":
+      return (
+        <svg {...common}>
+          <path d="M11 5L6 9H2v6h4l5 4V5z" />
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+        </svg>
+      );
+    case "volume-off":
+      return (
+        <svg {...common}>
+          <path d="M11 5L6 9H2v6h4l5 4V5z" />
+          <path d="M23 9l-6 6" />
+          <path d="M17 9l6 6" />
         </svg>
       );
     default:
