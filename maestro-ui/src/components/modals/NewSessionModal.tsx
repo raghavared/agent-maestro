@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 
 type NewSessionModalProps = {
@@ -42,6 +42,13 @@ export function NewSessionModal({
   onClose,
   onSubmit,
 }: NewSessionModalProps) {
+  // Auto-focus the input field when dialog opens
+  useEffect(() => {
+    if (isOpen && nameInputRef.current) {
+      setTimeout(() => nameInputRef.current?.focus(), 100);
+    }
+  }, [isOpen, nameInputRef]);
+
   if (!isOpen) return null;
 
   return createPortal(
