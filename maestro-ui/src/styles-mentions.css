@@ -8,7 +8,8 @@
 
 .mentionsInput {
     width: 100%;
-    min-height: 150px;
+    min-height: 250px;
+    max-height: 400px;
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
     font-size: 14px;
     line-height: 1.5;
@@ -29,7 +30,10 @@
 
 /* Textarea - the actual input layer - TEXT IS VISIBLE HERE */
 .mentionsInput textarea {
-    min-height: 150px !important;
+    min-height: 250px !important;
+    max-height: 400px !important;
+    overflow-y: auto !important;
+    resize: vertical !important;
     padding: 12px !important;
     border: 1px solid var(--theme-border, rgba(0, 51, 0, 1)) !important;
     background: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.03) !important;
@@ -96,68 +100,52 @@
    CYBERPUNK RETRO CLI AESTHETIC
    =================================== */
 
-/* Suggestions popup container - terminal theme */
+/* Outer suggestions wrapper — strip all styling */
 .mentionsInput__suggestions,
-.mentionsInput [class*="suggestions__list"],
-.mentionsWrapper [class*="suggestions__list"] {
-    background: #000000 !important;
-    border: 2px solid var(--theme-primary, #00ff41) !important;
-    border-radius: 4px !important;
-    box-shadow:
-        0 0 20px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.4),
-        0 10px 40px rgba(0, 0, 0, 0.9),
-        inset 0 0 60px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.03) !important;
-    padding: 6px !important;
-    max-height: 240px !important;
-    overflow-y: auto !important;
+.mentionsInput > div > div[class*="suggestions"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
     z-index: 9999 !important;
-    backdrop-filter: blur(8px);
-    position: relative;
     width: 100% !important;
     min-width: 300px !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
     left: 0 !important;
     right: 0 !important;
+}
+
+/* Inner suggestions list — the only styled box */
+.mentionsInput [class*="suggestions__list"],
+.mentionsWrapper [class*="suggestions__list"] {
+    background: #000000 !important;
+    border: 1px solid var(--theme-primary, #00ff41) !important;
+    box-shadow:
+        0 0 15px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.3),
+        0 8px 30px rgba(0, 0, 0, 0.8) !important;
+    padding: 4px !important;
+    max-height: 240px !important;
+    overflow-y: auto !important;
+    z-index: 9999 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
     margin-top: 4px !important;
 }
 
-/* Scanline effect for terminal aesthetic */
-.mentionsInput__suggestions::before,
-.mentionsInput [class*="suggestions__list"]::before,
-.mentionsWrapper [class*="suggestions__list"]::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: repeating-linear-gradient(0deg,
-        rgba(0, 0, 0, 0.15) 0px,
-        rgba(0, 0, 0, 0.15) 1px,
-        transparent 1px,
-        transparent 2px);
-    pointer-events: none;
-    z-index: 1;
-    opacity: 0.3;
-    border-radius: 2px;
-}
-
 /* Custom scrollbar for terminal theme */
-.mentionsInput__suggestions::-webkit-scrollbar,
 .mentionsInput [class*="suggestions__list"]::-webkit-scrollbar,
 .mentionsWrapper [class*="suggestions__list"]::-webkit-scrollbar {
     width: 8px;
 }
 
-.mentionsInput__suggestions::-webkit-scrollbar-track,
 .mentionsInput [class*="suggestions__list"]::-webkit-scrollbar-track,
 .mentionsWrapper [class*="suggestions__list"]::-webkit-scrollbar-track {
     background: rgba(0, 0, 0, 0.5);
     border-radius: 2px;
 }
 
-.mentionsInput__suggestions::-webkit-scrollbar-thumb,
 .mentionsInput [class*="suggestions__list"]::-webkit-scrollbar-thumb,
 .mentionsWrapper [class*="suggestions__list"]::-webkit-scrollbar-thumb {
     background: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.3);
@@ -165,7 +153,6 @@
     border: 1px solid rgba(var(--theme-primary-rgb, 0, 255, 65), 0.2);
 }
 
-.mentionsInput__suggestions::-webkit-scrollbar-thumb:hover,
 .mentionsInput [class*="suggestions__list"]::-webkit-scrollbar-thumb:hover,
 .mentionsWrapper [class*="suggestions__list"]::-webkit-scrollbar-thumb:hover {
     background: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.5);

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import type { DocEntry } from "../../app/types/maestro";
 import { DocViewer } from "./DocViewer";
 
@@ -72,8 +73,9 @@ export function DocsList({ docs, title = "Docs" }: DocsListProps) {
         })}
       </div>
 
-      {selectedDoc && (
-        <DocViewer doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+      {selectedDoc && createPortal(
+        <DocViewer doc={selectedDoc} onClose={() => setSelectedDoc(null)} />,
+        document.body
       )}
     </>
   );

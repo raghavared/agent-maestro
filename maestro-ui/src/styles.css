@@ -9033,13 +9033,17 @@ select.input {
   border-left: 2px solid var(--terminal-border);
 }
 
-/* Empty State */
-.terminalEmptyState {
+/* Empty State - reset absolute positioning from global .terminalEmptyState */
+.terminalTabPane .terminalEmptyState,
+.terminalTaskExpanded .terminalEmptyState {
+  position: static;
+  inset: auto;
   text-align: center;
   padding: 24px 12px;
   color: var(--terminal-text-dim);
   font-size: 12px;
   font-style: italic;
+  min-height: auto;
 }
 
 /* Task Actions Bar */
@@ -13810,8 +13814,8 @@ select.input {
 /* ------------------------------------------------------------------ */
 
 .themedModal--wide {
-  max-width: 580px;
-  max-height: 85vh;
+  max-width: 720px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
 }
