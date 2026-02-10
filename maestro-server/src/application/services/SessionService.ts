@@ -110,7 +110,41 @@ export class SessionService {
    * Update a session.
    */
   async updateSession(id: string, updates: UpdateSessionPayload): Promise<Session> {
+    // Guard: don't overwrite 'completed' with 'stopped'
+    if (updates.status === 'stopped') {
+      const existing = await this.sessionRepo.findById(id);
+      if (existing && existing.status === 'completed') {
+        delete updates.status;
+        if (Object.keys(updates).length === 0) return existing;
+      }
+    }
+
     const session = await this.sessionRepo.update(id, updates);
+
+    // Propagate terminal session status to task-level taskSessionStatuses
+    if (updates.status && ['stopped', 'completed', 'failed'].includes(updates.status)) {
+      const taskSessionStatus = updates.status === 'completed' ? 'completed' : 'failed';
+      for (const taskId of session.taskIds) {
+        try {
+          const task = await this.taskRepo.findById(taskId);
+          if (task) {
+            const currentTaskSessionStatus = task.taskSessionStatuses?.[id];
+            // Only update if the task-session status is still active (working/queued/blocked)
+            if (currentTaskSessionStatus && !['completed', 'failed', 'skipped'].includes(currentTaskSessionStatus)) {
+              await this.taskRepo.update(taskId, {
+                taskSessionStatuses: { ...(task.taskSessionStatuses || {}), [id]: taskSessionStatus },
+              });
+              const updatedTask = await this.taskRepo.findById(taskId);
+              if (updatedTask) {
+                await this.eventBus.emit('task:updated', updatedTask);
+              }
+            }
+          }
+        } catch {
+          // Best effort — don't fail the session update if task update fails
+        }
+      }
+    }
 
     if (session.needsInput) {
       console.log(`[SessionService] Emitting session:updated with needsInput for ${id}:`, JSON.stringify(session.needsInput));

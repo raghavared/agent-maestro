@@ -605,14 +605,33 @@ export function CreateTaskModal({
                     {isEditMode ? (
                         <>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                                <span className="themedFormHint">agent:</span>
-                                {selectedAgentId && onAgentSelect && (
-                                    <AgentSelector
-                                        selectedAgentId={selectedAgentId}
-                                        onSelectAgent={onAgentSelect}
-                                        compact={true}
-                                    />
-                                )}
+                                <span className="themedFormHint">model:</span>
+                                <div className="themedSegmentedControl" style={{ margin: 0 }}>
+                                    <button
+                                        type="button"
+                                        className={`themedSegmentedBtn ${model === "haiku" ? "active" : ""}`}
+                                        onClick={() => setModel("haiku")}
+                                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                                    >
+                                        Haiku
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`themedSegmentedBtn ${model === "sonnet" ? "active" : ""}`}
+                                        onClick={() => setModel("sonnet")}
+                                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                                    >
+                                        Sonnet
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`themedSegmentedBtn ${model === "opus" ? "active" : ""}`}
+                                        onClick={() => setModel("opus")}
+                                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                                    >
+                                        Opus
+                                    </button>
+                                </div>
                             </div>
                             <button type="button" className="themedBtn" onClick={handleClose}>
                                 Close
