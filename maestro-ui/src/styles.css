@@ -14800,3 +14800,55 @@ select.input {
   margin-right: 6px;
   accent-color: var(--theme-primary, #00ff41);
 }
+
+/* ------------------------------------------------------------------ */
+/*  Responsive / Mobile Panel Switcher                                  */
+/* ------------------------------------------------------------------ */
+
+.mobilePanelSwitcher {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.mobilePanelTab {
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  border-bottom: 2px solid transparent;
+}
+
+.mobilePanelTab:hover {
+  color: var(--foreground);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mobilePanelTabActive {
+  color: var(--theme-primary, #6b8afd);
+  border-bottom-color: var(--theme-primary, #6b8afd);
+  background: rgba(var(--theme-primary-rgb, 107, 138, 253), 0.06);
+}
+
+.appContentResponsive {
+  /* In responsive mode, the active panel fills the entire width */
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.appContentResponsive .sidebar {
+  border-right: none;
+}
+
+.appContentResponsive .rightPanel {
+  border-left: none;
+}

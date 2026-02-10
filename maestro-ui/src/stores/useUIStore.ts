@@ -140,6 +140,12 @@ interface UIState {
   checkForUpdates: () => Promise<void>;
   loadAppInfo: () => Promise<void>;
 
+  // Responsive layout
+  responsiveMode: boolean;
+  activeMobilePanel: 'sidebar' | 'terminal' | 'maestro';
+  setResponsiveMode: (mode: boolean) => void;
+  setActiveMobilePanel: (panel: 'sidebar' | 'terminal' | 'maestro') => void;
+
   // Home directory
   homeDir: string | null;
   setHomeDir: (dir: string | null) => void;
@@ -332,6 +338,12 @@ export const useUIStore = create<UIState>((set, get) => ({
       });
     }
   },
+
+  // -- Responsive layout --
+  responsiveMode: false,
+  activeMobilePanel: 'terminal',
+  setResponsiveMode: (mode) => set({ responsiveMode: mode }),
+  setActiveMobilePanel: (panel) => set({ activeMobilePanel: panel }),
 
   // -- Home directory --
   homeDir: null,

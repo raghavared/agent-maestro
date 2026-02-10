@@ -9,7 +9,7 @@ import { useWorkspaceStore, getActiveWorkspaceView } from "../stores/useWorkspac
 import { isSshCommandLine, sshTargetFromCommandLine } from "../app/utils/ssh";
 import { createMaestroSession } from "../services/maestroService";
 
-export const AppRightPanel: React.FC = () => {
+export const AppRightPanel: React.FC<{ forceMobileOpen?: boolean }> = ({ forceMobileOpen }) => {
     // --- UI store ---
     const activeRightPanel = useUIStore((s) => s.activeRightPanel);
     const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
@@ -128,30 +128,38 @@ export const AppRightPanel: React.FC = () => {
         [setActiveRightPanel],
     );
 
-    if (activeRightPanel === "none") return null;
+    if (!forceMobileOpen && activeRightPanel === "none") return null;
+
+    const isMobile = !!forceMobileOpen;
+    const effectivePanel = isMobile ? "maestro" : activeRightPanel;
 
     return (
         <>
-            <div
-                className="sidebarLeftResizeHandle"
-                role="separator"
-                aria-label="Resize Right Panel"
-                aria-orientation="vertical"
-                aria-valuemin={DEFAULTS.MIN_RIGHT_PANEL_WIDTH}
-                aria-valuemax={DEFAULTS.MAX_RIGHT_PANEL_WIDTH}
-                aria-valuenow={rightPanelWidth}
-                tabIndex={0}
-                onPointerDown={onResizeStart}
-                title="Drag to resize"
-            />
+            {!isMobile && (
+                <div
+                    className="sidebarLeftResizeHandle"
+                    role="separator"
+                    aria-label="Resize Right Panel"
+                    aria-orientation="vertical"
+                    aria-valuemin={DEFAULTS.MIN_RIGHT_PANEL_WIDTH}
+                    aria-valuemax={DEFAULTS.MAX_RIGHT_PANEL_WIDTH}
+                    aria-valuenow={rightPanelWidth}
+                    tabIndex={0}
+                    onPointerDown={onResizeStart}
+                    title="Drag to resize"
+                />
+            )}
             <aside
                 className="rightPanel"
-                style={{ width: `${rightPanelWidth}px`, maxWidth: `${rightPanelWidth}px`, flexShrink: 0, flexGrow: 0 }}
+                style={isMobile
+                    ? { width: "100%", maxWidth: "100%", flexShrink: 0, flexGrow: 1 }
+                    : { width: `${rightPanelWidth}px`, maxWidth: `${rightPanelWidth}px`, flexShrink: 0, flexGrow: 0 }
+                }
             >
-                {activeRightPanel === "maestro" && activeProject && (
+                {effectivePanel === "maestro" && activeProject && (
                     <MaestroPanel
                         isOpen={true}
-                        onClose={onClose}
+                        onClose={isMobile ? () => {} : onClose}
                         projectId={activeProjectId}
                         project={activeProject}
                         onCreateMaestroSession={createMaestroSession}
@@ -159,7 +167,7 @@ export const AppRightPanel: React.FC = () => {
                         onAddTaskToSession={handleAddTaskToSessionRequest}
                     />
                 )}
-                {activeRightPanel === "files" && (
+                {effectivePanel === "files" && (
                     <FileExplorerPanel
                         isOpen={true}
                         provider={activeIsSsh ? "ssh" : "local"}
