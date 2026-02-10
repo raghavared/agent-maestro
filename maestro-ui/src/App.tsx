@@ -66,6 +66,25 @@ export default function App() {
   // ---------- keyboard shortcuts (reads from stores directly) ----------
   useKeyboardShortcuts();
 
+  // ---------- responsive mode ----------
+  const responsiveMode = useUIStore((s) => s.responsiveMode);
+  const setResponsiveMode = useUIStore((s) => s.setResponsiveMode);
+  const activeMobilePanel = useUIStore((s) => s.activeMobilePanel);
+  const setActiveMobilePanel = useUIStore((s) => s.setActiveMobilePanel);
+
+  useEffect(() => {
+    const BREAKPOINT = 960;
+    const check = () => {
+      const narrow = window.innerWidth < BREAKPOINT;
+      if (narrow !== useUIStore.getState().responsiveMode) {
+        setResponsiveMode(narrow);
+      }
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [setResponsiveMode]);
+
   // ---------- read layout values from stores ----------
   const sidebarWidth = useUIStore((s) => s.sidebarWidth);
   const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
@@ -201,17 +220,47 @@ export default function App() {
         </>
       ) : (
         <>
+          {/* -------- Mobile Panel Switcher -------- */}
+          {responsiveMode && (
+            <div className="mobilePanelSwitcher">
+              <button
+                type="button"
+                className={`mobilePanelTab ${activeMobilePanel === "sidebar" ? "mobilePanelTabActive" : ""}`}
+                onClick={() => setActiveMobilePanel("sidebar")}
+              >
+                Sessions
+              </button>
+              <button
+                type="button"
+                className={`mobilePanelTab ${activeMobilePanel === "terminal" ? "mobilePanelTabActive" : ""}`}
+                onClick={() => setActiveMobilePanel("terminal")}
+              >
+                Terminal
+              </button>
+              <button
+                type="button"
+                className={`mobilePanelTab ${activeMobilePanel === "maestro" ? "mobilePanelTabActive" : ""}`}
+                onClick={() => setActiveMobilePanel("maestro")}
+              >
+                Maestro
+              </button>
+            </div>
+          )}
+
           {/* -------- App Content -------- */}
-          <div className="appContent">
+          <div className={`appContent ${responsiveMode ? "appContentResponsive" : ""}`}>
             {/* -------- Sidebar -------- */}
             <aside
               className="sidebar"
               ref={sidebarRef}
-              style={{
-                width: `${sidebarWidth}px`,
-                maxWidth: `${sidebarWidth}px`,
-                flexGrow: 0,
-              } as React.CSSProperties}
+              style={responsiveMode
+                ? { width: "100%", maxWidth: "100%", flexGrow: 1, display: activeMobilePanel === "sidebar" ? undefined : "none" }
+                : {
+                    width: `${sidebarWidth}px`,
+                    maxWidth: `${sidebarWidth}px`,
+                    flexGrow: 0,
+                  }
+              }
             >
               <QuickPromptsSection
               prompts={prompts}
@@ -230,16 +279,20 @@ export default function App() {
               activeSessionId={activeId}
               projectName={activeProject?.name ?? null}
               projectBasePath={activeProject?.basePath ?? null}
-              onSelectSession={(id) => setActiveId(id)}
+              onSelectSession={(id) => {
+                setActiveId(id);
+                if (responsiveMode) setActiveMobilePanel("terminal");
+              }}
               onCloseSession={(id) => void onClose(id)}
               onReorderSessions={reorderSessions}
-              onQuickStart={(effect) =>
+              onQuickStart={(effect) => {
                 void quickStart({
                   id: effect.id,
                   title: effect.label,
                   command: effect.matchCommands[0] ?? effect.label,
-                })
-              }
+                });
+                if (responsiveMode) setActiveMobilePanel("terminal");
+              }}
               onOpenNewSession={() => {
                 setProjectOpen(false);
                 setNewOpen(true);
@@ -255,21 +308,29 @@ export default function App() {
             </aside>
 
             {/* -------- Sidebar resize handle -------- */}
-            <div
-              className="sidebarRightResizeHandle"
-              role="separator"
-              aria-label="Resize Sidebar"
-              aria-orientation="vertical"
-              aria-valuemin={DEFAULTS.MIN_SIDEBAR_WIDTH}
-              aria-valuemax={DEFAULTS.MAX_SIDEBAR_WIDTH}
-              aria-valuenow={sidebarWidth}
-              tabIndex={0}
-              onPointerDown={handleSidebarResizePointerDown}
-              title="Drag to resize"
-            />
+            {!responsiveMode && (
+              <div
+                className="sidebarRightResizeHandle"
+                role="separator"
+                aria-label="Resize Sidebar"
+                aria-orientation="vertical"
+                aria-valuemin={DEFAULTS.MIN_SIDEBAR_WIDTH}
+                aria-valuemax={DEFAULTS.MAX_SIDEBAR_WIDTH}
+                aria-valuenow={sidebarWidth}
+                tabIndex={0}
+                onPointerDown={handleSidebarResizePointerDown}
+                title="Drag to resize"
+              />
+            )}
 
             {/* -------- Main content -------- */}
-            <main className="main">
+            <main
+              className="main"
+              style={responsiveMode
+                ? { display: activeMobilePanel === "terminal" ? undefined : "none" }
+                : undefined
+              }
+            >
               <div className="terminalArea">
                 <AppWorkspace registry={registry} pendingData={pendingData} />
                 <AppModals />
@@ -277,8 +338,12 @@ export default function App() {
               </div>
             </main>
 
-            {/* -------- Right Panel -------- */}
-            <AppRightPanel />
+            {/* -------- Right Panel (Maestro) -------- */}
+            {responsiveMode ? (
+              activeMobilePanel === "maestro" && <AppRightPanel forceMobileOpen />
+            ) : (
+              <AppRightPanel />
+            )}
           </div>
         </>
       )}

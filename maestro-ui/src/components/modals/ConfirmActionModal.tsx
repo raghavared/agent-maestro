@@ -27,24 +27,29 @@ export function ConfirmActionModal({
 
   return (
     <div
-      className="modalBackdrop modalBackdropTop"
+      className="themedModalBackdrop"
       onClick={() => {
         if (busy) return;
         onClose();
       }}
     >
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3 className="modalTitle">{title}</h3>
-        <div className="hint" style={{ marginTop: 0 }}>
-          {message}
+      <div className="themedModal" onClick={(e) => e.stopPropagation()}>
+        <div className="themedModalHeader">
+          <span className="themedModalTitle">{title}</span>
+          <button className="themedModalClose" onClick={onClose} disabled={busy}>×</button>
         </div>
-        <div className="modalActions">
-          <button type="button" className="btn" onClick={onClose} disabled={busy}>
+        <div className="themedModalContent">
+          <div className="themedFormHint">
+            {message}
+          </div>
+        </div>
+        <div className="themedFormActions">
+          <button type="button" className="themedBtn" onClick={onClose} disabled={busy}>
             {cancelLabel}
           </button>
           <button
             type="button"
-            className={`btn ${confirmDanger ? "btnDanger" : ""}`}
+            className={`themedBtn ${confirmDanger ? "themedBtnDanger" : "themedBtnPrimary"}`}
             onClick={onConfirm}
             disabled={busy}
           >

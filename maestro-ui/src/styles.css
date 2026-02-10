@@ -7969,6 +7969,31 @@ select.input {
   border-color: rgba(255, 50, 50, 0.25);
 }
 
+/* Model Badges */
+.terminalMetaBadge--model {
+  font-size: 9px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.terminalMetaBadge--model-haiku {
+  color: #00d4ff;
+  background: rgba(0, 212, 255, 0.12);
+  border-color: rgba(0, 212, 255, 0.3);
+}
+
+.terminalMetaBadge--model-sonnet {
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.12);
+  border-color: rgba(167, 139, 250, 0.3);
+}
+
+.terminalMetaBadge--model-opus {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
 /* Session Status Badges */
 .terminalMetaBadge--session {
   font-weight: 600;
@@ -9033,13 +9058,17 @@ select.input {
   border-left: 2px solid var(--terminal-border);
 }
 
-/* Empty State */
-.terminalEmptyState {
+/* Empty State - reset absolute positioning from global .terminalEmptyState */
+.terminalTabPane .terminalEmptyState,
+.terminalTaskExpanded .terminalEmptyState {
+  position: static;
+  inset: auto;
   text-align: center;
   padding: 24px 12px;
   color: var(--terminal-text-dim);
   font-size: 12px;
   font-style: italic;
+  min-height: auto;
 }
 
 /* Task Actions Bar */
@@ -13810,8 +13839,8 @@ select.input {
 /* ------------------------------------------------------------------ */
 
 .themedModal--wide {
-  max-width: 580px;
-  max-height: 85vh;
+  max-width: 720px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
 }
@@ -14770,4 +14799,56 @@ select.input {
 .docViewerMarkdown input[type="checkbox"] {
   margin-right: 6px;
   accent-color: var(--theme-primary, #00ff41);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Responsive / Mobile Panel Switcher                                  */
+/* ------------------------------------------------------------------ */
+
+.mobilePanelSwitcher {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.mobilePanelTab {
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  border-bottom: 2px solid transparent;
+}
+
+.mobilePanelTab:hover {
+  color: var(--foreground);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mobilePanelTabActive {
+  color: var(--theme-primary, #6b8afd);
+  border-bottom-color: var(--theme-primary, #6b8afd);
+  background: rgba(var(--theme-primary-rgb, 107, 138, 253), 0.06);
+}
+
+.appContentResponsive {
+  /* In responsive mode, the active panel fills the entire width */
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.appContentResponsive .sidebar {
+  border-right: none;
+}
+
+.appContentResponsive .rightPanel {
+  border-left: none;
 }

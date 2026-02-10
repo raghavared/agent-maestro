@@ -243,12 +243,14 @@ export function CreateTaskModal({
             fontSize: '12px',
             fontWeight: 'normal' as const,
             lineHeight: '1.5',
-            minHeight: '120px',
+            minHeight: '250px',
+            maxHeight: '400px',
         },
         '&multiLine': {
             control: {
                 fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                minHeight: '120px',
+                minHeight: '250px',
+                maxHeight: '400px',
             },
             highlighter: {
                 padding: '8px 10px',
@@ -258,6 +260,7 @@ export function CreateTaskModal({
                 fontSize: '12px',
                 lineHeight: '1.5',
                 pointerEvents: 'none' as const,
+                overflow: 'hidden' as const,
             },
             input: {
                 padding: '8px 10px',
@@ -266,6 +269,8 @@ export function CreateTaskModal({
                 fontFamily: '"JetBrains Mono", "Fira Code", monospace',
                 fontSize: '12px',
                 lineHeight: '1.5',
+                maxHeight: '400px',
+                overflow: 'auto' as const,
             },
         },
         suggestions: {
@@ -287,7 +292,7 @@ export function CreateTaskModal({
         ? 'EDIT TASK'
         : parentId
             ? 'NEW SUBTASK'
-            : 'NEW AGENT TASK';
+            : 'NEW TASK';
 
     return createPortal(
         <div className="themedModalBackdrop" onClick={handleClose}>
@@ -328,11 +333,9 @@ export function CreateTaskModal({
                     )}
 
                     {/* Subtitle for create mode */}
-                    {!isEditMode && (
+                    {!isEditMode && parentId && parentTitle && (
                         <div className="themedFormHint" style={{ marginBottom: '10px' }}>
-                            {parentId && parentTitle
-                                ? `Creating subtask of: ${parentTitle}`
-                                : 'Give your task a title and describe what you want Claude to build'}
+                            Creating subtask of: {parentTitle}
                         </div>
                     )}
 
@@ -378,62 +381,6 @@ export function CreateTaskModal({
                         </div>
                     </div>
 
-                    {/* Priority */}
-                    <div className="themedFormRow">
-                        <div className="themedFormLabel">Priority</div>
-                        <div className="themedSegmentedControl">
-                            <button
-                                type="button"
-                                className={`themedSegmentedBtn ${priority === "low" ? "active" : ""}`}
-                                onClick={() => setPriority("low")}
-                            >
-                                Low
-                            </button>
-                            <button
-                                type="button"
-                                className={`themedSegmentedBtn ${priority === "medium" ? "active" : ""}`}
-                                onClick={() => setPriority("medium")}
-                            >
-                                Medium
-                            </button>
-                            <button
-                                type="button"
-                                className={`themedSegmentedBtn ${priority === "high" ? "active" : ""}`}
-                                onClick={() => setPriority("high")}
-                            >
-                                High
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Model */}
-                    <div className="themedFormRow">
-                        <div className="themedFormLabel">Model</div>
-                        <div className="themedSegmentedControl">
-                            <button
-                                type="button"
-                                className={`themedSegmentedBtn ${model === "haiku" ? "active" : ""}`}
-                                onClick={() => setModel("haiku")}
-                            >
-                                Haiku
-                            </button>
-                            <button
-                                type="button"
-                                className={`themedSegmentedBtn ${model === "sonnet" ? "active" : ""}`}
-                                onClick={() => setModel("sonnet")}
-                            >
-                                Sonnet
-                            </button>
-                            <button
-                                type="button"
-                                className={`themedSegmentedBtn ${model === "opus" ? "active" : ""}`}
-                                onClick={() => setModel("opus")}
-                            >
-                                Opus
-                            </button>
-                        </div>
-                    </div>
-
                     {/* Advanced Options */}
                     <button
                         type="button"
@@ -447,12 +394,39 @@ export function CreateTaskModal({
                     </button>
 
                     {showAdvanced && (
-                        <div className="themedFormRow" style={{ paddingLeft: '12px', borderLeft: '1px solid var(--theme-border)' }}>
-                            <div className="themedFormLabel">Claude Code Skills</div>
-                            <ClaudeCodeSkillsSelector
-                                selectedSkills={selectedSkills}
-                                onSelectionChange={setSelectedSkills}
-                            />
+                        <div style={{ paddingLeft: '12px', borderLeft: '1px solid var(--theme-border)' }}>
+                            <div className="themedFormRow" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
+                                <div className="themedFormLabel" style={{ marginBottom: 0, flexShrink: 0 }}>Priority</div>
+                                <div className="themedSegmentedControl" style={{ margin: 0 }}>
+                                    <button
+                                        type="button"
+                                        className={`themedSegmentedBtn ${priority === "low" ? "active" : ""}`}
+                                        onClick={() => setPriority("low")}
+                                    >
+                                        Low
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`themedSegmentedBtn ${priority === "medium" ? "active" : ""}`}
+                                        onClick={() => setPriority("medium")}
+                                    >
+                                        Medium
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`themedSegmentedBtn ${priority === "high" ? "active" : ""}`}
+                                        onClick={() => setPriority("high")}
+                                    >
+                                        High
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="themedFormRow">
+                                <ClaudeCodeSkillsSelector
+                                    selectedSkills={selectedSkills}
+                                    onSelectionChange={setSelectedSkills}
+                                />
+                            </div>
                         </div>
                     )}
 
@@ -631,14 +605,33 @@ export function CreateTaskModal({
                     {isEditMode ? (
                         <>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                                <span className="themedFormHint">agent:</span>
-                                {selectedAgentId && onAgentSelect && (
-                                    <AgentSelector
-                                        selectedAgentId={selectedAgentId}
-                                        onSelectAgent={onAgentSelect}
-                                        compact={true}
-                                    />
-                                )}
+                                <span className="themedFormHint">model:</span>
+                                <div className="themedSegmentedControl" style={{ margin: 0 }}>
+                                    <button
+                                        type="button"
+                                        className={`themedSegmentedBtn ${model === "haiku" ? "active" : ""}`}
+                                        onClick={() => setModel("haiku")}
+                                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                                    >
+                                        Haiku
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`themedSegmentedBtn ${model === "sonnet" ? "active" : ""}`}
+                                        onClick={() => setModel("sonnet")}
+                                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                                    >
+                                        Sonnet
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`themedSegmentedBtn ${model === "opus" ? "active" : ""}`}
+                                        onClick={() => setModel("opus")}
+                                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                                    >
+                                        Opus
+                                    </button>
+                                </div>
                             </div>
                             <button type="button" className="themedBtn" onClick={handleClose}>
                                 Close
@@ -659,7 +652,35 @@ export function CreateTaskModal({
                         </>
                     ) : (
                         <>
-                            <span className="themedFormHint" style={{ flex: 1 }}>⌘↵ to create</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                                <span className="themedFormHint">model:</span>
+                                <div className="themedSegmentedControl" style={{ margin: 0 }}>
+                                    <button
+                                        type="button"
+                                        className={`themedSegmentedBtn ${model === "haiku" ? "active" : ""}`}
+                                        onClick={() => setModel("haiku")}
+                                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                                    >
+                                        Haiku
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`themedSegmentedBtn ${model === "sonnet" ? "active" : ""}`}
+                                        onClick={() => setModel("sonnet")}
+                                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                                    >
+                                        Sonnet
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`themedSegmentedBtn ${model === "opus" ? "active" : ""}`}
+                                        onClick={() => setModel("opus")}
+                                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                                    >
+                                        Opus
+                                    </button>
+                                </div>
+                            </div>
                             <button type="button" className="themedBtn" onClick={handleClose}>
                                 Cancel
                             </button>

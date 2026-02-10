@@ -17,7 +17,7 @@
         "devtools": true,
         "width": 1200,
         "height": 800,
-        "minWidth": 900,
+        "minWidth": 480,
         "minHeight": 600,
         "resizable": true
       }

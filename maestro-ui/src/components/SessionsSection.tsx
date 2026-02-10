@@ -452,7 +452,7 @@ export function SessionsSection({
       {sessionToClose && createPortal(
         <ConfirmActionModal
           isOpen={true}
-          title="Close Active Session"
+          title="[ CLOSE SESSION ]"
           message={
             <>
               Are you sure you want to close the session <strong>{sessionToClose.name}</strong>?

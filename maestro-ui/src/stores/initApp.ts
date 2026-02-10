@@ -168,10 +168,11 @@ export function initApp(
       });
 
       // Sync terminal exit to Maestro server
+      // Always send 'stopped' — the CLI's SessionEnd hook handles 'completed'.
+      // The pty-exit is only a fallback for abnormal exits.
       if (exitingSession?.maestroSessionId) {
-        const status = (exit_code === 0 || exit_code === null) ? 'completed' : 'failed';
         void maestroClient.updateSession(exitingSession.maestroSessionId, {
-          status,
+          status: 'stopped',
           completedAt: Date.now(),
         }).catch(() => {});
       }
@@ -622,26 +623,43 @@ export function initApp(
     // ──── RECONCILE WITH MAESTRO SERVER ────
     // Mark server sessions as stopped if we don't have a local terminal for them
     // (they were orphaned by a crash/restart)
-    try {
-      const serverSessions = await maestroClient.getSessions();
-      const localMaestroIds = new Set(
-        restored.filter((rs) => rs.maestroSessionId).map((rs) => rs.maestroSessionId),
+    const getLocalMaestroIds = (): Set<string> => {
+      const { sessions } = s.session.getState();
+      return new Set(
+        sessions
+          .filter((rs): rs is typeof rs & { maestroSessionId: string } => Boolean(rs.maestroSessionId) && !rs.exited)
+          .map((rs) => rs.maestroSessionId),
       );
+    };
 
-      for (const serverSession of serverSessions) {
-        if (
-          ['spawning', 'idle', 'working'].includes(serverSession.status) &&
-          !localMaestroIds.has(serverSession.id)
-        ) {
-          void maestroClient.updateSession(serverSession.id, {
-            status: 'stopped',
-            completedAt: Date.now(),
-          }).catch(() => {});
+    const cleanupOrphanedSessions = async () => {
+      try {
+        const serverSessions = await maestroClient.getSessions();
+        const localIds = getLocalMaestroIds();
+        for (const serverSession of serverSessions) {
+          if (
+            ['spawning', 'idle', 'working'].includes(serverSession.status) &&
+            !localIds.has(serverSession.id)
+          ) {
+            void maestroClient.updateSession(serverSession.id, {
+              status: 'stopped',
+              completedAt: Date.now(),
+            }).catch(() => {});
+          }
         }
+      } catch {
+        // Server might not be running — best effort
       }
-    } catch {
-      // Server might not be running — best effort
-    }
+    };
+
+    // Run initial cleanup
+    await cleanupOrphanedSessions();
+
+    // Run periodic cleanup every 30 seconds
+    const orphanCleanupInterval = window.setInterval(() => {
+      void cleanupOrphanedSessions();
+    }, 30_000);
+    unlisteners.push(() => window.clearInterval(orphanCleanupInterval));
 
     if (cancelled) {
       await Promise.all(restored.map((sess) => closeSession(sess.id).catch(() => {})));
@@ -741,6 +759,13 @@ export function initApp(
     if (!isHmr) {
       const { sessions } = sessionStore;
       for (const sess of sessions) {
+        // Mark active maestro sessions as stopped before closing PTY
+        if (sess.maestroSessionId && !sess.exited) {
+          void maestroClient.updateSession(sess.maestroSessionId, {
+            status: 'stopped',
+            completedAt: Date.now(),
+          }).catch(() => {});
+        }
         if (sess.persistent && !sess.exited) void detachSession(sess.id).catch(() => {});
         else void closeSession(sess.id).catch(() => {});
       }
