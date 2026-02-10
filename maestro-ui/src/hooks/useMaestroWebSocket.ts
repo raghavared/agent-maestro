@@ -24,7 +24,17 @@ type WebSocketEvent =
     | { event: 'task:session_removed'; data: { taskId: string; sessionId: string } }
     | { event: 'subtask:created'; data: { taskId: string; subtask: any } }
     | { event: 'subtask:updated'; data: { taskId: string; subtask: any } }
-    | { event: 'subtask:deleted'; data: { taskId: string; subtaskId: string } };
+    | { event: 'subtask:deleted'; data: { taskId: string; subtaskId: string } }
+    // Notification events
+    | { event: 'notify:task_completed'; data: { taskId: string; title: string } }
+    | { event: 'notify:task_failed'; data: { taskId: string; title: string } }
+    | { event: 'notify:task_blocked'; data: { taskId: string; title: string } }
+    | { event: 'notify:task_session_completed'; data: { taskId: string; sessionId: string; title: string } }
+    | { event: 'notify:task_session_failed'; data: { taskId: string; sessionId: string; title: string } }
+    | { event: 'notify:session_completed'; data: { sessionId: string; name: string } }
+    | { event: 'notify:session_failed'; data: { sessionId: string; name: string } }
+    | { event: 'notify:needs_input'; data: { sessionId: string; name: string; message?: string } }
+    | { event: 'notify:progress'; data: { sessionId: string; taskId?: string; message?: string } };
 
 export type MaestroWebSocketCallbacks = {
     onTaskCreated?: (task: MaestroTask) => void;
@@ -41,6 +51,16 @@ export type MaestroWebSocketCallbacks = {
     onSubtaskCreated?: (data: { taskId: string; subtask: any }) => void;
     onSubtaskUpdated?: (data: { taskId: string; subtask: any }) => void;
     onSubtaskDeleted?: (data: { taskId: string; subtaskId: string }) => void;
+    // Notification event callbacks
+    onNotifyTaskCompleted?: (data: { taskId: string; title: string }) => void;
+    onNotifyTaskFailed?: (data: { taskId: string; title: string }) => void;
+    onNotifyTaskBlocked?: (data: { taskId: string; title: string }) => void;
+    onNotifyTaskSessionCompleted?: (data: { taskId: string; sessionId: string; title: string }) => void;
+    onNotifyTaskSessionFailed?: (data: { taskId: string; sessionId: string; title: string }) => void;
+    onNotifySessionCompleted?: (data: { sessionId: string; name: string }) => void;
+    onNotifySessionFailed?: (data: { sessionId: string; name: string }) => void;
+    onNotifyNeedsInput?: (data: { sessionId: string; name: string; message?: string }) => void;
+    onNotifyProgress?: (data: { sessionId: string; taskId?: string; message?: string }) => void;
     onConnected?: () => void;
     onDisconnected?: () => void;
 };
@@ -174,6 +194,34 @@ export function useMaestroWebSocket(callbacks: MaestroWebSocketCallbacks = {}) {
                         break;
                     case 'subtask:deleted':
                         callbacks.onSubtaskDeleted?.(message.data);
+                        break;
+                    // Notification events
+                    case 'notify:task_completed':
+                        callbacks.onNotifyTaskCompleted?.(message.data);
+                        break;
+                    case 'notify:task_failed':
+                        callbacks.onNotifyTaskFailed?.(message.data);
+                        break;
+                    case 'notify:task_blocked':
+                        callbacks.onNotifyTaskBlocked?.(message.data);
+                        break;
+                    case 'notify:task_session_completed':
+                        callbacks.onNotifyTaskSessionCompleted?.(message.data);
+                        break;
+                    case 'notify:task_session_failed':
+                        callbacks.onNotifyTaskSessionFailed?.(message.data);
+                        break;
+                    case 'notify:session_completed':
+                        callbacks.onNotifySessionCompleted?.(message.data);
+                        break;
+                    case 'notify:session_failed':
+                        callbacks.onNotifySessionFailed?.(message.data);
+                        break;
+                    case 'notify:needs_input':
+                        callbacks.onNotifyNeedsInput?.(message.data);
+                        break;
+                    case 'notify:progress':
+                        callbacks.onNotifyProgress?.(message.data);
                         break;
                 }
             } catch (error) {

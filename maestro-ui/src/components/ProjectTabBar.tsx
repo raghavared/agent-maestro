@@ -2,12 +2,15 @@ import React, { useState, useRef, useLayoutEffect } from "react";
 import { Icon } from "./Icon";
 import { MaestroProject } from "../app/types/maestro";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+import { SoundSettingsContent } from "./modals/SoundSettingsModal";
+import { soundManager } from "../services/soundManager";
 
 type ProjectTabBarProps = {
   projects: MaestroProject[];
   activeProjectId: string;
   sessionCountByProject: Map<string, number>;
   workingAgentCountByProject: Map<string, number>;
+  needsInputByProject: Map<string, boolean>;
   onSelectProject: (projectId: string) => void;
   onNewProject: () => void;
   onDeleteProject: (projectId: string) => void;
@@ -21,7 +24,11 @@ type SettingsDialogProps = {
   onDelete: () => void;
 };
 
+type SettingsTab = 'theme' | 'sounds';
+
 function AppSettingsDialog({ onClose }: { onClose: () => void }) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>('theme');
+
   return (
     <div className="projectSettingsBackdrop" onClick={onClose}>
       <div className="appSettingsDialog" onClick={(e) => e.stopPropagation()}>
@@ -30,8 +37,34 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
           <button className="projectSettingsClose" onClick={onClose}>×</button>
         </div>
 
-        <div className="appSettingsContent">
-          <ThemeSwitcher />
+        <div className="appSettingsBody">
+          <div className="appSettingsSidebar">
+            <button
+              type="button"
+              className={`appSettingsTabBtn ${activeTab === 'theme' ? 'appSettingsTabBtnActive' : ''}`}
+              onClick={() => setActiveTab('theme')}
+            >
+              THEME
+            </button>
+            <button
+              type="button"
+              className={`appSettingsTabBtn ${activeTab === 'sounds' ? 'appSettingsTabBtnActive' : ''}`}
+              onClick={() => setActiveTab('sounds')}
+            >
+              SOUNDS
+            </button>
+          </div>
+
+          <div className="appSettingsTabContent">
+            {activeTab === 'theme' && (
+              <div className="appSettingsContent">
+                <ThemeSwitcher />
+              </div>
+            )}
+            {activeTab === 'sounds' && (
+              <SoundSettingsContent />
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -95,6 +128,7 @@ export function ProjectTabBar({
   activeProjectId,
   sessionCountByProject,
   workingAgentCountByProject,
+  needsInputByProject,
   onSelectProject,
   onNewProject,
   onDeleteProject,
@@ -102,6 +136,7 @@ export function ProjectTabBar({
 }: ProjectTabBarProps) {
   const [settingsProjectId, setSettingsProjectId] = useState<string | null>(null);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(soundManager.isEnabled());
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ projectId: string; position: 'before' | 'after' } | null>(null);
 
@@ -302,12 +337,13 @@ export function ProjectTabBar({
             const isDragging = p.id === draggingProjectId;
             const isDropBefore = dropTarget?.projectId === p.id && dropTarget.position === 'before';
             const isDropAfter = dropTarget?.projectId === p.id && dropTarget.position === 'after';
+            const hasNeedsInput = needsInputByProject.get(p.id) ?? false;
 
             return (
               <div
                 key={p.id}
                 data-project-id={p.id}
-                className={`projectTab ${isActive ? "projectTabActive" : ""} ${isDragging ? "projectTabDragging" : ""} ${isDropBefore ? "projectTabDropBefore" : ""} ${isDropAfter ? "projectTabDropAfter" : ""}`}
+                className={`projectTab ${isActive ? "projectTabActive" : ""} ${isDragging ? "projectTabDragging" : ""} ${isDropBefore ? "projectTabDropBefore" : ""} ${isDropAfter ? "projectTabDropAfter" : ""} ${hasNeedsInput ? "projectTabNeedsInput" : ""}`}
                 style={{ touchAction: 'none' }}
                 onPointerDown={(e) => handleTabPointerDown(e, p)}
               >
@@ -359,6 +395,18 @@ export function ProjectTabBar({
             title="Settings"
           >
             <Icon name="settings" size={14} />
+          </button>
+          <button
+            type="button"
+            className="projectTabBarBtn globalSoundToggle"
+            onClick={() => {
+              const next = !soundEnabled;
+              soundManager.setEnabled(next);
+              setSoundEnabled(next);
+            }}
+            title={soundEnabled ? "Mute sounds" : "Unmute sounds"}
+          >
+            <Icon name={soundEnabled ? "volume" : "volume-off"} size={14} />
           </button>
         </div>
       </div>

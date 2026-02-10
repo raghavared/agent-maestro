@@ -145,6 +145,19 @@ export default function App() {
     return counts;
   }, [sessions]);
 
+  const maestroSessions = useMaestroStore((s) => s.sessions);
+  const needsInputByProject = useMemo(() => {
+    const result = new Map<string, boolean>();
+    for (const s of sessions) {
+      if (!s.maestroSessionId) continue;
+      const ms = maestroSessions.get(s.maestroSessionId);
+      if (ms?.needsInput?.active) {
+        result.set(s.projectId, true);
+      }
+    }
+    return result;
+  }, [sessions, maestroSessions]);
+
   // ---------- prompts ----------
   const prompts = usePromptStore((s) => s.prompts);
   const openPromptEditor = usePromptStore((s) => s.openPromptEditor);
@@ -196,6 +209,7 @@ export default function App() {
           activeProjectId={activeProjectId}
           sessionCountByProject={sessionCountByProject}
           workingAgentCountByProject={workingAgentCountByProject}
+          needsInputByProject={needsInputByProject}
           onSelectProject={selectProject}
           onNewProject={openNewProject}
           onDeleteProject={handleDeleteProject}

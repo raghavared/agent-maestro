@@ -75,7 +75,17 @@ export class WebSocketBridge {
       'session:updated',
       'session:deleted',
       'session:task_added',
-      'session:task_removed'
+      'session:task_removed',
+      // Notification events
+      'notify:task_completed',
+      'notify:task_failed',
+      'notify:task_blocked',
+      'notify:task_session_completed',
+      'notify:task_session_failed',
+      'notify:session_completed',
+      'notify:session_failed',
+      'notify:needs_input',
+      'notify:progress'
     ];
 
     // Subscribe to each event
@@ -111,6 +121,10 @@ export class WebSocketBridge {
     const isHighFrequency = ['heartbeat', 'keepalive'].includes(event);
     if (!isHighFrequency) {
       console.log(`📡 Broadcast ${event} → ${sent}/${this.wss.clients.size} clients`);
+    }
+    // Extra logging for notify events
+    if (event.startsWith('notify:')) {
+      console.log(`🔔 [WebSocketBridge] NOTIFY broadcast: ${event} → ${sent}/${this.wss.clients.size} clients, data=${JSON.stringify(data)}`);
     }
   }
 
