@@ -198,13 +198,11 @@ export function useKeyboardShortcuts() {
                     useSessionStore.getState().setNewOpen(true);
                     return;
                 }
+                // Cmd+D - New terminal session (same as Cmd+N)
                 if (e.metaKey && e.key.toLowerCase() === "d") {
                     e.preventDefault();
-                    void useSessionStore.getState().quickStart({
-                        id: "shell",
-                        title: "Terminal",
-                        command: null,
-                    });
+                    useProjectStore.getState().setProjectOpen(false);
+                    useSessionStore.getState().setNewOpen(true);
                     return;
                 }
                 // Cmd+E - Next session

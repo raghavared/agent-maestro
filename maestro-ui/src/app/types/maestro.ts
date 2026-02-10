@@ -22,10 +22,23 @@ export type SessionTimelineEventType =
   | 'needs_input'        // Waiting for user input
   | 'progress'           // General progress update
   | 'error'              // Error occurred
-  | 'milestone';         // Milestone reached
+  | 'milestone'          // Milestone reached
+  | 'doc_added';         // Document added
 
 
 
+
+export interface DocEntry {
+  id: string;
+  title: string;
+  filePath: string;
+  content?: string;
+  taskId?: string;
+  addedAt: number;
+  addedBy?: string;
+  sessionId?: string;
+  sessionName?: string;
+}
 
 export interface MaestroProject {
   id: string;
@@ -126,6 +139,7 @@ export interface MaestroSession {
   spawnedBy?: string;
   manifestPath?: string;
   model?: ModelType;
+  docs?: DocEntry[];
 }
 
 // Payloads

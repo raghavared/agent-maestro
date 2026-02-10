@@ -1,10 +1,12 @@
-import React, { useState, useRef, useMemo, useCallback, useLayoutEffect } from "react";
+import React, { useState, useRef, useMemo, useCallback, useLayoutEffect, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus } from "../../app/types/maestro";
+import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry } from "../../app/types/maestro";
 import { useTaskSessions } from "../../hooks/useTaskSessions";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { maestroClient } from "../../utils/MaestroClient";
 import { SessionInTaskView } from "./SessionInTaskView";
 import { AggregatedTimeline } from "./SessionTimeline";
+import { DocsList } from "./DocsList";
 import { StrategyBadge } from "./StrategyBadge";
 import { SessionDetailModal } from "./SessionDetailModal";
 import { ConfirmActionModal } from "../modals/ConfirmActionModal";
@@ -126,6 +128,14 @@ export function TaskListItem({
             setPriorityDropdownPos(computeDropdownPos(priorityBtnRef));
         }
     }, [showPriorityDropdown, computeDropdownPos]);
+
+    const [taskDocs, setTaskDocs] = useState<DocEntry[]>([]);
+
+    useEffect(() => {
+        if (isExpanded && activeTab === 'details') {
+            maestroClient.getTaskDocs(task.id).then(setTaskDocs).catch(() => {});
+        }
+    }, [isExpanded, activeTab, task.id]);
 
     const { sessions: taskSessions, loading: loadingSessions } = useTaskSessions(task.id);
     const sessionCount = taskSessions.length;
@@ -559,11 +569,17 @@ export function TaskListItem({
                                     )}
                                 </div>
 
+                                {/* Task Docs */}
+                                {taskDocs.length > 0 && (
+                                    <DocsList docs={taskDocs} title="Task Docs" />
+                                )}
+
                                 {/* Empty state if no details at all */}
                                 {!task.description &&
                                  (!task.dependencies || task.dependencies.length === 0) &&
                                  (!task.skillIds || task.skillIds.length === 0) &&
-                                 (!task.agentIds || task.agentIds.length === 0) && (
+                                 (!task.agentIds || task.agentIds.length === 0) &&
+                                 taskDocs.length === 0 && (
                                     <div className="terminalEmptyState">
                                         No additional details available
                                     </div>

@@ -121,6 +121,37 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
     }
   });
 
+  // Get docs for a task (aggregated from all sessions working on this task)
+  router.get('/tasks/:id/docs', async (req: Request, res: Response) => {
+    try {
+      const taskId = req.params.id as string;
+
+      // Verify task exists
+      await taskService.getTask(taskId);
+
+      // Get all sessions for this task and aggregate docs
+      const docs: any[] = [];
+      if (sessionService) {
+        const sessions = await sessionService.listSessionsByTask(taskId);
+        for (const session of sessions) {
+          if (session.docs) {
+            for (const doc of session.docs) {
+              if (!doc.taskId || doc.taskId === taskId) {
+                docs.push({ ...doc, sessionId: session.id, sessionName: session.name });
+              }
+            }
+          }
+        }
+      }
+
+      // Sort by addedAt
+      docs.sort((a, b) => a.addedAt - b.addedAt);
+      res.json(docs);
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
   // Delete task
   router.delete('/tasks/:id', async (req: Request, res: Response) => {
     try {

@@ -22,6 +22,11 @@
     width: 100%;
 }
 
+/* Push suggestions container below the current cursor line */
+.mentionsInput [class*="suggestions"] {
+    transform: translateY(18px) !important;
+}
+
 /* Textarea - the actual input layer - TEXT IS VISIBLE HERE */
 .mentionsInput textarea {
     min-height: 150px !important;

@@ -260,6 +260,52 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     }
   });
 
+  // Add doc to session
+  router.post('/sessions/:id/docs', async (req: Request, res: Response) => {
+    try {
+      const sessionId = req.params.id as string;
+      const { title, filePath, content, taskId } = req.body;
+
+      if (!title) {
+        return res.status(400).json({
+          error: true,
+          message: 'title is required',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      if (!filePath) {
+        return res.status(400).json({
+          error: true,
+          message: 'filePath is required',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      const session = await sessionService.addDoc(
+        sessionId,
+        title,
+        filePath,
+        content,
+        taskId,
+      );
+      res.json(session);
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
+  // Get docs for a session
+  router.get('/sessions/:id/docs', async (req: Request, res: Response) => {
+    try {
+      const sessionId = req.params.id as string;
+      const session = await sessionService.getSession(sessionId);
+      res.json(session.docs || []);
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
   // Add task to session
   router.post('/sessions/:id/tasks/:taskId', async (req: Request, res: Response) => {
     try {

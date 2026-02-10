@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { Session, SessionStatus, CreateSessionPayload, UpdateSessionPayload, SessionTimelineEvent } from '../../types';
+import { Session, SessionStatus, CreateSessionPayload, UpdateSessionPayload, SessionTimelineEvent, DocEntry } from '../../types';
 import { ISessionRepository, SessionFilter } from '../../domain/repositories/ISessionRepository';
 import { IIdGenerator } from '../../domain/common/IIdGenerator';
 import { ILogger } from '../../domain/common/ILogger';
@@ -56,6 +56,7 @@ export class FileSystemSessionRepository implements ISessionRepository {
           if (!session.env) { session.env = {}; needsSave = true; }
           if (!session.events) { session.events = []; needsSave = true; }
           if (!session.timeline) { session.timeline = []; needsSave = true; }
+          if (!session.docs) { session.docs = []; needsSave = true; }
           // Initialize strategy if missing (defaults to 'simple')
           if (!session.strategy) { session.strategy = 'simple'; needsSave = true; }
 
@@ -127,6 +128,7 @@ export class FileSystemSessionRepository implements ISessionRepository {
           message: 'Session created',
         }
       ],
+      docs: [],
       metadata: input.metadata
     };
 
@@ -309,6 +311,25 @@ export class FileSystemSessionRepository implements ISessionRepository {
     await this.saveSession(session);
 
     this.logger.debug(`Added timeline event to session: ${sessionId}, type: ${event.type}`);
+    return session;
+  }
+
+  async addDoc(sessionId: string, doc: DocEntry): Promise<Session> {
+    await this.ensureInitialized();
+
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new NotFoundError('Session', sessionId);
+    }
+
+    if (!session.docs) { session.docs = []; }
+    session.docs.push(doc);
+    session.lastActivity = Date.now();
+
+    this.sessions.set(sessionId, session);
+    await this.saveSession(session);
+
+    this.logger.debug(`Added doc to session: ${sessionId}, title: ${doc.title}`);
     return session;
   }
 }
