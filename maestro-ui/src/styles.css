@@ -7084,6 +7084,7 @@ select.input {
   --terminal-cyan: #00d9ff;
   --terminal-blue: #6b8afd;
   --terminal-red: #ff3b3b;
+  --terminal-gray: #888888;
   --terminal-bg: #000000;
   --terminal-bg-alt: #0a0a0a;
   --terminal-border: var(--theme-border);
@@ -8267,11 +8268,12 @@ select.input {
 
 .terminalMetaBadge--clickable:hover {
   filter: brightness(1.2);
-  box-shadow: 0 0 8px currentColor;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
 }
 
 .terminalMetaBadge--open {
-  box-shadow: 0 0 8px currentColor;
+  filter: brightness(1.2);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
 }
 
 .terminalMetaBadge--updating {
@@ -8309,8 +8311,8 @@ select.input {
   top: 100%;
   left: 0;
   margin-top: 4px;
-  background: #0a0e14;
-  border: 1px solid var(--terminal-green);
+  background: #000000;
+  border: 1px solid var(--theme-primary);
   border-radius: 4px;
   min-width: 140px;
   z-index: 9999;
@@ -8346,7 +8348,7 @@ select.input {
   padding: 8px 12px;
   background: transparent;
   border: none;
-  color: var(--terminal-text-dim);
+  color: rgba(var(--theme-primary-rgb), 0.6);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   cursor: pointer;
@@ -8355,13 +8357,57 @@ select.input {
 }
 
 .terminalInlineStatusOption:hover {
-  background: rgba(var(--theme-primary-rgb), 0.1);
-  color: var(--terminal-text);
+  background: rgba(128, 128, 128, 0.1);
 }
 
 .terminalInlineStatusOption--current {
-  background: rgba(var(--theme-primary-rgb), 0.15);
+  background: rgba(128, 128, 128, 0.15);
+}
+
+/* Per-status colors for dropdown options */
+.terminalInlineStatusOption--todo {
+  color: var(--terminal-gray);
+}
+.terminalInlineStatusOption--todo:hover,
+.terminalInlineStatusOption--todo.terminalInlineStatusOption--current {
+  color: var(--terminal-gray);
+  background: rgba(128, 128, 128, 0.15);
+}
+
+.terminalInlineStatusOption--in_progress {
+  color: var(--terminal-blue);
+}
+.terminalInlineStatusOption--in_progress:hover,
+.terminalInlineStatusOption--in_progress.terminalInlineStatusOption--current {
+  color: var(--terminal-blue);
+  background: rgba(0, 150, 255, 0.15);
+}
+
+.terminalInlineStatusOption--completed {
   color: var(--terminal-green);
+}
+.terminalInlineStatusOption--completed:hover,
+.terminalInlineStatusOption--completed.terminalInlineStatusOption--current {
+  color: var(--terminal-green);
+  background: rgba(0, 255, 102, 0.15);
+}
+
+.terminalInlineStatusOption--cancelled {
+  color: var(--terminal-gray);
+}
+.terminalInlineStatusOption--cancelled:hover,
+.terminalInlineStatusOption--cancelled.terminalInlineStatusOption--current {
+  color: var(--terminal-gray);
+  background: rgba(128, 128, 128, 0.15);
+}
+
+.terminalInlineStatusOption--blocked {
+  color: var(--terminal-red);
+}
+.terminalInlineStatusOption--blocked:hover,
+.terminalInlineStatusOption--blocked.terminalInlineStatusOption--current {
+  color: var(--terminal-red);
+  background: rgba(255, 50, 50, 0.15);
 }
 
 .terminalInlineStatusOption .terminalStatusSymbol {
@@ -8374,7 +8420,6 @@ select.input {
 }
 
 .terminalInlineStatusOption .terminalStatusCheck {
-  color: var(--terminal-green);
   font-size: 10px;
 }
 
@@ -8392,12 +8437,12 @@ select.input {
   top: 100%;
   left: 0;
   margin-top: 4px;
-  background: #0a0e14;
-  border: 1px solid var(--terminal-yellow, #ffaa00);
+  background: #000000;
+  border: 1px solid var(--theme-primary);
   border-radius: 4px;
   min-width: 100px;
   z-index: 9999;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px rgba(255, 170, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px rgba(var(--theme-primary-rgb), 0.15);
   overflow: hidden;
 }
 
@@ -11028,6 +11073,7 @@ select.input {
   --terminal-cyan: #00d9ff;
   --terminal-blue: #6b8afd;
   --terminal-red: #ff3b3b;
+  --terminal-gray: #888888;
   --terminal-bg: #000000;
   --terminal-bg-alt: #0a0a0a;
   --terminal-border: var(--theme-border);
@@ -13640,6 +13686,135 @@ select.input {
   box-shadow: 0 0 8px rgba(255, 171, 0, 0.2);
 }
 
+/* ==================== Whoami Preview ==================== */
+
+.whoamiPreview {
+  border: 1px solid var(--terminal-border);
+  border-top: none;
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  transition: all 0.2s ease;
+}
+
+.whoamiPreviewToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  color: var(--terminal-text);
+  font-size: 11px;
+  font-family: var(--font-family-mono);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid transparent;
+}
+
+.whoamiPreviewToggle:hover {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border-bottom-color: var(--terminal-green);
+}
+
+.whoamiPreviewToggleIcon {
+  color: var(--terminal-green);
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+
+.whoamiPreviewToggleLabel {
+  color: var(--terminal-green);
+  font-weight: 600;
+  text-transform: lowercase;
+  letter-spacing: 0.5px;
+}
+
+.whoamiPreviewToggleMeta {
+  color: var(--terminal-text-dim, var(--terminal-dim, #808080));
+  font-size: 10px;
+  margin-left: auto;
+}
+
+.whoamiPreviewContent {
+  border-top: 1px solid var(--terminal-border);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0;
+  max-height: 400px;
+  overflow-y: auto;
+  animation: whoamiPreviewSlideDown 0.2s ease;
+}
+
+@keyframes whoamiPreviewSlideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 400px;
+  }
+}
+
+.whoamiPreviewText {
+  margin: 0;
+  padding: 16px;
+  font-size: 11px;
+  font-family: var(--font-family-mono);
+  color: var(--terminal-text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-x: auto;
+  background: transparent;
+}
+
+.whoamiPreviewText code {
+  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+/* Orchestrate mode variant */
+.whoamiPreview--orchestrate {
+  background: rgba(255, 171, 0, 0.03);
+}
+
+.whoamiPreview--orchestrate .whoamiPreviewToggle:hover {
+  background: rgba(255, 171, 0, 0.08);
+  border-bottom-color: var(--terminal-amber, #ffab00);
+}
+
+.whoamiPreview--orchestrate .whoamiPreviewToggleIcon,
+.whoamiPreview--orchestrate .whoamiPreviewToggleLabel {
+  color: var(--terminal-amber, #ffab00);
+}
+
+.whoamiPreview--orchestrate .whoamiPreviewText code {
+  color: var(--terminal-amber, #ffab00);
+  background: rgba(255, 171, 0, 0.1);
+}
+
+/* Custom scrollbar for preview content */
+.whoamiPreviewContent::-webkit-scrollbar {
+  width: 8px;
+}
+
+.whoamiPreviewContent::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.whoamiPreviewContent::-webkit-scrollbar-thumb {
+  background: var(--terminal-border);
+  border-radius: 4px;
+}
+
+.whoamiPreviewContent::-webkit-scrollbar-thumb:hover {
+  background: var(--terminal-green);
+}
+
 /* ==================== Execution Mode Panel Glow ==================== */
 
 .maestroPanel--executionMode {
@@ -13918,6 +14093,107 @@ select.input {
   color: var(--theme-primary);
   background: rgba(var(--theme-primary-rgb), 0.12);
   box-shadow: inset 0 0 12px rgba(var(--theme-primary-rgb), 0.08);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Themed Dropdown (for agent tool selector)                           */
+/* ------------------------------------------------------------------ */
+
+.themedDropdownPicker {
+  position: relative;
+  display: inline-flex;
+}
+
+.themedDropdownButton {
+  border: 1px solid var(--theme-border);
+  background: transparent;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  padding: 2px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.themedDropdownButton:hover {
+  color: var(--theme-primary);
+  border-color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.themedDropdownButton--open {
+  color: var(--theme-primary);
+  border-color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.themedDropdownCaret {
+  font-size: 8px;
+  transition: transform 0.2s ease;
+}
+
+.themedDropdownOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9998;
+}
+
+.themedDropdownMenu {
+  position: fixed;
+  background: #000000;
+  border: 1px solid var(--theme-primary);
+  box-shadow: 0 0 20px rgba(var(--theme-primary-rgb), 0.3);
+  min-width: 160px;
+  z-index: 9999;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.themedDropdownOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid var(--theme-border);
+}
+
+.themedDropdownOption:last-child {
+  border-bottom: none;
+}
+
+.themedDropdownOption:hover {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+}
+
+.themedDropdownOption--current {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  color: var(--theme-primary);
+}
+
+.themedDropdownLabel {
+  flex: 1;
+}
+
+.themedDropdownCheck {
+  font-size: 10px;
+  color: var(--theme-primary);
 }
 
 /* ------------------------------------------------------------------ */

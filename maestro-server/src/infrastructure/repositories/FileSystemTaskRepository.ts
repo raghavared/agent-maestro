@@ -128,6 +128,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
       agentIds: [],
       dependencies: [],
       model: input.model,
+      agentTool: input.agentTool,
       // NOTE: timeline is now on Session, not Task
     };
 
@@ -204,6 +205,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
       task.taskSessionStatuses = { ...(task.taskSessionStatuses || {}), ...updates.taskSessionStatuses };
     }
     if (updates.model !== undefined) task.model = updates.model;
+    if (updates.agentTool !== undefined) task.agentTool = updates.agentTool;
 
     // Handle status changes
     if (updates.status !== undefined) {

@@ -8,7 +8,15 @@ export type SpawnSource = 'ui' | 'session';
 export type TaskSessionStatus = 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'skipped';
 export type WorkerStrategy = 'simple' | 'queue';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
-export type ModelType = 'sonnet' | 'opus' | 'haiku';
+// Claude models
+export type ClaudeModel = 'haiku' | 'sonnet' | 'opus';
+// Codex models
+export type CodexModel = 'gpt-5.3-codex' | 'gpt-5.2-codex';
+// Gemini models
+export type GeminiModel = 'gemini-3-pro-preview' | 'gemini-3-flash-preview';
+// Union of all supported models
+export type ModelType = ClaudeModel | CodexModel | GeminiModel;
+export type AgentTool = 'claude-code' | 'codex' | 'gemini';
 
 // Session timeline event types
 export type SessionTimelineEventType =
@@ -108,6 +116,9 @@ export interface MaestroTask {
   // Model configuration
   model?: ModelType;
 
+  // Agent tool configuration
+  agentTool?: AgentTool;
+
   // UI/Populated Fields (Optional)
   subtasks?: MaestroTask[];
   sessionCount?: number; // UI computed field
@@ -157,6 +168,7 @@ export interface CreateTaskPayload {
   initialPrompt?: string; // Standardized
   skillIds?: string[];
   model?: ModelType;
+  agentTool?: AgentTool;
 }
 
 export interface UpdateTaskPayload {
@@ -171,6 +183,7 @@ export interface UpdateTaskPayload {
   skillIds?: string[];
   agentIds?: string[];
   model?: ModelType;
+  agentTool?: AgentTool;
   // NOTE: timeline moved to Session - use addTimelineEvent on session
   completedAt?: number | null;
 }
@@ -237,6 +250,7 @@ export interface SpawnSessionPayload {
   spawnedBy?: string;                  // Deprecated: use sessionId instead
   context?: Record<string, any>;
   model?: ModelType;
+  agentTool?: AgentTool;
 }
 
 export interface SpawnSessionResponse {

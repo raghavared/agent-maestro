@@ -3,6 +3,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import type { MaestroManifest } from '../types/manifest.js';
 import { PromptGenerator } from './prompt-generator.js';
+import { AgentSpawner } from './agent-spawner.js';
 import {
   generateCommandBrief,
   type CommandPermissions,
@@ -65,6 +66,10 @@ export class WhoamiRenderer {
 
     if (manifest.role === 'orchestrator') {
       lines.push(`**Orchestrator Strategy:** ${manifest.orchestratorStrategy || 'default'}`);
+    }
+
+    if (manifest.agentTool && manifest.agentTool !== 'claude-code') {
+      lines.push(`**Agent Tool:** ${AgentSpawner.getToolDisplayName(manifest.agentTool)}`);
     }
 
     lines.push(
@@ -283,6 +288,10 @@ ${tasksList}
 
     if (manifest.role === 'orchestrator') {
       result.orchestratorStrategy = manifest.orchestratorStrategy || 'default';
+    }
+
+    if (manifest.agentTool) {
+      result.agentTool = manifest.agentTool;
     }
 
     return result;

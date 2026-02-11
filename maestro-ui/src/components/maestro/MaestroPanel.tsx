@@ -229,6 +229,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 skillIds: taskData.skillIds,
                 parentId: taskData.parentId,
                 model: taskData.model,
+                agentTool: taskData.agentTool,
             });
 
             // Task will be added via WebSocket event automatically
