@@ -305,6 +305,7 @@ export function initApp(
         basePath: p.basePath ?? null,
         environmentId: (p as { environmentId?: string | null }).environmentId ?? null,
         assetsEnabled: (p as { assetsEnabled?: boolean }).assetsEnabled ?? true,
+        soundInstrument: (p as { soundInstrument?: string }).soundInstrument ?? 'piano',
       };
     });
 
@@ -341,6 +342,7 @@ export function initApp(
           basePath: serverProj.workingDir || null,
           environmentId: localProj?.environmentId ?? null,
           assetsEnabled: localProj?.assetsEnabled ?? true,
+          soundInstrument: localProj?.soundInstrument ?? 'piano',
         });
       }
 
@@ -362,6 +364,7 @@ export function initApp(
               updatedAt: created.updatedAt,
               environmentId: localProj.environmentId,
               assetsEnabled: localProj.assetsEnabled ?? true,
+              soundInstrument: localProj.soundInstrument ?? 'piano',
             });
           } catch (err) {
             console.error('[Startup] Failed to sync local project to server:', err);

@@ -272,18 +272,6 @@ export class ClaudeSpawner {
     tmuxCommands.push(`tmux send-keys -t ${tmuxTarget} "cd ${cwd}" C-m`);
     tmuxCommands.push(`tmux send-keys -t ${tmuxTarget} "${claudeCommand}" C-m`);
 
-    // Print what we're doing
-    console.log('╭─────────────────────────────────────────────────────────────────╮');
-    console.log('│ Tmux Claude Code Command                                        │');
-    console.log('╰─────────────────────────────────────────────────────────────────╯');
-    console.log(`Tmux Session: ${options.tmuxSession}`);
-    if (options.tmuxPane) {
-      console.log(`Tmux Pane: ${options.tmuxPane}`);
-    }
-    console.log(`Working Directory: ${cwd}`);
-    console.log(`Command: ${claudeCommand}`);
-    console.log('');
-
     // Execute tmux commands
     const tmuxProcess = spawn('sh', ['-c', tmuxCommands.join(' && ')], {
       stdio: 'inherit',
@@ -348,14 +336,6 @@ export class ClaudeSpawner {
 
     // Determine working directory
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
-
-    // Print the exact command being run
-    console.log('╭─────────────────────────────────────────────────────────────────╮');
-    console.log('│ Claude Code Command                                             │');
-    console.log('╰─────────────────────────────────────────────────────────────────╯');
-    console.log(`Working Directory: ${cwd}`);
-    console.log(`Command: claude ${args.join(' ')}`);
-    console.log('');
 
     // Spawn Claude process
     const claudeProcess = spawn('claude', args, {

@@ -64,6 +64,7 @@ function buildPersistedState(): PersistedStateV1 {
     basePath: p.basePath ?? null,
     environmentId: p.environmentId ?? null,
     assetsEnabled: p.assetsEnabled ?? null,
+    soundInstrument: p.soundInstrument ?? null,
   }));
 
   return {
