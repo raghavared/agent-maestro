@@ -1282,7 +1282,7 @@ pub fn create_session(
         } else {
             "/bin/sh".to_string()
         };
-        let shell_flag = if env_vars.is_some() { "-c" } else { "-lc" };
+        let shell_flag = "-lc";
         (
             posix_shell.clone(),
             vec![shell_flag.to_string(), command.clone()],

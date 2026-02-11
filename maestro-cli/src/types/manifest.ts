@@ -12,6 +12,9 @@ export type WorkerStrategy = 'simple' | 'queue';
 /** Orchestrator strategy type */
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 
+/** Supported agent tools */
+export type AgentTool = 'claude-code' | 'codex' | 'gemini';
+
 /**
  * Main manifest interface - contains all configuration for a Maestro session
  */
@@ -42,6 +45,9 @@ export interface MaestroManifest {
 
   /** Optional template ID to use for prompt generation (fetched from server) */
   templateId?: string;
+
+  /** Agent tool to use for this session (defaults to 'claude-code') */
+  agentTool?: AgentTool;
 }
 
 /**
@@ -119,8 +125,8 @@ export interface TaskData {
  * Session configuration for Claude Code
  */
 export interface SessionConfig {
-  /** Claude model to use */
-  model: 'sonnet' | 'opus' | 'haiku';
+  /** Model to use (e.g. sonnet, opus, haiku, gpt-5.3-codex, gemini-3-pro-preview) */
+  model: string;
 
   /** Permission mode for the session */
   permissionMode: 'acceptEdits' | 'interactive' | 'readOnly';

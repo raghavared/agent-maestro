@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { MentionsInput, Mention } from 'react-mentions';
-import { TaskPriority, AgentSkill, MaestroProject, MaestroTask, ModelType } from "../../app/types/maestro";
+import { TaskPriority, AgentSkill, MaestroProject, MaestroTask, ModelType, AgentTool } from "../../app/types/maestro";
 import { maestroClient } from "../../utils/MaestroClient";
 import { Icon } from "../Icon";
 import { AgentSelector } from "./AgentSelector";
@@ -10,6 +10,39 @@ import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
 import { useTaskBreadcrumb } from "../../hooks/useTaskBreadcrumb";
 import { useSubtaskProgress } from "../../hooks/useSubtaskProgress";
 import { useTaskSessions } from "../../hooks/useTaskSessions";
+
+// Models available per agent tool
+const AGENT_MODELS: Record<string, { value: string; label: string }[]> = {
+    "claude-code": [
+        { value: "haiku", label: "Haiku" },
+        { value: "sonnet", label: "Sonnet" },
+        { value: "opus", label: "Opus" },
+    ],
+    "codex": [
+        { value: "gpt-5.3-codex", label: "5.3-codex" },
+        { value: "gpt-5.2-codex", label: "5.2-codex" },
+    ],
+    "gemini": [
+        { value: "gemini-3-pro-preview", label: "3-pro" },
+        { value: "gemini-3-flash-preview", label: "3-flash" },
+    ],
+};
+
+// Default model per agent tool
+const DEFAULT_MODEL: Record<string, string> = {
+    "claude-code": "sonnet",
+    "codex": "gpt-5.3-codex",
+    "gemini": "gemini-3-pro-preview",
+};
+
+// Agent tool display labels
+const AGENT_TOOL_LABELS: Record<string, string> = {
+    "claude-code": "Claude Code",
+    "codex": "OpenAI Codex",
+    "gemini": "Google Gemini",
+};
+
+const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex", "gemini"];
 
 const STATUS_LABELS: Record<string, string> = {
     todo: "Todo",
@@ -40,6 +73,7 @@ type CreateTaskModalProps = {
         skillIds?: string[];
         parentId?: string;
         model?: ModelType;
+        agentTool?: AgentTool;
     }) => void;
     project: MaestroProject;
     parentId?: string;
@@ -83,12 +117,31 @@ export function CreateTaskModal({
 
     const [title, setTitle] = useState("");
     const [priority, setPriority] = useState<TaskPriority>("medium");
+    const [agentTool, setAgentTool] = useState<AgentTool>("claude-code");
     const [model, setModel] = useState<ModelType>("sonnet");
     const [prompt, setPrompt] = useState("");
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [files, setFiles] = useState<{ id: string, display: string }[]>([]);
     const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+    // Agent tool dropdown state
+    const [showAgentDropdown, setShowAgentDropdown] = useState(false);
+    const agentBtnRef = useRef<HTMLButtonElement>(null);
+    const [agentDropdownPos, setAgentDropdownPos] = useState<{ top: number; left: number } | null>(null);
+
+    const computeAgentDropdownPos = useCallback(() => {
+        const btn = agentBtnRef.current;
+        if (!btn) return null;
+        const rect = btn.getBoundingClientRect();
+        return { top: rect.bottom + 4, left: rect.left };
+    }, []);
+
+    useLayoutEffect(() => {
+        if (showAgentDropdown) {
+            setAgentDropdownPos(computeAgentDropdownPos());
+        }
+    }, [showAgentDropdown, computeAgentDropdownPos]);
 
     // Edit mode state
     const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
@@ -107,10 +160,11 @@ export function CreateTaskModal({
             setTitle(task.title);
             setPrompt(task.description || "");
             setPriority(task.priority);
+            setAgentTool(task.agentTool || "claude-code");
             setModel(task.model || "sonnet");
             setSelectedSkills(task.skillIds || []);
         }
-    }, [isEditMode, task?.id, task?.title, task?.description, task?.priority, task?.model]);
+    }, [isEditMode, task?.id, task?.title, task?.description, task?.priority, task?.model, task?.agentTool]);
 
     // Reset form when switching to create mode
     useEffect(() => {
@@ -118,7 +172,8 @@ export function CreateTaskModal({
             setTitle("");
             setPrompt("");
             setPriority("medium");
-            setModel("sonnet");
+            setAgentTool("claude-code");
+            setModel("sonnet" as ModelType);
             setSelectedSkills([]);
             setShowAdvanced(false);
         }
@@ -130,6 +185,7 @@ export function CreateTaskModal({
             title !== task.title ||
             prompt !== (task.description || "") ||
             priority !== task.priority ||
+            agentTool !== (task.agentTool || "claude-code") ||
             model !== (task.model || "sonnet")
         ));
 
@@ -146,6 +202,7 @@ export function CreateTaskModal({
         setTitle("");
         setPrompt("");
         setPriority("medium");
+        setAgentTool("claude-code");
         setModel("sonnet");
         setShowAdvanced(false);
         setSelectedSkills([]);
@@ -185,12 +242,14 @@ export function CreateTaskModal({
             skillIds: selectedSkills.length > 0 ? selectedSkills : undefined,
             parentId,
             model,
+            agentTool,
         });
 
         // Reset form
         setTitle("");
         setPrompt("");
         setPriority("medium");
+        setAgentTool("claude-code");
         setModel("sonnet");
         setShowAdvanced(false);
         setSelectedSkills([]);
@@ -203,6 +262,7 @@ export function CreateTaskModal({
         if (title.trim() && title !== task.title) updates.title = title.trim();
         if (prompt !== (task.description || "")) updates.description = prompt;
         if (priority !== task.priority) updates.priority = priority;
+        if (agentTool !== (task.agentTool || "claude-code")) updates.agentTool = agentTool;
         if (model !== (task.model || "sonnet")) updates.model = model;
         if (JSON.stringify(selectedSkills) !== JSON.stringify(task.skillIds || [])) updates.skillIds = selectedSkills;
 
@@ -599,36 +659,71 @@ export function CreateTaskModal({
                     )}
                 </div>
 
-                <div className="themedFormActions">
+                <div className="themedFormActions" style={{ flexWrap: 'wrap' }}>
                     {isEditMode ? (
                         <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                                <span className="themedFormHint">model:</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, flexWrap: 'wrap' }}>
+                                <div className="themedDropdownPicker" style={{ position: 'relative' }}>
+                                    <button
+                                        ref={agentBtnRef}
+                                        type="button"
+                                        className={`themedDropdownButton ${showAgentDropdown ? 'themedDropdownButton--open' : ''}`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowAgentDropdown(!showAgentDropdown);
+                                        }}
+                                    >
+                                        {AGENT_TOOL_LABELS[agentTool]}
+                                        <span className="themedDropdownCaret">{showAgentDropdown ? '\u25B4' : '\u25BE'}</span>
+                                    </button>
+                                    {showAgentDropdown && agentDropdownPos && createPortal(
+                                        <>
+                                            <div
+                                                className="themedDropdownOverlay"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setShowAgentDropdown(false);
+                                                }}
+                                            />
+                                            <div
+                                                className="themedDropdownMenu"
+                                                style={{ top: agentDropdownPos.top, left: agentDropdownPos.left }}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                {AGENT_TOOLS.map(tool => (
+                                                    <button
+                                                        key={tool}
+                                                        className={`themedDropdownOption ${tool === agentTool ? 'themedDropdownOption--current' : ''}`}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setAgentTool(tool);
+                                                            setModel(DEFAULT_MODEL[tool] as ModelType);
+                                                            setShowAgentDropdown(false);
+                                                        }}
+                                                    >
+                                                        <span className="themedDropdownLabel">{AGENT_TOOL_LABELS[tool]}</span>
+                                                        {tool === agentTool && (
+                                                            <span className="themedDropdownCheck">{'\u2713'}</span>
+                                                        )}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </>,
+                                        document.body
+                                    )}
+                                </div>
                                 <div className="themedSegmentedControl" style={{ margin: 0 }}>
-                                    <button
-                                        type="button"
-                                        className={`themedSegmentedBtn ${model === "haiku" ? "active" : ""}`}
-                                        onClick={() => setModel("haiku")}
-                                        style={{ padding: '2px 8px', fontSize: '10px' }}
-                                    >
-                                        Haiku
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`themedSegmentedBtn ${model === "sonnet" ? "active" : ""}`}
-                                        onClick={() => setModel("sonnet")}
-                                        style={{ padding: '2px 8px', fontSize: '10px' }}
-                                    >
-                                        Sonnet
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`themedSegmentedBtn ${model === "opus" ? "active" : ""}`}
-                                        onClick={() => setModel("opus")}
-                                        style={{ padding: '2px 8px', fontSize: '10px' }}
-                                    >
-                                        Opus
-                                    </button>
+                                    {(AGENT_MODELS[agentTool] || []).map(m => (
+                                        <button
+                                            key={m.value}
+                                            type="button"
+                                            className={`themedSegmentedBtn ${model === m.value ? "active" : ""}`}
+                                            onClick={() => setModel(m.value as ModelType)}
+                                            style={{ padding: '2px 8px', fontSize: '10px' }}
+                                        >
+                                            {m.label}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                             <button type="button" className="themedBtn" onClick={handleClose}>
@@ -650,33 +745,68 @@ export function CreateTaskModal({
                         </>
                     ) : (
                         <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                                <span className="themedFormHint">model:</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, flexWrap: 'wrap' }}>
+                                <div className="themedDropdownPicker" style={{ position: 'relative' }}>
+                                    <button
+                                        ref={agentBtnRef}
+                                        type="button"
+                                        className={`themedDropdownButton ${showAgentDropdown ? 'themedDropdownButton--open' : ''}`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowAgentDropdown(!showAgentDropdown);
+                                        }}
+                                    >
+                                        {AGENT_TOOL_LABELS[agentTool]}
+                                        <span className="themedDropdownCaret">{showAgentDropdown ? '\u25B4' : '\u25BE'}</span>
+                                    </button>
+                                    {showAgentDropdown && agentDropdownPos && createPortal(
+                                        <>
+                                            <div
+                                                className="themedDropdownOverlay"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setShowAgentDropdown(false);
+                                                }}
+                                            />
+                                            <div
+                                                className="themedDropdownMenu"
+                                                style={{ top: agentDropdownPos.top, left: agentDropdownPos.left }}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                {AGENT_TOOLS.map(tool => (
+                                                    <button
+                                                        key={tool}
+                                                        className={`themedDropdownOption ${tool === agentTool ? 'themedDropdownOption--current' : ''}`}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setAgentTool(tool);
+                                                            setModel(DEFAULT_MODEL[tool] as ModelType);
+                                                            setShowAgentDropdown(false);
+                                                        }}
+                                                    >
+                                                        <span className="themedDropdownLabel">{AGENT_TOOL_LABELS[tool]}</span>
+                                                        {tool === agentTool && (
+                                                            <span className="themedDropdownCheck">{'\u2713'}</span>
+                                                        )}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </>,
+                                        document.body
+                                    )}
+                                </div>
                                 <div className="themedSegmentedControl" style={{ margin: 0 }}>
-                                    <button
-                                        type="button"
-                                        className={`themedSegmentedBtn ${model === "haiku" ? "active" : ""}`}
-                                        onClick={() => setModel("haiku")}
-                                        style={{ padding: '2px 8px', fontSize: '10px' }}
-                                    >
-                                        Haiku
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`themedSegmentedBtn ${model === "sonnet" ? "active" : ""}`}
-                                        onClick={() => setModel("sonnet")}
-                                        style={{ padding: '2px 8px', fontSize: '10px' }}
-                                    >
-                                        Sonnet
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`themedSegmentedBtn ${model === "opus" ? "active" : ""}`}
-                                        onClick={() => setModel("opus")}
-                                        style={{ padding: '2px 8px', fontSize: '10px' }}
-                                    >
-                                        Opus
-                                    </button>
+                                    {(AGENT_MODELS[agentTool] || []).map(m => (
+                                        <button
+                                            key={m.value}
+                                            type="button"
+                                            className={`themedSegmentedBtn ${model === m.value ? "active" : ""}`}
+                                            onClick={() => setModel(m.value as ModelType)}
+                                            style={{ padding: '2px 8px', fontSize: '10px' }}
+                                        >
+                                            {m.label}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                             <button type="button" className="themedBtn" onClick={handleClose}>

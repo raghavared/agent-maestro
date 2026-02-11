@@ -1,6 +1,7 @@
 // Worker strategy types
 export type WorkerStrategy = 'simple' | 'queue' | 'tree';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
+export type AgentTool = 'claude-code' | 'codex' | 'gemini';
 
 export interface QueueItem {
   taskId: string;
@@ -54,7 +55,10 @@ export interface Task {
   // NOTE: timeline moved to Session - each session has its own timeline
 
   // Model configuration
-  model?: 'haiku' | 'sonnet' | 'opus';
+  model?: string;
+
+  // Agent tool configuration
+  agentTool?: AgentTool;
 }
 
 export interface Session {
@@ -143,7 +147,8 @@ export interface CreateTaskPayload {
   priority?: TaskPriority;
   initialPrompt?: string;
   skillIds?: string[];
-  model?: 'haiku' | 'sonnet' | 'opus';
+  model?: string;
+  agentTool?: AgentTool;
 }
 
 export type UpdateSource = 'user' | 'session';
@@ -158,7 +163,8 @@ export interface UpdateTaskPayload {
   sessionIds?: string[];      // PHASE IV-A: Update sessions
   skillIds?: string[];         // PHASE IV-B
   agentIds?: string[];         // PHASE IV-C
-  model?: 'haiku' | 'sonnet' | 'opus';
+  model?: string;
+  agentTool?: AgentTool;
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline
   // Update source tracking
   updateSource?: UpdateSource;  // Who is making the update
@@ -203,7 +209,8 @@ export interface SpawnSessionPayload {
   sessionId?: string;                   // Required when spawnSource === 'session' (parent session ID)
   sessionName?: string;
   skills?: string[];
-  model?: 'haiku' | 'sonnet' | 'opus';  // Model to use for the session
+  model?: string;  // Model to use for the session
+  agentTool?: AgentTool;                // Agent tool to use ('claude-code' or 'codex')
   spawnedBy?: string;                   // Deprecated: use sessionId instead
   context?: Record<string, any>;
 }

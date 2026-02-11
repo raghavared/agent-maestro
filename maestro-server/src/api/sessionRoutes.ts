@@ -11,7 +11,7 @@ import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
 import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
-import { SessionStatus, TemplateRole, WorkerStrategy } from '../types';
+import { SessionStatus, TemplateRole, WorkerStrategy, AgentTool } from '../types';
 
 /**
  * Generate manifest via CLI command
@@ -23,10 +23,11 @@ async function generateManifestViaCLI(options: {
   skills: string[];
   sessionId: string;
   strategy?: WorkerStrategy;
-  model?: 'sonnet' | 'opus' | 'haiku';
+  model?: string;
   orchestratorStrategy?: string;
+  agentTool?: AgentTool;
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { role, projectId, taskIds, skills, sessionId, strategy, model, orchestratorStrategy } = options;
+  const { role, projectId, taskIds, skills, sessionId, strategy, model, orchestratorStrategy, agentTool } = options;
 
   console.log('\n   📋 GENERATING MANIFEST VIA CLI:');
   console.log(`      • Session ID: ${sessionId}`);
@@ -50,6 +51,7 @@ async function generateManifestViaCLI(options: {
     '--output', manifestPath,
     ...(model ? ['--model', model] : []),
     ...(orchestratorStrategy ? ['--orchestrator-strategy', orchestratorStrategy] : []),
+    ...(agentTool && agentTool !== 'claude-code' ? ['--agent-tool', agentTool] : []),
   ];
 
   // Resolve maestro binary from monorepo node_modules/.bin (workspace link)
@@ -347,6 +349,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         context,
         model,                  // Model selection: 'sonnet' | 'opus' | 'haiku'
         orchestratorStrategy,   // Orchestrator strategy: 'default' | 'intelligent-batching' | 'dag'
+        agentTool,              // Agent tool: 'claude-code' | 'codex'
       } = req.body;
 
       console.log('\n🚀 SESSION SPAWN EVENT RECEIVED');
@@ -355,6 +358,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       console.log(`   • role: ${role}`);
       console.log(`   • strategy: ${strategy}`);
       console.log(`   • model: ${model || '(not set - will default to sonnet)'}`);
+      console.log(`   • agentTool: ${agentTool || '(not set - will default to claude-code)'}`);
       console.log(`   • orchestratorStrategy: ${orchestratorStrategy || '(not set)'}`);
 
       // Validation
@@ -514,6 +518,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           strategy,
           model,
           orchestratorStrategy: resolvedOrchestratorStrategy,
+          agentTool,
         });
         manifestPath = result.manifestPath;
         manifest = result.manifest;
@@ -539,8 +544,30 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
 
       // Prepare spawn data
+      const resolvedAgentTool = agentTool || 'claude-code';
       const command = `maestro ${role} init`;
       const cwd = project.workingDir;
+
+      // Pass through auth-related API keys from server environment
+      const authEnvKeys = [
+        'GEMINI_API_KEY',
+        'GOOGLE_API_KEY',
+        'GOOGLE_GENAI_USE_VERTEXAI',
+        'GOOGLE_GENAI_USE_GCA',
+        'OPENAI_API_KEY',
+        'ANTHROPIC_API_KEY',
+      ];
+      const authEnvVars: Record<string, string> = {};
+      for (const key of authEnvKeys) {
+        if (process.env[key]) {
+          authEnvVars[key] = process.env[key]!;
+        }
+      }
+      // Always enable GCA auth for Gemini CLI
+      if (!authEnvVars['GOOGLE_GENAI_USE_GCA']) {
+        authEnvVars['GOOGLE_GENAI_USE_GCA'] = 'true';
+      }
+
       const finalEnvVars = {
         MAESTRO_SESSION_ID: session.id,
         MAESTRO_MANIFEST_PATH: manifestPath,
@@ -549,6 +576,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         // Pass storage paths so CLI reads/writes to the correct environment directories
         DATA_DIR: config.dataDir,
         SESSION_DIR: config.sessionDir,
+        // Pass through auth API keys so spawned agents can authenticate
+        ...authEnvVars,
       };
 
       // Update session env

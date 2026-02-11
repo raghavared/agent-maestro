@@ -3,7 +3,7 @@ import { spawn } from 'child_process';
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { readManifestFromEnv } from '../services/manifest-reader.js';
-import { ClaudeSpawner } from '../services/claude-spawner.js';
+import { AgentSpawner } from '../services/agent-spawner.js';
 import { config } from '../config.js';
 
 const exec = promisify(execCallback);
@@ -83,8 +83,8 @@ async function spawnInPane(opts: any) {
 
     console.log(`Created new pane: ${paneId}`);
 
-    // Spawn Claude in the new pane
-    const spawner = new ClaudeSpawner();
+    // Spawn agent in the new pane
+    const spawner = new AgentSpawner();
     const sessionId = spawner.generateSessionId();
 
     await spawner.spawn(manifest, sessionId, {

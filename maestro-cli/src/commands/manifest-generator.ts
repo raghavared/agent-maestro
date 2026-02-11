@@ -1,4 +1,4 @@
-import type { MaestroManifest, AdditionalContext, WorkerStrategy, OrchestratorStrategy } from '../types/manifest.js';
+import type { MaestroManifest, AdditionalContext, WorkerStrategy, OrchestratorStrategy, AgentTool } from '../types/manifest.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
 
@@ -22,7 +22,7 @@ export interface TaskInput {
  * Session options for manifest generation
  */
 export interface SessionOptions {
-  model: 'sonnet' | 'opus' | 'haiku';
+  model: string;
   permissionMode: 'acceptEdits' | 'interactive' | 'readOnly';
   thinkingMode?: 'auto' | 'interleaved' | 'disabled';
   maxTurns?: number;
@@ -103,8 +103,9 @@ export class ManifestGeneratorCLICommand {
     skills?: string[];
     output: string;
     strategy?: string;
-    model?: 'sonnet' | 'opus' | 'haiku';
+    model?: string;
     orchestratorStrategy?: string;
+    agentTool?: AgentTool;
   }): Promise<void> {
     try {
       console.error('Generating manifest...');
@@ -156,6 +157,11 @@ export class ManifestGeneratorCLICommand {
       // Add orchestrator strategy to manifest (when role is orchestrator)
       if (options.role === 'orchestrator') {
         manifest.orchestratorStrategy = (options.orchestratorStrategy || 'default') as OrchestratorStrategy;
+      }
+
+      // Add agent tool to manifest (if specified)
+      if (options.agentTool) {
+        manifest.agentTool = options.agentTool;
       }
 
       // 5. Validate manifest
@@ -322,7 +328,8 @@ export function registerManifestCommands(program: any): void {
     .option('--skills <skills>', 'Comma-separated skills', 'maestro-worker')
     .option('--strategy <strategy>', 'Worker strategy (simple or queue)', 'simple')
     .option('--orchestrator-strategy <strategy>', 'Orchestrator strategy (default, intelligent-batching, or dag)', 'default')
-    .option('--model <model>', 'Claude model to use (sonnet, opus, haiku)', 'sonnet')
+    .option('--model <model>', 'Model to use (e.g. sonnet, gpt-5.3-codex, gemini-3-pro-preview)', 'sonnet')
+    .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)', 'claude-code')
     .requiredOption('--output <path>', 'Output file path')
     .action(async (options: any) => {
       // Parse comma-separated values
@@ -335,10 +342,10 @@ export function registerManifestCommands(program: any): void {
         process.exit(1);
       }
 
-      // Validate model
-      const validModels = ['sonnet', 'opus', 'haiku'];
-      if (options.model && !validModels.includes(options.model)) {
-        console.error(`Error: model must be one of: ${validModels.join(', ')}`);
+      // Validate agent tool
+      const validTools = ['claude-code', 'codex', 'gemini'];
+      if (options.agentTool && !validTools.includes(options.agentTool)) {
+        console.error(`Error: agent-tool must be one of: ${validTools.join(', ')}`);
         process.exit(1);
       }
 
@@ -353,6 +360,7 @@ export function registerManifestCommands(program: any): void {
         strategy: options.strategy,
         model: options.model,
         orchestratorStrategy: options.orchestratorStrategy,
+        agentTool: options.agentTool !== 'claude-code' ? options.agentTool : undefined,
       });
     });
 }

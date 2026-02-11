@@ -1,7 +1,7 @@
 import { maestroClient } from "../utils/MaestroClient";
 
 import { TerminalSession } from "../app/types/session";
-import { MaestroProject, MaestroTask, WorkerStrategy, OrchestratorStrategy } from "../app/types/maestro";
+import { MaestroProject, MaestroTask, WorkerStrategy, OrchestratorStrategy, AgentTool } from "../app/types/maestro";
 
 export async function createMaestroSession(input: {
     task?: MaestroTask;              // Single task (backward compatible)
@@ -36,6 +36,9 @@ export async function createMaestroSession(input: {
     // Get model from the first task (for multi-task sessions, use the first task's model)
     const model = taskList[0].model || 'sonnet';
 
+    // Get agent tool from the first task
+    const agentTool: AgentTool | undefined = taskList[0].agentTool;
+
     // Determine skill based on role
     const defaultSkill = resolvedRole === 'orchestrator' ? 'maestro-orchestrator' : 'maestro-worker';
 
@@ -52,6 +55,7 @@ export async function createMaestroSession(input: {
           : taskList[0].title,
         skills: skillIds || [defaultSkill],
         model,
+        ...(agentTool && agentTool !== 'claude-code' ? { agentTool } : {}),
       });
 
       console.log('[App.createMaestroSession] ✓ Server spawn request sent:', response.sessionId);
