@@ -225,7 +225,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 projectId,
                 title: taskData.title,
                 description: taskData.description,
-                initialPrompt: taskData.initialPrompt || "",
                 priority: taskData.priority,
                 skillIds: taskData.skillIds,
                 parentId: taskData.parentId,

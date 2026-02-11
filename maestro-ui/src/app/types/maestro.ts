@@ -51,6 +51,11 @@ export interface MaestroProject {
   basePath?: string | null;
   environmentId: string | null;
   assetsEnabled?: boolean;
+  // Sound settings
+  soundInstrument?: string; // Instrument to use for notifications (defaults to 'piano')
+  soundSettings?: {
+    enabledCategories?: string[]; // Per-project sound category overrides
+  };
 }
 
 

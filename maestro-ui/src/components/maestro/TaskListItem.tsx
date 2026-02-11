@@ -6,7 +6,7 @@ import { useMaestroStore } from "../../stores/useMaestroStore";
 import { maestroClient } from "../../utils/MaestroClient";
 import { SessionInTaskView } from "./SessionInTaskView";
 import { AggregatedTimeline } from "./SessionTimeline";
-import { DocsList } from "./DocsList";
+import { DocViewer } from "./DocViewer";
 import { StrategyBadge } from "./StrategyBadge";
 import { SessionDetailModal } from "./SessionDetailModal";
 import { ConfirmActionModal } from "../modals/ConfirmActionModal";
@@ -130,6 +130,7 @@ export function TaskListItem({
     }, [showPriorityDropdown, computeDropdownPos]);
 
     const [taskDocs, setTaskDocs] = useState<DocEntry[]>([]);
+    const [viewingDoc, setViewingDoc] = useState<DocEntry | null>(null);
 
     useEffect(() => {
         if (isExpanded && activeTab === 'details') {
@@ -584,7 +585,25 @@ export function TaskListItem({
 
                                 {/* Task Docs */}
                                 {taskDocs.length > 0 && (
-                                    <DocsList docs={taskDocs} title="Task Docs" />
+                                    <div className="terminalDetailBlock">
+                                        <div className="terminalDetailBlockLabel">Docs</div>
+                                        <div className="terminalTaskDocsInline">
+                                            {taskDocs.map((doc) => (
+                                                <button
+                                                    key={doc.id}
+                                                    className="terminalTaskDocItem"
+                                                    onClick={() => setViewingDoc(doc)}
+                                                    title={doc.filePath}
+                                                >
+                                                    <svg className="terminalTaskDocIcon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M9 1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5L9 1z" />
+                                                        <path d="M9 1v4h4" />
+                                                    </svg>
+                                                    <span className="terminalTaskDocTitle">{doc.title}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 )}
 
                                 {/* Empty state if no details at all */}
@@ -673,6 +692,11 @@ export function TaskListItem({
                         </button>
                     </div>
                 </div>
+            )}
+
+            {viewingDoc && createPortal(
+                <DocViewer doc={viewingDoc} onClose={() => setViewingDoc(null)} />,
+                document.body
             )}
 
             {sessionModalId && createPortal(

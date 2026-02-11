@@ -36,7 +36,6 @@ type CreateTaskModalProps = {
         title: string;
         description: string;
         priority: TaskPriority;
-        initialPrompt: string;
         startImmediately?: boolean;
         skillIds?: string[];
         parentId?: string;
@@ -106,12 +105,12 @@ export function CreateTaskModal({
     useEffect(() => {
         if (isEditMode && task) {
             setTitle(task.title);
-            setPrompt(task.initialPrompt || "");
+            setPrompt(task.description || "");
             setPriority(task.priority);
             setModel(task.model || "sonnet");
             setSelectedSkills(task.skillIds || []);
         }
-    }, [isEditMode, task?.id, task?.title, task?.initialPrompt, task?.priority, task?.model]);
+    }, [isEditMode, task?.id, task?.title, task?.description, task?.priority, task?.model]);
 
     // Reset form when switching to create mode
     useEffect(() => {
@@ -129,7 +128,7 @@ export function CreateTaskModal({
         ? (title.trim() !== "" || prompt.trim() !== "")
         : (isEditMode && task && (
             title !== task.title ||
-            prompt !== (task.initialPrompt || "") ||
+            prompt !== (task.description || "") ||
             priority !== task.priority ||
             model !== (task.model || "sonnet")
         ));
@@ -182,7 +181,6 @@ export function CreateTaskModal({
             title: title.trim(),
             description: prompt,
             priority,
-            initialPrompt: prompt,
             startImmediately,
             skillIds: selectedSkills.length > 0 ? selectedSkills : undefined,
             parentId,
@@ -203,7 +201,7 @@ export function CreateTaskModal({
         if (!isEditMode || !task) return;
         const updates: Partial<MaestroTask> = {};
         if (title.trim() && title !== task.title) updates.title = title.trim();
-        if (prompt !== (task.initialPrompt || "")) updates.initialPrompt = prompt;
+        if (prompt !== (task.description || "")) updates.description = prompt;
         if (priority !== task.priority) updates.priority = priority;
         if (model !== (task.model || "sonnet")) updates.model = model;
         if (JSON.stringify(selectedSkills) !== JSON.stringify(task.skillIds || [])) updates.skillIds = selectedSkills;

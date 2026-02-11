@@ -23,6 +23,7 @@ interface ProjectState {
   projectBasePath: string;
   projectEnvironmentId: string;
   projectAssetsEnabled: boolean;
+  projectSoundInstrument: string;
   confirmDeleteProjectOpen: boolean;
   deleteProjectError: string | null;
   deleteProjectId: string | null;
@@ -37,6 +38,7 @@ interface ProjectState {
   setProjectBasePath: (path: string) => void;
   setProjectEnvironmentId: (id: string) => void;
   setProjectAssetsEnabled: (enabled: boolean) => void;
+  setProjectSoundInstrument: (instrument: string) => void;
   setConfirmDeleteProjectOpen: (open: boolean) => void;
   selectProject: (projectId: string) => void;
   moveProject: (projectId: string, targetProjectId: string, position: 'before' | 'after') => void;
@@ -55,8 +57,13 @@ interface ProjectState {
 function pickActiveSessionId(projectId: string): string | null {
   const { sessions } = useSessionStore.getState();
   const last = lastActiveByProject.get(projectId);
-  if (last && sessions.some((s) => s.id === last)) return last;
+  console.log('[pickActiveSessionId] projectId:', projectId, 'lastActive:', last, 'mapEntries:', Array.from(lastActiveByProject.entries()));
+  if (last && sessions.some((s) => s.id === last)) {
+    console.log('[pickActiveSessionId] returning last active:', last);
+    return last;
+  }
   const first = sessions.find((s) => s.projectId === projectId);
+  console.log('[pickActiveSessionId] falling back to first session:', first?.id ?? null);
   return first ? first.id : null;
 }
 
@@ -72,6 +79,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     projectBasePath: '',
     projectEnvironmentId: '',
     projectAssetsEnabled: true,
+    projectSoundInstrument: 'piano',
     confirmDeleteProjectOpen: false,
     deleteProjectError: null,
     deleteProjectId: null,
@@ -91,6 +99,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     setProjectBasePath: (path) => set({ projectBasePath: path }),
     setProjectEnvironmentId: (id) => set({ projectEnvironmentId: id }),
     setProjectAssetsEnabled: (enabled) => set({ projectAssetsEnabled: enabled }),
+    setProjectSoundInstrument: (instrument) => set({ projectSoundInstrument: instrument }),
     setConfirmDeleteProjectOpen: (open) => set({ confirmDeleteProjectOpen: open }),
 
     selectProject: (projectId) => {
@@ -123,6 +132,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         projectBasePath: homeDir ?? '',
         projectEnvironmentId: '',
         projectAssetsEnabled: true,
+        projectSoundInstrument: 'piano',
         projectOpen: true,
       });
     },
@@ -138,6 +148,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         projectBasePath: project.basePath ?? '',
         projectEnvironmentId: project.environmentId ?? '',
         projectAssetsEnabled: project.assetsEnabled ?? true,
+        projectSoundInstrument: project.soundInstrument ?? 'piano',
         projectOpen: true,
       });
     },
@@ -155,6 +166,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         activeProjectId,
         projectEnvironmentId,
         projectAssetsEnabled,
+        projectSoundInstrument,
         projects,
       } = get();
       const title = projectTitle.trim();
@@ -194,6 +206,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
                     basePath: validatedBasePath,
                     environmentId,
                     assetsEnabled: projectAssetsEnabled,
+                    soundInstrument: projectSoundInstrument,
                   }
                 : p,
             ),
@@ -220,6 +233,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
           basePath: serverProject.workingDir,
           environmentId,
           assetsEnabled: projectAssetsEnabled,
+          soundInstrument: projectSoundInstrument,
         };
         set((s) => ({
           projects: [...s.projects, project],
@@ -338,3 +352,45 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
 // Internal type alias to avoid importing TerminalSession in the module scope (circular import risk)
 type SessionLike = { id: string; projectId: string; persistId: string };
+
+/* ------------------------------------------------------------------ */
+/*  Sync lastActiveByProject + activeSessionByProject on session switch */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Call once after stores are created (e.g. from initApp or App mount).
+ * Subscribes to useSessionStore so that whenever activeId changes we
+ * record the mapping projectId → sessionId / persistId for later
+ * restoration when the user switches projects.
+ */
+export function initActiveSessionSync(): () => void {
+  let prevActiveId: string | null = useSessionStore.getState().activeId;
+  console.log('[activeSessionSync] initialized, prevActiveId:', prevActiveId);
+
+  const unsub = useSessionStore.subscribe((state) => {
+    const { activeId, sessions } = state;
+    if (activeId === prevActiveId) return;
+    console.log('[activeSessionSync] activeId changed:', prevActiveId, '->', activeId);
+    prevActiveId = activeId;
+
+    if (!activeId) return;
+    const session = sessions.find((s) => s.id === activeId);
+    if (!session) {
+      console.log('[activeSessionSync] session not found for activeId:', activeId);
+      return;
+    }
+
+    console.log('[activeSessionSync] storing projectId:', session.projectId, '-> sessionId:', activeId, 'persistId:', session.persistId);
+
+    // Update module-level map (used by pickActiveSessionId at runtime)
+    lastActiveByProject.set(session.projectId, activeId);
+
+    // Update persisted record (saved to disk via persistence.ts)
+    useProjectStore.getState().setActiveSessionByProject((prev) => {
+      if (prev[session.projectId] === session.persistId) return prev;
+      return { ...prev, [session.projectId]: session.persistId };
+    });
+  });
+
+  return unsub;
+}
