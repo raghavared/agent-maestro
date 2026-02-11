@@ -94,7 +94,6 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       properties: {
         model: {
           type: 'string',
-          enum: ['sonnet', 'opus', 'haiku'],
         },
         permissionMode: {
           type: 'string',
@@ -209,6 +208,12 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       type: 'string',
       nullable: true,
       description: 'Optional template ID for prompt generation (fetched from server)',
+    },
+    agentTool: {
+      type: 'string',
+      enum: ['claude-code', 'codex', 'gemini'],
+      nullable: true,
+      description: 'Agent tool to use for this session (defaults to claude-code)',
     },
   },
   required: ['manifestVersion', 'role', 'tasks', 'session'],

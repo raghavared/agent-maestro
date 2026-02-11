@@ -348,6 +348,45 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
         }),
       );
 
+      // Kitty keyboard protocol support – respond to mode queries from programs
+      // like Claude Code so they know the terminal supports enhanced key reporting
+      // (e.g. distinguishing Shift+Enter from plain Enter via CSI 13;2 u).
+      const kittyModeStack: number[] = [];
+
+      // Push mode: CSI > flags u
+      oscDisposables.push(
+        term.parser.registerCsiHandler({ final: "u", prefix: ">" }, (params) => {
+          const flags = params.length > 0 ? (params[0] as number) : 0;
+          kittyModeStack.push(flags);
+          return true;
+        }),
+      );
+
+      // Pop mode: CSI < count u
+      oscDisposables.push(
+        term.parser.registerCsiHandler({ final: "u", prefix: "<" }, (params) => {
+          const count = params.length > 0 && (params[0] as number) > 0 ? (params[0] as number) : 1;
+          for (let i = 0; i < count && kittyModeStack.length > 0; i++) {
+            kittyModeStack.pop();
+          }
+          return true;
+        }),
+      );
+
+      // Query: CSI ? u – respond with current flags so the program enables enhanced keys
+      oscDisposables.push(
+        term.parser.registerCsiHandler({ final: "u", prefix: "?" }, () => {
+          const currentFlags = kittyModeStack.length > 0
+            ? kittyModeStack[kittyModeStack.length - 1]
+            : 0;
+          void invoke("write_to_session", {
+            id: props.id,
+            data: `\x1b[?${currentFlags}u`,
+          }).catch(() => {});
+          return true;
+        }),
+      );
+
 	    }
 
 	    function scheduleResize() {

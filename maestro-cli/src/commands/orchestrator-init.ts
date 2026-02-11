@@ -1,6 +1,6 @@
 import type { MaestroManifest } from '../types/manifest.js';
 import { readManifestFromEnv } from '../services/manifest-reader.js';
-import { ClaudeSpawner } from '../services/claude-spawner.js';
+import { AgentSpawner } from '../services/agent-spawner.js';
 import { api } from '../api.js';
 import { randomBytes } from 'crypto';
 
@@ -8,13 +8,13 @@ import { randomBytes } from 'crypto';
  * OrchestratorInitCommand - Initialize an orchestrator session from a manifest
  *
  * Reads manifest from MAESTRO_MANIFEST_PATH environment variable,
- * validates it's an orchestrator manifest, and spawns Claude Code.
+ * validates it's an orchestrator manifest, and spawns the configured agent tool.
  */
 export class OrchestratorInitCommand {
-  private spawner: ClaudeSpawner;
+  private spawner: AgentSpawner;
 
   constructor() {
-    this.spawner = new ClaudeSpawner();
+    this.spawner = new AgentSpawner();
   }
 
   /**
@@ -159,14 +159,15 @@ export class OrchestratorInitCommand {
       // Step 5: Auto-update session status to working
       await this.autoUpdateSessionStatus(manifest, sessionId);
 
-      // Step 6: Spawn Claude
-      console.log('Spawning Claude Code session...\n');
+      // Step 6: Spawn agent
+      const toolName = AgentSpawner.getToolDisplayName(manifest.agentTool);
+      console.log(`Spawning ${toolName} session...\n`);
 
       const spawnResult = await this.spawner.spawn(manifest, sessionId, {
         interactive: true,
       });
 
-      console.log('Orchestrator session started successfully!\n');
+      console.log(`Orchestrator session started successfully (${toolName})!\n`);
 
       // Wait for process to exit
       spawnResult.process.on('exit', async (code) => {

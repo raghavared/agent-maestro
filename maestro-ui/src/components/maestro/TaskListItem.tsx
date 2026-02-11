@@ -314,7 +314,7 @@ export function TaskListItem({
                                         {statusOptions.map((status) => (
                                             <button
                                                 key={status}
-                                                className={`terminalInlineStatusOption ${status === task.status ? 'terminalInlineStatusOption--current' : ''}`}
+                                                className={`terminalInlineStatusOption terminalInlineStatusOption--${status} ${status === task.status ? 'terminalInlineStatusOption--current' : ''}`}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleInlineStatusChange(status);
@@ -514,6 +514,18 @@ export function TaskListItem({
 
                                 {/* Metadata Grid */}
                                 <div className="terminalDetailGrid">
+                                    {/* Agent Tool */}
+                                    {task.agentTool && task.agentTool !== 'claude-code' && (
+                                        <div className="terminalDetailRow">
+                                            <span className="terminalDetailLabel">Agent:</span>
+                                            <span className="terminalDetailValue">
+                                                <span className="terminalMetaBadge">
+                                                    {String(task.agentTool).toUpperCase()}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    )}
+
                                     {/* Model */}
                                     {task.model && (
                                         <div className="terminalDetailRow">

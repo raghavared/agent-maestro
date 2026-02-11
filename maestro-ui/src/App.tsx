@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useCallback, useState } from "react";
 import { TerminalRegistry } from "./SessionTerminal";
 import { PendingDataBuffer } from "./app/types/app-state";
 import * as DEFAULTS from "./app/constants/defaults";
@@ -35,16 +35,30 @@ import { AppRightPanel } from "./components/AppRightPanel";
 import { AppSlidePanel } from "./components/AppSlidePanel";
 import { AppModals } from "./components/app/AppModals";
 import { AppWorkspace } from "./components/app/AppWorkspace";
+import { ConfirmActionModal } from "./components/modals/ConfirmActionModal";
 
 // ---------------------------------------------------------------------------
 // App  (thin layout shell -- all domain state lives in Zustand stores)
 // ---------------------------------------------------------------------------
 
 export default function App() {
+  type RunningSessionsByProject = {
+    projectId: string;
+    projectName: string;
+    sessions: Array<{ id: string; name: string }>;
+  };
+
   // DOM-bound refs (these cannot live in Zustand)
   const registry = useRef<TerminalRegistry>(new Map());
   const pendingData = useRef<PendingDataBuffer>(new Map());
   const sidebarRef = useRef<HTMLElement | null>(null);
+  const sessionsRef = useRef<ReturnType<typeof useSessionStore.getState>["sessions"]>([]);
+  const projectsRef = useRef<ReturnType<typeof useProjectStore.getState>["projects"]>([]);
+  const onCloseRef = useRef<ReturnType<typeof useSessionStore.getState>["onClose"]>(async () => {});
+  const bypassAppCloseConfirmRef = useRef(false);
+  const [confirmCloseAppOpen, setConfirmCloseAppOpen] = useState(false);
+  const [confirmCloseAppBusy, setConfirmCloseAppBusy] = useState(false);
+  const [runningSessionsByProject, setRunningSessionsByProject] = useState<RunningSessionsByProject[]>([]);
 
   // ---------- bootstrap stores & persistence ----------
   useEffect(() => {
@@ -136,6 +150,18 @@ export default function App() {
     [sessions, activeProjectId],
   );
 
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
+
+  useEffect(() => {
+    projectsRef.current = projects;
+  }, [projects]);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   const sessionCountByProject = useMemo(() => {
     const counts = new Map<string, number>();
     for (const s of sessions) counts.set(s.projectId, (counts.get(s.projectId) ?? 0) + 1);
@@ -184,6 +210,88 @@ export default function App() {
     setNewOpen(false);
     useSshStore.getState().setSshManagerOpen(true);
   }, [setProjectOpen, setNewOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: null | (() => void) = null;
+
+    const groupRunningSessionsByProject = (): RunningSessionsByProject[] => {
+      const runningSessions = sessionsRef.current.filter((s) => !s.exited && !s.closing);
+      const projectNameById = new Map(
+        projectsRef.current.map((p) => [p.id, p.name?.trim() || p.id]),
+      );
+      const grouped = new Map<string, RunningSessionsByProject>();
+
+      for (const session of runningSessions) {
+        const current = grouped.get(session.projectId);
+        if (current) {
+          current.sessions.push({ id: session.id, name: session.name });
+          continue;
+        }
+
+        grouped.set(session.projectId, {
+          projectId: session.projectId,
+          projectName: projectNameById.get(session.projectId) ?? session.projectId,
+          sessions: [{ id: session.id, name: session.name }],
+        });
+      }
+
+      return Array.from(grouped.values());
+    };
+
+    const registerCloseHandler = async () => {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        if (cancelled) return;
+        unlisten = await getCurrentWindow().onCloseRequested((event) => {
+          if (bypassAppCloseConfirmRef.current) return;
+          const grouped = groupRunningSessionsByProject();
+          if (grouped.length === 0) return;
+          event.preventDefault();
+          setRunningSessionsByProject(grouped);
+          setConfirmCloseAppOpen(true);
+        });
+      } catch {
+        // Running outside Tauri, or window API unavailable.
+      }
+    };
+
+    void registerCloseHandler();
+
+    return () => {
+      cancelled = true;
+      if (unlisten) unlisten();
+    };
+  }, []);
+
+  const closeAppWithRunningSessions = useCallback(async () => {
+    if (confirmCloseAppBusy) return;
+    setConfirmCloseAppBusy(true);
+    try {
+      const running = sessionsRef.current.filter((s) => !s.exited && !s.closing);
+      for (const session of running) {
+        try {
+          await onCloseRef.current(session.id);
+        } catch {
+          // Best-effort shutdown while closing app.
+        }
+      }
+
+      bypassAppCloseConfirmRef.current = true;
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().close();
+    } catch {
+      bypassAppCloseConfirmRef.current = false;
+    } finally {
+      setConfirmCloseAppBusy(false);
+      setConfirmCloseAppOpen(false);
+    }
+  }, [confirmCloseAppBusy]);
+
+  const runningSessionCount = useMemo(
+    () => runningSessionsByProject.reduce((count, group) => count + group.sessions.length, 0),
+    [runningSessionsByProject],
+  );
 
   // ---------- layout resize handlers ----------
   const {
@@ -370,6 +478,42 @@ export default function App() {
 
       {/* -------- Command Palette -------- */}
       <CommandPalette />
+      <ConfirmActionModal
+        isOpen={confirmCloseAppOpen}
+        title="Close App and All Running Sessions?"
+        message={(
+          <div>
+            <div>
+              {`There ${runningSessionCount === 1 ? "is" : "are"} `}
+              <strong>{runningSessionCount}</strong>
+              {` running ${runningSessionCount === 1 ? "session" : "sessions"}. Closing the app will stop all of them.`}
+            </div>
+            <div style={{ marginTop: 10 }}>
+              {runningSessionsByProject.map((group) => (
+                <div key={group.projectId} style={{ marginBottom: 8 }}>
+                  <strong>{group.projectName}</strong>
+                  <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
+                    {group.sessions.map((session) => (
+                      <li key={session.id}>{session.name}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        confirmLabel="Close App"
+        cancelLabel="Cancel"
+        confirmDanger
+        busy={confirmCloseAppBusy}
+        onClose={() => {
+          if (confirmCloseAppBusy) return;
+          setConfirmCloseAppOpen(false);
+        }}
+        onConfirm={() => {
+          void closeAppWithRunningSessions();
+        }}
+      />
     </div>
   );
 }

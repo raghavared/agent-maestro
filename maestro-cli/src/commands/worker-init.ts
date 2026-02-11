@@ -1,6 +1,6 @@
 import type { MaestroManifest } from '../types/manifest.js';
 import { readManifestFromEnv } from '../services/manifest-reader.js';
-import { ClaudeSpawner } from '../services/claude-spawner.js';
+import { AgentSpawner } from '../services/agent-spawner.js';
 import { api } from '../api.js';
 import { randomBytes } from 'crypto';
 import {
@@ -13,13 +13,13 @@ import {
  * WorkerInitCommand - Initialize a worker session from a manifest
  *
  * Reads manifest from MAESTRO_MANIFEST_PATH environment variable,
- * validates it's a worker manifest, and spawns Claude Code.
+ * validates it's a worker manifest, and spawns the configured agent tool.
  */
 export class WorkerInitCommand {
-  private spawner: ClaudeSpawner;
+  private spawner: AgentSpawner;
 
   constructor() {
-    this.spawner = new ClaudeSpawner();
+    this.spawner = new AgentSpawner();
   }
 
   /**
