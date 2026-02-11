@@ -2,8 +2,10 @@
  * Sound Manager Service
  *
  * Centralized service for playing event-based sounds in the Maestro UI.
- * Uses piano MP3 files from /music/piano-mp3/ directory.
+ * Supports multiple instruments with per-project configuration.
  */
+
+export type InstrumentType = 'piano' | 'guitar' | 'strings' | 'bells' | 'marimba';
 
 export type SoundCategory =
   | 'success'
@@ -258,6 +260,7 @@ interface SoundManagerConfig {
   volume: number;
   maxConcurrentSounds: number;
   enabledCategories: Set<SoundCategory>;
+  currentInstrument: InstrumentType;
 }
 
 class SoundManager {
@@ -268,6 +271,7 @@ class SoundManager {
     enabled: true,
     volume: 0.3, // 30% volume by default
     maxConcurrentSounds: 5,
+    currentInstrument: 'piano',
     enabledCategories: new Set([
       'success',
       'error',
@@ -338,14 +342,27 @@ class SoundManager {
   }
 
   /**
-   * Get or create an audio element for a specific note
+   * Get or create an audio element for a specific note with current instrument
    */
   private getAudioElement(note: string): HTMLAudioElement {
-    const key = note;
+    const instrument = this.config.currentInstrument;
+    const key = `${instrument}:${note}`;
 
     if (!this.audioContext.has(key)) {
-      const audio = new Audio(`/music/piano-mp3/${note}.mp3`);
+      // Use piano-mp3 for all instruments for now (can be extended later)
+      const audio = new Audio(`/music/${instrument}-mp3/${note}.mp3`);
       audio.volume = this.config.volume;
+
+      // Fallback to piano if instrument file doesn't exist
+      audio.addEventListener('error', () => {
+        if (instrument !== 'piano') {
+          console.warn(`[SoundManager] ${instrument} not found, falling back to piano`);
+          const fallback = new Audio(`/music/piano-mp3/${note}.mp3`);
+          fallback.volume = this.config.volume;
+          this.audioContext.set(key, fallback);
+        }
+      }, { once: true });
+
       this.audioContext.set(key, audio);
     }
 
@@ -515,6 +532,21 @@ class SoundManager {
       ...this.config,
       enabledCategories: new Set(this.config.enabledCategories),
     };
+  }
+
+  public setInstrument(instrument: InstrumentType): void {
+    if (this.config.currentInstrument === instrument) return;
+
+    console.log(`[SoundManager] Switching instrument from ${this.config.currentInstrument} to ${instrument}`);
+    this.config.currentInstrument = instrument;
+
+    // Clear audio cache to force reload with new instrument
+    this.audioContext.clear();
+    this.saveConfig();
+  }
+
+  public getInstrument(): InstrumentType {
+    return this.config.currentInstrument;
   }
 
   /**

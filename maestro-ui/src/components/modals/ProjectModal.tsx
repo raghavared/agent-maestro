@@ -26,6 +26,8 @@ type ProjectModalProps = {
   onOpenEnvironments: () => void;
   assetsEnabled: boolean;
   onChangeAssetsEnabled: (value: boolean) => void;
+  soundInstrument?: string;
+  onChangeSoundInstrument?: (value: string) => void;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
   browserListing: DirectoryListing | null;
@@ -54,6 +56,8 @@ export function ProjectModal({
   onOpenEnvironments,
   assetsEnabled,
   onChangeAssetsEnabled,
+  soundInstrument = 'piano',
+  onChangeSoundInstrument,
   onClose,
   onSubmit,
   browserListing,
@@ -164,6 +168,21 @@ export function ProjectModal({
                 Auto-create enabled assets on new sessions
               </label>
               <div className="themedFormHint">Manage templates in the Assets panel.</div>
+            </div>
+            <div className="themedFormRow">
+              <div className="themedFormLabel">Notification Sounds</div>
+              <select
+                className="themedFormSelect"
+                value={soundInstrument}
+                onChange={(e) => onChangeSoundInstrument?.(e.target.value)}
+              >
+                <option value="piano">Piano</option>
+                <option value="guitar">Guitar</option>
+                <option value="strings">Strings</option>
+                <option value="bells">Bells</option>
+                <option value="marimba">Marimba</option>
+              </select>
+              <div className="themedFormHint">Instrument used for notification sounds in this project.</div>
             </div>
           </div>
           <div className="themedFormActions">

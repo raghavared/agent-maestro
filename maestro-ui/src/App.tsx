@@ -6,7 +6,7 @@ import * as DEFAULTS from "./app/constants/defaults";
 // Stores
 import { useUIStore } from "./stores/useUIStore";
 import { useSessionStore, initSessionStoreRefs } from "./stores/useSessionStore";
-import { useProjectStore } from "./stores/useProjectStore";
+import { useProjectStore, initActiveSessionSync } from "./stores/useProjectStore";
 import { usePromptStore } from "./stores/usePromptStore";
 import { useAgentShortcutStore } from "./stores/useAgentShortcutStore";
 import { usePersistentSessionStore } from "./stores/usePersistentSessionStore";
@@ -24,6 +24,7 @@ import { useQuickLaunch } from "./hooks/useQuickLaunch";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useAppLayoutResizing } from "./hooks/useAppLayoutResizing";
 import { useWorkspaceResizeEffect } from "./hooks/useWorkspaceResizeEffect";
+import { useProjectSoundSync } from "./hooks/useProjectSoundSync";
 
 // Components
 import { CommandPalette } from "./CommandPalette";
@@ -53,10 +54,12 @@ export default function App() {
     const cleanupApp = initApp(registry, pendingData);
     const cleanupPersistence = initCentralPersistence();
     const cleanupWorkspace = initWorkspaceViewPersistence();
+    const cleanupActiveSessionSync = initActiveSessionSync();
     return () => {
       cleanupApp();
       cleanupPersistence();
       cleanupWorkspace();
+      cleanupActiveSessionSync();
     };
   }, []);
 
@@ -65,6 +68,9 @@ export default function App() {
 
   // ---------- keyboard shortcuts (reads from stores directly) ----------
   useKeyboardShortcuts();
+
+  // ---------- project sound sync ----------
+  useProjectSoundSync();
 
   // ---------- responsive mode ----------
   const responsiveMode = useUIStore((s) => s.responsiveMode);
