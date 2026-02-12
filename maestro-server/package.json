@@ -22,7 +22,8 @@
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "ws": "^8.19.0"
+    "ws": "^8.19.0",
+    "yaml": "^2.3.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

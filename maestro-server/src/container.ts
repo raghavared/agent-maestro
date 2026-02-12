@@ -7,7 +7,7 @@ import { FileSystemTaskRepository } from './infrastructure/repositories/FileSyst
 import { FileSystemSessionRepository } from './infrastructure/repositories/FileSystemSessionRepository';
 import { FileSystemTemplateRepository } from './infrastructure/repositories/FileSystemTemplateRepository';
 import { FileSystemQueueRepository } from './infrastructure/repositories/FileSystemQueueRepository';
-import { FileSystemSkillLoader } from './infrastructure/skills/FileSystemSkillLoader';
+import { ClaudeCodeSkillLoader } from './infrastructure/skills/ClaudeCodeSkillLoader';
 import { ProjectService } from './application/services/ProjectService';
 import { TaskService } from './application/services/TaskService';
 import { SessionService } from './application/services/SessionService';
@@ -85,7 +85,7 @@ export async function createContainer(): Promise<Container> {
   const queueRepo = new FileSystemQueueRepository(config.dataDir, logger);
 
   // 4. Loaders
-  const skillLoader = new FileSystemSkillLoader(config.skillsDir, logger);
+  const skillLoader = new ClaudeCodeSkillLoader(config.skillsDir, logger);
 
   // 5. Services
   const projectService = new ProjectService(projectRepo, eventBus);

@@ -89,6 +89,11 @@ export interface NotifyTaskFailedEvent {
   data: { taskId: string; title: string };
 }
 
+export interface NotifyTaskInReviewEvent {
+  type: 'notify:task_in_review';
+  data: { taskId: string; title: string };
+}
+
 export interface NotifyTaskBlockedEvent {
   type: 'notify:task_blocked';
   data: { taskId: string; title: string };
@@ -145,6 +150,7 @@ export type DomainEvent =
   | SessionTaskRemovedEvent
   | NotifyTaskCompletedEvent
   | NotifyTaskFailedEvent
+  | NotifyTaskInReviewEvent
   | NotifyTaskBlockedEvent
   | NotifyTaskSessionCompletedEvent
   | NotifyTaskSessionFailedEvent

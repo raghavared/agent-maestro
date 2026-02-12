@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { ClaudeCodeSkill } from "../../app/types/maestro";
 import { Icon } from "../Icon";
+import { maestroClient } from "../../utils/MaestroClient";
 
 interface ClaudeCodeSkillsSelectorProps {
     selectedSkills: string[];
@@ -24,7 +24,7 @@ export function ClaudeCodeSkillsSelector({ selectedSkills, onSelectionChange }: 
         setLoading(true);
         setError(null);
         try {
-            const skillsList = await invoke<ClaudeCodeSkill[]>("list_claude_code_skills");
+            const skillsList = await maestroClient.getSkills();
             setSkills(skillsList);
         } catch (err) {
             console.error("Failed to load Claude Code skills:", err);

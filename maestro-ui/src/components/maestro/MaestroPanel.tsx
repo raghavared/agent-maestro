@@ -227,6 +227,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 description: taskData.description,
                 priority: taskData.priority,
                 skillIds: taskData.skillIds,
+                referenceTaskIds: taskData.referenceTaskIds,
                 parentId: taskData.parentId,
                 model: taskData.model,
                 agentTool: taskData.agentTool,
@@ -477,6 +478,10 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     }}
                     onWorkOn={() => handleWorkOnTask(node)}
                     onJumpToSession={(sid) => onJumpToSession?.(sid)}
+                    onNavigateToTask={(taskId: string) => {
+                        setSelectedTaskId(taskId);
+                        setShowDetailModal(true);
+                    }}
                     depth={depth}
                     hasChildren={hasChildren}
                     isChildrenCollapsed={isCollapsed}
@@ -596,6 +601,9 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         </span>
                         <span className="terminalStat terminalStatPending">
                             ○ {normalizedTasks.filter((t) => t.status === "todo").length}
+                        </span>
+                        <span className="terminalStat terminalStatReview">
+                            ◎ {normalizedTasks.filter((t) => t.status === "in_review").length}
                         </span>
                         <span className="terminalStat terminalStatDone">
                             ✓ {normalizedTasks.filter((t) => t.status === "completed").length}

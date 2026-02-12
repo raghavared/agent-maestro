@@ -188,7 +188,10 @@ export function useKeyboardShortcuts() {
                 // Cmd+T - Create new Maestro task
                 if (e.metaKey && !e.shiftKey && e.key.toLowerCase() === "t") {
                     e.preventDefault();
-                    useUIStore.getState().setCreateTaskRequested(true);
+                    const ui = useUIStore.getState();
+                    ui.setActiveRightPanel("maestro");
+                    ui.setActiveMobilePanel("maestro");
+                    ui.setCreateTaskRequested(true);
                     return;
                 }
                 // Cmd+N - New terminal session
@@ -289,7 +292,10 @@ export function useKeyboardShortcuts() {
                 // Ctrl+Shift+T - Create new Maestro task
                 if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "t") {
                     e.preventDefault();
-                    useUIStore.getState().setCreateTaskRequested(true);
+                    const ui = useUIStore.getState();
+                    ui.setActiveRightPanel("maestro");
+                    ui.setActiveMobilePanel("maestro");
+                    ui.setCreateTaskRequested(true);
                     return;
                 }
                 // Ctrl+Shift+N - New terminal session

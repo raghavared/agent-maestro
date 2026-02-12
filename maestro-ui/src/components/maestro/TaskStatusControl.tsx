@@ -13,6 +13,7 @@ type TaskStatusControlProps = {
 const STATUS_SYMBOLS: Record<TaskStatus, string> = {
   todo: "○",
   in_progress: "◉",
+  in_review: "◎",
   completed: "✓",
   cancelled: "⊘",
   blocked: "✗",
@@ -21,6 +22,7 @@ const STATUS_SYMBOLS: Record<TaskStatus, string> = {
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "Todo",
   in_progress: "In Progress",
+  in_review: "In Review",
   completed: "Completed",
   cancelled: "Cancelled",
   blocked: "Blocked",
@@ -104,7 +106,7 @@ export function TaskStatusControl({
     }
   };
 
-  const statusOptions: TaskStatus[] = ["todo", "in_progress", "completed", "cancelled", "blocked"];
+  const statusOptions: TaskStatus[] = ["todo", "in_progress", "in_review", "completed", "cancelled", "blocked"];
 
   return (
     <div className="terminalStatusControl">

@@ -32,8 +32,8 @@ export interface SkillLoadResult {
 /**
  * SkillLoader - Manages discovery and loading of Claude Code skills
  *
- * Skills are stored in ~/.skills/ directory, with each skill in its own
- * subdirectory containing at minimum a skill.md file.
+ * Skills are stored in ~/.claude/skills/ directory, with each skill in its own
+ * subdirectory containing at minimum a SKILL.md file.
  *
  * Features:
  * - Discover all available skills
@@ -47,10 +47,10 @@ export class SkillLoader {
   /**
    * Create a new SkillLoader
    *
-   * @param skillsDir - Optional custom skills directory (defaults to ~/.skills/)
+   * @param skillsDir - Optional custom skills directory (defaults to ~/.claude/skills/)
    */
   constructor(skillsDir?: string) {
-    this.skillsDir = skillsDir || join(homedir(), '.skills');
+    this.skillsDir = skillsDir || join(homedir(), '.claude', 'skills');
   }
 
   /**

@@ -16,6 +16,7 @@ type TaskListItemProps = {
     onSelect: () => void;
     onWorkOn: () => void;
     onJumpToSession: (maestroSessionId: string) => void;
+    onNavigateToTask?: (taskId: string) => void;
     depth?: number;
     hasChildren?: boolean;
     isChildrenCollapsed?: boolean;
@@ -30,6 +31,7 @@ type TaskListItemProps = {
 const STATUS_SYMBOLS: Record<TaskStatus, string> = {
     todo: "○",
     in_progress: "◉",
+    in_review: "◎",
     completed: "✓",
     cancelled: "⊘",
     blocked: "✗",
@@ -38,6 +40,7 @@ const STATUS_SYMBOLS: Record<TaskStatus, string> = {
 const STATUS_LABELS: Record<TaskStatus, string> = {
     todo: "Todo",
     in_progress: "In Progress",
+    in_review: "In Review",
     completed: "Completed",
     cancelled: "Cancelled",
     blocked: "Blocked",
@@ -78,13 +81,14 @@ function formatDate(timestamp: number): string {
     });
 }
 
-type TaskTab = 'details' | 'sessions' | 'timeline';
+type TaskTab = 'context' | 'sessions' | 'timeline' | 'details';
 
 export function TaskListItem({
     task,
     onSelect,
     onWorkOn,
     onJumpToSession,
+    onNavigateToTask,
     depth = 0,
     hasChildren = false,
     isChildrenCollapsed = false,
@@ -96,7 +100,7 @@ export function TaskListItem({
 }: TaskListItemProps) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [sessionModalId, setSessionModalId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<TaskTab>('details');
+    const [activeTab, setActiveTab] = useState<TaskTab>('context');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
@@ -133,20 +137,44 @@ export function TaskListItem({
     const [viewingDoc, setViewingDoc] = useState<DocEntry | null>(null);
 
     useEffect(() => {
-        if (isExpanded && activeTab === 'details') {
+        if (isExpanded && (activeTab === 'context' || activeTab === 'details')) {
             maestroClient.getTaskDocs(task.id).then(setTaskDocs).catch(() => {});
         }
     }, [isExpanded, activeTab, task.id]);
 
     const { sessions: taskSessions, loading: loadingSessions } = useTaskSessions(task.id);
-    const sessionCount = taskSessions.length;
     const tasks = useMaestroStore(s => s.tasks);
     const removeTaskFromSession = useMaestroStore(s => s.removeTaskFromSession);
     const deleteTask = useMaestroStore(s => s.deleteTask);
     const updateTask = useMaestroStore(s => s.updateTask);
 
-    const hasSessions = sessionCount > 0;
     const isSubtask = task.parentId !== null;
+
+    // For subtasks, also fetch parent task sessions
+    const parentTask = isSubtask && task.parentId ? tasks.get(task.parentId) : null;
+    const { sessions: parentSessions, loading: loadingParentSessions } = useTaskSessions(parentTask?.id);
+
+    // Combine task's own sessions with parent sessions (for subtasks)
+    const allSessions = useMemo(() => {
+        const sessionMap = new Map<string, typeof taskSessions[0]>();
+
+        // Add task's own sessions
+        taskSessions.forEach(session => sessionMap.set(session.id, session));
+
+        // For subtasks, also add parent sessions
+        if (isSubtask && parentSessions) {
+            parentSessions.forEach(session => {
+                if (!sessionMap.has(session.id)) {
+                    sessionMap.set(session.id, session);
+                }
+            });
+        }
+
+        return Array.from(sessionMap.values());
+    }, [taskSessions, parentSessions, isSubtask]);
+
+    const sessionCount = allSessions.length;
+    const hasSessions = sessionCount > 0;
 
     // Calculate subtask count (direct children)
     const subtaskCount = Array.from(tasks.values()).filter(t => t.parentId === task.id).length;
@@ -162,22 +190,22 @@ export function TaskListItem({
 
     // Prepare aggregated timeline data from all sessions
     const aggregatedTimelineData = useMemo(() => {
-        const data = new Map<string, { sessionName: string; events: typeof taskSessions[0]['timeline'] }>();
-        taskSessions.forEach(session => {
+        const data = new Map<string, { sessionName: string; events: typeof allSessions[0]['timeline'] }>();
+        allSessions.forEach(session => {
             data.set(session.id, {
                 sessionName: session.name || session.id.slice(0, 8),
                 events: session.timeline || []
             });
         });
         return data;
-    }, [taskSessions]);
+    }, [allSessions]);
 
     // Check if any session has timeline events for this task
     const hasTimelineEvents = useMemo(() => {
-        return taskSessions.some(session =>
+        return allSessions.some(session =>
             session.timeline?.some(event => event.taskId === task.id || !event.taskId)
         );
-    }, [taskSessions, task.id]);
+    }, [allSessions, task.id]);
 
     const handleRemoveSession = async (sessionId: string) => {
         try {
@@ -224,7 +252,7 @@ export function TaskListItem({
         }
     };
 
-    const statusOptions: TaskStatus[] = ["todo", "in_progress", "completed", "cancelled", "blocked"];
+    const statusOptions: TaskStatus[] = ["todo", "in_progress", "in_review", "completed", "cancelled", "blocked"];
     const priorityOptions: TaskPriority[] = ["high", "medium", "low"];
 
     const handleInlinePriorityChange = async (newPriority: TaskPriority) => {
@@ -395,12 +423,12 @@ export function TaskListItem({
                         {/* Combined session status chips: show task-session status with breathing animation when working */}
                         {sessionCount > 0 && (
                             <div className="terminalSessionStatuses">
-                                {loadingSessions ? (
+                                {(loadingSessions || loadingParentSessions) ? (
                                     <span className="terminalSessionIndicator">
                                         <span className="terminalSessionNumber">{sessionCount}</span>
                                     </span>
                                 ) : (
-                                    taskSessions.slice(0, 3).map(session => {
+                                    allSessions.slice(0, 3).map(session => {
                                         const taskStatus = task.taskSessionStatuses?.[session.id];
                                         const sessionIsTerminal = ['stopped', 'completed', 'failed'].includes(session.status);
                                         const displayStatus = sessionIsTerminal ? session.status : (taskStatus || session.status);
@@ -427,8 +455,8 @@ export function TaskListItem({
                                         );
                                     })
                                 )}
-                                {taskSessions.length > 3 && (
-                                    <span className="terminalSessionMore">+{taskSessions.length - 3}</span>
+                                {allSessions.length > 3 && (
+                                    <span className="terminalSessionMore">+{allSessions.length - 3}</span>
                                 )}
                             </div>
                         )}
@@ -478,10 +506,10 @@ export function TaskListItem({
                     {/* Tab Navigation */}
                     <div className="terminalTaskTabs" onClick={(e) => e.stopPropagation()}>
                         <button
-                            className={`terminalTaskTab ${activeTab === 'details' ? 'terminalTaskTab--active' : ''}`}
-                            onClick={() => setActiveTab('details')}
+                            className={`terminalTaskTab ${activeTab === 'context' ? 'terminalTaskTab--active' : ''}`}
+                            onClick={() => setActiveTab('context')}
                         >
-                            [Details]
+                            [Context]
                         </button>
                         <button
                             className={`terminalTaskTab ${activeTab === 'sessions' ? 'terminalTaskTab--active' : ''}`}
@@ -495,13 +523,44 @@ export function TaskListItem({
                         >
                             [Timeline]
                         </button>
+                        <button
+                            className={`terminalTaskTab ${activeTab === 'details' ? 'terminalTaskTab--active' : ''}`}
+                            onClick={() => setActiveTab('details')}
+                        >
+                            [Details]
+                        </button>
                     </div>
 
                     {/* Tab Content */}
                     <div className="terminalTaskTabContent" onClick={(e) => e.stopPropagation()}>
-                        {/* Details Tab */}
-                        {activeTab === 'details' && (
-                            <div className="terminalTabPane terminalTabPane--details">
+                        {/* Context Tab */}
+                        {activeTab === 'context' && (
+                            <div className="terminalTabPane terminalTabPane--context">
+                                {/* Referenced Tasks as chips */}
+                                {task.referenceTaskIds && task.referenceTaskIds.length > 0 && (
+                                    <div className="terminalDetailBlock">
+                                        <div className="terminalDetailBlockLabel">Referenced Tasks</div>
+                                        <div className="terminalReferenceTaskChips">
+                                            {task.referenceTaskIds.map(refId => {
+                                                const refTask = tasks.get(refId);
+                                                return (
+                                                    <span
+                                                        key={refId}
+                                                        className="terminalReferenceTaskChip"
+                                                        title={refTask ? refTask.title : refId}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onNavigateToTask?.(refId);
+                                                        }}
+                                                    >
+                                                        {refTask ? refTask.title : refId}
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Description */}
                                 {task.description && (
                                     <div className="terminalDetailBlock">
@@ -512,32 +571,44 @@ export function TaskListItem({
                                     </div>
                                 )}
 
-                                {/* Metadata Grid */}
+                                {/* Docs (moved from Details tab) */}
+                                {taskDocs.length > 0 && (
+                                    <div className="terminalDetailBlock">
+                                        <div className="terminalDetailBlockLabel">Docs</div>
+                                        <div className="terminalTaskDocsInline">
+                                            {taskDocs.map((doc) => (
+                                                <button
+                                                    key={doc.id}
+                                                    className="terminalTaskDocItem"
+                                                    onClick={() => setViewingDoc(doc)}
+                                                    title={doc.filePath}
+                                                >
+                                                    <svg className="terminalTaskDocIcon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M9 1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5L9 1z" />
+                                                        <path d="M9 1v4h4" />
+                                                    </svg>
+                                                    <span className="terminalTaskDocTitle">{doc.title}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Empty state */}
+                                {!task.description &&
+                                 (!task.referenceTaskIds || task.referenceTaskIds.length === 0) &&
+                                 taskDocs.length === 0 && (
+                                    <div className="terminalEmptyState">
+                                        No context available
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Details Tab */}
+                        {activeTab === 'details' && (
+                            <div className="terminalTabPane terminalTabPane--details">
                                 <div className="terminalDetailGrid">
-                                    {/* Agent Tool */}
-                                    {task.agentTool && task.agentTool !== 'claude-code' && (
-                                        <div className="terminalDetailRow">
-                                            <span className="terminalDetailLabel">Agent:</span>
-                                            <span className="terminalDetailValue">
-                                                <span className="terminalMetaBadge">
-                                                    {String(task.agentTool).toUpperCase()}
-                                                </span>
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Model */}
-                                    {task.model && (
-                                        <div className="terminalDetailRow">
-                                            <span className="terminalDetailLabel">Model:</span>
-                                            <span className="terminalDetailValue">
-                                                <span className={`terminalMetaBadge terminalMetaBadge--model terminalMetaBadge--model-${task.model}`}>
-                                                    {task.model.toUpperCase()}
-                                                </span>
-                                            </span>
-                                        </div>
-                                    )}
-
                                     {/* Dependencies */}
                                     {task.dependencies && task.dependencies.length > 0 && (
                                         <div className="terminalDetailRow">
@@ -576,6 +647,13 @@ export function TaskListItem({
                                         </span>
                                     </div>
 
+                                    <div className="terminalDetailRow">
+                                        <span className="terminalDetailLabel">Updated:</span>
+                                        <span className="terminalDetailValue">
+                                            {formatDate(task.updatedAt)}
+                                        </span>
+                                    </div>
+
                                     {task.startedAt && (
                                         <div className="terminalDetailRow">
                                             <span className="terminalDetailLabel">Started:</span>
@@ -595,46 +673,13 @@ export function TaskListItem({
                                     )}
                                 </div>
 
-                                {/* Task Docs */}
-                                {taskDocs.length > 0 && (
-                                    <div className="terminalDetailBlock">
-                                        <div className="terminalDetailBlockLabel">Docs</div>
-                                        <div className="terminalTaskDocsInline">
-                                            {taskDocs.map((doc) => (
-                                                <button
-                                                    key={doc.id}
-                                                    className="terminalTaskDocItem"
-                                                    onClick={() => setViewingDoc(doc)}
-                                                    title={doc.filePath}
-                                                >
-                                                    <svg className="terminalTaskDocIcon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                                        <path d="M9 1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5L9 1z" />
-                                                        <path d="M9 1v4h4" />
-                                                    </svg>
-                                                    <span className="terminalTaskDocTitle">{doc.title}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Empty state if no details at all */}
-                                {!task.description &&
-                                 (!task.dependencies || task.dependencies.length === 0) &&
-                                 (!task.skillIds || task.skillIds.length === 0) &&
-                                 (!task.agentIds || task.agentIds.length === 0) &&
-                                 taskDocs.length === 0 && (
-                                    <div className="terminalEmptyState">
-                                        No additional details available
-                                    </div>
-                                )}
                             </div>
                         )}
 
                         {/* Sessions Tab */}
                         {activeTab === 'sessions' && (
                             <div className="terminalTabPane terminalTabPane--sessions">
-                                {loadingSessions ? (
+                                {(loadingSessions || loadingParentSessions) ? (
                                     <div className="terminalLoading">Loading sessions...</div>
                                 ) : sessionCount === 0 ? (
                                     <div className="terminalEmptyState">
@@ -642,7 +687,7 @@ export function TaskListItem({
                                     </div>
                                 ) : (
                                     <div className="terminalSessionsList">
-                                        {taskSessions.map(session => (
+                                        {allSessions.map(session => (
                                             <SessionInTaskView
                                                 key={session.id}
                                                 session={session}

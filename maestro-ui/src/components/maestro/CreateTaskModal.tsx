@@ -1,15 +1,18 @@
-import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { MentionsInput, Mention } from 'react-mentions';
-import { TaskPriority, AgentSkill, MaestroProject, MaestroTask, ModelType, AgentTool } from "../../app/types/maestro";
+import { TaskPriority, AgentSkill, MaestroProject, MaestroTask, ModelType, AgentTool, DocEntry } from "../../app/types/maestro";
 import { maestroClient } from "../../utils/MaestroClient";
 import { Icon } from "../Icon";
 import { AgentSelector } from "./AgentSelector";
 import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
+import { SessionInTaskView } from "./SessionInTaskView";
+import { AggregatedTimeline } from "./SessionTimeline";
 import { useTaskBreadcrumb } from "../../hooks/useTaskBreadcrumb";
 import { useSubtaskProgress } from "../../hooks/useSubtaskProgress";
 import { useTaskSessions } from "../../hooks/useTaskSessions";
+import { useMaestroStore } from "../../stores/useMaestroStore";
 
 // Models available per agent tool
 const AGENT_MODELS: Record<string, { value: string; label: string }[]> = {
@@ -47,6 +50,7 @@ const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex", "gemini"];
 const STATUS_LABELS: Record<string, string> = {
     todo: "Todo",
     in_progress: "In Progress",
+    in_review: "In Review",
     completed: "Completed",
     cancelled: "Cancelled",
     blocked: "Blocked",
@@ -71,6 +75,7 @@ type CreateTaskModalProps = {
         priority: TaskPriority;
         startImmediately?: boolean;
         skillIds?: string[];
+        referenceTaskIds?: string[];
         parentId?: string;
         model?: ModelType;
         agentTool?: AgentTool;
@@ -120,10 +125,19 @@ export function CreateTaskModal({
     const [agentTool, setAgentTool] = useState<AgentTool>("claude-code");
     const [model, setModel] = useState<ModelType>("sonnet");
     const [prompt, setPrompt] = useState("");
-    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [activeTab, setActiveTab] = useState<string | null>(null);
     const [files, setFiles] = useState<{ id: string, display: string }[]>([]);
     const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+    // Reference tasks state
+    const [selectedReferenceTasks, setSelectedReferenceTasks] = useState<MaestroTask[]>([]);
+    const [showRefTaskPicker, setShowRefTaskPicker] = useState(false);
+    const [refTaskCandidates, setRefTaskCandidates] = useState<(MaestroTask & { docCount: number })[]>([]);
+    const [refTasksLoading, setRefTasksLoading] = useState(false);
+    const [refTasksDisplayCount, setRefTasksDisplayCount] = useState(5);
+    const refPickerBtnRef = useRef<HTMLButtonElement>(null);
+    const [refPickerPos, setRefPickerPos] = useState<{ top: number; left: number } | null>(null);
 
     // Agent tool dropdown state
     const [showAgentDropdown, setShowAgentDropdown] = useState(false);
@@ -143,6 +157,60 @@ export function CreateTaskModal({
         }
     }, [showAgentDropdown, computeAgentDropdownPos]);
 
+    const computeRefPickerPos = useCallback(() => {
+        const btn = refPickerBtnRef.current;
+        if (!btn) return null;
+        const rect = btn.getBoundingClientRect();
+        return { top: rect.bottom + 4, left: rect.left };
+    }, []);
+
+    useLayoutEffect(() => {
+        if (showRefTaskPicker) {
+            setRefPickerPos(computeRefPickerPos());
+        }
+    }, [showRefTaskPicker, computeRefPickerPos]);
+
+    // Fetch tasks with docs when picker opens
+    useEffect(() => {
+        if (!showRefTaskPicker || !project?.id) return;
+        let cancelled = false;
+        setRefTasksLoading(true);
+
+        (async () => {
+            try {
+                const tasks = await maestroClient.getTasks(project.id);
+                // Sort by updatedAt descending
+                const sorted = tasks.sort((a, b) => b.updatedAt - a.updatedAt);
+                // Check which tasks have docs
+                const withDocs: (MaestroTask & { docCount: number })[] = [];
+                for (const t of sorted) {
+                    if (cancelled) return;
+                    try {
+                        const docs = await maestroClient.getTaskDocs(t.id);
+                        if (docs.length > 0) {
+                            withDocs.push({ ...t, docCount: docs.length });
+                        }
+                    } catch {
+                        // skip tasks where docs fetch fails
+                    }
+                    // Stop after finding enough candidates to be useful
+                    if (withDocs.length >= 20) break;
+                }
+                if (!cancelled) {
+                    setRefTaskCandidates(withDocs);
+                    setRefTasksLoading(false);
+                }
+            } catch {
+                if (!cancelled) setRefTasksLoading(false);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [showRefTaskPicker, project?.id]);
+
+    // Task docs state
+    const [taskDocs, setTaskDocs] = useState<DocEntry[]>([]);
+
     // Edit mode state
     const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
     const [showSubtaskInput, setShowSubtaskInput] = useState(false);
@@ -152,7 +220,26 @@ export function CreateTaskModal({
     // Hooks for edit mode (always called, but only used in edit mode)
     const breadcrumb = useTaskBreadcrumb(isEditMode ? task!.id : null);
     const subtaskProgress = useSubtaskProgress(isEditMode ? task!.id : null);
-    const { sessions } = useTaskSessions(isEditMode ? task!.id : null);
+    const { sessions, loading: loadingSessions } = useTaskSessions(isEditMode ? task!.id : null);
+    const tasks = useMaestroStore(s => s.tasks);
+
+    // Aggregated timeline data from all sessions
+    const aggregatedTimelineData = useMemo(() => {
+        const data = new Map<string, { sessionName: string; events: typeof sessions[0]['timeline'] }>();
+        sessions.forEach(session => {
+            data.set(session.id, {
+                sessionName: session.name || session.id.slice(0, 8),
+                events: session.timeline || []
+            });
+        });
+        return data;
+    }, [sessions]);
+
+    const hasTimelineEvents = useMemo(() => {
+        return sessions.some(session =>
+            session.timeline?.some(event => event.taskId === (task?.id) || !event.taskId)
+        );
+    }, [sessions, task?.id]);
 
     // Pre-fill form when task changes in edit mode
     useEffect(() => {
@@ -163,8 +250,32 @@ export function CreateTaskModal({
             setAgentTool(task.agentTool || "claude-code");
             setModel(task.model || "sonnet");
             setSelectedSkills(task.skillIds || []);
+            // Load reference tasks by ID
+            if (task.referenceTaskIds && task.referenceTaskIds.length > 0) {
+                (async () => {
+                    const refTasks: MaestroTask[] = [];
+                    for (const refId of task.referenceTaskIds!) {
+                        try {
+                            const t = await maestroClient.getTask(refId);
+                            refTasks.push(t);
+                        } catch { /* skip if task not found */ }
+                    }
+                    setSelectedReferenceTasks(refTasks);
+                })();
+            } else {
+                setSelectedReferenceTasks([]);
+            }
         }
-    }, [isEditMode, task?.id, task?.title, task?.description, task?.priority, task?.model, task?.agentTool]);
+    }, [isEditMode, isOpen, task?.id, task?.title, task?.description, task?.priority, task?.model, task?.agentTool, JSON.stringify(task?.referenceTaskIds)]);
+
+    // Fetch task docs in edit mode
+    useEffect(() => {
+        if (isEditMode && task?.id) {
+            maestroClient.getTaskDocs(task.id).then(setTaskDocs).catch(() => setTaskDocs([]));
+        } else {
+            setTaskDocs([]);
+        }
+    }, [isEditMode, task?.id]);
 
     // Reset form when switching to create mode
     useEffect(() => {
@@ -175,7 +286,8 @@ export function CreateTaskModal({
             setAgentTool("claude-code");
             setModel("sonnet" as ModelType);
             setSelectedSkills([]);
-            setShowAdvanced(false);
+            setSelectedReferenceTasks([]);
+            setActiveTab(null);
         }
     }, [mode, isOpen]);
 
@@ -204,13 +316,18 @@ export function CreateTaskModal({
         setPriority("medium");
         setAgentTool("claude-code");
         setModel("sonnet");
-        setShowAdvanced(false);
+        setActiveTab(null);
         setSelectedSkills([]);
+        setSelectedReferenceTasks([]);
         onClose();
     };
 
     const handleCancelDiscard = () => {
         setShowConfirmDialog(false);
+    };
+
+    const toggleTab = (tab: string) => {
+        setActiveTab(prev => prev === tab ? null : tab);
     };
 
     useEffect(() => {
@@ -240,6 +357,7 @@ export function CreateTaskModal({
             priority,
             startImmediately,
             skillIds: selectedSkills.length > 0 ? selectedSkills : undefined,
+            referenceTaskIds: selectedReferenceTasks.length > 0 ? selectedReferenceTasks.map(t => t.id) : undefined,
             parentId,
             model,
             agentTool,
@@ -251,8 +369,9 @@ export function CreateTaskModal({
         setPriority("medium");
         setAgentTool("claude-code");
         setModel("sonnet");
-        setShowAdvanced(false);
+        setActiveTab(null);
         setSelectedSkills([]);
+        setSelectedReferenceTasks([]);
         onClose();
     };
 
@@ -265,6 +384,8 @@ export function CreateTaskModal({
         if (agentTool !== (task.agentTool || "claude-code")) updates.agentTool = agentTool;
         if (model !== (task.model || "sonnet")) updates.model = model;
         if (JSON.stringify(selectedSkills) !== JSON.stringify(task.skillIds || [])) updates.skillIds = selectedSkills;
+        const newRefIds = selectedReferenceTasks.map(t => t.id);
+        if (JSON.stringify(newRefIds) !== JSON.stringify(task.referenceTaskIds || [])) updates.referenceTaskIds = newRefIds;
 
         if (Object.keys(updates).length > 0) {
             onUpdateTask?.(task.id, updates);
@@ -346,24 +467,38 @@ export function CreateTaskModal({
         },
     };
 
-    const modalTitle = isEditMode
-        ? 'EDIT TASK'
-        : parentId
-            ? 'NEW SUBTASK'
-            : 'NEW TASK';
-
     return createPortal(
         <div className="themedModalBackdrop" onClick={handleClose}>
             <div className="themedModal themedModal--wide" onClick={(e) => e.stopPropagation()}>
                 <div className="themedModalHeader">
-                    <span className="themedModalTitle">[ {modalTitle} ]</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                        {isEditMode && task ? (
+                            <span className="themedTaskStatusBadge" data-status={task.status} style={{ flexShrink: 0, padding: '6px 10px', fontSize: '12px', lineHeight: '1' }}>
+                                {STATUS_LABELS[task.status] || task.status}
+                            </span>
+                        ) : (
+                            <span className="themedModalTitle" style={{ flexShrink: 0 }}>
+                                [ {parentId ? 'NEW SUBTASK' : 'NEW TASK'} ]
+                            </span>
+                        )}
+                        <input
+                            ref={titleInputRef}
+                            type="text"
+                            className="themedFormInput"
+                            style={{ flex: 1, margin: 0, padding: '6px 8px', fontSize: '13px', fontWeight: 600 }}
+                            placeholder={isEditMode ? "Task title..." : "e.g., Build user authentication system"}
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                        />
+                    </div>
                     <button className="themedModalClose" onClick={handleClose}>×</button>
                 </div>
 
                 <div className="themedModalContent">
                     {/* Breadcrumb for edit mode */}
                     {isEditMode && breadcrumb.length > 1 && (
-                        <div className="themedFormHint" style={{ marginBottom: '8px' }}>
+                        <div className="themedFormHint" style={{ marginBottom: '4px' }}>
                             {breadcrumb.slice(0, -1).map(t => (
                                 <span
                                     key={t.id}
@@ -376,45 +511,154 @@ export function CreateTaskModal({
                         </div>
                     )}
 
-                    {/* Status info for edit mode */}
-                    {isEditMode && task && (
-                        <div className="themedFormRow">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span className="themedTaskStatusBadge" data-status={task.status}>
-                                    {STATUS_LABELS[task.status] || task.status}
-                                </span>
-                                <span className="themedFormHint">
-                                    Created {formatDate(task.createdAt)}
-                                </span>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Subtitle for create mode */}
                     {!isEditMode && parentId && parentTitle && (
-                        <div className="themedFormHint" style={{ marginBottom: '10px' }}>
-                            Creating subtask of: {parentTitle}
+                        <div className="themedFormHint" style={{ marginBottom: '4px' }}>
+                            Subtask of: {parentTitle}
                         </div>
                     )}
 
-                    {/* Title Input */}
-                    <div className="themedFormRow">
-                        <div className="themedFormLabel">Title</div>
-                        <input
-                            ref={titleInputRef}
-                            type="text"
-                            className="themedFormInput"
-                            placeholder="e.g., Build user authentication system"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                        />
-                    </div>
-
                     {/* Prompt/Description Textarea */}
-                    <div className="themedFormRow">
-                        <div className="themedFormLabel">Description</div>
-                        <div className="mentionsWrapper">
+                    <div className="themedFormRow" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div className="themedFormLabel" style={{ marginBottom: 0 }}>Description</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                {/* Reference task chips */}
+                                {selectedReferenceTasks.map(rt => (
+                                    <span
+                                        key={rt.id}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            padding: '2px 8px',
+                                            fontSize: '10px',
+                                            border: '1px solid var(--theme-border)',
+                                            borderRadius: '3px',
+                                            backgroundColor: 'rgba(var(--theme-primary-rgb), 0.05)',
+                                            color: 'var(--theme-primary)',
+                                        }}
+                                    >
+                                        <span style={{ opacity: 0.5 }}>ref:</span>
+                                        {rt.title.length > 30 ? rt.title.slice(0, 30) + '...' : rt.title}
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedReferenceTasks(prev => prev.filter(t => t.id !== rt.id))}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: 'var(--theme-primary)',
+                                                cursor: 'pointer',
+                                                padding: '0 2px',
+                                                fontSize: '12px',
+                                                opacity: 0.6,
+                                            }}
+                                        >
+                                            ×
+                                        </button>
+                                    </span>
+                                ))}
+                                <button
+                                    ref={refPickerBtnRef}
+                                    type="button"
+                                    className="themedBtn"
+                                    style={{ padding: '1px 6px', fontSize: '10px' }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowRefTaskPicker(!showRefTaskPicker);
+                                        setRefTasksDisplayCount(5);
+                                    }}
+                                    title="Add reference tasks for context"
+                                >
+                                    + ref tasks
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Reference task picker dropdown */}
+                        {showRefTaskPicker && refPickerPos && createPortal(
+                            <>
+                                <div
+                                    className="themedDropdownOverlay"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowRefTaskPicker(false);
+                                    }}
+                                />
+                                <div
+                                    className="themedDropdownMenu"
+                                    style={{
+                                        top: refPickerPos.top,
+                                        left: refPickerPos.left,
+                                        maxHeight: '240px',
+                                        overflowY: 'auto',
+                                        minWidth: '320px',
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div style={{ padding: '4px 8px', fontSize: '10px', opacity: 0.5, borderBottom: '1px solid var(--theme-border)' }}>
+                                        Reference tasks (select for context)
+                                    </div>
+                                    {refTasksLoading ? (
+                                        <div style={{ padding: '8px 12px', fontSize: '11px', opacity: 0.5 }}>
+                                            Loading tasks...
+                                        </div>
+                                    ) : refTaskCandidates.length === 0 ? (
+                                        <div style={{ padding: '8px 12px', fontSize: '11px', opacity: 0.5 }}>
+                                            No tasks with docs found
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {refTaskCandidates.slice(0, refTasksDisplayCount).map(candidate => {
+                                                const isSelected = selectedReferenceTasks.some(t => t.id === candidate.id);
+                                                return (
+                                                    <button
+                                                        key={candidate.id}
+                                                        className={`themedDropdownOption ${isSelected ? 'themedDropdownOption--current' : ''}`}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (isSelected) {
+                                                                setSelectedReferenceTasks(prev => prev.filter(t => t.id !== candidate.id));
+                                                            } else {
+                                                                setSelectedReferenceTasks(prev => [...prev, candidate]);
+                                                            }
+                                                        }}
+                                                        style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '2px' }}
+                                                    >
+                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <span className="themedDropdownLabel" style={{ flex: 1 }}>
+                                                                {candidate.title.length > 45 ? candidate.title.slice(0, 45) + '...' : candidate.title}
+                                                            </span>
+                                                            <span style={{ fontSize: '9px', opacity: 0.5, flexShrink: 0 }}>
+                                                                {candidate.docCount} doc{candidate.docCount !== 1 ? 's' : ''}
+                                                            </span>
+                                                            {isSelected && (
+                                                                <span className="themedDropdownCheck">{'\u2713'}</span>
+                                                            )}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                            {refTaskCandidates.length > refTasksDisplayCount && (
+                                                <button
+                                                    className="themedDropdownOption"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setRefTasksDisplayCount(prev => prev + 5);
+                                                    }}
+                                                    style={{ textAlign: 'center', opacity: 0.6, fontSize: '10px' }}
+                                                >
+                                                    Load more ({refTaskCandidates.length - refTasksDisplayCount} remaining)
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </>,
+                            document.body
+                        )}
+
+                        <div className="mentionsWrapper" style={{ flex: 1, minHeight: 0 }}>
                             <MentionsInput
                                 value={prompt}
                                 onChange={(e) => setPrompt(e.target.value)}
@@ -434,127 +678,74 @@ export function CreateTaskModal({
                                 />
                             </MentionsInput>
                         </div>
-                        <div className="themedFormHint">
-                            Tip: Be specific about requirements. Use @ to tag files.
-                        </div>
                     </div>
 
-                    {/* Advanced Options */}
-                    <button
-                        type="button"
-                        className="themedBrowseToggle"
-                        onClick={() => setShowAdvanced(!showAdvanced)}
-                    >
-                        <span className={`themedBrowseToggleArrow${showAdvanced ? " themedBrowseToggleArrow--open" : ""}`}>
-                            &#9654;
-                        </span>
-                        Advanced options
-                    </button>
+                </div>
 
-                    {showAdvanced && (
-                        <div style={{ paddingLeft: '12px', borderLeft: '1px solid var(--theme-border)' }}>
-                            <div className="themedFormRow" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
-                                <div className="themedFormLabel" style={{ marginBottom: 0, flexShrink: 0 }}>Priority</div>
-                                <div className="themedSegmentedControl" style={{ margin: 0 }}>
-                                    <button
-                                        type="button"
-                                        className={`themedSegmentedBtn ${priority === "low" ? "active" : ""}`}
-                                        onClick={() => setPriority("low")}
-                                    >
-                                        Low
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`themedSegmentedBtn ${priority === "medium" ? "active" : ""}`}
-                                        onClick={() => setPriority("medium")}
-                                    >
-                                        Medium
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`themedSegmentedBtn ${priority === "high" ? "active" : ""}`}
-                                        onClick={() => setPriority("high")}
-                                    >
-                                        High
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="themedFormRow">
-                                <ClaudeCodeSkillsSelector
-                                    selectedSkills={selectedSkills}
-                                    onSelectionChange={setSelectedSkills}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Edit mode: Subtasks Section */}
-                    {isEditMode && (
-                        <div className="themedFormRow" style={{ borderTop: '1px solid var(--theme-border)', paddingTop: '14px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <div className="themedFormLabel" style={{ marginBottom: 0 }}>
-                                    &gt; Subtasks
-                                    {subtaskProgress.total > 0 && (
-                                        <span style={{ fontWeight: 400, marginLeft: '8px' }}>
-                                            ({subtaskProgress.completed}/{subtaskProgress.total} — {subtaskProgress.percentage}%)
-                                        </span>
-                                    )}
-                                </div>
-                                <button
-                                    type="button"
-                                    className="themedBtn"
-                                    onClick={() => setShowSubtaskInput(!showSubtaskInput)}
-                                    style={{ padding: '2px 8px', fontSize: '10px' }}
-                                >
-                                    + add
-                                </button>
-                            </div>
-
-                            {showSubtaskInput && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
-                                    <input
-                                        type="text"
-                                        className="themedFormInput"
-                                        placeholder="$ enter subtask title..."
-                                        value={newSubtaskTitle}
-                                        onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") handleAddSubtask();
-                                            if (e.key === "Escape") {
-                                                setShowSubtaskInput(false);
-                                                setNewSubtaskTitle("");
-                                            }
-                                        }}
-                                        autoFocus
-                                    />
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                        <button
-                                            type="button"
-                                            className="themedBtn"
-                                            onClick={() => {
-                                                setShowSubtaskInput(false);
-                                                setNewSubtaskTitle("");
-                                            }}
-                                        >
-                                            cancel
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="themedBtn themedBtnPrimary"
-                                            onClick={handleAddSubtask}
-                                            disabled={!newSubtaskTitle.trim()}
-                                        >
-                                            add
-                                        </button>
+                {/* Tab Content - between content and footer */}
+                {activeTab && (
+                    <div className="themedModalTabContent" style={{ maxHeight: '200px', overflowY: 'auto', borderTop: '1px solid var(--theme-border)' }}>
+                        {/* Subtasks Tab */}
+                        {activeTab === 'subtasks' && isEditMode && (
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                    <div className="themedFormHint" style={{ margin: 0 }}>
+                                        {subtaskProgress.total > 0
+                                            ? `${subtaskProgress.completed}/${subtaskProgress.total} completed (${subtaskProgress.percentage}%)`
+                                            : 'No subtasks yet'}
                                     </div>
+                                    <button
+                                        type="button"
+                                        className="themedBtn"
+                                        onClick={() => setShowSubtaskInput(!showSubtaskInput)}
+                                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                                    >
+                                        + add
+                                    </button>
                                 </div>
-                            )}
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '6px' }}>
-                                {subtasks.length === 0 ? (
-                                    <div className="themedFormHint">No subtasks yet</div>
-                                ) : (
-                                    subtasks.map((subtask) => (
+                                {showSubtaskInput && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
+                                        <input
+                                            type="text"
+                                            className="themedFormInput"
+                                            placeholder="$ enter subtask title..."
+                                            value={newSubtaskTitle}
+                                            onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") handleAddSubtask();
+                                                if (e.key === "Escape") {
+                                                    setShowSubtaskInput(false);
+                                                    setNewSubtaskTitle("");
+                                                }
+                                            }}
+                                            autoFocus
+                                        />
+                                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                            <button
+                                                type="button"
+                                                className="themedBtn"
+                                                onClick={() => {
+                                                    setShowSubtaskInput(false);
+                                                    setNewSubtaskTitle("");
+                                                }}
+                                            >
+                                                cancel
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="themedBtn themedBtnPrimary"
+                                                onClick={handleAddSubtask}
+                                                disabled={!newSubtaskTitle.trim()}
+                                            >
+                                                add
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    {subtasks.map((subtask) => (
                                         <div
                                             key={subtask.id}
                                             className="themedSubtaskItem"
@@ -602,60 +793,263 @@ export function CreateTaskModal({
                                                 ×
                                             </button>
                                         </div>
-                                    ))
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Skills Tab */}
+                        {activeTab === 'skills' && (
+                            <ClaudeCodeSkillsSelector
+                                selectedSkills={selectedSkills}
+                                onSelectionChange={setSelectedSkills}
+                            />
+                        )}
+
+                        {/* Sessions Tab */}
+                        {activeTab === 'sessions' && isEditMode && (
+                            <div className="terminalTabPane terminalTabPane--sessions">
+                                {loadingSessions ? (
+                                    <div className="terminalLoading">Loading sessions...</div>
+                                ) : sessions.length === 0 ? (
+                                    <div className="themedFormHint">No sessions working on this task</div>
+                                ) : (
+                                    <div className="terminalSessionsList">
+                                        {sessions.map(session => (
+                                            <SessionInTaskView
+                                                key={session.id}
+                                                session={session}
+                                                taskId={task!.id}
+                                                tasks={tasks}
+                                                onJumpToSession={onJumpToSession}
+                                            />
+                                        ))}
+                                    </div>
                                 )}
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Edit mode: Sessions Section */}
-                    {isEditMode && sessions.length > 0 && (
-                        <div className="themedFormRow" style={{ borderTop: '1px solid var(--theme-border)', paddingTop: '14px' }}>
-                            <div className="themedFormLabel">
-                                &gt; Sessions ({sessions.length})
+                        {/* Referenced Docs Tab */}
+                        {activeTab === 'ref-docs' && (
+                            <div>
+                                {selectedReferenceTasks.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        {selectedReferenceTasks.map(rt => (
+                                            <div
+                                                key={rt.id}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    padding: '4px 0',
+                                                    borderBottom: '1px solid var(--theme-border)',
+                                                    fontSize: '11px',
+                                                }}
+                                            >
+                                                <span style={{ opacity: 0.5, flexShrink: 0 }}>ref</span>
+                                                <span style={{ flex: 1, color: 'var(--theme-primary)' }}>
+                                                    {rt.title}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    className="themedBtn themedBtnDanger"
+                                                    style={{ padding: '0 4px', fontSize: '12px' }}
+                                                    onClick={() => setSelectedReferenceTasks(prev => prev.filter(t => t.id !== rt.id))}
+                                                    title="Remove reference"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="themedFormHint">No reference tasks. Use "+ ref tasks" above to add.</div>
+                                )}
                             </div>
-                            {sessions.map(session => (
-                                <div key={session.id} style={{
-                                    display: 'flex', alignItems: 'center', gap: '8px',
-                                    padding: '4px 0', borderBottom: '1px solid var(--theme-border)'
-                                }}>
-                                    <span className="themedTaskStatusBadge" data-status={session.status}>
-                                        {session.status}
-                                    </span>
-                                    <span style={{ flex: 1, fontSize: '11px', color: 'var(--theme-primary)' }}>
-                                        {session.name || session.id}
-                                    </span>
-                                    {onJumpToSession && (
+                        )}
+
+                        {/* Generated Docs Tab */}
+                        {activeTab === 'gen-docs' && isEditMode && (
+                            <div>
+                                {taskDocs.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        {taskDocs.map(doc => (
+                                            <div
+                                                key={doc.id}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    padding: '4px 0',
+                                                    borderBottom: '1px solid var(--theme-border)',
+                                                    fontSize: '11px',
+                                                }}
+                                            >
+                                                <span style={{ opacity: 0.5, flexShrink: 0 }}>doc</span>
+                                                <span style={{ flex: 1, color: 'var(--theme-primary)' }}>
+                                                    {doc.title}
+                                                </span>
+                                                <span className="themedFormHint" style={{ flexShrink: 0, fontSize: '10px' }}>
+                                                    {doc.filePath}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="themedFormHint">No generated docs yet</div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Timeline Tab */}
+                        {activeTab === 'timeline' && isEditMode && task && (
+                            <div className="terminalTabPane terminalTabPane--timeline">
+                                {sessions.length === 0 ? (
+                                    <div className="themedFormHint">No sessions to show timeline for</div>
+                                ) : !hasTimelineEvents ? (
+                                    <div className="themedFormHint">No timeline events recorded yet</div>
+                                ) : (
+                                    <AggregatedTimeline
+                                        sessionEvents={aggregatedTimelineData}
+                                        taskId={task.id}
+                                        compact
+                                        maxEvents={15}
+                                    />
+                                )}
+                            </div>
+                        )}
+
+                        {/* Details Tab */}
+                        {activeTab === 'details' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <div className="themedFormRow" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
+                                    <div className="themedFormLabel" style={{ marginBottom: 0, flexShrink: 0 }}>Priority</div>
+                                    <div className="themedSegmentedControl" style={{ margin: 0 }}>
                                         <button
                                             type="button"
-                                            className="themedBtn"
-                                            onClick={() => onJumpToSession(session.id)}
-                                            title="Jump to session"
-                                            style={{ padding: '0 4px', fontSize: '11px' }}
+                                            className={`themedSegmentedBtn ${priority === "low" ? "active" : ""}`}
+                                            onClick={() => setPriority("low")}
                                         >
-                                            ↗
+                                            Low
                                         </button>
-                                    )}
+                                        <button
+                                            type="button"
+                                            className={`themedSegmentedBtn ${priority === "medium" ? "active" : ""}`}
+                                            onClick={() => setPriority("medium")}
+                                        >
+                                            Medium
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`themedSegmentedBtn ${priority === "high" ? "active" : ""}`}
+                                            onClick={() => setPriority("high")}
+                                        >
+                                            High
+                                        </button>
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Edit mode: Activity Stats */}
-                    {isEditMode && task && (task.sessionCount ?? 0) > 0 && (
-                        <div className="themedFormRow" style={{ borderTop: '1px solid var(--theme-border)', paddingTop: '14px' }}>
-                            <div className="themedFormLabel">&gt; Activity</div>
-                            <div style={{ display: 'flex', gap: '16px', fontSize: '11px' }}>
-                                <span>
-                                    <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)' }}>sessions:</span>{' '}
-                                    <span style={{ color: 'var(--theme-primary)' }}>{task.sessionCount}</span>
-                                </span>
-                                <span>
-                                    <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)' }}>updated:</span>{' '}
-                                    <span style={{ color: 'var(--theme-primary)' }}>{formatDate(task.updatedAt)}</span>
-                                </span>
+                                {isEditMode && task && (
+                                    <div style={{ display: 'flex', gap: '16px', fontSize: '11px' }}>
+                                        <span>
+                                            <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)' }}>status:</span>{' '}
+                                            <span className="themedTaskStatusBadge" data-status={task.status}>
+                                                {STATUS_LABELS[task.status] || task.status}
+                                            </span>
+                                        </span>
+                                        <span>
+                                            <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)' }}>id:</span>{' '}
+                                            <span style={{ color: 'var(--theme-primary)', fontSize: '10px' }}>{task.id}</span>
+                                        </span>
+                                    </div>
+                                )}
                             </div>
-                        </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Tab Bar - attached to footer */}
+                <div className="themedModalTabBar" style={{ borderTop: '1px solid var(--theme-border)', marginTop: 'auto' }}>
+                    {isEditMode && (
+                        <button
+                            type="button"
+                            className={`themedModalTab ${activeTab === 'subtasks' ? 'themedModalTab--active' : ''}`}
+                            onClick={() => toggleTab('subtasks')}
+                        >
+                            Subtasks
+                            {subtaskProgress.total > 0 && (
+                                <span className="themedModalTabBadge">
+                                    {subtaskProgress.completed}/{subtaskProgress.total}
+                                </span>
+                            )}
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        className={`themedModalTab ${activeTab === 'skills' ? 'themedModalTab--active' : ''}`}
+                        onClick={() => toggleTab('skills')}
+                    >
+                        Skills
+                        {selectedSkills.length > 0 && (
+                            <span className="themedModalTabBadge">{selectedSkills.length}</span>
+                        )}
+                    </button>
+                    {isEditMode && sessions.length > 0 && (
+                        <button
+                            type="button"
+                            className={`themedModalTab ${activeTab === 'sessions' ? 'themedModalTab--active' : ''}`}
+                            onClick={() => toggleTab('sessions')}
+                        >
+                            Sessions
+                            <span className="themedModalTabBadge">{sessions.length}</span>
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        className={`themedModalTab ${activeTab === 'ref-docs' ? 'themedModalTab--active' : ''}`}
+                        onClick={() => toggleTab('ref-docs')}
+                    >
+                        Ref Tasks
+                        {selectedReferenceTasks.length > 0 && (
+                            <span className="themedModalTabBadge">{selectedReferenceTasks.length}</span>
+                        )}
+                    </button>
+                    {isEditMode && (
+                        <button
+                            type="button"
+                            className={`themedModalTab ${activeTab === 'gen-docs' ? 'themedModalTab--active' : ''}`}
+                            onClick={() => toggleTab('gen-docs')}
+                        >
+                            Gen Docs
+                            {taskDocs.length > 0 && (
+                                <span className="themedModalTabBadge">{taskDocs.length}</span>
+                            )}
+                        </button>
+                    )}
+                    {isEditMode && (
+                        <button
+                            type="button"
+                            className={`themedModalTab ${activeTab === 'timeline' ? 'themedModalTab--active' : ''}`}
+                            onClick={() => toggleTab('timeline')}
+                        >
+                            Timeline
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        className={`themedModalTab ${activeTab === 'details' ? 'themedModalTab--active' : ''}`}
+                        onClick={() => toggleTab('details')}
+                    >
+                        Details
+                    </button>
+                    {activeTab && (
+                        <button
+                            type="button"
+                            className="themedModalTab themedModalTabClose"
+                            onClick={() => setActiveTab(null)}
+                            title="Collapse tab panel"
+                        >
+                            ×
+                        </button>
                     )}
                 </div>
 
