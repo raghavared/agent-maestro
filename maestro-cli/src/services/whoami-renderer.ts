@@ -8,6 +8,7 @@ import {
   generateCommandBrief,
   type CommandPermissions,
 } from './command-permissions.js';
+import { api } from '../api.js';
 
 /**
  * WhoamiRenderer - Renders full session context for the `maestro whoami` command
@@ -53,31 +54,20 @@ export class WhoamiRenderer {
     manifest: MaestroManifest,
     sessionId: string | undefined,
   ): string {
-    const primaryTask = manifest.tasks[0];
-    const strategy = manifest.strategy || 'simple';
-
     const lines: string[] = [
-      '---',
-      '# Maestro Session Context',
+      `**Session:** ${sessionId || 'N/A'}`,
       '',
-      `**Role:** ${manifest.role}`,
-      `**Strategy:** ${strategy}`,
     ];
 
-    if (manifest.role === 'orchestrator') {
-      lines.push(`**Orchestrator Strategy:** ${manifest.orchestratorStrategy || 'default'}`);
+    // List all assigned tasks
+    for (const task of manifest.tasks) {
+      lines.push(`**Task:** ${task.id}`);
+      lines.push(`**Title:** ${task.title}`);
+      if (task.description) {
+        lines.push(`**Description:** ${task.description}`);
+      }
+      lines.push('');
     }
-
-    if (manifest.agentTool && manifest.agentTool !== 'claude-code') {
-      lines.push(`**Agent Tool:** ${AgentSpawner.getToolDisplayName(manifest.agentTool)}`);
-    }
-
-    lines.push(
-      `**Session ID:** ${sessionId || 'N/A'}`,
-      `**Project ID:** ${primaryTask.projectId}`,
-    );
-
-    lines.push('---', '');
 
     return lines.join('\n');
   }
@@ -141,7 +131,7 @@ export class WhoamiRenderer {
    * Format all tasks for multi-task sessions (reused from PromptGenerator logic)
    */
   private formatAllTasks(tasks: any[]): string {
-    if (tasks.length === 1) {
+    if (tasks.length <= 1) {
       return '';
     }
 
@@ -160,15 +150,7 @@ export class WhoamiRenderer {
       })
       .join('\n\n');
 
-    return `
-### All Tasks in This Session (${tasks.length} tasks)
-
-**Primary Task**: Task 1 (${tasks[0].id})
-
-${tasksList}
-
-**Note**: Focus on completing these tasks in order or as dependencies allow.
-`;
+    return tasksList;
   }
 
   /**
@@ -230,6 +212,61 @@ ${tasksList}
   }
 
   /**
+   * Fetch and render reference task context section
+   */
+  private async renderReferenceTaskContext(referenceTaskIds: string[]): Promise<string> {
+    if (!referenceTaskIds || referenceTaskIds.length === 0) return '';
+
+    const lines: string[] = [
+      '',
+      '---',
+      '',
+      '## Reference Task Context',
+      '',
+      'The following tasks and their documentation have been provided as context for this session:',
+      '',
+    ];
+
+    for (const taskId of referenceTaskIds) {
+      try {
+        // Fetch task details
+        const task = await api.get<any>(`/api/tasks/${taskId}`);
+        lines.push(`### ${task.title}`);
+        lines.push(`**Task ID:** ${taskId}`);
+        if (task.description) {
+          lines.push(`**Description:** ${task.description}`);
+        }
+        lines.push('');
+
+        // Fetch task docs
+        try {
+          const docs = await api.get<any[]>(`/api/tasks/${taskId}/docs`);
+          if (docs && docs.length > 0) {
+            lines.push('**Docs:**');
+            for (const doc of docs) {
+              lines.push(`- **${doc.title}** (${doc.filePath})`);
+              if (doc.content) {
+                lines.push('```');
+                lines.push(doc.content);
+                lines.push('```');
+              }
+            }
+            lines.push('');
+          }
+        } catch {
+          // Silently skip if docs can't be fetched
+        }
+      } catch {
+        lines.push(`### Task ${taskId}`);
+        lines.push('_Could not fetch task details_');
+        lines.push('');
+      }
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
    * Render full whoami output (markdown)
    *
    * @param manifest - The session manifest
@@ -237,11 +274,11 @@ ${tasksList}
    * @param sessionId - Current session ID
    * @returns Full markdown output for whoami
    */
-  render(
+  async render(
     manifest: MaestroManifest,
     permissions: CommandPermissions,
     sessionId: string | undefined,
-  ): string {
+  ): Promise<string> {
     const parts: string[] = [];
 
     // 1. Identity header
@@ -250,7 +287,15 @@ ${tasksList}
     // 2. Template content (role+strategy specific)
     parts.push(this.renderTemplateContent(manifest));
 
-    // 3. Available commands
+    // 3. Reference task context (if any)
+    if (manifest.referenceTaskIds && manifest.referenceTaskIds.length > 0) {
+      const refContext = await this.renderReferenceTaskContext(manifest.referenceTaskIds);
+      if (refContext) {
+        parts.push(refContext);
+      }
+    }
+
+    // 4. Available commands
     parts.push(this.renderCommandsSection(permissions));
 
     return parts.join('\n');

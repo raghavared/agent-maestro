@@ -24,7 +24,27 @@ type SettingsDialogProps = {
   onDelete: () => void;
 };
 
-type SettingsTab = 'theme' | 'sounds';
+type SettingsTab = 'theme' | 'sounds' | 'shortcuts';
+
+type ShortcutRow = {
+  action: string;
+  mac: string;
+  windowsLinux: string;
+};
+
+const SHORTCUT_ROWS: ShortcutRow[] = [
+  { action: "Command palette", mac: "Cmd + K", windowsLinux: "Ctrl + K" },
+  { action: "Create task", mac: "Cmd + T", windowsLinux: "Ctrl + Shift + T" },
+  { action: "New terminal session", mac: "Cmd + N / Cmd + D", windowsLinux: "Ctrl + Shift + N" },
+  { action: "Close active session", mac: "Cmd + W", windowsLinux: "Ctrl + Shift + W" },
+  { action: "Next session", mac: "Cmd + E", windowsLinux: "Ctrl + Tab" },
+  { action: "Previous session", mac: "Cmd + R", windowsLinux: "Ctrl + Shift + Tab" },
+  { action: "Toggle prompts panel", mac: "Cmd + Shift + P", windowsLinux: "Ctrl + Shift + P" },
+  { action: "Toggle recordings panel", mac: "Cmd + Shift + R", windowsLinux: "Ctrl + Shift + R" },
+  { action: "Toggle assets panel", mac: "Cmd + Shift + A", windowsLinux: "Ctrl + Shift + A" },
+  { action: "Send quick prompt (pinned)", mac: "Cmd + 1..5", windowsLinux: "Ctrl + 1..5" },
+  { action: "Close open modal/panel", mac: "Esc", windowsLinux: "Esc" },
+];
 
 function AppSettingsDialog({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('theme');
@@ -53,6 +73,13 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
             >
               SOUNDS
             </button>
+            <button
+              type="button"
+              className={`appSettingsTabBtn ${activeTab === 'shortcuts' ? 'appSettingsTabBtnActive' : ''}`}
+              onClick={() => setActiveTab('shortcuts')}
+            >
+              SHORTCUTS
+            </button>
           </div>
 
           <div className="appSettingsTabContent">
@@ -63,6 +90,31 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
             )}
             {activeTab === 'sounds' && (
               <SoundSettingsContent />
+            )}
+            {activeTab === 'shortcuts' && (
+              <div className="appSettingsContent">
+                <div className="appShortcutsHeader">
+                  Available keyboard shortcuts
+                </div>
+                <div className="appShortcutsTable" role="table" aria-label="Keyboard shortcuts">
+                  <div className="appShortcutsRow appShortcutsRowHeader" role="row">
+                    <span role="columnheader">Action</span>
+                    <span role="columnheader">macOS</span>
+                    <span role="columnheader">Windows / Linux</span>
+                  </div>
+                  {SHORTCUT_ROWS.map((shortcut) => (
+                    <div
+                      key={shortcut.action}
+                      className="appShortcutsRow"
+                      role="row"
+                    >
+                      <span role="cell">{shortcut.action}</span>
+                      <span role="cell">{shortcut.mac}</span>
+                      <span role="cell">{shortcut.windowsLinux}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>

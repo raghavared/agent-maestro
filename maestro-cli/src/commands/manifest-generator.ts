@@ -106,6 +106,7 @@ export class ManifestGeneratorCLICommand {
     model?: string;
     orchestratorStrategy?: string;
     agentTool?: AgentTool;
+    referenceTaskIds?: string[];
   }): Promise<void> {
     try {
       console.error('Generating manifest...');
@@ -162,6 +163,11 @@ export class ManifestGeneratorCLICommand {
       // Add agent tool to manifest (if specified)
       if (options.agentTool) {
         manifest.agentTool = options.agentTool;
+      }
+
+      // Add reference task IDs to manifest (if specified)
+      if (options.referenceTaskIds && options.referenceTaskIds.length > 0) {
+        manifest.referenceTaskIds = options.referenceTaskIds;
       }
 
       // 5. Validate manifest
@@ -330,6 +336,7 @@ export function registerManifestCommands(program: any): void {
     .option('--orchestrator-strategy <strategy>', 'Orchestrator strategy (default, intelligent-batching, or dag)', 'default')
     .option('--model <model>', 'Model to use (e.g. sonnet, gpt-5.3-codex, gemini-3-pro-preview)', 'sonnet')
     .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)', 'claude-code')
+    .option('--reference-task-ids <ids>', 'Comma-separated reference task IDs for context')
     .requiredOption('--output <path>', 'Output file path')
     .action(async (options: any) => {
       // Parse comma-separated values
@@ -349,6 +356,11 @@ export function registerManifestCommands(program: any): void {
         process.exit(1);
       }
 
+      // Parse reference task IDs if provided
+      const referenceTaskIds = options.referenceTaskIds
+        ? options.referenceTaskIds.split(',').map((id: string) => id.trim()).filter(Boolean)
+        : undefined;
+
       // Create and execute command (reads from local storage, no API needed)
       const command = new ManifestGeneratorCLICommand();
       await command.execute({
@@ -361,6 +373,7 @@ export function registerManifestCommands(program: any): void {
         model: options.model,
         orchestratorStrategy: options.orchestratorStrategy,
         agentTool: options.agentTool !== 'claude-code' ? options.agentTool : undefined,
+        referenceTaskIds,
       });
     });
 }

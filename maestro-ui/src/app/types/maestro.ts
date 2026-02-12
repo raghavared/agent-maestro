@@ -1,7 +1,7 @@
 // Canonical types matching maestro-server/src/types.ts
 // plus UI-specific optional fields
 
-export type TaskStatus = 'todo' | 'in_progress' | 'completed' | 'cancelled' | 'blocked';
+export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'completed' | 'cancelled' | 'blocked';
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type MaestroSessionStatus = 'spawning' | 'idle' | 'working' | 'completed' | 'failed' | 'stopped';
 export type SpawnSource = 'ui' | 'session';
@@ -113,6 +113,9 @@ export interface MaestroTask {
   dependencies: string[];
   // NOTE: timeline moved to Session
 
+  // Reference task IDs for context (docs from these tasks are provided to the agent)
+  referenceTaskIds?: string[];
+
   // Model configuration
   model?: ModelType;
 
@@ -167,6 +170,7 @@ export interface CreateTaskPayload {
   priority: TaskPriority;
   initialPrompt?: string; // Standardized
   skillIds?: string[];
+  referenceTaskIds?: string[];
   model?: ModelType;
   agentTool?: AgentTool;
 }
@@ -182,6 +186,7 @@ export interface UpdateTaskPayload {
   sessionIds?: string[];
   skillIds?: string[];
   agentIds?: string[];
+  referenceTaskIds?: string[];
   model?: ModelType;
   agentTool?: AgentTool;
   // NOTE: timeline moved to Session - use addTimelineEvent on session

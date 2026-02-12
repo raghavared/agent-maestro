@@ -6,6 +6,7 @@ import type {
     MaestroProject,
     MaestroSession,
     AgentSkill,
+    ClaudeCodeSkill,
     CreateTaskPayload,
     UpdateTaskPayload,
     CreateSessionPayload,
@@ -256,10 +257,10 @@ class MaestroClient {
     // ==================== SKILLS ====================
 
     /**
-     * Get all available skills
+     * Get all available Claude Code skills
      */
-    async getSkills(): Promise<AgentSkill[]> {
-        return this.fetch<AgentSkill[]>('/skills');
+    async getSkills(): Promise<ClaudeCodeSkill[]> {
+        return this.fetch<ClaudeCodeSkill[]>('/skills');
     }
 
     // ==================== TEMPLATES ====================

@@ -157,6 +157,9 @@ export class TaskService {
     } else if (newTask.status === 'cancelled') {
       console.log(`[TaskService] Emitting notify:task_failed for ${newTask.id} (${newTask.title})`);
       await this.eventBus.emit('notify:task_failed', { taskId: newTask.id, title: newTask.title });
+    } else if (newTask.status === 'in_review') {
+      console.log(`[TaskService] Emitting notify:task_in_review for ${newTask.id} (${newTask.title})`);
+      await this.eventBus.emit('notify:task_in_review', { taskId: newTask.id, title: newTask.title });
     } else if (newTask.status === 'blocked') {
       console.log(`[TaskService] Emitting notify:task_blocked for ${newTask.id} (${newTask.title})`);
       await this.eventBus.emit('notify:task_blocked', { taskId: newTask.id, title: newTask.title });

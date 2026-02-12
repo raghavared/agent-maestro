@@ -38,9 +38,6 @@
       "icons/icon.ico"
     ],
     "targets": "all",
-    "externalBin": [
-      "bin/nu",
-      "bin/tmux"
-    ]
+    "externalBin": []
   }
 }

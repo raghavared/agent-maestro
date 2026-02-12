@@ -1,7 +1,9 @@
-import { spawn, type ChildProcess } from 'child_process';
+import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
 import type { MaestroManifest } from '../types/manifest.js';
 import type { SpawnResult, SpawnOptions } from './claude-spawner.js';
+import { WhoamiRenderer } from './whoami-renderer.js';
+import { getPermissionsFromManifest } from './command-permissions.js';
 
 /**
  * GeminiSpawner - Spawns Google Gemini CLI sessions with manifests
@@ -9,7 +11,6 @@ import type { SpawnResult, SpawnOptions } from './claude-spawner.js';
  * Handles:
  * - Environment variable setup for Maestro context
  * - Gemini CLI process spawning
- * - Tmux integration
  */
 export class GeminiSpawner {
   /**
@@ -116,70 +117,6 @@ export class GeminiSpawner {
   }
 
   /**
-   * Spawn Gemini session in tmux
-   */
-  async spawnInTmux(
-    manifest: MaestroManifest,
-    sessionId: string,
-    options: SpawnOptions & { tmuxSession: string; tmuxPane?: string }
-  ): Promise<SpawnResult> {
-    const prompt = 'Run `maestro whoami` to understand your assignment and begin working.';
-
-    const env = {
-      ...this.prepareEnvironment(manifest, sessionId),
-      ...(options.env || {}),
-    };
-
-    const args = this.buildGeminiArgs(manifest);
-    args.push('--prompt', prompt);
-
-    const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
-
-    const geminiCommand = `gemini ${args.map(arg => {
-      if (arg.includes(' ') || arg.includes('"') || arg.includes("'")) {
-        return `'${arg.replace(/'/g, "'\\''")}'`;
-      }
-      return arg;
-    }).join(' ')}`;
-
-    const tmuxCommands: string[] = [];
-    const tmuxTarget = options.tmuxPane
-      ? `${options.tmuxSession}:${options.tmuxPane}`
-      : options.tmuxSession;
-
-    for (const [key, value] of Object.entries(env)) {
-      if (value !== undefined && value !== null) {
-        tmuxCommands.push(`tmux setenv -t ${tmuxTarget} ${key} "${value.toString().replace(/"/g, '\\"')}"`);
-      }
-    }
-
-    tmuxCommands.push(`tmux send-keys -t ${tmuxTarget} "cd ${cwd}" C-m`);
-    tmuxCommands.push(`tmux send-keys -t ${tmuxTarget} "${geminiCommand}" C-m`);
-
-    const tmuxProcess = spawn('sh', ['-c', tmuxCommands.join(' && ')], {
-      stdio: 'inherit',
-    });
-
-    return new Promise((resolve, reject) => {
-      tmuxProcess.on('exit', (code) => {
-        if (code === 0) {
-          resolve({
-            sessionId,
-            promptFile: '',
-            process: tmuxProcess,
-            sendInput: (text: string) => {
-              spawn('tmux', ['send-keys', '-t', tmuxTarget, text, 'C-m']);
-            },
-          });
-        } else {
-          reject(new Error(`Tmux spawn failed with code ${code}`));
-        }
-      });
-      tmuxProcess.on('error', reject);
-    });
-  }
-
-  /**
    * Spawn Gemini CLI session with manifest
    */
   async spawn(
@@ -187,14 +124,10 @@ export class GeminiSpawner {
     sessionId: string,
     options: SpawnOptions = {}
   ): Promise<SpawnResult> {
-    if (options.tmuxSession) {
-      return this.spawnInTmux(manifest, sessionId, {
-        ...options,
-        tmuxSession: options.tmuxSession,
-      });
-    }
-
-    const prompt = 'Run `maestro whoami` to understand your assignment and begin working.';
+    // Generate the full whoami output as the initial prompt
+    const renderer = new WhoamiRenderer();
+    const permissions = getPermissionsFromManifest(manifest);
+    const prompt = await renderer.render(manifest, permissions, sessionId);
 
     const env = {
       ...this.prepareEnvironment(manifest, sessionId),

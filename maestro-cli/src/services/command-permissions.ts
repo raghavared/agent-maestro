@@ -411,13 +411,60 @@ export function guardCommandSync(commandName: string): boolean {
 }
 
 /**
+ * Command syntax/usage for each command (maps command name to usage string)
+ */
+const COMMAND_SYNTAX: Record<string, string> = {
+  'whoami': 'maestro whoami',
+  'status': 'maestro status',
+  'commands': 'maestro commands',
+  'track-file': 'maestro track-file <filePath>',
+  'report:progress': 'maestro report progress "<message>"',
+  'report:complete': 'maestro report complete "<summary>"',
+  'report:blocked': 'maestro report blocked "<reason>"',
+  'report:error': 'maestro report error "<description>"',
+  'task:list': 'maestro task list [taskId] [--status <status>] [--priority <priority>]',
+  'task:get': 'maestro task get <taskId>',
+  'task:create': 'maestro task create "<title>" [-d "<description>"] [--priority <high|medium|low>] [--parent <parentId>]',
+  'task:update': 'maestro task update <taskId> [--status <status>] [--priority <priority>] [--title "<title>"]',
+  'task:complete': 'maestro task complete <taskId>',
+  'task:block': 'maestro task block <taskId> --reason "<reason>"',
+  'task:children': 'maestro task children <taskId> [--recursive]',
+  'task:tree': 'maestro task tree [--root <taskId>] [--depth <n>] [--status <status>]',
+  'task:report:progress': 'maestro task report progress <taskId> "<message>"',
+  'task:report:complete': 'maestro task report complete <taskId> "<summary>"',
+  'task:report:blocked': 'maestro task report blocked <taskId> "<reason>"',
+  'task:report:error': 'maestro task report error <taskId> "<description>"',
+  'task:docs:add': 'maestro task docs add <taskId> "<title>" --file <filePath>',
+  'task:docs:list': 'maestro task docs list <taskId>',
+  'session:list': 'maestro session list',
+  'session:info': 'maestro session info',
+  'session:spawn': 'maestro session spawn',
+  'session:register': 'maestro session register',
+  'session:complete': 'maestro session complete',
+  'session:docs:add': 'maestro session docs add "<title>" --file <filePath>',
+  'session:docs:list': 'maestro session docs list',
+  'queue:top': 'maestro queue top',
+  'queue:start': 'maestro queue start',
+  'queue:complete': 'maestro queue complete',
+  'queue:fail': 'maestro queue fail',
+  'queue:skip': 'maestro queue skip',
+  'queue:list': 'maestro queue list',
+  'queue:status': 'maestro queue status',
+  'queue:push': 'maestro queue push',
+  'project:list': 'maestro project list',
+  'project:get': 'maestro project get <projectId>',
+  'project:create': 'maestro project create "<name>"',
+  'project:delete': 'maestro project delete <projectId>',
+  'worker:init': 'maestro worker init',
+  'orchestrator:init': 'maestro orchestrator init',
+};
+
+/**
  * Generate brief text listing available commands for inclusion in session prompts
  */
 export function generateCommandBrief(permissions: CommandPermissions): string {
   const lines: string[] = [
-    '## Available Maestro Commands',
-    '',
-    `Role: ${permissions.role} | Strategy: ${permissions.strategy}`,
+    '## Maestro Commands',
     '',
   ];
 
@@ -425,9 +472,9 @@ export function generateCommandBrief(permissions: CommandPermissions): string {
 
   // Root commands
   if (grouped['root']) {
-    lines.push('**Core Commands:**');
     for (const cmd of grouped['root']) {
-      lines.push(`- \`maestro ${cmd.name}\` - ${cmd.description}`);
+      const syntax = COMMAND_SYNTAX[cmd.name] || `maestro ${cmd.name}`;
+      lines.push(`- \`${syntax}\` — ${cmd.description}`);
     }
     lines.push('');
   }
@@ -436,21 +483,11 @@ export function generateCommandBrief(permissions: CommandPermissions): string {
   for (const [parent, commands] of Object.entries(grouped)) {
     if (parent === 'root') continue;
 
-    lines.push(`**${parent} Commands:**`);
     for (const cmd of commands) {
-      if (cmd.name === parent || !cmd.name.includes(':')) {
-        // Parent command itself (e.g., name: 'update', parent: 'update')
-        lines.push(`- \`maestro ${cmd.name}\` - ${cmd.description}`);
-      } else {
-        const subCmd = cmd.name.replace(`${parent}:`, '').replace(/:/g, ' ');
-        lines.push(`- \`maestro ${parent} ${subCmd}\` - ${cmd.description}`);
-      }
+      const syntax = COMMAND_SYNTAX[cmd.name] || `maestro ${parent} ${cmd.name.replace(`${parent}:`, '').replace(/:/g, ' ')}`;
+      lines.push(`- \`${syntax}\` — ${cmd.description}`);
     }
     lines.push('');
-  }
-
-  if (permissions.hiddenCommands.length > 0) {
-    lines.push(`_(${permissions.hiddenCommands.length} commands not available for this role/strategy)_`);
   }
 
   return lines.join('\n');

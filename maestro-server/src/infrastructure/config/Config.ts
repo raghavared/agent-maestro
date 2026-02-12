@@ -108,7 +108,7 @@ export class Config implements Readonly<ConfigOptions> {
       // Storage paths
       dataDir: expandPath(process.env.DATA_DIR || '~/.maestro/data'),
       sessionDir: expandPath(process.env.SESSION_DIR || '~/.maestro/sessions'),
-      skillsDir: expandPath(process.env.SKILLS_DIR || '~/.agents-ui/maestro-skills'),
+      skillsDir: expandPath(process.env.SKILLS_DIR || '~/.claude/skills'),
 
       // Database
       database: {

@@ -171,7 +171,7 @@ export function registerTaskCommands(program: Command) {
 
     task.command('update <id>')
         .description('Update a task')
-        .option('--status <status>', 'New status (todo, in_progress, completed, cancelled, blocked)')
+        .option('--status <status>', 'New status (todo, in_progress, in_review, completed, cancelled, blocked)')
         .option('--priority <priority>', 'New priority')
         .option('--title <title>', 'New title')
         .action(async (id, cmdOpts) => {
@@ -338,6 +338,7 @@ export function registerTaskCommands(program: Command) {
                             children.forEach((child: any) => {
                                 const statusIcon = child.status === 'completed' ? '✅' :
                                                   child.status === 'in_progress' ? '🔄' :
+                                                  child.status === 'in_review' ? '🔍' :
                                                   child.status === 'blocked' ? '🚫' :
                                                   child.status === 'cancelled' ? '⊘' :
                                                   child.status === 'todo' ? '⏳' : '⬜';

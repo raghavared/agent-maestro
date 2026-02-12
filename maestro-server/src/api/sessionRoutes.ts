@@ -26,8 +26,9 @@ async function generateManifestViaCLI(options: {
   model?: string;
   orchestratorStrategy?: string;
   agentTool?: AgentTool;
+  referenceTaskIds?: string[];
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { role, projectId, taskIds, skills, sessionId, strategy, model, orchestratorStrategy, agentTool } = options;
+  const { role, projectId, taskIds, skills, sessionId, strategy, model, orchestratorStrategy, agentTool, referenceTaskIds } = options;
 
   console.log('\n   📋 GENERATING MANIFEST VIA CLI:');
   console.log(`      • Session ID: ${sessionId}`);
@@ -52,6 +53,7 @@ async function generateManifestViaCLI(options: {
     ...(model ? ['--model', model] : []),
     ...(orchestratorStrategy ? ['--orchestrator-strategy', orchestratorStrategy] : []),
     ...(agentTool && agentTool !== 'claude-code' ? ['--agent-tool', agentTool] : []),
+    ...(referenceTaskIds && referenceTaskIds.length > 0 ? ['--reference-task-ids', referenceTaskIds.join(',')] : []),
   ];
 
   // Resolve maestro binary from monorepo node_modules/.bin (workspace link)
@@ -504,6 +506,19 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         }
       }
 
+      // Collect referenceTaskIds from all tasks being spawned
+      const allReferenceTaskIds: string[] = [];
+      for (const taskId of taskIds) {
+        const task = await taskRepo.findById(taskId);
+        if (task?.referenceTaskIds && task.referenceTaskIds.length > 0) {
+          for (const refId of task.referenceTaskIds) {
+            if (!allReferenceTaskIds.includes(refId)) {
+              allReferenceTaskIds.push(refId);
+            }
+          }
+        }
+      }
+
       // Generate manifest
       let manifestPath: string;
       let manifest: any;
@@ -519,6 +534,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           model,
           orchestratorStrategy: resolvedOrchestratorStrategy,
           agentTool,
+          referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
         });
         manifestPath = result.manifestPath;
         manifest = result.manifest;

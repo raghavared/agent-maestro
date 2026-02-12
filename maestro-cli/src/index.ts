@@ -16,7 +16,6 @@ import { registerManifestCommands } from './commands/manifest-generator.js';
 import { registerProjectCommands } from './commands/project.js';
 import { registerQueueCommands } from './commands/queue.js';
 import { registerReportCommands } from './commands/report.js';
-import { registerCoordinateCommands } from './commands/coordinate.js';
 import {
   loadCommandPermissions,
   printAvailableCommands,
@@ -65,7 +64,7 @@ program.command('whoami')
           if (opts.json) {
               outputJSON(renderer.renderJSON(manifest, permissions, sessionId));
           } else {
-              console.log(renderer.render(manifest, permissions, sessionId));
+              console.log(await renderer.render(manifest, permissions, sessionId));
           }
       } else {
           // Fallback: no manifest available, show basic env-var output
@@ -151,8 +150,6 @@ registerSkillCommands(program);
 registerManifestCommands(program);
 registerQueueCommands(program);
 registerReportCommands(program);
-registerCoordinateCommands(program);
-
 program.command('status')
   .description('Show summary of current project state')
   .action(async () => {

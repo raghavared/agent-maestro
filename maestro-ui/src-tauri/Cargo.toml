@@ -11,13 +11,11 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 base64 = "0.22"
 chacha20poly1305 = "0.10"
-dirs = "5.0"
 keyring = "2.3"
 rand_core = "0.6"
 portable-pty = "0.8.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_yaml = "0.9"
 tauri = { version = "2", features = ["tray-icon", "devtools"] }
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2.6.0"
@@ -25,9 +23,6 @@ tauri-plugin-drag = "2.1.0"
 
 [target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
 fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs" }
-
-[dev-dependencies]
-which = "6.0"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

@@ -54,6 +54,9 @@ export interface Task {
   dependencies: string[];
   // NOTE: timeline moved to Session - each session has its own timeline
 
+  // Reference task IDs for context (docs from these tasks are provided to the agent)
+  referenceTaskIds?: string[];
+
   // Model configuration
   model?: string;
 
@@ -91,7 +94,7 @@ export interface Session {
 }
 
 // Supporting types
-export type TaskStatus = 'todo' | 'in_progress' | 'completed' | 'cancelled' | 'blocked';
+export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'completed' | 'cancelled' | 'blocked';
 export type TaskSessionStatus = 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'skipped';
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type SessionStatus = 'spawning' | 'idle' | 'working' | 'completed' | 'failed' | 'stopped';
@@ -147,6 +150,7 @@ export interface CreateTaskPayload {
   priority?: TaskPriority;
   initialPrompt?: string;
   skillIds?: string[];
+  referenceTaskIds?: string[];
   model?: string;
   agentTool?: AgentTool;
 }
@@ -163,6 +167,7 @@ export interface UpdateTaskPayload {
   sessionIds?: string[];      // PHASE IV-A: Update sessions
   skillIds?: string[];         // PHASE IV-B
   agentIds?: string[];         // PHASE IV-C
+  referenceTaskIds?: string[];
   model?: string;
   agentTool?: AgentTool;
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline

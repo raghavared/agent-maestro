@@ -68,6 +68,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
       if (!task.sessionIds) task.sessionIds = [];
       if (!task.skillIds) task.skillIds = [];
       if (!task.agentIds) task.agentIds = [];
+      if (!task.referenceTaskIds) task.referenceTaskIds = [];
       // NOTE: timeline removed from Task - now lives on Session
 
       // Migrate legacy sessionStatus -> taskSessionStatuses
@@ -127,6 +128,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
       skillIds: input.skillIds || [],
       agentIds: [],
       dependencies: [],
+      referenceTaskIds: input.referenceTaskIds || [],
       model: input.model,
       agentTool: input.agentTool,
       // NOTE: timeline is now on Session, not Task
@@ -204,6 +206,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
     if (updates.taskSessionStatuses !== undefined) {
       task.taskSessionStatuses = { ...(task.taskSessionStatuses || {}), ...updates.taskSessionStatuses };
     }
+    if (updates.referenceTaskIds !== undefined) task.referenceTaskIds = updates.referenceTaskIds;
     if (updates.model !== undefined) task.model = updates.model;
     if (updates.agentTool !== undefined) task.agentTool = updates.agentTool;
 

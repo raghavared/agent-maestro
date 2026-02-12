@@ -12,7 +12,7 @@ const longString = z.string().min(1).max(10000);
 
 // --- Enums ---
 
-const taskStatusSchema = z.enum(['todo', 'in_progress', 'completed', 'cancelled', 'blocked']);
+const taskStatusSchema = z.enum(['todo', 'in_progress', 'in_review', 'completed', 'cancelled', 'blocked']);
 const taskSessionStatusSchema = z.enum(['queued', 'working', 'blocked', 'completed', 'failed', 'skipped']);
 const taskPrioritySchema = z.enum(['low', 'medium', 'high']);
 const sessionStatusSchema = z.enum(['spawning', 'idle', 'working', 'completed', 'failed', 'stopped']);
