@@ -26,7 +26,7 @@ export function validateTaskId(id: string | undefined, context: string[] = []): 
 }
 
 export function validateStatus(status: string): string {
-  const validStatuses = ['todo', 'in_progress', 'completed', 'cancelled', 'blocked'];
+  const validStatuses = ['todo', 'in_progress', 'in_review', 'completed', 'cancelled', 'blocked'];
   if (!validStatuses.includes(status)) {
     throwValidationError(
       'invalid_status',

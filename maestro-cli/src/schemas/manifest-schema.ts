@@ -71,7 +71,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
           },
           status: {
             type: 'string',
-            enum: ['todo', 'in_progress', 'completed', 'cancelled', 'blocked'],
+            enum: ['todo', 'in_progress', 'in_review', 'completed', 'cancelled', 'blocked'],
             nullable: true,
           },
           sessionIds: {
@@ -214,6 +214,12 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       enum: ['claude-code', 'codex', 'gemini'],
       nullable: true,
       description: 'Agent tool to use for this session (defaults to claude-code)',
+    },
+    referenceTaskIds: {
+      type: 'array',
+      items: { type: 'string' },
+      nullable: true,
+      description: 'Reference task IDs for context (docs from these tasks are provided to the agent)',
     },
   },
   required: ['manifestVersion', 'role', 'tasks', 'session'],

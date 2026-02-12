@@ -48,6 +48,9 @@ export interface MaestroManifest {
 
   /** Agent tool to use for this session (defaults to 'claude-code') */
   agentTool?: AgentTool;
+
+  /** Reference task IDs for context (docs from these tasks are provided to the agent) */
+  referenceTaskIds?: string[];
 }
 
 /**
@@ -56,6 +59,7 @@ export interface MaestroManifest {
 export type TaskStatus =
   | 'todo'          // Not yet started
   | 'in_progress'   // Actively being worked on
+  | 'in_review'     // Awaiting review
   | 'completed'     // Work finished
   | 'cancelled'     // Cancelled
   | 'blocked';      // Blocked by dependency or issue

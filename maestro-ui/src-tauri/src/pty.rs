@@ -3,16 +3,12 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufWriter, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use tauri::{Emitter, Manager, State, WebviewWindow};
-
-const AGENTS_UI_TMUX_PREFIX: &str = "agents-ui-";
-#[cfg(target_family = "unix")]
-const AGENTS_UI_TMUX_LEGACY_SOCKET_BASE: &str = "/tmp/agents-ui-tmux";
+use tauri::{Emitter, State, WebviewWindow};
 
 #[cfg(target_os = "macos")]
 #[derive(Default)]
@@ -82,39 +78,6 @@ fn now_epoch_ms() -> u64 {
         .as_millis() as u64
 }
 
-#[cfg(target_family = "unix")]
-fn agents_ui_tmux_session_name(persist_id: &str) -> String {
-    let mut out = String::with_capacity(AGENTS_UI_TMUX_PREFIX.len() + persist_id.len());
-    out.push_str(AGENTS_UI_TMUX_PREFIX);
-    for ch in persist_id.chars() {
-        if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
-            out.push(ch);
-        } else {
-            out.push('_');
-        }
-    }
-    if out == AGENTS_UI_TMUX_PREFIX {
-        out.push_str("session");
-    }
-    out
-}
-
-#[cfg(target_family = "unix")]
-pub fn find_bundled_tmux() -> Option<PathBuf> {
-    let sidecar = sidecar_path("tmux").filter(|p| p.is_file());
-    if sidecar.is_some() {
-        return sidecar;
-    }
-    #[cfg(debug_assertions)]
-    {
-        let dev = dev_sidecar_path("tmux").filter(|p| p.is_file());
-        if dev.is_some() {
-            return dev;
-        }
-    }
-    None
-}
-
 fn valid_env_key(key: &str) -> bool {
     let trimmed = key.trim();
     let mut chars = trimmed.chars();
@@ -131,19 +94,6 @@ fn valid_env_key(key: &str) -> bool {
         }
     }
     true
-}
-
-fn capture_original_env(cmd: &mut CommandBuilder, name: &str, present_key: &str, value_key: &str) {
-    match std::env::var_os(name) {
-        Some(v) => {
-            cmd.env(present_key, "1");
-            cmd.env(value_key, v.to_string_lossy().to_string());
-        }
-        None => {
-            cmd.env(present_key, "0");
-            cmd.env(value_key, "");
-        }
-    }
 }
 
 #[cfg(target_family = "unix")]
@@ -214,11 +164,6 @@ fn login_shell_path(shell: &str, base_path: &str) -> Option<String> {
         (
             format!("printf '{START}%s{END}' (string join ':' $PATH)"),
             vec![vec!["-i", "-l", "-c"], vec!["-l", "-c"]],
-        )
-    } else if shell_name == "nu" || shell_name == "nushell" {
-        (
-            format!("print $\"{START}($env.PATH | str join ':'){END}\""),
-            vec![vec!["-l", "-c"], vec!["-i", "-l", "-c"]],
         )
     } else {
         return None;
@@ -320,290 +265,6 @@ fn login_shell_path(shell: &str, base_path: &str) -> Option<String> {
     None
 }
 
-#[cfg(target_family = "unix")]
-struct ShellXdgPaths {
-    config_home: PathBuf,
-    data_home: PathBuf,
-    cache_home: PathBuf,
-    runtime_dir: PathBuf,
-}
-
-#[cfg(target_family = "unix")]
-fn ensure_shell_xdg_paths(window: &WebviewWindow) -> Option<ShellXdgPaths> {
-    let app_data = window.app_handle().path().app_data_dir().ok()?;
-    let base = app_data.join("shell");
-    let config_home = base.join("xdg-config");
-    let data_home = base.join("xdg-data");
-    let cache_home = base.join("xdg-cache");
-    let runtime_dir = base.join("xdg-runtime");
-
-    fs::create_dir_all(&config_home).ok()?;
-    fs::create_dir_all(&data_home).ok()?;
-    fs::create_dir_all(&cache_home).ok()?;
-    fs::create_dir_all(&runtime_dir).ok()?;
-
-    #[cfg(target_family = "unix")]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(&runtime_dir, fs::Permissions::from_mode(0o700));
-    }
-
-    Some(ShellXdgPaths {
-        config_home,
-        data_home,
-        cache_home,
-        runtime_dir,
-    })
-}
-
-#[cfg(target_family = "unix")]
-pub struct TmuxPaths {
-    pub socket_dir: PathBuf,
-    pub config_path: PathBuf,
-}
-
-#[cfg(target_family = "unix")]
-fn ensure_preferred_tmux_socket_dir(window: &WebviewWindow) -> Option<PathBuf> {
-    let home = window.app_handle().path().home_dir().ok()?;
-    let base = home.join(".agents-ui-tmux");
-    fs::create_dir_all(&base).ok()?;
-    let socket_dir = base.join("sockets");
-    fs::create_dir_all(&socket_dir).ok()?;
-
-    #[cfg(target_family = "unix")]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(&base, fs::Permissions::from_mode(0o700));
-        let _ = fs::set_permissions(&socket_dir, fs::Permissions::from_mode(0o700));
-    }
-
-    Some(socket_dir)
-}
-
-#[cfg(target_family = "unix")]
-fn legacy_tmux_socket_dir() -> PathBuf {
-    PathBuf::from(AGENTS_UI_TMUX_LEGACY_SOCKET_BASE).join("sockets")
-}
-
-#[cfg(target_family = "unix")]
-fn existing_legacy_tmux_socket_dir() -> Option<PathBuf> {
-    let socket_dir = legacy_tmux_socket_dir();
-    if socket_dir.is_dir() {
-        Some(socket_dir)
-    } else {
-        None
-    }
-}
-
-#[cfg(target_family = "unix")]
-fn ensure_legacy_tmux_socket_dir() -> Option<PathBuf> {
-    let socket_base = PathBuf::from(AGENTS_UI_TMUX_LEGACY_SOCKET_BASE);
-    fs::create_dir_all(&socket_base).ok()?;
-    let socket_dir = socket_base.join("sockets");
-    fs::create_dir_all(&socket_dir).ok()?;
-
-    #[cfg(target_family = "unix")]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(&socket_base, fs::Permissions::from_mode(0o700));
-        let _ = fs::set_permissions(&socket_dir, fs::Permissions::from_mode(0o700));
-    }
-
-    Some(socket_dir)
-}
-
-#[cfg(target_family = "unix")]
-fn tmux_socket_dir_candidates(preferred: &Path) -> Vec<PathBuf> {
-    let mut out = Vec::new();
-    out.push(preferred.to_path_buf());
-
-    if let Some(legacy) = existing_legacy_tmux_socket_dir() {
-        if legacy != preferred {
-            out.push(legacy);
-        }
-    }
-
-    out
-}
-
-#[cfg(target_family = "unix")]
-pub fn ensure_tmux_paths(window: &WebviewWindow) -> Option<TmuxPaths> {
-    let home = window.app_handle().path().home_dir().ok()?;
-    let base = home.join(".agents-ui-tmux");
-    fs::create_dir_all(&base).ok()?;
-
-    // Store sockets in a stable per-user path so sessions survive app restarts without relying on /tmp.
-    // Fallback to the legacy /tmp dir if we cannot create the preferred location (or in older installs).
-    let socket_dir =
-        ensure_preferred_tmux_socket_dir(window).or_else(|| ensure_legacy_tmux_socket_dir())?;
-
-    let config_path = base.join("tmux.conf");
-
-    Some(TmuxPaths {
-        socket_dir,
-        config_path,
-    })
-}
-
-#[cfg(target_family = "unix")]
-fn tmux_list_sessions(
-    tmux: &Path,
-    socket_dir: &Path,
-) -> Result<Vec<String>, String> {
-    let socket_path = socket_dir.join("default");
-    let out = Command::new(tmux)
-        .args(["-S", socket_path.to_string_lossy().as_ref(), "list-sessions", "-F", "#{session_name}"])
-        .output()
-        .map_err(|e| format!("failed to run bundled tmux: {e}"))?;
-
-    if out.status.success() {
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        let mut sessions = Vec::new();
-        for line in stdout.lines() {
-            let name = line.trim();
-            if !name.is_empty() {
-                sessions.push(name.to_string());
-            }
-        }
-        return Ok(sessions);
-    }
-
-    let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-    let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-
-    // tmux returns exit code 1 when no sessions exist
-    if out.status.code() == Some(1) && (stderr.contains("no server running") || stderr.contains("can't find session")) {
-        return Ok(Vec::new());
-    }
-
-    let msg = if !stderr.is_empty() {
-        stderr
-    } else if !stdout.is_empty() {
-        stdout
-    } else {
-        "tmux list-sessions failed".to_string()
-    };
-    Err(msg)
-}
-
-#[cfg(target_family = "unix")]
-fn ensure_tmux_config(window: &WebviewWindow) -> Option<PathBuf> {
-    let tmux_paths = ensure_tmux_paths(window)?;
-    let config_path = &tmux_paths.config_path;
-
-    // Minimal tmux config tuned for embedded terminals (xterm.js)
-    let contents = r#"# Agents UI managed tmux config
-# This is stored in ~/.agents-ui-tmux/tmux.conf
-
-# Enable mouse support
-set -g mouse on
-
-# Disable status bar for clean embedded UI
-set -g status off
-
-# Use 256 color terminal
-set -g default-terminal "screen-256color"
-
-# Enable true color support
-set -ga terminal-overrides ",xterm-256color:Tc"
-
-# Disable escape key delay
-set -sg escape-time 0
-
-# Increase history limit
-set -g history-limit 50000
-
-# Start window numbering at 1
-set -g base-index 1
-set -g pane-base-index 1
-
-# Renumber windows on close
-set -g renumber-windows on
-
-# Enable focus events
-set -g focus-events on
-
-# Enable extended keys (CSI u / Kitty keyboard protocol) so that
-# Shift+Enter (\x1b[13;2u) is passed through to programs like Claude Code
-set -s extended-keys on
-set -as terminal-features 'xterm-256color:extkeys'
-"#;
-
-    let needs_write = match fs::read_to_string(config_path) {
-        Ok(existing) => existing != contents,
-        Err(_) => true,
-    };
-    if needs_write {
-        fs::write(config_path, contents).ok()?;
-    }
-
-    Some(config_path.clone())
-}
-
-#[cfg(target_family = "unix")]
-fn ensure_tmux_shell_wrapper(window: &WebviewWindow) -> Option<PathBuf> {
-    let app_data = window.app_handle().path().app_data_dir().ok()?;
-    let base = app_data.join("shell");
-    fs::create_dir_all(&base).ok()?;
-
-    let path = base.join("tmux-shell-wrapper.sh");
-    let contents = r#"#!/bin/sh
-set -e
-
-restore() {
-  name="$1"
-  present="$2"
-  value="$3"
-  if [ "$present" = "1" ]; then
-    export "$name=$value"
-  else
-    unset "$name"
-  fi
-}
-
-restore HOME "${AGENTS_UI_ORIG_HOME_PRESENT:-0}" "${AGENTS_UI_ORIG_HOME:-}"
-
-if [ "${AGENTS_UI_TMUX_RESTORE_XDG:-0}" = "1" ]; then
-  restore XDG_CONFIG_HOME "${AGENTS_UI_ORIG_XDG_CONFIG_HOME_PRESENT:-0}" "${AGENTS_UI_ORIG_XDG_CONFIG_HOME:-}"
-  restore XDG_DATA_HOME "${AGENTS_UI_ORIG_XDG_DATA_HOME_PRESENT:-0}" "${AGENTS_UI_ORIG_XDG_DATA_HOME:-}"
-  restore XDG_CACHE_HOME "${AGENTS_UI_ORIG_XDG_CACHE_HOME_PRESENT:-0}" "${AGENTS_UI_ORIG_XDG_CACHE_HOME:-}"
-  restore XDG_RUNTIME_DIR "${AGENTS_UI_ORIG_XDG_RUNTIME_DIR_PRESENT:-0}" "${AGENTS_UI_ORIG_XDG_RUNTIME_DIR:-}"
-fi
-
-shell="${AGENTS_UI_TMUX_REAL_SHELL:-/bin/sh}"
-if [ "${AGENTS_UI_TMUX_LOGIN:-1}" = "1" ]; then
-  exec "$shell" -l "$@"
-fi
-exec "$shell" "$@"
-"#;
-
-    let needs_write = match fs::read_to_string(&path) {
-        Ok(existing) => existing != contents,
-        Err(_) => true,
-    };
-    if needs_write {
-        fs::write(&path, contents).ok()?;
-        #[cfg(target_family = "unix")]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = fs::set_permissions(&path, fs::Permissions::from_mode(0o755));
-        }
-    }
-
-    Some(path)
-}
-
-#[cfg(target_family = "unix")]
-fn zsh_zdotdir_path(window: &WebviewWindow, key: &str) -> Option<PathBuf> {
-    let app_data = window.app_handle().path().app_data_dir().ok()?;
-    let base = app_data.join("shell").join("zsh");
-    fs::create_dir_all(&base).ok()?;
-    let safe = agents_ui_tmux_session_name(key);
-    let dir = base.join(format!("zdotdir-{safe}"));
-    fs::create_dir_all(&dir).ok()?;
-    Some(dir)
-}
-
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistentSessionInfo {
@@ -612,90 +273,15 @@ pub struct PersistentSessionInfo {
 }
 
 #[tauri::command]
-pub fn list_persistent_sessions(window: WebviewWindow) -> Result<Vec<PersistentSessionInfo>, String> {
-    #[cfg(not(target_family = "unix"))]
-    {
-        return Err("persistent sessions are only supported on Unix".to_string());
-    }
-
-    #[cfg(target_family = "unix")]
-    {
-        let tmux = find_bundled_tmux().ok_or("bundled tmux missing in this build".to_string())?;
-        let tmux_paths = ensure_tmux_paths(&window).ok_or("unable to determine app data dir".to_string())?;
-        let mut sessions: Vec<PersistentSessionInfo> = Vec::new();
-        let mut list_errors: Vec<String> = Vec::new();
-
-        for socket_dir in tmux_socket_dir_candidates(&tmux_paths.socket_dir) {
-            match tmux_list_sessions(&tmux, &socket_dir) {
-                Ok(list) => {
-                    for session_name in list {
-                        if !session_name.starts_with(AGENTS_UI_TMUX_PREFIX) {
-                            continue;
-                        }
-                        let persist_id = session_name
-                            .strip_prefix(AGENTS_UI_TMUX_PREFIX)
-                            .unwrap_or("")
-                            .to_string();
-                        sessions.push(PersistentSessionInfo {
-                            persist_id,
-                            session_name,
-                        });
-                    }
-                }
-                Err(err) => list_errors.push(err),
-            }
-        }
-
-        if sessions.is_empty() && !list_errors.is_empty() {
-            return Err(list_errors.remove(0));
-        }
-
-        sessions.sort_by(|a, b| a.persist_id.cmp(&b.persist_id));
-        sessions.dedup_by(|a, b| a.session_name == b.session_name);
-        Ok(sessions)
-    }
+pub fn list_persistent_sessions(_window: WebviewWindow) -> Result<Vec<PersistentSessionInfo>, String> {
+    // Persistent sessions (tmux) have been removed. Always return empty.
+    Ok(Vec::new())
 }
 
 #[tauri::command]
-pub fn kill_persistent_session(window: WebviewWindow, persist_id: String) -> Result<(), String> {
-    #[cfg(not(target_family = "unix"))]
-    {
-        return Err("persistent sessions are only supported on Unix".to_string());
-    }
-
-    #[cfg(target_family = "unix")]
-    {
-        let tmux = find_bundled_tmux().ok_or("bundled tmux missing in this build".to_string())?;
-        let tmux_paths = ensure_tmux_paths(&window).ok_or("unable to determine app data dir".to_string())?;
-        let trimmed = persist_id.trim();
-        if trimmed.is_empty() {
-            return Err("missing persist id".to_string());
-        }
-        let session_name = agents_ui_tmux_session_name(trimmed);
-        if !session_name.starts_with(AGENTS_UI_TMUX_PREFIX) {
-            return Err("refusing to kill non agents-ui session".to_string());
-        }
-
-        let mut last_err: Option<String> = None;
-
-        for socket_dir in tmux_socket_dir_candidates(&tmux_paths.socket_dir) {
-            let socket_path = socket_dir.join("default");
-            let out = Command::new(&tmux)
-                .args(["-S", socket_path.to_string_lossy().as_ref(), "kill-session", "-t", &session_name])
-                .output()
-                .map_err(|e| format!("failed to run bundled tmux: {e}"))?;
-            if out.status.success() {
-                return Ok(());
-            }
-
-            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-            if !stderr.is_empty() {
-                last_err = Some(stderr);
-            }
-        }
-
-        Err(last_err.unwrap_or_else(|| format!("failed to kill tmux session {session_name}")))
-    }
+pub fn kill_persistent_session(_window: WebviewWindow, _persist_id: String) -> Result<(), String> {
+    // Persistent sessions (tmux) have been removed.
+    Err("persistent sessions are no longer supported".to_string())
 }
 
 fn write_recording_event(rec: &mut SessionRecording, t: u64, data: &str) -> Result<(), String> {
@@ -868,7 +454,7 @@ fn decode_utf8_stream(carry: &mut Vec<u8>, chunk: &[u8]) -> String {
                 match e.error_len() {
                     None => break,
                     Some(len) => {
-                        out.push('�');
+                        out.push('\u{fffd}');
                         idx = (idx + len).min(carry.len());
                     }
                 }
@@ -957,176 +543,6 @@ __agents_ui_emit_cwd
     Ok(())
 }
 
-#[cfg(target_family = "unix")]
-fn sidecar_path(name: &str) -> Option<PathBuf> {
-    std::env::current_exe().ok()?.parent().map(|p| p.join(name))
-}
-
-#[cfg(all(target_family = "unix", debug_assertions))]
-fn dev_sidecar_path(name: &str) -> Option<PathBuf> {
-    let triple = if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
-        "aarch64-apple-darwin"
-    } else if cfg!(target_os = "macos") && cfg!(target_arch = "x86_64") {
-        "x86_64-apple-darwin"
-    } else {
-        return None;
-    };
-    Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bin").join(format!("{name}-{triple}")))
-}
-
-#[cfg(target_family = "unix")]
-fn find_bundled_nu() -> Option<PathBuf> {
-    let sidecar = sidecar_path("nu").filter(|p| p.is_file());
-    if sidecar.is_some() {
-        return sidecar;
-    }
-    #[cfg(debug_assertions)]
-    {
-        let dev = dev_sidecar_path("nu").filter(|p| p.is_file());
-        if dev.is_some() {
-            return dev;
-        }
-    }
-    None
-}
-
-#[cfg(target_family = "unix")]
-fn ensure_nu_config(window: &WebviewWindow, env_keys: &[String]) -> Option<(String, String, String, String)> {
-    let xdg = ensure_shell_xdg_paths(window)?;
-    let config_home = xdg.config_home;
-    let data_home = xdg.data_home;
-    let cache_home = xdg.cache_home;
-    let runtime_dir = xdg.runtime_dir;
-
-    let nu_config_dir = config_home.join("nushell");
-    let nu_data_dir = data_home.join("nushell");
-    let nu_cache_dir = cache_home.join("nushell");
-
-    fs::create_dir_all(&nu_config_dir).ok()?;
-    fs::create_dir_all(&nu_data_dir).ok()?;
-    fs::create_dir_all(&nu_cache_dir).ok()?;
-
-    let config_path = nu_config_dir.join("config.nu");
-    let mut config = String::new();
-    config.push_str("# Agents UI managed Nushell config\n\n");
-    config.push_str("$env.config = ($env.config | upsert show_banner false)\n\n");
-    config.push_str(
-        r#"# Completion UX (standalone)
-$env.config = ($env.config | upsert completions.algorithm "fuzzy")
-
-$env.config = ($env.config | upsert menus [
-  {
-    name: completion_menu
-    only_buffer_difference: false
-    marker: "| "
-    type: {
-      layout: columnar
-      columns: 4
-      col_width: 20
-      col_padding: 2
-    }
-    style: {
-      text: green
-      selected_text: green_reverse
-      description_text: yellow
-    }
-  }
-  {
-    name: history_menu
-    only_buffer_difference: true
-    marker: "? "
-    type: {
-      layout: list
-      page_size: 12
-    }
-    style: {
-      text: green
-      selected_text: green_reverse
-      description_text: yellow
-    }
-  }
-])
-
-$env.config = ($env.config | upsert keybindings [
-  {
-    name: completion_menu
-    modifier: none
-    keycode: tab
-    mode: [emacs vi_normal vi_insert]
-    event: { send: menu name: completion_menu }
-  }
-  {
-    name: history_menu
-    modifier: none
-    keycode: f7
-    mode: [emacs vi_normal vi_insert]
-    event: { send: menu name: history_menu }
-  }
-])
-
-"#,
-    );
-    config.push_str(
-        r#"$env.config = ($env.config | upsert hooks.pre_execution [
-  {||
-    let cleaned = (commandline | str trim | str replace --all (char newline) " ")
-    let osc = (char --integer 27) + "]1337;Command=" + $cleaned + (char --integer 7)
-    print --no-newline $osc
-  }
-])
-
-$env.config = ($env.config | upsert hooks.pre_prompt [
-  {||
-    let osc = (char --integer 27) + "]1337;Command=" + (char --integer 7)
-    print --no-newline $osc
-  }
-])
-
-$env.PROMPT_COMMAND = {||
-  let cwd = $env.PWD
-  let osc = (char --integer 27) + "]1337;CurrentDir=" + $cwd + (char --integer 7)
-  let dir = ($cwd | path basename)
-  $osc + (ansi cyan) + $dir + (ansi reset) + " "
-}
-
-$env.PROMPT_INDICATOR = {|| "❯ " }
-$env.PROMPT_MULTILINE_INDICATOR = {|| "… " }
-"#,
-    );
-
-    let mut keys: Vec<String> = env_keys
-        .iter()
-        .map(|k| k.trim().to_string())
-        .filter(|k| valid_env_key(k))
-        .collect();
-    keys.sort();
-    keys.dedup();
-    if !keys.is_empty() {
-        config.push_str("\n# Agents UI injected env vars as variables\n");
-        for key in keys {
-            config.push_str(&format!(
-                "let {key} = ($env.{key}? | default \"\")\n",
-                key = key
-            ));
-        }
-    }
-
-    let needs_write = match fs::read_to_string(&config_path) {
-        Ok(existing) => existing != config,
-        Err(_) => true,
-    };
-    if needs_write {
-        fs::write(&config_path, config).ok()?;
-    }
-
-    Some((
-        config_home.to_string_lossy().to_string(),
-        data_home.to_string_lossy().to_string(),
-        cache_home.to_string_lossy().to_string(),
-        runtime_dir.to_string_lossy().to_string(),
-    ))
-}
-
 #[tauri::command]
 pub fn list_sessions(state: State<'_, AppState>) -> Result<Vec<SessionInfo>, String> {
     let sessions = state
@@ -1158,34 +574,17 @@ pub fn create_session(
     persistent: Option<bool>,
     persist_id: Option<String>,
 ) -> Result<SessionInfo, String> {
+    // persistent and persist_id are accepted for API compatibility but ignored
+    let _ = persistent;
+    let _ = persist_id;
+
     #[cfg(target_family = "unix")]
     let shell = default_user_shell();
     #[cfg(not(target_family = "unix"))]
     let shell = std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string());
 
-    let persistent = persistent.unwrap_or(true);
-    let persist_id = persist_id
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-
-    #[cfg(not(target_family = "unix"))]
-    if persistent {
-        return Err("persistent sessions are only supported on Unix".to_string());
-    }
-
     let command = command.unwrap_or_default().trim().to_string();
-    if persistent && !command.is_empty() {
-        return Err("persistent sessions currently require an empty command (run commands inside the session)".to_string());
-    }
     let is_shell = command.is_empty();
-    if persistent && !is_shell {
-        return Err("persistent sessions currently require an empty command (run commands inside the session)".to_string());
-    }
-
-    #[cfg(target_family = "unix")]
-    if persistent && persist_id.is_none() {
-        return Err("persistId is required for persistent sessions".to_string());
-    }
 
     let cwd = cwd
         .map(|s| s.trim().to_string())
@@ -1203,80 +602,15 @@ pub fn create_session(
         });
 
     #[cfg(target_family = "unix")]
-    let (program, args, shown_command, use_nu, inner_shell) = if persistent {
-        let tmux = find_bundled_tmux().ok_or("bundled tmux missing in this build".to_string())?;
-        let persist_id = persist_id.clone().ok_or("persistId is required for persistent sessions")?;
-        let tmux_session = agents_ui_tmux_session_name(&persist_id);
-        let tmux_paths = ensure_tmux_paths(&window).ok_or("unable to determine app data dir".to_string())?;
-        let tmux_config = ensure_tmux_config(&window).map(|p| p.to_string_lossy().to_string());
-
-        let nu = find_bundled_nu();
-        let inner_shell = if let Some(nu) = &nu {
-            nu.to_string_lossy().to_string()
-        } else {
-            shell.clone()
-        };
-
-        let mut socket_dir = tmux_paths.socket_dir.clone();
-        for candidate in tmux_socket_dir_candidates(&tmux_paths.socket_dir) {
-            if let Ok(existing) = tmux_list_sessions(&tmux, &candidate) {
-                if existing.iter().any(|s| s == &tmux_session) {
-                    socket_dir = candidate;
-                    break;
-                }
-            }
-        }
-
-        let socket_path = socket_dir.join("default");
-
-        let mut tmux_args: Vec<String> = Vec::new();
-        tmux_args.push("-S".to_string());
-        tmux_args.push(socket_path.to_string_lossy().to_string());
-        if let Some(cfg) = &tmux_config {
-            tmux_args.push("-f".to_string());
-            tmux_args.push(cfg.clone());
-        }
-        tmux_args.push("new-session".to_string());
-        tmux_args.push("-A".to_string()); // Attach if exists, create if not
-        tmux_args.push("-s".to_string());
-        tmux_args.push(tmux_session.clone());
-
-        let shown_command = if let Some(cfg) = tmux_config {
-            format!("tmux -S {} -f {cfg} new-session -A -s {tmux_session}", socket_path.display())
-        } else {
-            format!("tmux -S {} new-session -A -s {tmux_session}", socket_path.display())
-        };
-
+    let (program, args, shown_command) = if is_shell {
         (
-            tmux.to_string_lossy().to_string(),
-            tmux_args,
-            shown_command,
-            nu.is_some(),
-            inner_shell,
+            shell.clone(),
+            vec!["-l".to_string()],
+            format!("{shell} -l"),
         )
-    } else if is_shell {
-        // Prefer user's default shell (bash/zsh) over bundled Nu
-        // if let Some(nu) = find_bundled_nu() {
-        //     (
-        //         nu.to_string_lossy().to_string(),
-        //         Vec::new(),
-        //         "nu".to_string(),
-        //         true,
-        //         shell.clone(),
-        //     )
-        // } else {
-            (
-                shell.clone(),
-                vec!["-l".to_string()],
-                format!("{shell} -l"),
-                false,
-                shell.clone(),
-            )
-        // }
     } else {
         // When running a command, always use a POSIX-compatible shell (/bin/sh)
         // because the command string uses POSIX syntax (;, $VAR, exec, etc.)
-        // which is incompatible with non-POSIX shells like Nushell.
         let posix_shell = if Path::new("/bin/bash").is_file() {
             "/bin/bash".to_string()
         } else {
@@ -1287,8 +621,6 @@ pub fn create_session(
             posix_shell.clone(),
             vec![shell_flag.to_string(), command.clone()],
             format!("{posix_shell} {shell_flag} {command}"),
-            false,
-            shell.clone(),
         )
     };
 
@@ -1302,9 +634,6 @@ pub fn create_session(
             format!("{shell} /C {command}"),
         )
     };
-
-    #[cfg(not(target_family = "unix"))]
-    let use_nu = false;
 
     let size = PtySize {
         rows: rows.unwrap_or(24),
@@ -1324,88 +653,29 @@ pub fn create_session(
 
     let mut cmd = CommandBuilder::new(program);
     cmd.args(args);
-    let env_keys: Vec<String> = env_vars
-        .as_ref()
-        .map(|vars| vars.keys().map(|k| k.trim().to_string()).collect())
-        .unwrap_or_default();
     let frontend_set_path = env_vars
         .as_ref()
         .map(|vars| vars.contains_key("PATH"))
         .unwrap_or(false);
 
-    // Debug: Log environment variables being passed
-    eprintln!("[PTY] Received {} custom env vars", env_keys.len());
-    if let Some(ref vars) = env_vars {
-        for (k, v) in vars.iter() {
-            eprintln!("[PTY] Env: {}={}", k, if v.len() > 100 { format!("{}...", &v[..100]) } else { v.clone() });
-        }
-    }
-
     if let Some(vars) = env_vars {
         for (k, v) in vars {
             let key = k.trim();
             if !valid_env_key(key) {
-                eprintln!("[PTY] ⚠️  Skipping invalid env key: '{}'", key);
                 continue;
             }
-            eprintln!("[PTY] ✅ Setting env: {} (value len={})", key, v.len());
             cmd.env(key, v);
         }
-    } else {
-        eprintln!("[PTY] ⚠️  No env_vars provided");
     }
-    eprintln!("[PTY] ✅ Finished setting environment variables");
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
     #[cfg(target_family = "unix")]
     if cmd.get_env("SHELL").is_none() {
         cmd.env("SHELL", shell.clone());
     }
-    #[cfg(target_family = "unix")]
-    if persistent {
-        // For tmux, we don't need to modify HOME or set socket env vars since we use -S flag
-        // We still use the shell wrapper to restore environment inside the session
-        if let Some(wrapper) = ensure_tmux_shell_wrapper(&window) {
-            cmd.env("SHELL", wrapper.to_string_lossy().to_string());
-            cmd.env("AGENTS_UI_TMUX_REAL_SHELL", inner_shell.clone());
-            cmd.env("AGENTS_UI_TMUX_LOGIN", "1");
-            cmd.env("AGENTS_UI_TMUX_RESTORE_XDG", if use_nu { "0" } else { "1" });
-
-            capture_original_env(&mut cmd, "HOME", "AGENTS_UI_ORIG_HOME_PRESENT", "AGENTS_UI_ORIG_HOME");
-            capture_original_env(
-                &mut cmd,
-                "XDG_CONFIG_HOME",
-                "AGENTS_UI_ORIG_XDG_CONFIG_HOME_PRESENT",
-                "AGENTS_UI_ORIG_XDG_CONFIG_HOME",
-            );
-            capture_original_env(
-                &mut cmd,
-                "XDG_DATA_HOME",
-                "AGENTS_UI_ORIG_XDG_DATA_HOME_PRESENT",
-                "AGENTS_UI_ORIG_XDG_DATA_HOME",
-            );
-            capture_original_env(
-                &mut cmd,
-                "XDG_CACHE_HOME",
-                "AGENTS_UI_ORIG_XDG_CACHE_HOME_PRESENT",
-                "AGENTS_UI_ORIG_XDG_CACHE_HOME",
-            );
-            capture_original_env(
-                &mut cmd,
-                "XDG_RUNTIME_DIR",
-                "AGENTS_UI_ORIG_XDG_RUNTIME_DIR_PRESENT",
-                "AGENTS_UI_ORIG_XDG_RUNTIME_DIR",
-            );
-        } else {
-            cmd.env("SHELL", inner_shell.clone());
-        }
-    }
 
     #[cfg(target_os = "macos")]
     {
-        // Always construct a clean PATH on macOS. Don't check cmd.get_env("PATH")
-        // because CommandBuilder inherits the parent environment which may be corrupted.
-        // Only skip if frontend explicitly passed PATH in env_vars.
         if !frontend_set_path {
             let mut fallback_entries: Vec<String> = std::env::var("PATH")
                 .unwrap_or_default()
@@ -1457,8 +727,6 @@ pub fn create_session(
             let mut path_entries: Vec<String> = Vec::new();
             let mut push_unique = |value: &str| {
                 let trimmed = value.trim();
-                // Filter out entries that don't look like valid paths.
-                // Shell startup scripts can pollute PATH with error messages.
                 if trimmed.is_empty()
                     || !trimmed.starts_with('/')
                     || trimmed.contains('\n')
@@ -1496,37 +764,19 @@ pub fn create_session(
         }
     }
 
-    #[cfg(target_family = "unix")]
-    if use_nu {
-        if let Some((xdg_config_home, xdg_data_home, xdg_cache_home, xdg_runtime_dir)) =
-            ensure_nu_config(&window, &env_keys)
-        {
-            cmd.env("XDG_CONFIG_HOME", xdg_config_home);
-            cmd.env("XDG_DATA_HOME", xdg_data_home);
-            cmd.env("XDG_CACHE_HOME", xdg_cache_home);
-            cmd.env("XDG_RUNTIME_DIR", xdg_runtime_dir);
-        }
-    } else if persistent {
-        if let Some(xdg) = ensure_shell_xdg_paths(&window) {
-            cmd.env("XDG_CONFIG_HOME", xdg.config_home.to_string_lossy().to_string());
-            cmd.env("XDG_DATA_HOME", xdg.data_home.to_string_lossy().to_string());
-            cmd.env("XDG_CACHE_HOME", xdg.cache_home.to_string_lossy().to_string());
-            cmd.env("XDG_RUNTIME_DIR", xdg.runtime_dir.to_string_lossy().to_string());
-        }
-    }
     if let Some(ref cwd) = cwd {
         cmd.cwd(cwd);
     }
 
     #[cfg(target_family = "unix")]
     {
-        let shell_name = Path::new(&inner_shell)
+        let shell_name = Path::new(&shell)
             .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("")
             .to_ascii_lowercase();
 
-        if is_shell && shell_name.contains("bash") && !use_nu {
+        if is_shell && shell_name.contains("bash") {
             let orig_prompt = cmd
                 .get_env("PROMPT_COMMAND")
                 .and_then(|v| v.to_str())
@@ -1540,20 +790,14 @@ pub fn create_session(
             );
         }
 
-        if is_shell && shell_name.contains("zsh") && !use_nu {
+        if is_shell && shell_name.contains("zsh") {
             let orig_dotdir = std::env::var("ZDOTDIR")
                 .ok()
                 .filter(|s| Path::new(s).is_dir())
                 .or_else(|| std::env::var("HOME").ok().filter(|s| Path::new(s).is_dir()));
 
             if let Some(orig_dotdir) = orig_dotdir {
-                let dotdir = if persistent {
-                    persist_id
-                        .as_deref()
-                        .and_then(|pid| zsh_zdotdir_path(&window, pid))
-                } else {
-                    Some(std::env::temp_dir().join(format!("agents-ui-zdotdir-{id}")))
-                };
+                let dotdir = Some(std::env::temp_dir().join(format!("agents-ui-zdotdir-{id}")));
 
                 if let Some(dotdir) = dotdir {
                     if fs::create_dir_all(&dotdir).is_ok()
@@ -1857,30 +1101,7 @@ pub fn close_session(state: State<'_, AppState>, id: String) -> Result<(), Strin
 }
 
 #[tauri::command]
-pub fn detach_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    #[cfg(not(target_family = "unix"))]
-    {
-        let _ = state;
-        let _ = id;
-        return Err("detach is only supported on Unix".to_string());
-    }
-
-    #[cfg(target_family = "unix")]
-    {
-        let mut sessions = state
-            .inner
-            .sessions
-            .lock()
-            .map_err(|_| "state poisoned")?;
-        let Some(s) = sessions.get_mut(&id) else {
-            return Ok(());
-        };
-
-        // Default tmux detach: Ctrl+b then d.
-        s.writer
-            .write_all(&[0x02, b'd'])
-            .map_err(|e| format!("write failed: {e}"))?;
-        s.writer.flush().ok();
-        Ok(())
-    }
+pub fn detach_session(_state: State<'_, AppState>, _id: String) -> Result<(), String> {
+    // Detach was tmux-specific. No longer supported.
+    Err("detach is no longer supported (tmux removed)".to_string())
 }

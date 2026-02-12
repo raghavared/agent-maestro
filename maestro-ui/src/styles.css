@@ -610,6 +610,48 @@ body {
   font-size: 11px;
 }
 
+.appShortcutsHeader {
+  color: rgba(var(--theme-primary-rgb), 0.72);
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.appShortcutsTable {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--theme-border);
+  background: rgba(var(--theme-primary-rgb), 0.03);
+}
+
+.appShortcutsRow {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1.1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.12);
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.85);
+}
+
+.appShortcutsRow:last-child {
+  border-bottom: none;
+}
+
+.appShortcutsRow span {
+  overflow-wrap: anywhere;
+}
+
+.appShortcutsRowHeader {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  color: var(--theme-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-size: 10px;
+}
+
 /* Sound Settings (inside app settings tab) */
 .soundSettingsContent {
   padding: 16px;
@@ -4232,6 +4274,11 @@ select.input {
   opacity: 0.75;
 }
 
+.maestroTaskCard--in_review::before {
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.9), rgba(139, 92, 246, 0.7));
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+}
+
 .maestroTaskCard--blocked::before {
   background: linear-gradient(180deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.7));
   box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
@@ -4275,6 +4322,12 @@ select.input {
   background: linear-gradient(135deg, rgba(107, 138, 253, 0.15), rgba(34, 211, 238, 0.1));
   border-color: rgba(107, 138, 253, 0.3);
   color: rgba(139, 174, 255, 0.95);
+}
+
+.maestroTaskCardStatusBadge--in_review {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: rgba(192, 132, 252, 0.95);
 }
 
 .maestroTaskCardStatusBadge--completed {
@@ -5661,6 +5714,12 @@ select.input {
   color: rgba(139, 174, 255, 0.9);
 }
 
+.taskListItemStatusBadge--in_review {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: rgba(168, 85, 247, 0.25);
+  color: rgba(192, 132, 252, 0.9);
+}
+
 .taskListItemStatusBadge--completed {
   background: rgba(16, 185, 129, 0.1);
   border-color: rgba(16, 185, 129, 0.25);
@@ -6047,6 +6106,12 @@ select.input {
   background: linear-gradient(135deg, rgba(107, 138, 253, 0.15), rgba(34, 211, 238, 0.1));
   border-color: rgba(107, 138, 253, 0.3);
   color: rgba(139, 174, 255, 0.95);
+}
+
+.taskDetailStatusBadge--in_review {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: rgba(192, 132, 252, 0.95);
 }
 
 .taskDetailStatusBadge--completed {
@@ -6573,6 +6638,12 @@ select.input {
   background: rgba(0, 217, 255, 0.15);
   border-color: var(--terminal-cyan);
   color: var(--terminal-cyan);
+}
+
+.terminalModalStatusBadge--in_review {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: #a855f7;
+  color: #a855f7;
 }
 
 .terminalModalStatusBadge--completed {
@@ -7418,6 +7489,11 @@ select.input {
   color: var(--terminal-text-dim);
 }
 
+.terminalStatReview {
+  color: #a855f7;
+  text-shadow: 0 0 6px #a855f7;
+}
+
 .terminalStatDone {
   color: var(--terminal-green);
   text-shadow: 0 0 6px var(--terminal-green);
@@ -7715,6 +7791,11 @@ select.input {
   box-shadow: 0 0 8px var(--terminal-cyan);
 }
 
+.terminalTaskRow--in_review::before {
+  background: #a855f7;
+  box-shadow: 0 0 8px #a855f7;
+}
+
 .terminalTaskRow--completed::before {
   background: var(--terminal-green);
   box-shadow: 0 0 8px var(--terminal-green);
@@ -7978,6 +8059,11 @@ select.input {
   animation: statusPulse 2s ease-in-out infinite;
 }
 
+.terminalStatus--in_review {
+  color: #a855f7;
+  text-shadow: 0 0 6px #a855f7;
+}
+
 .terminalStatus--completed {
   color: var(--terminal-green);
   text-shadow: 0 0 6px var(--terminal-green);
@@ -8043,6 +8129,12 @@ select.input {
   color: var(--terminal-cyan);
   border-color: var(--terminal-cyan);
   background: rgba(0, 217, 255, 0.1);
+}
+
+.terminalStatusLabel--in_review {
+  color: #a855f7;
+  border-color: #a855f7;
+  background: rgba(168, 85, 247, 0.1);
 }
 
 .terminalStatusLabel--completed {
@@ -8124,6 +8216,12 @@ select.input {
   color: var(--terminal-blue);
   background: rgba(0, 150, 255, 0.12);
   border-color: rgba(0, 150, 255, 0.25);
+}
+
+.terminalMetaBadge--status-in_review {
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.25);
 }
 
 .terminalMetaBadge--status-completed {
@@ -8381,6 +8479,15 @@ select.input {
 .terminalInlineStatusOption--in_progress.terminalInlineStatusOption--current {
   color: var(--terminal-blue);
   background: rgba(0, 150, 255, 0.15);
+}
+
+.terminalInlineStatusOption--in_review {
+  color: #a855f7;
+}
+.terminalInlineStatusOption--in_review:hover,
+.terminalInlineStatusOption--in_review.terminalInlineStatusOption--current {
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.15);
 }
 
 .terminalInlineStatusOption--completed {
@@ -8725,6 +8832,12 @@ select.input {
   animation: statusPulse 2s ease-in-out infinite;
 }
 
+.terminalStatusPill--in_review {
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
 .terminalStatusPill--completed {
   color: var(--terminal-green);
   background: rgba(var(--theme-primary-rgb), 0.15);
@@ -8963,6 +9076,7 @@ select.input {
   align-items: center;
   justify-content: center;
   line-height: 0;
+  color: #f59e0b;
 }
 
 .terminalSubtaskIcon svg {
@@ -9263,6 +9377,12 @@ select.input {
 
 .terminalTabPane {
   animation: tabFadeIn 0.15s ease;
+}
+
+.terminalTabPane--context {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 @keyframes tabFadeIn {
@@ -9581,6 +9701,10 @@ select.input {
   color: var(--terminal-blue);
 }
 
+.terminalStatusValue--in_review {
+  color: #a855f7;
+}
+
 .terminalStatusValue--completed {
   color: var(--terminal-green);
 }
@@ -9686,6 +9810,10 @@ select.input {
 
 .terminalStatusTrigger--in_progress {
   border-color: var(--terminal-blue);
+}
+
+.terminalStatusTrigger--in_review {
+  border-color: #a855f7;
 }
 
 .terminalStatusTrigger--completed {
@@ -10424,6 +10552,15 @@ select.input {
 }
 .filterChip--inProgress.filterChip--active {
   background: rgba(var(--theme-primary-rgb), 0.15);
+}
+
+.filterChip--inReview:hover,
+.filterChip--inReview.filterChip--active {
+  border-color: #a855f7;
+  color: #a855f7;
+}
+.filterChip--inReview.filterChip--active {
+  background: rgba(168, 85, 247, 0.12);
 }
 
 .filterChip--completed:hover,
@@ -13441,6 +13578,11 @@ select.input {
   color: #22D3EE;
 }
 
+.maestroSessionContentTaskStatus--in_review {
+  background: rgba(168, 85, 247, 0.15);
+  color: #A855F7;
+}
+
 .maestroSessionContentTaskStatus--completed {
   background: rgba(16, 185, 129, 0.15);
   color: #10B981;
@@ -14217,6 +14359,12 @@ select.input {
   background: rgba(var(--theme-primary-rgb), 0.08);
 }
 
+.themedTaskStatusBadge[data-status="in_review"] {
+  border-color: rgba(168, 85, 247, 0.4);
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.08);
+}
+
 .themedTaskStatusBadge[data-status="completed"] {
   border-color: rgba(16, 185, 129, 0.4);
   color: #10b981;
@@ -14314,6 +14462,7 @@ select.input {
 
 .themedModal--wide {
   max-width: 720px;
+  min-height: 520px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -14330,6 +14479,8 @@ select.input {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .themedModal--wide .themedModalContent::-webkit-scrollbar {
@@ -14491,6 +14642,97 @@ select.input {
 
 .themedBrowseToggleArrow--open {
   transform: rotate(90deg);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Themed Modal Tab Bar                                                */
+/* ------------------------------------------------------------------ */
+
+.themedModalTabBar {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--theme-border);
+  border-radius: 0;
+  margin-top: 4px;
+}
+
+.themedModalTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-right: 1px solid var(--theme-border);
+  background: transparent;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  padding: 5px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+}
+
+.themedModalTab:last-child {
+  border-right: none;
+}
+
+.themedModalTab:hover {
+  color: rgba(var(--theme-primary-rgb), 0.8);
+  background: rgba(var(--theme-primary-rgb), 0.03);
+}
+
+.themedModalTab--active {
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  box-shadow: inset 0 -2px 0 var(--theme-primary);
+}
+
+.themedModalTabClose {
+  margin-left: auto;
+  border-right: none !important;
+  border-left: 1px solid var(--theme-border);
+  font-size: 14px;
+  padding: 3px 10px;
+  color: rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.themedModalTabClose:hover {
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+}
+
+.themedModalTabBadge {
+  font-size: 9px;
+  font-weight: 400;
+  opacity: 0.6;
+  padding: 0 4px;
+  border: 1px solid var(--theme-border);
+  border-radius: 2px;
+  line-height: 1.4;
+}
+
+.themedModalTabContent {
+  border: 1px solid var(--theme-border);
+  border-top: none;
+  padding: 12px;
+  animation: themedTabSlideDown 0.15s ease;
+}
+
+@keyframes themedTabSlideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -15274,6 +15516,225 @@ select.input {
 .docViewerMarkdown input[type="checkbox"] {
   margin-right: 6px;
   accent-color: var(--theme-primary, #00ff41);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Mermaid Diagram Renderer                                            */
+/* ------------------------------------------------------------------ */
+
+.mermaidDiagram {
+  margin: 1.2em 0;
+  padding: 20px;
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.12);
+  border-radius: 6px;
+  overflow-x: auto;
+  cursor: zoom-in;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  text-align: center;
+}
+
+.mermaidDiagram:hover {
+  border-color: rgba(var(--theme-primary-rgb), 0.25);
+  background: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.mermaidDiagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaidDiagramOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.9);
+  animation: docViewerFadeIn 0.15s ease;
+  cursor: zoom-out;
+}
+
+.mermaidDiagramOverlayContent {
+  position: relative;
+  width: 95vw;
+  max-height: 95vh;
+  overflow: auto;
+  padding: 24px;
+  cursor: default;
+}
+
+.mermaidDiagramOverlayContent::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.mermaidDiagramOverlayContent::-webkit-scrollbar-thumb {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  border-radius: 3px;
+}
+
+.mermaidDiagramOverlaySvg {
+  text-align: center;
+}
+
+.mermaidDiagramOverlaySvg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaidDiagramOverlayClose {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  z-index: 10002;
+  transition: all 0.15s ease;
+}
+
+.mermaidDiagramOverlayClose:hover {
+  background: rgba(255, 80, 80, 0.15);
+  border-color: rgba(255, 80, 80, 0.3);
+  color: #ff6b6b;
+}
+
+.mermaidDiagramLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 1.2em 0;
+  padding: 24px;
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.08);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.mermaidDiagramSpinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(var(--theme-primary-rgb), 0.15);
+  border-top-color: var(--theme-primary, #00ff41);
+  border-radius: 50%;
+  animation: mermaidSpin 0.6s linear infinite;
+}
+
+@keyframes mermaidSpin {
+  to { transform: rotate(360deg); }
+}
+
+.mermaidDiagramError {
+  margin: 1.2em 0;
+  border: 1px solid rgba(255, 80, 80, 0.25);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.mermaidDiagramErrorHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(255, 80, 80, 0.08);
+  border-bottom: 1px solid rgba(255, 80, 80, 0.15);
+  font-size: 11px;
+  font-weight: 600;
+  color: #ff6b6b;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.mermaidDiagramErrorIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 80, 80, 0.15);
+  border: 1px solid rgba(255, 80, 80, 0.3);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.mermaidDiagramErrorDetail {
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--muted);
+  opacity: 0.7;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  white-space: pre-wrap;
+  max-height: 60px;
+  overflow-y: auto;
+}
+
+.mermaidDiagramFallback {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.5;
+  color: var(--text);
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.mermaidDiagramFallback code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Reference Task Chips                                                */
+/* ------------------------------------------------------------------ */
+
+.terminalReferenceTaskChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.terminalReferenceTaskChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.2);
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.terminalReferenceTaskChip:hover {
+  background: rgba(var(--theme-primary-rgb), 0.14);
+  border-color: rgba(var(--theme-primary-rgb), 0.3);
+  color: var(--text);
 }
 
 /* ------------------------------------------------------------------ */

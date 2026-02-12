@@ -9,7 +9,7 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
 
   /**
    * GET /api/skills
-   * Returns array of available skills with metadata
+   * Returns array of available skills with full metadata (Claude Code format)
    */
   router.get('/skills', async (req: Request, res: Response) => {
     try {
@@ -26,8 +26,21 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
               id,
               name: skill.manifest.name || id,
               description: skill.manifest.description || '',
-              type: skill.manifest.type || 'system',
               version: skill.manifest.version || '1.0.0',
+              // Extract Claude Code specific metadata from config
+              triggers: skill.manifest.config?.triggers,
+              role: skill.manifest.config?.role,
+              scope: skill.manifest.config?.scope,
+              outputFormat: skill.manifest.config?.outputFormat,
+              language: skill.manifest.config?.language,
+              framework: skill.manifest.config?.framework,
+              tags: skill.manifest.config?.tags,
+              category: skill.manifest.config?.category,
+              license: skill.manifest.license,
+              content: skill.instructions,
+              // TODO: Check for references directory
+              hasReferences: false,
+              referenceCount: 0,
             });
           }
         } catch (err) {

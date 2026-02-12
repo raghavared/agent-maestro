@@ -13,6 +13,7 @@ type TaskFiltersProps = {
 const STATUS_CONFIG: { value: TaskStatus; label: string; icon: string; colorClass: string }[] = [
     { value: "todo", label: "Todo", icon: "○", colorClass: "filterChip--todo" },
     { value: "in_progress", label: "In Progress", icon: "◉", colorClass: "filterChip--inProgress" },
+    { value: "in_review", label: "In Review", icon: "◎", colorClass: "filterChip--inReview" },
     { value: "completed", label: "Completed", icon: "✓", colorClass: "filterChip--completed" },
     { value: "blocked", label: "Blocked", icon: "⊘", colorClass: "filterChip--blocked" },
     { value: "cancelled", label: "Cancelled", icon: "✕", colorClass: "filterChip--cancelled" },

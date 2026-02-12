@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { DocEntry } from "../../app/types/maestro";
+import { MermaidDiagram } from "./MermaidDiagram";
 
 interface DocViewerProps {
   doc: DocEntry;
@@ -27,6 +28,58 @@ function isMarkdown(filePath: string): boolean {
   const ext = getFileExtension(filePath);
   return ["md", "mdx", "markdown"].includes(ext);
 }
+
+const DIAGRAM_LANGUAGES = new Set([
+  "mermaid",
+  "mermaid-graph",
+  "graph",
+  "sequenceDiagram",
+  "erDiagram",
+  "flowchart",
+]);
+
+function isDiagramLanguage(lang: string | undefined): boolean {
+  if (!lang) return false;
+  return DIAGRAM_LANGUAGES.has(lang);
+}
+
+const markdownComponents = {
+  code({ className, children, ...props }: any) {
+    const match = /language-(\S+)/.exec(className || "");
+    const lang = match?.[1];
+    const codeString = String(children).replace(/\n$/, "");
+
+    // Render mermaid/diagram code blocks as visual diagrams
+    if (isDiagramLanguage(lang)) {
+      return <MermaidDiagram chart={codeString} />;
+    }
+
+    // Also auto-detect mermaid-like content in unlabeled code blocks
+    const firstLine = codeString.split("\n")[0].trim();
+    const mermaidKeywords = [
+      "graph ", "graph\n", "flowchart ", "sequenceDiagram", "classDiagram",
+      "stateDiagram", "erDiagram", "gantt", "pie ", "pie\n", "gitGraph",
+      "mindmap", "timeline", "sankey", "xychart", "block-beta",
+      "journey", "quadrantChart", "requirementDiagram", "C4Context",
+      "C4Container", "C4Component", "C4Deployment",
+    ];
+    if (match === null && mermaidKeywords.some((kw) => firstLine.startsWith(kw))) {
+      return <MermaidDiagram chart={codeString} />;
+    }
+
+    // For inline code, render as-is
+    if (!className) {
+      return <code {...props}>{children}</code>;
+    }
+
+    // Block code - render normally
+    return (
+      <code className={className} {...props}>
+        {children}
+      </code>
+    );
+  },
+};
 
 export function DocViewer({ doc, onClose }: DocViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -121,7 +174,7 @@ export function DocViewer({ doc, onClose }: DocViewerProps) {
           {doc.content ? (
             shouldRenderMarkdown ? (
               <div className="docViewerMarkdown">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                   {doc.content}
                 </ReactMarkdown>
               </div>

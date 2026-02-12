@@ -30,8 +30,32 @@ async function startServer() {
   // Create Express app
   const app = express();
 
-  // Middleware
-  app.use(cors());
+  // Middleware - CORS configuration for Tauri app and web clients
+  app.use(cors({
+    origin: (origin, callback) => {
+      // Allow Tauri app, localhost variations, and undefined (same-origin)
+      const allowedOrigins = [
+        'tauri://localhost',
+        'http://localhost:1420',
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://127.0.0.1:1420',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:5173'
+      ];
+
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true); // For now, allow all origins
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Length', 'X-Request-Id']
+  }));
   app.use(express.json());
 
   // Health check
