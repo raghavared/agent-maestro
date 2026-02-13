@@ -22,9 +22,11 @@ type TaskListItemProps = {
     isChildrenCollapsed?: boolean;
     isAddingSubtask?: boolean;
     onToggleChildrenCollapse?: () => void;
+    onTogglePin?: () => void;
     selectionMode?: boolean;
     isSelected?: boolean;
     onToggleSelect?: () => void;
+    showPermanentDelete?: boolean;
 };
 
 // Terminal-style status symbols
@@ -35,6 +37,7 @@ const STATUS_SYMBOLS: Record<TaskStatus, string> = {
     completed: "✓",
     cancelled: "⊘",
     blocked: "✗",
+    archived: "▫",
 };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -44,6 +47,7 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
     completed: "Completed",
     cancelled: "Cancelled",
     blocked: "Blocked",
+    archived: "Archived",
 };
 
 const PRIORITY_LABELS: Record<TaskPriority, string> = {
@@ -94,9 +98,11 @@ export function TaskListItem({
     isChildrenCollapsed = false,
     isAddingSubtask = false,
     onToggleChildrenCollapse,
+    onTogglePin,
     selectionMode = false,
     isSelected = false,
     onToggleSelect,
+    showPermanentDelete = false,
 }: TaskListItemProps) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [sessionModalId, setSessionModalId] = useState<string | null>(null);
@@ -215,6 +221,17 @@ export function TaskListItem({
         }
     };
 
+    const handleArchiveTask = async () => {
+        setIsDeleting(true);
+        try {
+            await updateTask(task.id, { status: 'archived' });
+        } catch (error) {
+            console.error("Failed to archive task:", error);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const handleDeleteTask = async () => {
         setShowDeleteConfirm(true);
     };
@@ -252,7 +269,7 @@ export function TaskListItem({
         }
     };
 
-    const statusOptions: TaskStatus[] = ["todo", "in_progress", "in_review", "completed", "cancelled", "blocked"];
+    const statusOptions: TaskStatus[] = ["todo", "in_progress", "in_review", "completed", "cancelled", "blocked", "archived"];
     const priorityOptions: TaskPriority[] = ["high", "medium", "low"];
 
     const handleInlinePriorityChange = async (newPriority: TaskPriority) => {
@@ -484,6 +501,20 @@ export function TaskListItem({
                         {subtaskCount > 0 && (
                             <span className="terminalSubtaskCount">{subtaskCount}</span>
                         )}
+                    </button>
+
+                    {/* Pin button */}
+                    <button
+                        className={`terminalPinBtn ${task.pinned ? 'terminalPinBtn--pinned' : ''}`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onTogglePin?.();
+                        }}
+                        title={task.pinned ? "Unpin task" : "Pin task"}
+                    >
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill={task.pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9.828 1.172a2 2 0 0 1 2.828 0l2.172 2.172a2 2 0 0 1 0 2.828L12 9l-1 4-4-1L4.172 14.828 1.172 11.828 4 9l-1-4 4-1z" />
+                        </svg>
                     </button>
 
                     {/* Play button */}
@@ -737,16 +768,30 @@ export function TaskListItem({
                         >
                             View Details
                         </button>
-                        <button
-                            className="terminalDeleteBtn"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteTask();
-                            }}
-                            title="Delete task"
-                        >
-                            Delete Task
-                        </button>
+                        {showPermanentDelete ? (
+                            <button
+                                className="terminalDeleteBtn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteTask();
+                                }}
+                                title="Permanently delete task"
+                            >
+                                Delete Task
+                            </button>
+                        ) : (
+                            <button
+                                className="terminalArchiveBtn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleArchiveTask();
+                                }}
+                                title="Archive task"
+                                disabled={isDeleting}
+                            >
+                                {isDeleting ? 'Archiving...' : 'Archive Task'}
+                            </button>
+                        )}
                     </div>
                 </div>
             )}

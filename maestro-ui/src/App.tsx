@@ -36,6 +36,8 @@ import { AppSlidePanel } from "./components/AppSlidePanel";
 import { AppModals } from "./components/app/AppModals";
 import { AppWorkspace } from "./components/app/AppWorkspace";
 import { ConfirmActionModal } from "./components/modals/ConfirmActionModal";
+import { StartupSettingsOverlay } from "./components/StartupSettingsOverlay";
+import { STORAGE_SETUP_COMPLETE_KEY } from "./app/constants/defaults";
 
 // ---------------------------------------------------------------------------
 // App  (thin layout shell -- all domain state lives in Zustand stores)
@@ -59,6 +61,13 @@ export default function App() {
   const [confirmCloseAppOpen, setConfirmCloseAppOpen] = useState(false);
   const [confirmCloseAppBusy, setConfirmCloseAppBusy] = useState(false);
   const [runningSessionsByProject, setRunningSessionsByProject] = useState<RunningSessionsByProject[]>([]);
+  const [showStartupSettings, setShowStartupSettings] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_SETUP_COMPLETE_KEY) !== 'true';
+    } catch {
+      return true;
+    }
+  });
 
   // ---------- bootstrap stores & persistence ----------
   useEffect(() => {
@@ -488,6 +497,11 @@ export default function App() {
             )}
           </div>
         </>
+      )}
+
+      {/* -------- Startup Settings Overlay -------- */}
+      {showStartupSettings && (
+        <StartupSettingsOverlay onComplete={() => setShowStartupSettings(false)} />
       )}
 
       {/* -------- Command Palette -------- */}
