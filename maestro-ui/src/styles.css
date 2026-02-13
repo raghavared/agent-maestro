@@ -318,6 +318,88 @@ body {
   box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.2);
 }
 
+/* Add Project Menu */
+.projectAddMenuWrapper {
+  position: relative;
+}
+
+.projectAddMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 200px;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+}
+
+.projectAddMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.projectAddMenuItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+}
+
+.projectAddMenuItem + .projectAddMenuItem {
+  border-top: 1px solid var(--theme-border);
+}
+
+/* Saved Project List Items */
+.savedProjectItem {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.savedProjectItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.savedProjectItem + .savedProjectItem {
+  border-top: 1px solid var(--theme-border);
+}
+
+.savedProjectName {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--theme-primary);
+}
+
+.savedProjectPath {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Project Tab Settings Button */
 .projectTabSettingsBtn {
   display: flex;
@@ -430,6 +512,29 @@ body {
   height: 1px;
   background: var(--theme-border);
   margin: 0;
+}
+
+.projectSettingsCloseBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border: none;
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  color: rgba(var(--theme-primary-rgb), 0.8);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.projectSettingsCloseBtn:hover {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  color: var(--theme-primary);
+  text-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.5);
 }
 
 .projectSettingsDeleteBtn {

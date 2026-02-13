@@ -11,7 +11,8 @@
     "test": "jest --verbose",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:report": "jest --coverage --verbose && echo '\n✅ Test report generated: test-report.html\n✅ Coverage report: coverage/index.html'"
+    "test:report": "jest --coverage --verbose && echo '\n✅ Test report generated: test-report.html\n✅ Coverage report: coverage/index.html'",
+    "build:binary": "npx pkg dist/server.js --targets node20-macos-arm64 --output ../maestro-ui/src-tauri/binaries/maestro-server-aarch64-apple-darwin"
   },
   "keywords": [
     "maestro",
@@ -36,6 +37,7 @@
     "jest-html-reporter": "^3.10.2",
     "supertest": "^6.3.4",
     "ts-jest": "^29.1.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "@yao-pkg/pkg": "^5.11.0"
   }
 }

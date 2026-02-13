@@ -244,12 +244,7 @@ export class WhoamiRenderer {
           if (docs && docs.length > 0) {
             lines.push('**Docs:**');
             for (const doc of docs) {
-              lines.push(`- **${doc.title}** (${doc.filePath})`);
-              if (doc.content) {
-                lines.push('```');
-                lines.push(doc.content);
-                lines.push('```');
-              }
+              lines.push(`- **${doc.title}** — \`${doc.filePath}\``);
             }
             lines.push('');
           }

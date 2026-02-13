@@ -27,7 +27,7 @@ function deriveServerUrl(apiUrl: string): string {
 
 const WS_URL = import.meta.env.VITE_WS_URL || deriveWsUrl(API_BASE_URL);
 
-// Base server URL without /api path (e.g. "http://localhost:3001")
+// Base server URL without /api path (e.g. "http://localhost:2357")
 // Used for MAESTRO_API_URL env var passed to CLI workers
 const SERVER_URL = deriveServerUrl(API_BASE_URL);
 

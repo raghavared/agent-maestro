@@ -118,6 +118,9 @@ export default function App() {
   const selectProject = useProjectStore((s) => s.selectProject);
   const openNewProject = useProjectStore((s) => s.openNewProject);
   const checkAndDeleteProject = useProjectStore((s) => s.checkAndDeleteProject);
+  const closeProject = useProjectStore((s) => s.closeProject);
+  const fetchSavedProjects = useProjectStore((s) => s.fetchSavedProjects);
+  const reopenProject = useProjectStore((s) => s.reopenProject);
   const moveProject = useProjectStore((s) => s.moveProject);
 
   const activeProject = useMemo(
@@ -128,6 +131,14 @@ export default function App() {
   const handleDeleteProject = useCallback((projectId: string) => {
     void checkAndDeleteProject(projectId);
   }, [checkAndDeleteProject]);
+
+  const handleCloseProject = useCallback((projectId: string) => {
+    void closeProject(projectId);
+  }, [closeProject]);
+
+  const handleReopenProject = useCallback((projectId: string) => {
+    void reopenProject(projectId);
+  }, [reopenProject]);
 
   // ---------- sessions ----------
   const sessions = useSessionStore((s) => s.sessions);
@@ -327,6 +338,9 @@ export default function App() {
           onSelectProject={selectProject}
           onNewProject={openNewProject}
           onDeleteProject={handleDeleteProject}
+          onCloseProject={handleCloseProject}
+          onFetchSavedProjects={fetchSavedProjects}
+          onReopenProject={handleReopenProject}
           onMoveProject={moveProject}
         />
       )}

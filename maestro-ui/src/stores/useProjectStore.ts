@@ -48,6 +48,9 @@ interface ProjectState {
   onProjectSubmit: (e: React.FormEvent) => Promise<void>;
   checkAndDeleteProject: (projectId: string) => Promise<void>;
   deleteActiveProject: () => Promise<void>;
+  closeProject: (projectId: string) => Promise<void>;
+  fetchSavedProjects: () => Promise<MaestroProject[]>;
+  reopenProject: (projectId: string) => Promise<void>;
 }
 
 /**
@@ -346,6 +349,96 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       const nextProjectId = remaining[0].id;
       set({ projects: remaining, activeProjectId: nextProjectId, confirmDeleteProjectOpen: false, deleteProjectId: null });
       setActiveId(pickActiveSessionId(nextProjectId));
+    },
+
+    closeProject: async (projectId) => {
+      const { projects, activeProjectId } = get();
+      const project = projects.find((p) => p.id === projectId);
+      if (!project) return;
+
+      const {
+        sessions,
+        onClose,
+        setSessions,
+        setActiveId,
+      } = useSessionStore.getState();
+      const { reportError } = useUIStore.getState();
+
+      // Close all local sessions for this project
+      const projectSessions = sessions.filter((s) => s.projectId === projectId && !s.exited && !s.closing);
+      for (const s of projectSessions) {
+        try {
+          await onClose(s.id);
+        } catch (err) {
+          reportError('Failed to close session', err);
+        }
+      }
+
+      // Remove any remaining sessions from the UI
+      setSessions((prev) => prev.filter((s) => s.projectId !== projectId));
+      lastActiveByProject.delete(projectId);
+      set((s) => {
+        const next = { ...s.activeSessionByProject };
+        delete next[projectId];
+        return { activeSessionByProject: next };
+      });
+
+      // Remove project from UI (but NOT from server)
+      const remaining = projects.filter((p) => p.id !== projectId);
+      if (remaining.length === 0) {
+        set({ projects: [], activeProjectId: '' });
+        setActiveId(null);
+        return;
+      }
+
+      const nextProjectId = activeProjectId === projectId ? remaining[0].id : activeProjectId;
+      set({ projects: remaining, activeProjectId: nextProjectId });
+      if (activeProjectId === projectId) {
+        setActiveId(pickActiveSessionId(nextProjectId));
+      }
+    },
+
+    fetchSavedProjects: async () => {
+      const { projects } = get();
+      const openIds = new Set(projects.map((p) => p.id));
+      try {
+        const allProjects = await maestroClient.getProjects();
+        return allProjects.filter((p) => !openIds.has(p.id));
+      } catch {
+        return [];
+      }
+    },
+
+    reopenProject: async (projectId) => {
+      const { projects } = get();
+      if (projects.some((p) => p.id === projectId)) {
+        // Already open, just select it
+        get().selectProject(projectId);
+        return;
+      }
+
+      const { reportError } = useUIStore.getState();
+      const { setActiveId } = useSessionStore.getState();
+
+      try {
+        const serverProject = await maestroClient.getProject(projectId);
+        const project: MaestroProject = {
+          id: serverProject.id,
+          name: serverProject.name,
+          workingDir: serverProject.workingDir,
+          createdAt: serverProject.createdAt,
+          updatedAt: serverProject.updatedAt,
+          basePath: serverProject.workingDir,
+          environmentId: null,
+        };
+        set((s) => ({
+          projects: [...s.projects, project],
+          activeProjectId: project.id,
+        }));
+        setActiveId(null);
+      } catch (err) {
+        reportError('Failed to reopen project', err);
+      }
     },
   };
 });
