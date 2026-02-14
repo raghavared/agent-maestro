@@ -134,10 +134,11 @@ export class CodexSpawner {
     sessionId: string,
     options: SpawnOptions = {}
   ): Promise<SpawnResult> {
-    // Generate the full whoami output as the initial prompt
+    // Split prompt into system (static) and task (dynamic) layers
     const renderer = new WhoamiRenderer();
     const permissions = getPermissionsFromManifest(manifest);
-    const prompt = await renderer.render(manifest, permissions, sessionId);
+    const systemPrompt = renderer.renderSystemPrompt(manifest, permissions);
+    const taskContext = await renderer.renderTaskContext(manifest, sessionId);
 
     const env = {
       ...this.prepareEnvironment(manifest, sessionId),
@@ -145,7 +146,12 @@ export class CodexSpawner {
     };
 
     const args = this.buildCodexArgs(manifest);
-    args.push(prompt);
+
+    // Inject static role instructions via Codex config override
+    args.push('-c', `instructions=${systemPrompt}`);
+
+    // Dynamic task context as the prompt argument
+    args.push(taskContext);
 
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
 

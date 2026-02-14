@@ -768,7 +768,7 @@ export function TaskListItem({
                         >
                             View Details
                         </button>
-                        {showPermanentDelete ? (
+                        {task.status === 'archived' ? (
                             <button
                                 className="terminalDeleteBtn"
                                 onClick={(e) => {

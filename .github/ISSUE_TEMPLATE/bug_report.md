@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a bug in Agents UI
+about: Report a bug in Agent Maestro
 title: ""
 labels: bug
 assignees: ""
@@ -10,7 +10,7 @@ assignees: ""
 
 ## Environment
 
-- Agents UI version:
+- Agent Maestro version:
 - macOS version:
 - CPU: Apple Silicon / Intel
 - How installed/built (release build, `tauri dev`, etc.):

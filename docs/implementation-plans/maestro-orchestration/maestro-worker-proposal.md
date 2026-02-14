@@ -1,12 +1,12 @@
 Maestro Worker Skill Proposal: Task Orchestration via Claude Code
 Executive Summary
-This document outlines a proposed enhancement to the Maestro-Agents UI integration that introduces automated task execution using Claude Code instances orchestrated by a Maestro Worker Skill. Instead of manually running tasks, the system will automatically spawn Claude Code sessions with carefully engineered context, execute tasks with their subtasks, and track progress in real-time.
+This document outlines a proposed enhancement to the Maestro-Agent Maestro integration that introduces automated task execution using Claude Code instances orchestrated by a Maestro Worker Skill. Instead of manually running tasks, the system will automatically spawn Claude Code sessions with carefully engineered context, execute tasks with their subtasks, and track progress in real-time.
 
 Current State vs. Proposed State
 Current Architecture (From Integration Docs)
 User clicks "Work on Task" in UI
     ↓
-Agents UI creates terminal session
+Agent Maestro creates terminal session
     ↓
 Sets MAESTRO_TASK_ID, MAESTRO_SESSION_ID env vars
     ↓
@@ -1509,7 +1509,7 @@ Task ID: task_auth_001
 ┌─────────────────────────────────────────────────────────────────┐
 │ TIER 1: ORCHESTRATOR PHASE                                     │
 └─────────────────────────────────────────────────────────────────┘
-Step 1: Agents UI spawns orchestrator terminal
+Step 1: Agent Maestro spawns orchestrator terminal
     ↓
 Terminal Config:
   - Command: Claude Code
@@ -1564,7 +1564,7 @@ Step 6: Orchestrator terminal closes
 ┌─────────────────────────────────────────────────────────────────┐
 │ TIER 2: WORKER PHASE (Execution)                               │
 └─────────────────────────────────────────────────────────────────┘
-Step 7: Agents UI processes execution plan
+Step 7: Agent Maestro processes execution plan
     ↓
     Sees: Group 1 and 2 sequential, Group 3 parallel
     ↓
@@ -1603,7 +1603,7 @@ Step 9: Claude (Worker 1) executes Group 1
     ↓
 Step 10: WebSocket broadcasts "group:completed" (Group 1)
     ↓
-Step 11: Agents UI sees Group 1 done, starts Group 2 & 3
+Step 11: Agent Maestro sees Group 1 done, starts Group 2 & 3
     ↓
     Spawn Terminal 2 (Group 2: API Layer)
     Spawn Terminal 3 (Group 3: Testing)
@@ -1913,7 +1913,7 @@ Risk: Creating/managing Claude sessions is complex
 
 Solutions:
 
-Abstract terminal spawning: Reuse Agents UI's existing terminal system
+Abstract terminal spawning: Reuse Agent Maestro's existing terminal system
 Session pooling: Reuse terminals for sequential tasks
 Graceful failures: If session crashes, save progress
 Challenge 4: Prompt Injection/Size Limits
@@ -2015,7 +2015,7 @@ Core Philosophy:
 
 This approach leverages the strengths of each component:
 
-Agents UI: Terminal management, project context
+Agent Maestro: Terminal management, project context
 Maestro: Task tracking, status management
 Maestro Worker Skill: Status updates, progress reporting
 Claude Code: Autonomous task execution

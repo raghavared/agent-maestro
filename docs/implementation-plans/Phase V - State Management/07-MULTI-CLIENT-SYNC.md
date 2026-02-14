@@ -2,13 +2,13 @@
 
 ## Overview
 
-The Maestro architecture supports **real-time synchronization across multiple clients**. Any client that updates the Maestro Server state will trigger WebSocket events that update ALL connected clients, including the Agents UI.
+The Maestro architecture supports **real-time synchronization across multiple clients**. Any client that updates the Maestro Server state will trigger WebSocket events that update ALL connected clients, including the Agent Maestro.
 
 ---
 
 ## Supported Clients
 
-### 1. **Agents UI** (This Application)
+### 1. **Agent Maestro** (This Application)
 The primary UI for managing tasks and sessions.
 
 ### 2. **Maestro CLI**
@@ -226,7 +226,7 @@ const { tasks } = useTasks(projectId);
 
 ### Example 3: Another UI Tab Deletes Session
 
-**Scenario:** User has Agents UI open in two browser tabs. In Tab 1, they close a terminal session. Tab 2 should update immediately.
+**Scenario:** User has Agent Maestro open in two browser tabs. In Tab 1, they close a terminal session. Tab 2 should update immediately.
 
 **Tab 1:**
 ```typescript
@@ -527,13 +527,13 @@ useMaestroWebSocket({
 # Terminal 1: Start Maestro server
 $ npm run maestro:server
 
-# Terminal 2: Open Agents UI
+# Terminal 2: Open Agent Maestro
 $ npm run dev
 
 # Terminal 3: Use CLI to create task
 $ maestro task create "Test task from CLI" --priority high
 
-# ✅ Verify: Task appears in Agents UI immediately
+# ✅ Verify: Task appears in Agent Maestro immediately
 ```
 
 ---
@@ -541,7 +541,7 @@ $ maestro task create "Test task from CLI" --priority high
 ### Test Scenario 2: Multiple Browser Tabs
 
 ```
-1. Open Agents UI in Tab 1 and Tab 2
+1. Open Agent Maestro in Tab 1 and Tab 2
 2. In Tab 1: Work on a task (creates session)
 3. ✅ Verify: Session appears in Tab 2's SessionsSection
 4. In Tab 2: Close the session
@@ -553,7 +553,7 @@ $ maestro task create "Test task from CLI" --priority high
 ### Test Scenario 3: External API Call
 
 ```bash
-# While Agents UI is open, make API call with curl
+# While Agent Maestro is open, make API call with curl
 curl -X PATCH http://localhost:3000/api/tasks/task_abc123 \
   -H "Content-Type: application/json" \
   -d '{"status": "completed"}'
@@ -589,6 +589,6 @@ Updates appear instantly without user action.
 ✅ **ALL connected clients** receive WebSocket events
 ✅ **UI components** automatically update their caches
 ✅ **No user intervention** required
-✅ **Works across**: Agents UI, Maestro CLI, LLM APIs, external apps
+✅ **Works across**: Agent Maestro, Maestro CLI, LLM APIs, external apps
 
 **Result:** True real-time, multi-client synchronization! 🎉

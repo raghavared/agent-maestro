@@ -37,6 +37,8 @@ import { AppModals } from "./components/app/AppModals";
 import { AppWorkspace } from "./components/app/AppWorkspace";
 import { ConfirmActionModal } from "./components/modals/ConfirmActionModal";
 import { StartupSettingsOverlay } from "./components/StartupSettingsOverlay";
+import { Board } from "./components/maestro/MultiProjectBoard";
+import { createMaestroSession } from "./services/maestroService";
 import { STORAGE_SETUP_COMPLETE_KEY } from "./app/constants/defaults";
 
 // ---------------------------------------------------------------------------
@@ -68,6 +70,37 @@ export default function App() {
       return true;
     }
   });
+  const [showMultiProjectBoard, setShowMultiProjectBoard] = useState(false);
+
+  // Keyboard shortcut for multi-project board (Cmd/Ctrl+Shift+B)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "b") {
+        e.preventDefault();
+        setShowMultiProjectBoard((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Global drag-and-drop prevention: stop the browser/Tauri from showing the
+  // OS copy cursor (arrow + plus) during in-app HTML5 drag operations.
+  useEffect(() => {
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    };
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+    };
+    document.addEventListener("dragover", onDragOver);
+    document.addEventListener("drop", onDrop);
+    return () => {
+      document.removeEventListener("dragover", onDragOver);
+      document.removeEventListener("drop", onDrop);
+    };
+  }, []);
 
   // ---------- bootstrap stores & persistence ----------
   useEffect(() => {
@@ -231,6 +264,21 @@ export default function App() {
     useSshStore.getState().setSshManagerOpen(true);
   }, [setProjectOpen, setNewOpen]);
 
+  // ---------- multi-project board callbacks ----------
+  const updateTask = useMaestroStore((s) => s.updateTask);
+  const handleBoardSelectTask = useCallback((_taskId: string, projectId: string) => {
+    selectProject(projectId);
+    setShowMultiProjectBoard(false);
+  }, [selectProject]);
+
+  const handleBoardUpdateTaskStatus = useCallback((taskId: string, status: import("./app/types/maestro").TaskStatus) => {
+    void updateTask(taskId, { status });
+  }, [updateTask]);
+
+  const handleBoardWorkOnTask = useCallback((task: import("./app/types/maestro").MaestroTask, project: import("./app/types/maestro").MaestroProject) => {
+    void createMaestroSession({ task, project, role: "worker", strategy: "simple" });
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     let unlisten: null | (() => void) = null;
@@ -351,6 +399,7 @@ export default function App() {
           onFetchSavedProjects={fetchSavedProjects}
           onReopenProject={handleReopenProject}
           onMoveProject={moveProject}
+          onOpenMultiProjectBoard={() => setShowMultiProjectBoard(true)}
         />
       )}
 
@@ -502,6 +551,17 @@ export default function App() {
       {/* -------- Startup Settings Overlay -------- */}
       {showStartupSettings && (
         <StartupSettingsOverlay onComplete={() => setShowStartupSettings(false)} />
+      )}
+
+      {/* -------- Multi-Project Board -------- */}
+      {showMultiProjectBoard && (
+        <Board
+          onClose={() => setShowMultiProjectBoard(false)}
+          onSelectTask={handleBoardSelectTask}
+          onUpdateTaskStatus={handleBoardUpdateTaskStatus}
+          onWorkOnTask={handleBoardWorkOnTask}
+          onCreateMaestroSession={createMaestroSession}
+        />
       )}
 
       {/* -------- Command Palette -------- */}

@@ -7,7 +7,7 @@ This document illustrates a complete end-to-end scenario to demonstrate how Maes
 
 ## 1. Trigger & Orchestration (Tier 1)
 
-1.  **User** types the request in Agents UI.
+1.  **User** types the request in Agent Maestro.
 2.  **Maestro Server** creates `Task #101`: "Refactor Login.tsx".
 3.  **Server** calls `maestro-orchestrator`.
 4.  **Orchestrator Agent**:

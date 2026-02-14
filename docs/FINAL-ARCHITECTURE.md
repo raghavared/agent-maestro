@@ -466,7 +466,7 @@ router.post('/spawn', async (req, res) => {
     res.status(201).json({
       success: true,
       sessionId: session.id,
-      message: 'Spawn request sent to Agents UI',
+      message: 'Spawn request sent to Agent Maestro',
       session: createdSession,
     });
 

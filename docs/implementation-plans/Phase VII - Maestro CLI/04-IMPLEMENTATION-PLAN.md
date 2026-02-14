@@ -33,9 +33,9 @@ This plan outlines the steps to build and integrate the Maestro CLI.
 2.  Run CLI commands against it.
 3.  Verify JSON output validity (using `jq` or test scripts).
 
-## Step 5: Integration with Agents UI (Phase VI Dependency)
-1.  Ensure Agents UI spawns terminals with correct `MAESTRO_*` environment variables.
-2.  Test that a terminal inside Agents UI can run `maestro whoami` and see the correct session ID.
+## Step 5: Integration with Agent Maestro (Phase VI Dependency)
+1.  Ensure Agent Maestro spawns terminals with correct `MAESTRO_*` environment variables.
+2.  Test that a terminal inside Agent Maestro can run `maestro whoami` and see the correct session ID.
 
 ## Step 6: LLM "Prompt Engineering"
 1.  Update the System Prompt for the LLM Agent.

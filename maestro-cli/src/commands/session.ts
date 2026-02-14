@@ -324,7 +324,7 @@ export function registerSessionCommands(program: Command) {
                     console.log(`   Priority: ${task.priority}`);
                     console.log(`   Session ID: ${result.sessionId}`);
                     console.log('');
-                    console.log('   Waiting for Agents UI to open terminal window...');
+                    console.log('   Waiting for Agent Maestro to open terminal window...');
                 }
             } catch (err) {
                 if (isJson) {

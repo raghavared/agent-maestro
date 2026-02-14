@@ -637,7 +637,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         success: true,
         sessionId: session.id,
         manifestPath,
-        message: 'Spawn request sent to Agents UI',
+        message: 'Spawn request sent to Agent Maestro',
         session: { ...session, env: finalEnvVars }
       });
     } catch (err: any) {

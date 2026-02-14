@@ -4,7 +4,7 @@
 
 The Maestro Co-Pilot system consists of three main components:
 1.  **Maestro Server**: The brain and database. Stores tasks, projects, and logs.
-2.  **Agents UI**: The frontend. Manages terminal emulators (PTY) and displays the UI.
+2.  **Agent Maestro**: The frontend. Manages terminal emulators (PTY) and displays the UI.
 3.  **Maestro CLI + Worker Skill**: The "agent-side" tooling running inside the terminal.
 
 ## 2. The Orchestration Lifecycle

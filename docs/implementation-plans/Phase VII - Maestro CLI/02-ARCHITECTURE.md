@@ -12,7 +12,7 @@
 
 ## Context Injection
 
-When the Agents UI spawns a terminal session (Phase VI), it injects environment variables. The CLI reads these to set defaults.
+When the Agent Maestro spawns a terminal session (Phase VI), it injects environment variables. The CLI reads these to set defaults.
 
 ### Environment Variables
 

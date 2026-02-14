@@ -193,7 +193,7 @@ curl -X POST http://localhost:3000/api/sessions/spawn \
   "success": true,
   "sessionId": "ses_abc123",
   "manifestPath": "/Users/user/.maestro/sessions/ses_abc123/manifest.json",
-  "message": "Spawn request sent to Agents UI",
+  "message": "Spawn request sent to Agent Maestro",
   "session": {
     "id": "ses_abc123",
     "projectId": "proj_abc123",
@@ -567,7 +567,7 @@ router.post('/sessions/spawn', async (req, res) => {
     success: true,
     sessionId: session.id,
     manifestPath,
-    message: 'Spawn request sent to Agents UI',
+    message: 'Spawn request sent to Agent Maestro',
     session: { ...session, env: finalEnvVars }
   });
 });

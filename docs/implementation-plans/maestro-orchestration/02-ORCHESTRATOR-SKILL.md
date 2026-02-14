@@ -115,4 +115,4 @@ Since the Orchestrator analyzes the codebase, the planning phase can take **10-6
     *   Once planning completes, the UI transitions immediately to "Spawning Workers".
 
 ### Implementation
-The Agents UI should subscribe to `task:planning_start` and `task:planning_complete` events via WebSocket to manage this specific overlay.
+The Agent Maestro should subscribe to `task:planning_start` and `task:planning_complete` events via WebSocket to manage this specific overlay.

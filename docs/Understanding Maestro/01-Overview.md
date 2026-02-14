@@ -42,7 +42,7 @@ Maestro uses a two-tier approach to manage complexity:
 
 ## The Orchestration Flow
 
-1.  **User Request**: User creates a prompt in Agents UI (e.g., "Refactor the API").
+1.  **User Request**: User creates a prompt in Agent Maestro (e.g., "Refactor the API").
 2.  **Orchestrator Session**: Maestro spawns a hidden or visible session for the Orchestrator Agent.
 3.  **Planning**: The Orchestrator analyzes the request and creates a plan.
 4.  **Task Creation**: Maestro Server creates the subtask tree in the database based on the plan.

@@ -8,7 +8,7 @@ A one-page visual reference for the entire Maestro Server architecture.
 graph TB
     subgraph "👤 User Layer"
         User[Developer]
-        UI[Agents UI]
+        UI[Agent Maestro]
     end
 
     subgraph "⚡ CLI Layer (Brain)"

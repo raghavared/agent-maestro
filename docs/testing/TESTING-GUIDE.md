@@ -14,7 +14,7 @@ Maestro Server running on http://localhost:3000
 WebSocket server ready
 ```
 
-### 2. Start the Agents UI
+### 2. Start the Agent Maestro
 ```bash
 npm run dev
 ```
@@ -107,7 +107,7 @@ Local: http://localhost:1420/
 ### Phase 3: Multi-Client Sync (10 min)
 
 #### Test 3.1: Browser Tab Sync
-1. Open Agents UI in two browser tabs (Tab A and Tab B)
+1. Open Agent Maestro in two browser tabs (Tab A and Tab B)
 2. In Tab A: Create a new task
 
 **Expected in Tab B:**

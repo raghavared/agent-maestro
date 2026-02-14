@@ -715,6 +715,123 @@ body {
   font-size: 11px;
 }
 
+/* ---- Display Settings ---- */
+
+.displaySettings {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.displaySettingsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.displaySettingsLabel {
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.displaySettingsHint {
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.displaySettingsOptions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.displaySettingsOption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  border: 1px solid var(--theme-border);
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.displaySettingsOption:hover {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border-color: rgba(var(--theme-primary-rgb), 0.4);
+  color: var(--theme-primary);
+}
+
+.displaySettingsOptionActive {
+  border-color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.2);
+}
+
+.displaySettingsOptionLabel {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.displaySettingsOptionScale {
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+.displaySettingsPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.displaySettingsPreviewLabel {
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.displaySettingsPreviewBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--theme-border);
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--theme-primary);
+}
+
+.displaySettingsReset {
+  align-self: flex-start;
+  padding: 6px 14px;
+  border: 1px solid var(--theme-border);
+  background: transparent;
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.displaySettingsReset:hover {
+  border-color: rgba(var(--theme-primary-rgb), 0.4);
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
 .appShortcutsHeader {
   color: rgba(var(--theme-primary-rgb), 0.72);
   font-size: 11px;
@@ -1993,7 +2110,7 @@ body {
 .terminalContainer {
   position: absolute;
   inset: 0;
-  padding: 10px;
+  padding: 10px 0 10px 10px;
 }
 
 .terminalHidden {
@@ -7607,7 +7724,7 @@ select.input {
 /* Content area */
 .terminalContent {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: overlay;
   overflow-x: hidden;
   padding: 16px;
   position: relative;
@@ -7615,50 +7732,68 @@ select.input {
   min-width: 0;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar — overlaid, hidden until hover */
 .terminalContent::-webkit-scrollbar {
   width: 8px;
 }
 
 .terminalContent::-webkit-scrollbar-track {
-  background: rgba(var(--theme-primary-rgb), 0.05);
+  background: transparent;
 }
 
 .terminalContent::-webkit-scrollbar-thumb {
-  background: var(--terminal-border);
+  background: transparent;
   border-radius: 0;
 }
 
-.terminalContent::-webkit-scrollbar-thumb:hover {
+.terminalContent:hover::-webkit-scrollbar-thumb {
+  background: var(--terminal-border);
+}
+
+.terminalContent:hover::-webkit-scrollbar-thumb:hover {
   background: var(--terminal-green-dim);
 }
 
-/* Custom scrollbar for xterm viewport */
+/* Custom scrollbar for xterm viewport — overlaid, hidden until hover */
 .xterm-viewport::-webkit-scrollbar {
   width: 8px;
 }
 
 .xterm-viewport::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: transparent;
 }
 
 .xterm-viewport::-webkit-scrollbar-thumb {
-  background: rgba(var(--theme-primary-rgb), 0.3);
+  background: transparent;
   border-radius: 0;
 }
 
-.xterm-viewport::-webkit-scrollbar-thumb:hover {
+/* Show scrollbar only when hovering over the terminal pane */
+.terminalPane:hover .xterm-viewport::-webkit-scrollbar-thumb {
+  background: rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.terminalPane:hover .xterm-viewport::-webkit-scrollbar-thumb:hover {
   background: rgba(var(--theme-primary-rgb), 0.5);
 }
 
-.xterm-viewport::-webkit-scrollbar-thumb:active {
+.terminalPane:hover .xterm-viewport::-webkit-scrollbar-thumb:active {
   background: rgba(var(--theme-primary-rgb), 0.6);
 }
 
 /* Firefox scrollbar support */
 .xterm-viewport {
   scrollbar-width: thin;
-  scrollbar-color: rgba(var(--theme-primary-rgb), 0.3) rgba(0, 0, 0, 0.2);
+  scrollbar-color: transparent transparent;
+}
+
+.terminalPane:hover .xterm-viewport {
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.3) transparent;
+}
+
+/* Overlay scrollbar: don't consume layout space */
+.xterm-viewport {
+  overflow-y: overlay !important;
 }
 
 /* Loading state */
@@ -16118,7 +16253,7 @@ select.input {
 
 .taskBoardTitle {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.1em;
   color: var(--theme-primary);
@@ -16126,15 +16261,15 @@ select.input {
 }
 
 .taskBoardTitleSymbol {
-  font-size: 14px;
+  font-size: 16px;
   margin-right: 4px;
 }
 
 .taskBoardProjectName {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   color: rgba(var(--theme-primary-rgb), 0.4);
-  padding: 2px 8px;
+  padding: 3px 10px;
   border: 1px solid rgba(var(--theme-primary-rgb), 0.15);
   border-radius: 3px;
 }
@@ -16143,7 +16278,7 @@ select.input {
   display: flex;
   gap: 14px;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .taskBoardStat {
@@ -16162,13 +16297,13 @@ select.input {
   background: transparent;
   border: 1px solid var(--theme-border, rgba(255,255,255,0.08));
   color: rgba(var(--theme-primary-rgb), 0.5);
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
   font-family: 'JetBrains Mono', monospace;
   transition: all 0.15s ease;
   border-radius: 4px;
@@ -16210,7 +16345,9 @@ select.input {
 }
 
 .taskBoardColumn--dragOver {
-  background: rgba(var(--theme-primary-rgb), 0.05);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  box-shadow: inset 0 0 0 1px rgba(var(--theme-primary-rgb), 0.2);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .taskBoardColumnCollapsed {
@@ -16232,7 +16369,7 @@ select.input {
 
 .taskBoardColumnCollapsedLabel {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 14px;
+  font-size: 16px;
   color: rgba(var(--theme-primary-rgb), 0.4);
   writing-mode: vertical-rl;
   text-orientation: mixed;
@@ -16240,7 +16377,7 @@ select.input {
 
 .taskBoardColumnCollapsedCount {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--theme-primary);
   background: rgba(var(--theme-primary-rgb), 0.15);
   padding: 2px 6px;
@@ -16254,8 +16391,8 @@ select.input {
 .taskBoardColumnHeader {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.08));
   cursor: pointer;
   user-select: none;
@@ -16267,7 +16404,7 @@ select.input {
 }
 
 .taskBoardColumnDot {
-  font-size: 12px;
+  font-size: 14px;
   font-family: 'JetBrains Mono', monospace;
 }
 
@@ -16287,7 +16424,7 @@ select.input {
 
 .taskBoardColumnLabel {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.1em;
   color: rgba(var(--theme-primary-rgb), 0.6);
@@ -16297,12 +16434,12 @@ select.input {
 
 .taskBoardColumnCount {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--theme-primary);
   background: rgba(var(--theme-primary-rgb), 0.1);
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 8px;
-  min-width: 18px;
+  min-width: 22px;
   text-align: center;
 }
 
@@ -16311,10 +16448,10 @@ select.input {
 .taskBoardColumnBody {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   scrollbar-width: thin;
   scrollbar-color: rgba(var(--theme-primary-rgb), 0.1) transparent;
 }
@@ -16329,9 +16466,17 @@ select.input {
 
 .taskBoardColumnEmptyText {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-size: 12px;
   color: rgba(var(--theme-primary-rgb), 0.2);
   text-transform: lowercase;
+}
+
+/* ── Drag-active body cursor override ── */
+body.dragging-active,
+body.dragging-active * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 /* ── Task Card ── */
@@ -16357,8 +16502,24 @@ select.input {
 }
 
 .taskBoardCard--dragging {
-  opacity: 0.4;
-  transform: scale(0.98);
+  opacity: 0.25;
+  transform: scale(0.97);
+  border-style: dashed;
+  border-color: rgba(var(--theme-primary-rgb), 0.3);
+}
+
+/* ── Drag Ghost ── */
+
+.dragGhostCard {
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.5))
+          drop-shadow(0 0 12px rgba(var(--theme-primary-rgb), 0.15));
+}
+
+.taskBoardCard--ghost {
+  border-color: rgba(var(--theme-primary-rgb), 0.4);
+  box-shadow: 0 0 16px rgba(var(--theme-primary-rgb), 0.12),
+              inset 0 0 0 1px rgba(var(--theme-primary-rgb), 0.1);
+  background: var(--panel, #10151e);
 }
 
 .taskBoardCard--active {
@@ -16398,21 +16559,21 @@ select.input {
 
 .taskBoardCardContent {
   flex: 1;
-  padding: 8px 10px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
   min-width: 0;
 }
 
 .taskBoardCardTitle {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--theme-text, #f0f4f8);
-  line-height: 1.4;
+  line-height: 1.45;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
@@ -16428,9 +16589,9 @@ select.input {
 .taskBoardCardMeta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .taskBoardCardPriority {
@@ -16457,15 +16618,15 @@ select.input {
 .taskBoardCardSessions {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.4);
 }
 
 .taskBoardCardSessionDot {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: rgba(var(--theme-primary-rgb), 0.3);
 }
@@ -16486,9 +16647,9 @@ select.input {
   background: transparent;
   border: 1px solid var(--theme-border, rgba(255,255,255,0.08));
   color: rgba(var(--theme-primary-rgb), 0.5);
-  padding: 3px 8px;
+  padding: 4px 10px;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-size: 11px;
   cursor: pointer;
   transition: all 0.15s ease;
   border-radius: 3px;
@@ -16522,10 +16683,10 @@ select.input {
   border: none;
   color: rgba(var(--theme-primary-rgb), 0.4);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.05em;
-  padding: 4px 12px;
+  padding: 6px 14px;
   cursor: pointer;
   transition: all 0.15s ease;
   border-radius: 3px;
@@ -16546,7 +16707,7 @@ select.input {
 }
 
 .taskBoardTabSymbol {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 /* ── Sessions Board ── */
@@ -16561,7 +16722,7 @@ select.input {
 
 .sessionBoardEmptyText {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   color: rgba(var(--theme-primary-rgb), 0.2);
   text-transform: lowercase;
 }
@@ -16605,6 +16766,12 @@ select.input {
   flex-direction: column;
   gap: 4px;
   flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.sessionColumnHeader:hover {
+  background: rgba(var(--theme-primary-rgb), 0.05);
 }
 
 .sessionColumnHeaderTop {
@@ -16614,7 +16781,7 @@ select.input {
 }
 
 .sessionColumnStatusDot {
-  font-size: 12px;
+  font-size: 14px;
   font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
 }
@@ -16625,7 +16792,7 @@ select.input {
 
 .sessionColumnName {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--theme-text, #f0f4f8);
   flex: 1;
@@ -16636,7 +16803,7 @@ select.input {
 
 .sessionColumnTaskCount {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-size: 11px;
   color: var(--theme-primary);
   background: rgba(var(--theme-primary-rgb), 0.1);
   padding: 1px 6px;
@@ -16653,13 +16820,13 @@ select.input {
 
 .sessionColumnMeta {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.35);
 }
 
 .sessionColumnDuration {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.35);
 }
 
@@ -16690,8 +16857,8 @@ select.input {
 
 .sessionColumnToggleBtn {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  padding: 2px 6px;
+  font-size: 11px;
+  padding: 3px 8px;
   border: 1px solid var(--theme-border, rgba(255,255,255,0.08));
   border-radius: 3px;
   background: transparent;
@@ -16757,7 +16924,7 @@ select.input {
 
 .sessionColumnSectionLabel {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
   color: rgba(var(--theme-primary-rgb), 0.3);
@@ -16767,7 +16934,7 @@ select.input {
 
 .sessionColumnTasksEmpty {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-size: 12px;
   color: rgba(var(--theme-primary-rgb), 0.2);
   padding: 8px 4px;
   text-align: center;
@@ -16794,13 +16961,13 @@ select.input {
 
 .sessionTaskCardSymbol {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   flex-shrink: 0;
 }
 
 .sessionTaskCardTitle {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--theme-text, #f0f4f8);
   flex: 1;
   overflow: hidden;
@@ -16810,8 +16977,700 @@ select.input {
 
 .sessionTaskCardStatus {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;
   flex-shrink: 0;
+}
+
+/* ============================================================ */
+/* ── Multi-Project Board                                     ── */
+/* ============================================================ */
+
+.mpbOverlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10000;
+  background: var(--bg, #0a0e16);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  animation: taskBoardSlideIn 0.2s ease-out;
+}
+
+.mpbContainer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--bg, #0a0e16);
+  overflow: hidden;
+}
+
+/* ── MPB Header ── */
+
+.mpbHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  flex-shrink: 0;
+}
+
+.mpbHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.mpbProjectCount {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  padding: 3px 10px;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  border-radius: 3px;
+}
+
+.mpbLayoutToggle {
+  display: flex;
+  gap: 2px;
+  background: rgba(var(--theme-primary-rgb), 0.06);
+  border-radius: 3px;
+  padding: 2px;
+}
+
+.mpbLayoutBtn {
+  background: transparent;
+  border: none;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-radius: 2px;
+}
+
+.mpbLayoutBtn:hover {
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  background: rgba(var(--theme-primary-rgb), 0.06);
+}
+
+.mpbLayoutBtn--active {
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.12);
+}
+
+/* ── MPB Body ── */
+
+.mpbBody {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.mpbContent {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── MPB Sidebar ── */
+
+.mpbSidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--bg, #0a0e16);
+  border-right: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mpbSidebar--collapsed {
+  width: 40px;
+  align-items: center;
+  padding-top: 8px;
+}
+
+.mpbSidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+}
+
+.mpbSidebarTitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(var(--theme-primary-rgb), 0.6);
+}
+
+.mpbSidebarToggle {
+  background: transparent;
+  border: none;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px;
+  transition: color 0.15s ease;
+}
+
+.mpbSidebarToggle:hover {
+  color: var(--theme-primary);
+}
+
+.mpbSidebarCollapsedDots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.mpbSidebarDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  transition: all 0.15s ease;
+}
+
+.mpbSidebarDot--selected {
+  box-shadow: 0 0 4px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.mpbSidebarSelectAll {
+  padding: 8px 12px;
+}
+
+.mpbSidebarDivider {
+  height: 1px;
+  background: var(--theme-border, rgba(255,255,255,0.08));
+  margin: 0 12px;
+}
+
+.mpbSidebarList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.1) transparent;
+}
+
+/* ── Checkbox & Project Item ── */
+
+.mpbCheckboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.mpbCheckbox {
+  display: none;
+}
+
+.mpbCheckboxCustom {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+  border-radius: 2px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.mpbCheckbox:checked + .mpbCheckboxCustom {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  border-color: var(--theme-primary);
+}
+
+.mpbCheckbox:checked + .mpbCheckboxCustom::after {
+  content: '✓';
+  font-size: 10px;
+  color: var(--theme-primary);
+}
+
+.mpbSelectAllText {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.mpbProjectItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.mpbProjectItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.mpbProjectItem--selected {
+  background: rgba(var(--theme-primary-rgb), 0.06);
+}
+
+.mpbProjectColor {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mpbProjectName {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--theme-text, #f0f4f8);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mpbProjectStats {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mpbProjectStatItem {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.35);
+}
+
+/* ── Grouped View ── */
+
+.mpbGroupedView {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.1) transparent;
+}
+
+.mpbProjectRow {
+  border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+}
+
+.mpbProjectRowHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.mpbProjectRowHeader:hover {
+  background: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.mpbProjectRowColor {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mpbProjectRowName {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-text, #f0f4f8);
+  flex: 1;
+}
+
+.mpbProjectRowCount {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.mpbProjectRowChevron {
+  font-size: 10px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  transition: transform 0.2s ease;
+}
+
+.mpbProjectRowChevron--collapsed {
+  transform: rotate(-90deg);
+}
+
+/* ── Kanban Columns in Grouped View ── */
+
+.mpbProjectRowColumns {
+  display: flex;
+  gap: 1px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  min-height: 120px;
+}
+
+.mpbKanbanColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg, #0a0e16);
+  border-right: 1px solid rgba(var(--theme-primary-rgb), 0.05);
+  transition: background 0.2s ease;
+}
+
+.mpbKanbanColumn:last-child {
+  border-right: none;
+}
+
+.mpbKanbanColumn--dragOver {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.mpbKanbanColumnHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.05);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.mpbKanbanColumnHeader:hover {
+  background: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.mpbKanbanColumnLabel {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.mpbKanbanColumnCount {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.mpbKanbanColumnBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.1) transparent;
+}
+
+.mpbKanbanColumnEmpty {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.15);
+  text-align: center;
+  padding: 12px 0;
+}
+
+/* ── Project Badge ── */
+
+.mpbProjectBadge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border: 1px solid;
+  border-radius: 2px;
+  align-self: flex-start;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* ── Empty States ── */
+
+.mpbEmptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 200px;
+}
+
+.mpbEmptyText {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: rgba(var(--theme-primary-rgb), 0.2);
+  text-transform: lowercase;
+}
+
+.mpbSessionsEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 200px;
+}
+
+/* ── Sessions View ── */
+
+.mpbSessionsView {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.1) transparent;
+}
+
+.mpbSessionProjectGroup {
+  border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.mpbSessionProjectHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(var(--theme-primary-rgb), 0.02);
+}
+
+.mpbSessionProjectName {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-text, #f0f4f8);
+  flex: 1;
+}
+
+.mpbSessionProjectCount {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.mpbSessionColumns {
+  display: flex;
+  gap: 1px;
+  overflow-x: auto;
+  padding: 0;
+  flex: 1;
+  min-height: 400px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.15) transparent;
+}
+
+.mpbSessionColumns .sessionBoardColumn {
+  flex: 1 1 0;
+  min-width: 80px;
+  max-width: none;
+  min-height: 100%;
+}
+
+/* ── Collapsed Kanban Column (grouped view) ── */
+
+.mpbKanbanColumnCollapsed {
+  flex: 0 0 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0;
+  background: var(--bg, #0a0e16);
+  border-right: 1px solid rgba(var(--theme-primary-rgb), 0.05);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.mpbKanbanColumnCollapsed:hover {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.mpbKanbanColumnCollapsedSymbol {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.mpbKanbanColumnCollapsedCount {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  padding: 2px 6px;
+  border-radius: 6px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* ── Session Resize Handle ── */
+
+.mpbSessionResizeHandle {
+  flex: 0 0 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.mpbSessionResizeHandle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 1px;
+  width: 2px;
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  transition: background 0.15s ease;
+}
+
+.mpbSessionResizeHandle:hover::after {
+  background: rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.mpbSessionResizeHandle:active::after {
+  background: var(--theme-primary);
+}
+
+/* ── Collapsed Session Column ── */
+
+.mpbSessionColumnCollapsed {
+  flex: 0 0 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  min-height: 100%;
+  background: var(--bg, #0a0e16);
+  border-right: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.mpbSessionColumnCollapsed:hover {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.mpbSessionColumnCollapsedDot {
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.mpbSessionColumnCollapsedName {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  max-height: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Unified Sessions View ── */
+
+.mpbSessionColumns--unified {
+  flex-wrap: nowrap;
+  min-height: 100%;
+}
+
+.mpbUnifiedSessionWrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 80px;
+  min-height: 100%;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+  border: 2px solid transparent;
+  border-radius: 6px;
+}
+
+.mpbUnifiedSessionWrapper--dragOver {
+  border-color: var(--theme-primary, #00d9ff);
+  background: rgba(var(--theme-primary-rgb), 0.03);
+}
+
+.mpbUnifiedSessionWrapper--dragging {
+  opacity: 0.4;
+}
+
+.mpbUnifiedSessionBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  border-bottom: 2px solid rgba(var(--theme-primary-rgb), 0.1);
+  cursor: grab;
+  user-select: none;
+}
+
+.mpbUnifiedSessionBadge:active {
+  cursor: grabbing;
+}
+
+.mpbUnifiedSessionBadgeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mpbUnifiedSessionBadgeName {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-text, #f0f4f8);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mpbUnifiedSessionDragHandle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.25);
+  letter-spacing: -2px;
+  cursor: grab;
+  transition: color 0.15s ease;
+}
+
+.mpbUnifiedSessionDragHandle:hover {
+  color: rgba(var(--theme-primary-rgb), 0.6);
+}
+
+.mpbUnifiedSessionWrapper .sessionBoardColumn {
+  border-top: none;
+  border-radius: 0 0 6px 6px;
 }

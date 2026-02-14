@@ -8,7 +8,7 @@ Visual representation of the system architecture, component interactions, and da
 flowchart TB
     subgraph "User Layer"
         User[👤 Developer]
-        UI[🖥️ Agents UI<br/>React/TypeScript]
+        UI[🖥️ Agent Maestro<br/>React/TypeScript]
     end
 
     subgraph "CLI Layer"
@@ -408,7 +408,7 @@ flowchart TB
 ```mermaid
 flowchart TB
     subgraph LocalMachine[Developer Machine]
-        Browser[Web Browser<br/>Agents UI]
+        Browser[Web Browser<br/>Agent Maestro]
         Terminal1[Terminal 1<br/>Orchestrator Session]
         Terminal2[Terminal 2<br/>Worker Session 1]
         Terminal3[Terminal 3<br/>Worker Session 2]
@@ -428,7 +428,7 @@ flowchart TB
 ```mermaid
 flowchart TB
     subgraph DevMachine[Developer Machine]
-        UI[Agents UI<br/>localhost:5173]
+        UI[Agent Maestro<br/>localhost:5173]
     end
 
     subgraph DockerHost[Docker Host]

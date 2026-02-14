@@ -9,7 +9,7 @@ import { useTasks } from "../../hooks/useTasks";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useTaskTree } from "../../hooks/useTaskTree";
 import { useUIStore } from "../../stores/useUIStore";
-import { TaskBoardOverlay } from "./TaskBoardOverlay";
+import { Board } from "./MultiProjectBoard";
 
 type PanelTab = "tasks" | "pinned" | "completed" | "archived";
 
@@ -544,7 +544,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         return (
             <React.Fragment key={node.id}>
                 {taskItem}
-                {!isCollapsed && node.children.map(child => renderTaskNode(child, depth + 1))}
+                {!isCollapsed && node.children.map(child => renderTaskNode(child, depth + 1, options))}
                 {subtaskInput}
             </React.Fragment>
         );
@@ -567,7 +567,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         <span className="maestroPanelTabIcon">▸</span>
                         Tasks
                         <span className="maestroPanelTabCount">
-                            {normalizedTasks.filter(t => t.status !== 'completed' && t.status !== 'archived').length}
+                            {roots.filter(t => t.status !== 'completed' && t.status !== 'archived').length}
                         </span>
                     </button>
                     <button
@@ -577,7 +577,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         <span className="maestroPanelTabIcon">▸</span>
                         Pinned
                         <span className="maestroPanelTabCount">
-                            {normalizedTasks.filter(t => t.pinned).length}
+                            {roots.filter(t => t.pinned).length}
                         </span>
                     </button>
                     <button
@@ -587,7 +587,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         <span className="maestroPanelTabIcon">▸</span>
                         Completed
                         <span className="maestroPanelTabCount">
-                            {normalizedTasks.filter(t => t.status === 'completed').length}
+                            {roots.filter(t => t.status === 'completed').length}
                         </span>
                     </button>
                     <button
@@ -597,7 +597,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         <span className="maestroPanelTabIcon">▸</span>
                         Archived
                         <span className="maestroPanelTabCount">
-                            {normalizedTasks.filter(t => t.status === 'archived').length}
+                            {roots.filter(t => t.status === 'archived').length}
                         </span>
                     </button>
                 </div>
@@ -896,18 +896,18 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             )}
 
             {showBoard && (
-                <TaskBoardOverlay
-                    tasks={normalizedTasks}
-                    projectName={project.name}
+                <Board
+                    focusProjectId={projectId}
                     onClose={() => setShowBoard(false)}
-                    onSelectTask={(taskId) => {
+                    onSelectTask={(taskId, _projectId) => {
                         setSelectedTaskId(taskId);
                         setShowDetailModal(true);
                     }}
                     onUpdateTaskStatus={(taskId, status) => {
                         void handleUpdateTask(taskId, { status });
                     }}
-                    onWorkOnTask={handleWorkOnTask}
+                    onWorkOnTask={(task, _project) => handleWorkOnTask(task)}
+                    onCreateMaestroSession={onCreateMaestroSession}
                 />
             )}
 

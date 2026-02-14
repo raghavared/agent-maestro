@@ -2,7 +2,7 @@
 
 ## Overview
 
-Phase V establishes a **consistent, simple, and powerful** state management architecture for the Agents UI application. This ensures reliable synchronization between the UI state, Maestro server state, and terminal sessions.
+Phase V establishes a **consistent, simple, and powerful** state management architecture for the Agent Maestro application. This ensures reliable synchronization between the UI state, Maestro server state, and terminal sessions.
 
 ---
 

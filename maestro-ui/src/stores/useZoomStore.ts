@@ -35,6 +35,10 @@ function applyZoomToDom(zoomLevel: ZoomLevel): void {
   const scale = ZOOM_CONFIG[zoomLevel].scale;
   document.documentElement.style.setProperty('--app-zoom-scale', scale.toString());
   document.documentElement.setAttribute('data-zoom', zoomLevel);
+
+  // Apply CSS zoom to document.body so both #root and portals (board overlays,
+  // modals rendered via createPortal into document.body) scale proportionally
+  document.body.style.zoom = scale.toString();
 }
 
 export const useZoomStore = create<ZoomState>((set) => ({
