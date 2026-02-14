@@ -1,10 +1,10 @@
-# Mac App Store Release Plan - Maestro (Agents UI)
+# Mac App Store Release Plan - Maestro (Agent Maestro)
 
 ## Objective
 Release the Tauri-based Maestro desktop app (`maestro-ui`) on the Mac App Store with compliant packaging, entitlements, metadata, and operational readiness.
 
 ## Current App Snapshot
-- Product name in Tauri config: `Agents UI`
+- Product name in Tauri config: `Agent Maestro`
 - Bundle identifier in Tauri config: `com.agents-ui.desktop`
 - Current app version in Tauri config: `0.3.0`
 - Platform stack: Tauri 2 + Rust backend + React frontend

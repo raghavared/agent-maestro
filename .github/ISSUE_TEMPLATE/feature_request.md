@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an improvement to Agents UI
+about: Suggest an improvement to Agent Maestro
 title: ""
 labels: enhancement
 assignees: ""

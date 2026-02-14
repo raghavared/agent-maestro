@@ -149,7 +149,7 @@ graph TB
     end
 
     subgraph "Clients"
-        UI[Agents UI]
+        UI[Agent Maestro]
         CURL[API Consumers]
     end
 

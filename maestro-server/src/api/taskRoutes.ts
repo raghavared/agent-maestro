@@ -71,6 +71,17 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
   router.patch('/tasks/:id', async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
+
+      // If a session reports status for a task it is not yet linked to,
+      // auto-associate it so UI/session queries remain consistent.
+      if (sessionService && req.body?.updateSource === 'session' && req.body?.sessionId) {
+        const sessionId = req.body.sessionId as string;
+        const session = await sessionService.getSession(sessionId);
+        if (!session.taskIds.includes(id)) {
+          await sessionService.addTaskToSession(sessionId, id);
+        }
+      }
+
       const task = await taskService.updateTask(id, req.body);
       res.json(task);
     } catch (err: any) {

@@ -14,6 +14,17 @@
     "shell:allow-open",
     "drag:default",
     "dialog:allow-save",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "shell:allow-spawn",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "maestro-server",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    }
   ]
 }

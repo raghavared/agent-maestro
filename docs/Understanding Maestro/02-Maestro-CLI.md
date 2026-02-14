@@ -5,7 +5,7 @@ The **Maestro CLI** (`maestro`) is the primary communication bridge between the 
 
 ## Architecture
 - **Binary Name**: `maestro`
-- **Distribution**: Bundled with the Agents UI / Maestro environment.
+- **Distribution**: Bundled with the Agent Maestro / Maestro environment.
 - **Configuration**: Auto-configured via Environment Variables injected at session start.
 
 ## Environment Variables

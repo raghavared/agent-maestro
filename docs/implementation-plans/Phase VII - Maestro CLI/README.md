@@ -4,7 +4,7 @@
 
 Phase VII focuses on building the **Maestro CLI (`maestro`)**, a robust command-line interface that serves as the primary bridge between Large Language Models (LLMs) operating within terminals and the Maestro Server.
 
-While the Agents UI provides a visual interface for humans, the Maestro CLI empowers **agents** to autonomously manage their own state, report progress, and query information.
+While the Agent Maestro provides a visual interface for humans, the Maestro CLI empowers **agents** to autonomously manage their own state, report progress, and query information.
 
 ## The "Bridge" Concept
 
@@ -12,7 +12,7 @@ In the Maestro ecosystem, an LLM agent runs inside a terminal session. To be eff
 
 ```
 ┌──────────────┐          ┌────────────────┐          ┌────────────────┐
-│  Agents UI   │          │  Agent (LLM)   │          │ Maestro Server │
+│  Agent Maestro   │          │  Agent (LLM)   │          │ Maestro Server │
 │ (Human View) │          │   (Terminal)   │          │ (Orchestrator) │
 └──────┬───────┘          └───────┬────────┘          └───────┬────────┘
        │                          │                           │

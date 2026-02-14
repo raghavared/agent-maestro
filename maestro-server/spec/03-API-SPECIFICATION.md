@@ -1151,7 +1151,7 @@ curl -X POST http://localhost:3000/api/sessions/spawn \
   "success": true,
   "sessionId": "sess_1738713800000_a1b2c3d4e",
   "manifestPath": "/Users/john/.maestro/sessions/sess_1738713800000_a1b2c3d4e/manifest.json",
-  "message": "Spawn request sent to Agents UI",
+  "message": "Spawn request sent to Agent Maestro",
   "session": {
     "id": "sess_1738713800000_a1b2c3d4e",
     "projectId": "proj_1738713600000_x7k9m2p4q",

@@ -71,7 +71,7 @@ The server is intentionally **dumb** - it's a data store and event broadcaster, 
 ```
 Orchestration Logic → Maestro CLI
 Data Storage → Maestro Server
-Visualization → Agents UI
+Visualization → Agent Maestro
 ```
 
 ---
@@ -346,7 +346,7 @@ See [06-FLOWS.md](./06-FLOWS.md) for complete workflow diagrams.
          │ WebSocket
          ▼
 ┌─────────────────┐
-│   Agents UI     │  ← Visualization, terminal spawning
+│   Agent Maestro     │  ← Visualization, terminal spawning
 │ (View Layer)    │
 └─────────────────┘
 ```

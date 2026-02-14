@@ -19,8 +19,8 @@ npm install -g .
 # Configure CLI to default to prod server
 CONFIG_DIR="$HOME/.maestro"
 mkdir -p "$CONFIG_DIR"
-echo "MAESTRO_API_URL=http://localhost:3001" > "$CONFIG_DIR/config"
+echo "MAESTRO_API_URL=http://localhost:2357" > "$CONFIG_DIR/config"
 
 echo "✅ Maestro CLI built and deployed successfully!"
-echo "CLI configured to connect to prod server at http://localhost:3001"
+echo "CLI configured to connect to prod server at http://localhost:2357"
 echo "You can now run 'maestro' from any terminal."

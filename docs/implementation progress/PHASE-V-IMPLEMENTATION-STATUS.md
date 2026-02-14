@@ -124,7 +124,7 @@ cd maestro-server
 npm run dev
 ```
 
-### Start Agents UI
+### Start Agent Maestro
 ```bash
 npm run dev
 ```

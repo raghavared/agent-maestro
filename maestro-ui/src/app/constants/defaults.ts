@@ -12,6 +12,7 @@ export const STORAGE_RECENT_SESSIONS_KEY = "agents-ui-recent-sessions-v1";
 export const STORAGE_SESSION_ORDER_BY_PROJECT_KEY = "agents-ui-session-order-by-project-v1";
 export const STORAGE_THEME_KEY = "agents-ui-theme-v1";
 export const STORAGE_ZOOM_KEY = "agents-ui-zoom-v1";
+export const STORAGE_SETUP_COMPLETE_KEY = "agents-ui-setup-complete-v1";
 
 
 export const MAX_PENDING_SESSIONS = 32;

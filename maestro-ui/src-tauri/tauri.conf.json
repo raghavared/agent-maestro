@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Agents UI",
+  "productName": "Agent Maestro",
   "version": "0.3.0",
   "identifier": "com.agents-ui.desktop",
   "build": {
@@ -13,17 +13,18 @@
     "windows": [
       {
         "label": "main",
-        "title": "Agents UI",
+        "title": "Agent Maestro",
         "devtools": true,
         "width": 1200,
         "height": 800,
         "minWidth": 480,
         "minHeight": 600,
-        "resizable": true
+        "resizable": true,
+        "dragDropEnabled": false
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc://localhost http://localhost:3001 ws://localhost:3001 http://localhost:3002 ws://localhost:3002 http://localhost:3000 ws://localhost:3000 https://api.github.com; media-src 'self'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc://localhost http://localhost:2357 ws://localhost:2357 http://localhost:3001 ws://localhost:3001 http://localhost:3002 ws://localhost:3002 http://localhost:3000 ws://localhost:3000 https://api.github.com; media-src 'self'"
     }
   },
   "bundle": {

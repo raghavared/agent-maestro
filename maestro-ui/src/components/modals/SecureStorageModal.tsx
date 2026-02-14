@@ -45,7 +45,7 @@ export function SecureStorageModal({
                 )}
 
                 <div className="hint" style={{ marginTop: 0 }}>
-                    Agents UI stores environment configs and recording inputs on disk. Choose whether to encrypt them on this Mac.
+                    Agent Maestro stores environment configs and recording inputs on disk. Choose whether to encrypt them on this Mac.
                 </div>
 
                 <div className="formRow">

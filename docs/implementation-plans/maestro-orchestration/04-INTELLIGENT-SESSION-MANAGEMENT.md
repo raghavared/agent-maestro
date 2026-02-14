@@ -102,6 +102,6 @@ The following context was learned from the "Database Setup" session:
 ```
 
 
-1.  **Persistence:** Store `SessionContext` in the Agents UI state/local storage.
+1.  **Persistence:** Store `SessionContext` in the Agent Maestro state/local storage.
 2.  **Hooks:** Use `on-tool-use` hooks to update `filesAccessed` and `directories` in real-time.
 3.  **Cleanup:** Auto-kill sessions idle for >30 minutes to free resources.

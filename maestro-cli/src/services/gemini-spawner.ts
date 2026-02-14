@@ -124,10 +124,11 @@ export class GeminiSpawner {
     sessionId: string,
     options: SpawnOptions = {}
   ): Promise<SpawnResult> {
-    // Generate the full whoami output as the initial prompt
+    // Split prompt into system (static) and task (dynamic) layers
     const renderer = new WhoamiRenderer();
     const permissions = getPermissionsFromManifest(manifest);
-    const prompt = await renderer.render(manifest, permissions, sessionId);
+    const systemPrompt = renderer.renderSystemPrompt(manifest, permissions);
+    const taskContext = await renderer.renderTaskContext(manifest, sessionId);
 
     const env = {
       ...this.prepareEnvironment(manifest, sessionId),
@@ -135,7 +136,11 @@ export class GeminiSpawner {
     };
 
     const args = this.buildGeminiArgs(manifest);
-    args.push('--prompt', prompt);
+
+    // Gemini doesn't have a separate system prompt flag, so we concatenate
+    // with clear section headers for better organization
+    const structuredPrompt = `[SYSTEM INSTRUCTIONS]\n${systemPrompt}\n\n[TASK]\n${taskContext}`;
+    args.push('--prompt', structuredPrompt);
 
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
 

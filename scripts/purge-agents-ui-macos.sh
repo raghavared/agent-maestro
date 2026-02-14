@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="Agents UI"
+APP_NAME="Agent Maestro"
 BUNDLE_ID="com.agents-ui.desktop"
 KEYCHAIN_ACCOUNT="agents-ui-data-key-v1"
 
@@ -13,7 +13,7 @@ INCLUDE_NAME_PATHS=0
 
 usage() {
   cat <<'EOF'
-Purge Agents UI (macOS) user data.
+Purge Agent Maestro (macOS) user data.
 
 Deletes per-user app data for the bundle id `com.agents-ui.desktop`:
 - ~/Library/Application Support/…
@@ -31,11 +31,11 @@ Usage:
 Options:
   -n, --dry-run              Print what would be deleted
   -y, --yes                  Skip the DELETE confirmation prompt
-  --delete-app               Also delete /Applications/Agents UI.app (may require sudo)
+  --delete-app               Also delete /Applications/Agent Maestro.app (may require sudo)
   --delete-keychain          Also delete the Keychain item used for encrypted data
-  --include-name-paths       Also delete name-based paths (e.g. "Agents UI") if present
+  --include-name-paths       Also delete name-based paths (e.g. "Agent Maestro") if present
   --bundle-id <id>           Override bundle id (default: com.agents-ui.desktop)
-  --app-name <name>          Override app name (default: Agents UI)
+  --app-name <name>          Override app name (default: Agent Maestro)
   -h, --help                 Show this help
 EOF
 }

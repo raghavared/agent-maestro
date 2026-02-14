@@ -192,7 +192,7 @@ The spawning flow is the most complex session operation. Here is the complete se
 12. Return 201 with session data and manifest path
 
 ### Step 2: UI/CLI Picks Up Spawn Event
-The `session:spawn` event (via SSE/WebSocket) is received by the Agents UI, which opens a terminal window.
+The `session:spawn` event (via SSE/WebSocket) is received by the Agent Maestro, which opens a terminal window.
 
 ### Step 3: Claude Process Starts
 The `ClaudeSpawner` (`claude-spawner.ts`) handles the actual process creation:

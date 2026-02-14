@@ -2,8 +2,15 @@ import React, { useState, useRef, useLayoutEffect } from "react";
 import { Icon } from "./Icon";
 import { MaestroProject } from "../app/types/maestro";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+import { DisplaySettings } from "./DisplaySettings";
 import { SoundSettingsContent } from "./modals/SoundSettingsModal";
 import { soundManager } from "../services/soundManager";
+
+type SavedProject = {
+  id: string;
+  name: string;
+  workingDir: string;
+};
 
 type ProjectTabBarProps = {
   projects: MaestroProject[];
@@ -14,7 +21,11 @@ type ProjectTabBarProps = {
   onSelectProject: (projectId: string) => void;
   onNewProject: () => void;
   onDeleteProject: (projectId: string) => void;
+  onCloseProject: (projectId: string) => void;
+  onFetchSavedProjects: () => Promise<SavedProject[]>;
+  onReopenProject: (projectId: string) => void;
   onMoveProject: (projectId: string, targetProjectId: string, position: 'before' | 'after') => void;
+  onOpenMultiProjectBoard?: () => void;
 };
 
 type SettingsDialogProps = {
@@ -22,9 +33,10 @@ type SettingsDialogProps = {
   sessionCount: number;
   onClose: () => void;
   onDelete: () => void;
+  onCloseProject: () => void;
 };
 
-type SettingsTab = 'theme' | 'sounds' | 'shortcuts';
+type SettingsTab = 'theme' | 'display' | 'sounds' | 'shortcuts';
 
 type ShortcutRow = {
   action: string;
@@ -68,6 +80,13 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
             </button>
             <button
               type="button"
+              className={`appSettingsTabBtn ${activeTab === 'display' ? 'appSettingsTabBtnActive' : ''}`}
+              onClick={() => setActiveTab('display')}
+            >
+              DISPLAY
+            </button>
+            <button
+              type="button"
               className={`appSettingsTabBtn ${activeTab === 'sounds' ? 'appSettingsTabBtnActive' : ''}`}
               onClick={() => setActiveTab('sounds')}
             >
@@ -86,6 +105,11 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
             {activeTab === 'theme' && (
               <div className="appSettingsContent">
                 <ThemeSwitcher />
+              </div>
+            )}
+            {activeTab === 'display' && (
+              <div className="appSettingsContent">
+                <DisplaySettings />
               </div>
             )}
             {activeTab === 'sounds' && (
@@ -123,7 +147,7 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete }: SettingsDialogProps) {
+function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete, onCloseProject }: SettingsDialogProps) {
   return (
     <div className="projectSettingsBackdrop" onClick={onClose}>
       <div className="projectSettingsDialog" onClick={(e) => e.stopPropagation()}>
@@ -161,6 +185,17 @@ function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete }: Set
         <div className="projectSettingsDivider" />
 
         <button
+          className="projectSettingsCloseBtn"
+          onClick={() => {
+            onCloseProject();
+            onClose();
+          }}
+        >
+          <Icon name="close" size={14} />
+          CLOSE PROJECT
+        </button>
+
+        <button
           className="projectSettingsDeleteBtn"
           onClick={() => {
             onDelete();
@@ -184,13 +219,22 @@ export function ProjectTabBar({
   onSelectProject,
   onNewProject,
   onDeleteProject,
+  onCloseProject,
+  onFetchSavedProjects,
+  onReopenProject,
   onMoveProject,
+  onOpenMultiProjectBoard,
 }: ProjectTabBarProps) {
   const [settingsProjectId, setSettingsProjectId] = useState<string | null>(null);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(soundManager.isEnabled());
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ projectId: string; position: 'before' | 'after' } | null>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
+  const [savedProjectsLoading, setSavedProjectsLoading] = useState(false);
+  const [savedProjectsOpen, setSavedProjectsOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement | null>(null);
 
   const tabsRef = useRef<HTMLDivElement | null>(null);
   const previousItemRectsRef = useRef<Map<string, DOMRect>>(new Map());
@@ -205,6 +249,39 @@ export function ProjectTabBar({
       onDeleteProject(settingsProjectId);
     }
   };
+
+  const handleCloseProject = () => {
+    if (settingsProjectId) {
+      onCloseProject(settingsProjectId);
+      setSettingsProjectId(null);
+    }
+  };
+
+  const handleOpenSavedProjects = async () => {
+    setAddMenuOpen(false);
+    setSavedProjectsLoading(true);
+    setSavedProjectsOpen(true);
+    try {
+      const saved = await onFetchSavedProjects();
+      setSavedProjects(saved);
+    } catch {
+      setSavedProjects([]);
+    } finally {
+      setSavedProjectsLoading(false);
+    }
+  };
+
+  // Close add menu on outside click
+  React.useEffect(() => {
+    if (!addMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setAddMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [addMenuOpen]);
 
   const handleDragEnd = () => {
     setDraggingProjectId(null);
@@ -436,14 +513,49 @@ export function ProjectTabBar({
           })}
         </div>
         <div className="projectTabBarActions">
-          <button
-            type="button"
-            className="projectTabBarBtn"
-            onClick={onNewProject}
-            title="New project"
-          >
-            <Icon name="plus" size={14} />
-          </button>
+          <div className="projectAddMenuWrapper" ref={addMenuRef}>
+            <button
+              type="button"
+              className="projectTabBarBtn"
+              onClick={() => setAddMenuOpen((v) => !v)}
+              title="Add project"
+            >
+              <Icon name="plus" size={14} />
+            </button>
+            {addMenuOpen && (
+              <div className="projectAddMenu">
+                <button
+                  type="button"
+                  className="projectAddMenuItem"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    onNewProject();
+                  }}
+                >
+                  <Icon name="plus" size={12} />
+                  NEW PROJECT
+                </button>
+                <button
+                  type="button"
+                  className="projectAddMenuItem"
+                  onClick={() => void handleOpenSavedProjects()}
+                >
+                  <Icon name="folder" size={12} />
+                  OPEN SAVED PROJECT
+                </button>
+              </div>
+            )}
+          </div>
+          {onOpenMultiProjectBoard && (
+            <button
+              type="button"
+              className="projectTabBarBtn"
+              onClick={onOpenMultiProjectBoard}
+              title="Multi-Project Board (Cmd+Shift+B)"
+            >
+              <Icon name="layers" size={14} />
+            </button>
+          )}
           <button
             type="button"
             className="projectTabBarBtn"
@@ -473,7 +585,47 @@ export function ProjectTabBar({
           sessionCount={sessionCountByProject.get(settingsProject.id) ?? 0}
           onClose={() => setSettingsProjectId(null)}
           onDelete={handleDelete}
+          onCloseProject={handleCloseProject}
         />
+      )}
+
+      {savedProjectsOpen && (
+        <div className="projectSettingsBackdrop" onClick={() => setSavedProjectsOpen(false)}>
+          <div className="projectSettingsDialog" onClick={(e) => e.stopPropagation()}>
+            <div className="projectSettingsHeader">
+              <span className="projectSettingsTitle">[ SAVED PROJECTS ]</span>
+              <button className="projectSettingsClose" onClick={() => setSavedProjectsOpen(false)}>×</button>
+            </div>
+            <div className="projectSettingsContent">
+              {savedProjectsLoading ? (
+                <div className="projectSettingsRow">
+                  <span className="projectSettingsValue">Loading...</span>
+                </div>
+              ) : savedProjects.length === 0 ? (
+                <div className="projectSettingsRow">
+                  <span className="projectSettingsValue">No saved projects to open</span>
+                </div>
+              ) : (
+                savedProjects.map((sp) => (
+                  <button
+                    key={sp.id}
+                    type="button"
+                    className="savedProjectItem"
+                    onClick={() => {
+                      onReopenProject(sp.id);
+                      setSavedProjectsOpen(false);
+                    }}
+                  >
+                    <span className="savedProjectName">{sp.name}</span>
+                    {sp.workingDir && (
+                      <span className="savedProjectPath">{sp.workingDir}</span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {appSettingsOpen && (

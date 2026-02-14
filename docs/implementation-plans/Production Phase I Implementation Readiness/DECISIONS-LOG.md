@@ -7,7 +7,7 @@ The following decisions must be finalized and locked before proceeding to the fi
 - **Current Recommendation:** Use `~/.agents-ui/maestro-skills` for isolation, but provide a symlink option to Claude Code for seamless integration.
 
 ## 2. Terminal Technology Choice (Tauri vs. External)
-- **Decision Needed:** Should `maestro session spawn` always open a terminal *inside* the Agents UI (Tauri window) or should it support opening external terminals (e.g., iTerm2, Kitty)?
+- **Decision Needed:** Should `maestro session spawn` always open a terminal *inside* the Agent Maestro (Tauri window) or should it support opening external terminals (e.g., iTerm2, Kitty)?
 - **Current Recommendation:** Focus exclusively on the Tauri-internal terminal for Phase 1 to ensure environment variable injection and state sync are tightly controlled.
 
 ## 3. Subtask Consistency Model

@@ -38,7 +38,7 @@ The Skill System provides LLM agents with domain-specific instructions and capab
       │
       ▼
 ┌─────────────────────────────┐
-│ Agents UI / Claude Code     │
+│ Agent Maestro / Claude Code     │
 │ Checks environment/session  │
 └─────┬───────────────────────┘
       │
@@ -82,7 +82,7 @@ echo "✅ Skill directories created at $SKILLS_DIR"
 echo ""
 echo "Next steps:"
 echo "1. Run 'npm run generate-skills' to populate skill files"
-echo "2. Configure Agents UI to load skills on session start"
+echo "2. Configure Agent Maestro to load skills on session start"
 ```
 
 Make it executable:
@@ -206,7 +206,7 @@ The Maestro CLI provides commands for:
 
 ## Environment Context
 
-The following environment variables are automatically set by Agents UI:
+The following environment variables are automatically set by Agent Maestro:
 - `MAESTRO_API_URL`: Server endpoint (default: http://localhost:3000)
 - `MAESTRO_PROJECT_ID`: Current project ID
 - `MAESTRO_SESSION_ID`: Current session ID
@@ -402,7 +402,7 @@ maestro session list --json
 ```
 
 #### `maestro session spawn --task <id> [--name <name>] [--skill <skill>]`
-Spawn a new worker session for a task. (Requires Agents UI WebSocket integration)
+Spawn a new worker session for a task. (Requires Agent Maestro WebSocket integration)
 
 **Example:**
 ```bash
@@ -804,7 +804,7 @@ maestro session spawn --task t1 --name "Auth Implementation Worker" --skill maes
 ```
 
 This will:
-1. Trigger a WebSocket event to Agents UI
+1. Trigger a WebSocket event to Agent Maestro
 2. Open a new terminal window
 3. Inject environment variables (MAESTRO_TASK_ID=t1)
 4. Load the `maestro-worker` skill
@@ -1021,7 +1021,7 @@ maestro task list --status in_progress
 
 ---
 
-## Step 6: Integration with Agents UI
+## Step 6: Integration with Agent Maestro
 
 ### Option A: Claude Code Skill Integration
 
@@ -1048,7 +1048,7 @@ const sessionConfig = {
 };
 ```
 
-### Option B: Custom Skill Loader (Agents UI)
+### Option B: Custom Skill Loader (Agent Maestro)
 
 **File:** `maestro-server/src/skills.ts` (create this)
 

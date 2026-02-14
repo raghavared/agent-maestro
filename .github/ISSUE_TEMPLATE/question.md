@@ -1,6 +1,6 @@
 ---
 name: Question
-about: Ask a question about using or developing Agents UI
+about: Ask a question about using or developing Agent Maestro
 title: ""
 labels: question
 assignees: ""
@@ -10,6 +10,6 @@ assignees: ""
 
 ## Context
 
-- Agents UI version:
+- Agent Maestro version:
 - macOS version:
 

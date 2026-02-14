@@ -36,6 +36,10 @@ import { AppSlidePanel } from "./components/AppSlidePanel";
 import { AppModals } from "./components/app/AppModals";
 import { AppWorkspace } from "./components/app/AppWorkspace";
 import { ConfirmActionModal } from "./components/modals/ConfirmActionModal";
+import { StartupSettingsOverlay } from "./components/StartupSettingsOverlay";
+import { Board } from "./components/maestro/MultiProjectBoard";
+import { createMaestroSession } from "./services/maestroService";
+import { STORAGE_SETUP_COMPLETE_KEY } from "./app/constants/defaults";
 
 // ---------------------------------------------------------------------------
 // App  (thin layout shell -- all domain state lives in Zustand stores)
@@ -59,6 +63,44 @@ export default function App() {
   const [confirmCloseAppOpen, setConfirmCloseAppOpen] = useState(false);
   const [confirmCloseAppBusy, setConfirmCloseAppBusy] = useState(false);
   const [runningSessionsByProject, setRunningSessionsByProject] = useState<RunningSessionsByProject[]>([]);
+  const [showStartupSettings, setShowStartupSettings] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_SETUP_COMPLETE_KEY) !== 'true';
+    } catch {
+      return true;
+    }
+  });
+  const [showMultiProjectBoard, setShowMultiProjectBoard] = useState(false);
+
+  // Keyboard shortcut for multi-project board (Cmd/Ctrl+Shift+B)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "b") {
+        e.preventDefault();
+        setShowMultiProjectBoard((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Global drag-and-drop prevention: stop the browser/Tauri from showing the
+  // OS copy cursor (arrow + plus) during in-app HTML5 drag operations.
+  useEffect(() => {
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    };
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+    };
+    document.addEventListener("dragover", onDragOver);
+    document.addEventListener("drop", onDrop);
+    return () => {
+      document.removeEventListener("dragover", onDragOver);
+      document.removeEventListener("drop", onDrop);
+    };
+  }, []);
 
   // ---------- bootstrap stores & persistence ----------
   useEffect(() => {
@@ -118,6 +160,9 @@ export default function App() {
   const selectProject = useProjectStore((s) => s.selectProject);
   const openNewProject = useProjectStore((s) => s.openNewProject);
   const checkAndDeleteProject = useProjectStore((s) => s.checkAndDeleteProject);
+  const closeProject = useProjectStore((s) => s.closeProject);
+  const fetchSavedProjects = useProjectStore((s) => s.fetchSavedProjects);
+  const reopenProject = useProjectStore((s) => s.reopenProject);
   const moveProject = useProjectStore((s) => s.moveProject);
 
   const activeProject = useMemo(
@@ -128,6 +173,14 @@ export default function App() {
   const handleDeleteProject = useCallback((projectId: string) => {
     void checkAndDeleteProject(projectId);
   }, [checkAndDeleteProject]);
+
+  const handleCloseProject = useCallback((projectId: string) => {
+    void closeProject(projectId);
+  }, [closeProject]);
+
+  const handleReopenProject = useCallback((projectId: string) => {
+    void reopenProject(projectId);
+  }, [reopenProject]);
 
   // ---------- sessions ----------
   const sessions = useSessionStore((s) => s.sessions);
@@ -210,6 +263,21 @@ export default function App() {
     setNewOpen(false);
     useSshStore.getState().setSshManagerOpen(true);
   }, [setProjectOpen, setNewOpen]);
+
+  // ---------- multi-project board callbacks ----------
+  const updateTask = useMaestroStore((s) => s.updateTask);
+  const handleBoardSelectTask = useCallback((_taskId: string, projectId: string) => {
+    selectProject(projectId);
+    setShowMultiProjectBoard(false);
+  }, [selectProject]);
+
+  const handleBoardUpdateTaskStatus = useCallback((taskId: string, status: import("./app/types/maestro").TaskStatus) => {
+    void updateTask(taskId, { status });
+  }, [updateTask]);
+
+  const handleBoardWorkOnTask = useCallback((task: import("./app/types/maestro").MaestroTask, project: import("./app/types/maestro").MaestroProject) => {
+    void createMaestroSession({ task, project, role: "worker", strategy: "simple" });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -327,7 +395,11 @@ export default function App() {
           onSelectProject={selectProject}
           onNewProject={openNewProject}
           onDeleteProject={handleDeleteProject}
+          onCloseProject={handleCloseProject}
+          onFetchSavedProjects={fetchSavedProjects}
+          onReopenProject={handleReopenProject}
           onMoveProject={moveProject}
+          onOpenMultiProjectBoard={() => setShowMultiProjectBoard(true)}
         />
       )}
 
@@ -474,6 +546,22 @@ export default function App() {
             )}
           </div>
         </>
+      )}
+
+      {/* -------- Startup Settings Overlay -------- */}
+      {showStartupSettings && (
+        <StartupSettingsOverlay onComplete={() => setShowStartupSettings(false)} />
+      )}
+
+      {/* -------- Multi-Project Board -------- */}
+      {showMultiProjectBoard && (
+        <Board
+          onClose={() => setShowMultiProjectBoard(false)}
+          onSelectTask={handleBoardSelectTask}
+          onUpdateTaskStatus={handleBoardUpdateTaskStatus}
+          onWorkOnTask={handleBoardWorkOnTask}
+          onCreateMaestroSession={createMaestroSession}
+        />
       )}
 
       {/* -------- Command Palette -------- */}

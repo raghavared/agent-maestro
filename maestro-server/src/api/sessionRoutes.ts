@@ -56,16 +56,26 @@ async function generateManifestViaCLI(options: {
     ...(referenceTaskIds && referenceTaskIds.length > 0 ? ['--reference-task-ids', referenceTaskIds.join(',')] : []),
   ];
 
-  // Resolve maestro binary from monorepo node_modules/.bin (workspace link)
-  const monorepoRoot = resolvePath(__dirname, '..', '..', '..');
-  const nodeModulesBin = join(monorepoRoot, 'node_modules', '.bin');
-  const maestroBin = join(nodeModulesBin, 'maestro');
+  // Resolve maestro binary: use env var, monorepo path, or fall back to PATH
+  let maestroBin: string;
+  const isPkg = __dirname.startsWith('/snapshot');
+  if (process.env.MAESTRO_CLI_PATH) {
+    maestroBin = process.env.MAESTRO_CLI_PATH;
+  } else if (!isPkg) {
+    const monorepoRoot = resolvePath(__dirname, '..', '..', '..');
+    maestroBin = join(monorepoRoot, 'node_modules', '.bin', 'maestro');
+  } else {
+    maestroBin = 'maestro';
+  }
 
   console.log(`   🔧 CLI: ${maestroBin} ${args.join(' ')}`);
 
-  // Prepend node_modules/.bin to PATH so maestro and its deps are found
   const spawnEnv = { ...process.env };
-  spawnEnv.PATH = `${nodeModulesBin}:${spawnEnv.PATH || ''}`;
+  if (!isPkg) {
+    const monorepoRoot = resolvePath(__dirname, '..', '..', '..');
+    const nodeModulesBin = join(monorepoRoot, 'node_modules', '.bin');
+    spawnEnv.PATH = `${nodeModulesBin}:${spawnEnv.PATH || ''}`;
+  }
 
   return new Promise((resolve, reject) => {
     const child = spawnProcess(maestroBin, args, {
@@ -627,7 +637,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         success: true,
         sessionId: session.id,
         manifestPath,
-        message: 'Spawn request sent to Agents UI',
+        message: 'Spawn request sent to Agent Maestro',
         session: { ...session, env: finalEnvVars }
       });
     } catch (err: any) {

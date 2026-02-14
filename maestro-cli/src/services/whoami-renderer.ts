@@ -6,6 +6,7 @@ import { PromptGenerator } from './prompt-generator.js';
 import { AgentSpawner } from './agent-spawner.js';
 import {
   generateCommandBrief,
+  generateCompactCommandBrief,
   type CommandPermissions,
 } from './command-permissions.js';
 import { api } from '../api.js';
@@ -244,12 +245,7 @@ export class WhoamiRenderer {
           if (docs && docs.length > 0) {
             lines.push('**Docs:**');
             for (const doc of docs) {
-              lines.push(`- **${doc.title}** (${doc.filePath})`);
-              if (doc.content) {
-                lines.push('```');
-                lines.push(doc.content);
-                lines.push('```');
-              }
+              lines.push(`- **${doc.title}** — \`${doc.filePath}\``);
             }
             lines.push('');
           }
@@ -264,6 +260,51 @@ export class WhoamiRenderer {
     }
 
     return lines.join('\n');
+  }
+
+  /**
+   * Render the static system prompt (role instructions + compact command reference).
+   * Suitable for --append-system-prompt or equivalent system-level injection.
+   */
+  renderSystemPrompt(
+    manifest: MaestroManifest,
+    permissions: CommandPermissions,
+  ): string {
+    const parts: string[] = [];
+
+    // Template content (role+strategy specific instructions)
+    parts.push(this.renderTemplateContent(manifest));
+
+    // Compact command reference
+    parts.push('\n---\n');
+    parts.push(generateCompactCommandBrief(permissions));
+    parts.push('');
+
+    return parts.join('\n');
+  }
+
+  /**
+   * Render the dynamic task context (identity header + reference task context).
+   * Suitable for passing as the user message / prompt argument.
+   */
+  async renderTaskContext(
+    manifest: MaestroManifest,
+    sessionId: string | undefined,
+  ): Promise<string> {
+    const parts: string[] = [];
+
+    // Identity header (session ID, tasks)
+    parts.push(this.renderIdentityHeader(manifest, sessionId));
+
+    // Reference task context (if any)
+    if (manifest.referenceTaskIds && manifest.referenceTaskIds.length > 0) {
+      const refContext = await this.renderReferenceTaskContext(manifest.referenceTaskIds);
+      if (refContext) {
+        parts.push(refContext);
+      }
+    }
+
+    return parts.join('\n');
   }
 
   /**

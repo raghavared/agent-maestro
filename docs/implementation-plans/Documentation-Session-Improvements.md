@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document identifies critical issues in session state management that cause **stale data** and **improper session cleanup** in the Agents UI application. The root cause is a **missing session deletion mechanism** that prevents sessions from being properly cleaned up when terminals close.
+This document identifies critical issues in session state management that cause **stale data** and **improper session cleanup** in the Agent Maestro application. The root cause is a **missing session deletion mechanism** that prevents sessions from being properly cleaned up when terminals close.
 
 **Impact**:
 - Sessions accumulate indefinitely in server storage and UI cache

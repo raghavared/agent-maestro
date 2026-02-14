@@ -9,8 +9,9 @@ import { useTasks } from "../../hooks/useTasks";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useTaskTree } from "../../hooks/useTaskTree";
 import { useUIStore } from "../../stores/useUIStore";
+import { Board } from "./MultiProjectBoard";
 
-type PanelTab = "tasks" | "completed";
+type PanelTab = "tasks" | "pinned" | "completed" | "archived";
 
 type MaestroPanelProps = {
     isOpen: boolean;
@@ -61,6 +62,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [collapsedTasks, setCollapsedTasks] = React.useState<Set<string>>(new Set());
     const [addingSubtaskTo, setAddingSubtaskTo] = React.useState<string | null>(null);
     const [slidingOutTasks, setSlidingOutTasks] = React.useState<Set<string>>(new Set());
+    const [showBoard, setShowBoard] = React.useState(false);
 
     // Listen for global create-task shortcut trigger
     const createTaskRequested = useUIStore(s => s.createTaskRequested);
@@ -90,8 +92,9 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
         normalizedTasks.forEach(task => {
             const prevStatus = prevTaskStatusesRef.current.get(task.id);
-            // Task just became completed (was something else before, now is completed)
-            if (prevStatus && prevStatus !== 'completed' && task.status === 'completed') {
+            // Task just became completed or archived (was something else before)
+            if (prevStatus && prevStatus !== 'completed' && prevStatus !== 'archived' &&
+                (task.status === 'completed' || task.status === 'archived')) {
                 newlyCompleted.push(task.id);
             }
         });
@@ -440,10 +443,21 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }
     };
 
+    const handleTogglePin = async (taskId: string) => {
+        try {
+            const task = normalizedTasks.find(t => t.id === taskId);
+            if (!task) return;
+            await updateTask(taskId, { pinned: !task.pinned });
+        } catch (err: any) {
+            console.error("[Maestro] Failed to toggle pin:", err);
+            setError("Failed to toggle pin");
+        }
+    };
+
     // Apply filters/sort to roots only for hierarchical display
     // Separate active tasks (non-completed) from completed tasks
     const activeRoots = roots
-        .filter((node) => node.status !== 'completed')
+        .filter((node) => node.status !== 'completed' && node.status !== 'archived')
         .filter((node) => statusFilter.length === 0 || statusFilter.includes(node.status))
         .filter((node) => priorityFilter.length === 0 || priorityFilter.includes(node.priority))
         .sort((a, b) => {
@@ -461,8 +475,16 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             return (b.completedAt || b.updatedAt) - (a.completedAt || a.updatedAt);
         });
 
+    const pinnedRoots = roots
+        .filter((node) => node.pinned)
+        .sort((a, b) => b.updatedAt - a.updatedAt);
+
+    const archivedRoots = roots
+        .filter((node) => node.status === 'archived')
+        .sort((a, b) => b.updatedAt - a.updatedAt);
+
     // Recursive rendering function for task tree
-    const renderTaskNode = (node: TaskTreeNode, depth: number = 0): React.ReactNode => {
+    const renderTaskNode = (node: TaskTreeNode, depth: number = 0, options?: { showPermanentDelete?: boolean }): React.ReactNode => {
         const hasChildren = node.children.length > 0;
         const isCollapsed = collapsedTasks.has(node.id);
         const isSlidingOut = slidingOutTasks.has(node.id);
@@ -487,9 +509,11 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     isChildrenCollapsed={isCollapsed}
                     isAddingSubtask={isAddingSubtask}
                     onToggleChildrenCollapse={() => handleToggleAddSubtask(node.id, hasChildren)}
+                    onTogglePin={() => handleTogglePin(node.id)}
                     selectionMode={executionMode}
                     isSelected={selectedForExecution.has(node.id)}
                     onToggleSelect={() => handleToggleTaskSelection(node.id)}
+                    showPermanentDelete={options?.showPermanentDelete}
                 />
             </div>
         );
@@ -509,7 +533,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     {taskItem}
                     {(!isCollapsed || isAddingSubtask) && (
                         <div className="terminalTaskGroupChildren">
-                            {!isCollapsed && node.children.map(child => renderTaskNode(child, depth + 1))}
+                            {!isCollapsed && node.children.map(child => renderTaskNode(child, depth + 1, options))}
                             {subtaskInput}
                         </div>
                     )}
@@ -520,7 +544,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         return (
             <React.Fragment key={node.id}>
                 {taskItem}
-                {!isCollapsed && node.children.map(child => renderTaskNode(child, depth + 1))}
+                {!isCollapsed && node.children.map(child => renderTaskNode(child, depth + 1, options))}
                 {subtaskInput}
             </React.Fragment>
         );
@@ -543,7 +567,17 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         <span className="maestroPanelTabIcon">▸</span>
                         Tasks
                         <span className="maestroPanelTabCount">
-                            {normalizedTasks.filter(t => t.status !== 'completed').length}
+                            {roots.filter(t => t.status !== 'completed' && t.status !== 'archived').length}
+                        </span>
+                    </button>
+                    <button
+                        className={`maestroPanelTab ${activeTab === "pinned" ? "maestroPanelTabActive" : ""}`}
+                        onClick={() => setActiveTab("pinned")}
+                    >
+                        <span className="maestroPanelTabIcon">▸</span>
+                        Pinned
+                        <span className="maestroPanelTabCount">
+                            {roots.filter(t => t.pinned).length}
                         </span>
                     </button>
                     <button
@@ -553,7 +587,17 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         <span className="maestroPanelTabIcon">▸</span>
                         Completed
                         <span className="maestroPanelTabCount">
-                            {normalizedTasks.filter(t => t.status === 'completed').length}
+                            {roots.filter(t => t.status === 'completed').length}
+                        </span>
+                    </button>
+                    <button
+                        className={`maestroPanelTab ${activeTab === "archived" ? "maestroPanelTabActive" : ""}`}
+                        onClick={() => setActiveTab("archived")}
+                    >
+                        <span className="maestroPanelTabIcon">▸</span>
+                        Archived
+                        <span className="maestroPanelTabCount">
+                            {roots.filter(t => t.status === 'archived').length}
                         </span>
                     </button>
                 </div>
@@ -593,6 +637,13 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                             disabled={loading || !projectId}
                         >
                             <span className="terminalPrompt">$</span> refresh
+                        </button>
+                        <button
+                            className="terminalCmd"
+                            onClick={() => setShowBoard(true)}
+                            disabled={loading || !projectId}
+                        >
+                            <span className="terminalPrompt">$</span> board
                         </button>
                     </div>
                     <div className="terminalStats">
@@ -679,6 +730,47 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     </>
                 )}
 
+                {/* Pinned Tab */}
+                {activeTab === "pinned" && (
+                    <div className="terminalContent">
+                        {loading ? (
+                            <div className="terminalLoadingState">
+                                <div className="terminalSpinner">
+                                    <span className="terminalSpinnerDot">●</span>
+                                    <span className="terminalSpinnerDot">●</span>
+                                    <span className="terminalSpinnerDot">●</span>
+                                </div>
+                                <p className="terminalLoadingText">
+                                    <span className="terminalCursor">█</span> Loading tasks...
+                                </p>
+                            </div>
+                        ) : pinnedRoots.length === 0 ? (
+                            <div className="terminalEmptyState">
+                                <pre className="terminalAsciiArt">{`
+    ╔═══════════════════════════════════════╗
+    ║                                       ║
+    ║       NO PINNED TASKS                 ║
+    ║                                       ║
+    ║    Pin tasks you run frequently       ║
+    ║    for quick access                   ║
+    ║                                       ║
+    ╚═══════════════════════════════════════╝
+                                `}</pre>
+                            </div>
+                        ) : (
+                            <div className="terminalTaskList">
+                                <div className="terminalTaskHeader">
+                                    <span>STATUS</span>
+                                    <span>TASK</span>
+                                    <span>AGENT</span>
+                                    <span>ACTIONS</span>
+                                </div>
+                                {pinnedRoots.map(node => renderTaskNode(node, 0))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Completed Tab */}
                 {activeTab === "completed" && (
                     <div className="terminalContent">
@@ -716,6 +808,47 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                                     <span>ACTIONS</span>
                                 </div>
                                 {completedRoots.map(node => renderTaskNode(node, 0))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Archived Tab */}
+                {activeTab === "archived" && (
+                    <div className="terminalContent">
+                        {loading ? (
+                            <div className="terminalLoadingState">
+                                <div className="terminalSpinner">
+                                    <span className="terminalSpinnerDot">●</span>
+                                    <span className="terminalSpinnerDot">●</span>
+                                    <span className="terminalSpinnerDot">●</span>
+                                </div>
+                                <p className="terminalLoadingText">
+                                    <span className="terminalCursor">█</span> Loading tasks...
+                                </p>
+                            </div>
+                        ) : archivedRoots.length === 0 ? (
+                            <div className="terminalEmptyState">
+                                <pre className="terminalAsciiArt">{`
+    ╔═══════════════════════════════════════╗
+    ║                                       ║
+    ║       NO ARCHIVED TASKS               ║
+    ║                                       ║
+    ║    Archived tasks will appear here    ║
+    ║    You can permanently delete them    ║
+    ║                                       ║
+    ╚═══════════════════════════════════════╝
+                                `}</pre>
+                            </div>
+                        ) : (
+                            <div className="terminalTaskList terminalTaskListArchived">
+                                <div className="terminalTaskHeader">
+                                    <span>STATUS</span>
+                                    <span>TASK</span>
+                                    <span>AGENT</span>
+                                    <span>ACTIONS</span>
+                                </div>
+                                {archivedRoots.map(node => renderTaskNode(node, 0, { showPermanentDelete: true }))}
                             </div>
                         )}
                     </div>
@@ -759,6 +892,22 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     onWorkOnSubtask={(subtask: MaestroTask) => handleWorkOnTask(subtask)}
                     selectedAgentId={selectedAgentByTask[selectedTask.id] || 'claude'}
                     onAgentSelect={(agentId) => handleAgentSelect(selectedTask.id, agentId)}
+                />
+            )}
+
+            {showBoard && (
+                <Board
+                    focusProjectId={projectId}
+                    onClose={() => setShowBoard(false)}
+                    onSelectTask={(taskId, _projectId) => {
+                        setSelectedTaskId(taskId);
+                        setShowDetailModal(true);
+                    }}
+                    onUpdateTaskStatus={(taskId, status) => {
+                        void handleUpdateTask(taskId, { status });
+                    }}
+                    onWorkOnTask={(task, _project) => handleWorkOnTask(task)}
+                    onCreateMaestroSession={onCreateMaestroSession}
                 />
             )}
 
