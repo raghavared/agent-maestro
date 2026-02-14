@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="src-tauri/icons/icon.png" alt="Agents UI Logo" width="128" height="128">
+  <img src="src-tauri/icons/icon.png" alt="Agent Maestro Logo" width="128" height="128">
 </p>
 
-<h1 align="center">Agents UI</h1>
+<h1 align="center">Agent Maestro</h1>
 
 <p align="center">
   <strong>Native desktop workspace for AI coding agents, terminals, and files</strong>
@@ -43,7 +43,7 @@
 
 ## Demo
 
-[![Agents UI demo](docs/agents-ui-demo-video.gif)](docs/agents-ui-demo-video.mp4)
+[![Agent Maestro demo](docs/agents-ui-demo-video.gif)](docs/agents-ui-demo-video.mp4)
 
 ## Highlights
 
@@ -247,7 +247,7 @@ scripts/purge-agents-ui-macos.sh
 
 ### Bundled Tools (macOS)
 
-Agents UI bundles `nu` (Nushell) and `zellij` as Tauri sidecars under `src-tauri/bin` so the app runs without system dependencies.
+Agent Maestro bundles `nu` (Nushell) and `zellij` as Tauri sidecars under `src-tauri/bin` so the app runs without system dependencies.
 
 ```bash
 ./scripts/fetch-nu-macos.sh 0.104.0
@@ -285,7 +285,7 @@ npm run tauri build
 <details>
 <summary><strong>Architecture</strong></summary>
 
-Agents UI is built with:
+Agent Maestro is built with:
 
 - **[Tauri v2](https://tauri.app/)** - Native app framework with Rust backend
 - **[React 18](https://react.dev/)** - Frontend UI framework
@@ -326,12 +326,12 @@ export const PROCESS_EFFECTS: ProcessEffect[] = [
 
 ## Security & Privacy
 
-Agents UI runs local shells and can execute commands with **your user permissions**. Treat agent output as untrusted, and avoid running commands you don’t understand.
+Agent Maestro runs local shells and can execute commands with **your user permissions**. Treat agent output as untrusted, and avoid running commands you don't understand.
 
 - **Optional encryption at rest (macOS):** environment configs and recording inputs can be stored encrypted in the app data directory using a master key stored in **macOS Keychain**. You can also disable encryption (no Keychain prompts) and store data in plaintext.
 - **Recordings may include secrets:** recordings can capture what you typed. Use recording sparingly when handling credentials.
 - **SSH host list:** the SSH picker reads `~/.ssh/config` to list host aliases.
-- **No telemetry:** Agents UI doesn’t send session contents anywhere. The only built-in network call is the optional “Check for updates” request to GitHub (agents you run may of course use the network).
+- **No telemetry:** Agent Maestro doesn't send session contents anywhere. The only built-in network call is the optional "Check for updates" request to GitHub (agents you run may of course use the network).
 
 ## FAQ
 
@@ -348,7 +348,7 @@ Native apps provide:
 <details>
 <summary><strong>Can I use this without AI agents?</strong></summary>
 
-Yes! Agents UI works as a regular terminal multiplexer. Create sessions with a blank command to get a standard shell. The agent features are optional enhancements.
+Yes! Agent Maestro works as a regular terminal multiplexer. Create sessions with a blank command to get a standard shell. The agent features are optional enhancements.
 </details>
 
 <details>

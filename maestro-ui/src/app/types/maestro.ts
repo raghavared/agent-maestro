@@ -1,7 +1,7 @@
 // Canonical types matching maestro-server/src/types.ts
 // plus UI-specific optional fields
 
-export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'completed' | 'cancelled' | 'blocked';
+export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'completed' | 'cancelled' | 'blocked' | 'archived';
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type MaestroSessionStatus = 'spawning' | 'idle' | 'working' | 'completed' | 'failed' | 'stopped';
 export type SpawnSource = 'ui' | 'session';
@@ -122,6 +122,9 @@ export interface MaestroTask {
   // Agent tool configuration
   agentTool?: AgentTool;
 
+  // Pinned tasks appear in the dedicated "Pinned" tab for quick re-execution
+  pinned?: boolean;
+
   // UI/Populated Fields (Optional)
   subtasks?: MaestroTask[];
   sessionCount?: number; // UI computed field
@@ -189,6 +192,7 @@ export interface UpdateTaskPayload {
   referenceTaskIds?: string[];
   model?: ModelType;
   agentTool?: AgentTool;
+  pinned?: boolean;
   // NOTE: timeline moved to Session - use addTimelineEvent on session
   completedAt?: number | null;
 }

@@ -270,10 +270,10 @@ impl StatusTrayState {
         }
 
         let tooltip = if working_count == 0 {
-            format!("Agents UI — {sessions_open} sessions open")
+            format!("Agent Maestro — {sessions_open} sessions open")
         } else {
             format!(
-                "Agents UI — {working_count} working • {sessions_open} sessions open"
+                "Agent Maestro — {working_count} working • {sessions_open} sessions open"
             )
         };
         let _ = tray.set_tooltip(Some(tooltip));
@@ -283,7 +283,7 @@ impl StatusTrayState {
 }
 
 pub fn build_status_tray(app: &AppHandle) -> Result<StatusTrayState, String> {
-    let open_item = MenuItemBuilder::with_id("tray-open", "Open Agents UI")
+    let open_item = MenuItemBuilder::with_id("tray-open", "Open Agent Maestro")
         .build(app)
         .map_err(|e| e.to_string())?;
     let new_terminal_item = MenuItemBuilder::with_id("tray-new-terminal", "New terminal")
@@ -365,7 +365,7 @@ pub fn build_status_tray(app: &AppHandle) -> Result<StatusTrayState, String> {
 
     let mut tray_builder = TrayIconBuilder::with_id("agents-ui-tray")
         .icon(TRAY_ICON)
-        .tooltip("Agents UI")
+        .tooltip("Agent Maestro")
         .menu(&menu)
         .on_menu_event(on_menu_event)
         .on_tray_icon_event(|tray, event| on_tray_click(tray, event))

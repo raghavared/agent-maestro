@@ -17,6 +17,7 @@ const STATUS_SYMBOLS: Record<TaskStatus, string> = {
   completed: "✓",
   cancelled: "⊘",
   blocked: "✗",
+  archived: "▫",
 };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -26,6 +27,7 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   completed: "Completed",
   cancelled: "Cancelled",
   blocked: "Blocked",
+  archived: "Archived",
 };
 
 const SESSION_STATUS_LABELS: Record<TaskSessionStatus, string> = {

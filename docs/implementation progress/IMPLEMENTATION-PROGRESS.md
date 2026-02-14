@@ -190,7 +190,7 @@ maestro session spawn --task task_xxx --name "API Worker" --skill maestro-worker
 ```
 
 ### 4. Monitor WebSocket Events
-Open the Agents UI and you'll see:
+Open the Agent Maestro and you'll see:
 - New session created with status 'spawning'
 - WebSocket broadcasts `session:spawn_request`
 - Frontend receives spawn event (ready for Tauri terminal spawning)

@@ -875,7 +875,7 @@ Content-Type: application/json
 {
   "success": true,
   "sessionId": "sess_789",
-  "message": "Spawn request sent to Agents UI",
+  "message": "Spawn request sent to Agent Maestro",
   "session": {
     "id": "sess_789",
     "projectId": "proj_123",

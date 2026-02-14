@@ -40,7 +40,7 @@ Session spawning enables the Orchestrator to automatically create new terminal w
          │
          ▼
 ┌─────────────────────────────┐
-│      Agents UI (Tauri)      │
+│      Agent Maestro (Tauri)      │
 │  1. Listen for spawn event  │
 │  2. Extract task ID & skill │
 │  3. Prepare env vars        │
@@ -114,7 +114,7 @@ export function registerSessionCommands(program: Command): void {
           console.log(`   Skill: ${skill}`);
           console.log(`   Session ID: ${result.sessionId}`);
           console.log('');
-          console.log('   Waiting for Agents UI to open terminal window...');
+          console.log('   Waiting for Agent Maestro to open terminal window...');
         }
       } catch (err) {
         handleError(err, globalOpts.json);
@@ -189,7 +189,7 @@ router.post('/spawn', (req, res) => {
   res.status(201).json({
     success: true,
     sessionId,
-    message: 'Spawn request sent to Agents UI'
+    message: 'Spawn request sent to Agent Maestro'
   });
 });
 
@@ -610,7 +610,7 @@ Begin by running: maestro whoami
    cd maestro-server
    npm run dev
 
-   # Terminal 2: Agents UI
+   # Terminal 2: Agent Maestro
    cd ..
    npm run dev
    ```
@@ -700,7 +700,7 @@ describe('Session Spawning', () => {
 ### Issue: Terminal doesn't open
 
 **Check:**
-1. Is the Agents UI running?
+1. Is the Agent Maestro running?
 2. Is the WebSocket connection established? (Check browser DevTools > Network > WS)
 3. Are there any errors in the Tauri console?
 

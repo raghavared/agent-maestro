@@ -6,7 +6,7 @@
 The primary objective is to give the LLM agent a standardized way to communicate with the Maestro system. The agent should not need to craft raw HTTP requests (curl) or understand the API schema. It should interact with a high-level, robust CLI tool.
 
 ### 2. Context Awareness
-The CLI must be "session-aware". When running inside a terminal spawned by Agents UI, it should automatically detect:
+The CLI must be "session-aware". When running inside a terminal spawned by Agent Maestro, it should automatically detect:
 - The current **Project ID**
 - The current **Session ID**
 - The current **Task IDs** (if assigned)
@@ -30,7 +30,7 @@ The CLI must serve two masters:
 ## Success Criteria
 
 1.  **Installation:** `npm install -g @maestro/cli` works globally.
-2.  **Environment:** The CLI automatically picks up `MAESTRO_*` environment variables injected by the Agents UI.
+2.  **Environment:** The CLI automatically picks up `MAESTRO_*` environment variables injected by the Agent Maestro.
 3.  **LLM Usability:** An LLM can successfully perform a full task lifecycle (Start -> Subtasks -> Complete) using only CLI commands, with no human intervention.
 4.  **Format:** `--json` output validates against a strictly defined schema.
 5.  **Help:** `maestro help` provides clear, concise examples for all commands.

@@ -123,7 +123,7 @@ When a session is active:
 
 ```mermaid
 graph TD
-    User[User] -->|Interacts| UI[Agents UI]
+    User[User] -->|Interacts| UI[Agent Maestro]
     UI -->|WebSockets| Server[Maestro Server]
     
     subgraph Right Panel [Planning]

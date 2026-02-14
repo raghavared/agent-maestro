@@ -62,6 +62,9 @@ export interface Task {
 
   // Agent tool configuration
   agentTool?: AgentTool;
+
+  // Pinned tasks appear in the dedicated "Pinned" tab for quick re-execution
+  pinned?: boolean;
 }
 
 export interface Session {
@@ -94,7 +97,7 @@ export interface Session {
 }
 
 // Supporting types
-export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'completed' | 'cancelled' | 'blocked';
+export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'completed' | 'cancelled' | 'blocked' | 'archived';
 export type TaskSessionStatus = 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'skipped';
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type SessionStatus = 'spawning' | 'idle' | 'working' | 'completed' | 'failed' | 'stopped';
@@ -170,6 +173,7 @@ export interface UpdateTaskPayload {
   referenceTaskIds?: string[];
   model?: string;
   agentTool?: AgentTool;
+  pinned?: boolean;
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline
   // Update source tracking
   updateSource?: UpdateSource;  // Who is making the update

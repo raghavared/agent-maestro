@@ -289,7 +289,7 @@ curl -X POST http://localhost:3000/api/sessions/spawn \
 #   "success": true,
 #   "sessionId": "sess-abc123",
 #   "manifestPath": "/home/user/.maestro/sessions/sess-abc123/manifest.json",
-#   "message": "Spawn request sent to Agents UI"
+#   "message": "Spawn request sent to Agent Maestro"
 # }
 
 # 4. UI receives spawn event and creates terminal

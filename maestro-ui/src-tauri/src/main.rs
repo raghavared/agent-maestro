@@ -34,6 +34,14 @@ use ssh_fs::{
 use startup::get_startup_flags;
 use tray::{build_status_tray, set_tray_agent_count, set_tray_recent_sessions, set_tray_status};
 use tauri::Manager;
+use std::sync::{Arc, Mutex};
+#[cfg(feature = "custom-protocol")]
+use tauri_plugin_shell::ShellExt;
+use tauri_plugin_shell::process::CommandChild;
+
+struct SidecarState {
+    child: Arc<Mutex<Option<CommandChild>>>,
+}
 
 fn main() {
     #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -61,7 +69,8 @@ fn main() {
         let _ = fix_path_env::fix();
     }
     startup::init_startup_flags();
-    tauri::Builder::default()
+
+    let app = tauri::Builder::default()
         .manage(AppState::default())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -84,6 +93,58 @@ fn main() {
                 if let Some(window) = app.get_webview_window("main") {
                     window.open_devtools();
                 }
+            }
+
+            // Spawn the maestro-server sidecar only in release/prod builds
+            #[cfg(feature = "custom-protocol")]
+            {
+                let home_dir = dirs::home_dir()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| std::env::var("HOME").unwrap_or_default());
+                let data_dir = format!("{home_dir}/.maestro/data");
+                let session_dir = format!("{home_dir}/.maestro/sessions");
+
+                let sidecar_cmd = app.shell()
+                    .sidecar("maestro-server")
+                    .expect("failed to create maestro-server sidecar command")
+                    .env("PORT", "2357")
+                    .env("DATA_DIR", &data_dir)
+                    .env("SESSION_DIR", &session_dir)
+                    .env("NODE_ENV", "production");
+
+                let (mut rx, child) = sidecar_cmd.spawn()
+                    .expect("failed to spawn maestro-server sidecar");
+
+                // Log sidecar output for debugging
+                tauri::async_runtime::spawn(async move {
+                    use tauri_plugin_shell::process::CommandEvent;
+                    while let Some(event) = rx.recv().await {
+                        match event {
+                            CommandEvent::Stdout(line) => {
+                                eprintln!("[maestro-server] {}", String::from_utf8_lossy(&line));
+                            }
+                            CommandEvent::Stderr(line) => {
+                                eprintln!("[maestro-server:err] {}", String::from_utf8_lossy(&line));
+                            }
+                            CommandEvent::Terminated(payload) => {
+                                eprintln!("[maestro-server] terminated: {:?}", payload);
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                });
+
+                app.manage(SidecarState {
+                    child: Arc::new(Mutex::new(Some(child))),
+                });
+            }
+
+            #[cfg(not(feature = "custom-protocol"))]
+            {
+                app.manage(SidecarState {
+                    child: Arc::new(Mutex::new(None)),
+                });
             }
 
             Ok(())
@@ -135,6 +196,20 @@ fn main() {
             open_path_in_vscode,
             get_app_info
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let tauri::RunEvent::ExitRequested { .. } = event {
+            // Kill the sidecar when the app exits
+            if let Some(state) = app_handle.try_state::<SidecarState>() {
+                if let Ok(mut guard) = state.child.lock() {
+                    if let Some(child) = guard.take() {
+                        let _ = child.kill();
+                        eprintln!("[maestro-server] sidecar killed on app exit");
+                    }
+                }
+            }
+        }
+    });
 }

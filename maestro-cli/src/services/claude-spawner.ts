@@ -224,10 +224,11 @@ export class ClaudeSpawner {
     sessionId: string,
     options: SpawnOptions = {}
   ): Promise<SpawnResult> {
-    // Generate the full whoami output as the initial prompt
+    // Split prompt into system (static) and task (dynamic) layers
     const renderer = new WhoamiRenderer();
     const permissions = getPermissionsFromManifest(manifest);
-    const prompt = await renderer.render(manifest, permissions, sessionId);
+    const systemPrompt = renderer.renderSystemPrompt(manifest, permissions);
+    const taskContext = await renderer.renderTaskContext(manifest, sessionId);
 
     // Prepare environment
     const env = {
@@ -238,8 +239,11 @@ export class ClaudeSpawner {
     // Build arguments (now async to load skills)
     const args = await this.buildClaudeArgs(manifest);
 
-    // Add prompt directly as the last argument
-    args.push(prompt);
+    // Static role instructions + commands go into the system prompt
+    args.push('--append-system-prompt', systemPrompt);
+
+    // Dynamic task context goes as the user message
+    args.push(taskContext);
 
     // Determine working directory
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();

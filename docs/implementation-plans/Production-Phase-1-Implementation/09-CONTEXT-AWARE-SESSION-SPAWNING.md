@@ -511,7 +511,7 @@ export function registerSessionCommands(program: Command): void {
           console.log(`   Session ID: ${result.sessionId}`);
           console.log(`   Skill: ${skill}`);
           console.log('');
-          console.log('   Waiting for Agents UI to open terminal window...');
+          console.log('   Waiting for Agent Maestro to open terminal window...');
         }
       } catch (err) {
         handleError(err, globalOpts.json);
@@ -677,7 +677,7 @@ router.post('/spawn', (req, res) => {
     success: true,
     sessionId,
     initialPrompt, // Return to CLI for debugging
-    message: 'Spawn request sent to Agents UI'
+    message: 'Spawn request sent to Agent Maestro'
   });
 });
 
@@ -1062,7 +1062,7 @@ $ maestro session spawn --task t1 --skill maestro-worker
    Session ID: s-worker-001
    Skill: maestro-worker
 
-   Waiting for Agents UI to open terminal window...
+   Waiting for Agent Maestro to open terminal window...
 ```
 
 ```bash

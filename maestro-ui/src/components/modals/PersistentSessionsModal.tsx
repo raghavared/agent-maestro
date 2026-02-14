@@ -35,7 +35,7 @@ export function PersistentSessionsModal({
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h3 className="modalTitle">Persistent terminals</h3>
         <div className="hint" style={{ marginTop: 0 }}>
-          Background terminal sessions started by Agents UI.
+          Background terminal sessions started by Agent Maestro.
         </div>
 
         <div className="agentShortcutEditorSection">

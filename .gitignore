@@ -18,6 +18,7 @@ src-tauri/target/
 src-tauri/.tauri/
 maestro-ui/src-tauri/target/
 maestro-ui/src-tauri/bin/
+maestro-ui/src-tauri/binaries/maestro-server-*
 
 # OS / editor
 .DS_Store

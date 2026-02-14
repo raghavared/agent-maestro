@@ -84,9 +84,9 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'project:create', description: 'Create project', allowedRoles: ['orchestrator'], parent: 'project' },
   { name: 'project:delete', description: 'Delete project', allowedRoles: ['orchestrator'], parent: 'project' },
 
-  // Worker/Orchestrator init commands
-  { name: 'worker:init', description: 'Initialize worker session', allowedRoles: ['worker'], parent: 'worker', isCore: true },
-  { name: 'orchestrator:init', description: 'Initialize orchestrator session', allowedRoles: ['orchestrator'], parent: 'orchestrator', isCore: true },
+  // Worker/Orchestrator init commands (invoked by the spawning system, not by agents directly)
+  { name: 'worker:init', description: 'Initialize worker session', allowedRoles: ['worker'], parent: 'worker' },
+  { name: 'orchestrator:init', description: 'Initialize orchestrator session', allowedRoles: ['orchestrator'], parent: 'orchestrator' },
 
   // Utility commands
   { name: 'track-file', description: 'Track file modification', allowedRoles: ['worker', 'orchestrator'], isCore: true },
@@ -120,7 +120,6 @@ export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
     'session:docs:add',
     'session:docs:list',
     'track-file',
-    'worker:init',
   ],
   orchestrator: [
     'whoami',
@@ -156,7 +155,6 @@ export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
     'project:create',
     'project:delete',
     'track-file',
-    'orchestrator:init',
   ],
 };
 
@@ -491,4 +489,76 @@ export function generateCommandBrief(permissions: CommandPermissions): string {
   }
 
   return lines.join('\n');
+}
+
+/**
+ * Generate a compact one-liner-per-group command reference for system prompts.
+ * Much shorter than generateCommandBrief() — designed to save context window space.
+ */
+export function generateCompactCommandBrief(permissions: CommandPermissions): string {
+  const lines: string[] = ['## Maestro Commands'];
+
+  const grouped = getAvailableCommandsGrouped(permissions);
+
+  // Core/root commands as a single line
+  if (grouped['root']) {
+    const subCmds = grouped['root'].map(c => c.name).join('|');
+    lines.push(`maestro {${subCmds}} — Core utilities`);
+  }
+
+  // Group definitions for compact rendering
+  const groupMeta: Record<string, { prefix: string; description: string }> = {
+    report: { prefix: 'maestro report', description: 'Status reporting' },
+    task: { prefix: 'maestro task', description: 'Task management' },
+    session: { prefix: 'maestro session', description: 'Session management' },
+    queue: { prefix: 'maestro queue', description: 'Queue operations' },
+    project: { prefix: 'maestro project', description: 'Project management' },
+    worker: { prefix: 'maestro worker', description: 'Worker initialization' },
+    orchestrator: { prefix: 'maestro orchestrator', description: 'Orchestrator initialization' },
+  };
+
+  for (const [parent, commands] of Object.entries(grouped)) {
+    if (parent === 'root') continue;
+
+    const meta = groupMeta[parent];
+    const prefix = meta?.prefix || `maestro ${parent}`;
+    const desc = meta?.description || '';
+
+    // Separate simple sub-commands from nested ones (e.g. task:report:*, task:docs:*)
+    const simple: string[] = [];
+    const nested: Map<string, string[]> = new Map();
+
+    for (const cmd of commands) {
+      const parts = cmd.name.replace(`${parent}:`, '').split(':');
+      if (parts.length === 1) {
+        simple.push(parts[0]);
+      } else {
+        const nestedGroup = parts[0];
+        if (!nested.has(nestedGroup)) {
+          nested.set(nestedGroup, []);
+        }
+        nested.get(nestedGroup)!.push(parts.slice(1).join(' '));
+      }
+    }
+
+    // Render simple sub-commands
+    if (simple.length > 0) {
+      const subCmds = simple.join('|');
+      lines.push(`${prefix} {${subCmds}} — ${desc}`);
+    }
+
+    // Render nested sub-groups
+    for (const [nestedGroup, subCmds] of nested.entries()) {
+      const nestedJoined = subCmds.join('|');
+      lines.push(`${prefix} ${nestedGroup} {${nestedJoined}} — ${capitalize(parent)} ${nestedGroup}`);
+    }
+  }
+
+  lines.push('Run `maestro commands` for full syntax reference.');
+
+  return lines.join('\n');
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

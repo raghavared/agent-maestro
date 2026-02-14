@@ -47,7 +47,7 @@ The server acts as a **persistent data layer and event broadcaster** for:
                 │ (State change broadcasts)
                 ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                        Agents UI                            │
+│                        Agent Maestro                            │
 │                   (Visualization Layer)                     │
 │  • Displays projects, tasks, sessions                       │
 │  • Spawns terminals with env vars                           │
@@ -213,7 +213,7 @@ docker run -p 3000:3000 -v ~/.maestro/data:/data maestro-server
 - Manages its own prompt generation and command execution
 - Spawns Claude sessions with appropriate context
 
-### 2. Agents UI
+### 2. Agent Maestro
 - Connects via WebSocket for real-time updates
 - Spawns terminals when receiving `session:spawn_request` events
 - Sets environment variables for CLI context (`MAESTRO_SESSION_ID`, etc.)

@@ -99,6 +99,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
         {sessions.map((s) => (
           <div
             key={s.id}
+            data-terminal-id={s.id}
             className={`terminalContainer ${s.id === activeId ? "" : "terminalHidden"}`}
           >
             <SessionTerminal

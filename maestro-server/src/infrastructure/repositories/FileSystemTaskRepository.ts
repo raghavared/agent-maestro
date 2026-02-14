@@ -209,6 +209,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
     if (updates.referenceTaskIds !== undefined) task.referenceTaskIds = updates.referenceTaskIds;
     if (updates.model !== undefined) task.model = updates.model;
     if (updates.agentTool !== undefined) task.agentTool = updates.agentTool;
+    if (updates.pinned !== undefined) task.pinned = updates.pinned;
 
     // Handle status changes
     if (updates.status !== undefined) {
