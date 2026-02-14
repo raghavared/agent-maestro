@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { DirectoryListing } from "../../app/types/app-state";
 import { InlineFolderBrowser } from "../InlineFolderBrowser";
+import { ProjectSoundSettings } from "./ProjectSoundSettings";
+import type { ProjectSoundConfig } from "../../app/types/maestro";
 
 type EnvironmentConfig = {
   id: string;
@@ -28,6 +30,8 @@ type ProjectModalProps = {
   onChangeAssetsEnabled: (value: boolean) => void;
   soundInstrument?: string;
   onChangeSoundInstrument?: (value: string) => void;
+  soundConfig?: ProjectSoundConfig;
+  onChangeSoundConfig?: (config: ProjectSoundConfig | undefined) => void;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
   browserListing: DirectoryListing | null;
@@ -56,8 +60,8 @@ export function ProjectModal({
   onOpenEnvironments,
   assetsEnabled,
   onChangeAssetsEnabled,
-  soundInstrument = 'piano',
-  onChangeSoundInstrument,
+  soundConfig,
+  onChangeSoundConfig,
   onClose,
   onSubmit,
   browserListing,
@@ -67,6 +71,7 @@ export function ProjectModal({
   onBrowserSelect,
 }: ProjectModalProps) {
   const [browserExpanded, setBrowserExpanded] = useState(false);
+  const [soundExpanded, setSoundExpanded] = useState(false);
 
   if (!isOpen) return null;
 
@@ -171,18 +176,25 @@ export function ProjectModal({
             </div>
             <div className="themedFormRow">
               <div className="themedFormLabel">Notification Sounds</div>
-              <select
-                className="themedFormSelect"
-                value={soundInstrument}
-                onChange={(e) => onChangeSoundInstrument?.(e.target.value)}
+              <button
+                type="button"
+                className="themedBrowseToggle"
+                onClick={() => setSoundExpanded((v) => !v)}
               >
-                <option value="piano">Piano</option>
-                <option value="guitar">Guitar</option>
-                <option value="strings">Strings</option>
-                <option value="bells">Bells</option>
-                <option value="marimba">Marimba</option>
-              </select>
-              <div className="themedFormHint">Instrument used for notification sounds in this project.</div>
+                <span className={`themedBrowseToggleArrow${soundExpanded ? " themedBrowseToggleArrow--open" : ""}`}>
+                  &#9654;
+                </span>
+                {soundConfig
+                  ? `${soundConfig.instrument.charAt(0).toUpperCase() + soundConfig.instrument.slice(1)} (custom)`
+                  : 'Configure sounds'}
+              </button>
+              {soundExpanded && (
+                <ProjectSoundSettings
+                  config={soundConfig}
+                  onChange={(config) => onChangeSoundConfig?.(config)}
+                />
+              )}
+              <div className="themedFormHint">Per-project instrument and sound category overrides.</div>
             </div>
           </div>
           <div className="themedFormActions">

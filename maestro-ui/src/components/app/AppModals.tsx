@@ -82,6 +82,8 @@ export function AppModals() {
   const setProjectAssetsEnabled = useProjectStore((s) => s.setProjectAssetsEnabled);
   const projectSoundInstrument = useProjectStore((s) => s.projectSoundInstrument);
   const setProjectSoundInstrument = useProjectStore((s) => s.setProjectSoundInstrument);
+  const projectSoundConfig = useProjectStore((s) => s.projectSoundConfig);
+  const setProjectSoundConfig = useProjectStore((s) => s.setProjectSoundConfig);
   const confirmDeleteProjectOpen = useProjectStore((s) => s.confirmDeleteProjectOpen);
   const setConfirmDeleteProjectOpen = useProjectStore((s) => s.setConfirmDeleteProjectOpen);
   const deleteProjectError = useProjectStore((s) => s.deleteProjectError);
@@ -485,6 +487,8 @@ export function AppModals() {
         onChangeAssetsEnabled={setProjectAssetsEnabled}
         soundInstrument={projectSoundInstrument}
         onChangeSoundInstrument={setProjectSoundInstrument}
+        soundConfig={projectSoundConfig}
+        onChangeSoundConfig={setProjectSoundConfig}
         onClose={onCloseProject}
         onSubmit={onProjectSubmit}
         browserListing={pathPickerTarget === "project" ? pathPickerListing : null}

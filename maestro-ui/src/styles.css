@@ -1016,6 +1016,206 @@ body {
   opacity: 1;
 }
 
+/* Project Sound Settings */
+.projectSoundSettings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.projectSoundRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.projectSoundLabel {
+  font-size: 11px;
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.projectSoundSettings select {
+  background: #000;
+  border: 1px solid var(--theme-border);
+  color: var(--theme-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.projectSoundSettings select:focus {
+  outline: none;
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 6px rgba(var(--theme-primary-rgb), 0.2);
+}
+
+.projectSoundInstruments {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.projectSoundInstrumentOption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: 'JetBrains Mono', monospace;
+  transition: color 0.15s;
+}
+
+.projectSoundInstrumentOption:hover {
+  color: var(--theme-primary);
+}
+
+.projectSoundInstrumentOption input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--theme-primary);
+  cursor: pointer;
+}
+
+.projectSoundOverrides {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.projectSoundGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.projectSoundGroupTitle {
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 6px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  font-weight: normal;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.projectSoundCategoryRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.projectSoundCategoryToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  font-size: 12px;
+  cursor: pointer;
+  min-width: 0;
+  color: var(--theme-primary);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.projectSoundCategoryToggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--theme-primary);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.projectSoundCategoryToggle span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projectSoundCategoryInstrument {
+  font-size: 10px;
+  padding: 3px 6px;
+  border: 1px solid var(--theme-border);
+  background: #000;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: 'JetBrains Mono', monospace;
+  max-width: 130px;
+  cursor: pointer;
+}
+
+.projectSoundCategoryInstrument:focus {
+  outline: none;
+  border-color: var(--theme-primary);
+}
+
+.projectSoundActions {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.projectSoundActions .themedBtn {
+  font-size: 10px;
+}
+
+.projectSoundSaveTemplate {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.projectSoundSaveTemplate .themedFormInput {
+  flex: 1;
+}
+
+.projectSoundCustomTemplates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+}
+
+.projectSoundCustomTemplateRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  padding: 3px 0;
+}
+
+.projectSoundDeleteBtn {
+  background: none;
+  border: 1px solid var(--theme-border);
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.projectSoundDeleteBtn:hover {
+  background: rgba(255, 60, 60, 0.1);
+  color: #ff4444;
+  border-color: #ff4444;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Panel resize performance optimizations                             */
 /* ------------------------------------------------------------------ */
@@ -2105,6 +2305,11 @@ body {
   /* GPU layer for smooth compositing */
   transform: translateZ(0);
   backface-visibility: hidden;
+  transition: box-shadow 0.15s ease;
+}
+
+.terminalPane--dragOver {
+  box-shadow: inset 0 0 0 2px rgba(0, 187, 255, 0.5);
 }
 
 .terminalContainer {
@@ -16232,6 +16437,21 @@ select.input {
   overflow: hidden;
 }
 
+.taskBoardBody {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.taskBoardContent {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ── Header ── */
 
 .taskBoardHeader {
@@ -16322,7 +16542,9 @@ select.input {
   display: flex;
   gap: 1px;
   flex: 1;
+  min-height: 0;
   overflow-x: auto;
+  overflow-y: hidden;
   background: rgba(var(--theme-primary-rgb), 0.03);
   scrollbar-width: thin;
   scrollbar-color: rgba(var(--theme-primary-rgb), 0.15) transparent;
@@ -16335,6 +16557,8 @@ select.input {
   max-width: 360px;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  height: 100%;
   background: var(--bg, #0a0e16);
   border-right: 1px solid var(--theme-border, rgba(255,255,255,0.08));
   transition: background 0.2s ease;
@@ -16447,6 +16671,7 @@ select.input {
 
 .taskBoardColumnBody {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 10px;
   display: flex;
@@ -16483,6 +16708,7 @@ body.dragging-active * {
 
 .taskBoardCard {
   display: flex;
+  flex-shrink: 0;
   background: var(--panel, #10151e);
   border: 1px solid var(--theme-border, rgba(255,255,255,0.08));
   border-radius: 4px;
@@ -17078,7 +17304,8 @@ body.dragging-active * {
 
 .mpbContent {
   flex: 1;
-  overflow: auto;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }

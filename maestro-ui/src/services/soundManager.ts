@@ -5,34 +5,10 @@
  * Supports multiple instruments with per-project configuration.
  */
 
-export type InstrumentType = 'piano' | 'guitar' | 'strings' | 'bells' | 'marimba';
+import type { InstrumentType, ProjectSoundConfig, SoundCategoryType } from '../app/types/maestro';
 
-export type SoundCategory =
-  | 'success'
-  | 'error'
-  | 'critical_error'
-  | 'warning'
-  | 'attention'
-  | 'action'
-  | 'creation'
-  | 'deletion'
-  | 'update'
-  | 'progress'
-  | 'achievement'
-  | 'neutral'
-  | 'link'
-  | 'unlink'
-  | 'loading'
-  // Notify-specific categories (unique piano tone signatures)
-  | 'notify_task_completed'
-  | 'notify_task_failed'
-  | 'notify_task_blocked'
-  | 'notify_task_session_completed'
-  | 'notify_task_session_failed'
-  | 'notify_session_completed'
-  | 'notify_session_failed'
-  | 'notify_needs_input'
-  | 'notify_progress';
+export type { InstrumentType };
+export type SoundCategory = SoundCategoryType;
 
 export type EventSoundType =
   // WebSocket Events
@@ -149,7 +125,7 @@ const EVENT_SOUND_MAP: Record<EventSoundType, SoundCategory> = {
   'status:blocked': 'warning',
 };
 
-// Map sound categories to piano notes
+// Map sound categories to piano notes (used for note-based instruments)
 const CATEGORY_NOTES: Record<SoundCategory, SoundNote[]> = {
   success: [
     { note: 'C5' },
@@ -213,7 +189,7 @@ const CATEGORY_NOTES: Record<SoundCategory, SoundNote[]> = {
     { note: 'C4' },
     { note: 'G4', delay: 100 },
   ],
-  // Notify-specific categories (piano tone mapping from plan)
+  // Notify-specific categories
   notify_task_completed: [
     { note: 'C5' },
     { note: 'E5', delay: 80 },
@@ -255,6 +231,110 @@ const CATEGORY_NOTES: Record<SoundCategory, SoundNote[]> = {
   ],
 };
 
+// ── Instrument Configuration Registry ──
+
+interface InstrumentConfig {
+  basePath: string;
+  format: 'mp3' | 'wav';
+  /** Available note names for this instrument (files on disk) */
+  availableNotes: string[];
+  /** For percussion-type instruments, map categories directly to file stems */
+  percussionMap?: Record<string, string>;
+}
+
+const INSTRUMENT_CONFIGS: Record<InstrumentType, InstrumentConfig> = {
+  piano: {
+    basePath: '/music/piano-mp3',
+    format: 'mp3',
+    // Full chromatic range — original piano-mp3 files
+    availableNotes: [
+      'A0','Bb0','B0',
+      'C1','Db1','D1','Eb1','E1','F1','Gb1','G1','Ab1','A1','Bb1','B1',
+      'C2','Db2','D2','Eb2','E2','F2','Gb2','G2','Ab2','A2','Bb2','B2',
+      'C3','Db3','D3','Eb3','E3','F3','Gb3','G3','Ab3','A3','Bb3','B3',
+      'C4','Db4','D4','Eb4','E4','F4','Gb4','G4','Ab4','A4','Bb4','B4',
+      'C5','Db5','D5','Eb5','E5','F5','Gb5','G5','Ab5','A5','Bb5','B5',
+      'C6','Db6','D6','Eb6','E6','F6','Gb6','G6','Ab6','A6','Bb6','B6',
+      'C7','Db7','D7','Eb7','E7','F7','Gb7','G7',
+    ],
+  },
+  guitar: {
+    basePath: '/music/guitar',
+    format: 'wav',
+    availableNotes: ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+  },
+  violin: {
+    basePath: '/music/violin',
+    format: 'wav',
+    availableNotes: ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+  },
+  trumpet: {
+    basePath: '/music/trumpet',
+    format: 'wav',
+    availableNotes: ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+  },
+  drums: {
+    basePath: '/music/drums',
+    format: 'wav',
+    availableNotes: [],
+    percussionMap: {
+      success: 'drums_crash',
+      error: 'drums_tom',
+      critical_error: 'drums_kick',
+      warning: 'drums_snare',
+      attention: 'drums_ride',
+      action: 'drums_hihat',
+      creation: 'drums_snare',
+      deletion: 'drums_tom',
+      update: 'drums_hihat',
+      progress: 'drums_hihat',
+      achievement: 'drums_crash',
+      neutral: 'drums_ride',
+      link: 'drums_hihat',
+      unlink: 'drums_snare',
+      loading: 'drums_ride',
+      notify_task_completed: 'drums_crash',
+      notify_task_failed: 'drums_tom',
+      notify_task_blocked: 'drums_snare',
+      notify_task_session_completed: 'drums_crash',
+      notify_task_session_failed: 'drums_tom',
+      notify_session_completed: 'drums_crash',
+      notify_session_failed: 'drums_tom',
+      notify_needs_input: 'drums_ride',
+      notify_progress: 'drums_hihat',
+    },
+  },
+};
+
+/**
+ * Map a chromatic note name (e.g. "C5", "Eb2") to a simple letter note
+ * for instruments that only have A-G WAV files.
+ */
+function chromaticToSimpleNote(note: string): string {
+  // Strip octave and accidentals: "Eb2" -> "E", "C5" -> "C", "Gb2" -> "G"
+  const match = note.match(/^([A-G])/);
+  return match ? match[1] : 'C';
+}
+
+/**
+ * Drums category note sequences — percussion maps categories to drum sounds
+ */
+function getDrumNotesForCategory(category: SoundCategory): SoundNote[] {
+  const percMap = INSTRUMENT_CONFIGS.drums.percussionMap!;
+  const baseStem = percMap[category] || 'drums_kick';
+
+  // Use the same timing pattern as the original category notes
+  const originalNotes = CATEGORY_NOTES[category];
+  if (!originalNotes) return [{ note: baseStem }];
+
+  // Map each note in the sequence to a drum sound, alternating between sounds
+  const drumSounds = Object.values(percMap);
+  return originalNotes.map((sn, i) => ({
+    note: i === 0 ? baseStem : (drumSounds[(drumSounds.indexOf(baseStem) + i) % drumSounds.length] || baseStem),
+    delay: sn.delay,
+  }));
+}
+
 interface SoundManagerConfig {
   enabled: boolean;
   volume: number;
@@ -269,7 +349,7 @@ class SoundManager {
   private activeSounds: Set<HTMLAudioElement> = new Set();
   private config: SoundManagerConfig = {
     enabled: true,
-    volume: 0.3, // 30% volume by default
+    volume: 0.3,
     maxConcurrentSounds: 5,
     currentInstrument: 'piano',
     enabledCategories: new Set([
@@ -279,7 +359,6 @@ class SoundManager {
       'warning',
       'attention',
       'achievement',
-      // Notify categories (all enabled by default)
       'notify_task_completed',
       'notify_task_failed',
       'notify_task_blocked',
@@ -292,12 +371,17 @@ class SoundManager {
     ]),
   };
 
+  // Project-level configs
+  private projectConfigs: Map<string, ProjectSoundConfig> = new Map();
+  private activeProjectId: string | null = null;
+
   // Debounce map to prevent sound spam
   private lastPlayedTime: Map<string, number> = new Map();
-  private debounceMs = 100; // Minimum time between same sound events
+  private debounceMs = 100;
 
   private constructor() {
     this.loadConfig();
+    this.loadProjectConfigs();
   }
 
   public static getInstance(): SoundManager {
@@ -307,9 +391,6 @@ class SoundManager {
     return SoundManager.instance;
   }
 
-  /**
-   * Load configuration from localStorage
-   */
   private loadConfig(): void {
     try {
       const stored = localStorage.getItem('maestro-sound-config');
@@ -326,9 +407,6 @@ class SoundManager {
     }
   }
 
-  /**
-   * Save configuration to localStorage
-   */
   private saveConfig(): void {
     try {
       const toSave = {
@@ -341,22 +419,114 @@ class SoundManager {
     }
   }
 
+  private loadProjectConfigs(): void {
+    try {
+      const stored = localStorage.getItem('maestro-project-sound-configs');
+      if (stored) {
+        const parsed = JSON.parse(stored) as Record<string, ProjectSoundConfig>;
+        this.projectConfigs = new Map(Object.entries(parsed));
+      }
+    } catch (error) {
+      console.error('[SoundManager] Failed to load project configs:', error);
+    }
+  }
+
+  private saveProjectConfigs(): void {
+    try {
+      const obj: Record<string, ProjectSoundConfig> = {};
+      this.projectConfigs.forEach((config, id) => { obj[id] = config; });
+      localStorage.setItem('maestro-project-sound-configs', JSON.stringify(obj));
+    } catch (error) {
+      console.error('[SoundManager] Failed to save project configs:', error);
+    }
+  }
+
   /**
-   * Get or create an audio element for a specific note with current instrument
+   * Resolve the effective instrument and enabled categories for the current context.
+   * Project config overrides global config.
    */
-  private getAudioElement(note: string): HTMLAudioElement {
-    const instrument = this.config.currentInstrument;
+  private getEffectiveConfig(): { instrument: InstrumentType; enabledCategories: Set<SoundCategory> } {
+    if (this.activeProjectId) {
+      const projectConfig = this.projectConfigs.get(this.activeProjectId);
+      if (projectConfig) {
+        return {
+          instrument: projectConfig.instrument,
+          enabledCategories: projectConfig.enabledCategories
+            ? new Set(projectConfig.enabledCategories)
+            : this.config.enabledCategories,
+        };
+      }
+    }
+    return {
+      instrument: this.config.currentInstrument,
+      enabledCategories: this.config.enabledCategories,
+    };
+  }
+
+  /**
+   * Resolve instrument for a specific category (checking category overrides).
+   */
+  private getEffectiveInstrumentForCategory(category: SoundCategory): InstrumentType {
+    if (this.activeProjectId) {
+      const projectConfig = this.projectConfigs.get(this.activeProjectId);
+      if (projectConfig?.categoryOverrides?.[category]?.instrument) {
+        return projectConfig.categoryOverrides[category].instrument!;
+      }
+      if (projectConfig) {
+        return projectConfig.instrument;
+      }
+    }
+    return this.config.currentInstrument;
+  }
+
+  /**
+   * Check if a category is enabled (checking project-level category overrides).
+   */
+  private isCategoryEffectivelyEnabled(category: SoundCategory): boolean {
+    if (this.activeProjectId) {
+      const projectConfig = this.projectConfigs.get(this.activeProjectId);
+      if (projectConfig?.categoryOverrides?.[category]) {
+        const override = projectConfig.categoryOverrides[category];
+        if (typeof override.enabled === 'boolean') {
+          return override.enabled;
+        }
+      }
+      if (projectConfig?.enabledCategories) {
+        return projectConfig.enabledCategories.includes(category);
+      }
+    }
+    return this.config.enabledCategories.has(category);
+  }
+
+  /**
+   * Get or create an audio element for a specific note with a specific instrument.
+   */
+  private getAudioElement(note: string, instrument: InstrumentType): HTMLAudioElement {
     const key = `${instrument}:${note}`;
 
     if (!this.audioContext.has(key)) {
-      // Use piano-mp3 for all instruments for now (can be extended later)
-      const audio = new Audio(`/music/${instrument}-mp3/${note}.mp3`);
+      const config = INSTRUMENT_CONFIGS[instrument];
+      let src: string;
+
+      if (instrument === 'piano') {
+        // Piano has full chromatic MP3 files
+        src = `${config.basePath}/${note}.${config.format}`;
+      } else if (instrument === 'drums') {
+        // Drums: note IS the file stem (e.g. "drums_crash")
+        src = `${config.basePath}/${note}.${config.format}`;
+      } else {
+        // Guitar, violin, trumpet: WAV files named {instrument}_{letter}.wav
+        const simpleLetter = chromaticToSimpleNote(note);
+        src = `${config.basePath}/${instrument}_${simpleLetter}.${config.format}`;
+      }
+
+      const audio = new Audio(src);
       audio.volume = this.config.volume;
 
       // Fallback to piano if instrument file doesn't exist
       audio.addEventListener('error', () => {
         if (instrument !== 'piano') {
-          console.warn(`[SoundManager] ${instrument} not found, falling back to piano`);
+          console.warn(`[SoundManager] ${instrument} file not found (${src}), falling back to piano`);
           const fallback = new Audio(`/music/piano-mp3/${note}.mp3`);
           fallback.volume = this.config.volume;
           this.audioContext.set(key, fallback);
@@ -369,10 +539,7 @@ class SoundManager {
     return this.audioContext.get(key)!;
   }
 
-  /**
-   * Play a single note
-   */
-  private async playNote(note: string): Promise<void> {
+  private async playNote(note: string, instrument: InstrumentType): Promise<void> {
     if (!this.config.enabled) return;
     if (this.activeSounds.size >= this.config.maxConcurrentSounds) {
       console.warn('[SoundManager] Max concurrent sounds reached, skipping');
@@ -380,9 +547,8 @@ class SoundManager {
     }
 
     try {
-      // Clone the audio element to allow overlapping sounds
-      const original = this.getAudioElement(note);
-      console.log(`[SoundManager] 🎵 Playing note ${note}, src=${original.src}, volume=${this.config.volume}`);
+      const original = this.getAudioElement(note, instrument);
+      console.log(`[SoundManager] Playing note ${note} (${instrument}), src=${original.src}`);
       const audio = original.cloneNode(true) as HTMLAudioElement;
       audio.volume = this.config.volume;
 
@@ -393,31 +559,25 @@ class SoundManager {
       });
 
       audio.addEventListener('error', (e) => {
-        console.error(`[SoundManager] ❌ Audio error for note ${note}:`, e);
+        console.error(`[SoundManager] Audio error for note ${note}:`, e);
+        this.activeSounds.delete(audio);
       });
 
       await audio.play();
-      console.log(`[SoundManager] ✅ Note ${note} playing`);
     } catch (error) {
-      console.error(`[SoundManager] ❌ Failed to play note ${note}:`, error);
+      console.error(`[SoundManager] Failed to play note ${note}:`, error);
     }
   }
 
-  /**
-   * Play a sequence of notes with delays
-   */
-  private async playNotes(notes: SoundNote[]): Promise<void> {
+  private async playNotes(notes: SoundNote[], instrument: InstrumentType): Promise<void> {
     for (const { note, delay = 0 } of notes) {
       if (delay > 0) {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
-      await this.playNote(note);
+      await this.playNote(note, instrument);
     }
   }
 
-  /**
-   * Check if enough time has passed since last play (debounce)
-   */
   private shouldDebounce(eventType: string): boolean {
     const now = Date.now();
     const lastPlayed = this.lastPlayedTime.get(eventType);
@@ -431,15 +591,23 @@ class SoundManager {
   }
 
   /**
+   * Get the note sequence for a category, adapted for the given instrument.
+   */
+  private getNotesForCategory(category: SoundCategory, instrument: InstrumentType): SoundNote[] {
+    if (instrument === 'drums') {
+      return getDrumNotesForCategory(category);
+    }
+    return CATEGORY_NOTES[category] || [];
+  }
+
+  /**
    * Play sound for a specific event type
    */
   public async playEventSound(eventType: EventSoundType): Promise<void> {
     if (!this.config.enabled) {
-      console.log(`[SoundManager] ⛔ Sound disabled globally, skipping: ${eventType}`);
       return;
     }
     if (this.shouldDebounce(eventType)) {
-      console.log(`[SoundManager] ⛔ Debounced, skipping: ${eventType}`);
       return;
     }
 
@@ -449,38 +617,71 @@ class SoundManager {
       return;
     }
 
-    if (!this.config.enabledCategories.has(category)) {
-      console.log(`[SoundManager] ⛔ Category "${category}" is muted, skipping: ${eventType}`);
+    if (!this.isCategoryEffectivelyEnabled(category)) {
       return;
     }
 
-    const notes = CATEGORY_NOTES[category];
-    if (!notes) {
+    const instrument = this.getEffectiveInstrumentForCategory(category);
+    const notes = this.getNotesForCategory(category, instrument);
+    if (!notes.length) {
       console.warn(`[SoundManager] No notes defined for category: ${category}`);
       return;
     }
 
-    console.log(`[SoundManager] 🔊 Playing ${eventType} -> category="${category}", notes=[${notes.map(n => n.note).join(', ')}]`);
-    await this.playNotes(notes);
+    console.log(`[SoundManager] Playing ${eventType} -> category="${category}", instrument=${instrument}`);
+    await this.playNotes(notes, instrument);
   }
 
   /**
    * Play sound for a specific category directly
    */
-  public async playCategorySound(category: SoundCategory): Promise<void> {
+  public async playCategorySound(category: SoundCategory, instrumentOverride?: InstrumentType): Promise<void> {
     if (!this.config.enabled) return;
-    if (!this.config.enabledCategories.has(category)) return;
+    if (!instrumentOverride && !this.isCategoryEffectivelyEnabled(category)) return;
 
-    const notes = CATEGORY_NOTES[category];
-    if (!notes) {
+    const instrument = instrumentOverride || this.getEffectiveInstrumentForCategory(category);
+    const notes = this.getNotesForCategory(category, instrument);
+    if (!notes.length) {
       console.warn(`[SoundManager] No notes defined for category: ${category}`);
       return;
     }
 
-    await this.playNotes(notes);
+    await this.playNotes(notes, instrument);
   }
 
-  // Configuration methods
+  // ── Project config methods ──
+
+  public setProjectConfig(projectId: string, config: ProjectSoundConfig): void {
+    this.projectConfigs.set(projectId, config);
+    this.saveProjectConfigs();
+    // Clear audio cache if this is the active project (instrument may have changed)
+    if (this.activeProjectId === projectId) {
+      this.audioContext.clear();
+    }
+  }
+
+  public getProjectConfig(projectId: string): ProjectSoundConfig | undefined {
+    return this.projectConfigs.get(projectId);
+  }
+
+  public removeProjectConfig(projectId: string): void {
+    this.projectConfigs.delete(projectId);
+    this.saveProjectConfigs();
+  }
+
+  public setActiveProject(projectId: string | null): void {
+    if (this.activeProjectId === projectId) return;
+    this.activeProjectId = projectId;
+    // Clear audio cache to force reload with potentially different instrument
+    this.audioContext.clear();
+    console.log(`[SoundManager] Active project set to: ${projectId}`);
+  }
+
+  public getActiveProjectId(): string | null {
+    return this.activeProjectId;
+  }
+
+  // ── Global config methods ──
 
   public setEnabled(enabled: boolean): void {
     this.config.enabled = enabled;
@@ -495,7 +696,6 @@ class SoundManager {
     this.config.volume = Math.max(0, Math.min(1, volume));
     this.saveConfig();
 
-    // Update volume for all cached audio elements
     this.audioContext.forEach(audio => {
       audio.volume = this.config.volume;
     });
@@ -537,10 +737,9 @@ class SoundManager {
   public setInstrument(instrument: InstrumentType): void {
     if (this.config.currentInstrument === instrument) return;
 
-    console.log(`[SoundManager] Switching instrument from ${this.config.currentInstrument} to ${instrument}`);
+    console.log(`[SoundManager] Switching global instrument from ${this.config.currentInstrument} to ${instrument}`);
     this.config.currentInstrument = instrument;
 
-    // Clear audio cache to force reload with new instrument
     this.audioContext.clear();
     this.saveConfig();
   }
@@ -549,9 +748,6 @@ class SoundManager {
     return this.config.currentInstrument;
   }
 
-  /**
-   * Stop all currently playing sounds
-   */
   public stopAll(): void {
     this.activeSounds.forEach(audio => {
       audio.pause();
@@ -560,23 +756,24 @@ class SoundManager {
     this.activeSounds.clear();
   }
 
-  /**
-   * Preload commonly used sounds
-   */
   public preloadSounds(): void {
+    const { instrument } = this.getEffectiveConfig();
     const commonNotes = new Set<string>();
 
-    // Collect all unique notes from all categories
-    Object.values(CATEGORY_NOTES).forEach(notes => {
-      notes.forEach(({ note }) => commonNotes.add(note));
-    });
+    if (instrument === 'drums') {
+      const percMap = INSTRUMENT_CONFIGS.drums.percussionMap!;
+      Object.values(percMap).forEach(stem => commonNotes.add(stem));
+    } else {
+      Object.values(CATEGORY_NOTES).forEach(notes => {
+        notes.forEach(({ note }) => commonNotes.add(note));
+      });
+    }
 
-    // Preload each note
     commonNotes.forEach(note => {
-      this.getAudioElement(note);
+      this.getAudioElement(note, instrument);
     });
 
-    console.log(`[SoundManager] Preloaded ${commonNotes.size} sound files`);
+    console.log(`[SoundManager] Preloaded ${commonNotes.size} sound files for ${instrument}`);
   }
 }
 

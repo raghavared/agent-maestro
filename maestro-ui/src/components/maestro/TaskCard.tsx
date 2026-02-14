@@ -48,9 +48,23 @@ export const TaskCard = React.memo(function TaskCard({
         onClick();
     }, [onClick]);
 
+    const handleDragStart = useCallback((e: React.DragEvent) => {
+        const content = task.initialPrompt || task.description || '';
+        const text = `[Task: ${task.title}] ${content}`;
+        e.dataTransfer.setData('application/maestro-task', JSON.stringify({
+            title: task.title,
+            description: task.description,
+            initialPrompt: task.initialPrompt,
+        }));
+        e.dataTransfer.setData('text/plain', text);
+        e.dataTransfer.effectAllowed = 'copy';
+    }, [task]);
+
     return (
         <div
             className={`taskBoardCard ${isDragging ? "taskBoardCard--dragging" : ""} ${isActive ? "taskBoardCard--active" : ""} ${isBlocked ? "taskBoardCard--blocked" : ""} ${isDone ? "taskBoardCard--done" : ""} ${isCancelled ? "taskBoardCard--cancelled" : ""}`}
+            draggable
+            onDragStart={handleDragStart}
             onPointerDown={handlePointerDown}
             onClick={handleClick}
         >
