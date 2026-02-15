@@ -33,10 +33,10 @@ ${PROJECT_STANDARDS}
 
 1. **Review** the full task tree above and plan your approach — consider dependencies and logical flow
 2. **Work through tasks** — you decide the order based on dependencies and what makes sense
-3. **Report progress** per subtask: `maestro report progress "Completed subtask X: summary"`
-4. **Report blockers** if stuck on any subtask: `maestro report blocked "what is blocking"`
-5. **After completing each subtask**, report: `maestro report progress "SUBTASK COMPLETE [task-id]: summary"`
-6. **When all subtasks are done**, complete: `maestro report complete "Tree complete: overall summary"`
+3. **Report progress** per subtask: `maestro session report progress "Completed subtask X: summary"`
+4. **Report blockers** if stuck on any subtask: `maestro session report blocked "what is blocking"`
+5. **After completing each subtask**, report: `maestro session report progress "SUBTASK COMPLETE [task-id]: summary"`
+6. **When all subtasks are done**, complete: `maestro session report complete "Tree complete: overall summary"`
 
 ## Tree Worker Rules
 

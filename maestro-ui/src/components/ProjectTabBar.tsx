@@ -1,10 +1,12 @@
 import React, { useState, useRef, useLayoutEffect } from "react";
 import { Icon } from "./Icon";
-import { MaestroProject } from "../app/types/maestro";
+import { MaestroProject, ProjectSoundConfig } from "../app/types/maestro";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { DisplaySettings } from "./DisplaySettings";
 import { SoundSettingsContent } from "./modals/SoundSettingsModal";
+import { ProjectSoundSettings } from "./modals/ProjectSoundSettings";
 import { soundManager } from "../services/soundManager";
+import { useProjectStore } from "../stores/useProjectStore";
 
 type SavedProject = {
   id: string;
@@ -37,6 +39,7 @@ type SettingsDialogProps = {
 };
 
 type SettingsTab = 'theme' | 'display' | 'sounds' | 'shortcuts';
+type ProjectSettingsTab = 'info' | 'sounds';
 
 type ShortcutRow = {
   action: string;
@@ -148,63 +151,119 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
 }
 
 function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete, onCloseProject }: SettingsDialogProps) {
+  const [activeTab, setActiveTab] = useState<ProjectSettingsTab>('info');
+  const setProjects = useProjectStore((s) => s.setProjects);
+
+  const handleSoundConfigChange = (config: ProjectSoundConfig | undefined) => {
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === project.id
+          ? {
+              ...p,
+              soundConfig: config,
+              soundInstrument: config?.instrument ?? p.soundInstrument,
+            }
+          : p
+      )
+    );
+    if (config) {
+      soundManager.setProjectConfig(project.id, config);
+    } else {
+      soundManager.removeProjectConfig(project.id);
+    }
+  };
+
   return (
     <div className="projectSettingsBackdrop" onClick={onClose}>
-      <div className="projectSettingsDialog" onClick={(e) => e.stopPropagation()}>
+      <div className="appSettingsDialog" onClick={(e) => e.stopPropagation()}>
         <div className="projectSettingsHeader">
           <span className="projectSettingsTitle">[ PROJECT SETTINGS ]</span>
           <button className="projectSettingsClose" onClick={onClose}>×</button>
         </div>
 
-        <div className="projectSettingsContent">
-          <div className="projectSettingsRow">
-            <span className="projectSettingsLabel">NAME:</span>
-            <span className="projectSettingsValue">{project.name}</span>
+        <div className="appSettingsBody">
+          <div className="appSettingsSidebar">
+            <button
+              type="button"
+              className={`appSettingsTabBtn ${activeTab === 'info' ? 'appSettingsTabBtnActive' : ''}`}
+              onClick={() => setActiveTab('info')}
+            >
+              INFO
+            </button>
+            <button
+              type="button"
+              className={`appSettingsTabBtn ${activeTab === 'sounds' ? 'appSettingsTabBtnActive' : ''}`}
+              onClick={() => setActiveTab('sounds')}
+            >
+              SOUNDS
+            </button>
           </div>
 
-          {project.basePath && (
-            <div className="projectSettingsRow">
-              <span className="projectSettingsLabel">PATH:</span>
-              <span className="projectSettingsValue projectSettingsPath">{project.basePath}</span>
-            </div>
-          )}
+          <div className="appSettingsTabContent">
+            {activeTab === 'info' && (
+              <div className="appSettingsContent">
+                <div className="projectSettingsContent">
+                  <div className="projectSettingsRow">
+                    <span className="projectSettingsLabel">NAME:</span>
+                    <span className="projectSettingsValue">{project.name}</span>
+                  </div>
 
-          <div className="projectSettingsRow">
-            <span className="projectSettingsLabel">SESSIONS:</span>
-            <span className="projectSettingsValue">{sessionCount}</span>
-          </div>
+                  {project.basePath && (
+                    <div className="projectSettingsRow">
+                      <span className="projectSettingsLabel">PATH:</span>
+                      <span className="projectSettingsValue projectSettingsPath">{project.basePath}</span>
+                    </div>
+                  )}
 
-          <div className="projectSettingsRow">
-            <span className="projectSettingsLabel">CREATED:</span>
-            <span className="projectSettingsValue">
-              {new Date(project.createdAt).toLocaleDateString()}
-            </span>
+                  <div className="projectSettingsRow">
+                    <span className="projectSettingsLabel">SESSIONS:</span>
+                    <span className="projectSettingsValue">{sessionCount}</span>
+                  </div>
+
+                  <div className="projectSettingsRow">
+                    <span className="projectSettingsLabel">CREATED:</span>
+                    <span className="projectSettingsValue">
+                      {new Date(project.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="projectSettingsDivider" />
+
+                <button
+                  className="projectSettingsCloseBtn"
+                  onClick={() => {
+                    onCloseProject();
+                    onClose();
+                  }}
+                >
+                  <Icon name="close" size={14} />
+                  CLOSE PROJECT
+                </button>
+
+                <button
+                  className="projectSettingsDeleteBtn"
+                  onClick={() => {
+                    onDelete();
+                    onClose();
+                  }}
+                >
+                  <Icon name="trash" size={14} />
+                  DELETE PROJECT
+                </button>
+              </div>
+            )}
+
+            {activeTab === 'sounds' && (
+              <div className="appSettingsContent">
+                <ProjectSoundSettings
+                  config={project.soundConfig}
+                  onChange={handleSoundConfigChange}
+                />
+              </div>
+            )}
           </div>
         </div>
-
-        <div className="projectSettingsDivider" />
-
-        <button
-          className="projectSettingsCloseBtn"
-          onClick={() => {
-            onCloseProject();
-            onClose();
-          }}
-        >
-          <Icon name="close" size={14} />
-          CLOSE PROJECT
-        </button>
-
-        <button
-          className="projectSettingsDeleteBtn"
-          onClick={() => {
-            onDelete();
-            onClose();
-          }}
-        >
-          <Icon name="trash" size={14} />
-          DELETE PROJECT
-        </button>
       </div>
     </div>
   );

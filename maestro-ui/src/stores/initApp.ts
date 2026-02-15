@@ -306,7 +306,21 @@ export function initApp(
         environmentId: (p as { environmentId?: string | null }).environmentId ?? null,
         assetsEnabled: (p as { assetsEnabled?: boolean }).assetsEnabled ?? true,
         soundInstrument: (p as { soundInstrument?: string }).soundInstrument ?? 'piano',
+        soundConfig: (p as { soundConfig?: any }).soundConfig ?? undefined,
       };
+    });
+
+    // Migrate legacy soundInstrument to soundConfig
+    state.projects = state.projects.map((p: any) => {
+      if (p.soundInstrument && !p.soundConfig) {
+        return {
+          ...p,
+          soundConfig: {
+            instrument: p.soundInstrument,
+          },
+        };
+      }
+      return p;
     });
 
     const projectById = new Map(state.projects.map((p) => [p.id, p]));
@@ -343,6 +357,7 @@ export function initApp(
           environmentId: localProj?.environmentId ?? null,
           assetsEnabled: localProj?.assetsEnabled ?? true,
           soundInstrument: localProj?.soundInstrument ?? 'piano',
+          soundConfig: localProj?.soundConfig,
         });
       }
 
@@ -365,6 +380,7 @@ export function initApp(
               environmentId: localProj.environmentId,
               assetsEnabled: localProj.assetsEnabled ?? true,
               soundInstrument: localProj.soundInstrument ?? 'piano',
+              soundConfig: localProj.soundConfig,
             });
           } catch (err) {
             console.error('[Startup] Failed to sync local project to server:', err);

@@ -104,10 +104,10 @@ export class PromptGenerator {
       return this.templateCache.get(templateName)!;
     }
 
-    const templatePath = join(this.templatesDir, `${templateName}-prompt.md`);
+    const templatePath = this.resolveTemplatePath(templateName);
 
-    if (!existsSync(templatePath)) {
-      throw new Error(`Template not found: ${templatePath}`);
+    if (!templatePath) {
+      throw new Error(`Template not found for: ${templateName} (expected .xml or .md in ${this.templatesDir})`);
     }
 
     const template = readFileSync(templatePath, 'utf-8');
@@ -240,7 +240,7 @@ Do NOT work on tasks directly. Instead, use the queue commands to process tasks 
       return `
 **Tree Strategy Active**: This session owns a root task and its full subtask tree.
 Work through all subtasks holistically — you decide the order based on dependencies and logical flow.
-Report progress per subtask using \`maestro report progress "SUBTASK COMPLETE [task-id]: summary"\`.
+Report progress per subtask using \`maestro session report progress "SUBTASK COMPLETE [task-id]: summary"\`.
 `;
     }
     return '';
@@ -517,6 +517,23 @@ ${sections.join('\n')}
    */
   clearCache(): void {
     this.templateCache.clear();
+  }
+
+  /**
+   * Resolve template path, preferring XML templates and falling back to Markdown.
+   */
+  resolveTemplatePath(templateName: string): string | null {
+    const xmlPath = join(this.templatesDir, `${templateName}-prompt.xml`);
+    if (existsSync(xmlPath)) {
+      return xmlPath;
+    }
+
+    const mdPath = join(this.templatesDir, `${templateName}-prompt.md`);
+    if (existsSync(mdPath)) {
+      return mdPath;
+    }
+
+    return null;
   }
 }
 

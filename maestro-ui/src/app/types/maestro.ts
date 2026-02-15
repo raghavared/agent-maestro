@@ -36,6 +36,37 @@ export type SessionTimelineEventType =
 
 
 
+// Sound configuration types
+export type InstrumentType = 'piano' | 'guitar' | 'violin' | 'trumpet' | 'drums';
+
+export type SoundCategoryType =
+  | 'success' | 'error' | 'critical_error' | 'warning' | 'attention'
+  | 'action' | 'creation' | 'deletion' | 'update' | 'progress'
+  | 'achievement' | 'neutral' | 'link' | 'unlink' | 'loading'
+  | 'notify_task_completed' | 'notify_task_failed' | 'notify_task_blocked'
+  | 'notify_task_session_completed' | 'notify_task_session_failed'
+  | 'notify_session_completed' | 'notify_session_failed'
+  | 'notify_needs_input' | 'notify_progress';
+
+export interface ProjectSoundConfig {
+  instrument: InstrumentType;
+  enabledCategories?: SoundCategoryType[];
+  categoryOverrides?: Record<string, {
+    instrument?: InstrumentType;
+    enabled?: boolean;
+  }>;
+  templateId?: string;
+}
+
+export interface SoundTemplate {
+  id: string;
+  name: string;
+  builtIn: boolean;
+  instrument: InstrumentType;
+  enabledCategories: SoundCategoryType[];
+  categoryOverrides?: Record<string, { instrument?: InstrumentType; enabled?: boolean }>;
+}
+
 export interface DocEntry {
   id: string;
   title: string;
@@ -59,11 +90,13 @@ export interface MaestroProject {
   basePath?: string | null;
   environmentId: string | null;
   assetsEnabled?: boolean;
-  // Sound settings
-  soundInstrument?: string; // Instrument to use for notifications (defaults to 'piano')
+  // Sound settings (legacy fields kept for backward compat migration)
+  soundInstrument?: string;
   soundSettings?: {
-    enabledCategories?: string[]; // Per-project sound category overrides
+    enabledCategories?: string[];
   };
+  // New project-level sound config
+  soundConfig?: ProjectSoundConfig;
 }
 
 

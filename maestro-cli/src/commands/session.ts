@@ -5,6 +5,7 @@ import { outputJSON, outputTable, outputErrorJSON, outputKeyValue } from '../uti
 import { validateRequired, validateTaskId } from '../utils/validation.js';
 import { handleError } from '../utils/errors.js';
 import { guardCommand } from '../services/command-permissions.js';
+import { executeReport } from './report.js';
 import ora from 'ora';
 import { readFileSync } from 'fs';
 
@@ -39,9 +40,9 @@ async function buildSessionContext(task: any, options: any): Promise<any> {
     if (options.skill === 'maestro-worker') {
         context.workflowSteps = [
             'Work through the task systematically',
-            'Report progress using maestro report progress',
+            'Report progress using maestro session report progress',
             'Create child tasks if needed with maestro task create --parent <taskId>',
-            'Run maestro report complete when all work is verified'
+            'Run maestro session report complete when all work is verified'
         ];
     } else if (options.skill === 'maestro-orchestrator') {
         context.workflowSteps = [
@@ -250,6 +251,37 @@ export function registerSessionCommands(program: Command) {
                 spinner?.stop();
                 handleError(err, isJson);
             }
+        });
+
+    // session report <subcommand> — report session status
+    const sessionReport = session.command('report').description('Report session status updates');
+
+    sessionReport.command('progress <message>')
+        .description('Report work progress')
+        .action(async (message: string) => {
+            await guardCommand('session:report:progress');
+            await executeReport('progress', message, program.opts());
+        });
+
+    sessionReport.command('complete <summary>')
+        .description('Report completion and mark session as completed')
+        .action(async (summary: string) => {
+            await guardCommand('session:report:complete');
+            await executeReport('complete', summary, program.opts());
+        });
+
+    sessionReport.command('blocked <reason>')
+        .description('Report blocker')
+        .action(async (reason: string) => {
+            await guardCommand('session:report:blocked');
+            await executeReport('blocked', reason, program.opts());
+        });
+
+    sessionReport.command('error <description>')
+        .description('Report error encountered')
+        .action(async (description: string) => {
+            await guardCommand('session:report:error');
+            await executeReport('error', description, program.opts());
         });
 
     session.command('spawn')

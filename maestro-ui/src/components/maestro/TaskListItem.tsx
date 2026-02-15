@@ -295,8 +295,24 @@ export function TaskListItem({
         onToggleChildrenCollapse?.();
     };
 
+    const handleDragStart = useCallback((e: React.DragEvent) => {
+        const content = task.initialPrompt || task.description || '';
+        const text = `[Task: ${task.title}] ${content}`;
+        e.dataTransfer.setData('application/maestro-task', JSON.stringify({
+            title: task.title,
+            description: task.description,
+            initialPrompt: task.initialPrompt,
+        }));
+        e.dataTransfer.setData('text/plain', text);
+        e.dataTransfer.effectAllowed = 'copy';
+    }, [task.title, task.description, task.initialPrompt]);
+
     return (
-        <div className={`terminalTaskRow terminalTaskRow--${task.status} ${isSubtask ? 'terminalTaskRow--subtask' : ''} ${showStatusDropdown || showPriorityDropdown ? 'terminalTaskRow--dropdownOpen' : ''} ${selectionMode ? 'terminalTaskRow--selectable' : ''}`}>
+        <div
+            className={`terminalTaskRow terminalTaskRow--${task.status} ${isSubtask ? 'terminalTaskRow--subtask' : ''} ${showStatusDropdown || showPriorityDropdown ? 'terminalTaskRow--dropdownOpen' : ''} ${selectionMode ? 'terminalTaskRow--selectable' : ''}`}
+            draggable
+            onDragStart={handleDragStart}
+        >
             <div className="terminalTaskMain" onClick={() => setIsExpanded(!isExpanded)}>
                 {/* Selection checkbox for execution mode */}
                 {selectionMode && (

@@ -1,4 +1,4 @@
-import React, { MutableRefObject, useRef } from "react";
+import React, { MutableRefObject, useCallback, useRef, useState } from "react";
 import SessionTerminal, { TerminalRegistry } from "../../SessionTerminal";
 import { PendingDataBuffer } from "../../app/types/app-state";
 import { FileExplorerPanel } from "../FileExplorerPanel";
@@ -30,6 +30,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
   const onCommandChange = useSessionStore((s) => s.onCommandChange);
   const onSessionResize = useSessionStore((s) => s.onSessionResize);
   const handleOpenTerminalAtPath = useSessionStore((s) => s.handleOpenTerminalAtPath);
+  const sendPromptToActive = useSessionStore((s) => s.sendPromptToActive);
   const active = sessions.find((s) => s.id === activeId) ?? null;
 
   // --- Project store ---
@@ -60,6 +61,54 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
   const handleSelectWorkspaceFile = useWorkspaceStore((s) => s.handleSelectWorkspaceFile);
   const beginWorkspaceResize = useWorkspaceStore((s) => s.beginWorkspaceResize);
 
+  // --- Drag-and-drop task to terminal ---
+  const [terminalDragOver, setTerminalDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
+
+  const handleTerminalDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('application/maestro-task')) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }, []);
+
+  const handleTerminalDragEnter = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('application/maestro-task')) {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current++;
+      setTerminalDragOver(true);
+    }
+  }, []);
+
+  const handleTerminalDragLeave = useCallback((e: React.DragEvent) => {
+    dragCounterRef.current--;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setTerminalDragOver(false);
+    }
+  }, []);
+
+  const handleTerminalDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setTerminalDragOver(false);
+
+    const raw = e.dataTransfer.getData('application/maestro-task');
+    if (!raw) return;
+
+    try {
+      const taskData = JSON.parse(raw);
+      const content = taskData.initialPrompt || taskData.description || '';
+      const text = `[Task: ${taskData.title}] ${content}`;
+      sendPromptToActive({ id: crypto.randomUUID(), title: taskData.title, content: text, createdAt: Date.now() }, 'paste');
+    } catch {
+      // ignore malformed data
+    }
+  }, [sendPromptToActive]);
+
   return (
     <div
       ref={workspaceRowRef}
@@ -71,7 +120,14 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
         } as React.CSSProperties
       }
     >
-      <div className="terminalPane" aria-label="Terminal">
+      <div
+        className={`terminalPane ${terminalDragOver ? "terminalPane--dragOver" : ""}`}
+        aria-label="Terminal"
+        onDragOver={handleTerminalDragOver}
+        onDragEnter={handleTerminalDragEnter}
+        onDragLeave={handleTerminalDragLeave}
+        onDrop={handleTerminalDrop}
+      >
         {sessions.length === 0 && (
           <div className="terminalEmptyState">
             <div className="terminalEmptyAscii" aria-hidden="true">

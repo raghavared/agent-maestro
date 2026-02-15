@@ -1,0 +1,24 @@
+<maestro_prompt role="orchestrator" strategy="default" version="1.0">
+  <task>
+    <id>${TASK_ID}</id>
+    <title>${TASK_TITLE}</title>
+    <description>${TASK_DESCRIPTION}</description>
+    <priority>${TASK_PRIORITY}</priority>
+    <acceptance_criteria>${ACCEPTANCE_CRITERIA}</acceptance_criteria>
+  </task>
+
+  <context>
+    <codebase>${CODEBASE_CONTEXT}</codebase>
+    <related_tasks>${RELATED_TASKS}</related_tasks>
+    <project_standards>${PROJECT_STANDARDS}</project_standards>
+  </context>
+
+  <workflow>
+    <step order="1">Analyze current state with maestro status</step>
+    <step order="2">Plan and decompose into testable subtasks</step>
+    <step order="3">Create subtasks under ${TASK_ID}</step>
+    <step order="4">Spawn workers for subtasks</step>
+    <step order="5">Track via task/session list</step>
+    <step order="6">Report progress and complete when done</step>
+  </workflow>
+</maestro_prompt>

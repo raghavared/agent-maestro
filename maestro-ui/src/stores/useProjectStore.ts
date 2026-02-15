@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
-import { MaestroProject } from '../app/types/maestro';
+import { MaestroProject, ProjectSoundConfig } from '../app/types/maestro';
 import { EnvironmentConfig } from '../app/types/app';
 import { defaultProjectState, envVarsForProjectId } from '../app/utils/env';
 import { maestroClient } from '../utils/MaestroClient';
@@ -24,6 +24,7 @@ interface ProjectState {
   projectEnvironmentId: string;
   projectAssetsEnabled: boolean;
   projectSoundInstrument: string;
+  projectSoundConfig: ProjectSoundConfig | undefined;
   confirmDeleteProjectOpen: boolean;
   deleteProjectError: string | null;
   deleteProjectId: string | null;
@@ -39,6 +40,7 @@ interface ProjectState {
   setProjectEnvironmentId: (id: string) => void;
   setProjectAssetsEnabled: (enabled: boolean) => void;
   setProjectSoundInstrument: (instrument: string) => void;
+  setProjectSoundConfig: (config: ProjectSoundConfig | undefined) => void;
   setConfirmDeleteProjectOpen: (open: boolean) => void;
   selectProject: (projectId: string) => void;
   moveProject: (projectId: string, targetProjectId: string, position: 'before' | 'after') => void;
@@ -83,6 +85,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     projectEnvironmentId: '',
     projectAssetsEnabled: true,
     projectSoundInstrument: 'piano',
+    projectSoundConfig: undefined,
     confirmDeleteProjectOpen: false,
     deleteProjectError: null,
     deleteProjectId: null,
@@ -103,6 +106,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     setProjectEnvironmentId: (id) => set({ projectEnvironmentId: id }),
     setProjectAssetsEnabled: (enabled) => set({ projectAssetsEnabled: enabled }),
     setProjectSoundInstrument: (instrument) => set({ projectSoundInstrument: instrument }),
+    setProjectSoundConfig: (config) => set({ projectSoundConfig: config }),
     setConfirmDeleteProjectOpen: (open) => set({ confirmDeleteProjectOpen: open }),
 
     selectProject: (projectId) => {
@@ -136,6 +140,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         projectEnvironmentId: '',
         projectAssetsEnabled: true,
         projectSoundInstrument: 'piano',
+        projectSoundConfig: undefined,
         projectOpen: true,
       });
     },
@@ -151,7 +156,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         projectBasePath: project.basePath ?? '',
         projectEnvironmentId: project.environmentId ?? '',
         projectAssetsEnabled: project.assetsEnabled ?? true,
-        projectSoundInstrument: project.soundInstrument ?? 'piano',
+        projectSoundInstrument: project.soundConfig?.instrument ?? project.soundInstrument ?? 'piano',
+        projectSoundConfig: project.soundConfig,
         projectOpen: true,
       });
     },
@@ -170,6 +176,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         projectEnvironmentId,
         projectAssetsEnabled,
         projectSoundInstrument,
+        projectSoundConfig,
         projects,
       } = get();
       const title = projectTitle.trim();
@@ -209,7 +216,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
                     basePath: validatedBasePath,
                     environmentId,
                     assetsEnabled: projectAssetsEnabled,
-                    soundInstrument: projectSoundInstrument,
+                    soundInstrument: projectSoundConfig?.instrument ?? projectSoundInstrument,
+                    soundConfig: projectSoundConfig,
                   }
                 : p,
             ),
@@ -236,7 +244,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
           basePath: serverProject.workingDir,
           environmentId,
           assetsEnabled: projectAssetsEnabled,
-          soundInstrument: projectSoundInstrument,
+          soundInstrument: projectSoundConfig?.instrument ?? projectSoundInstrument,
+          soundConfig: projectSoundConfig,
         };
         set((s) => ({
           projects: [...s.projects, project],

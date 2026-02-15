@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import type { MaestroManifest } from '../types/manifest.js';
@@ -78,18 +78,17 @@ export class WhoamiRenderer {
    */
   private renderTemplateContent(manifest: MaestroManifest): string {
     const templateName = this.getTemplateName(manifest);
-    const templatePath = join(this.templatesDir, `${templateName}-prompt.md`);
+    const templatePath = this.promptGenerator.resolveTemplatePath(templateName);
 
-    if (!existsSync(templatePath)) {
+    if (!templatePath) {
       // Fall back to role-only template name for backwards compatibility
-      const fallbackName = manifest.role;
       try {
         return this.promptGenerator.generatePrompt({
           ...manifest,
           // generatePrompt uses role to select template
         });
       } catch {
-        return `_Template not found: ${templatePath}_\n`;
+        return `_Template not found for: ${templateName}_\n`;
       }
     }
 

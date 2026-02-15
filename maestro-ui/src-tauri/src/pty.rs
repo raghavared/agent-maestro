@@ -616,7 +616,10 @@ pub fn create_session(
         } else {
             "/bin/sh".to_string()
         };
-        let shell_flag = "-lc";
+        // Preserve injected environment variables for spawned Maestro sessions.
+        // Login shells can source profile files that overwrite env vars such as
+        // MAESTRO_MANIFEST_PATH and MAESTRO_SESSION_ID.
+        let shell_flag = if env_vars.is_some() { "-c" } else { "-lc" };
         (
             posix_shell.clone(),
             vec![shell_flag.to_string(), command.clone()],

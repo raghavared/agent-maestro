@@ -32,7 +32,7 @@ ${PROJECT_STANDARDS}
 1. **Get next task**: `maestro queue top`
 2. **Start the task**: `maestro queue start` — this claims it and marks it in-progress
 3. **Implement** the task requirements systematically
-4. **Report progress** every 5-10 minutes: `maestro report progress "what you did"`
+4. **Report progress** every 5-10 minutes: `maestro session report progress "what you did"`
 5. **Complete or fail**: `maestro queue complete` or `maestro queue fail "reason"`
 6. **Repeat** from step 1
 
@@ -41,7 +41,7 @@ ${PROJECT_STANDARDS}
 **Do NOT stop or exit the session when the queue is empty.**
 Instead, run `maestro queue start` — it will automatically wait and poll for new tasks.
 The command blocks until a new task is pushed into the queue, then claims it and returns the task info.
-If no new tasks arrive after 30 minutes, the command will time out — at that point, run `maestro report complete` to finish the session.
+If no new tasks arrive after 30 minutes, the command will time out — at that point, run `maestro session report complete` to finish the session.
 
 ## Queue Commands
 

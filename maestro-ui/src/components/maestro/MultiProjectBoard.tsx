@@ -319,7 +319,7 @@ export const Board = React.memo(function Board({
                 </div>
 
                 {/* Body */}
-                <div className={isSingleProject ? "" : "mpbBody"}>
+                <div className={isSingleProject ? "taskBoardBody" : "mpbBody"}>
                     {/* Sidebar (multi-project only) */}
                     {!isSingleProject && (
                         <ProjectSelectorSidebar
@@ -337,7 +337,7 @@ export const Board = React.memo(function Board({
                     )}
 
                     {/* Content */}
-                    <div className={isSingleProject ? "" : "mpbContent"}>
+                    <div className={isSingleProject ? "taskBoardContent" : "mpbContent"}>
                         {activeView === "tasks" ? (
                             isSingleProject || layoutMode === "unified" ? (
                                 <UnifiedKanbanView

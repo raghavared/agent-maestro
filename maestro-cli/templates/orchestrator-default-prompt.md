@@ -106,7 +106,7 @@ Continuously track progress and react to changes.
 - Check `maestro task list` and `maestro session list` regularly
 - After spawning workers, wait briefly then check progress
 - When a worker completes, review the result and spawn the next worker for dependent tasks
-- Report your own progress periodically: `maestro report progress "status update"`
+- Report your own progress periodically: `maestro session report progress "status update"`
 
 ## Phase 5: Failure Handling
 
@@ -121,7 +121,7 @@ When a worker fails or gets blocked:
 4. **Reassign** -- if the task needs to be redefined, update it and spawn a new worker
 5. **Escalate** -- if the task cannot be completed, report the blocker:
    ```
-   maestro report blocked "description of what is blocking progress"
+   maestro session report blocked "description of what is blocking progress"
    ```
 
 ## Phase 6: Completion
@@ -133,7 +133,7 @@ When all tasks and subtasks are finished:
 3. **Summarize** the work that was done across all workers
 4. **Complete** the orchestration:
    ```
-   maestro report complete "Summary of all work completed, key decisions made, and any follow-up items"
+   maestro session report complete "Summary of all work completed, key decisions made, and any follow-up items"
    ```
 
 ## Command Reference
@@ -146,9 +146,9 @@ When all tasks and subtasks are finished:
 | `maestro task create "<title>" --parent <id> --desc "<desc>"` | Create a subtask |
 | `maestro session spawn --task <id> --skill maestro-worker` | Spawn a worker for a task |
 | `maestro session list` | List active sessions |
-| `maestro report progress "<msg>"` | Report orchestration progress |
-| `maestro report blocked "<msg>"` | Report a blocker |
-| `maestro report complete "<summary>"` | Mark orchestration as complete |
+| `maestro session report progress "<msg>"` | Report orchestration progress |
+| `maestro session report blocked "<msg>"` | Report a blocker |
+| `maestro session report complete "<summary>"` | Mark orchestration as complete |
 | `maestro task docs add <taskId> "<title>" --file <path>` | Add a doc to a task |
 | `maestro task docs list <taskId>` | List docs for a task |
 | `maestro session docs add "<title>" --file <path>` | Add a doc to session |
