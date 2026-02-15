@@ -43,9 +43,6 @@ export interface MaestroManifest {
   /** Optional standard skills to load from ~/.skills/ */
   skills?: string[];
 
-  /** Optional template ID to use for prompt generation (fetched from server) */
-  templateId?: string;
-
   /** Agent tool to use for this session (defaults to 'claude-code') */
   agentTool?: AgentTool;
 

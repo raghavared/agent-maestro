@@ -493,6 +493,23 @@ const COMMAND_SYNTAX: Record<string, string> = {
 };
 
 /**
+ * Get the executable CLI syntax string for a command ID.
+ * Falls back to a best-effort space-separated command form.
+ */
+export function getCommandSyntax(commandName: string): string {
+  if (COMMAND_SYNTAX[commandName]) {
+    return COMMAND_SYNTAX[commandName];
+  }
+
+  // Fallback for unknown commands
+  const parts = commandName.split(':');
+  if (parts.length === 1) {
+    return `maestro ${commandName}`;
+  }
+  return `maestro ${parts.join(' ')}`;
+}
+
+/**
  * Generate brief text listing available commands for inclusion in session prompts
  */
 export function generateCommandBrief(permissions: CommandPermissions): string {

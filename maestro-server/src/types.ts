@@ -238,26 +238,3 @@ export interface SpawnRequestEvent {
   _isSpawnCreated?: boolean;             // Backward compatibility flag
 }
 
-// Template types
-export type TemplateRole = 'worker' | 'orchestrator';
-
-export interface Template {
-  id: string;
-  name: string;
-  role: TemplateRole;
-  content: string;
-  isDefault: boolean;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface CreateTemplatePayload {
-  name: string;
-  role: TemplateRole;
-  content: string;
-}
-
-export interface UpdateTemplatePayload {
-  name?: string;
-  content?: string;
-}

@@ -204,11 +204,6 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       nullable: true,
       description: 'Optional standard skills to load',
     },
-    templateId: {
-      type: 'string',
-      nullable: true,
-      description: 'Optional template ID for prompt generation (fetched from server)',
-    },
     agentTool: {
       type: 'string',
       enum: ['claude-code', 'codex', 'gemini'],

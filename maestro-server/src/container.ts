@@ -5,13 +5,11 @@ import { InMemoryEventBus } from './infrastructure/events/InMemoryEventBus';
 import { FileSystemProjectRepository } from './infrastructure/repositories/FileSystemProjectRepository';
 import { FileSystemTaskRepository } from './infrastructure/repositories/FileSystemTaskRepository';
 import { FileSystemSessionRepository } from './infrastructure/repositories/FileSystemSessionRepository';
-import { FileSystemTemplateRepository } from './infrastructure/repositories/FileSystemTemplateRepository';
 import { FileSystemQueueRepository } from './infrastructure/repositories/FileSystemQueueRepository';
 import { ClaudeCodeSkillLoader } from './infrastructure/skills/ClaudeCodeSkillLoader';
 import { ProjectService } from './application/services/ProjectService';
 import { TaskService } from './application/services/TaskService';
 import { SessionService } from './application/services/SessionService';
-import { TemplateService } from './application/services/TemplateService';
 import { QueueService } from './application/services/QueueService';
 import { ILogger } from './domain/common/ILogger';
 import { IIdGenerator } from './domain/common/IIdGenerator';
@@ -19,7 +17,6 @@ import { IEventBus } from './domain/events/IEventBus';
 import { IProjectRepository } from './domain/repositories/IProjectRepository';
 import { ITaskRepository } from './domain/repositories/ITaskRepository';
 import { ISessionRepository } from './domain/repositories/ISessionRepository';
-import { ITemplateRepository } from './domain/repositories/ITemplateRepository';
 import { IQueueRepository } from './domain/repositories/IQueueRepository';
 import { ISkillLoader } from './domain/services/ISkillLoader';
 
@@ -40,7 +37,6 @@ export interface Container {
   projectRepo: IProjectRepository;
   taskRepo: ITaskRepository;
   sessionRepo: ISessionRepository;
-  templateRepo: ITemplateRepository;
   queueRepo: IQueueRepository;
 
   // Loaders
@@ -50,7 +46,6 @@ export interface Container {
   projectService: ProjectService;
   taskService: TaskService;
   sessionService: SessionService;
-  templateService: TemplateService;
   queueService: QueueService;
 
   // Lifecycle
@@ -81,7 +76,6 @@ export async function createContainer(): Promise<Container> {
     (projectId) => taskRepo.existsByProjectId(projectId),
     (projectId) => sessionRepo.existsByProjectId(projectId)
   );
-  const templateRepo = new FileSystemTemplateRepository(config.dataDir, idGenerator, logger);
   const queueRepo = new FileSystemQueueRepository(config.dataDir, logger);
 
   // 4. Loaders
@@ -91,7 +85,6 @@ export async function createContainer(): Promise<Container> {
   const projectService = new ProjectService(projectRepo, eventBus);
   const taskService = new TaskService(taskRepo, projectRepo, eventBus, idGenerator);
   const sessionService = new SessionService(sessionRepo, taskRepo, projectRepo, eventBus, idGenerator);
-  const templateService = new TemplateService(templateRepo, eventBus);
   const queueService = new QueueService(queueRepo, taskRepo, sessionRepo, eventBus);
 
   const container: Container = {
@@ -102,13 +95,11 @@ export async function createContainer(): Promise<Container> {
     projectRepo,
     taskRepo,
     sessionRepo,
-    templateRepo,
     queueRepo,
     skillLoader,
     projectService,
     taskService,
     sessionService,
-    templateService,
     queueService,
 
     async initialize() {
@@ -118,7 +109,6 @@ export async function createContainer(): Promise<Container> {
       await projectRepo.initialize();
       await taskRepo.initialize();
       await sessionRepo.initialize();
-      await templateRepo.initialize();
       await queueRepo.initialize();
 
       logger.info('Container initialized');

@@ -4,14 +4,13 @@ import { readFile, mkdir, writeFile } from 'fs/promises';
 import { join, resolve as resolvePath } from 'path';
 import { homedir } from 'os';
 import { SessionService } from '../application/services/SessionService';
-import { TemplateService } from '../application/services/TemplateService';
 import { QueueService } from '../application/services/QueueService';
 import { IProjectRepository } from '../domain/repositories/IProjectRepository';
 import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
 import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
-import { SessionStatus, TemplateRole, WorkerStrategy, AgentTool } from '../types';
+import { SessionStatus, WorkerStrategy, AgentTool } from '../types';
 
 /**
  * Generate manifest via CLI command
@@ -116,7 +115,6 @@ async function generateManifestViaCLI(options: {
 
 interface SessionRouteDependencies {
   sessionService: SessionService;
-  templateService: TemplateService;
   queueService: QueueService;
   projectRepo: IProjectRepository;
   taskRepo: ITaskRepository;
@@ -128,7 +126,7 @@ interface SessionRouteDependencies {
  * Create session routes using the SessionService.
  */
 export function createSessionRoutes(deps: SessionRouteDependencies) {
-  const { sessionService, templateService, queueService, projectRepo, taskRepo, eventBus, config } = deps;
+  const { sessionService, queueService, projectRepo, taskRepo, eventBus, config } = deps;
   const router = express.Router();
 
   // Error handler helper
@@ -549,17 +547,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         manifestPath = result.manifestPath;
         manifest = result.manifest;
 
-        // Add templateId to manifest (server is source of truth for templates)
-        try {
-          const template = await templateService.getTemplateByRole(role as TemplateRole);
-          manifest.templateId = template.id;
-          // Write updated manifest back to file
-          await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
-          console.log(`   ✓ Added templateId to manifest: ${template.id}`);
-        } catch (templateError: any) {
-          console.warn(`   ⚠ Could not add templateId: ${templateError.message}`);
-          // Continue without templateId - CLI will fall back to bundled template
-        }
       } catch (manifestError: any) {
         console.error(`   ❌ Manifest generation failed: ${manifestError.message}`);
         return res.status(500).json({

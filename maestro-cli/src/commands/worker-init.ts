@@ -88,9 +88,9 @@ export class WorkerInitCommand {
    */
   private async autoUpdateSessionStatus(manifest: MaestroManifest, sessionId: string): Promise<void> {
     try {
-      // Update the SESSION status from 'spawning' to 'running'
+      // Update the SESSION status from 'spawning' to 'working'
       await api.patch(`/api/sessions/${sessionId}`, {
-        status: 'running',
+        status: 'working',
       });
 
       for (const task of manifest.tasks) {

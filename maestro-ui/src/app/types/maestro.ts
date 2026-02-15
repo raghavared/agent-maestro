@@ -304,26 +304,3 @@ export interface SpawnSessionResponse {
 
 export type TaskTreeNode = MaestroTask & { children: TaskTreeNode[] };
 
-// Template types
-export type TemplateRole = 'worker' | 'orchestrator';
-
-export interface MaestroTemplate {
-  id: string;
-  name: string;
-  role: TemplateRole;
-  content: string;
-  isDefault: boolean;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface CreateTemplatePayload {
-  name: string;
-  role: TemplateRole;
-  content: string;
-}
-
-export interface UpdateTemplatePayload {
-  name?: string;
-  content?: string;
-}

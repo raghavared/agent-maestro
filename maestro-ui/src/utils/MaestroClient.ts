@@ -13,10 +13,6 @@ import type {
     UpdateSessionPayload,
     SpawnSessionPayload,
     SpawnSessionResponse,
-    MaestroTemplate,
-    TemplateRole,
-    CreateTemplatePayload,
-    UpdateTemplatePayload,
     DocEntry,
 } from '../app/types/maestro';
 
@@ -263,73 +259,6 @@ class MaestroClient {
         return this.fetch<ClaudeCodeSkill[]>('/skills');
     }
 
-    // ==================== TEMPLATES ====================
-
-    /**
-     * Get all templates
-     */
-    async getTemplates(): Promise<MaestroTemplate[]> {
-        return this.fetch<MaestroTemplate[]>('/templates');
-    }
-
-    /**
-     * Get a single template by ID
-     */
-    async getTemplate(id: string): Promise<MaestroTemplate> {
-        return this.fetch<MaestroTemplate>(`/templates/${id}`);
-    }
-
-    /**
-     * Get template by role
-     */
-    async getTemplateByRole(role: TemplateRole): Promise<MaestroTemplate> {
-        return this.fetch<MaestroTemplate>(`/templates/role/${role}`);
-    }
-
-    /**
-     * Create a new template
-     */
-    async createTemplate(data: CreateTemplatePayload): Promise<MaestroTemplate> {
-        return this.fetch<MaestroTemplate>('/templates', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
-    }
-
-    /**
-     * Update an existing template
-     */
-    async updateTemplate(id: string, updates: UpdateTemplatePayload): Promise<MaestroTemplate> {
-        return this.fetch<MaestroTemplate>(`/templates/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(updates),
-        });
-    }
-
-    /**
-     * Reset a template to its default content
-     */
-    async resetTemplate(id: string): Promise<MaestroTemplate> {
-        return this.fetch<MaestroTemplate>(`/templates/${id}/reset`, {
-            method: 'POST',
-        });
-    }
-
-    /**
-     * Delete a template
-     */
-    async deleteTemplate(id: string): Promise<{ success: boolean; id: string }> {
-        return this.fetch<{ success: boolean; id: string }>(`/templates/${id}`, {
-            method: 'DELETE',
-        });
-    }
-
-    /**
-     * Get default content for a role (without creating a template)
-     */
-    async getDefaultTemplateContent(role: TemplateRole): Promise<{ role: TemplateRole; content: string }> {
-        return this.fetch<{ role: TemplateRole; content: string }>(`/templates/default/${role}`);
-    }
 }
 
 // Export singleton instance
@@ -337,4 +266,4 @@ export const maestroClient = new MaestroClient();
 
 
 // Export types for convenience
-export type { MaestroTask as Task, TaskStatus, TaskPriority, MaestroSubtask as Subtask, MaestroSession as Session, MaestroProject, AgentSkill as Skill, MaestroTemplate as Template, TemplateRole };
+export type { MaestroTask as Task, TaskStatus, TaskPriority, MaestroSubtask as Subtask, MaestroSession as Session, MaestroProject, AgentSkill as Skill };

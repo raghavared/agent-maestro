@@ -183,7 +183,7 @@ program.command('status')
         return acc;
       }, {});
 
-      const activeSessions = sessions.filter((s: any) => s.status === 'running' || s.status === 'spawning');
+      const activeSessions = sessions.filter((s: any) => s.status === 'working' || s.status === 'spawning');
 
       const summary = {
         project: projectId,

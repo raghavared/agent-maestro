@@ -6,7 +6,6 @@ import { randomBytes } from 'crypto';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import type { MaestroManifest } from '../types/manifest.js';
-import { PromptGenerator } from './prompt-generator.js';
 import { SkillLoader } from './skill-loader.js';
 import { WhoamiRenderer } from './whoami-renderer.js';
 import { getPermissionsFromManifest } from './command-permissions.js';
@@ -47,32 +46,10 @@ export interface SpawnOptions {
  * - Maestro hooks injection
  */
 export class ClaudeSpawner {
-  private promptGenerator: PromptGenerator;
   private skillLoader: SkillLoader;
 
-  constructor(templatesDir?: string, skillLoader?: SkillLoader, serverUrl?: string) {
-    this.promptGenerator = new PromptGenerator(templatesDir, serverUrl);
+  constructor(skillLoader?: SkillLoader) {
     this.skillLoader = skillLoader || new SkillLoader();
-  }
-
-  /**
-   * Prepare prompt from manifest (sync - uses bundled templates only)
-   *
-   * @param manifest - The manifest to generate prompt from
-   * @returns Generated prompt string
-   */
-  preparePrompt(manifest: MaestroManifest): string {
-    return this.promptGenerator.generatePrompt(manifest);
-  }
-
-  /**
-   * Prepare prompt from manifest (async - fetches from server)
-   *
-   * @param manifest - The manifest to generate prompt from
-   * @returns Generated prompt string
-   */
-  async preparePromptAsync(manifest: MaestroManifest): Promise<string> {
-    return this.promptGenerator.generatePromptAsync(manifest);
   }
 
   /**

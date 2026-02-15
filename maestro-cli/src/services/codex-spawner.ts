@@ -147,8 +147,9 @@ export class CodexSpawner {
 
     const args = this.buildCodexArgs(manifest);
 
-    // Inject static role instructions via Codex config override
-    args.push('-c', `instructions=${systemPrompt}`);
+    // Inject static role instructions via Codex config override.
+    // NOTE: `instructions` is reserved by Codex and ignored; use `developer_instructions`.
+    args.push('-c', `developer_instructions=${JSON.stringify(systemPrompt)}`);
 
     // Dynamic task context as the prompt argument
     args.push(taskContext);
