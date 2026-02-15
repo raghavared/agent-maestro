@@ -1177,7 +1177,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         cwd: sessionInfo.cwd,
         cols: 200,
         rows: 50,
-        envVars: sessionInfo.envVars,
+        env_vars: sessionInfo.envVars,
         persistent: false,
       });
       console.log('[handleSpawnTerminalSession] ✓ create_session returned:', info);

@@ -1,0 +1,37 @@
+<maestro_prompt role="worker" strategy="queue" version="1.0">
+  <task>
+    <id>${TASK_ID}</id>
+    <title>${TASK_TITLE}</title>
+    <description>${TASK_DESCRIPTION}</description>
+    <priority>${TASK_PRIORITY}</priority>
+    <acceptance_criteria>${ACCEPTANCE_CRITERIA}</acceptance_criteria>
+  </task>
+
+  <context>
+    <all_tasks>${ALL_TASKS}</all_tasks>
+    <codebase>${CODEBASE_CONTEXT}</codebase>
+    <related_tasks>${RELATED_TASKS}</related_tasks>
+    <project_standards>${PROJECT_STANDARDS}</project_standards>
+  </context>
+
+  <queue_workflow>
+    <required>true</required>
+    <step order="1">maestro queue top</step>
+    <step order="2">maestro queue start</step>
+    <step order="3">Implement task requirements</step>
+    <step order="4">maestro session report progress "what you did"</step>
+    <step order="5">maestro queue complete OR maestro queue fail "reason"</step>
+    <step order="6">Repeat from step 1</step>
+  </queue_workflow>
+
+  <queue_empty_behavior>
+    <instruction>Do not exit when queue is empty.</instruction>
+    <instruction>Run maestro queue start to wait/poll for new work.</instruction>
+    <instruction>After timeout with no tasks, report complete.</instruction>
+  </queue_empty_behavior>
+
+  <documentation>
+    <command>maestro task docs add ${TASK_ID} "Doc Title" --file ./path/to/doc.md</command>
+    <command>maestro session docs add "Doc Title" --file ./path/to/doc.md</command>
+  </documentation>
+</maestro_prompt>

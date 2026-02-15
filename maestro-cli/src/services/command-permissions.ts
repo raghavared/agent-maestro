@@ -25,6 +25,8 @@ export interface CommandDefinition {
   allowedStrategies?: WorkerStrategy[];
   /** Whether this is a core command always available */
   isCore?: boolean;
+  /** Whether to hide this command from prompt/command briefs (internal/infrastructure commands) */
+  hiddenFromPrompt?: boolean;
 }
 
 /**
@@ -34,12 +36,6 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   // Core commands (always available)
   { name: 'whoami', description: 'Print current context', allowedRoles: ['worker', 'orchestrator'], isCore: true },
   { name: 'status', description: 'Show project status', allowedRoles: ['worker', 'orchestrator'], isCore: true },
-
-  // Report commands (session status reporting)
-  { name: 'report:progress', description: 'Report work progress', allowedRoles: ['worker', 'orchestrator'], parent: 'report' },
-  { name: 'report:complete', description: 'Report completion', allowedRoles: ['worker', 'orchestrator'], parent: 'report' },
-  { name: 'report:blocked', description: 'Report blocker', allowedRoles: ['worker', 'orchestrator'], parent: 'report' },
-  { name: 'report:error', description: 'Report error', allowedRoles: ['worker', 'orchestrator'], parent: 'report' },
   // Commands (always available)
   { name: 'commands', description: 'Show available commands', allowedRoles: ['worker', 'orchestrator'], isCore: true },
 
@@ -47,7 +43,9 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'task:list', description: 'List tasks', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
   { name: 'task:get', description: 'Get task details', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
   { name: 'task:create', description: 'Create new task', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
-  { name: 'task:update', description: 'Update task', allowedRoles: ['orchestrator'], parent: 'task' },
+  { name: 'task:edit', description: 'Edit task fields', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
+  { name: 'task:delete', description: 'Delete a task', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
+  { name: 'task:update', description: 'Update task status/priority', allowedRoles: ['orchestrator'], parent: 'task' },
   { name: 'task:complete', description: 'Mark task completed', allowedRoles: ['orchestrator'], parent: 'task' },
   { name: 'task:block', description: 'Mark task blocked', allowedRoles: ['orchestrator'], parent: 'task' },
   { name: 'task:children', description: 'List child tasks', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
@@ -63,10 +61,20 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'session:list', description: 'List sessions', allowedRoles: ['orchestrator'], parent: 'session' },
   { name: 'session:info', description: 'Get session info', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
   { name: 'session:spawn', description: 'Spawn new session', allowedRoles: ['orchestrator'], parent: 'session' },
-  { name: 'session:register', description: 'Register session', allowedRoles: ['worker', 'orchestrator'], parent: 'session', isCore: true },
-  { name: 'session:complete', description: 'Complete session', allowedRoles: ['worker', 'orchestrator'], parent: 'session', isCore: true },
+  { name: 'session:register', description: 'Register session', allowedRoles: ['worker', 'orchestrator'], parent: 'session', isCore: true, hiddenFromPrompt: true },
+  { name: 'session:complete', description: 'Complete session', allowedRoles: ['worker', 'orchestrator'], parent: 'session', isCore: true, hiddenFromPrompt: true },
+  { name: 'session:report:progress', description: 'Report work progress', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
+  { name: 'session:report:complete', description: 'Report completion', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
+  { name: 'session:report:blocked', description: 'Report blocker', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
+  { name: 'session:report:error', description: 'Report error', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
   { name: 'session:docs:add', description: 'Add doc to session', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
   { name: 'session:docs:list', description: 'List session docs', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
+
+  // Legacy report commands (backward compat — hidden from prompts, aliased to session:report:*)
+  { name: 'report:progress', description: 'Report work progress', allowedRoles: ['worker', 'orchestrator'], parent: 'report', hiddenFromPrompt: true },
+  { name: 'report:complete', description: 'Report completion', allowedRoles: ['worker', 'orchestrator'], parent: 'report', hiddenFromPrompt: true },
+  { name: 'report:blocked', description: 'Report blocker', allowedRoles: ['worker', 'orchestrator'], parent: 'report', hiddenFromPrompt: true },
+  { name: 'report:error', description: 'Report error', allowedRoles: ['worker', 'orchestrator'], parent: 'report', hiddenFromPrompt: true },
 
   // Queue commands (only for queue strategy)
   { name: 'queue:top', description: 'Show next task in queue', allowedRoles: ['worker'], parent: 'queue', allowedStrategies: ['queue'] },
@@ -85,11 +93,11 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'project:delete', description: 'Delete project', allowedRoles: ['orchestrator'], parent: 'project' },
 
   // Worker/Orchestrator init commands (invoked by the spawning system, not by agents directly)
-  { name: 'worker:init', description: 'Initialize worker session', allowedRoles: ['worker'], parent: 'worker' },
-  { name: 'orchestrator:init', description: 'Initialize orchestrator session', allowedRoles: ['orchestrator'], parent: 'orchestrator' },
+  { name: 'worker:init', description: 'Initialize worker session', allowedRoles: ['worker'], parent: 'worker', hiddenFromPrompt: true },
+  { name: 'orchestrator:init', description: 'Initialize orchestrator session', allowedRoles: ['orchestrator'], parent: 'orchestrator', hiddenFromPrompt: true },
 
-  // Utility commands
-  { name: 'track-file', description: 'Track file modification', allowedRoles: ['worker', 'orchestrator'], isCore: true },
+  // Utility commands (internal — called by hooks, not agents)
+  { name: 'track-file', description: 'Track file modification', allowedRoles: ['worker', 'orchestrator'], isCore: true, hiddenFromPrompt: true },
 ];
 
 /**
@@ -100,38 +108,43 @@ export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
     'whoami',
     'status',
     'commands',
-    'report:progress',
-    'report:complete',
-    'report:blocked',
-    'report:error',
     'task:list',
     'task:get',
     'task:create',
+    'task:edit',
+    'task:delete',
     'task:children',
     'task:report:progress',
     'task:report:complete',
     'task:report:blocked',
     'task:report:error',
+    'task:docs:add',
+    'task:docs:list',
     'session:info',
     'session:register',
     'session:complete',
-    'task:docs:add',
-    'task:docs:list',
+    'session:report:progress',
+    'session:report:complete',
+    'session:report:blocked',
+    'session:report:error',
     'session:docs:add',
     'session:docs:list',
+    // Legacy aliases (backward compat)
+    'report:progress',
+    'report:complete',
+    'report:blocked',
+    'report:error',
     'track-file',
   ],
   orchestrator: [
     'whoami',
     'status',
     'commands',
-    'report:progress',
-    'report:complete',
-    'report:blocked',
-    'report:error',
     'task:list',
     'task:get',
     'task:create',
+    'task:edit',
+    'task:delete',
     'task:update',
     'task:complete',
     'task:block',
@@ -141,19 +154,28 @@ export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
     'task:report:complete',
     'task:report:blocked',
     'task:report:error',
+    'task:docs:add',
+    'task:docs:list',
     'session:list',
     'session:info',
     'session:spawn',
     'session:register',
     'session:complete',
-    'task:docs:add',
-    'task:docs:list',
+    'session:report:progress',
+    'session:report:complete',
+    'session:report:blocked',
+    'session:report:error',
     'session:docs:add',
     'session:docs:list',
     'project:list',
     'project:get',
     'project:create',
     'project:delete',
+    // Legacy aliases (backward compat)
+    'report:progress',
+    'report:complete',
+    'report:blocked',
+    'report:error',
     'track-file',
   ],
 };
@@ -294,12 +316,14 @@ export function isCommandAllowed(commandName: string, permissions: CommandPermis
 
 /**
  * Get available commands grouped by parent
+ * @param excludeHidden - If true, excludes commands marked as hiddenFromPrompt
  */
-export function getAvailableCommandsGrouped(permissions: CommandPermissions): Record<string, CommandDefinition[]> {
+export function getAvailableCommandsGrouped(permissions: CommandPermissions, excludeHidden: boolean = false): Record<string, CommandDefinition[]> {
   const grouped: Record<string, CommandDefinition[]> = {};
 
   for (const cmd of COMMAND_REGISTRY) {
     if (permissions.allowedCommands.includes(cmd.name)) {
+      if (excludeHidden && cmd.hiddenFromPrompt) continue;
       const parent = cmd.parent || 'root';
       if (!grouped[parent]) {
         grouped[parent] = [];
@@ -416,13 +440,17 @@ const COMMAND_SYNTAX: Record<string, string> = {
   'status': 'maestro status',
   'commands': 'maestro commands',
   'track-file': 'maestro track-file <filePath>',
+  // Legacy report aliases
   'report:progress': 'maestro report progress "<message>"',
   'report:complete': 'maestro report complete "<summary>"',
   'report:blocked': 'maestro report blocked "<reason>"',
   'report:error': 'maestro report error "<description>"',
+  // Task commands
   'task:list': 'maestro task list [taskId] [--status <status>] [--priority <priority>]',
   'task:get': 'maestro task get <taskId>',
   'task:create': 'maestro task create "<title>" [-d "<description>"] [--priority <high|medium|low>] [--parent <parentId>]',
+  'task:edit': 'maestro task edit <taskId> [--title "<title>"] [--desc "<description>"] [--priority <priority>]',
+  'task:delete': 'maestro task delete <taskId> [--cascade]',
   'task:update': 'maestro task update <taskId> [--status <status>] [--priority <priority>] [--title "<title>"]',
   'task:complete': 'maestro task complete <taskId>',
   'task:block': 'maestro task block <taskId> --reason "<reason>"',
@@ -434,13 +462,19 @@ const COMMAND_SYNTAX: Record<string, string> = {
   'task:report:error': 'maestro task report error <taskId> "<description>"',
   'task:docs:add': 'maestro task docs add <taskId> "<title>" --file <filePath>',
   'task:docs:list': 'maestro task docs list <taskId>',
+  // Session commands
   'session:list': 'maestro session list',
   'session:info': 'maestro session info',
   'session:spawn': 'maestro session spawn',
   'session:register': 'maestro session register',
   'session:complete': 'maestro session complete',
+  'session:report:progress': 'maestro session report progress "<message>"',
+  'session:report:complete': 'maestro session report complete "<summary>"',
+  'session:report:blocked': 'maestro session report blocked "<reason>"',
+  'session:report:error': 'maestro session report error "<description>"',
   'session:docs:add': 'maestro session docs add "<title>" --file <filePath>',
   'session:docs:list': 'maestro session docs list',
+  // Queue commands
   'queue:top': 'maestro queue top',
   'queue:start': 'maestro queue start',
   'queue:complete': 'maestro queue complete',
@@ -449,6 +483,7 @@ const COMMAND_SYNTAX: Record<string, string> = {
   'queue:list': 'maestro queue list',
   'queue:status': 'maestro queue status',
   'queue:push': 'maestro queue push',
+  // Project commands
   'project:list': 'maestro project list',
   'project:get': 'maestro project get <projectId>',
   'project:create': 'maestro project create "<name>"',
@@ -466,7 +501,7 @@ export function generateCommandBrief(permissions: CommandPermissions): string {
     '',
   ];
 
-  const grouped = getAvailableCommandsGrouped(permissions);
+  const grouped = getAvailableCommandsGrouped(permissions, true);
 
   // Root commands
   if (grouped['root']) {
@@ -498,7 +533,7 @@ export function generateCommandBrief(permissions: CommandPermissions): string {
 export function generateCompactCommandBrief(permissions: CommandPermissions): string {
   const lines: string[] = ['## Maestro Commands'];
 
-  const grouped = getAvailableCommandsGrouped(permissions);
+  const grouped = getAvailableCommandsGrouped(permissions, true);
 
   // Core/root commands as a single line
   if (grouped['root']) {

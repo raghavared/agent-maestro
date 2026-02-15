@@ -38,5 +38,5 @@ ${PROJECT_STANDARDS}
 4. **Create subtasks**: `maestro task create "title" --parent ${TASK_ID} --desc "description"`
 5. **Spawn workers**: `maestro session spawn --task <subtaskId>`
 6. **Track** progress: `maestro task list` and `maestro session list`
-7. **Report progress**: `maestro report progress "what has been accomplished"`
-8. **Complete** when all criteria are met: `maestro report complete "Summary"`
+7. **Report progress**: `maestro session report progress "what has been accomplished"`
+8. **Complete** when all criteria are met: `maestro session report complete "Summary"`

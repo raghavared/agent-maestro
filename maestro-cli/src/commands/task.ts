@@ -121,6 +121,98 @@ export function registerTaskCommands(program: Command) {
             }
         });
 
+    task.command('edit <id>')
+        .description('Edit task fields (title, description, priority)')
+        .option('--title <title>', 'New title')
+        .option('-d, --desc <description>', 'New description')
+        .option('--priority <priority>', 'New priority (high, medium, low)')
+        .action(async (id, cmdOpts) => {
+            await guardCommand('task:edit');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+
+            const updateData: Record<string, any> = {};
+            if (cmdOpts.title) updateData.title = cmdOpts.title;
+            if (cmdOpts.desc) updateData.description = cmdOpts.desc;
+            if (cmdOpts.priority) updateData.priority = cmdOpts.priority;
+
+            if (Object.keys(updateData).length === 0) {
+                const err = { message: 'Nothing to edit. Use --title, --desc, or --priority.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Editing task...').start() : null;
+
+            try {
+                const updated = await api.patch(`/api/tasks/${id}`, updateData);
+
+                spinner?.succeed('Task updated');
+
+                if (isJson) {
+                    outputJSON(updated);
+                } else {
+                    console.log('Task updated successfully.');
+                    if (cmdOpts.title) outputKeyValue('Title', cmdOpts.title);
+                    if (cmdOpts.desc) outputKeyValue('Description', cmdOpts.desc);
+                    if (cmdOpts.priority) outputKeyValue('Priority', cmdOpts.priority);
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    task.command('delete <id>')
+        .description('Delete a task')
+        .option('--cascade', 'Also delete all child tasks (subtasks)')
+        .action(async (id, cmdOpts) => {
+            await guardCommand('task:delete');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const spinner = !isJson ? ora('Deleting task...').start() : null;
+
+            try {
+                if (cmdOpts.cascade) {
+                    // Recursively delete children first
+                    const deleteChildren = async (parentId: string): Promise<number> => {
+                        let count = 0;
+                        try {
+                            const children: any[] = await api.get(`/api/tasks/${parentId}/children`);
+                            for (const child of children) {
+                                count += await deleteChildren(child.id);
+                                await api.delete(`/api/tasks/${child.id}`);
+                                count++;
+                            }
+                        } catch {
+                            // No children or endpoint error
+                        }
+                        return count;
+                    };
+
+                    const childCount = await deleteChildren(id);
+                    await api.delete(`/api/tasks/${id}`);
+
+                    spinner?.succeed(`Task deleted (${childCount} subtask${childCount !== 1 ? 's' : ''} also removed)`);
+
+                    if (isJson) {
+                        outputJSON({ success: true, taskId: id, cascade: true, childrenDeleted: childCount });
+                    }
+                } else {
+                    await api.delete(`/api/tasks/${id}`);
+
+                    spinner?.succeed('Task deleted');
+
+                    if (isJson) {
+                        outputJSON({ success: true, taskId: id });
+                    }
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
     task.command('get [id]')
         .description('Get task details')
         .action(async (id) => {
