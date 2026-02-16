@@ -500,7 +500,9 @@ export class PromptBuilder {
           name: 'spawn',
           description:
             'For each subtask, spawn a worker session:\n' +
-            '  maestro session spawn --task <subtaskId>\n' +
+            '  maestro session spawn --task <subtaskId> [--agent-tool <claude-code|codex|gemini>] [--model <model>]\n' +
+            'You can choose different agent tools and models per worker. Available agent tools: claude-code (default), codex, gemini.\n' +
+            'Models: sonnet/opus/haiku (abstract) or native names like gpt-5.3-codex, gemini-3-pro-preview.\n' +
             'Spawn them ONE AT A TIME, sequentially. Wait for the spawn confirmation (session ID) before spawning the next. ' +
             'Collect all spawned session IDs.',
         },
@@ -553,7 +555,7 @@ export class PromptBuilder {
           description:
             'Process batches sequentially. For each batch:\n' +
             '  1. Spawn ALL workers in the batch:\n' +
-            '     maestro session spawn --task <subtaskId>  (for each task in the batch)\n' +
+            '     maestro session spawn --task <subtaskId> [--agent-tool <tool>] [--model <model>]  (for each task in the batch)\n' +
             '  2. Collect all session IDs from the batch\n' +
             '  3. Watch the entire batch:\n' +
             '     maestro session watch <id1>,<id2>,<id3>\n' +
@@ -604,7 +606,7 @@ export class PromptBuilder {
             '  WAVE LOOP:\n' +
             '  1. Identify all READY tasks (dependencies all completed, not yet spawned)\n' +
             '  2. Spawn a worker for each ready task:\n' +
-            '     maestro session spawn --task <subtaskId>\n' +
+            '     maestro session spawn --task <subtaskId> [--agent-tool <tool>] [--model <model>]\n' +
             '  3. Watch this wave:\n' +
             '     maestro session watch <id1>,<id2>,...\n' +
             '  4. When the wave completes, check results\n' +
@@ -635,7 +637,7 @@ export class PromptBuilder {
     return [
       { name: 'analyze', description: 'Your assigned task is in the <task> block above. Read it carefully.' },
       { name: 'decompose', description: 'Break the task into subtasks with maestro task create --parent <parentTaskId>.' },
-      { name: 'spawn', description: 'Spawn workers with maestro session spawn --task <subtaskId>.' },
+      { name: 'spawn', description: 'Spawn workers with maestro session spawn --task <subtaskId> [--agent-tool <claude-code|codex|gemini>] [--model <model>].' },
       { name: 'monitor', description: 'Watch sessions with maestro session watch <id1>,<id2>,...' },
       { name: 'complete', description: 'Report completion with maestro session report complete "<summary>".' },
     ];

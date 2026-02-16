@@ -443,6 +443,8 @@ export function registerSessionCommands(program: Command) {
         .option('--reason <reason>', 'Reason for spawning this session')
         .option('--include-related', 'Include related tasks in context')
         .option('--orchestrator-strategy <strategy>', 'Orchestrator strategy (default, intelligent-batching, or dag)')
+        .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)')
+        .option('--model <model>', 'Model to use (e.g. sonnet, opus, haiku, or native model names)')
         .action(async (cmdOpts) => {
             await guardCommand('session:spawn');
             const globalOpts = program.opts();
@@ -474,6 +476,12 @@ export function registerSessionCommands(program: Command) {
                 // Generate session name if not provided
                 const sessionName = cmdOpts.name || generateSessionName(task, skill);
 
+                // Validate agent tool if provided
+                const validAgentTools = ['claude-code', 'codex', 'gemini'];
+                if (cmdOpts.agentTool && !validAgentTools.includes(cmdOpts.agentTool)) {
+                    throw new Error(`Invalid agent tool "${cmdOpts.agentTool}". Must be one of: ${validAgentTools.join(', ')}`);
+                }
+
                 // Prepare spawn request with spawnSource and mode
                 const mode = skill === 'maestro-orchestrator' ? 'coordinate' : 'execute';
                 const spawnRequest: any = {
@@ -490,6 +498,16 @@ export function registerSessionCommands(program: Command) {
                     }
                 };
 
+                // Include agent tool if specified
+                if (cmdOpts.agentTool) {
+                    spawnRequest.agentTool = cmdOpts.agentTool;
+                }
+
+                // Include model if specified
+                if (cmdOpts.model) {
+                    spawnRequest.model = cmdOpts.model;
+                }
+
                 // Include strategy when spawning a coordinate session
                 if (mode === 'coordinate' && cmdOpts.orchestratorStrategy) {
                     spawnRequest.strategy = cmdOpts.orchestratorStrategy;
@@ -502,9 +520,13 @@ export function registerSessionCommands(program: Command) {
                 if (isJson) {
                     outputJSON(result);
                 } else {
+                    const toolDisplay = cmdOpts.agentTool || 'claude-code';
+                    const modelDisplay = cmdOpts.model || 'sonnet';
                     console.log(`Spawning ${skill} session: ${sessionName}`);
                     console.log(`   Task: ${task.title}`);
                     console.log(`   Priority: ${task.priority}`);
+                    console.log(`   Agent Tool: ${toolDisplay}`);
+                    console.log(`   Model: ${modelDisplay}`);
                     console.log(`   Session ID: ${result.sessionId}`);
                     console.log('');
                     console.log('   Waiting for Agent Maestro to open terminal window...');
