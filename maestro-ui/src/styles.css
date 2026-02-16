@@ -12886,6 +12886,25 @@ select.input {
   color: var(--terminal-green);
 }
 
+/* Action button styled as a sub-tab (e.g., "+ New Task") */
+.maestroPanelSubTab--action {
+  color: var(--terminal-green);
+  border-bottom-color: transparent;
+  font-weight: 500;
+}
+
+.maestroPanelSubTab--action:hover {
+  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+}
+
+.maestroPanelSubTabPlus {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  margin-right: 2px;
+}
+
 /* Legacy compat - keep old class names working for responsive */
 .maestroPanelIconBar {
   display: flex;
@@ -14652,6 +14671,204 @@ select.input {
   background: rgba(255, 171, 0, 0.15);
   color: var(--terminal-amber, #ffab00);
   box-shadow: 0 0 8px rgba(255, 171, 0, 0.2);
+}
+
+/* Column layout for execution bar with dropdowns */
+.executionBar--column {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.executionBarRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.executionBarDropdowns {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  margin-top: 8px;
+}
+
+/* Dropdown trigger and menu */
+.executionBarDropdown {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.executionBarDropdownTrigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--terminal-border);
+  color: var(--terminal-text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+  text-align: left;
+}
+
+.executionBarDropdownTrigger:hover {
+  border-color: var(--terminal-green);
+}
+
+.executionBarDropdownLabel {
+  color: var(--terminal-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.executionBarDropdownValue {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.executionBarDropdownPlaceholder {
+  color: var(--terminal-dim);
+  opacity: 0.5;
+}
+
+.executionBarDropdownArrow {
+  color: var(--terminal-dim);
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+/* Backdrop covers entire screen to block pointer events to elements below */
+.executionBarDropdownBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99998;
+  background: transparent;
+}
+
+/* Menu is portaled to document.body with fixed positioning */
+.executionBarDropdownMenu--portal {
+  position: fixed;
+  z-index: 99999;
+  background: var(--panel, #10151e);
+  border: 1px solid var(--terminal-border);
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.executionBarDropdownEmpty {
+  padding: 12px;
+  text-align: center;
+  color: var(--terminal-dim);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--panel, #10151e);
+}
+
+.executionBarDropdownActions {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--terminal-border);
+  background: var(--panel, #10151e);
+}
+
+.executionBarDropdownActionBtn {
+  background: none;
+  border: none;
+  color: var(--terminal-dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.executionBarDropdownActionBtn:hover {
+  color: var(--terminal-text);
+}
+
+.executionBarDropdownOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--panel, #10151e);
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  color: var(--terminal-text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.executionBarDropdownOption:last-child {
+  border-bottom: none;
+}
+
+.executionBarDropdownOption:hover {
+  background: color-mix(in srgb, var(--panel, #10151e) 88%, var(--theme-primary, #00ff41) 12%);
+}
+
+.executionBarDropdownOption--selected {
+  background: color-mix(in srgb, var(--panel, #10151e) 82%, var(--theme-primary, #00ff41) 18%);
+}
+
+.executionBarDropdownOptionAvatar {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.executionBarDropdownOptionName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.executionBarDropdownOptionMeta {
+  color: var(--terminal-dim);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.executionBarDropdownCheck {
+  color: var(--terminal-green);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.executionBarDropdownCheckbox {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--terminal-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: transparent;
+  flex-shrink: 0;
+}
+
+.executionBarDropdownCheckbox--checked {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.1);
 }
 
 /* ==================== Team Member List ==================== */
@@ -18304,4 +18521,642 @@ body.dragging-active * {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   border-radius: 4px;
   background: var(--terminal-bg, #1a1a2e);
+}
+
+/* ==================== SPLIT PLAY BUTTON ==================== */
+
+.splitPlayButton {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+  transition: all 0.2s;
+}
+
+.splitPlayButton:hover {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  border-color: rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.splitPlayButton__play {
+  padding: 4px 10px;
+  background: transparent;
+  border: none;
+  color: var(--theme-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.splitPlayButton__play:hover {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.splitPlayButton__play:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.splitPlayButton__dropdown {
+  padding: 4px 6px;
+  background: transparent;
+  border: none;
+  border-left: 1px solid rgba(var(--theme-primary-rgb), 0.2);
+  color: var(--theme-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.splitPlayButton__dropdown:hover {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+}
+
+.splitPlayButton__dropdown:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Split play dropdown */
+.splitPlayDropdown__overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+.splitPlayDropdown {
+  position: fixed;
+  z-index: 1000;
+  min-width: 280px;
+  background: rgba(10, 14, 22, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-control);
+  padding: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  animation: dropdownAppear 0.15s ease-out;
+}
+
+@keyframes dropdownAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.splitPlayDropdown__header {
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.splitPlayDropdown__section {
+  margin-bottom: 8px;
+}
+
+.splitPlayDropdown__section:last-child {
+  margin-bottom: 0;
+}
+
+.splitPlayDropdown__member {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.splitPlayDropdown__member:hover {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+}
+
+.splitPlayDropdown__member--default {
+  font-weight: 500;
+}
+
+.splitPlayDropdown__avatar {
+  font-size: 18px;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.splitPlayDropdown__name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.splitPlayDropdown__role {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
+.splitPlayDropdown__defaultTag {
+  font-size: 10px;
+  color: var(--theme-primary);
+  margin-left: auto;
+}
+
+.splitPlayDropdown__strategies {
+  margin-left: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.splitPlayDropdown__strategy {
+  padding: 5px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: rgba(240, 244, 248, 0.7);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.splitPlayDropdown__strategy:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.splitPlayDropdown__separator {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 8px 0;
+}
+
+.splitPlayDropdown__newMember {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--theme-primary);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.splitPlayDropdown__newMember:hover {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+/* Team member avatar on play button */
+.splitPlayButton__avatar {
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* Mode badges in dropdown */
+.splitPlayDropdown__modeBadge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.splitPlayDropdown__modeBadge--execute {
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+}
+
+.splitPlayDropdown__modeBadge--coordinate {
+  background: rgba(155, 89, 182, 0.15);
+  color: #9b59b6;
+}
+
+/* Assigned member indicator */
+.splitPlayDropdown__member--assigned {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border-left: 2px solid var(--theme-primary);
+}
+
+.splitPlayDropdown__assignedCheck {
+  color: var(--theme-primary);
+  font-size: 12px;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+/* ==================== TEAM MEMBER LIST ==================== */
+
+.teamMemberList {
+  padding: 20px;
+}
+
+.teamMemberList__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.teamMemberList__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.teamMemberList__section {
+  margin-bottom: 32px;
+}
+
+.teamMemberList__sectionTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.teamMemberList__sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px 0;
+  width: 100%;
+  transition: all 0.15s;
+}
+
+.teamMemberList__sectionHeader:hover {
+  opacity: 0.8;
+}
+
+.teamMemberList__sectionCaret {
+  color: var(--muted);
+  font-size: 12px;
+  transition: transform 0.2s;
+}
+
+.teamMemberList__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.teamMemberList__empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+}
+
+.teamMemberList__empty p {
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+/* Team member card */
+.teamMemberCard {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: 16px;
+  transition: all 0.2s;
+}
+
+.teamMemberCard:hover {
+  border-color: rgba(var(--theme-primary-rgb), 0.3);
+  background: rgba(var(--theme-primary-rgb), 0.02);
+}
+
+.teamMemberCard--default {
+  border-left: 3px solid var(--theme-primary);
+}
+
+.teamMemberCard--custom {
+  border-left: 3px solid var(--accent-2);
+}
+
+.teamMemberCard--archived {
+  opacity: 0.6;
+}
+
+.teamMemberCard__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.teamMemberCard__avatar {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.teamMemberCard__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.teamMemberCard__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.teamMemberCard__role {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.teamMemberCard__menuBtn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin: -4px -8px 0 0;
+  transition: all 0.15s;
+  line-height: 1;
+}
+
+.teamMemberCard__menuBtn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.teamMemberCard__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.teamMemberCard__metaItem {
+  display: flex;
+  align-items: center;
+}
+
+.teamMemberCard__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.teamMemberCard__btn {
+  flex: 1;
+  padding: 6px 12px;
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+  border-radius: 4px;
+  color: var(--theme-primary);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.teamMemberCard__btn:hover {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  border-color: rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.teamMemberCard__btn--danger {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.3);
+  color: #f87171;
+}
+
+.teamMemberCard__btn--danger:hover {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: rgba(220, 38, 38, 0.5);
+}
+
+/* Team member card menu */
+.teamMemberCard__menuOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+.teamMemberCard__menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  background: rgba(10, 14, 22, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-control);
+  padding: 6px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  animation: dropdownAppear 0.15s ease-out;
+}
+
+.teamMemberCard__menuItem {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.teamMemberCard__menuItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.teamMemberCard__menuItem--danger {
+  color: #f87171;
+}
+
+.teamMemberCard__menuItem--danger:hover {
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.teamMemberCard__menuSeparator {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 6px 0;
+}
+
+/* ==================== SESSION TEAM MEMBER AVATAR ==================== */
+
+.sessionTeamMemberAvatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  margin-right: 6px;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+/* ==================== TEAM MEMBER MODAL STYLES ==================== */
+
+.modalInfo {
+  padding: 12px;
+  background: rgba(34, 211, 238, 0.1);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 6px;
+  color: var(--accent-2);
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.formGroup {
+  margin-bottom: 20px;
+}
+
+.formLabel {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.formInput,
+.formTextarea,
+.formSelect {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.formInput:focus,
+.formTextarea:focus,
+.formSelect:focus {
+  outline: none;
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 0 3px rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.formInput:disabled,
+.formTextarea:disabled,
+.formSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.formTextarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.formHint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.modalError {
+  padding: 12px;
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 6px;
+  color: #f87171;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.terminalBtn {
+  padding: 10px 20px;
+  border-radius: var(--radius-control);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid;
+}
+
+.terminalBtn--primary {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  border-color: rgba(var(--theme-primary-rgb), 0.4);
+  color: var(--theme-primary);
+}
+
+.terminalBtn--primary:hover {
+  background: rgba(var(--theme-primary-rgb), 0.25);
+  border-color: rgba(var(--theme-primary-rgb), 0.6);
+  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.terminalBtn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.terminalBtn--secondary {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.terminalBtn--secondary:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.terminalBtn--secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modalFooter {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
 }

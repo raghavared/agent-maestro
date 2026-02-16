@@ -155,7 +155,9 @@ export class CodexSpawner {
     args.push('-c', `developer_instructions=${JSON.stringify(systemPrompt)}`);
 
     // Dynamic task context as the prompt argument
-    args.push(taskContext);
+    // Append system prompt to initial prompt for debugging (full context visibility)
+    const fullInitialPrompt = `${taskContext}\n\n<debug_developer_instructions>\n${systemPrompt}\n</debug_developer_instructions>`;
+    args.push(fullInitialPrompt);
 
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
 

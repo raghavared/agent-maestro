@@ -21,6 +21,7 @@ import { shortenPathSmart, normalizeSeparators } from "../pathDisplay";
 import { Icon } from "./Icon";
 import { type MaestroTask, type MaestroSession as MaestroSession } from "../app/types/maestro";
 import { useMaestroStore } from "../stores/useMaestroStore";
+import { useUIStore } from "../stores/useUIStore";
 import { MaestroSessionContent } from "./maestro/MaestroSessionContent";
 import { StrategyBadge } from "./maestro/StrategyBadge";
 import { SessionDetailModal } from "./maestro/SessionDetailModal";
@@ -58,6 +59,7 @@ type SessionsSectionProps = {
   agentShortcuts: ProcessEffect[];
   sessions: Session[];
   activeSessionId: string | null;
+  activeProjectId: string;
   projectName: string | null;
   projectBasePath: string | null;
   onSelectSession: (sessionId: string) => void;
@@ -105,6 +107,7 @@ export function SessionsSection({
   agentShortcuts,
   sessions,
   activeSessionId,
+  activeProjectId,
   projectName,
   projectBasePath,
   onSelectSession,
@@ -174,6 +177,25 @@ export function SessionsSection({
   const maestroTasks = useMaestroStore((s) => s.tasks);
   const maestroSessions = useMaestroStore((s) => s.sessions);
   const fetchSession = useMaestroStore((s) => s.fetchSession);
+  const hardRefresh = useMaestroStore((s) => s.hardRefresh);
+
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const handleRefresh = React.useCallback(async () => {
+    if (!activeProjectId || refreshing) return;
+    setRefreshing(true);
+    try {
+      await hardRefresh(activeProjectId);
+    } catch (err) {
+      console.error('[SessionsSection] Hard refresh failed:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [activeProjectId, refreshing, hardRefresh]);
+
+  const handleShowBoard = React.useCallback(() => {
+    useUIStore.getState().setShowBoardRequested(true);
+  }, []);
 
   // Compute session tasks from global state
   const sessionTasks = React.useMemo(() => {
@@ -252,6 +274,26 @@ export function SessionsSection({
       <div className="sidebarHeader">
         <div className="title">Sessions</div>
         <div className="sidebarHeaderActions">
+          <button
+            type="button"
+            className="btnSmall btnIcon"
+            onClick={handleRefresh}
+            disabled={refreshing || !activeProjectId}
+            title="Refresh tasks"
+            aria-label="Refresh tasks"
+          >
+            <Icon name="refresh" />
+          </button>
+          <button
+            type="button"
+            className="btnSmall btnIcon"
+            onClick={handleShowBoard}
+            disabled={!activeProjectId}
+            title="Open board view"
+            aria-label="Open board view"
+          >
+            <Icon name="layers" />
+          </button>
           <div className="sidebarActionMenu" ref={settingsMenuRef}>
             <button
               ref={settingsBtnRef}
@@ -431,6 +473,12 @@ export function SessionsSection({
                   <div className={`dot ${isActive ? "dotActive" : ""}`} />
                   <div className="sessionMeta">
                     <div className="sessionName">
+                      {/* Team member avatar if present */}
+                      {maestroSession?.teamMemberSnapshot && (
+                        <span className="sessionTeamMemberAvatar" title={`${maestroSession.teamMemberSnapshot.name} (${maestroSession.teamMemberSnapshot.role})`}>
+                          {maestroSession.teamMemberSnapshot.avatar}
+                        </span>
+                      )}
                       {hasAgentIcon && chipLabel && effect?.iconSrc && (
                         <span className={`agentBadge chip-${effect.id}`} title={chipLabel}>
                           <img className="agentIcon" src={effect.iconSrc} alt={chipLabel} />

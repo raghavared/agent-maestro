@@ -223,7 +223,9 @@ export class ClaudeSpawner {
     args.push('--append-system-prompt', systemPrompt);
 
     // Dynamic task context goes as the user message
-    args.push(taskContext);
+    // Append system prompt to initial prompt for debugging (full context visibility)
+    const fullInitialPrompt = `${taskContext}\n\n<debug_system_prompt>\n${systemPrompt}\n</debug_system_prompt>`;
+    args.push(fullInitialPrompt);
 
     // Determine working directory
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();

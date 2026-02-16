@@ -112,6 +112,11 @@ export class WebSocketBridge {
       'session:modal',
       'session:modal_action',
       'session:modal_closed',
+      // Team member events
+      'team_member:created',
+      'team_member:updated',
+      'team_member:deleted',
+      'team_member:archived',
       // Mail events
       'mail:received',
       'mail:deleted'

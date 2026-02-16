@@ -76,15 +76,87 @@ export interface Project {
   updatedAt: number;
 }
 
-// Task type discriminator
-export type TaskType = 'task' | 'team-member';
+// Team Member entity (first-class, separate from Task)
+export type TeamMemberStatus = 'active' | 'archived';
 
-// Team member metadata (only present when taskType === 'team-member')
-export interface TeamMemberMetadata {
-  role: string;        // e.g. "frontend developer", "tester"
-  identity: string;    // persona/instruction prompt
-  avatar: string;      // emoji or icon identifier
-  mailId: string;      // random generated mail ID for shared mailbox
+export interface TeamMember {
+  id: string;                          // "tm_<timestamp>_<random>" or deterministic for defaults
+  projectId: string;
+  name: string;                        // "Worker", "Coordinator", "Frontend Dev"
+  role: string;                        // "Default executor", "Task orchestrator"
+  identity: string;                    // Custom instructions / persona prompt
+  avatar: string;                      // Emoji: "🔧", "🎯", "🎨"
+  model?: string;                      // "opus", "sonnet", "haiku"
+  agentTool?: AgentTool;               // "claude-code", "codex", "gemini"
+  mode?: AgentMode;                    // "execute" or "coordinate"
+  strategy?: string;                   // Strategy: "simple", "queue", "default", "intelligent-batching", "dag"
+  skillIds?: string[];
+  isDefault: boolean;                  // true for Worker & Coordinator
+  status: TeamMemberStatus;            // 'active' | 'archived'
+
+  // Phase 2: Capability overrides (if set, override computed defaults from mode+strategy)
+  capabilities?: {
+    can_spawn_sessions?: boolean;
+    can_edit_tasks?: boolean;
+    can_use_queue?: boolean;
+    can_report_task_level?: boolean;
+    can_report_session_level?: boolean;
+  };
+
+  // Phase 2: Command permission overrides
+  commandPermissions?: {
+    groups?: Record<string, boolean>;    // e.g. { task: true, session: false, queue: true }
+    commands?: Record<string, boolean>;  // e.g. { "session:spawn": true, "queue:next": false }
+  };
+
+  // Phase 3: Workflow customization
+  workflowTemplateId?: string;         // Built-in template ID or 'custom'
+  customWorkflow?: string;             // Freeform workflow text (when workflowTemplateId === 'custom')
+
+  createdAt: string;                   // ISO 8601
+  updatedAt: string;                   // ISO 8601
+}
+
+export interface TeamMemberSnapshot {
+  name: string;
+  avatar: string;
+  role: string;
+  model?: string;
+  agentTool?: AgentTool;
+}
+
+export interface CreateTeamMemberPayload {
+  projectId: string;
+  name: string;
+  role: string;
+  identity: string;
+  avatar: string;
+  model?: string;
+  agentTool?: AgentTool;
+  mode?: AgentMode;
+  strategy?: string;
+  skillIds?: string[];
+  capabilities?: TeamMember['capabilities'];
+  commandPermissions?: TeamMember['commandPermissions'];
+  workflowTemplateId?: string;
+  customWorkflow?: string;
+}
+
+export interface UpdateTeamMemberPayload {
+  name?: string;
+  role?: string;
+  identity?: string;
+  avatar?: string;
+  model?: string;
+  agentTool?: AgentTool;
+  mode?: AgentMode;
+  strategy?: string;
+  skillIds?: string[];
+  status?: TeamMemberStatus;
+  capabilities?: TeamMember['capabilities'];
+  commandPermissions?: TeamMember['commandPermissions'];
+  workflowTemplateId?: string;
+  customWorkflow?: string;
 }
 
 export interface Task {
@@ -122,11 +194,8 @@ export interface Task {
   // Pinned tasks appear in the dedicated "Pinned" tab for quick re-execution
   pinned?: boolean;
 
-  // Task type: 'task' (default) or 'team-member'
-  taskType?: TaskType;
-
-  // Team member metadata (only when taskType === 'team-member')
-  teamMemberMetadata?: TeamMemberMetadata;
+  // Assigned team member for this task
+  teamMemberId?: string;
 }
 
 export interface Session {
@@ -156,6 +225,8 @@ export interface Session {
     message?: string;
     since?: number;
   };
+  teamMemberId?: string;
+  teamMemberSnapshot?: TeamMemberSnapshot;
 }
 
 // Supporting types
@@ -218,8 +289,7 @@ export interface CreateTaskPayload {
   referenceTaskIds?: string[];
   model?: string;
   agentTool?: AgentTool;
-  taskType?: TaskType;
-  teamMemberMetadata?: TeamMemberMetadata;
+  teamMemberId?: string;
 }
 
 export type UpdateSource = 'user' | 'session';
@@ -238,8 +308,7 @@ export interface UpdateTaskPayload {
   model?: string;
   agentTool?: AgentTool;
   pinned?: boolean;
-  taskType?: TaskType;
-  teamMemberMetadata?: TeamMemberMetadata;
+  teamMemberId?: string;
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline
   // Update source tracking
   updateSource?: UpdateSource;  // Who is making the update
@@ -286,6 +355,7 @@ export interface SpawnSessionPayload {
   model?: string;                       // Model to use for the session
   agentTool?: AgentTool;                // Agent tool to use ('claude-code', 'codex', or 'gemini')
   context?: Record<string, any>;
+  teamMemberId?: string;                // Team member running this session
   teamMemberIds?: string[];             // Team member task IDs to include in coordinate mode
 }
 

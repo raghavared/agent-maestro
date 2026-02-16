@@ -10,11 +10,15 @@ import { DocViewer } from "./DocViewer";
 import { StrategyBadge } from "./StrategyBadge";
 import { SessionDetailModal } from "./SessionDetailModal";
 import { ConfirmActionModal } from "../modals/ConfirmActionModal";
+import { SplitPlayButton } from "./SplitPlayButton";
 
 type TaskListItemProps = {
     task: MaestroTask;
     onSelect: () => void;
     onWorkOn: () => void;
+    onWorkOnWithTeamMember?: (teamMemberId: string, strategy?: string) => void;
+    onAssignTeamMember?: (teamMemberId: string) => void;
+    onOpenCreateTeamMember?: () => void;
     onJumpToSession: (maestroSessionId: string) => void;
     onNavigateToTask?: (taskId: string) => void;
     depth?: number;
@@ -136,6 +140,9 @@ export function TaskListItem({
     task,
     onSelect,
     onWorkOn,
+    onWorkOnWithTeamMember,
+    onAssignTeamMember,
+    onOpenCreateTeamMember,
     onJumpToSession,
     onNavigateToTask,
     depth = 0,
@@ -208,9 +215,12 @@ export function TaskListItem({
 
     const { sessions: taskSessions, loading: loadingSessions } = useTaskSessions(task.id);
     const tasks = useMaestroStore(s => s.tasks);
+    const teamMembersMap = useMaestroStore(s => s.teamMembers);
     const removeTaskFromSession = useMaestroStore(s => s.removeTaskFromSession);
     const deleteTask = useMaestroStore(s => s.deleteTask);
     const updateTask = useMaestroStore(s => s.updateTask);
+
+    const teamMembers = useMemo(() => Array.from(teamMembersMap.values()), [teamMembersMap]);
 
     const isSubtask = task.parentId !== null;
 
@@ -728,17 +738,16 @@ export function TaskListItem({
                         </svg>
                     </button>
 
-                    {/* Play button */}
-                    <button
-                        className="terminalPlayBtn"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onWorkOn();
-                        }}
-                        title="Execute task"
-                    >
-                        ▶
-                    </button>
+                    {/* Split Play button */}
+                    <div onClick={(e) => e.stopPropagation()}>
+                        <SplitPlayButton
+                            onPlayDefault={onWorkOn}
+                            assignedTeamMemberId={task.teamMemberId}
+                            onAssignTeamMember={onAssignTeamMember}
+                            onOpenCreateTeamMember={onOpenCreateTeamMember}
+                            teamMembers={teamMembers}
+                        />
+                    </div>
                 </div>
             </div>
 

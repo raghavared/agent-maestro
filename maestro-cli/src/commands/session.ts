@@ -445,6 +445,7 @@ export function registerSessionCommands(program: Command) {
         .option('--orchestrator-strategy <strategy>', 'Orchestrator strategy (default, intelligent-batching, or dag)')
         .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)')
         .option('--model <model>', 'Model to use (e.g. sonnet, opus, haiku, or native model names)')
+        .option('--team-member-id <id>', 'Team member ID to run this session')
         .action(async (cmdOpts) => {
             await guardCommand('session:spawn');
             const globalOpts = program.opts();
@@ -497,6 +498,11 @@ export function registerSessionCommands(program: Command) {
                         reason: cmdOpts.reason || `Execute task: ${task.title}`  // Move reason into context
                     }
                 };
+
+                // Include team member ID if specified
+                if (cmdOpts.teamMemberId) {
+                    spawnRequest.teamMemberId = cmdOpts.teamMemberId;
+                }
 
                 // Include agent tool if specified
                 if (cmdOpts.agentTool) {

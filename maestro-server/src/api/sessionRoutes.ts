@@ -10,7 +10,8 @@ import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
 import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
-import { SessionStatus, WorkerStrategy, AgentTool, AgentMode } from '../types';
+import { SessionStatus, WorkerStrategy, AgentTool, AgentMode, TeamMember } from '../types';
+import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
 
 /**
  * Generate manifest via CLI command
@@ -118,6 +119,7 @@ interface SessionRouteDependencies {
   queueService: QueueService;
   projectRepo: IProjectRepository;
   taskRepo: ITaskRepository;
+  teamMemberRepo: ITeamMemberRepository;
   eventBus: IEventBus;
   config: Config;
 }
@@ -126,7 +128,7 @@ interface SessionRouteDependencies {
  * Create session routes using the SessionService.
  */
 export function createSessionRoutes(deps: SessionRouteDependencies) {
-  const { sessionService, queueService, projectRepo, taskRepo, eventBus, config } = deps;
+  const { sessionService, queueService, projectRepo, taskRepo, teamMemberRepo, eventBus, config } = deps;
   const router = express.Router();
 
   // Error handler helper
@@ -462,23 +464,52 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         sessionId,              // Parent session ID when spawnSource === 'session'
         spawnSource = 'ui',     // 'ui' or 'session'
         mode: requestedMode,    // Three-axis model: 'execute' or 'coordinate'
-        strategy = 'simple',    // Strategy for the session
+        strategy: requestedStrategy,    // Strategy for the session
         context,
         model,                  // Model selection: 'sonnet' | 'opus' | 'haiku'
         agentTool,              // Agent tool: 'claude-code' | 'codex' | 'gemini'
         teamMemberIds,          // Team member task IDs for coordinate mode
+        teamMemberId,           // Single team member assigned to this task
       } = req.body;
 
-      // Resolve mode (defaults to 'execute')
-      const resolvedMode: AgentMode = (requestedMode as AgentMode) || 'execute';
+      // If teamMemberId is provided, fetch the team member and use its mode/strategy as defaults
+      let teamMemberDefaults: { mode?: AgentMode; strategy?: string; model?: string; agentTool?: AgentTool } = {};
+      if (teamMemberId && projectId) {
+        try {
+          const teamMember = await teamMemberRepo.findById(projectId, teamMemberId);
+          if (teamMember) {
+            teamMemberDefaults = {
+              mode: teamMember.mode as AgentMode | undefined,
+              strategy: teamMember.strategy,
+              model: teamMember.model,
+              agentTool: teamMember.agentTool,
+            };
+            console.log(`   ✓ Team member resolved: ${teamMember.name} (mode=${teamMember.mode}, strategy=${teamMember.strategy})`);
+          }
+        } catch (err) {
+          console.warn(`   ⚠ Failed to fetch team member ${teamMemberId}:`, err);
+        }
+      }
+
+      // Resolve mode (defaults to team member's mode, then 'execute')
+      const resolvedMode: AgentMode = (requestedMode as AgentMode) || teamMemberDefaults.mode || 'execute';
+
+      // Resolve strategy (explicit > team member > mode-based default)
+      const defaultStrategy = resolvedMode === 'coordinate' ? 'default' : 'simple';
+      const strategy = requestedStrategy || teamMemberDefaults.strategy || defaultStrategy;
+
+      // Resolve model and agentTool from team member if not explicitly provided
+      const resolvedModel = model || teamMemberDefaults.model;
+      const resolvedAgentToolFromMember = agentTool || teamMemberDefaults.agentTool;
 
       console.log('\n🚀 SESSION SPAWN EVENT RECEIVED');
       console.log(`   • projectId: ${projectId}`);
       console.log(`   • taskIds: [${taskIds?.join(', ') || 'NONE'}]`);
       console.log(`   • mode: ${resolvedMode}`);
       console.log(`   • strategy: ${strategy}`);
-      console.log(`   • model: ${model || '(not set - will default to sonnet)'}`);
-      console.log(`   • agentTool: ${agentTool || '(not set - will default to claude-code)'}`);
+      console.log(`   • model: ${resolvedModel || '(not set - will default to sonnet)'}`);
+      console.log(`   • agentTool: ${resolvedAgentToolFromMember || '(not set - will default to claude-code)'}`);
+      console.log(`   • teamMemberId: ${teamMemberId || '(none)'}`);
 
       // Validation
       if (!projectId) {
@@ -595,6 +626,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           spawnSource,
           mode: resolvedMode,
           strategy,
+          teamMemberId: teamMemberId || null,
           context: context || {}
         },
         _suppressCreatedEvent: true
@@ -638,8 +670,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           skills: skillsToUse,
           sessionId: session.id,
           strategy,
-          model,
-          agentTool,
+          model: resolvedModel,
+          agentTool: resolvedAgentToolFromMember,
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
           teamMemberIds: teamMemberIds && teamMemberIds.length > 0 ? teamMemberIds : undefined,
         });
@@ -656,7 +688,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
 
       // Prepare spawn data
-      const resolvedAgentTool = agentTool || 'claude-code';
+      const resolvedAgentTool = resolvedAgentToolFromMember || 'claude-code';
       const initCommand = resolvedMode === 'coordinate' ? 'orchestrator' : 'worker';
       const command = `maestro ${initCommand} init`;
       const cwd = project.workingDir;

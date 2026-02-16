@@ -8,6 +8,10 @@ import type {
   CreateSessionPayload,
   UpdateSessionPayload,
   Ordering,
+  TeamMember,
+  CreateTeamMemberPayload,
+  UpdateTeamMemberPayload,
+  WorkflowTemplate,
 } from '../app/types/maestro';
 import { useSessionStore } from './useSessionStore';
 import { WS_URL } from '../utils/serverConfig';
@@ -31,6 +35,7 @@ export interface AgentModal {
 interface MaestroState {
   tasks: Map<string, MaestroTask>;
   sessions: Map<string, MaestroSession>;
+  teamMembers: Map<string, TeamMember>;
   activeModals: AgentModal[];
   loading: Set<string>;
   errors: Map<string, string>;
@@ -39,6 +44,10 @@ interface MaestroState {
   // Ordering state
   taskOrdering: Map<string, string[]>;    // projectId -> orderedIds
   sessionOrdering: Map<string, string[]>; // projectId -> orderedIds
+  // Workflow templates
+  workflowTemplates: WorkflowTemplate[];
+  // Last used team member per task (persisted to localStorage)
+  lastUsedTeamMember: Record<string, string>;
   fetchTasks: (projectId: string) => Promise<void>;
   fetchTask: (taskId: string) => Promise<void>;
   fetchSessions: (taskId?: string) => Promise<void>;
@@ -64,6 +73,16 @@ interface MaestroState {
   fetchSessionOrdering: (projectId: string) => Promise<void>;
   saveTaskOrdering: (projectId: string, orderedIds: string[]) => Promise<void>;
   saveSessionOrdering: (projectId: string, orderedIds: string[]) => Promise<void>;
+  // Team member actions
+  fetchTeamMembers: (projectId: string) => Promise<void>;
+  createTeamMember: (data: CreateTeamMemberPayload) => Promise<TeamMember>;
+  updateTeamMember: (id: string, projectId: string, updates: UpdateTeamMemberPayload) => Promise<TeamMember>;
+  deleteTeamMember: (id: string, projectId: string) => Promise<void>;
+  archiveTeamMember: (id: string, projectId: string) => Promise<void>;
+  unarchiveTeamMember: (id: string, projectId: string) => Promise<void>;
+  resetDefaultTeamMember: (id: string, projectId: string) => Promise<void>;
+  setLastUsedTeamMember: (taskId: string, teamMemberId: string) => void;
+  fetchWorkflowTemplates: () => Promise<void>;
 }
 
 export const useMaestroStore = create<MaestroState>((set, get) => {
@@ -240,6 +259,25 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           get().showAgentModal(modalData);
           break;
         }
+        case 'team_member:created':
+        case 'team_member:updated':
+        case 'team_member:archived': {
+          const teamMember = message.data;
+          set((prev) => ({ teamMembers: new Map(prev.teamMembers).set(teamMember.id, teamMember) }));
+          // Play sound for event
+          playEventSound(message.event as any);
+          break;
+        }
+        case 'team_member:deleted': {
+          set((prev) => {
+            const teamMembers = new Map(prev.teamMembers);
+            teamMembers.delete(message.data.id);
+            return { teamMembers };
+          });
+          // Play sound for event
+          playEventSound(message.event as any);
+          break;
+        }
       }
     } catch (err) {
       console.error('\n' + '⚠️'.repeat(40));
@@ -286,6 +324,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         if (activeProjectIdRef) {
           get().fetchTasks(activeProjectIdRef);
           get().fetchSessions();
+          get().fetchTeamMembers(activeProjectIdRef);
         }
       };
 
@@ -334,9 +373,20 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     }
   };
 
+  // Load lastUsedTeamMember from localStorage
+  const loadLastUsedTeamMember = (): Record<string, string> => {
+    try {
+      const stored = localStorage.getItem('maestro:lastUsedTeamMember');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  };
+
   return {
     tasks: new Map(),
     sessions: new Map(),
+    teamMembers: new Map(),
     activeModals: [],
     loading: new Set(),
     errors: new Map(),
@@ -344,6 +394,8 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     activeProjectIdRef: null,
     taskOrdering: new Map(),
     sessionOrdering: new Map(),
+    workflowTemplates: [],
+    lastUsedTeamMember: loadLastUsedTeamMember(),
 
     fetchTasks: async (projectId) => {
       const key = `tasks:${projectId}`;
@@ -474,7 +526,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       }));
     },
 
-    clearCache: () => set({ tasks: new Map(), sessions: new Map(), activeModals: [], loading: new Set(), errors: new Map(), taskOrdering: new Map(), sessionOrdering: new Map() }),
+    clearCache: () => set({ tasks: new Map(), sessions: new Map(), teamMembers: new Map(), activeModals: [], loading: new Set(), errors: new Map(), taskOrdering: new Map(), sessionOrdering: new Map(), workflowTemplates: [] }),
 
     hardRefresh: async (projectId) => {
       get().clearCache();
@@ -535,6 +587,82 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         await maestroClient.saveOrdering(projectId, 'session', orderedIds);
       } catch (err) {
         console.error('[useMaestroStore] Failed to save session ordering:', err);
+      }
+    },
+
+    fetchTeamMembers: async (projectId) => {
+      const key = `teamMembers:${projectId}`;
+      setLoading(key, true);
+      setError(key, null);
+      try {
+        const teamMembers = await maestroClient.getTeamMembers(projectId);
+        set((prev) => {
+          const teamMemberMap = new Map(prev.teamMembers);
+          teamMembers.forEach((tm) => teamMemberMap.set(tm.id, tm));
+          return { teamMembers: teamMemberMap };
+        });
+      } catch (err) {
+        setError(key, err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(key, false);
+      }
+    },
+
+    createTeamMember: async (data) => {
+      const teamMember = await maestroClient.createTeamMember(data);
+      set((prev) => ({ teamMembers: new Map(prev.teamMembers).set(teamMember.id, teamMember) }));
+      return teamMember;
+    },
+
+    updateTeamMember: async (id, projectId, updates) => {
+      const teamMember = await maestroClient.updateTeamMember(id, projectId, updates);
+      set((prev) => ({ teamMembers: new Map(prev.teamMembers).set(teamMember.id, teamMember) }));
+      return teamMember;
+    },
+
+    deleteTeamMember: async (id, projectId) => {
+      await maestroClient.deleteTeamMember(id, projectId);
+      set((prev) => {
+        const teamMembers = new Map(prev.teamMembers);
+        teamMembers.delete(id);
+        return { teamMembers };
+      });
+    },
+
+    archiveTeamMember: async (id, projectId) => {
+      await maestroClient.archiveTeamMember(id, projectId);
+      // The server will emit team_member:archived which will update the store
+    },
+
+    unarchiveTeamMember: async (id, projectId) => {
+      await maestroClient.unarchiveTeamMember(id, projectId);
+      // The server will emit team_member:updated which will update the store
+    },
+
+    resetDefaultTeamMember: async (id, projectId) => {
+      await maestroClient.resetDefaultTeamMember(id, projectId);
+      // The server will emit team_member:updated which will update the store
+    },
+
+    setLastUsedTeamMember: (taskId, teamMemberId) => {
+      set((prev) => {
+        const lastUsedTeamMember = { ...prev.lastUsedTeamMember, [taskId]: teamMemberId };
+        // Persist to localStorage
+        try {
+          localStorage.setItem('maestro:lastUsedTeamMember', JSON.stringify(lastUsedTeamMember));
+        } catch (err) {
+          console.error('[useMaestroStore] Failed to persist lastUsedTeamMember:', err);
+        }
+        return { lastUsedTeamMember };
+      });
+    },
+
+    fetchWorkflowTemplates: async () => {
+      try {
+        const templates = await maestroClient.getWorkflowTemplates();
+        set({ workflowTemplates: templates });
+      } catch (err) {
+        console.error('[useMaestroStore] Failed to fetch workflow templates:', err);
       }
     },
 

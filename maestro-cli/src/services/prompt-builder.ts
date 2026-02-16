@@ -9,6 +9,7 @@ import type {
   TeamMemberData,
 } from '../types/manifest.js';
 import { getEffectiveStrategy, computeCapabilities } from '../types/manifest.js';
+import { getWorkflowTemplate } from './workflow-templates.js';
 
 export type PromptMode = 'normal' | 'xml';
 
@@ -42,16 +43,20 @@ export class PromptBuilder {
   buildSystemXml(manifest: MaestroManifest): string {
     const mode = manifest.mode;
     const strategy = getEffectiveStrategy(manifest);
-    const capabilities = computeCapabilities(mode, strategy);
+    const capabilityOverrides = manifest.teamMemberCapabilities as Record<string, boolean> | undefined;
+    const capabilities = computeCapabilities(mode, strategy, capabilityOverrides);
 
     const parts: string[] = [];
     parts.push(`<maestro_system_prompt mode="${mode}" strategy="${strategy}" version="3.0">`);
     parts.push(this.buildIdentity(mode));
+    // Team member identity (if this session is for a custom team member)
+    const teamMemberIdentity = this.buildTeamMemberIdentity(manifest);
+    if (teamMemberIdentity) parts.push(teamMemberIdentity);
     parts.push(this.buildCapabilities(capabilities));
     // Team members (coordinate mode)
     const teamMembers = this.buildTeamMembers(manifest.teamMembers);
     if (teamMembers) parts.push(teamMembers);
-    parts.push(this.buildWorkflow(mode, strategy));
+    parts.push(this.buildWorkflow(mode, strategy, manifest));
     parts.push(this.buildCommandsSection(mode));
     parts.push('</maestro_system_prompt>');
     return parts.join('\n');
@@ -81,6 +86,10 @@ export class PromptBuilder {
       parts.push(this.buildSkills(manifest.skills));
     }
 
+    // Team member identity (if this session is for a custom team member)
+    const teamMemberIdentity = this.buildTeamMemberIdentity(manifest);
+    if (teamMemberIdentity) parts.push(teamMemberIdentity);
+
     // Team members (coordinate mode)
     const taskTeamMembers = this.buildTeamMembers(manifest.teamMembers);
     if (taskTeamMembers) parts.push(taskTeamMembers);
@@ -103,7 +112,8 @@ export class PromptBuilder {
   buildXml(manifest: MaestroManifest): string {
     const mode = manifest.mode;
     const strategy = getEffectiveStrategy(manifest);
-    const capabilities = computeCapabilities(mode, strategy);
+    const capabilityOverrides = manifest.teamMemberCapabilities as Record<string, boolean> | undefined;
+    const capabilities = computeCapabilities(mode, strategy, capabilityOverrides);
 
     const parts: string[] = [];
 
@@ -139,7 +149,7 @@ export class PromptBuilder {
     if (xmlTeamMembers) parts.push(xmlTeamMembers);
 
     // Workflow
-    parts.push(this.buildWorkflow(mode, strategy));
+    parts.push(this.buildWorkflow(mode, strategy, manifest));
 
     parts.push('</maestro_prompt>');
 
@@ -157,6 +167,26 @@ export class PromptBuilder {
       lines.push('    <instruction>You are a coordinator agent. You NEVER write code or implement anything directly. Your job is to decompose tasks into subtasks, spawn worker sessions to do the work, monitor their progress, and report results. Follow the workflow phases in order.</instruction>');
     }
     lines.push('  </identity>');
+    return lines.join('\n');
+  }
+
+  private buildTeamMemberIdentity(manifest: MaestroManifest): string | null {
+    if (!manifest.teamMemberId || !manifest.teamMemberName) return null;
+
+    // Only emit identity block for custom team members with custom instructions.
+    // Default members (Worker/Coordinator) already have their identity in buildIdentity().
+    // Skip if no custom identity is provided.
+    if (!manifest.teamMemberIdentity) return null;
+
+    const lines = ['  <team_member_identity>'];
+    lines.push(`    <name>${this.esc(manifest.teamMemberName)}</name>`);
+    if (manifest.teamMemberAvatar) {
+      lines.push(`    <avatar>${this.esc(manifest.teamMemberAvatar)}</avatar>`);
+    }
+    if (manifest.teamMemberIdentity) {
+      lines.push(`    <instructions>${this.esc(manifest.teamMemberIdentity)}</instructions>`);
+    }
+    lines.push('  </team_member_identity>');
     return lines.join('\n');
   }
 
@@ -383,7 +413,30 @@ export class PromptBuilder {
     return lines.join('\n');
   }
 
-  private buildWorkflow(mode: AgentMode, strategy: string): string {
+  private buildWorkflow(mode: AgentMode, strategy: string, manifest?: MaestroManifest): string {
+    // Phase 3: Check for custom workflow or template from team member
+    if (manifest?.teamMemberCustomWorkflow) {
+      // Custom freeform workflow text
+      const lines = ['  <workflow>'];
+      lines.push(`    ${manifest.teamMemberCustomWorkflow}`);
+      lines.push('  </workflow>');
+      return lines.join('\n');
+    }
+
+    if (manifest?.teamMemberWorkflowTemplateId) {
+      const template = getWorkflowTemplate(manifest.teamMemberWorkflowTemplateId);
+      if (template) {
+        const lines = ['  <workflow>'];
+        for (const phase of template.phases) {
+          lines.push(`    <phase name="${phase.name}">${phase.instruction}</phase>`);
+        }
+        lines.push('  </workflow>');
+        return lines.join('\n');
+      }
+      // Template not found, fall through to default
+    }
+
+    // Default: compute from mode+strategy
     const phases = this.getWorkflowPhases(mode, strategy);
     const lines = ['  <workflow>'];
     for (const phase of phases) {
@@ -533,7 +586,8 @@ export class PromptBuilder {
           name: 'spawn',
           description:
             'For each subtask, spawn a worker session:\n' +
-            '  maestro session spawn --task <subtaskId> [--agent-tool <claude-code|codex|gemini>] [--model <model>]\n' +
+            '  maestro session spawn --task <subtaskId> [--team-member-id <tmId>] [--agent-tool <claude-code|codex|gemini>] [--model <model>]\n' +
+            'Choose the best team member based on the task requirements and team member roles/skills.\n' +
             'You can choose different agent tools and models per worker. Available agent tools: claude-code (default), codex, gemini.\n' +
             'Models: sonnet/opus/haiku (abstract) or native names like gpt-5.3-codex, gemini-3-pro-preview.\n' +
             'Spawn them ONE AT A TIME, sequentially. Wait for the spawn confirmation (session ID) before spawning the next. ' +
@@ -588,7 +642,7 @@ export class PromptBuilder {
           description:
             'Process batches sequentially. For each batch:\n' +
             '  1. Spawn ALL workers in the batch:\n' +
-            '     maestro session spawn --task <subtaskId> [--agent-tool <tool>] [--model <model>]  (for each task in the batch)\n' +
+            '     maestro session spawn --task <subtaskId> [--team-member-id <tmId>] [--agent-tool <tool>] [--model <model>]  (for each task in the batch)\n' +
             '  2. Collect all session IDs from the batch\n' +
             '  3. Watch the entire batch:\n' +
             '     maestro session watch <id1>,<id2>,<id3>\n' +
@@ -639,7 +693,7 @@ export class PromptBuilder {
             '  WAVE LOOP:\n' +
             '  1. Identify all READY tasks (dependencies all completed, not yet spawned)\n' +
             '  2. Spawn a worker for each ready task:\n' +
-            '     maestro session spawn --task <subtaskId> [--agent-tool <tool>] [--model <model>]\n' +
+            '     maestro session spawn --task <subtaskId> [--team-member-id <tmId>] [--agent-tool <tool>] [--model <model>]\n' +
             '  3. Watch this wave:\n' +
             '     maestro session watch <id1>,<id2>,...\n' +
             '  4. When the wave completes, check results\n' +
@@ -670,7 +724,7 @@ export class PromptBuilder {
     return [
       { name: 'analyze', description: 'Your assigned task is in the <task> block above. Read it carefully.' },
       { name: 'decompose', description: 'Break the task into subtasks with maestro task create --parent <parentTaskId>.' },
-      { name: 'spawn', description: 'Spawn workers with maestro session spawn --task <subtaskId> [--agent-tool <claude-code|codex|gemini>] [--model <model>].' },
+      { name: 'spawn', description: 'Spawn workers with maestro session spawn --task <subtaskId> [--team-member-id <tmId>] [--agent-tool <claude-code|codex|gemini>] [--model <model>].' },
       { name: 'monitor', description: 'Watch sessions with maestro session watch <id1>,<id2>,...' },
       { name: 'complete', description: 'Report completion with maestro session report complete "<summary>".' },
     ];

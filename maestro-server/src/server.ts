@@ -11,6 +11,8 @@ import { createQueueRoutes } from './api/queueRoutes';
 import { createSkillRoutes } from './api/skillRoutes';
 import { createMailRoutes } from './api/mailRoutes';
 import { createOrderingRoutes } from './api/orderingRoutes';
+import { createTeamMemberRoutes } from './api/teamMemberRoutes';
+import { createWorkflowTemplateRoutes } from './api/workflowTemplateRoutes';
 import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
 import { AppError } from './domain/common/Errors';
 
@@ -19,7 +21,7 @@ async function startServer() {
   const container = await createContainer();
   await container.initialize();
 
-  const { config, logger, eventBus, projectService, taskService, sessionService, queueService, mailService, orderingService, projectRepo, taskRepo, skillLoader } = container;
+  const { config, logger, eventBus, projectService, taskService, sessionService, queueService, mailService, orderingService, teamMemberService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
 
   console.log('📋 Configuration loaded:');
   console.log(`   Port: ${config.port}`);
@@ -90,6 +92,7 @@ async function startServer() {
     queueService,
     projectRepo,
     taskRepo,
+    teamMemberRepo,
     eventBus,
     config
   });
@@ -105,6 +108,9 @@ async function startServer() {
 
   // Ordering routes
   const orderingRoutes = createOrderingRoutes(orderingService);
+
+  // Team member routes
+  const teamMemberRoutes = createTeamMemberRoutes(teamMemberService);
 
   // Skills route using async FileSystemSkillLoader
   const skillRoutes = createSkillRoutes(skillLoader);
@@ -131,6 +137,8 @@ async function startServer() {
   app.use('/api', mailRoutes);
   app.use('/api', skillRoutes);
   app.use('/api', orderingRoutes);
+  app.use('/api', teamMemberRoutes);
+  app.use('/api/workflow-templates', createWorkflowTemplateRoutes());
 
   // Global error handling middleware
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

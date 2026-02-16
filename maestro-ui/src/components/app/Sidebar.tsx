@@ -142,6 +142,7 @@ export function Sidebar({
         agentShortcuts={agentShortcuts}
         sessions={projectSessions}
         activeSessionId={activeSessionId}
+        activeProjectId={activeProjectId}
         projectName={projectName}
         projectBasePath={projectBasePath}
         onSelectSession={onSelectSession}
