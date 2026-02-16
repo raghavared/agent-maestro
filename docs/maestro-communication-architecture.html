@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maestro Communication Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0e1a; color: #e0e6f0; line-height: 1.6; }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 40px 24px; }
+
+  h1 { font-size: 2.2rem; font-weight: 700; text-align: center; margin-bottom: 8px;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { text-align: center; color: #94a3b8; font-size: 1rem; margin-bottom: 48px; }
+
+  /* Section titles */
+  .section-title { font-size: 1.4rem; font-weight: 600; margin: 48px 0 20px; color: #c4b5fd;
+    display: flex; align-items: center; gap: 10px; }
+  .section-title::before { content: ''; display: inline-block; width: 4px; height: 24px;
+    background: linear-gradient(180deg, #a78bfa, #6366f1); border-radius: 2px; }
+
+  /* Architecture diagram */
+  .arch-diagram { background: #111827; border: 1px solid #1e293b; border-radius: 16px; padding: 32px; margin-bottom: 32px; overflow-x: auto; }
+
+  svg text { font-family: 'Inter', -apple-system, sans-serif; }
+
+  /* Flow diagrams */
+  .flow-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+  .flow-card { background: #111827; border: 1px solid #1e293b; border-radius: 12px; padding: 24px; }
+  .flow-card h3 { font-size: 1.1rem; color: #93c5fd; margin-bottom: 16px; }
+
+  /* Comparison table */
+  .comparison-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  .comparison-table th { background: #1e1b4b; color: #c4b5fd; padding: 12px 16px; text-align: left; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .comparison-table td { padding: 12px 16px; border-bottom: 1px solid #1e293b; font-size: 0.9rem; }
+  .comparison-table tr:hover td { background: #1e293b44; }
+  .comparison-table .label { color: #94a3b8; font-weight: 500; }
+
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+  .badge-ws { background: #1e3a5f; color: #60a5fa; }
+  .badge-http { background: #3b1f4b; color: #c084fc; }
+  .badge-push { background: #1a3a2a; color: #6ee7b7; }
+  .badge-pull { background: #3b2f1a; color: #fbbf24; }
+
+  /* Command reference */
+  .cmd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 16px; }
+  @media (max-width: 768px) { .cmd-grid { grid-template-columns: 1fr; } }
+  .cmd-card { background: #111827; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; }
+  .cmd-card h4 { color: #f472b6; margin-bottom: 12px; font-size: 1rem; }
+  .cmd-card.coordinator h4 { color: #60a5fa; }
+  .cmd-list { list-style: none; }
+  .cmd-list li { padding: 6px 0; font-size: 0.85rem; display: flex; gap: 8px; }
+  .cmd-list code { background: #1e293b; color: #a5f3fc; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; white-space: nowrap; }
+  .cmd-list .desc { color: #94a3b8; }
+
+  /* Legend */
+  .legend { display: flex; gap: 24px; flex-wrap: wrap; margin: 16px 0; padding: 12px 16px; background: #0f172a; border-radius: 8px; border: 1px solid #1e293b; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #94a3b8; }
+  .legend-line { width: 32px; height: 3px; border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Maestro Communication Architecture</h1>
+<p class="subtitle">Coordinator-Worker Communication via Session Watch & Mailbox</p>
+
+<!-- ===================== MAIN ARCHITECTURE ===================== -->
+<div class="section-title">System Architecture Overview</div>
+<div class="arch-diagram">
+<svg viewBox="0 0 1200 680" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#60a5fa"/>
+    </marker>
+    <marker id="arrow-purple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#a78bfa"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#6ee7b7"/>
+    </marker>
+    <marker id="arrow-pink" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#f472b6"/>
+    </marker>
+    <marker id="arrow-yellow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#fbbf24"/>
+    </marker>
+    <filter id="glow-blue"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#60a5fa" flood-opacity="0.3"/></filter>
+    <filter id="glow-purple"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#a78bfa" flood-opacity="0.3"/></filter>
+    <filter id="glow-green"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#6ee7b7" flood-opacity="0.2"/></filter>
+  </defs>
+
+  <!-- ── COORDINATOR BOX ── -->
+  <rect x="30" y="40" width="280" height="320" rx="12" fill="#0f172a" stroke="#3b82f6" stroke-width="1.5" filter="url(#glow-blue)"/>
+  <text x="170" y="70" text-anchor="middle" fill="#60a5fa" font-size="14" font-weight="700">COORDINATOR SESSION</text>
+  <text x="170" y="90" text-anchor="middle" fill="#475569" font-size="10">mode=coordinate</text>
+
+  <!-- Coordinator commands -->
+  <rect x="50" y="110" width="240" height="28" rx="6" fill="#1e3a5f" opacity="0.6"/>
+  <text x="170" y="129" text-anchor="middle" fill="#93c5fd" font-size="11">maestro task create --parent</text>
+  <rect x="50" y="146" width="240" height="28" rx="6" fill="#1e3a5f" opacity="0.6"/>
+  <text x="170" y="165" text-anchor="middle" fill="#93c5fd" font-size="11">maestro session spawn --task</text>
+  <rect x="50" y="182" width="240" height="28" rx="6" fill="#1e3a5f" opacity="0.6"/>
+  <text x="170" y="201" text-anchor="middle" fill="#93c5fd" font-size="11">maestro session watch &lt;ids&gt;</text>
+  <rect x="50" y="218" width="240" height="28" rx="6" fill="#312e81" opacity="0.6"/>
+  <text x="170" y="237" text-anchor="middle" fill="#c4b5fd" font-size="11">maestro mail inbox / send</text>
+  <rect x="50" y="254" width="240" height="28" rx="6" fill="#312e81" opacity="0.6"/>
+  <text x="170" y="273" text-anchor="middle" fill="#c4b5fd" font-size="11">maestro mail broadcast</text>
+  <rect x="50" y="290" width="240" height="28" rx="6" fill="#312e81" opacity="0.6"/>
+  <text x="170" y="309" text-anchor="middle" fill="#c4b5fd" font-size="11">maestro mail wait --timeout</text>
+
+  <!-- ── SERVER BOX ── -->
+  <rect x="410" y="40" width="380" height="380" rx="12" fill="#0f172a" stroke="#6366f1" stroke-width="1.5" filter="url(#glow-purple)"/>
+  <text x="600" y="70" text-anchor="middle" fill="#a78bfa" font-size="14" font-weight="700">MAESTRO SERVER</text>
+
+  <!-- EventBus -->
+  <rect x="440" y="95" width="320" height="45" rx="8" fill="#1e1b4b" opacity="0.8"/>
+  <text x="600" y="118" text-anchor="middle" fill="#e9d5ff" font-size="12" font-weight="600">EventBus</text>
+  <text x="600" y="133" text-anchor="middle" fill="#7c3aed" font-size="9">mail:received | session:updated | notify:*</text>
+
+  <!-- WebSocketBridge -->
+  <rect x="440" y="155" width="150" height="65" rx="8" fill="#1e3a5f" opacity="0.7"/>
+  <text x="515" y="180" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="600">WebSocket</text>
+  <text x="515" y="195" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="600">Bridge</text>
+  <text x="515" y="210" text-anchor="middle" fill="#475569" font-size="9">Real-time push</text>
+
+  <!-- MailService -->
+  <rect x="610" y="155" width="150" height="65" rx="8" fill="#312e81" opacity="0.7"/>
+  <text x="685" y="180" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="600">MailService</text>
+  <text x="685" y="198" text-anchor="middle" fill="#475569" font-size="9">send / inbox / wait</text>
+
+  <!-- Session Routes -->
+  <rect x="440" y="235" width="150" height="50" rx="8" fill="#1a3a2a" opacity="0.7"/>
+  <text x="515" y="258" text-anchor="middle" fill="#6ee7b7" font-size="11" font-weight="600">Session Routes</text>
+  <text x="515" y="275" text-anchor="middle" fill="#475569" font-size="9">spawn / status / list</text>
+
+  <!-- Mail Routes -->
+  <rect x="610" y="235" width="150" height="50" rx="8" fill="#3b1f4b" opacity="0.7"/>
+  <text x="685" y="258" text-anchor="middle" fill="#e9d5ff" font-size="11" font-weight="600">Mail Routes</text>
+  <text x="685" y="275" text-anchor="middle" fill="#475569" font-size="9">POST/GET /api/mail</text>
+
+  <!-- FileSystem Repo -->
+  <rect x="440" y="310" width="320" height="50" rx="8" fill="#1e293b" opacity="0.8"/>
+  <text x="600" y="333" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="600">FileSystemMailRepository</text>
+  <text x="600" y="350" text-anchor="middle" fill="#475569" font-size="9">~/.maestro/data/mail/*.json</text>
+
+  <!-- Storage icon -->
+  <rect x="440" y="380" width="320" height="28" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="600" y="399" text-anchor="middle" fill="#475569" font-size="10">Persistent Storage (JSON files on disk)</text>
+
+  <!-- ── WORKER BOXES ── -->
+  <rect x="890" y="40" width="280" height="180" rx="12" fill="#0f172a" stroke="#f472b6" stroke-width="1.5"/>
+  <text x="1030" y="70" text-anchor="middle" fill="#f472b6" font-size="14" font-weight="700">WORKER SESSION A</text>
+  <text x="1030" y="90" text-anchor="middle" fill="#475569" font-size="10">mode=execute, strategy=simple</text>
+  <rect x="910" y="105" width="240" height="25" rx="5" fill="#3b1a2a" opacity="0.6"/>
+  <text x="1030" y="122" text-anchor="middle" fill="#fda4af" font-size="10">session report progress/complete</text>
+  <rect x="910" y="137" width="240" height="25" rx="5" fill="#3b1a2a" opacity="0.6"/>
+  <text x="1030" y="154" text-anchor="middle" fill="#fda4af" font-size="10">session report blocked</text>
+  <rect x="910" y="169" width="240" height="25" rx="5" fill="#312e81" opacity="0.5"/>
+  <text x="1030" y="186" text-anchor="middle" fill="#c4b5fd" font-size="10">mail send / inbox / reply</text>
+
+  <rect x="890" y="240" width="280" height="120" rx="12" fill="#0f172a" stroke="#f472b6" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="1030" y="270" text-anchor="middle" fill="#f472b6" font-size="13" font-weight="600">WORKER SESSION B</text>
+  <text x="1030" y="290" text-anchor="middle" fill="#475569" font-size="10">mode=execute</text>
+  <text x="1030" y="310" text-anchor="middle" fill="#475569" font-size="10">(same commands as Worker A)</text>
+  <text x="1030" y="340" text-anchor="middle" fill="#334155" font-size="9">... more workers as needed</text>
+
+  <!-- ═══════ FLOW ARROWS ═══════ -->
+
+  <!-- Coordinator -> Server: session spawn (green) -->
+  <path d="M310,165 L435,260" fill="none" stroke="#6ee7b7" stroke-width="2" marker-end="url(#arrow-green)" stroke-dasharray="6,3"/>
+  <text x="350" y="200" fill="#6ee7b7" font-size="9" transform="rotate(-20, 350, 200)">session spawn</text>
+
+  <!-- Coordinator -> Server: session watch WebSocket (blue) -->
+  <path d="M310,201 L435,185" fill="none" stroke="#60a5fa" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+  <text x="350" y="183" fill="#60a5fa" font-size="9">WebSocket</text>
+
+  <!-- Server -> Coordinator: WS events push (blue, dashed back) -->
+  <path d="M440,170 L310,185" fill="none" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arrow-blue)" stroke-dasharray="5,3"/>
+  <text x="345" y="168" fill="#60a5fa" font-size="8">events push</text>
+
+  <!-- Coordinator -> Server: mail send/inbox (purple) -->
+  <path d="M310,270 L605,260" fill="none" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow-purple)"/>
+  <text x="430" y="258" fill="#a78bfa" font-size="9">HTTP: mail send/inbox</text>
+
+  <!-- Server -> Workers: spawn creates worker (green) -->
+  <path d="M590,260 L885,120" fill="none" stroke="#6ee7b7" stroke-width="2" marker-end="url(#arrow-green)" stroke-dasharray="6,3"/>
+  <text x="740" y="170" fill="#6ee7b7" font-size="9" transform="rotate(-25, 740, 170)">spawn creates</text>
+
+  <!-- Workers -> Server: report progress (pink) -->
+  <path d="M890,130 L595,240" fill="none" stroke="#f472b6" stroke-width="2" marker-end="url(#arrow-pink)"/>
+  <text x="720" y="200" fill="#f472b6" font-size="9" transform="rotate(20, 720, 200)">report progress/complete</text>
+
+  <!-- Workers -> Server: mail send (purple) -->
+  <path d="M890,186 L765,255" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-purple)" stroke-dasharray="5,3"/>
+  <text x="850" y="228" fill="#a78bfa" font-size="8">mail send</text>
+
+  <!-- Server internal: reports trigger events -->
+  <path d="M515,235 L515,145" fill="none" stroke="#475569" stroke-width="1" marker-end="url(#arrow-purple)" stroke-dasharray="3,2"/>
+  <path d="M685,235 L685,225" fill="none" stroke="#475569" stroke-width="1" marker-end="url(#arrow-purple)" stroke-dasharray="3,2"/>
+  <path d="M685,155 L685,140" fill="none" stroke="#475569" stroke-width="1" marker-end="url(#arrow-purple)" stroke-dasharray="3,2"/>
+
+  <!-- Broadcast arrow (yellow) -->
+  <path d="M310,300 Q600,480 890,280" fill="none" stroke="#fbbf24" stroke-width="2" marker-end="url(#arrow-yellow)" stroke-dasharray="8,4"/>
+  <text x="570" y="420" fill="#fbbf24" font-size="10" font-weight="600">mail broadcast (to all workers)</text>
+
+  <!-- Legend at bottom -->
+  <rect x="30" y="440" width="1140" height="90" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+  <text x="60" y="465" fill="#94a3b8" font-size="11" font-weight="600">LEGEND</text>
+
+  <line x1="60" y1="485" x2="100" y2="485" stroke="#60a5fa" stroke-width="2.5"/>
+  <text x="110" y="489" fill="#94a3b8" font-size="10">WebSocket (session watch)</text>
+
+  <line x1="300" y1="485" x2="340" y2="485" stroke="#a78bfa" stroke-width="2"/>
+  <text x="350" y="489" fill="#94a3b8" font-size="10">HTTP REST (mailbox)</text>
+
+  <line x1="530" y1="485" x2="570" y2="485" stroke="#6ee7b7" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="580" y="489" fill="#94a3b8" font-size="10">Session spawn</text>
+
+  <line x1="720" y1="485" x2="760" y2="485" stroke="#f472b6" stroke-width="2"/>
+  <text x="770" y="489" fill="#94a3b8" font-size="10">Worker reports</text>
+
+  <line x1="920" y1="485" x2="960" y2="485" stroke="#fbbf24" stroke-width="2" stroke-dasharray="8,4"/>
+  <text x="970" y="489" fill="#94a3b8" font-size="10">Broadcast</text>
+
+  <text x="60" y="515" fill="#475569" font-size="9">Solid lines = primary flow | Dashed lines = secondary/async flow</text>
+</svg>
+</div>
+
+<!-- ===================== SEQUENCE DIAGRAMS ===================== -->
+<div class="section-title">Communication Flow Patterns</div>
+
+<div class="flow-grid">
+
+<!-- Flow 1: Session Watch -->
+<div class="flow-card">
+  <h3>Flow 1: Session Watch (Primary Monitoring)</h3>
+  <svg viewBox="0 0 900 420" xmlns="http://www.w3.org/2000/svg">
+    <!-- Lifelines -->
+    <text x="120" y="30" text-anchor="middle" fill="#60a5fa" font-size="13" font-weight="600">Coordinator</text>
+    <line x1="120" y1="40" x2="120" y2="400" stroke="#1e3a5f" stroke-width="1.5" stroke-dasharray="4,4"/>
+    <text x="450" y="30" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="600">Maestro Server</text>
+    <line x1="450" y1="40" x2="450" y2="400" stroke="#312e81" stroke-width="1.5" stroke-dasharray="4,4"/>
+    <text x="750" y="30" text-anchor="middle" fill="#f472b6" font-size="13" font-weight="600">Worker</text>
+    <line x1="750" y1="40" x2="750" y2="400" stroke="#3b1a2a" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+    <!-- Step 1: spawn -->
+    <line x1="120" y1="70" x2="450" y2="70" stroke="#6ee7b7" stroke-width="2" marker-end="url(#arrow-green)"/>
+    <text x="285" y="63" text-anchor="middle" fill="#6ee7b7" font-size="10">session spawn --task &lt;subtaskId&gt;</text>
+    <line x1="450" y1="90" x2="750" y2="90" stroke="#6ee7b7" stroke-width="2" marker-end="url(#arrow-green)" stroke-dasharray="5,3"/>
+    <text x="600" y="83" text-anchor="middle" fill="#6ee7b7" font-size="10">creates worker process</text>
+    <line x1="450" y1="110" x2="120" y2="110" stroke="#6ee7b7" stroke-width="1.5" marker-end="url(#arrow-green)" stroke-dasharray="4,3"/>
+    <text x="285" y="103" text-anchor="middle" fill="#6ee7b7" font-size="10">returns sessionId</text>
+
+    <!-- Step 2: watch -->
+    <line x1="120" y1="145" x2="450" y2="145" stroke="#60a5fa" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+    <text x="285" y="138" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="600">session watch &lt;sessionId&gt; (WebSocket)</text>
+    <rect x="430" y="150" width="40" height="220" rx="4" fill="#1e3a5f" opacity="0.3"/>
+
+    <!-- Worker does work -->
+    <rect x="700" y="160" width="100" height="25" rx="4" fill="#3b1a2a" opacity="0.5"/>
+    <text x="750" y="177" text-anchor="middle" fill="#f472b6" font-size="9">working...</text>
+
+    <!-- Step 3: progress events -->
+    <line x1="750" y1="200" x2="450" y2="200" stroke="#f472b6" stroke-width="1.5" marker-end="url(#arrow-pink)"/>
+    <text x="600" y="193" text-anchor="middle" fill="#f472b6" font-size="10">session report progress "50%"</text>
+    <line x1="450" y1="215" x2="120" y2="215" stroke="#60a5fa" stroke-width="2" marker-end="url(#arrow-blue)"/>
+    <text x="285" y="210" text-anchor="middle" fill="#60a5fa" font-size="10">notify:progress "50%"</text>
+
+    <!-- More work -->
+    <rect x="700" y="235" width="100" height="25" rx="4" fill="#3b1a2a" opacity="0.5"/>
+    <text x="750" y="252" text-anchor="middle" fill="#f472b6" font-size="9">working...</text>
+
+    <!-- Step 4: completion -->
+    <line x1="750" y1="280" x2="450" y2="280" stroke="#f472b6" stroke-width="1.5" marker-end="url(#arrow-pink)"/>
+    <text x="600" y="273" text-anchor="middle" fill="#f472b6" font-size="10">session report complete "done"</text>
+    <line x1="450" y1="300" x2="120" y2="300" stroke="#60a5fa" stroke-width="2" marker-end="url(#arrow-blue)"/>
+    <text x="285" y="293" text-anchor="middle" fill="#60a5fa" font-size="10">session:updated {status: completed}</text>
+    <line x1="450" y1="320" x2="120" y2="320" stroke="#60a5fa" stroke-width="2" marker-end="url(#arrow-blue)"/>
+    <text x="285" y="313" text-anchor="middle" fill="#60a5fa" font-size="10">notify:session_completed</text>
+
+    <!-- Step 5: auto-exit -->
+    <rect x="40" y="345" width="160" height="30" rx="6" fill="#1a3a2a" opacity="0.6"/>
+    <text x="120" y="365" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="600">watch auto-exits</text>
+
+    <!-- Step 6: verify -->
+    <line x1="120" y1="390" x2="450" y2="390" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow-purple)" stroke-dasharray="4,3"/>
+    <text x="285" y="383" text-anchor="middle" fill="#94a3b8" font-size="10">task children &lt;parentId&gt; (verify)</text>
+  </svg>
+</div>
+
+<!-- Flow 2: Mailbox -->
+<div class="flow-card">
+  <h3>Flow 2: Mailbox Communication (Bidirectional Messaging)</h3>
+  <svg viewBox="0 0 900 380" xmlns="http://www.w3.org/2000/svg">
+    <!-- Lifelines -->
+    <text x="120" y="30" text-anchor="middle" fill="#60a5fa" font-size="13" font-weight="600">Coordinator</text>
+    <line x1="120" y1="40" x2="120" y2="370" stroke="#1e3a5f" stroke-width="1.5" stroke-dasharray="4,4"/>
+    <text x="450" y="30" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="600">Server (MailService)</text>
+    <line x1="450" y1="40" x2="450" y2="370" stroke="#312e81" stroke-width="1.5" stroke-dasharray="4,4"/>
+    <text x="750" y="30" text-anchor="middle" fill="#f472b6" font-size="13" font-weight="600">Worker</text>
+    <line x1="750" y1="40" x2="750" y2="370" stroke="#3b1a2a" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+    <!-- Storage box -->
+    <rect x="415" y="60" width="70" height="300" rx="4" fill="#312e81" opacity="0.15"/>
+    <text x="450" y="50" text-anchor="middle" fill="#475569" font-size="8">persistent</text>
+
+    <!-- Worker sends query -->
+    <line x1="750" y1="80" x2="450" y2="80" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow-purple)"/>
+    <text x="600" y="73" text-anchor="middle" fill="#a78bfa" font-size="10">mail send &lt;coordId&gt; --type query</text>
+    <text x="600" y="95" text-anchor="middle" fill="#475569" font-size="9">--subject "Which DB?" --message "..."</text>
+
+    <!-- Server stores -->
+    <rect x="425" y="105" width="50" height="20" rx="3" fill="#1e293b"/>
+    <text x="450" y="119" text-anchor="middle" fill="#475569" font-size="8">stored</text>
+
+    <!-- Server emits event -->
+    <text x="450" y="145" text-anchor="middle" fill="#7c3aed" font-size="9">emit: mail:received</text>
+
+    <!-- Coordinator checks inbox -->
+    <line x1="120" y1="165" x2="450" y2="165" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow-purple)"/>
+    <text x="285" y="158" text-anchor="middle" fill="#a78bfa" font-size="10">mail inbox</text>
+    <line x1="450" y1="185" x2="120" y2="185" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-purple)" stroke-dasharray="4,3"/>
+    <text x="285" y="178" text-anchor="middle" fill="#a78bfa" font-size="10">returns: [{type: query, "Which DB?"}]</text>
+
+    <!-- Coordinator reads and replies -->
+    <rect x="40" y="200" width="160" height="20" rx="3" fill="#1e3a5f" opacity="0.4"/>
+    <text x="120" y="214" text-anchor="middle" fill="#60a5fa" font-size="9">reads query, decides answer</text>
+
+    <!-- Coordinator replies -->
+    <line x1="120" y1="235" x2="450" y2="235" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow-purple)"/>
+    <text x="285" y="228" text-anchor="middle" fill="#a78bfa" font-size="10">mail reply &lt;mailId&gt; --message "Use PostgreSQL"</text>
+
+    <!-- Server stores reply -->
+    <rect x="425" y="245" width="50" height="20" rx="3" fill="#1e293b"/>
+    <text x="450" y="259" text-anchor="middle" fill="#475569" font-size="8">stored</text>
+
+    <!-- Worker checks inbox -->
+    <line x1="750" y1="280" x2="450" y2="280" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow-purple)"/>
+    <text x="600" y="273" text-anchor="middle" fill="#a78bfa" font-size="10">mail inbox --type response</text>
+    <line x1="450" y1="300" x2="750" y2="300" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-purple)" stroke-dasharray="4,3"/>
+    <text x="600" y="293" text-anchor="middle" fill="#a78bfa" font-size="10">returns: [{answer: "Use PostgreSQL"}]</text>
+
+    <!-- Worker continues -->
+    <rect x="680" y="320" width="140" height="25" rx="4" fill="#1a3a2a" opacity="0.5"/>
+    <text x="750" y="337" text-anchor="middle" fill="#6ee7b7" font-size="10">continues with answer</text>
+  </svg>
+</div>
+
+<!-- Flow 3: Broadcast -->
+<div class="flow-card">
+  <h3>Flow 3: Broadcast Directive</h3>
+  <svg viewBox="0 0 900 200" xmlns="http://www.w3.org/2000/svg">
+    <!-- Lifelines -->
+    <text x="100" y="30" text-anchor="middle" fill="#60a5fa" font-size="13" font-weight="600">Coordinator</text>
+    <line x1="100" y1="40" x2="100" y2="180" stroke="#1e3a5f" stroke-width="1.5" stroke-dasharray="4,4"/>
+    <text x="380" y="30" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="600">Server</text>
+    <line x1="380" y1="40" x2="380" y2="180" stroke="#312e81" stroke-width="1.5" stroke-dasharray="4,4"/>
+    <text x="600" y="30" text-anchor="middle" fill="#f472b6" font-size="13" font-weight="600">Worker A</text>
+    <line x1="600" y1="40" x2="600" y2="180" stroke="#3b1a2a" stroke-width="1.5" stroke-dasharray="4,4"/>
+    <text x="720" y="30" text-anchor="middle" fill="#f472b6" font-size="13" font-weight="600">Worker B</text>
+    <line x1="720" y1="40" x2="720" y2="180" stroke="#3b1a2a" stroke-width="1.5" stroke-dasharray="4,4"/>
+    <text x="840" y="30" text-anchor="middle" fill="#f472b6" font-size="13" font-weight="600">Worker C</text>
+    <line x1="840" y1="40" x2="840" y2="180" stroke="#3b1a2a" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+    <!-- Broadcast -->
+    <line x1="100" y1="70" x2="380" y2="70" stroke="#fbbf24" stroke-width="2" marker-end="url(#arrow-yellow)"/>
+    <text x="240" y="63" text-anchor="middle" fill="#fbbf24" font-size="10">mail broadcast --type directive</text>
+    <text x="240" y="85" text-anchor="middle" fill="#475569" font-size="9">toSessionId: null (all sessions)</text>
+
+    <!-- Fan out -->
+    <line x1="380" y1="110" x2="600" y2="110" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrow-yellow)" stroke-dasharray="5,3"/>
+    <line x1="380" y1="120" x2="720" y2="120" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrow-yellow)" stroke-dasharray="5,3"/>
+    <line x1="380" y1="130" x2="840" y2="130" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrow-yellow)" stroke-dasharray="5,3"/>
+    <text x="380" y="100" text-anchor="middle" fill="#fbbf24" font-size="9">fan-out to all project sessions</text>
+
+    <!-- Workers receive -->
+    <rect x="555" y="125" width="90" height="20" rx="3" fill="#3b2f1a" opacity="0.5"/>
+    <text x="600" y="139" text-anchor="middle" fill="#fbbf24" font-size="8">received</text>
+    <rect x="675" y="135" width="90" height="20" rx="3" fill="#3b2f1a" opacity="0.5"/>
+    <text x="720" y="149" text-anchor="middle" fill="#fbbf24" font-size="8">received</text>
+    <rect x="795" y="145" width="90" height="20" rx="3" fill="#3b2f1a" opacity="0.5"/>
+    <text x="840" y="159" text-anchor="middle" fill="#fbbf24" font-size="8">received</text>
+  </svg>
+</div>
+</div>
+
+<!-- ===================== COMPARISON TABLE ===================== -->
+<div class="section-title">Session Watch vs Mailbox Comparison</div>
+<div class="arch-diagram">
+<table class="comparison-table">
+  <thead>
+    <tr>
+      <th>Dimension</th>
+      <th>Session Watch</th>
+      <th>Mailbox</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="label">Transport</td>
+      <td><span class="badge badge-ws">WebSocket</span> Real-time streaming</td>
+      <td><span class="badge badge-http">HTTP REST</span> Request/response</td>
+    </tr>
+    <tr>
+      <td class="label">Direction</td>
+      <td><span class="badge badge-push">Push</span> Server &rarr; Coordinator (one-way)</td>
+      <td>Bidirectional (any session &harr; any session)</td>
+    </tr>
+    <tr>
+      <td class="label">Persistence</td>
+      <td>Ephemeral (events not stored)</td>
+      <td>Persistent (~/.maestro/data/mail/*.json)</td>
+    </tr>
+    <tr>
+      <td class="label">Content Type</td>
+      <td>Session state changes, progress strings</td>
+      <td>Typed structured messages (6 types)</td>
+    </tr>
+    <tr>
+      <td class="label">Blocking</td>
+      <td>Always blocks until all sessions finish</td>
+      <td><code>mail wait</code> blocks, <code>mail inbox</code> non-blocking</td>
+    </tr>
+    <tr>
+      <td class="label">Threading</td>
+      <td>No threading support</td>
+      <td>Yes (<code>replyToMailId</code> for conversation threads)</td>
+    </tr>
+    <tr>
+      <td class="label">Primary Use</td>
+      <td>Monitor phase: track worker completion</td>
+      <td>Inter-session queries, directives, assignments</td>
+    </tr>
+    <tr>
+      <td class="label">Available To</td>
+      <td>Coordinators (in prompt commands)</td>
+      <td>All sessions (workers + coordinators)</td>
+    </tr>
+    <tr>
+      <td class="label">Auto-exit</td>
+      <td>Yes (all sessions completed/failed/stopped)</td>
+      <td>No (manual check)</td>
+    </tr>
+    <tr>
+      <td class="label">Best For</td>
+      <td>"Fire and wait" monitoring pattern</td>
+      <td>Complex coordination, Q&A, follow-ups</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ===================== DECISION GUIDE ===================== -->
+<div class="section-title">Decision Guide: Which to Use When</div>
+<div class="arch-diagram">
+<svg viewBox="0 0 900 320" xmlns="http://www.w3.org/2000/svg">
+  <!-- Decision diamond -->
+  <polygon points="450,30 580,80 450,130 320,80" fill="#1e1b4b" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="450" y="75" text-anchor="middle" fill="#e9d5ff" font-size="11" font-weight="600">What do you need?</text>
+  <text x="450" y="90" text-anchor="middle" fill="#c4b5fd" font-size="10">from the communication</text>
+
+  <!-- Left: Session Watch -->
+  <line x1="320" y1="80" x2="150" y2="80" stroke="#60a5fa" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <text x="235" y="72" text-anchor="middle" fill="#60a5fa" font-size="10">Monitor completion</text>
+
+  <rect x="20" y="100" width="260" height="200" rx="10" fill="#0f172a" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="150" y="125" text-anchor="middle" fill="#60a5fa" font-size="13" font-weight="700">SESSION WATCH</text>
+  <text x="40" y="150" fill="#94a3b8" font-size="10">Use when you need to:</text>
+  <text x="40" y="172" fill="#93c5fd" font-size="10">  Track worker completion status</text>
+  <text x="40" y="190" fill="#93c5fd" font-size="10">  Get real-time progress updates</text>
+  <text x="40" y="208" fill="#93c5fd" font-size="10">  Auto-exit when all workers done</text>
+  <text x="40" y="226" fill="#93c5fd" font-size="10">  Detect needsInput situations</text>
+  <text x="40" y="250" fill="#475569" font-size="10">  Command:</text>
+  <text x="40" y="268" fill="#a5f3fc" font-size="10">  maestro session watch &lt;ids&gt;</text>
+  <text x="40" y="290" fill="#475569" font-size="9">  One-way | Ephemeral | WebSocket</text>
+
+  <!-- Right: Mailbox -->
+  <line x1="580" y1="80" x2="690" y2="80" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow-purple)"/>
+  <text x="635" y="72" text-anchor="middle" fill="#a78bfa" font-size="10">Exchange data</text>
+
+  <rect x="620" y="100" width="260" height="200" rx="10" fill="#0f172a" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="750" y="125" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="700">MAILBOX</text>
+  <text x="640" y="150" fill="#94a3b8" font-size="10">Use when you need to:</text>
+  <text x="640" y="172" fill="#c4b5fd" font-size="10">  Ask/answer questions between sessions</text>
+  <text x="640" y="190" fill="#c4b5fd" font-size="10">  Send follow-up instructions</text>
+  <text x="640" y="208" fill="#c4b5fd" font-size="10">  Broadcast directives to all workers</text>
+  <text x="640" y="226" fill="#c4b5fd" font-size="10">  Persistent, auditable messages</text>
+  <text x="640" y="250" fill="#475569" font-size="10">  Commands:</text>
+  <text x="640" y="268" fill="#a5f3fc" font-size="10">  maestro mail send/inbox/reply/wait</text>
+  <text x="640" y="290" fill="#475569" font-size="9">  Bidirectional | Persistent | HTTP REST</text>
+
+  <!-- Both -->
+  <line x1="450" y1="130" x2="450" y2="170" stroke="#6ee7b7" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <text x="520" y="155" fill="#6ee7b7" font-size="10">Both (recommended)</text>
+
+  <rect x="340" y="175" width="220" height="25" rx="6" fill="#1a3a2a" opacity="0.6"/>
+  <text x="450" y="192" text-anchor="middle" fill="#6ee7b7" font-size="10">Watch + Mailbox combined</text>
+</svg>
+</div>
+
+<!-- ===================== COMMAND REFERENCE ===================== -->
+<div class="section-title">Command Reference by Role</div>
+<div class="cmd-grid">
+  <div class="cmd-card coordinator">
+    <h4>Coordinator Commands</h4>
+    <ul class="cmd-list">
+      <li><code>session spawn --task &lt;id&gt;</code> <span class="desc">Launch a worker</span></li>
+      <li><code>session watch &lt;ids&gt;</code> <span class="desc">Monitor workers (WebSocket)</span></li>
+      <li><code>mail inbox</code> <span class="desc">Check for worker messages</span></li>
+      <li><code>mail reply &lt;id&gt;</code> <span class="desc">Answer worker queries</span></li>
+      <li><code>mail broadcast --type directive</code> <span class="desc">Instruct all workers</span></li>
+      <li><code>mail wait --timeout &lt;ms&gt;</code> <span class="desc">Block until mail arrives</span></li>
+      <li><code>mail send &lt;id&gt; --type assignment</code> <span class="desc">Assign work to worker</span></li>
+      <li><code>task children &lt;parentId&gt;</code> <span class="desc">Verify subtask statuses</span></li>
+    </ul>
+  </div>
+  <div class="cmd-card">
+    <h4>Worker Commands</h4>
+    <ul class="cmd-list">
+      <li><code>session report progress "..."</code> <span class="desc">Report milestone</span></li>
+      <li><code>session report complete "..."</code> <span class="desc">Report done</span></li>
+      <li><code>session report blocked "..."</code> <span class="desc">Report blocker</span></li>
+      <li><code>task report progress &lt;id&gt; "..."</code> <span class="desc">Report task progress</span></li>
+      <li><code>mail send &lt;coordId&gt; --type query</code> <span class="desc">Ask coordinator</span></li>
+      <li><code>mail inbox</code> <span class="desc">Check for replies</span></li>
+      <li><code>mail reply &lt;id&gt; --message "..."</code> <span class="desc">Reply to coordinator</span></li>
+    </ul>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

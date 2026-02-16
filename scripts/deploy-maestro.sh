@@ -5,8 +5,8 @@ set -e
 cd "$(dirname "$0")/../maestro-cli"
 
 echo "Building Maestro CLI..."
-npm install
-npm run build
+bun install
+bun run build
 
 # Ensure binary is executable
 chmod +x bin/maestro.js
