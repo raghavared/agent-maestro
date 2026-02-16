@@ -25,27 +25,21 @@ const AGENT_MODELS: Record<string, { value: string; label: string }[]> = {
         { value: "gpt-5.3-codex", label: "5.3-codex" },
         { value: "gpt-5.2-codex", label: "5.2-codex" },
     ],
-    "gemini": [
-        { value: "gemini-3-pro-preview", label: "3-pro" },
-        { value: "gemini-3-flash-preview", label: "3-flash" },
-    ],
 };
 
 // Default model per agent tool
 const DEFAULT_MODEL: Record<string, string> = {
     "claude-code": "sonnet",
     "codex": "gpt-5.3-codex",
-    "gemini": "gemini-3-pro-preview",
 };
 
 // Agent tool display labels
 const AGENT_TOOL_LABELS: Record<string, string> = {
     "claude-code": "Claude Code",
     "codex": "OpenAI Codex",
-    "gemini": "Google Gemini",
 };
 
-const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex", "gemini"];
+const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex"];
 
 const STATUS_LABELS: Record<string, string> = {
     todo: "Todo",

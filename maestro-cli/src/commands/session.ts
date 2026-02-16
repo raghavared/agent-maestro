@@ -442,7 +442,6 @@ export function registerSessionCommands(program: Command) {
         .option('--name <name>', 'Session name (auto-generated if not provided)')
         .option('--reason <reason>', 'Reason for spawning this session')
         .option('--include-related', 'Include related tasks in context')
-        .option('--orchestrator-strategy <strategy>', 'Orchestrator strategy (default, intelligent-batching, or dag)')
         .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)')
         .option('--model <model>', 'Model to use (e.g. sonnet, opus, haiku, or native model names)')
         .option('--team-member-id <id>', 'Team member ID to run this session')
@@ -514,11 +513,6 @@ export function registerSessionCommands(program: Command) {
                     spawnRequest.model = cmdOpts.model;
                 }
 
-                // Include strategy when spawning a coordinate session
-                if (mode === 'coordinate' && cmdOpts.orchestratorStrategy) {
-                    spawnRequest.strategy = cmdOpts.orchestratorStrategy;
-                }
-
                 const spinner3 = !isJson ? ora('Requesting session spawn...').start() : null;
                 const result: any = await api.post('/api/sessions/spawn', spawnRequest);
                 spinner3?.succeed('Spawn request sent');
@@ -557,7 +551,6 @@ export function registerSessionCommands(program: Command) {
             const projectId = config.projectId;
             const mode = process.env.MAESTRO_MODE || 'execute';
             const taskIds = config.taskIds;
-            const strategy = config.strategy;
 
             if (!isJson) {
                 console.log(`[session:register] Hook fired (SessionStart)`);
@@ -565,7 +558,6 @@ export function registerSessionCommands(program: Command) {
                 console.log(`[session:register]    Project ID: ${projectId || '(not set)'}`);
                 console.log(`[session:register]    Mode: ${mode}`);
                 console.log(`[session:register]    Task IDs: ${taskIds?.join(', ') || '(none)'}`);
-                console.log(`[session:register]    Strategy: ${strategy || '(not set)'}`);
             }
 
             if (!sessionId) {
@@ -601,7 +593,6 @@ export function registerSessionCommands(program: Command) {
                         taskIds,
                         name: `${mode}: ${sessionId.substring(0, 16)}`,
                         status: 'working',
-                        strategy,
                         metadata: { mode },
                     });
                     if (!isJson) console.log(`[session:register]    New session created with status 'working'`);

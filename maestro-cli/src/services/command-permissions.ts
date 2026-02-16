@@ -9,7 +9,7 @@
  */
 
 import type { MaestroManifest, AgentMode, Capability } from '../types/manifest.js';
-import { getEffectiveStrategy, computeCapabilities } from '../types/manifest.js';
+import { computeCapabilities } from '../types/manifest.js';
 import { readManifestFromEnv } from './manifest-reader.js';
 
 /**
@@ -77,16 +77,6 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'report:blocked', description: 'Report blocker', allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
   { name: 'report:error', description: 'Report error', allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
 
-  // Queue commands (only for queue strategy)
-  { name: 'queue:top', description: 'Show next task in queue', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:start', description: 'Start processing task', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:complete', description: 'Complete current task', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:fail', description: 'Mark task failed', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:skip', description: 'Skip current task', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:list', description: 'List queue items', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:status', description: 'Show queue status', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:push', description: 'Add task to queue', allowedModes: ['execute', 'coordinate'], parent: 'queue', allowedStrategies: ['queue'] },
-
   // Project commands (coordinate only)
   { name: 'project:list', description: 'List projects', allowedModes: ['coordinate'], parent: 'project' },
   { name: 'project:get', description: 'Get project details', allowedModes: ['coordinate'], parent: 'project' },
@@ -103,6 +93,11 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   // Init commands (invoked by the spawning system, not by agents directly)
   { name: 'worker:init', description: 'Initialize execute-mode session', allowedModes: ['execute'], parent: 'worker', hiddenFromPrompt: true },
   { name: 'orchestrator:init', description: 'Initialize coordinate-mode session', allowedModes: ['coordinate'], parent: 'orchestrator', hiddenFromPrompt: true },
+
+  // Team member commands (recruiter only)
+  { name: 'team-member:create', description: 'Create a new team member', allowedModes: ['execute'], parent: 'team-member' },
+  { name: 'team-member:list', description: 'List team members', allowedModes: ['execute'], parent: 'team-member' },
+  { name: 'team-member:get', description: 'Get team member details', allowedModes: ['execute'], parent: 'team-member' },
 
   // Show commands (display content in UI)
   { name: 'show:modal', description: 'Show HTML modal in UI', allowedModes: ['execute', 'coordinate'], parent: 'show' },
@@ -143,10 +138,6 @@ export const DEFAULT_COMMANDS_BY_MODE: Record<string, string[]> = {
     'session:report:error',
     'session:docs:add',
     'session:docs:list',
-    // Mail commands (execute: send, inbox, reply)
-    'mail:send',
-    'mail:inbox',
-    'mail:reply',
     // Show commands
     'show:modal',
     'modal:events',
@@ -211,28 +202,6 @@ export const DEFAULT_COMMANDS_BY_MODE: Record<string, string[]> = {
   ],
 };
 
-/**
- * Commands added for queue strategy
- */
-export const QUEUE_STRATEGY_COMMANDS: string[] = [
-  'queue:top',
-  'queue:start',
-  'queue:complete',
-  'queue:fail',
-  'queue:skip',
-  'queue:list',
-  'queue:status',
-  'queue:push',
-];
-
-/**
- * Commands added for tree strategy (grants task:tree to workers)
- * NOTE: Tree strategy not yet implemented - commented out for now
- */
-// export const TREE_STRATEGY_COMMANDS: string[] = [
-//   'task:tree',
-//   'task:children',
-// ];
 
 /**
  * Result of loading command permissions
@@ -244,9 +213,7 @@ export interface CommandPermissions {
   hiddenCommands: string[];
   /** Agent mode */
   mode: AgentMode;
-  /** Strategy for this session */
-  strategy: string;
-  /** Computed capabilities (three-axis model) */
+  /** Computed capabilities */
   capabilities: Capability[];
   /** Whether permissions were loaded from manifest */
   loadedFromManifest: boolean;
@@ -264,8 +231,7 @@ export async function loadCommandPermissions(): Promise<CommandPermissions> {
       allowedCommands: COMMAND_REGISTRY.map(c => c.name),
       hiddenCommands: [],
       mode: 'execute',
-      strategy: 'simple',
-      capabilities: computeCapabilities('execute', 'simple'),
+      capabilities: computeCapabilities('execute'),
       loadedFromManifest: false,
     };
   }
@@ -279,8 +245,7 @@ export async function loadCommandPermissions(): Promise<CommandPermissions> {
         allowedCommands: COMMAND_REGISTRY.map(c => c.name),
         hiddenCommands: [],
         mode: 'execute',
-        strategy: 'simple',
-        capabilities: computeCapabilities('execute', 'simple'),
+        capabilities: computeCapabilities('execute'),
         loadedFromManifest: false,
       };
     }
@@ -292,8 +257,7 @@ export async function loadCommandPermissions(): Promise<CommandPermissions> {
       allowedCommands: COMMAND_REGISTRY.map(c => c.name),
       hiddenCommands: [],
       mode: 'execute',
-      strategy: 'simple',
-      capabilities: computeCapabilities('execute', 'simple'),
+      capabilities: computeCapabilities('execute'),
       loadedFromManifest: false,
     };
   }
@@ -305,19 +269,13 @@ export async function loadCommandPermissions(): Promise<CommandPermissions> {
  */
 export function getPermissionsFromManifest(manifest: MaestroManifest): CommandPermissions {
   const mode = manifest.mode;
-  const strategy = getEffectiveStrategy(manifest);
 
   // Compute capabilities with optional team member overrides
   const capabilityOverrides = manifest.teamMemberCapabilities as Record<string, boolean> | undefined;
-  const capabilities = computeCapabilities(mode, strategy, capabilityOverrides);
+  const capabilities = computeCapabilities(mode, capabilityOverrides);
 
   // Start with defaults for the mode
   let allowedCommands = [...DEFAULT_COMMANDS_BY_MODE[mode]];
-
-  // Add queue commands if using queue strategy
-  if (strategy === 'queue') {
-    allowedCommands = [...allowedCommands, ...QUEUE_STRATEGY_COMMANDS];
-  }
 
   // Apply team member command permission overrides (Phase 2)
   const cmdOverrides = manifest.teamMemberCommandPermissions;
@@ -382,7 +340,6 @@ export function getPermissionsFromManifest(manifest: MaestroManifest): CommandPe
     allowedCommands,
     hiddenCommands,
     mode,
-    strategy,
     capabilities,
     loadedFromManifest: true,
   };
@@ -444,7 +401,7 @@ export function printAvailableCommands(permissions: CommandPermissions): void {
   }
 
   if (permissions.hiddenCommands.length > 0) {
-    console.log(`\n  (${permissions.hiddenCommands.length} commands hidden based on mode/strategy)`);
+    console.log(`\n  (${permissions.hiddenCommands.length} commands hidden based on mode)`);
   }
 
   console.log('');
@@ -492,7 +449,7 @@ export async function guardCommand(commandName: string): Promise<void> {
 
   if (!isCommandAllowed(commandName, permissions)) {
     throw new Error(
-      `Command '${commandName}' is not allowed for ${permissions.mode} mode with ${permissions.strategy} strategy.\n` +
+      `Command '${commandName}' is not allowed for ${permissions.mode} mode.\n` +
         'Run "maestro commands" to see available commands.'
     );
   }
@@ -556,15 +513,6 @@ const COMMAND_SYNTAX: Record<string, string> = {
   'session:report:error': 'maestro session report error "<description>"',
   'session:docs:add': 'maestro session docs add "<title>" --file <filePath>',
   'session:docs:list': 'maestro session docs list',
-  // Queue commands
-  'queue:top': 'maestro queue top',
-  'queue:start': 'maestro queue start',
-  'queue:complete': 'maestro queue complete',
-  'queue:fail': 'maestro queue fail',
-  'queue:skip': 'maestro queue skip',
-  'queue:list': 'maestro queue list',
-  'queue:status': 'maestro queue status',
-  'queue:push': 'maestro queue push',
   // Project commands
   'project:list': 'maestro project list',
   'project:get': 'maestro project get <projectId>',
@@ -576,6 +524,10 @@ const COMMAND_SYNTAX: Record<string, string> = {
   'mail:reply': 'maestro mail reply <mailId> --message "<message>"',
   'mail:broadcast': 'maestro mail broadcast --type <type> --subject "<subject>" [--message "<message>"]',
   'mail:wait': 'maestro mail wait [--timeout <ms>] [--since <timestamp>]',
+  // Team member commands
+  'team-member:create': 'maestro team-member create "<name>" --role "<role>" --avatar "<emoji>" --mode <execute|coordinate> [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"]',
+  'team-member:list': 'maestro team-member list',
+  'team-member:get': 'maestro team-member get <teamMemberId>',
   'worker:init': 'maestro worker init',
   'orchestrator:init': 'maestro orchestrator init',
 };
@@ -651,11 +603,13 @@ export function generateCompactCommandBrief(permissions: CommandPermissions): st
     report: { prefix: 'maestro report', description: 'Status reporting' },
     task: { prefix: 'maestro task', description: 'Task management' },
     session: { prefix: 'maestro session', description: 'Session management' },
-    queue: { prefix: 'maestro queue', description: 'Queue operations' },
     project: { prefix: 'maestro project', description: 'Project management' },
     mail: { prefix: 'maestro mail', description: 'Mailbox coordination' },
+    'team-member': { prefix: 'maestro team-member', description: 'Team member management' },
     worker: { prefix: 'maestro worker', description: 'Worker initialization' },
     orchestrator: { prefix: 'maestro orchestrator', description: 'Orchestrator initialization' },
+    show: { prefix: 'maestro show', description: 'UI display' },
+    modal: { prefix: 'maestro modal', description: 'Modal interaction' },
   };
 
   for (const [parent, commands] of Object.entries(grouped)) {

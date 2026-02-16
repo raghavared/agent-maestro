@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useRef, useCallback } from "react";
-import { MaestroTask, MaestroProject, TaskTreeNode } from "../../app/types/maestro";
+import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy } from "../../app/types/maestro";
 import { TaskListItem } from "./TaskListItem";
 import { TaskFilters, SortByOption } from "./TaskFilters";
 import { SortableTaskList } from "./SortableTaskList";
@@ -25,7 +25,7 @@ type MaestroPanelProps = {
     onClose: () => void;
     projectId: string;
     project: MaestroProject;
-    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: string; mode?: 'execute' | 'coordinate'; teamMemberIds?: string[]; teamMemberId?: string }) => Promise<any>;
+    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy | OrchestratorStrategy; mode?: 'execute' | 'coordinate'; teamMemberIds?: string[]; teamMemberId?: string }) => Promise<any>;
     onJumpToSession?: (maestroSessionId: string) => void;
     onAddTaskToSession?: (taskId: string) => void;
 };
@@ -126,12 +126,15 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const unarchiveTeamMember = useMaestroStore(s => s.unarchiveTeamMember);
     const deleteTeamMember = useMaestroStore(s => s.deleteTeamMember);
 
-    // Fetch team members when projectId changes
+    // Fetch team members when projectId changes or WebSocket reconnects
+    const wsConnected = useMaestroStore(s => s.wsConnected);
     useEffect(() => {
         if (projectId) {
             fetchTeamMembers(projectId);
         }
-    }, [projectId, fetchTeamMembers]);
+    }, [projectId, fetchTeamMembers, wsConnected]);
+
+    const teamMembersLoading = useMaestroStore(s => s.loading.has(`teamMembers:${projectId}`));
 
     const teamMembers = useMemo(() => {
         return Array.from(teamMembersMap.values()).filter(tm => tm.projectId === projectId);
@@ -274,20 +277,17 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         const member = teamMemberId ? teamMembersMap.get(teamMemberId) : null;
 
         const mode = member?.mode || 'execute';
-        const strategy = member?.strategy || 'simple';
 
         console.log('[MaestroPanel.handleWorkOnTask] ========================================');
         console.log('[MaestroPanel.handleWorkOnTask] Task ID:', task.id);
         console.log('[MaestroPanel.handleWorkOnTask] Team Member:', member?.name || '(default)');
         console.log('[MaestroPanel.handleWorkOnTask] Mode:', mode);
-        console.log('[MaestroPanel.handleWorkOnTask] Strategy:', strategy);
         console.log('[MaestroPanel.handleWorkOnTask] ========================================');
 
         try {
             await onCreateMaestroSession({
                 task,
                 project,
-                strategy,
                 mode,
                 teamMemberId,
             });
@@ -310,15 +310,10 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         const selectedTasks = normalizedTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
 
-        // Derive strategy from the selected team member
-        const member = teamMemberId ? teamMembersMap.get(teamMemberId) : null;
-        const strategy = member?.strategy || 'simple';
-
         try {
             await onCreateMaestroSession({
                 tasks: selectedTasks,
                 project,
-                strategy,
                 teamMemberId,
             });
             setExecutionMode(false);
@@ -334,16 +329,11 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         const selectedTasks = regularTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
 
-        // Derive strategy from the selected coordinator
-        const coordinator = coordinatorId ? teamMembersMap.get(coordinatorId) : null;
-        const orchestratorStrategy = coordinator?.strategy || 'default';
-
         try {
             await onCreateMaestroSession({
                 tasks: selectedTasks,
                 project,
                 mode: 'coordinate',
-                strategy: orchestratorStrategy,
                 skillIds: ['maestro-orchestrator'],
                 teamMemberId: coordinatorId,
                 teamMemberIds: workerIds && workerIds.length > 0 ? workerIds : undefined,
@@ -771,14 +761,27 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         {teamSubTab === "members" && (
                             <>
                                 <div className="terminalContent">
-                                    <TeamMemberList
-                                        teamMembers={teamMembers}
-                                        onEdit={handleEditTeamMember}
-                                        onArchive={handleArchiveTeamMember}
-                                        onUnarchive={handleUnarchiveTeamMember}
-                                        onDelete={handleDeleteTeamMember}
-                                        onNewMember={() => setShowCreateTeamMemberModal(true)}
-                                    />
+                                    {teamMembersLoading && teamMembers.length === 0 ? (
+                                        <div className="terminalLoadingState">
+                                            <div className="terminalSpinner">
+                                                <span className="terminalSpinnerDot">●</span>
+                                                <span className="terminalSpinnerDot">●</span>
+                                                <span className="terminalSpinnerDot">●</span>
+                                            </div>
+                                            <p className="terminalLoadingText">
+                                                <span className="terminalCursor">█</span> Loading team members...
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <TeamMemberList
+                                            teamMembers={teamMembers}
+                                            onEdit={handleEditTeamMember}
+                                            onArchive={handleArchiveTeamMember}
+                                            onUnarchive={handleUnarchiveTeamMember}
+                                            onDelete={handleDeleteTeamMember}
+                                            onNewMember={() => setShowCreateTeamMemberModal(true)}
+                                        />
+                                    )}
                                 </div>
                             </>
                         )}

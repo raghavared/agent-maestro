@@ -170,7 +170,6 @@ export class ManifestGeneratorCLICommand {
     taskIds: string[];
     skills?: string[];
     output: string;
-    strategy?: string;
     model?: string;
     agentTool?: AgentTool;
     referenceTaskIds?: string[];
@@ -180,7 +179,7 @@ export class ManifestGeneratorCLICommand {
     try {
       console.error('Generating manifest...');
       console.error(`  Mode: ${options.mode}`);
-      console.error(`  Strategy: ${options.strategy || 'simple'}`);
+      console.error(`  Mode: ${options.mode}`);
       console.error(`  Task IDs: ${options.taskIds.join(', ')}`);
       console.error(`  Project ID: ${options.projectId}`);
 
@@ -225,11 +224,6 @@ export class ManifestGeneratorCLICommand {
 
       // Add skills to manifest root
       manifest.skills = options.skills || ['maestro-worker'];
-
-      // Add strategy to manifest (if specified)
-      if (options.strategy) {
-        manifest.strategy = options.strategy as any;
-      }
 
       // Add agent tool to manifest (if specified)
       if (options.agentTool) {
@@ -460,7 +454,6 @@ export function registerManifestCommands(program: any): void {
     .requiredOption('--project-id <id>', 'Project ID')
     .requiredOption('--task-ids <ids>', 'Comma-separated task IDs')
     .option('--skills <skills>', 'Comma-separated skills', 'maestro-worker')
-    .option('--strategy <strategy>', 'Strategy (simple, queue, tree, default, intelligent-batching, dag)', 'simple')
     .option('--model <model>', 'Model to use (e.g. sonnet, gpt-5.3-codex, gemini-3-pro-preview)', 'sonnet')
     .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)', 'claude-code')
     .option('--reference-task-ids <ids>', 'Comma-separated reference task IDs for context')
@@ -503,7 +496,6 @@ export function registerManifestCommands(program: any): void {
         taskIds,
         skills,
         output: options.output,
-        strategy: options.strategy,
         model: options.model,
         agentTool: options.agentTool !== 'claude-code' ? options.agentTool : undefined,
         referenceTaskIds,

@@ -18,7 +18,7 @@ export const STORAGE_SETUP_COMPLETE_KEY = "agents-ui-setup-complete-v1";
 export const MAX_PENDING_SESSIONS = 32;
 export const MAX_PENDING_CHUNKS_PER_SESSION = 200;
 
-export const DEFAULT_AGENT_SHORTCUT_IDS = ["codex", "claude", "gemini"];
+export const DEFAULT_AGENT_SHORTCUT_IDS = ["codex", "claude"];
 export const DEFAULT_SIDEBAR_PROJECTS_LIST_MAX_HEIGHT = 290;
 export const MIN_SIDEBAR_PROJECTS_LIST_MAX_HEIGHT = 0;
 export const MAX_SIDEBAR_PROJECTS_LIST_MAX_HEIGHT = 1200;

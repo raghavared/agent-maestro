@@ -14,10 +14,11 @@ import { registerOrchestratorCommands } from './commands/orchestrator.js';
 import { registerSkillCommands } from './commands/skill.js';
 import { registerManifestCommands } from './commands/manifest-generator.js';
 import { registerProjectCommands } from './commands/project.js';
-import { registerQueueCommands } from './commands/queue.js';
+
 import { registerReportCommands } from './commands/report.js';
 import { registerModalCommands } from './commands/modal.js';
 import { registerMailCommands } from './commands/mail.js';
+import { registerTeamMemberCommands } from './commands/team-member.js';
 import {
   loadCommandPermissions,
   printAvailableCommands,
@@ -75,7 +76,7 @@ program.command('whoami')
               projectId: project,
               sessionId,
               taskIds: config.taskIds,
-              strategy: config.strategy,
+              mode: 'execute',
           };
 
           if (opts.json) {
@@ -85,7 +86,7 @@ program.command('whoami')
               outputKeyValue('Project ID', data.projectId || 'N/A');
               outputKeyValue('Session ID', data.sessionId || 'N/A');
               outputKeyValue('Task IDs', data.taskIds.join(', ') || 'N/A');
-              outputKeyValue('Strategy', data.strategy);
+              outputKeyValue('Mode', 'execute');
           }
       }
   });
@@ -107,12 +108,12 @@ program.command('commands')
               const allowed = isCommandAllowed(commandName, permissions);
 
               if (isJson) {
-                  outputJSON({ command: commandName, allowed, mode: permissions.mode, strategy: permissions.strategy });
+                  outputJSON({ command: commandName, allowed, mode: permissions.mode });
               } else {
                   if (allowed) {
-                      console.log(`Command '${commandName}' is ALLOWED for ${permissions.mode} (${permissions.strategy} strategy)`);
+                      console.log(`Command '${commandName}' is ALLOWED for ${permissions.mode} mode`);
                   } else {
-                      console.log(`Command '${commandName}' is NOT ALLOWED for ${permissions.mode} (${permissions.strategy} strategy)`);
+                      console.log(`Command '${commandName}' is NOT ALLOWED for ${permissions.mode} mode`);
                       console.log('\nRun "maestro commands" to see available commands.');
                   }
               }
@@ -122,14 +123,13 @@ program.command('commands')
                   const grouped = getAvailableCommandsGrouped(permissions);
                   outputJSON({
                       mode: permissions.mode,
-                      strategy: permissions.strategy,
                       allowedCommands: permissions.allowedCommands,
                       hiddenCommands: permissions.hiddenCommands,
                       grouped,
                   });
               } else {
                   console.log(`\nSession Mode: ${permissions.mode}`);
-                  console.log(`Strategy: ${permissions.strategy}`);
+                  console.log(`Mode: ${permissions.mode}`);
                   printAvailableCommands(permissions);
               }
           }
@@ -150,10 +150,11 @@ registerWorkerCommands(program);
 registerOrchestratorCommands(program);
 registerSkillCommands(program);
 registerManifestCommands(program);
-registerQueueCommands(program);
+
 registerReportCommands(program);
 registerModalCommands(program);
 registerMailCommands(program);
+registerTeamMemberCommands(program);
 program.command('status')
   .description('Show summary of current project state')
   .action(async () => {

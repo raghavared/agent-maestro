@@ -9,7 +9,7 @@ import { NotFoundError, ForbiddenError } from '../../domain/common/Errors';
 /**
  * Default team member type identifiers.
  */
-type DefaultTeamMemberType = 'simple_worker' | 'queue_worker' | 'coordinator' | 'batch_coordinator' | 'dag_coordinator';
+type DefaultTeamMemberType = 'simple_worker' | 'coordinator' | 'batch_coordinator' | 'dag_coordinator' | 'recruiter';
 
 /**
  * Default Simple Worker team member configuration.
@@ -22,43 +22,16 @@ const DEFAULT_SIMPLE_WORKER = {
   model: 'sonnet',
   agentTool: 'claude-code' as const,
   mode: 'execute' as const,
-  strategy: 'simple',
   skillIds: [],
   isDefault: true,
   status: 'active' as const,
   capabilities: {
     can_spawn_sessions: false,
     can_edit_tasks: true,
-    can_use_queue: false,
     can_report_task_level: true,
     can_report_session_level: true,
   },
   workflowTemplateId: 'execute-simple',
-};
-
-/**
- * Default Queue Worker team member configuration.
- */
-const DEFAULT_QUEUE_WORKER = {
-  name: 'Queue Worker',
-  role: 'Queue-based executor',
-  identity: 'You are a queue worker agent. You process tasks sequentially from a queue, implementing each one in order.',
-  avatar: '📋',
-  model: 'sonnet',
-  agentTool: 'claude-code' as const,
-  mode: 'execute' as const,
-  strategy: 'queue',
-  skillIds: [],
-  isDefault: true,
-  status: 'active' as const,
-  capabilities: {
-    can_spawn_sessions: false,
-    can_edit_tasks: true,
-    can_use_queue: true,
-    can_report_task_level: true,
-    can_report_session_level: true,
-  },
-  workflowTemplateId: 'execute-queue',
 };
 
 /**
@@ -72,14 +45,12 @@ const DEFAULT_COORDINATOR = {
   model: 'sonnet',
   agentTool: 'claude-code' as const,
   mode: 'coordinate' as const,
-  strategy: 'default',
   skillIds: [],
   isDefault: true,
   status: 'active' as const,
   capabilities: {
     can_spawn_sessions: true,
     can_edit_tasks: true,
-    can_use_queue: false,
     can_report_task_level: true,
     can_report_session_level: true,
   },
@@ -97,14 +68,12 @@ const DEFAULT_BATCH_COORDINATOR = {
   model: 'sonnet',
   agentTool: 'claude-code' as const,
   mode: 'coordinate' as const,
-  strategy: 'intelligent-batching',
   skillIds: [],
   isDefault: true,
   status: 'active' as const,
   capabilities: {
     can_spawn_sessions: true,
     can_edit_tasks: true,
-    can_use_queue: false,
     can_report_task_level: true,
     can_report_session_level: true,
   },
@@ -122,18 +91,46 @@ const DEFAULT_DAG_COORDINATOR = {
   model: 'sonnet',
   agentTool: 'claude-code' as const,
   mode: 'coordinate' as const,
-  strategy: 'dag',
   skillIds: [],
   isDefault: true,
   status: 'active' as const,
   capabilities: {
     can_spawn_sessions: true,
     can_edit_tasks: true,
-    can_use_queue: false,
     can_report_task_level: true,
     can_report_session_level: true,
   },
   workflowTemplateId: 'coordinate-dag',
+};
+
+/**
+ * Default Recruiter team member configuration.
+ */
+const DEFAULT_RECRUITER = {
+  name: 'Recruiter',
+  role: 'Team member recruiter',
+  identity: 'You are a recruiter agent. You analyze task requirements and create appropriately configured team members using maestro team-member commands. You do NOT implement tasks or write code — your job is to build the right team.',
+  avatar: '🔍',
+  model: 'sonnet',
+  agentTool: 'claude-code' as const,
+  mode: 'execute' as const,
+  skillIds: [],
+  isDefault: true,
+  status: 'active' as const,
+  capabilities: {
+    can_spawn_sessions: false,
+    can_edit_tasks: true,
+    can_report_task_level: true,
+    can_report_session_level: true,
+  },
+  commandPermissions: {
+    commands: {
+      'team-member:create': true,
+      'team-member:list': true,
+      'team-member:get': true,
+    },
+  },
+  workflowTemplateId: 'execute-recruit',
 };
 
 interface DefaultTeamMemberConfig {
@@ -144,30 +141,32 @@ interface DefaultTeamMemberConfig {
   model: string;
   agentTool: 'claude-code';
   mode: AgentMode;
-  strategy: string;
   skillIds: string[];
   isDefault: boolean;
   status: 'active';
   capabilities: {
     can_spawn_sessions: boolean;
     can_edit_tasks: boolean;
-    can_use_queue: boolean;
     can_report_task_level: boolean;
     can_report_session_level: boolean;
+  };
+  commandPermissions?: {
+    groups?: Record<string, boolean>;
+    commands?: Record<string, boolean>;
   };
   workflowTemplateId: string;
 }
 
 const DEFAULT_CONFIGS: Record<DefaultTeamMemberType, DefaultTeamMemberConfig> = {
   simple_worker: DEFAULT_SIMPLE_WORKER,
-  queue_worker: DEFAULT_QUEUE_WORKER,
   coordinator: DEFAULT_COORDINATOR,
   batch_coordinator: DEFAULT_BATCH_COORDINATOR,
   dag_coordinator: DEFAULT_DAG_COORDINATOR,
+  recruiter: DEFAULT_RECRUITER,
 };
 
 const ALL_DEFAULT_TYPES: DefaultTeamMemberType[] = [
-  'simple_worker', 'queue_worker', 'coordinator', 'batch_coordinator', 'dag_coordinator'
+  'simple_worker', 'coordinator', 'batch_coordinator', 'dag_coordinator', 'recruiter'
 ];
 
 /**

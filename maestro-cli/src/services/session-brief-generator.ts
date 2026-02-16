@@ -41,56 +41,9 @@ export class SessionBriefGenerator {
     // Session configuration
     brief += this.renderSessionConfig(manifest.session);
 
-    // Strategy information
-    if (manifest.strategy === 'queue') {
-      brief += this.renderQueueStrategy();
-    }
-
-    // Orchestrator strategy information
-    if (manifest.mode === 'coordinate') {
-      brief += this.renderOrchestratorStrategy(manifest.strategy as string);
-    }
-
     brief += this.renderFooter();
 
     return brief;
-  }
-
-  /**
-   * Render queue strategy instructions
-   */
-  private renderQueueStrategy(): string {
-    let section = `## Queue Strategy\n\n`;
-    section += `This session uses the **queue** strategy for FIFO task processing.\n\n`;
-    section += `Tasks are processed one at a time in order. Use these commands:\n\n`;
-    section += `  maestro queue top       - Show the next task to process\n`;
-    section += `  maestro queue start     - Start processing the next task\n`;
-    section += `  maestro queue complete  - Mark current task as completed\n`;
-    section += `  maestro queue fail      - Mark current task as failed\n`;
-    section += `  maestro queue skip      - Skip the current task\n`;
-    section += `  maestro queue list      - List all tasks in the queue\n`;
-    section += `\n`;
-    return section;
-  }
-
-  /**
-   * Render orchestrator strategy information
-   */
-  private renderOrchestratorStrategy(orchestratorStrategy?: string): string {
-    const strategy = orchestratorStrategy || 'default';
-
-    const descriptions: Record<string, string> = {
-      'default': 'The default orchestrator coordinates worker sessions, distributes tasks, and monitors progress.',
-      'intelligent-batching': 'Groups related tasks into optimal batches for parallel execution to maximize throughput.',
-      'dag': 'Organizes tasks as a directed acyclic graph, executing in topological order with parallel branches.',
-    };
-
-    const description = descriptions[strategy] || descriptions['default'];
-
-    let section = `## Orchestrator Strategy\n\n`;
-    section += `**Strategy**: ${strategy}\n\n`;
-    section += `${description}\n\n`;
-    return section;
   }
 
   /**

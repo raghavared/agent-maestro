@@ -57,8 +57,8 @@ export class FileSystemSessionRepository implements ISessionRepository {
           if (!session.events) { session.events = []; needsSave = true; }
           if (!session.timeline) { session.timeline = []; needsSave = true; }
           if (!session.docs) { session.docs = []; needsSave = true; }
-          // Initialize strategy if missing (defaults to 'simple')
-          if (!session.strategy) { session.strategy = 'simple'; needsSave = true; }
+          // Remove deprecated strategy field if present
+          if (session.strategy) { delete session.strategy; needsSave = true; }
 
           this.sessions.set(session.id, session as Session);
 
@@ -112,7 +112,6 @@ export class FileSystemSessionRepository implements ISessionRepository {
       name: input.name || 'Unnamed Session',
       agentId: input.agentId,
       env: input.env || {},
-      strategy: input.strategy || 'simple',
       status: input.status || 'idle',
       startedAt: now,
       lastActivity: now,

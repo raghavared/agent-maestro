@@ -7,7 +7,7 @@ import { createContainer, Container } from './container';
 import { createProjectRoutes } from './api/projectRoutes';
 import { createTaskRoutes } from './api/taskRoutes';
 import { createSessionRoutes } from './api/sessionRoutes';
-import { createQueueRoutes } from './api/queueRoutes';
+
 import { createSkillRoutes } from './api/skillRoutes';
 import { createMailRoutes } from './api/mailRoutes';
 import { createOrderingRoutes } from './api/orderingRoutes';
@@ -21,7 +21,7 @@ async function startServer() {
   const container = await createContainer();
   await container.initialize();
 
-  const { config, logger, eventBus, projectService, taskService, sessionService, queueService, mailService, orderingService, teamMemberService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
+  const { config, logger, eventBus, projectService, taskService, sessionService, mailService, orderingService, teamMemberService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
 
   console.log('📋 Configuration loaded:');
   console.log(`   Port: ${config.port}`);
@@ -89,18 +89,11 @@ async function startServer() {
   const taskRoutes = createTaskRoutes(taskService, sessionService);
   const sessionRoutes = createSessionRoutes({
     sessionService,
-    queueService,
     projectRepo,
     taskRepo,
     teamMemberRepo,
     eventBus,
     config
-  });
-
-  // Queue routes
-  const queueRoutes = createQueueRoutes({
-    queueService,
-    sessionService
   });
 
   // Mail routes
@@ -133,7 +126,6 @@ async function startServer() {
   app.use('/api', projectRoutes);
   app.use('/api', taskRoutes);
   app.use('/api', sessionRoutes);
-  app.use('/api', queueRoutes);
   app.use('/api', mailRoutes);
   app.use('/api', skillRoutes);
   app.use('/api', orderingRoutes);

@@ -1,19 +1,19 @@
 import { maestroClient } from "../utils/MaestroClient";
 
 import { TerminalSession } from "../app/types/session";
-import { MaestroProject, MaestroTask, AgentMode, AgentTool } from "../app/types/maestro";
+import { MaestroProject, MaestroTask, AgentMode, AgentTool, WorkerStrategy, OrchestratorStrategy } from "../app/types/maestro";
 
 export async function createMaestroSession(input: {
     task?: MaestroTask;              // Single task (backward compatible)
     tasks?: MaestroTask[];           // Multiple tasks (PHASE IV-A)
     project: MaestroProject;
     skillIds?: string[];      // Skill IDs to load
-    strategy?: string;               // Unified strategy
     mode?: AgentMode;                // 'execute' or 'coordinate'
+    strategy?: WorkerStrategy | OrchestratorStrategy;  // Strategy for this session
     teamMemberIds?: string[];        // Team member task IDs for coordinate mode
     teamMemberId?: string;           // Single team member assigned to this task
   }): Promise<TerminalSession> {
-    const { task, tasks, skillIds, project, strategy, mode, teamMemberIds, teamMemberId } = input;
+    const { task, tasks, skillIds, project, mode, teamMemberIds, teamMemberId } = input;
 
     // Normalize to array (support both single and multi-task)
     const taskList = tasks || (task ? [task] : []);
@@ -44,7 +44,6 @@ export async function createMaestroSession(input: {
         projectId: project.id,
         taskIds,
         mode: resolvedMode,
-        strategy: strategy || 'simple',
         spawnSource: 'ui',
         sessionName: taskList.length > 1
           ? `Multi-Task: ${taskList[0].title}`
