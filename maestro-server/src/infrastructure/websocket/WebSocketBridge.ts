@@ -135,8 +135,14 @@ export class WebSocketBridge {
   /**
    * Extract the session ID from an event payload, if present.
    */
-  private extractSessionId(data: any): string | undefined {
+  private extractSessionId(event: string, data: any): string | undefined {
     if (!data) return undefined;
+
+    // Team member events, mail events, and project events are not session-scoped
+    if (event.startsWith('team_member:') || event.startsWith('mail:') || event.startsWith('project:')) {
+      return undefined;
+    }
+
     // Direct session ID field
     if (data.sessionId) return data.sessionId;
     // Session object with id field (session:updated, session:created, etc.)
@@ -158,7 +164,7 @@ export class WebSocketBridge {
       timestamp: Date.now()
     });
 
-    const eventSessionId = this.extractSessionId(data);
+    const eventSessionId = this.extractSessionId(event, data);
 
     let sent = 0;
     this.wss.clients.forEach((client) => {

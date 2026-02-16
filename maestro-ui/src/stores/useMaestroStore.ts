@@ -531,8 +531,11 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     hardRefresh: async (projectId) => {
       get().clearCache();
       if (projectId) {
-        await get().fetchTasks(projectId);
-        await get().fetchSessions();
+        await Promise.all([
+          get().fetchTasks(projectId),
+          get().fetchSessions(),
+          get().fetchTeamMembers(projectId),
+        ]);
       }
     },
 
@@ -592,12 +595,22 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
 
     fetchTeamMembers: async (projectId) => {
       const key = `teamMembers:${projectId}`;
+      // Ensure activeProjectIdRef is set so WebSocket onopen can use it
+      if (!get().activeProjectIdRef) {
+        set({ activeProjectIdRef: projectId });
+      }
       setLoading(key, true);
       setError(key, null);
       try {
         const teamMembers = await maestroClient.getTeamMembers(projectId);
         set((prev) => {
+          // Remove old entries for this project, then add fresh data
           const teamMemberMap = new Map(prev.teamMembers);
+          for (const [id, tm] of teamMemberMap) {
+            if (tm.projectId === projectId) {
+              teamMemberMap.delete(id);
+            }
+          }
           teamMembers.forEach((tm) => teamMemberMap.set(tm.id, tm));
           return { teamMembers: teamMemberMap };
         });

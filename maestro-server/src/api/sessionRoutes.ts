@@ -4,13 +4,12 @@ import { readFile, mkdir, writeFile } from 'fs/promises';
 import { join, resolve as resolvePath } from 'path';
 import { homedir } from 'os';
 import { SessionService } from '../application/services/SessionService';
-import { QueueService } from '../application/services/QueueService';
 import { IProjectRepository } from '../domain/repositories/IProjectRepository';
 import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
 import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
-import { SessionStatus, WorkerStrategy, AgentTool, AgentMode, TeamMember } from '../types';
+import { SessionStatus, AgentTool, AgentMode, TeamMember } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
 
 /**
@@ -22,13 +21,13 @@ async function generateManifestViaCLI(options: {
   taskIds: string[];
   skills: string[];
   sessionId: string;
-  strategy?: string;
   model?: string;
   agentTool?: AgentTool;
   referenceTaskIds?: string[];
   teamMemberIds?: string[];
+  teamMemberId?: string;
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { mode, projectId, taskIds, skills, sessionId, strategy, model, agentTool, referenceTaskIds, teamMemberIds } = options;
+  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId } = options;
 
   console.log('\n   📋 GENERATING MANIFEST VIA CLI:');
   console.log(`      • Session ID: ${sessionId}`);
@@ -48,12 +47,12 @@ async function generateManifestViaCLI(options: {
     '--project-id', projectId,
     '--task-ids', taskIds.join(','),
     '--skills', skills.join(','),
-    '--strategy', strategy || 'simple',
     '--output', manifestPath,
     ...(model ? ['--model', model] : []),
     ...(agentTool && agentTool !== 'claude-code' ? ['--agent-tool', agentTool] : []),
     ...(referenceTaskIds && referenceTaskIds.length > 0 ? ['--reference-task-ids', referenceTaskIds.join(',')] : []),
     ...(teamMemberIds && teamMemberIds.length > 0 ? ['--team-member-ids', teamMemberIds.join(',')] : []),
+    ...(teamMemberId ? ['--team-member-id', teamMemberId] : []),
   ];
 
   // Resolve maestro binary: use env var, monorepo path, or fall back to PATH
@@ -116,7 +115,6 @@ async function generateManifestViaCLI(options: {
 
 interface SessionRouteDependencies {
   sessionService: SessionService;
-  queueService: QueueService;
   projectRepo: IProjectRepository;
   taskRepo: ITaskRepository;
   teamMemberRepo: ITeamMemberRepository;
@@ -128,7 +126,7 @@ interface SessionRouteDependencies {
  * Create session routes using the SessionService.
  */
 export function createSessionRoutes(deps: SessionRouteDependencies) {
-  const { sessionService, queueService, projectRepo, taskRepo, teamMemberRepo, eventBus, config } = deps;
+  const { sessionService, projectRepo, taskRepo, teamMemberRepo, eventBus, config } = deps;
   const router = express.Router();
 
   // Error handler helper
@@ -464,7 +462,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         sessionId,              // Parent session ID when spawnSource === 'session'
         spawnSource = 'ui',     // 'ui' or 'session'
         mode: requestedMode,    // Three-axis model: 'execute' or 'coordinate'
-        strategy: requestedStrategy,    // Strategy for the session
         context,
         model,                  // Model selection: 'sonnet' | 'opus' | 'haiku'
         agentTool,              // Agent tool: 'claude-code' | 'codex' | 'gemini'
@@ -472,19 +469,18 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         teamMemberId,           // Single team member assigned to this task
       } = req.body;
 
-      // If teamMemberId is provided, fetch the team member and use its mode/strategy as defaults
-      let teamMemberDefaults: { mode?: AgentMode; strategy?: string; model?: string; agentTool?: AgentTool } = {};
+      // If teamMemberId is provided, fetch the team member and use its mode as defaults
+      let teamMemberDefaults: { mode?: AgentMode; model?: string; agentTool?: AgentTool } = {};
       if (teamMemberId && projectId) {
         try {
           const teamMember = await teamMemberRepo.findById(projectId, teamMemberId);
           if (teamMember) {
             teamMemberDefaults = {
               mode: teamMember.mode as AgentMode | undefined,
-              strategy: teamMember.strategy,
               model: teamMember.model,
               agentTool: teamMember.agentTool,
             };
-            console.log(`   ✓ Team member resolved: ${teamMember.name} (mode=${teamMember.mode}, strategy=${teamMember.strategy})`);
+            console.log(`   ✓ Team member resolved: ${teamMember.name} (mode=${teamMember.mode})`);
           }
         } catch (err) {
           console.warn(`   ⚠ Failed to fetch team member ${teamMemberId}:`, err);
@@ -494,10 +490,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       // Resolve mode (defaults to team member's mode, then 'execute')
       const resolvedMode: AgentMode = (requestedMode as AgentMode) || teamMemberDefaults.mode || 'execute';
 
-      // Resolve strategy (explicit > team member > mode-based default)
-      const defaultStrategy = resolvedMode === 'coordinate' ? 'default' : 'simple';
-      const strategy = requestedStrategy || teamMemberDefaults.strategy || defaultStrategy;
-
       // Resolve model and agentTool from team member if not explicitly provided
       const resolvedModel = model || teamMemberDefaults.model;
       const resolvedAgentToolFromMember = agentTool || teamMemberDefaults.agentTool;
@@ -506,7 +498,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       console.log(`   • projectId: ${projectId}`);
       console.log(`   • taskIds: [${taskIds?.join(', ') || 'NONE'}]`);
       console.log(`   • mode: ${resolvedMode}`);
-      console.log(`   • strategy: ${strategy}`);
       console.log(`   • model: ${resolvedModel || '(not set - will default to sonnet)'}`);
       console.log(`   • agentTool: ${resolvedAgentToolFromMember || '(not set - will default to claude-code)'}`);
       console.log(`   • teamMemberId: ${teamMemberId || '(none)'}`);
@@ -599,25 +590,12 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       const skillsToUse = skills && Array.isArray(skills) ? skills : [];
 
-      // Validate strategy based on mode
-      const validExecuteStrategies = ['simple', 'queue', 'tree'];
-      const validCoordinateStrategies = ['default', 'intelligent-batching', 'dag'];
-      const validStrategies = resolvedMode === 'coordinate' ? validCoordinateStrategies : validExecuteStrategies;
-      if (!validStrategies.includes(strategy)) {
-        return res.status(400).json({
-          error: true,
-          code: 'invalid_strategy',
-          message: `strategy must be one of: ${validStrategies.join(', ')} for ${resolvedMode} mode`
-        });
-      }
-
       // Create session with suppressed created event
       const modeLabel = resolvedMode === 'coordinate' ? 'Coordinate' : 'Execute';
       const session = await sessionService.createSession({
         projectId,
         taskIds,
         name: sessionName || `${modeLabel} for ${taskIds[0]}`,
-        strategy,
         status: 'spawning',
         env: {},
         metadata: {
@@ -625,7 +603,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           spawnedBy: sessionId || null,
           spawnSource,
           mode: resolvedMode,
-          strategy,
           teamMemberId: teamMemberId || null,
           context: context || {}
         },
@@ -633,17 +610,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       });
 
       console.log(`   ✓ Session created: ${session.id}`);
-
-      // If queue strategy, initialize queue
-      if (strategy === 'queue') {
-        try {
-          await queueService.initializeQueue(session.id, taskIds);
-          console.log(`   ✓ Queue initialized with ${taskIds.length} items`);
-        } catch (queueErr: any) {
-          console.error(`   ❌ Failed to initialize queue: ${queueErr.message}`);
-          // Don't fail spawn if queue init fails - session is still valid
-        }
-      }
 
       // Collect referenceTaskIds from all tasks being spawned
       const allReferenceTaskIds: string[] = [];
@@ -669,11 +635,11 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           taskIds,
           skills: skillsToUse,
           sessionId: session.id,
-          strategy,
           model: resolvedModel,
           agentTool: resolvedAgentToolFromMember,
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
           teamMemberIds: teamMemberIds && teamMemberIds.length > 0 ? teamMemberIds : undefined,
+          teamMemberId: teamMemberId || undefined,
         });
         manifestPath = result.manifestPath;
         manifest = result.manifest;
@@ -718,7 +684,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         MAESTRO_MANIFEST_PATH: manifestPath,
         MAESTRO_SERVER_URL: config.serverUrl,
         MAESTRO_MODE: resolvedMode,
-        MAESTRO_STRATEGY: strategy,
         // Pass storage paths so CLI reads/writes to the correct environment directories
         DATA_DIR: config.dataDir,
         SESSION_DIR: config.sessionDir,

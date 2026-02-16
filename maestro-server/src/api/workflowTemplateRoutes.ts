@@ -17,7 +17,6 @@ interface WorkflowTemplate {
   name: string;
   description: string;
   mode: AgentMode;
-  strategy?: string;
   phases: WorkflowPhase[];
   builtIn: boolean;
 }
@@ -30,7 +29,6 @@ const TEMPLATES: WorkflowTemplate[] = [
     name: 'Execute Simple',
     description: 'Single task execution: implement directly, report progress, complete.',
     mode: 'execute',
-    strategy: 'simple',
     builtIn: true,
     phases: [
       { name: 'execute', instruction: 'You have ONE task. Read it carefully, then implement it directly. Work through the requirements methodically — write code, run tests, fix issues. Do not decompose or delegate. You are the executor.' },
@@ -39,26 +37,10 @@ const TEMPLATES: WorkflowTemplate[] = [
     ],
   },
   {
-    id: 'execute-queue',
-    name: 'Execute Queue',
-    description: 'Queue-based execution: pull tasks from queue, process sequentially.',
-    mode: 'execute',
-    strategy: 'queue',
-    builtIn: true,
-    phases: [
-      { name: 'pull', instruction: 'Run `maestro queue top` to see the next task in the queue. If the queue is empty, wait — do NOT exit. Poll periodically with `maestro queue status`.' },
-      { name: 'claim', instruction: 'Run `maestro queue start` to claim the task. This marks it as "processing" and prevents other workers from taking it.' },
-      { name: 'execute', instruction: 'Implement the claimed task. Work through it completely — write code, run tests, verify.' },
-      { name: 'report', instruction: 'Report progress on milestones:\n  maestro session report progress "<message>"' },
-      { name: 'finish', instruction: 'When done: `maestro queue complete`. If you cannot finish: `maestro queue fail "<reason>"`. Then loop back to the PULL phase to get the next task. Continue this loop until the queue is empty and no new work arrives.' },
-    ],
-  },
-  {
     id: 'execute-tree',
     name: 'Execute Tree',
     description: 'Tree-based execution: analyze task tree, plan order, execute leaf tasks.',
     mode: 'execute',
-    strategy: 'tree',
     builtIn: true,
     phases: [
       { name: 'analyze', instruction: 'Run `maestro task children <taskId> --recursive` to see the full task tree. Identify leaf tasks (no children) and check dependencies between them.' },
@@ -73,7 +55,6 @@ const TEMPLATES: WorkflowTemplate[] = [
     name: 'Coordinate Default',
     description: 'Standard orchestration: decompose, spawn workers, monitor, verify.',
     mode: 'coordinate',
-    strategy: 'default',
     builtIn: true,
     phases: [
       { name: 'analyze', instruction: 'Your assigned task is in the <task> block above. Read the title, description, and acceptance criteria carefully. This is the task you must decompose and delegate — do NOT implement it yourself.' },
@@ -89,7 +70,6 @@ const TEMPLATES: WorkflowTemplate[] = [
     name: 'Coordinate Intelligent Batching',
     description: 'Batch orchestration: group independent tasks, execute batches in parallel.',
     mode: 'coordinate',
-    strategy: 'intelligent-batching',
     builtIn: true,
     phases: [
       { name: 'analyze', instruction: 'Your assigned task is in the <task> block above. Read it carefully. Identify the scope and figure out which pieces of work are independent vs dependent on each other.' },
@@ -104,7 +84,6 @@ const TEMPLATES: WorkflowTemplate[] = [
     name: 'Coordinate DAG',
     description: 'DAG orchestration: model dependencies as a graph, execute in topological waves.',
     mode: 'coordinate',
-    strategy: 'dag',
     builtIn: true,
     phases: [
       { name: 'analyze', instruction: 'Your assigned task is in the <task> block above. Read it carefully. Map out the work and identify dependency relationships between the pieces.' },

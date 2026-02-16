@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useCallback, useLayoutEffect, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, AgentTool, ModelType } from "../../app/types/maestro";
+import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, AgentTool, ModelType, WorkerStrategy, OrchestratorStrategy } from "../../app/types/maestro";
 import { useTaskSessions } from "../../hooks/useTaskSessions";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { maestroClient } from "../../utils/MaestroClient";
@@ -16,7 +16,7 @@ type TaskListItemProps = {
     task: MaestroTask;
     onSelect: () => void;
     onWorkOn: () => void;
-    onWorkOnWithTeamMember?: (teamMemberId: string, strategy?: string) => void;
+    onWorkOnWithTeamMember?: (teamMemberId: string, strategy?: WorkerStrategy | OrchestratorStrategy) => void;
     onAssignTeamMember?: (teamMemberId: string) => void;
     onOpenCreateTeamMember?: () => void;
     onJumpToSession: (maestroSessionId: string) => void;
@@ -71,21 +71,19 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
 };
 
 // Agent tool / model constants
-const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex", "gemini"];
+const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex"];
 
-const AGENT_TOOL_LABELS: Record<AgentTool, string> = {
+const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
     "claude-code": "Claude Code",
     "codex": "OpenAI Codex",
-    "gemini": "Google Gemini",
 };
 
-const AGENT_TOOL_SYMBOLS: Record<AgentTool, string> = {
+const AGENT_TOOL_SYMBOLS: Partial<Record<AgentTool, string>> = {
     "claude-code": "◈",
     "codex": "◇",
-    "gemini": "△",
 };
 
-const AGENT_MODELS: Record<AgentTool, { value: string; label: string }[]> = {
+const AGENT_MODELS: Partial<Record<AgentTool, { value: string; label: string }[]>> = {
     "claude-code": [
         { value: "haiku", label: "Haiku" },
         { value: "sonnet", label: "Sonnet" },
@@ -95,16 +93,11 @@ const AGENT_MODELS: Record<AgentTool, { value: string; label: string }[]> = {
         { value: "gpt-5.3-codex", label: "5.3-codex" },
         { value: "gpt-5.2-codex", label: "5.2-codex" },
     ],
-    "gemini": [
-        { value: "gemini-3-pro-preview", label: "3-pro" },
-        { value: "gemini-3-flash-preview", label: "3-flash" },
-    ],
 };
 
-const DEFAULT_MODEL: Record<AgentTool, string> = {
+const DEFAULT_MODEL: Partial<Record<AgentTool, string>> = {
     "claude-code": "sonnet",
     "codex": "gpt-5.3-codex",
-    "gemini": "gemini-3-pro-preview",
 };
 
 // Get short display label for a model value
@@ -175,15 +168,22 @@ export function TaskListItem({
     const statusBtnRef = useRef<HTMLButtonElement>(null);
     const priorityBtnRef = useRef<HTMLButtonElement>(null);
     const agentBtnRef = useRef<HTMLButtonElement>(null);
-    const [statusDropdownPos, setStatusDropdownPos] = useState<{ top: number; left: number } | null>(null);
-    const [priorityDropdownPos, setPriorityDropdownPos] = useState<{ top: number; left: number } | null>(null);
-    const [agentDropdownPos, setAgentDropdownPos] = useState<{ top: number; left: number } | null>(null);
+    const [statusDropdownPos, setStatusDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' } | null>(null);
+    const [priorityDropdownPos, setPriorityDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' } | null>(null);
+    const [agentDropdownPos, setAgentDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' } | null>(null);
 
-    const computeDropdownPos = useCallback((btnRef: React.RefObject<HTMLButtonElement | null>) => {
+    const computeDropdownPos = useCallback((btnRef: React.RefObject<HTMLButtonElement | null>, estimatedHeight = 250) => {
         const btn = btnRef.current;
         if (!btn) return null;
         const rect = btn.getBoundingClientRect();
-        return { top: rect.bottom + 4, left: rect.left };
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+
+        if (spaceBelow >= estimatedHeight || spaceBelow >= spaceAbove) {
+            return { top: rect.bottom + 4, left: rect.left, openDirection: 'down' as const };
+        } else {
+            return { bottom: (window.innerHeight - rect.top) + 4, left: rect.left, openDirection: 'up' as const };
+        }
     }, []);
 
     useLayoutEffect(() => {
@@ -477,8 +477,13 @@ export function TaskListItem({
                                         }}
                                     />
                                     <div
-                                        className="terminalInlineStatusDropdown terminalInlineStatusDropdown--fixed"
-                                        style={{ top: statusDropdownPos.top, left: statusDropdownPos.left }}
+                                        className={`terminalInlineStatusDropdown terminalInlineStatusDropdown--fixed ${statusDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
+                                        style={{
+                                            ...(statusDropdownPos.openDirection === 'down'
+                                                ? { top: statusDropdownPos.top }
+                                                : { bottom: statusDropdownPos.bottom }),
+                                            left: statusDropdownPos.left,
+                                        }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         {statusOptions.map((status) => (
@@ -537,8 +542,13 @@ export function TaskListItem({
                                         }}
                                     />
                                     <div
-                                        className="terminalInlinePriorityDropdown terminalInlinePriorityDropdown--fixed"
-                                        style={{ top: priorityDropdownPos.top, left: priorityDropdownPos.left }}
+                                        className={`terminalInlinePriorityDropdown terminalInlinePriorityDropdown--fixed ${priorityDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
+                                        style={{
+                                            ...(priorityDropdownPos.openDirection === 'down'
+                                                ? { top: priorityDropdownPos.top }
+                                                : { bottom: priorityDropdownPos.bottom }),
+                                            left: priorityDropdownPos.left,
+                                        }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         {priorityOptions.map((priority) => (
@@ -601,8 +611,13 @@ export function TaskListItem({
                                         }}
                                     />
                                     <div
-                                        className="terminalInlineAgentDropdown terminalInlineAgentDropdown--fixed"
-                                        style={{ top: agentDropdownPos.top, left: agentDropdownPos.left }}
+                                        className={`terminalInlineAgentDropdown terminalInlineAgentDropdown--fixed ${agentDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
+                                        style={{
+                                            ...(agentDropdownPos.openDirection === 'down'
+                                                ? { top: agentDropdownPos.top }
+                                                : { bottom: agentDropdownPos.bottom }),
+                                            left: agentDropdownPos.left,
+                                        }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         {agentDropdownStep === 'tool' ? (
@@ -635,7 +650,7 @@ export function TaskListItem({
                                                     ← {selectedAgentTool ? AGENT_TOOL_LABELS[selectedAgentTool] : ''}
                                                 </button>
                                                 <div className="terminalAgentDropdownHeader">Select Model</div>
-                                                {selectedAgentTool && AGENT_MODELS[selectedAgentTool].map((model) => (
+                                                {selectedAgentTool && AGENT_MODELS[selectedAgentTool]?.map((model) => (
                                                     <button
                                                         key={model.value}
                                                         className={`terminalInlineAgentOption terminalInlineAgentOption--model terminalInlineAgentOption--model-${model.value} ${model.value === task.model ? 'terminalInlineAgentOption--current' : ''}`}
@@ -677,15 +692,12 @@ export function TaskListItem({
                                             <span
                                                 key={session.id}
                                                 className={`terminalSessionStatusChip terminalSessionStatusChip--${taskIsTerminal ? 'completed' : displayStatus} terminalSessionStatusChip--clickable ${isWorking && !sessionNeedsInput ? 'terminalSessionStatusChip--breathing' : ''} ${sessionNeedsInput ? 'terminalSessionStatusChip--needsInput' : ''}`}
-                                                title={`${session.name || session.id}: ${taskIsTerminal ? 'Completed' : sessionNeedsInput ? 'Needs Input' : taskStatus ? taskStatus.replace('_', ' ') : (SESSION_STATUS_LABELS[session.status] || session.status || 'Unknown')}${session.strategy ? ` [${session.strategy}]` : ''}`}
+                                                title={`${session.name || session.id}: ${taskIsTerminal ? 'Completed' : sessionNeedsInput ? 'Needs Input' : taskStatus ? taskStatus.replace('_', ' ') : (SESSION_STATUS_LABELS[session.status] || session.status || 'Unknown')}`}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setSessionModalId(session.id);
                                                 }}
                                             >
-                                                {session.strategy === 'queue' && (
-                                                    <span className="terminalSessionStrategyTag">Q</span>
-                                                )}
                                                 <span className="terminalSessionStatusLabel">
                                                     {taskIsTerminal ? 'DONE' : sessionNeedsInput ? 'NEEDS INPUT' : taskStatus ? taskStatus.toUpperCase().replace('_', ' ') : (SESSION_STATUS_LABELS[session.status] || session.status || 'UNKNOWN').toUpperCase()}
                                                 </span>

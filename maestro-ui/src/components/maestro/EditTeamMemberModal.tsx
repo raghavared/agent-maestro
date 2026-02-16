@@ -7,7 +7,6 @@ import { useMaestroStore } from "../../stores/useMaestroStore";
 const CAPABILITY_DEFS = [
     { key: 'can_spawn_sessions', label: 'Spawn Sessions', desc: 'Can create new agent sessions' },
     { key: 'can_edit_tasks', label: 'Edit Tasks', desc: 'Can create/edit/delete tasks' },
-    { key: 'can_use_queue', label: 'Use Queue', desc: 'Can use queue-based task processing' },
     { key: 'can_report_task_level', label: 'Report Task-Level', desc: 'Can report progress on individual tasks' },
     { key: 'can_report_session_level', label: 'Report Session-Level', desc: 'Can report session-wide progress' },
 ] as const;
@@ -17,17 +16,16 @@ const COMMAND_GROUPS = [
     { key: 'root', label: 'Root', commands: ['whoami', 'status', 'commands'] },
     { key: 'task', label: 'Task', commands: ['task:list', 'task:get', 'task:create', 'task:edit', 'task:delete', 'task:children', 'task:report:progress', 'task:report:complete', 'task:report:blocked', 'task:report:error', 'task:docs:add', 'task:docs:list'] },
     { key: 'session', label: 'Session', commands: ['session:info', 'session:report:progress', 'session:report:complete', 'session:report:blocked', 'session:report:error', 'session:docs:add', 'session:docs:list'] },
-    { key: 'queue', label: 'Queue', commands: ['queue:status', 'queue:top', 'queue:start', 'queue:complete', 'queue:fail', 'queue:skip', 'queue:list', 'queue:push'] },
+    { key: 'team-member', label: 'Team Member', commands: ['team-member:create', 'team-member:list', 'team-member:get'] },
     { key: 'mail', label: 'Mail', commands: ['mail:send', 'mail:inbox', 'mail:reply'] },
     { key: 'show', label: 'Show', commands: ['show:modal'] },
     { key: 'modal', label: 'Modal', commands: ['modal:events'] },
 ] as const;
 
-function getDefaultCapabilities(mode: AgentMode, strategy: string): Record<string, boolean> {
+function getDefaultCapabilities(mode: AgentMode): Record<string, boolean> {
     return {
         can_spawn_sessions: mode === 'coordinate',
         can_edit_tasks: true,
-        can_use_queue: mode === 'execute' && strategy === 'queue',
         can_report_task_level: true,
         can_report_session_level: true,
     };
@@ -40,14 +38,13 @@ type EditTeamMemberModalProps = {
     projectId: string;
 };
 
-const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex", "gemini"];
-const AGENT_TOOL_LABELS: Record<AgentTool, string> = {
+const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex"];
+const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
     "claude-code": "Claude Code",
     "codex": "OpenAI Codex",
-    "gemini": "Google Gemini",
 };
 
-const MODELS_BY_TOOL: Record<AgentTool, { value: ModelType; label: string }[]> = {
+const MODELS_BY_TOOL: Partial<Record<AgentTool, { value: ModelType; label: string }[]>> = {
     "claude-code": [
         { value: "haiku", label: "Haiku" },
         { value: "sonnet", label: "Sonnet" },
@@ -57,20 +54,15 @@ const MODELS_BY_TOOL: Record<AgentTool, { value: ModelType; label: string }[]> =
         { value: "gpt-5.3-codex", label: "GPT 5.3 Codex" },
         { value: "gpt-5.2-codex", label: "GPT 5.2 Codex" },
     ],
-    "gemini": [
-        { value: "gemini-3-pro-preview", label: "Gemini 3 Pro" },
-        { value: "gemini-3-flash-preview", label: "Gemini 3 Flash" },
-    ],
 };
 
 const DEFAULT_MODEL: Record<string, string> = {
     "claude-code": "sonnet",
     "codex": "gpt-5.3-codex",
-    "gemini": "gemini-3-pro-preview",
 };
 
-// Default configurations for the 5 default team members
-const DEFAULT_CONFIGS: Record<string, { name: string; role: string; avatar: string; identity: string; agentTool: AgentTool; model: ModelType; mode: AgentMode; strategy: string }> = {
+// Default configurations for the default team members
+const DEFAULT_CONFIGS: Record<string, { name: string; role: string; avatar: string; identity: string; agentTool: AgentTool; model: ModelType; mode: AgentMode }> = {
     simple_worker: {
         name: "Simple Worker",
         role: "Default executor",
@@ -79,17 +71,6 @@ const DEFAULT_CONFIGS: Record<string, { name: string; role: string; avatar: stri
         agentTool: "claude-code",
         model: "sonnet",
         mode: "execute",
-        strategy: "simple",
-    },
-    queue_worker: {
-        name: "Queue Worker",
-        role: "Queue-based executor",
-        avatar: "📋",
-        identity: "You are a queue worker agent. You process tasks sequentially from a queue.",
-        agentTool: "claude-code",
-        model: "sonnet",
-        mode: "execute",
-        strategy: "queue",
     },
     coordinator: {
         name: "Coordinator",
@@ -99,7 +80,6 @@ const DEFAULT_CONFIGS: Record<string, { name: string; role: string; avatar: stri
         agentTool: "claude-code",
         model: "sonnet",
         mode: "coordinate",
-        strategy: "default",
     },
     batch_coordinator: {
         name: "Batch Coordinator",
@@ -109,7 +89,6 @@ const DEFAULT_CONFIGS: Record<string, { name: string; role: string; avatar: stri
         agentTool: "claude-code",
         model: "sonnet",
         mode: "coordinate",
-        strategy: "intelligent-batching",
     },
     dag_coordinator: {
         name: "DAG Coordinator",
@@ -119,7 +98,15 @@ const DEFAULT_CONFIGS: Record<string, { name: string; role: string; avatar: stri
         agentTool: "claude-code",
         model: "sonnet",
         mode: "coordinate",
-        strategy: "dag",
+    },
+    recruiter: {
+        name: "Recruiter",
+        role: "Team member recruiter",
+        avatar: "🔍",
+        identity: "You are a recruiter agent. You analyze task requirements and create appropriately configured team members using maestro team-member commands.",
+        agentTool: "claude-code",
+        model: "sonnet",
+        mode: "execute",
     },
 };
 
@@ -131,11 +118,10 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
     const [agentTool, setAgentTool] = useState<AgentTool>("claude-code");
     const [model, setModel] = useState<ModelType>("sonnet");
     const [mode, setMode] = useState<AgentMode>("execute");
-    const [strategy, setStrategy] = useState("simple");
     const [isUpdating, setIsUpdating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showAdvanced, setShowAdvanced] = useState(false);
-    const [capabilities, setCapabilities] = useState<Record<string, boolean>>(() => getDefaultCapabilities('execute', 'simple'));
+    const [capabilities, setCapabilities] = useState<Record<string, boolean>>(() => getDefaultCapabilities('execute'));
     const [commandOverrides, setCommandOverrides] = useState<Record<string, boolean>>({});
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const [workflowTemplateId, setWorkflowTemplateId] = useState<string>('');
@@ -192,15 +178,13 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
             setAgentTool(teamMember.agentTool || "claude-code");
             setModel(teamMember.model || "sonnet");
             setMode(teamMember.mode || "execute");
-            setStrategy(teamMember.strategy || "simple");
             setError(null);
             // Load capabilities (from member or compute defaults)
             const memberMode = teamMember.mode || 'execute';
-            const memberStrategy = teamMember.strategy || 'simple';
             setCapabilities(
                 teamMember.capabilities
-                    ? { ...getDefaultCapabilities(memberMode, memberStrategy), ...teamMember.capabilities }
-                    : getDefaultCapabilities(memberMode, memberStrategy)
+                    ? { ...getDefaultCapabilities(memberMode), ...teamMember.capabilities }
+                    : getDefaultCapabilities(memberMode)
             );
             // Load command overrides
             setCommandOverrides(teamMember.commandPermissions?.commands || {});
@@ -224,9 +208,8 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
             setAgentTool("claude-code");
             setModel("sonnet");
             setMode("execute");
-            setStrategy("simple");
             setError(null);
-            setCapabilities(getDefaultCapabilities('execute', 'simple'));
+            setCapabilities(getDefaultCapabilities('execute'));
             setCommandOverrides({});
             setWorkflowTemplateId('');
             setUseCustomWorkflow(false);
@@ -259,8 +242,7 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
             setAgentTool(defaults.agentTool);
             setModel(defaults.model);
             setMode(defaults.mode);
-            setStrategy(defaults.strategy);
-            setCapabilities(getDefaultCapabilities(defaults.mode, defaults.strategy));
+            setCapabilities(getDefaultCapabilities(defaults.mode));
             setCommandOverrides({});
             setWorkflowTemplateId('');
             setUseCustomWorkflow(false);
@@ -297,7 +279,6 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
                 agentTool,
                 model,
                 mode,
-                strategy,
                 capabilities,
                 ...(cmdPerms && { commandPermissions: cmdPerms }),
                 workflowTemplateId: useCustomWorkflow ? undefined : (workflowTemplateId || undefined),
@@ -393,75 +374,38 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
                         </div>
                     </div>
 
-                    {/* Mode & Strategy row */}
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                        <div style={{ flex: 1 }}>
-                            <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '2px' }}>Mode</div>
-                            {isDefault ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0' }}>
-                                    <span className={`splitPlayDropdown__modeBadge splitPlayDropdown__modeBadge--${mode}`} style={{ fontSize: '11px' }}>
-                                        {mode === 'execute' ? 'Worker' : 'Orchestrator'}
-                                    </span>
-                                    <span style={{ fontSize: '10px', opacity: 0.6 }}>(read-only for defaults)</span>
-                                </div>
-                            ) : (
-                                <div className="themedSegmentedControl" style={{ margin: 0 }}>
-                                    <button
-                                        type="button"
-                                        className={`themedSegmentedBtn ${mode === 'execute' ? 'active' : ''}`}
-                                        onClick={() => {
-                                            setMode('execute');
-                                            setStrategy('simple');
-                                        }}
-                                        style={{ padding: '4px 12px', fontSize: '11px' }}
-                                        disabled={isUpdating}
-                                    >
-                                        Worker
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`themedSegmentedBtn ${mode === 'coordinate' ? 'active' : ''}`}
-                                        onClick={() => {
-                                            setMode('coordinate');
-                                            setStrategy('default');
-                                        }}
-                                        style={{ padding: '4px 12px', fontSize: '11px' }}
-                                        disabled={isUpdating}
-                                    >
-                                        Orchestrator
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                            <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '2px' }}>Strategy</div>
-                            {isDefault ? (
-                                <div style={{ padding: '4px 0', fontSize: '11px', opacity: 0.8 }}>
-                                    {strategy}
-                                </div>
-                            ) : (
-                                <select
-                                    className="themedFormInput"
-                                    style={{ margin: 0, padding: '4px 8px', fontSize: '11px' }}
-                                    value={strategy}
-                                    onChange={(e) => setStrategy(e.target.value)}
+                    {/* Mode row */}
+                    <div style={{ marginBottom: '4px' }}>
+                        <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '2px' }}>Mode</div>
+                        {isDefault ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0' }}>
+                                <span className={`splitPlayDropdown__modeBadge splitPlayDropdown__modeBadge--${mode}`} style={{ fontSize: '11px' }}>
+                                    {mode === 'execute' ? 'Worker' : 'Orchestrator'}
+                                </span>
+                                <span style={{ fontSize: '10px', opacity: 0.6 }}>(read-only for defaults)</span>
+                            </div>
+                        ) : (
+                            <div className="themedSegmentedControl" style={{ margin: 0 }}>
+                                <button
+                                    type="button"
+                                    className={`themedSegmentedBtn ${mode === 'execute' ? 'active' : ''}`}
+                                    onClick={() => setMode('execute')}
+                                    style={{ padding: '4px 12px', fontSize: '11px' }}
                                     disabled={isUpdating}
                                 >
-                                    {mode === 'execute' ? (
-                                        <>
-                                            <option value="simple">Simple</option>
-                                            <option value="queue">Queue</option>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <option value="default">Default</option>
-                                            <option value="intelligent-batching">Intelligent Batching</option>
-                                            <option value="dag">DAG</option>
-                                        </>
-                                    )}
-                                </select>
-                            )}
-                        </div>
+                                    Worker
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`themedSegmentedBtn ${mode === 'coordinate' ? 'active' : ''}`}
+                                    onClick={() => setMode('coordinate')}
+                                    style={{ padding: '4px 12px', fontSize: '11px' }}
+                                    disabled={isUpdating}
+                                >
+                                    Orchestrator
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Identity Prompt */}
@@ -526,7 +470,7 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
                                         }}
                                         disabled={isUpdating}
                                     >
-                                        <option value="">Default (auto from mode/strategy)</option>
+                                        <option value="">Default (auto from mode)</option>
                                         {filteredTemplates.map(t => (
                                             <option key={t.id} value={t.id}>{t.name} — {t.description}</option>
                                         ))}
@@ -647,7 +591,7 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
                             ))}
                         </select>
                         <div className="themedSegmentedControl" style={{ margin: 0 }}>
-                            {availableModels.map(m => (
+                            {availableModels?.map(m => (
                                 <button
                                     key={m.value}
                                     type="button"

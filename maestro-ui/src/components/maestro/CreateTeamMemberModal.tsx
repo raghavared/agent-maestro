@@ -1,13 +1,14 @@
 import React, { useState, useCallback, useEffect, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
+import { MentionsInput, Mention } from 'react-mentions';
 import { AgentTool, AgentMode, ModelType, CreateTeamMemberPayload, WorkflowTemplate } from "../../app/types/maestro";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
 
 // Capability definitions
 const CAPABILITY_DEFS = [
     { key: 'can_spawn_sessions', label: 'Spawn Sessions', desc: 'Can create new agent sessions' },
     { key: 'can_edit_tasks', label: 'Edit Tasks', desc: 'Can create/edit/delete tasks' },
-    { key: 'can_use_queue', label: 'Use Queue', desc: 'Can use queue-based task processing' },
     { key: 'can_report_task_level', label: 'Report Task-Level', desc: 'Can report progress on individual tasks' },
     { key: 'can_report_session_level', label: 'Report Session-Level', desc: 'Can report session-wide progress' },
 ] as const;
@@ -17,17 +18,16 @@ const COMMAND_GROUPS = [
     { key: 'root', label: 'Root', commands: ['whoami', 'status', 'commands'] },
     { key: 'task', label: 'Task', commands: ['task:list', 'task:get', 'task:create', 'task:edit', 'task:delete', 'task:children', 'task:report:progress', 'task:report:complete', 'task:report:blocked', 'task:report:error', 'task:docs:add', 'task:docs:list'] },
     { key: 'session', label: 'Session', commands: ['session:info', 'session:report:progress', 'session:report:complete', 'session:report:blocked', 'session:report:error', 'session:docs:add', 'session:docs:list'] },
-    { key: 'queue', label: 'Queue', commands: ['queue:status', 'queue:top', 'queue:start', 'queue:complete', 'queue:fail', 'queue:skip', 'queue:list', 'queue:push'] },
+    { key: 'team-member', label: 'Team Member', commands: ['team-member:create', 'team-member:list', 'team-member:get'] },
     { key: 'mail', label: 'Mail', commands: ['mail:send', 'mail:inbox', 'mail:reply'] },
     { key: 'show', label: 'Show', commands: ['show:modal'] },
     { key: 'modal', label: 'Modal', commands: ['modal:events'] },
 ] as const;
 
-function getDefaultCapabilities(mode: AgentMode, strategy: string): Record<string, boolean> {
+function getDefaultCapabilities(mode: AgentMode): Record<string, boolean> {
     return {
         can_spawn_sessions: mode === 'coordinate',
         can_edit_tasks: true,
-        can_use_queue: mode === 'execute' && strategy === 'queue',
         can_report_task_level: true,
         can_report_session_level: true,
     };
@@ -39,14 +39,13 @@ type CreateTeamMemberModalProps = {
     projectId: string;
 };
 
-const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex", "gemini"];
-const AGENT_TOOL_LABELS: Record<AgentTool, string> = {
+const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex"];
+const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
     "claude-code": "Claude Code",
     "codex": "OpenAI Codex",
-    "gemini": "Google Gemini",
 };
 
-const MODELS_BY_TOOL: Record<AgentTool, { value: ModelType; label: string }[]> = {
+const MODELS_BY_TOOL: Partial<Record<AgentTool, { value: ModelType; label: string }[]>> = {
     "claude-code": [
         { value: "haiku", label: "Haiku" },
         { value: "sonnet", label: "Sonnet" },
@@ -56,16 +55,63 @@ const MODELS_BY_TOOL: Record<AgentTool, { value: ModelType; label: string }[]> =
         { value: "gpt-5.3-codex", label: "GPT 5.3 Codex" },
         { value: "gpt-5.2-codex", label: "GPT 5.2 Codex" },
     ],
-    "gemini": [
-        { value: "gemini-3-pro-preview", label: "Gemini 3 Pro" },
-        { value: "gemini-3-flash-preview", label: "Gemini 3 Flash" },
-    ],
 };
 
 const DEFAULT_MODEL: Record<string, string> = {
     "claude-code": "sonnet",
     "codex": "gpt-5.3-codex",
-    "gemini": "gemini-3-pro-preview",
+};
+
+// Style for react-mentions (matching CreateTaskModal)
+const mentionsStyle = {
+    control: {
+        backgroundColor: 'transparent',
+        fontSize: '12px',
+        fontWeight: 'normal' as const,
+        lineHeight: '1.5',
+        minHeight: '120px',
+        maxHeight: '300px',
+    },
+    '&multiLine': {
+        control: {
+            fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+            minHeight: '120px',
+            maxHeight: '300px',
+        },
+        highlighter: {
+            padding: '8px 10px',
+            border: '1px solid transparent',
+            color: 'transparent',
+            fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+            fontSize: '12px',
+            lineHeight: '1.5',
+            pointerEvents: 'none' as const,
+            overflow: 'hidden' as const,
+        },
+        input: {
+            padding: '8px 10px',
+            border: '1px solid transparent',
+            outline: 'none',
+            fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+            fontSize: '12px',
+            lineHeight: '1.5',
+            maxHeight: '300px',
+            overflow: 'auto' as const,
+        },
+    },
+    suggestions: {
+        list: {
+            zIndex: 9999,
+            width: '100%',
+            maxWidth: '100%',
+            left: 0,
+            right: 0,
+            boxSizing: 'border-box' as const,
+        },
+        item: {
+            boxSizing: 'border-box' as const,
+        },
+    },
 };
 
 export function CreateTeamMemberModal({ isOpen, onClose, projectId }: CreateTeamMemberModalProps) {
@@ -76,11 +122,11 @@ export function CreateTeamMemberModal({ isOpen, onClose, projectId }: CreateTeam
     const [agentTool, setAgentTool] = useState<AgentTool>("claude-code");
     const [model, setModel] = useState<ModelType>("sonnet");
     const [mode, setMode] = useState<AgentMode>("execute");
-    const [strategy, setStrategy] = useState("simple");
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [showAdvanced, setShowAdvanced] = useState(false);
-    const [capabilities, setCapabilities] = useState<Record<string, boolean>>(() => getDefaultCapabilities('execute', 'simple'));
+    const [activeTab, setActiveTab] = useState<string | null>(null);
+    const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+    const [capabilities, setCapabilities] = useState<Record<string, boolean>>(() => getDefaultCapabilities('execute'));
     const [commandOverrides, setCommandOverrides] = useState<Record<string, boolean>>({});
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const [workflowTemplateId, setWorkflowTemplateId] = useState<string>('');
@@ -145,6 +191,10 @@ export function CreateTeamMemberModal({ isOpen, onClose, projectId }: CreateTeam
         });
     }, []);
 
+    const toggleTab = (tab: string) => {
+        setActiveTab(prev => prev === tab ? null : tab);
+    };
+
     const resetForm = () => {
         setName("");
         setRole("");
@@ -153,10 +203,10 @@ export function CreateTeamMemberModal({ isOpen, onClose, projectId }: CreateTeam
         setAgentTool("claude-code");
         setModel("sonnet");
         setMode("execute");
-        setStrategy("simple");
         setError(null);
-        setShowAdvanced(false);
-        setCapabilities(getDefaultCapabilities('execute', 'simple'));
+        setActiveTab(null);
+        setSelectedSkills([]);
+        setCapabilities(getDefaultCapabilities('execute'));
         setCommandOverrides({});
         setExpandedGroups(new Set());
         setWorkflowTemplateId('');
@@ -200,8 +250,8 @@ export function CreateTeamMemberModal({ isOpen, onClose, projectId }: CreateTeam
                 agentTool,
                 model,
                 mode,
-                strategy,
                 capabilities,
+                ...(selectedSkills.length > 0 && { skillIds: selectedSkills }),
                 ...(cmdPerms && { commandPermissions: cmdPerms }),
                 ...(useCustomWorkflow && customWorkflow.trim() ? { customWorkflow: customWorkflow.trim() } : workflowTemplateId ? { workflowTemplateId } : {}),
             };
@@ -226,7 +276,7 @@ export function CreateTeamMemberModal({ isOpen, onClose, projectId }: CreateTeam
 
     if (!isOpen) return null;
 
-    const availableModels = MODELS_BY_TOOL[agentTool];
+    const availableModels = MODELS_BY_TOOL[agentTool] || [];
 
     return createPortal(
         <div className="themedModalBackdrop" onClick={handleClose}>
@@ -311,276 +361,284 @@ export function CreateTeamMemberModal({ isOpen, onClose, projectId }: CreateTeam
                         </div>
                     </div>
 
-                    {/* Mode & Strategy row */}
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Mode</div>
-                            <div className="themedSegmentedControl" style={{ margin: 0 }}>
-                                <button
-                                    type="button"
-                                    className={`themedSegmentedBtn ${mode === 'execute' ? 'active' : ''}`}
-                                    onClick={() => {
-                                        setMode('execute');
-                                        setStrategy('simple');
-                                        setCapabilities(getDefaultCapabilities('execute', 'simple'));
-                                        setWorkflowTemplateId('');
-                                    }}
-                                    style={{ padding: '4px 12px', fontSize: '11px' }}
-                                    disabled={isCreating}
-                                >
-                                    Worker
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`themedSegmentedBtn ${mode === 'coordinate' ? 'active' : ''}`}
-                                    onClick={() => {
-                                        setMode('coordinate');
-                                        setStrategy('default');
-                                        setCapabilities(getDefaultCapabilities('coordinate', 'default'));
-                                        setWorkflowTemplateId('');
-                                    }}
-                                    style={{ padding: '4px 12px', fontSize: '11px' }}
-                                    disabled={isCreating}
-                                >
-                                    Orchestrator
-                                </button>
-                            </div>
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Strategy</div>
-                            <select
-                                className="themedFormSelect"
-                                style={{
-                                    margin: 0,
-                                    padding: '4px 8px',
-                                    fontSize: '11px',
-                                    width: '100%',
-                                    boxSizing: 'border-box',
+                    {/* Mode row */}
+                    <div style={{ marginBottom: '8px' }}>
+                        <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Mode</div>
+                        <div className="themedSegmentedControl" style={{ margin: 0 }}>
+                            <button
+                                type="button"
+                                className={`themedSegmentedBtn ${mode === 'execute' ? 'active' : ''}`}
+                                onClick={() => {
+                                    setMode('execute');
+                                    setCapabilities(getDefaultCapabilities('execute'));
+                                    setWorkflowTemplateId('');
                                 }}
-                                value={strategy}
-                                onChange={(e) => {
-                                    const newStrategy = e.target.value;
-                                    setStrategy(newStrategy);
-                                    setCapabilities(getDefaultCapabilities(mode, newStrategy));
-                                }}
+                                style={{ padding: '4px 12px', fontSize: '11px' }}
                                 disabled={isCreating}
                             >
-                                {mode === 'execute' ? (
-                                    <>
-                                        <option value="simple">Simple</option>
-                                        <option value="queue">Queue</option>
-                                    </>
-                                ) : (
-                                    <>
-                                        <option value="default">Default</option>
-                                        <option value="intelligent-batching">Intelligent Batching</option>
-                                        <option value="dag">DAG</option>
-                                    </>
-                                )}
-                            </select>
+                                Worker
+                            </button>
+                            <button
+                                type="button"
+                                className={`themedSegmentedBtn ${mode === 'coordinate' ? 'active' : ''}`}
+                                onClick={() => {
+                                    setMode('coordinate');
+                                    setCapabilities(getDefaultCapabilities('coordinate'));
+                                    setWorkflowTemplateId('');
+                                }}
+                                style={{ padding: '4px 12px', fontSize: '11px' }}
+                                disabled={isCreating}
+                            >
+                                Orchestrator
+                            </button>
                         </div>
                     </div>
 
-                    {/* Identity Prompt */}
+                    {/* Identity Prompt with MentionsInput */}
                     <div className="themedFormRow" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                         <div className="themedFormLabel" style={{ marginBottom: '4px' }}>Identity (instructions)</div>
                         <div className="mentionsWrapper" style={{ flex: 1, minHeight: 0 }}>
-                            <textarea
-                                className="themedFormInput"
-                                style={{
-                                    margin: 0,
-                                    padding: '8px 10px',
-                                    fontSize: '12px',
-                                    fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                                    lineHeight: '1.5',
-                                    minHeight: '120px',
-                                    maxHeight: '300px',
-                                    resize: 'vertical',
-                                    width: '100%',
-                                    boxSizing: 'border-box',
-                                }}
-                                placeholder="Optional: Describe this team member's persona, expertise, and how they should approach tasks..."
+                            <MentionsInput
                                 value={identity}
                                 onChange={(e) => setIdentity(e.target.value)}
+                                style={mentionsStyle}
+                                placeholder="Describe this team member's persona, expertise, and how they should approach tasks..."
+                                className="mentionsInput"
                                 onKeyDown={handleKeyDown}
-                                disabled={isCreating}
-                            />
+                            >
+                                <Mention
+                                    trigger="@"
+                                    data={[]}
+                                    renderSuggestion={(entry, search, highlightedDisplay, index, focused) => (
+                                        <div className={`suggestionItem ${focused ? 'focused' : ''}`}>
+                                            {entry.display}
+                                        </div>
+                                    )}
+                                />
+                            </MentionsInput>
                         </div>
                     </div>
+                </div>
 
-                    {/* Advanced: Capabilities & Command Permissions */}
-                    <div style={{ marginTop: '6px' }}>
-                        <button
-                            type="button"
-                            className="themedBtn"
-                            onClick={() => setShowAdvanced(!showAdvanced)}
-                            style={{ fontSize: '10px', padding: '2px 8px', opacity: 0.8 }}
-                        >
-                            {showAdvanced ? '▾' : '▸'} Capabilities & Permissions
-                        </button>
-                    </div>
+                {/* Tab Content - between content and footer */}
+                {activeTab && (
+                    <div className="themedModalTabContent" style={{ maxHeight: '250px', overflowY: 'auto', borderTop: '1px solid var(--theme-border)' }}>
+                        {/* Skills Tab */}
+                        {activeTab === 'skills' && (
+                            <ClaudeCodeSkillsSelector
+                                selectedSkills={selectedSkills}
+                                onSelectionChange={setSelectedSkills}
+                            />
+                        )}
 
-                    {showAdvanced && (
-                        <div style={{
-                            marginTop: '6px',
-                            border: '1px solid var(--theme-border)',
-                            borderRadius: '4px',
-                            padding: '10px',
-                            overflowX: 'hidden',
-                        }}>
-                            {/* Workflow Template */}
-                            <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Workflow</div>
-                            <div style={{ marginBottom: '10px' }}>
-                                <select
-                                    className="themedFormSelect"
-                                    style={{
-                                        margin: 0,
-                                        padding: '4px 8px',
-                                        fontSize: '11px',
-                                        width: '100%',
-                                        boxSizing: 'border-box',
-                                        marginBottom: '4px',
-                                    }}
-                                    value={useCustomWorkflow ? '__custom__' : workflowTemplateId}
-                                    onChange={(e) => {
-                                        if (e.target.value === '__custom__') {
-                                            setUseCustomWorkflow(true);
-                                            if (selectedTemplate) {
-                                                setCustomWorkflow(selectedTemplate.phases.map(p => `[${p.name}]\n${p.instruction}`).join('\n\n'));
-                                            }
-                                        } else {
-                                            setUseCustomWorkflow(false);
-                                            setWorkflowTemplateId(e.target.value);
-                                        }
-                                    }}
-                                    disabled={isCreating}
-                                >
-                                    <option value="">Default (auto from mode/strategy)</option>
-                                    {filteredTemplates.map(t => (
-                                        <option key={t.id} value={t.id}>{t.name} — {t.description}</option>
-                                    ))}
-                                    <option value="__custom__">Custom workflow...</option>
-                                </select>
-                                {selectedTemplate && !useCustomWorkflow && (
-                                    <div style={{
-                                        fontSize: '10px',
-                                        opacity: 0.7,
-                                        padding: '6px 8px',
-                                        border: '1px solid var(--theme-border)',
-                                        borderRadius: '3px',
-                                        maxHeight: '100px',
-                                        overflow: 'auto',
-                                    }}>
-                                        {selectedTemplate.phases.map((p, i) => (
-                                            <div key={i} style={{ marginBottom: i < selectedTemplate.phases.length - 1 ? '4px' : 0 }}>
-                                                <span style={{ fontWeight: 600 }}>{p.name}:</span> {p.instruction.substring(0, 80)}{p.instruction.length > 80 ? '...' : ''}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                {useCustomWorkflow && (
-                                    <textarea
-                                        className="themedFormInput"
+                        {/* Capabilities & Permissions Tab */}
+                        {activeTab === 'permissions' && (
+                            <div style={{ overflowX: 'hidden' }}>
+                                {/* Workflow Template */}
+                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Workflow</div>
+                                <div style={{ marginBottom: '10px' }}>
+                                    <select
+                                        className="themedFormSelect"
                                         style={{
                                             margin: 0,
-                                            padding: '6px 8px',
+                                            padding: '4px 8px',
                                             fontSize: '11px',
-                                            fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                                            minHeight: '100px',
-                                            maxHeight: '200px',
-                                            resize: 'vertical',
                                             width: '100%',
                                             boxSizing: 'border-box',
+                                            marginBottom: '4px',
                                         }}
-                                        placeholder="Enter custom workflow instructions..."
-                                        value={customWorkflow}
-                                        onChange={(e) => setCustomWorkflow(e.target.value)}
+                                        value={useCustomWorkflow ? '__custom__' : workflowTemplateId}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__custom__') {
+                                                setUseCustomWorkflow(true);
+                                                if (selectedTemplate) {
+                                                    setCustomWorkflow(selectedTemplate.phases.map(p => `[${p.name}]\n${p.instruction}`).join('\n\n'));
+                                                }
+                                            } else {
+                                                setUseCustomWorkflow(false);
+                                                setWorkflowTemplateId(e.target.value);
+                                            }
+                                        }}
                                         disabled={isCreating}
-                                    />
-                                )}
-                            </div>
-
-                            {/* Capabilities */}
-                            <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Capabilities</div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginBottom: '10px' }}>
-                                {CAPABILITY_DEFS.map(cap => (
-                                    <label key={cap.key} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }} title={cap.desc}>
-                                        <input
-                                            type="checkbox"
-                                            checked={capabilities[cap.key] ?? false}
-                                            onChange={() => handleCapabilityToggle(cap.key)}
-                                            disabled={isCreating}
-                                            style={{ margin: 0 }}
-                                        />
-                                        {cap.label}
-                                    </label>
-                                ))}
-                            </div>
-
-                            {/* Command Permissions */}
-                            <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Command Permissions</div>
-                            <div style={{ fontSize: '10px', opacity: 0.6, marginBottom: '4px' }}>
-                                All commands enabled by default. Toggle off individual commands to restrict.
-                            </div>
-                            {COMMAND_GROUPS.map(group => {
-                                const isExpanded = expandedGroups.has(group.key);
-                                const disabledCount = group.commands.filter(c => commandOverrides[c] === false).length;
-                                return (
-                                    <div key={group.key} style={{ marginBottom: '2px' }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => toggleGroupExpanded(group.key)}
+                                    >
+                                        <option value="">Default (auto from mode)</option>
+                                        {filteredTemplates.map(t => (
+                                            <option key={t.id} value={t.id}>{t.name} — {t.description}</option>
+                                        ))}
+                                        <option value="__custom__">Custom workflow...</option>
+                                    </select>
+                                    {selectedTemplate && !useCustomWorkflow && (
+                                        <div style={{
+                                            fontSize: '10px',
+                                            opacity: 0.7,
+                                            padding: '6px 8px',
+                                            border: '1px solid var(--theme-border)',
+                                            borderRadius: '3px',
+                                            maxHeight: '80px',
+                                            overflow: 'auto',
+                                        }}>
+                                            {selectedTemplate.phases.map((p, i) => (
+                                                <div key={i} style={{ marginBottom: i < selectedTemplate.phases.length - 1 ? '4px' : 0 }}>
+                                                    <span style={{ fontWeight: 600 }}>{p.name}:</span> {p.instruction.substring(0, 80)}{p.instruction.length > 80 ? '...' : ''}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {useCustomWorkflow && (
+                                        <textarea
+                                            className="themedFormInput"
                                             style={{
-                                                background: 'none',
-                                                border: 'none',
-                                                cursor: 'pointer',
+                                                margin: 0,
+                                                padding: '6px 8px',
                                                 fontSize: '11px',
-                                                padding: '2px 0',
-                                                color: 'var(--text-primary)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '4px',
+                                                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                                                minHeight: '80px',
+                                                maxHeight: '150px',
+                                                resize: 'vertical',
                                                 width: '100%',
-                                                fontFamily: '"JetBrains Mono", monospace',
+                                                boxSizing: 'border-box',
                                             }}
-                                        >
-                                            <span>{isExpanded ? '▾' : '▸'}</span>
-                                            <span style={{ fontWeight: 500 }}>{group.label}</span>
-                                            <span style={{ opacity: 0.5, fontSize: '10px' }}>
-                                                ({group.commands.length - disabledCount}/{group.commands.length})
-                                            </span>
-                                        </button>
-                                        {isExpanded && (
-                                            <div style={{ paddingLeft: '16px', display: 'flex', flexWrap: 'wrap', gap: '2px 12px' }}>
-                                                {group.commands.map(cmd => {
-                                                    const isDisabled = commandOverrides[cmd] === false;
-                                                    return (
-                                                        <label key={cmd} style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '4px',
-                                                            fontSize: '10px',
-                                                            cursor: 'pointer',
-                                                            opacity: isDisabled ? 0.5 : 1,
-                                                            whiteSpace: 'nowrap',
-                                                        }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={!isDisabled}
-                                                                onChange={() => handleCommandToggle(cmd)}
-                                                                disabled={isCreating}
-                                                                style={{ margin: 0 }}
-                                                            />
-                                                            {cmd}
-                                                        </label>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                            placeholder="Enter custom workflow instructions..."
+                                            value={customWorkflow}
+                                            onChange={(e) => setCustomWorkflow(e.target.value)}
+                                            disabled={isCreating}
+                                        />
+                                    )}
+                                </div>
+
+                                {/* Capabilities */}
+                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '6px' }}>Capabilities</div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginBottom: '12px' }}>
+                                    {CAPABILITY_DEFS.map(cap => {
+                                        const isChecked = capabilities[cap.key] ?? false;
+                                        return (
+                                            <label
+                                                key={cap.key}
+                                                className="terminalTaskCheckbox"
+                                                title={cap.desc}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', marginRight: 0 }}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    if (!isCreating) handleCapabilityToggle(cap.key);
+                                                }}
+                                            >
+                                                <input type="checkbox" checked={isChecked} readOnly />
+                                                <span className={`terminalTaskCheckmark ${isChecked ? 'terminalTaskCheckmark--checked' : ''}`}>
+                                                    {isChecked ? '✓' : ''}
+                                                </span>
+                                                <span style={{ fontSize: '11px', color: 'var(--theme-text)', fontFamily: '"JetBrains Mono", monospace' }}>
+                                                    {cap.label}
+                                                </span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Command Permissions */}
+                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Command Permissions</div>
+                                <div className="themedFormHint" style={{ marginBottom: '6px' }}>
+                                    All commands enabled by default. Toggle off individual commands to restrict.
+                                </div>
+                                {COMMAND_GROUPS.map(group => {
+                                    const isExpanded = expandedGroups.has(group.key);
+                                    const disabledCount = group.commands.filter(c => commandOverrides[c] === false).length;
+                                    return (
+                                        <div key={group.key} style={{ marginBottom: '2px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleGroupExpanded(group.key)}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    fontSize: '11px',
+                                                    padding: '3px 0',
+                                                    color: 'var(--theme-text)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    width: '100%',
+                                                    fontFamily: '"JetBrains Mono", monospace',
+                                                }}
+                                            >
+                                                <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)', fontSize: '10px' }}>
+                                                    {isExpanded ? '\u25BC' : '\u25B6'}
+                                                </span>
+                                                <span style={{ fontWeight: 500 }}>{group.label}</span>
+                                                <span style={{ opacity: 0.5, fontSize: '10px' }}>
+                                                    ({group.commands.length - disabledCount}/{group.commands.length})
+                                                </span>
+                                            </button>
+                                            {isExpanded && (
+                                                <div style={{ paddingLeft: '20px', display: 'flex', flexWrap: 'wrap', gap: '4px 16px', paddingTop: '4px', paddingBottom: '4px' }}>
+                                                    {group.commands.map(cmd => {
+                                                        const isDisabled = commandOverrides[cmd] === false;
+                                                        const isChecked = !isDisabled;
+                                                        return (
+                                                            <label
+                                                                key={cmd}
+                                                                className="terminalTaskCheckbox"
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '5px',
+                                                                    cursor: 'pointer',
+                                                                    opacity: isDisabled ? 0.5 : 1,
+                                                                    marginRight: 0,
+                                                                }}
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    if (!isCreating) handleCommandToggle(cmd);
+                                                                }}
+                                                            >
+                                                                <input type="checkbox" checked={isChecked} readOnly />
+                                                                <span className={`terminalTaskCheckmark ${isChecked ? 'terminalTaskCheckmark--checked' : ''}`} style={{ width: '14px', height: '14px', fontSize: '9px' }}>
+                                                                    {isChecked ? '✓' : ''}
+                                                                </span>
+                                                                <span style={{ fontSize: '10px', whiteSpace: 'nowrap', fontFamily: '"JetBrains Mono", monospace', color: 'var(--theme-text)' }}>
+                                                                    {cmd}
+                                                                </span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Tab Bar - matching CreateTaskModal pattern */}
+                <div className="themedModalTabBar" style={{ borderTop: '1px solid var(--theme-border)', marginTop: 'auto' }}>
+                    <button
+                        type="button"
+                        className={`themedModalTab ${activeTab === 'skills' ? 'themedModalTab--active' : ''}`}
+                        onClick={() => toggleTab('skills')}
+                    >
+                        Skills
+                        {selectedSkills.length > 0 && (
+                            <span className="themedModalTabBadge">{selectedSkills.length}</span>
+                        )}
+                    </button>
+                    <button
+                        type="button"
+                        className={`themedModalTab ${activeTab === 'permissions' ? 'themedModalTab--active' : ''}`}
+                        onClick={() => toggleTab('permissions')}
+                    >
+                        Permissions
+                    </button>
+                    {activeTab && (
+                        <button
+                            type="button"
+                            className="themedModalTab themedModalTabClose"
+                            onClick={() => setActiveTab(null)}
+                            title="Collapse tab panel"
+                        >
+                            ×
+                        </button>
                     )}
                 </div>
 

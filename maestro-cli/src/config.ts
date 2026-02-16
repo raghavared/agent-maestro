@@ -50,9 +50,6 @@ export const config = {
   get taskIds() {
     return process.env.MAESTRO_TASK_IDS ? process.env.MAESTRO_TASK_IDS.split(',').filter(Boolean) : [];
   },
-  get strategy() {
-    return process.env.MAESTRO_STRATEGY || 'simple';
-  },
   get retries() {
     return parseInt(process.env.MAESTRO_RETRIES || '3', 10);
   },
@@ -62,7 +59,4 @@ export const config = {
   get debug() {
     return process.env.MAESTRO_DEBUG === 'true';
   },
-  get orchestratorStrategy() {
-    return (process.env.MAESTRO_ORCHESTRATOR_STRATEGY || 'default') as 'default' | 'intelligent-batching' | 'dag';
-  }
 };

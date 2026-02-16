@@ -1,13 +1,11 @@
 import type { MaestroManifest } from '../types/manifest.js';
-import { getEffectiveStrategy } from '../types/manifest.js';
 import { PromptBuilder, type PromptMode } from './prompt-builder.js';
 import {
   generateCommandBrief,
-  getAvailableCommandsGrouped,
-  getCommandSyntax,
+  generateCompactCommandBrief,
   type CommandPermissions,
 } from './command-permissions.js';
-import { api } from '../api.js';
+
 
 /**
  * WhoamiRenderer - Renders full session context for the `maestro whoami` command
@@ -71,75 +69,21 @@ export class WhoamiRenderer {
   }
 
   /**
-   * Render available commands as XML for system instructions.
+   * Render reference task IDs as XML.
+   * Only includes IDs — agents should run `maestro task get <id>` to fetch details.
    */
-  private renderCommandsXml(permissions: CommandPermissions): string {
-    const grouped = getAvailableCommandsGrouped(permissions, true);
-    const lines: string[] = ['  <commands>'];
-
-    for (const [group, commands] of Object.entries(grouped)) {
-      lines.push(`    <group name="${this.esc(group)}">`);
-      for (const cmd of commands) {
-        const syntax = getCommandSyntax(cmd.name);
-        lines.push(
-          `      <command name="${this.esc(cmd.name)}" id="${this.esc(cmd.name)}" syntax="${this.esc(syntax)}" description="${this.esc(cmd.description)}" />`
-        );
-      }
-      lines.push('    </group>');
-    }
-
-    lines.push('  </commands>');
-    return lines.join('\n');
-  }
-
-  /**
-   * Fetch and render reference task context as XML
-   */
-  private async renderReferenceTaskContext(referenceTaskIds: string[]): Promise<string> {
+  private renderReferenceTaskIds(referenceTaskIds: string[]): string {
     if (!referenceTaskIds || referenceTaskIds.length === 0) return '';
-
-    const lines: string[] = [
-      '<reference_task_context>',
-    ];
-
-    for (const taskId of referenceTaskIds) {
-      try {
-        // Fetch task details
-        const task = await api.get<any>(`/api/tasks/${taskId}`);
-        lines.push(`  <reference_task id="${this.esc(taskId)}">`);
-        lines.push(`    <title>${this.esc(task.title || taskId)}</title>`);
-        if (task.description) {
-          lines.push(`    <description>${this.esc(task.description)}</description>`);
-        }
-
-        // Fetch task docs
-        try {
-          const docs = await api.get<any[]>(`/api/tasks/${taskId}/docs`);
-          if (docs && docs.length > 0) {
-            lines.push('    <docs>');
-            for (const doc of docs) {
-              lines.push(`      <doc title="${this.esc(doc.title || '')}" path="${this.esc(doc.filePath || '')}" />`);
-            }
-            lines.push('    </docs>');
-          }
-        } catch {
-          // Silently skip if docs can't be fetched
-        }
-        lines.push('  </reference_task>');
-      } catch {
-        lines.push(`  <reference_task id="${this.esc(taskId)}">`);
-        lines.push('    <fetch_error>Could not fetch task details</fetch_error>');
-        lines.push('  </reference_task>');
-      }
-    }
-
-    lines.push('</reference_task_context>');
-    return lines.join('\n');
+    const ids = referenceTaskIds.map(id => this.esc(id)).join(', ');
+    return `  <reference_tasks hint="Run maestro task get &lt;id&gt; for details">${ids}</reference_tasks>`;
   }
 
   /**
    * Render the static system prompt (role instructions + compact command reference).
    * Suitable for --append-system-prompt or equivalent system-level injection.
+   *
+   * Uses compact command brief (one-liner-per-group) instead of full XML commands
+   * to minimize token count. Agents can run `maestro commands` for full syntax.
    */
   renderSystemPrompt(
     manifest: MaestroManifest,
@@ -147,23 +91,25 @@ export class WhoamiRenderer {
   ): string {
     const parts: string[] = [];
 
-    // XML-only system content: identity + workflow
+    // XML system content: identity + capabilities + workflow (no commands XML)
     const systemXml = this.promptBuilder.buildSystemXml(manifest);
-    const commandsXml = this.renderCommandsXml(permissions);
-    parts.push(systemXml.replace('</maestro_system_prompt>', `${commandsXml}\n</maestro_system_prompt>`));
+
+    // Inject compact command brief inside the system prompt XML
+    const compactCommands = generateCompactCommandBrief(permissions);
+    const commandsBlock = `  <commands_reference>\n${compactCommands.split('\n').map(l => `    ${l}`).join('\n')}\n  </commands_reference>`;
+    parts.push(systemXml.replace('</maestro_system_prompt>', `${commandsBlock}\n</maestro_system_prompt>`));
 
     return parts.join('\n');
   }
 
   /**
-   * Render the dynamic task context (identity header + reference task context).
+   * Render the dynamic task context (session ID + reference task IDs).
    * Suitable for passing as the user message / prompt argument.
    */
   async renderTaskContext(
     manifest: MaestroManifest,
     sessionId: string | undefined,
   ): Promise<string> {
-    // XML-only task context payload
     const taskXml = this.promptBuilder.buildTaskXml(manifest);
     const taskParts: string[] = [
       '  <session_context>',
@@ -171,16 +117,9 @@ export class WhoamiRenderer {
       '  </session_context>',
     ];
 
-    // Reference task context (if any)
+    // Reference task IDs only — agents fetch details lazily
     if (manifest.referenceTaskIds && manifest.referenceTaskIds.length > 0) {
-      const refContext = await this.renderReferenceTaskContext(manifest.referenceTaskIds);
-      if (refContext) {
-        const indentedRef = refContext
-          .split('\n')
-          .map(line => `  ${line}`)
-          .join('\n');
-        taskParts.push(indentedRef);
-      }
+      taskParts.push(this.renderReferenceTaskIds(manifest.referenceTaskIds));
     }
 
     return taskXml.replace(
@@ -210,12 +149,9 @@ export class WhoamiRenderer {
     // 2. Prompt content (role+strategy specific)
     parts.push(this.promptBuilder.build(manifest));
 
-    // 3. Reference task context (if any)
+    // 3. Reference task IDs (if any)
     if (manifest.referenceTaskIds && manifest.referenceTaskIds.length > 0) {
-      const refContext = await this.renderReferenceTaskContext(manifest.referenceTaskIds);
-      if (refContext) {
-        parts.push(refContext);
-      }
+      parts.push(`**Reference Tasks:** ${manifest.referenceTaskIds.join(', ')} (run \`maestro task get <id>\` for details)`);
     }
 
     // 4. Available commands
@@ -234,11 +170,8 @@ export class WhoamiRenderer {
   ): object {
     const primaryTask = manifest.tasks[0];
 
-    const strategy = getEffectiveStrategy(manifest);
-
     const result: any = {
       mode: manifest.mode,
-      strategy,
       sessionId: sessionId || null,
       projectId: primaryTask.projectId,
       tasks: manifest.tasks.map(t => ({
@@ -256,10 +189,6 @@ export class WhoamiRenderer {
       capabilities: permissions.capabilities,
       context: manifest.context || null,
     };
-
-    if (manifest.mode === 'coordinate') {
-      result.coordinateStrategy = strategy;
-    }
 
     if (manifest.agentTool) {
       result.agentTool = manifest.agentTool;

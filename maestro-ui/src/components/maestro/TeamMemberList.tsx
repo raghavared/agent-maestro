@@ -11,16 +11,14 @@ type TeamMemberListProps = {
     onNewMember: () => void;
 };
 
-const AGENT_TOOL_SYMBOLS: Record<AgentTool, string> = {
+const AGENT_TOOL_SYMBOLS: Partial<Record<AgentTool, string>> = {
     "claude-code": "◈",
     "codex": "◇",
-    "gemini": "△",
 };
 
-const AGENT_TOOL_LABELS: Record<AgentTool, string> = {
+const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
     "claude-code": "Claude Code",
     "codex": "OpenAI Codex",
-    "gemini": "Google Gemini",
 };
 
 function getModelDisplayLabel(model?: string, agentTool?: AgentTool): string {
@@ -31,8 +29,6 @@ function getModelDisplayLabel(model?: string, agentTool?: AgentTool): string {
         opus: "Opus",
         "gpt-5.3-codex": "5.3-codex",
         "gpt-5.2-codex": "5.2-codex",
-        "gemini-3-pro-preview": "3-pro",
-        "gemini-3-flash-preview": "3-flash",
     };
     return modelLabels[model] || model;
 }

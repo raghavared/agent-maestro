@@ -48,7 +48,6 @@ export class TeamMemberService {
       model: data.model,
       agentTool: data.agentTool,
       mode: data.mode,
-      strategy: data.strategy,
       skillIds: data.skillIds || [],
       isDefault: false,
       status: 'active',
@@ -131,7 +130,6 @@ export class TeamMemberService {
     if (updates.model !== undefined) cleanUpdates.model = updates.model;
     if (updates.agentTool !== undefined) cleanUpdates.agentTool = updates.agentTool;
     if (updates.mode !== undefined) cleanUpdates.mode = updates.mode;
-    if (updates.strategy !== undefined) cleanUpdates.strategy = updates.strategy;
     if (updates.skillIds !== undefined) cleanUpdates.skillIds = updates.skillIds;
     if (updates.status !== undefined) cleanUpdates.status = updates.status;
     if (updates.capabilities !== undefined) cleanUpdates.capabilities = updates.capabilities;

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useLayoutEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { TeamMember, AgentMode } from "../../app/types/maestro";
+import { TeamMember, AgentMode, AgentTool } from "../../app/types/maestro";
 
 type SplitPlayButtonProps = {
     onPlayDefault: () => void;
@@ -16,6 +16,36 @@ const MODE_LABELS: Record<AgentMode, string> = {
     coordinate: 'coord',
 };
 
+const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
+    "claude-code": "Claude",
+    "codex": "Codex",
+};
+
+const AGENT_TOOL_SYMBOLS: Partial<Record<AgentTool, string>> = {
+    "claude-code": "◈",
+    "codex": "◇",
+};
+
+function getMemberBadgeLabel(member: TeamMember): string {
+    if (member.mode) return MODE_LABELS[member.mode];
+    return 'exec';
+}
+
+function getMemberBadgeClass(member: TeamMember): string {
+    return member.mode || 'execute';
+}
+
+function getMemberSubline(member: TeamMember): string {
+    const parts: string[] = [];
+    if (member.role) parts.push(member.role);
+    if (member.agentTool) {
+        let toolLabel = AGENT_TOOL_LABELS[member.agentTool] || member.agentTool;
+        if (member.model) toolLabel += ` / ${member.model}`;
+        parts.push(toolLabel);
+    }
+    return parts.join(' · ');
+}
+
 export function SplitPlayButton({
     onPlayDefault,
     assignedTeamMemberId,
@@ -25,7 +55,7 @@ export function SplitPlayButton({
     disabled = false,
 }: SplitPlayButtonProps) {
     const [showDropdown, setShowDropdown] = useState(false);
-    const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
+    const [dropdownPos, setDropdownPos] = useState<{ top?: number; bottom?: number; right: number; openDirection: 'down' | 'up' } | null>(null);
     const dropdownBtnRef = useRef<HTMLButtonElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -34,7 +64,18 @@ export function SplitPlayButton({
         if (!container) return null;
         const rect = container.getBoundingClientRect();
         const rightOffset = window.innerWidth - rect.right;
-        return { top: rect.bottom + 4, right: rightOffset };
+        // Estimate dropdown height (header + members + new button + padding)
+        const estimatedDropdownHeight = 300;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+
+        if (spaceBelow >= estimatedDropdownHeight || spaceBelow >= spaceAbove) {
+            // Open downward
+            return { top: rect.bottom + 4, right: rightOffset, openDirection: 'down' as const };
+        } else {
+            // Open upward
+            return { bottom: (window.innerHeight - rect.top) + 4, right: rightOffset, openDirection: 'up' as const };
+        }
     }, []);
 
     useLayoutEffect(() => {
@@ -108,36 +149,62 @@ export function SplitPlayButton({
                         }}
                     />
                     <div
-                        className="splitPlayDropdown"
-                        style={{ top: dropdownPos.top, right: dropdownPos.right }}
+                        className={`splitPlayDropdown ${dropdownPos.openDirection === 'up' ? 'splitPlayDropdown--openUp' : ''}`}
+                        style={{
+                            ...(dropdownPos.openDirection === 'down'
+                                ? { top: dropdownPos.top }
+                                : { bottom: dropdownPos.bottom }),
+                            right: dropdownPos.right,
+                        }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="splitPlayDropdown__header">Assign team member</div>
+                        <div className="splitPlayDropdown__header">Select Team Member</div>
 
-                        {/* Flat list of all team members */}
-                        <div className="splitPlayDropdown__section">
-                            {activeMembers.map(member => {
-                                const isAssigned = member.id === assignedTeamMemberId;
-                                return (
-                                    <button
-                                        key={member.id}
-                                        className={`splitPlayDropdown__member ${isAssigned ? 'splitPlayDropdown__member--assigned' : ''} ${member.isDefault ? 'splitPlayDropdown__member--default' : 'splitPlayDropdown__member--custom'}`}
-                                        onClick={() => handleSelectTeamMember(member.id)}
-                                    >
-                                        <span className="splitPlayDropdown__avatar">{member.avatar}</span>
-                                        <span className="splitPlayDropdown__name">{member.name}</span>
-                                        {member.mode && (
-                                            <span className={`splitPlayDropdown__modeBadge splitPlayDropdown__modeBadge--${member.mode}`}>
-                                                {MODE_LABELS[member.mode]}
-                                            </span>
-                                        )}
-                                        {isAssigned && (
-                                            <span className="splitPlayDropdown__assignedCheck">✓</span>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        {activeMembers.length === 0 ? (
+                            <div className="splitPlayDropdown__empty">
+                                No team members configured
+                            </div>
+                        ) : (
+                            <div className="splitPlayDropdown__section">
+                                {activeMembers.map(member => {
+                                    const isAssigned = member.id === assignedTeamMemberId;
+                                    const subline = getMemberSubline(member);
+                                    return (
+                                        <button
+                                            key={member.id}
+                                            className={`splitPlayDropdown__member ${isAssigned ? 'splitPlayDropdown__member--assigned' : ''}`}
+                                            onClick={() => handleSelectTeamMember(member.id)}
+                                        >
+                                            <span className="splitPlayDropdown__avatar">{member.avatar}</span>
+                                            <div className="splitPlayDropdown__memberInfo">
+                                                <div className="splitPlayDropdown__memberTop">
+                                                    <span className="splitPlayDropdown__name">{member.name}</span>
+                                                    {member.mode && (
+                                                        <span className={`splitPlayDropdown__modeBadge splitPlayDropdown__modeBadge--${getMemberBadgeClass(member)}`}>
+                                                            {getMemberBadgeLabel(member)}
+                                                        </span>
+                                                    )}
+                                                    {member.isDefault && (
+                                                        <span className="splitPlayDropdown__defaultTag">default</span>
+                                                    )}
+                                                </div>
+                                                {subline && (
+                                                    <div className="splitPlayDropdown__memberSub">
+                                                        {member.agentTool && (
+                                                            <span className="splitPlayDropdown__agentIcon">{AGENT_TOOL_SYMBOLS[member.agentTool]}</span>
+                                                        )}
+                                                        {subline}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {isAssigned && (
+                                                <span className="splitPlayDropdown__assignedCheck">✓</span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
 
                         {/* New team member button */}
                         <div className="splitPlayDropdown__separator" />
@@ -148,7 +215,8 @@ export function SplitPlayButton({
                                 onOpenCreateTeamMember?.();
                             }}
                         >
-                            + New Team Member...
+                            <span className="splitPlayDropdown__newIcon">+</span>
+                            New Team Member
                         </button>
                     </div>
                 </>,

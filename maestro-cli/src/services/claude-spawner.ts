@@ -6,7 +6,6 @@ import { randomBytes } from 'crypto';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import type { MaestroManifest } from '../types/manifest.js';
-import { getEffectiveStrategy } from '../types/manifest.js';
 import { SkillLoader } from './skill-loader.js';
 import { WhoamiRenderer } from './whoami-renderer.js';
 import { getPermissionsFromManifest } from './command-permissions.js';
@@ -68,8 +67,6 @@ export class ClaudeSpawner {
     const primaryTask = manifest.tasks[0];
     const allTaskIds = manifest.tasks.map(t => t.id).join(',');
 
-    const strategy = getEffectiveStrategy(manifest);
-
     const env: Record<string, string> = {
       ...process.env,
       // Maestro context
@@ -77,7 +74,6 @@ export class ClaudeSpawner {
       MAESTRO_TASK_IDS: allTaskIds,
       MAESTRO_PROJECT_ID: primaryTask.projectId,
       MAESTRO_MODE: manifest.mode,
-      MAESTRO_STRATEGY: strategy,
       MAESTRO_MANIFEST_PATH: process.env.MAESTRO_MANIFEST_PATH || '',
       // Server URL - explicitly forward so child processes connect to the correct server
       MAESTRO_SERVER_URL: process.env.MAESTRO_SERVER_URL || process.env.MAESTRO_API_URL || '',
@@ -96,11 +92,6 @@ export class ClaudeSpawner {
     // Add dependencies if present
     if (primaryTask.dependencies && primaryTask.dependencies.length > 0) {
       env.MAESTRO_TASK_DEPENDENCIES = JSON.stringify(primaryTask.dependencies);
-    }
-
-    // Add orchestrator strategy when coordinate mode
-    if (manifest.mode === 'coordinate') {
-      env.MAESTRO_ORCHESTRATOR_STRATEGY = strategy;
     }
 
     return env as Record<string, string>;
