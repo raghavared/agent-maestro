@@ -144,6 +144,18 @@ else
   fail "npm not found even after Node.js install. Please install Node.js manually."
 fi
 
+# --- Bun ---
+if command -v bun &>/dev/null; then
+  success "Bun $(bun --version) found"
+else
+  info "Installing Bun..."
+  curl -fsSL https://bun.sh/install | bash
+  # Add bun to PATH for current session
+  export BUN_INSTALL="$HOME/.bun"
+  export PATH="$BUN_INSTALL/bin:$PATH"
+  success "Bun $(bun --version) installed"
+fi
+
 # --- Rust toolchain ---
 if command -v rustc &>/dev/null && command -v cargo &>/dev/null; then
   success "Rust $(rustc --version | awk '{print $2}') found"
@@ -155,19 +167,20 @@ else
 fi
 
 # ----------------------------------------------------------
-step "Installing npm dependencies (monorepo workspaces)"
+step "Installing dependencies (monorepo workspaces)"
 # ----------------------------------------------------------
 
 cd "$ROOT_DIR"
-npm install
+bun install
 success "All workspace dependencies installed"
 
 # ----------------------------------------------------------
 step "Building maestro-server"
 # ----------------------------------------------------------
 
+cd "$ROOT_DIR/maestro-server"
+bun run build
 cd "$ROOT_DIR"
-npm run build:server
 success "Server TypeScript compiled"
 
 # ----------------------------------------------------------
@@ -175,7 +188,7 @@ step "Creating server sidecar binary"
 # ----------------------------------------------------------
 
 cd "$ROOT_DIR/maestro-server"
-npm run build:binary
+bun run build:binary
 cd "$ROOT_DIR"
 
 if [ -f "maestro-ui/src-tauri/binaries/maestro-server-aarch64-apple-darwin" ]; then
@@ -188,8 +201,8 @@ fi
 step "Building & installing maestro-cli globally"
 # ----------------------------------------------------------
 
-cd "$ROOT_DIR"
-npm run build:cli
+cd "$ROOT_DIR/maestro-cli"
+bun run build
 
 cd "$ROOT_DIR/maestro-cli"
 chmod +x bin/maestro.js
@@ -216,7 +229,7 @@ cd "$ROOT_DIR/maestro-ui"
 # Build the frontend + Tauri app with prod config (bundles the server sidecar)
 # Only build .app bundle — skip DMG to avoid bundle_dmg.sh failures
 VITE_API_URL=http://localhost:2357/api VITE_WS_URL=ws://localhost:2357 \
-  npx tauri build --features custom-protocol --config src-tauri/tauri.conf.prod.json --bundles app
+  bunx tauri build --features custom-protocol --config src-tauri/tauri.conf.prod.json --bundles app
 cd "$ROOT_DIR"
 
 # The prod config names the app "Maestro Prod"; rename to "Agent Maestro"
