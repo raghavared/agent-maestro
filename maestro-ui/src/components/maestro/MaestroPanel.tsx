@@ -1,10 +1,11 @@
 import React, { useMemo, useEffect, useRef } from "react";
-import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy } from "../../app/types/maestro";
+import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy, TaskType } from "../../app/types/maestro";
 import { TaskListItem } from "./TaskListItem";
 import { TaskFilters } from "./TaskFilters";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { ExecutionBar } from "./ExecutionBar";
 import { AddSubtaskInput } from "./AddSubtaskInput";
+import { TeamMemberList } from "./TeamMemberList";
 import { useTasks } from "../../hooks/useTasks";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useTaskTree } from "../../hooks/useTaskTree";
@@ -18,7 +19,7 @@ type MaestroPanelProps = {
     onClose: () => void;
     projectId: string;
     project: MaestroProject;
-    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: string; mode?: 'execute' | 'coordinate' }) => Promise<any>;
+    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: string; mode?: 'execute' | 'coordinate'; teamMemberIds?: string[] }) => Promise<any>;
     onJumpToSession?: (maestroSessionId: string) => void;
     onAddTaskToSession?: (taskId: string) => void;
 };
@@ -63,6 +64,9 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [addingSubtaskTo, setAddingSubtaskTo] = React.useState<string | null>(null);
     const [slidingOutTasks, setSlidingOutTasks] = React.useState<Set<string>>(new Set());
     const [showBoard, setShowBoard] = React.useState(false);
+    const [showCreateTeamMemberModal, setShowCreateTeamMemberModal] = React.useState(false);
+    const [selectedTeamMembers, setSelectedTeamMembers] = React.useState<Set<string>>(new Set());
+    const [showTeamMembers, setShowTeamMembers] = React.useState(false);
 
     // Listen for global create-task shortcut trigger
     const createTaskRequested = useUIStore(s => s.createTaskRequested);
@@ -85,6 +89,15 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             completedAt: task.completedAt || null,
         }));
     }, [tasks]);
+
+    // Separate team members from regular tasks
+    const teamMembers = useMemo(() => {
+        return normalizedTasks.filter(t => t.taskType === 'team-member');
+    }, [normalizedTasks]);
+
+    const regularTasks = useMemo(() => {
+        return normalizedTasks.filter(t => t.taskType !== 'team-member');
+    }, [normalizedTasks]);
 
     // Detect when tasks become completed and trigger slide-out animation
     useEffect(() => {
@@ -203,8 +216,8 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         );
     }
 
-    // Build task tree for hierarchical display
-    const { roots, getChildren } = useTaskTree(normalizedTasks);
+    // Build task tree for hierarchical display (excludes team members)
+    const { roots, getChildren } = useTaskTree(regularTasks);
 
     // Search all tasks (not just roots) so subtasks can be selected
     const selectedTask = normalizedTasks.find((t) => t.id === selectedTaskId);
@@ -234,6 +247,8 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 parentId: taskData.parentId,
                 model: taskData.model,
                 agentTool: taskData.agentTool,
+                ...(taskData.taskType ? { taskType: taskData.taskType } : {}),
+                ...(taskData.teamMemberMetadata ? { teamMemberMetadata: taskData.teamMemberMetadata } : {}),
             });
 
             // Task will be added via WebSocket event automatically
@@ -335,8 +350,11 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     };
 
     const handleBatchOrchestrate = async (orchestratorStrategy: OrchestratorStrategy) => {
-        const selectedTasks = normalizedTasks.filter(t => selectedForExecution.has(t.id));
+        const selectedTasks = regularTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
+
+        // Collect selected team member IDs
+        const teamMemberIds = Array.from(selectedTeamMembers);
 
         try {
             await onCreateMaestroSession({
@@ -345,10 +363,12 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 mode: 'coordinate',
                 strategy: orchestratorStrategy,
                 skillIds: ['maestro-orchestrator'],
+                teamMemberIds: teamMemberIds.length > 0 ? teamMemberIds : undefined,
             });
             setExecutionMode(false);
             setActiveBarMode('none');
             setSelectedForExecution(new Set());
+            setSelectedTeamMembers(new Set());
         } catch (err: any) {
             console.error('[MaestroPanel] Failed to create orchestrate session:', err);
             setError(`Failed to create orchestrator session: ${err.message}`);
@@ -558,48 +578,93 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     return (
         <>
             <div className={`maestroPanel terminalTheme ${executionMode ? 'maestroPanel--executionMode' : ''}`}>
-                {/* Tab navigation */}
-                <div className="maestroPanelTabs">
-                    <button
-                        className={`maestroPanelTab ${activeTab === "tasks" ? "maestroPanelTabActive" : ""}`}
-                        onClick={() => setActiveTab("tasks")}
-                    >
-                        <span className="maestroPanelTabIcon">▸</span>
-                        Tasks
-                        <span className="maestroPanelTabCount">
-                            {roots.filter(t => t.status !== 'completed' && t.status !== 'archived').length}
-                        </span>
-                    </button>
-                    <button
-                        className={`maestroPanelTab ${activeTab === "pinned" ? "maestroPanelTabActive" : ""}`}
-                        onClick={() => setActiveTab("pinned")}
-                    >
-                        <span className="maestroPanelTabIcon">▸</span>
-                        Pinned
-                        <span className="maestroPanelTabCount">
-                            {roots.filter(t => t.pinned).length}
-                        </span>
-                    </button>
-                    <button
-                        className={`maestroPanelTab ${activeTab === "completed" ? "maestroPanelTabActive" : ""}`}
-                        onClick={() => setActiveTab("completed")}
-                    >
-                        <span className="maestroPanelTabIcon">▸</span>
-                        Completed
-                        <span className="maestroPanelTabCount">
-                            {roots.filter(t => t.status === 'completed').length}
-                        </span>
-                    </button>
-                    <button
-                        className={`maestroPanelTab ${activeTab === "archived" ? "maestroPanelTabActive" : ""}`}
-                        onClick={() => setActiveTab("archived")}
-                    >
-                        <span className="maestroPanelTabIcon">▸</span>
-                        Archived
-                        <span className="maestroPanelTabCount">
-                            {roots.filter(t => t.status === 'archived').length}
-                        </span>
-                    </button>
+                {/* Icon tab bar */}
+                <div className="maestroPanelIconBar">
+                    {/* Task group */}
+                    <div className="maestroPanelIconGroup">
+                        <button
+                            className={`maestroPanelIconTab ${activeTab === "tasks" ? "maestroPanelIconTabActive" : ""}`}
+                            onClick={() => setActiveTab("tasks")}
+                            title="Tasks"
+                        >
+                            <svg className="maestroPanelIconSvg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <rect x="3" y="3" width="14" height="14" rx="2" />
+                                <path d="M7 7h6M7 10h6M7 13h4" strokeLinecap="round" />
+                            </svg>
+                            <span className="maestroPanelIconCount">
+                                {roots.filter(t => t.status !== 'completed' && t.status !== 'archived').length}
+                            </span>
+                        </button>
+                        <button
+                            className={`maestroPanelIconTab ${activeTab === "pinned" ? "maestroPanelIconTabActive" : ""}`}
+                            onClick={() => setActiveTab("pinned")}
+                            title="Pinned"
+                        >
+                            <svg className="maestroPanelIconSvg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M10 2l2.5 5 5.5.8-4 3.9.9 5.3L10 14.5 5.1 17l.9-5.3-4-3.9 5.5-.8L10 2z" strokeLinejoin="round" />
+                            </svg>
+                            <span className="maestroPanelIconCount">
+                                {roots.filter(t => t.pinned).length}
+                            </span>
+                        </button>
+                        <button
+                            className={`maestroPanelIconTab ${activeTab === "completed" ? "maestroPanelIconTabActive" : ""}`}
+                            onClick={() => setActiveTab("completed")}
+                            title="Completed"
+                        >
+                            <svg className="maestroPanelIconSvg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <circle cx="10" cy="10" r="7" />
+                                <path d="M7 10l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            <span className="maestroPanelIconCount">
+                                {roots.filter(t => t.status === 'completed').length}
+                            </span>
+                        </button>
+                        <button
+                            className={`maestroPanelIconTab ${activeTab === "archived" ? "maestroPanelIconTabActive" : ""}`}
+                            onClick={() => setActiveTab("archived")}
+                            title="Archived"
+                        >
+                            <svg className="maestroPanelIconSvg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <rect x="2" y="3" width="16" height="5" rx="1" />
+                                <path d="M3 8v7a2 2 0 002 2h10a2 2 0 002-2V8" />
+                                <path d="M8 12h4" strokeLinecap="round" />
+                            </svg>
+                            <span className="maestroPanelIconCount">
+                                {roots.filter(t => t.status === 'archived').length}
+                            </span>
+                        </button>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="maestroPanelIconDivider" />
+
+                    {/* Utility icons */}
+                    <div className="maestroPanelIconGroup">
+                        <button
+                            className="maestroPanelIconTab maestroPanelIconTabDisabled"
+                            title="Skills (coming soon)"
+                            disabled
+                        >
+                            <svg className="maestroPanelIconSvg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M10 2L3 7l7 5 7-5-7-5z" strokeLinejoin="round" />
+                                <path d="M3 13l7 5 7-5" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M3 10l7 5 7-5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </button>
+                        <button
+                            className="maestroPanelIconTab maestroPanelIconTabDisabled"
+                            title="Team (coming soon)"
+                            disabled
+                        >
+                            <svg className="maestroPanelIconSvg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <circle cx="7" cy="7" r="3" />
+                                <circle cx="14" cy="7" r="2.5" />
+                                <path d="M1 17c0-3 2.5-5 6-5s6 2 6 5" />
+                                <path d="M13 12c2.5 0 5 1.5 5 4" strokeLinecap="round" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 {(error || fetchError) && activeTab === "tasks" && (
@@ -640,6 +705,12 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         </button>
                         <button
                             className="terminalCmd"
+                            onClick={() => setShowCreateTeamMemberModal(true)}
+                        >
+                            <span className="terminalPrompt">$</span> new team member
+                        </button>
+                        <button
+                            className="terminalCmd"
                             onClick={() => setShowBoard(true)}
                             disabled={loading || !projectId}
                         >
@@ -675,14 +746,33 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     isActive={executionMode}
                     activeMode={activeBarMode}
                     onActivate={() => { setExecutionMode(true); setActiveBarMode('execute'); }}
-                    onActivateOrchestrate={() => { setExecutionMode(true); setActiveBarMode('orchestrate'); }}
+                    onActivateOrchestrate={() => { setExecutionMode(true); setActiveBarMode('orchestrate'); setShowTeamMembers(true); }}
                     onCancel={handleCancelExecution}
                     onExecute={handleBatchExecute}
                     onOrchestrate={handleBatchOrchestrate}
                     selectedCount={selectedForExecution.size}
-                    selectedTasks={normalizedTasks.filter(t => selectedForExecution.has(t.id))}
+                    selectedTasks={regularTasks.filter(t => selectedForExecution.has(t.id))}
                     projectId={projectId}
+                    teamMemberCount={selectedTeamMembers.size}
                 />
+
+                {/* Team member list - shown in orchestrate mode */}
+                {activeBarMode === 'orchestrate' && showTeamMembers && teamMembers.length > 0 && (
+                    <TeamMemberList
+                        teamMembers={teamMembers}
+                        selectedIds={selectedTeamMembers}
+                        onToggleSelect={(id) => {
+                            setSelectedTeamMembers(prev => {
+                                const next = new Set(prev);
+                                if (next.has(id)) next.delete(id);
+                                else next.add(id);
+                                return next;
+                            });
+                        }}
+                        onSelectAll={() => setSelectedTeamMembers(new Set(teamMembers.map(m => m.id)))}
+                        onDeselectAll={() => setSelectedTeamMembers(new Set())}
+                    />
+                )}
 
                 <div className="terminalContent">
                     {loading ? (
@@ -865,6 +955,14 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 project={project}
                 parentId={subtaskParentId ?? undefined}
                 parentTitle={subtaskParentTitle}
+            />
+
+            <CreateTaskModal
+                isOpen={showCreateTeamMemberModal}
+                onClose={() => setShowCreateTeamMemberModal(false)}
+                onCreate={handleCreateTask}
+                project={project}
+                taskType="team-member"
             />
 
             {selectedTask && showDetailModal && (

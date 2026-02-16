@@ -20,6 +20,17 @@ export type GeminiModel = 'gemini-3-pro-preview' | 'gemini-3-flash-preview';
 export type ModelType = ClaudeModel | CodexModel | GeminiModel;
 export type AgentTool = 'claude-code' | 'codex' | 'gemini';
 
+// Task type discriminator
+export type TaskType = 'task' | 'team-member';
+
+// Team member metadata (only present when taskType === 'team-member')
+export interface TeamMemberMetadata {
+  role: string;        // e.g. "frontend developer", "tester"
+  identity: string;    // persona/instruction prompt
+  avatar: string;      // emoji or icon identifier
+  mailId: string;      // random generated mail ID for shared mailbox
+}
+
 // Session timeline event types
 export type SessionTimelineEventType =
   | 'session_started'    // Session spawned
@@ -160,6 +171,12 @@ export interface MaestroTask {
   // Pinned tasks appear in the dedicated "Pinned" tab for quick re-execution
   pinned?: boolean;
 
+  // Task type: 'task' (default) or 'team-member'
+  taskType?: TaskType;
+
+  // Team member metadata (only when taskType === 'team-member')
+  teamMemberMetadata?: TeamMemberMetadata;
+
   // UI/Populated Fields (Optional)
   subtasks?: MaestroTask[];
   sessionCount?: number; // UI computed field
@@ -211,6 +228,8 @@ export interface CreateTaskPayload {
   referenceTaskIds?: string[];
   model?: ModelType;
   agentTool?: AgentTool;
+  taskType?: TaskType;
+  teamMemberMetadata?: TeamMemberMetadata;
 }
 
 export interface UpdateTaskPayload {
@@ -228,6 +247,8 @@ export interface UpdateTaskPayload {
   model?: ModelType;
   agentTool?: AgentTool;
   pinned?: boolean;
+  taskType?: TaskType;
+  teamMemberMetadata?: TeamMemberMetadata;
   // NOTE: timeline moved to Session - use addTimelineEvent on session
   completedAt?: number | null;
 }
@@ -293,6 +314,7 @@ export interface SpawnSessionPayload {
   context?: Record<string, any>;
   model?: ModelType;
   agentTool?: AgentTool;
+  teamMemberIds?: string[];           // Team member task IDs to include in coordinate mode
 }
 
 export interface SpawnSessionResponse {

@@ -10864,19 +10864,23 @@ select.input {
     display: none;
   }
 
-  /* Compact tabs for narrow panels */
-  .maestroPanelTabs {
-    padding: 0 6px;
-    gap: 0;
+  /* Compact icon bar for narrow panels */
+  .maestroPanelIconBar {
+    padding: 6px 6px;
+    gap: 2px;
   }
 
-  .maestroPanelTab {
-    padding: 8px 10px;
-    font-size: 10px;
+  .maestroPanelIconTab {
+    padding: 4px 6px;
   }
 
-  .maestroPanelTabCount {
-    display: none;
+  .maestroPanelIconSvg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .maestroPanelIconCount {
+    font-size: 8px;
   }
 
   .terminalCommandBar {
@@ -12541,76 +12545,82 @@ select.input {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Maestro Panel Tabs                                                 */
+/*  Maestro Panel Icon Bar                                             */
 /* ------------------------------------------------------------------ */
 
-.maestroPanelTabs {
+.maestroPanelIconBar {
   display: flex;
-  gap: 2px;
-  padding: 0 12px;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
   background: rgba(0, 0, 0, 0.3);
   border-bottom: 1px solid var(--terminal-border);
 }
 
-.maestroPanelTab {
+.maestroPanelIconGroup {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
+  gap: 2px;
+  background: rgba(var(--theme-primary-rgb), 0.04);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.08);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.maestroPanelIconDivider {
+  width: 1px;
+  height: 28px;
+  background: var(--terminal-border);
+  margin: 0 6px;
+}
+
+.maestroPanelIconTab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 4px;
   color: var(--terminal-text-dim);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  position: relative;
 }
 
-.maestroPanelTab:hover {
+.maestroPanelIconTab:hover:not(:disabled) {
   color: var(--terminal-text);
-  background: rgba(var(--theme-primary-rgb), 0.03);
-}
-
-.maestroPanelTabActive {
-  color: var(--terminal-green);
-  border-bottom-color: var(--terminal-green);
-  background: rgba(var(--theme-primary-rgb), 0.05);
-}
-
-.maestroPanelTabIcon {
-  font-size: 10px;
-  transition: transform 0.15s ease;
-}
-
-.maestroPanelTabActive .maestroPanelTabIcon {
-  transform: rotate(90deg);
-}
-
-.maestroPanelTabContent {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-.maestroPanelTabCount {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  color: var(--terminal-text-dim);
   background: rgba(var(--theme-primary-rgb), 0.08);
-  border: 1px solid rgba(var(--theme-primary-rgb), 0.15);
-  padding: 2px 6px;
-  border-radius: 3px;
-  min-width: 18px;
-  text-align: center;
 }
 
-.maestroPanelTabActive .maestroPanelTabCount {
-  background: rgba(var(--theme-primary-rgb), 0.15);
-  border-color: rgba(var(--theme-primary-rgb), 0.3);
+.maestroPanelIconTabActive {
+  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.maestroPanelIconTabActive:hover {
+  color: var(--terminal-green);
+}
+
+.maestroPanelIconTabDisabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.maestroPanelIconSvg {
+  width: 16px;
+  height: 16px;
+}
+
+.maestroPanelIconCount {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--terminal-text-dim);
+}
+
+.maestroPanelIconTabActive .maestroPanelIconCount {
   color: var(--terminal-green);
 }
 
@@ -14358,6 +14368,98 @@ select.input {
   background: rgba(255, 171, 0, 0.15);
   color: var(--terminal-amber, #ffab00);
   box-shadow: 0 0 8px rgba(255, 171, 0, 0.2);
+}
+
+/* ==================== Team Member List ==================== */
+
+.teamMemberList {
+  border-bottom: 1px solid var(--terminal-border);
+  background: rgba(255, 171, 0, 0.03);
+  padding: 6px 12px;
+}
+
+.teamMemberList--empty {
+  padding: 8px 12px;
+}
+
+.teamMemberListHint {
+  font-size: 11px;
+  color: var(--terminal-dim);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.teamMemberListHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.teamMemberListLabel {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--terminal-amber, #ffab00);
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.teamMemberListItems {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.teamMemberItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+
+.teamMemberItem:hover {
+  background: rgba(255, 171, 0, 0.06);
+  border-color: rgba(255, 171, 0, 0.2);
+}
+
+.teamMemberItem--selected {
+  background: rgba(255, 171, 0, 0.08);
+  border-color: rgba(255, 171, 0, 0.3);
+}
+
+.teamMemberCheckbox {
+  color: var(--terminal-dim);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.teamMemberItem--selected .teamMemberCheckbox {
+  color: var(--terminal-amber, #ffab00);
+}
+
+.teamMemberAvatar {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.teamMemberName {
+  color: var(--terminal-text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teamMemberRole {
+  color: var(--terminal-dim);
+  font-size: 10px;
+  flex-shrink: 0;
 }
 
 /* ==================== Whoami Preview ==================== */

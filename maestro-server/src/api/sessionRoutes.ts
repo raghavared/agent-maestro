@@ -25,8 +25,9 @@ async function generateManifestViaCLI(options: {
   model?: string;
   agentTool?: AgentTool;
   referenceTaskIds?: string[];
+  teamMemberIds?: string[];
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { mode, projectId, taskIds, skills, sessionId, strategy, model, agentTool, referenceTaskIds } = options;
+  const { mode, projectId, taskIds, skills, sessionId, strategy, model, agentTool, referenceTaskIds, teamMemberIds } = options;
 
   console.log('\n   📋 GENERATING MANIFEST VIA CLI:');
   console.log(`      • Session ID: ${sessionId}`);
@@ -51,6 +52,7 @@ async function generateManifestViaCLI(options: {
     ...(model ? ['--model', model] : []),
     ...(agentTool && agentTool !== 'claude-code' ? ['--agent-tool', agentTool] : []),
     ...(referenceTaskIds && referenceTaskIds.length > 0 ? ['--reference-task-ids', referenceTaskIds.join(',')] : []),
+    ...(teamMemberIds && teamMemberIds.length > 0 ? ['--team-member-ids', teamMemberIds.join(',')] : []),
   ];
 
   // Resolve maestro binary: use env var, monorepo path, or fall back to PATH
@@ -464,6 +466,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         context,
         model,                  // Model selection: 'sonnet' | 'opus' | 'haiku'
         agentTool,              // Agent tool: 'claude-code' | 'codex' | 'gemini'
+        teamMemberIds,          // Team member task IDs for coordinate mode
       } = req.body;
 
       // Resolve mode (defaults to 'execute')
@@ -638,6 +641,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           model,
           agentTool,
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
+          teamMemberIds: teamMemberIds && teamMemberIds.length > 0 ? teamMemberIds : undefined,
         });
         manifestPath = result.manifestPath;
         manifest = result.manifest;

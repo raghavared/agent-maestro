@@ -10,8 +10,9 @@ export async function createMaestroSession(input: {
     skillIds?: string[];      // Skill IDs to load
     strategy?: string;               // Unified strategy
     mode?: AgentMode;                // 'execute' or 'coordinate'
+    teamMemberIds?: string[];        // Team member task IDs for coordinate mode
   }): Promise<TerminalSession> {
-    const { task, tasks, skillIds, project, strategy, mode } = input;
+    const { task, tasks, skillIds, project, strategy, mode, teamMemberIds } = input;
 
     // Normalize to array (support both single and multi-task)
     const taskList = tasks || (task ? [task] : []);
@@ -50,6 +51,7 @@ export async function createMaestroSession(input: {
         skills: skillIds || [defaultSkill],
         model,
         ...(agentTool && agentTool !== 'claude-code' ? { agentTool } : {}),
+        ...(teamMemberIds && teamMemberIds.length > 0 ? { teamMemberIds } : {}),
       });
 
       console.log('[App.createMaestroSession] ✓ Server spawn request sent:', response.sessionId);

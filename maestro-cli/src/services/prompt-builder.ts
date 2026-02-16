@@ -6,6 +6,7 @@ import type {
   TaskData,
   AgentMode,
   Capability,
+  TeamMemberData,
 } from '../types/manifest.js';
 import { getEffectiveStrategy, computeCapabilities } from '../types/manifest.js';
 
@@ -47,6 +48,9 @@ export class PromptBuilder {
     parts.push(`<maestro_system_prompt mode="${mode}" strategy="${strategy}" version="3.0">`);
     parts.push(this.buildIdentity(mode));
     parts.push(this.buildCapabilities(capabilities));
+    // Team members (coordinate mode)
+    const teamMembers = this.buildTeamMembers(manifest.teamMembers);
+    if (teamMembers) parts.push(teamMembers);
     parts.push(this.buildWorkflow(mode, strategy));
     parts.push(this.buildCommandsSection(mode));
     parts.push('</maestro_system_prompt>');
@@ -76,6 +80,10 @@ export class PromptBuilder {
     if (manifest.skills && manifest.skills.length > 0) {
       parts.push(this.buildSkills(manifest.skills));
     }
+
+    // Team members (coordinate mode)
+    const taskTeamMembers = this.buildTeamMembers(manifest.teamMembers);
+    if (taskTeamMembers) parts.push(taskTeamMembers);
 
     parts.push('</maestro_task_prompt>');
     return parts.join('\n');
@@ -125,6 +133,10 @@ export class PromptBuilder {
     if (manifest.skills && manifest.skills.length > 0) {
       parts.push(this.buildSkills(manifest.skills));
     }
+
+    // Team members (coordinate mode)
+    const xmlTeamMembers = this.buildTeamMembers(manifest.teamMembers);
+    if (xmlTeamMembers) parts.push(xmlTeamMembers);
 
     // Workflow
     parts.push(this.buildWorkflow(mode, strategy));
@@ -347,6 +359,27 @@ export class PromptBuilder {
     const lines = ['  <skills>'];
     skills.forEach(s => lines.push(`    <skill>${this.esc(s)}</skill>`));
     lines.push('  </skills>');
+    return lines.join('\n');
+  }
+
+  private buildTeamMembers(teamMembers?: TeamMemberData[]): string | null {
+    if (!teamMembers || teamMembers.length === 0) return null;
+
+    const lines: string[] = [`  <team_members count="${teamMembers.length}">`];
+    for (const member of teamMembers) {
+      lines.push(`    <team_member id="${this.esc(member.id)}" name="${this.esc(member.name)}" role="${this.esc(member.role)}">`);
+      lines.push(`      <identity>${this.esc(member.identity)}</identity>`);
+      lines.push(`      <avatar>${this.esc(member.avatar)}</avatar>`);
+      lines.push(`      <mail_id>${this.esc(member.mailId)}</mail_id>`);
+      if (member.model) {
+        lines.push(`      <model>${this.esc(member.model)}</model>`);
+      }
+      if (member.agentTool) {
+        lines.push(`      <agent_tool>${this.esc(member.agentTool)}</agent_tool>`);
+      }
+      lines.push('    </team_member>');
+    }
+    lines.push('  </team_members>');
     return lines.join('\n');
   }
 

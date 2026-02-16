@@ -1,4 +1,4 @@
-import type { MaestroManifest, AdditionalContext, AgentTool, AgentMode } from '../types/manifest.js';
+import type { MaestroManifest, AdditionalContext, AgentTool, AgentMode, TeamMemberData } from '../types/manifest.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
 
@@ -16,6 +16,7 @@ export interface TaskInput {
   dependencies?: string[];
   priority?: 'low' | 'medium' | 'high' | 'critical';
   metadata?: Record<string, any>;
+  model?: string;
 }
 
 /**
@@ -29,6 +30,71 @@ export interface SessionOptions {
   timeout?: number;
   workingDirectory?: string;
   context?: AdditionalContext;
+}
+
+/**
+ * Model capability ranking for max-model resolution.
+ * When multiple tasks specify different models, the highest-ranked model wins.
+ * Native model names are treated as equivalent to their abstract mapping.
+ */
+const MODEL_RANK: Record<string, number> = {
+  'haiku': 1,
+  'sonnet': 2,
+  'opus': 3,
+};
+
+/**
+ * Normalize a model name to its abstract equivalent for ranking.
+ * Native model names (gpt-*, gemini-*) are mapped to their abstract tier.
+ */
+function normalizeModelForRanking(model: string): string {
+  // Already abstract
+  if (MODEL_RANK[model] !== undefined) return model;
+
+  // Codex native → abstract
+  if (model.includes('codex-mini') || model.includes('codex-lite')) return 'haiku';
+  if (model.includes('5.2-codex') || model.includes('5-codex') && !model.includes('mini')) return 'sonnet';
+  if (model.includes('5.3-codex')) return 'opus';
+
+  // Gemini native → abstract
+  if (model.includes('flash-lite') || model.includes('flash')) return 'haiku';
+  if (model.includes('2.5-pro')) return 'sonnet';
+  if (model.includes('3-pro')) return 'opus';
+
+  // Claude native → abstract
+  if (model.includes('haiku')) return 'haiku';
+  if (model.includes('sonnet')) return 'sonnet';
+  if (model.includes('opus')) return 'opus';
+
+  // Unknown model — treat as sonnet tier
+  return 'sonnet';
+}
+
+/**
+ * Resolve the max model across multiple tasks.
+ * Returns the most capable model (highest rank) from all task models,
+ * falling back to the session-level default if no tasks specify a model.
+ */
+function resolveMaxModel(tasks: TaskInput[], sessionDefault: string): string {
+  const taskModels = tasks
+    .map(t => t.model)
+    .filter((m): m is string => !!m);
+
+  if (taskModels.length === 0) return sessionDefault;
+
+  // Find the highest-ranked model
+  let maxModel = sessionDefault;
+  let maxRank = MODEL_RANK[normalizeModelForRanking(sessionDefault)] ?? 2;
+
+  for (const model of taskModels) {
+    const rank = MODEL_RANK[normalizeModelForRanking(model)] ?? 2;
+    if (rank > maxRank) {
+      maxRank = rank;
+      maxModel = model;
+    }
+  }
+
+  return maxModel;
 }
 
 /**
@@ -74,6 +140,7 @@ export class ManifestGeneratorCLICommand {
       dependencies: task.dependencies,
       priority: task.priority as any,
       metadata: task.metadata,
+      model: task.model,
     };
   }
 
@@ -106,6 +173,7 @@ export class ManifestGeneratorCLICommand {
     model?: string;
     agentTool?: AgentTool;
     referenceTaskIds?: string[];
+    teamMemberIds?: string[];
   }): Promise<void> {
     try {
       console.error('Generating manifest...');
@@ -126,9 +194,16 @@ export class ManifestGeneratorCLICommand {
       const project = await this.fetchProject(options.projectId);
       console.error(`  Working Directory: ${project.workingDir}`);
 
-      // 3. Build session options
+      // 3. Resolve model: use max model across all tasks, falling back to CLI option or 'sonnet'
+      const baseModel = options.model || 'sonnet';
+      const resolvedModel = resolveMaxModel(tasks, baseModel);
+      if (resolvedModel !== baseModel) {
+        console.error(`  Model resolved: ${baseModel} → ${resolvedModel} (max across ${tasks.length} tasks)`);
+      }
+
+      // 4. Build session options
       const sessionOptions: SessionOptions = {
-        model: options.model || 'sonnet',
+        model: resolvedModel,
         permissionMode: 'acceptEdits',
         thinkingMode: 'auto',
         workingDirectory: project.workingDir,
@@ -162,6 +237,38 @@ export class ManifestGeneratorCLICommand {
       // Add reference task IDs to manifest (if specified)
       if (options.referenceTaskIds && options.referenceTaskIds.length > 0) {
         manifest.referenceTaskIds = options.referenceTaskIds;
+      }
+
+      // Add team members to manifest (if specified, typically for coordinate mode)
+      if (options.teamMemberIds && options.teamMemberIds.length > 0) {
+        const teamMembers: TeamMemberData[] = [];
+        for (const memberId of options.teamMemberIds) {
+          try {
+            const memberTask = await this.fetchTask(memberId);
+            // Read the raw stored task to get teamMemberMetadata
+            await storage.initialize();
+            const rawTask = storage.getTask(memberId);
+            if (rawTask?.teamMemberMetadata) {
+              teamMembers.push({
+                id: memberTask.id,
+                name: memberTask.title,
+                role: rawTask.teamMemberMetadata.role,
+                identity: rawTask.teamMemberMetadata.identity,
+                avatar: rawTask.teamMemberMetadata.avatar,
+                mailId: rawTask.teamMemberMetadata.mailId,
+                skillIds: rawTask.metadata?.skillIds,
+                model: rawTask.model,
+                agentTool: rawTask.metadata?.agentTool,
+              });
+              console.error(`  Team Member: ${memberTask.title} (${memberId})`);
+            }
+          } catch (err: any) {
+            console.error(`  Warning: Could not load team member ${memberId}: ${err.message}`);
+          }
+        }
+        if (teamMembers.length > 0) {
+          manifest.teamMembers = teamMembers;
+        }
       }
 
       // 5. Validate manifest
@@ -227,6 +334,7 @@ export class ManifestGenerator {
       ...(taskData.dependencies && { dependencies: taskData.dependencies }),
       ...(taskData.priority && { priority: taskData.priority }),
       ...(taskData.metadata && { metadata: taskData.metadata }),
+      ...(taskData.model && { model: taskData.model }),
     }));
 
     const manifest: MaestroManifest = {
@@ -330,6 +438,7 @@ export function registerManifestCommands(program: any): void {
     .option('--model <model>', 'Model to use (e.g. sonnet, gpt-5.3-codex, gemini-3-pro-preview)', 'sonnet')
     .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)', 'claude-code')
     .option('--reference-task-ids <ids>', 'Comma-separated reference task IDs for context')
+    .option('--team-member-ids <ids>', 'Comma-separated team member task IDs')
     .requiredOption('--output <path>', 'Output file path')
     .action(async (options: any) => {
       // Parse comma-separated values
@@ -354,6 +463,11 @@ export function registerManifestCommands(program: any): void {
         ? options.referenceTaskIds.split(',').map((id: string) => id.trim()).filter(Boolean)
         : undefined;
 
+      // Parse team member IDs if provided
+      const teamMemberIds = options.teamMemberIds
+        ? options.teamMemberIds.split(',').map((id: string) => id.trim()).filter(Boolean)
+        : undefined;
+
       // Create and execute command (reads from local storage, no API needed)
       const command = new ManifestGeneratorCLICommand();
       await command.execute({
@@ -366,6 +480,7 @@ export function registerManifestCommands(program: any): void {
         model: options.model,
         agentTool: options.agentTool !== 'claude-code' ? options.agentTool : undefined,
         referenceTaskIds,
+        teamMemberIds,
       });
     });
 }

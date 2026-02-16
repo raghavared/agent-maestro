@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMe
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { MentionsInput, Mention } from 'react-mentions';
-import { TaskPriority, AgentSkill, MaestroProject, MaestroTask, ModelType, AgentTool, DocEntry } from "../../app/types/maestro";
+import { TaskPriority, AgentSkill, MaestroProject, MaestroTask, ModelType, AgentTool, DocEntry, TaskType, TeamMemberMetadata } from "../../app/types/maestro";
 import { maestroClient } from "../../utils/MaestroClient";
 import { Icon } from "../Icon";
 import { AgentSelector } from "./AgentSelector";
@@ -79,10 +79,14 @@ type CreateTaskModalProps = {
         parentId?: string;
         model?: ModelType;
         agentTool?: AgentTool;
+        taskType?: TaskType;
+        teamMemberMetadata?: TeamMemberMetadata;
     }) => void;
     project: MaestroProject;
     parentId?: string;
     parentTitle?: string;
+    // Task type for creation (default: 'task')
+    taskType?: TaskType;
     // Edit mode props
     mode?: "create" | "edit";
     task?: MaestroTask;
@@ -105,6 +109,7 @@ export function CreateTaskModal({
     project,
     parentId,
     parentTitle,
+    taskType: propTaskType,
     mode = "create",
     task,
     onUpdateTask,
@@ -129,6 +134,11 @@ export function CreateTaskModal({
     const [files, setFiles] = useState<{ id: string, display: string }[]>([]);
     const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+    // Team member fields
+    const isTeamMemberMode = propTaskType === 'team-member';
+    const [tmRole, setTmRole] = useState("");
+    const [tmAvatar, setTmAvatar] = useState("");
 
     // Reference tasks state
     const [selectedReferenceTasks, setSelectedReferenceTasks] = useState<MaestroTask[]>([]);
@@ -319,6 +329,8 @@ export function CreateTaskModal({
         setActiveTab(null);
         setSelectedSkills([]);
         setSelectedReferenceTasks([]);
+        setTmRole("");
+        setTmAvatar("");
         onClose();
     };
 
@@ -349,19 +361,33 @@ export function CreateTaskModal({
     if (!isOpen) return null;
 
     const handleSubmit = (startImmediately: boolean) => {
-        if (!title.trim() || !prompt.trim()) return;
+        if (!title.trim()) return;
+        // For team members, description can be the identity prompt
+        if (!isTeamMemberMode && !prompt.trim()) return;
 
-        onCreate({
+        const createPayload: Parameters<typeof onCreate>[0] = {
             title: title.trim(),
             description: prompt,
-            priority,
-            startImmediately,
+            priority: isTeamMemberMode ? 'medium' as TaskPriority : priority,
+            startImmediately: isTeamMemberMode ? false : startImmediately,
             skillIds: selectedSkills.length > 0 ? selectedSkills : undefined,
             referenceTaskIds: selectedReferenceTasks.length > 0 ? selectedReferenceTasks.map(t => t.id) : undefined,
             parentId,
             model,
             agentTool,
-        });
+        };
+
+        if (isTeamMemberMode) {
+            createPayload.taskType = 'team-member';
+            createPayload.teamMemberMetadata = {
+                role: tmRole.trim() || 'agent',
+                identity: prompt,
+                avatar: tmAvatar.trim() || '?',
+                mailId: `tm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            };
+        }
+
+        onCreate(createPayload);
 
         // Reset form
         setTitle("");
@@ -372,6 +398,8 @@ export function CreateTaskModal({
         setActiveTab(null);
         setSelectedSkills([]);
         setSelectedReferenceTasks([]);
+        setTmRole("");
+        setTmAvatar("");
         onClose();
     };
 
@@ -478,7 +506,7 @@ export function CreateTaskModal({
                             </span>
                         ) : (
                             <span className="themedModalTitle" style={{ flexShrink: 0 }}>
-                                [ {parentId ? 'NEW SUBTASK' : 'NEW TASK'} ]
+                                [ {isTeamMemberMode ? 'NEW TEAM MEMBER' : parentId ? 'NEW SUBTASK' : 'NEW TASK'} ]
                             </span>
                         )}
                         <input
@@ -486,7 +514,7 @@ export function CreateTaskModal({
                             type="text"
                             className="themedFormInput"
                             style={{ flex: 1, margin: 0, padding: '6px 8px', fontSize: '13px', fontWeight: 600 }}
-                            placeholder={isEditMode ? "Task title..." : "e.g., Build user authentication system"}
+                            placeholder={isTeamMemberMode ? "e.g., Senior Frontend Dev" : isEditMode ? "Task title..." : "e.g., Build user authentication system"}
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             onKeyDown={handleKeyDown}
@@ -518,10 +546,39 @@ export function CreateTaskModal({
                         </div>
                     )}
 
+                    {/* Team member fields */}
+                    {isTeamMemberMode && !isEditMode && (
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                            <div style={{ flex: 1 }}>
+                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '2px' }}>Role</div>
+                                <input
+                                    type="text"
+                                    className="themedFormInput"
+                                    style={{ margin: 0, padding: '4px 8px', fontSize: '12px' }}
+                                    placeholder="e.g., frontend developer, tester"
+                                    value={tmRole}
+                                    onChange={(e) => setTmRole(e.target.value)}
+                                />
+                            </div>
+                            <div style={{ width: '80px' }}>
+                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '2px' }}>Avatar</div>
+                                <input
+                                    type="text"
+                                    className="themedFormInput"
+                                    style={{ margin: 0, padding: '4px 8px', fontSize: '16px', textAlign: 'center' }}
+                                    placeholder="?"
+                                    value={tmAvatar}
+                                    onChange={(e) => setTmAvatar(e.target.value)}
+                                    maxLength={2}
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     {/* Prompt/Description Textarea */}
                     <div className="themedFormRow" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div className="themedFormLabel" style={{ marginBottom: 0 }}>Description</div>
+                            <div className="themedFormLabel" style={{ marginBottom: 0 }}>{isTeamMemberMode ? 'Identity Prompt' : 'Description'}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                                 {/* Reference task chips */}
                                 {selectedReferenceTasks.map(rt => (
@@ -663,7 +720,7 @@ export function CreateTaskModal({
                                 value={prompt}
                                 onChange={(e) => setPrompt(e.target.value)}
                                 style={mentionsStyle}
-                                placeholder="Describe the requirements... Use @ to tag files"
+                                placeholder={isTeamMemberMode ? "Describe this team member's persona, expertise, and how they should approach tasks..." : "Describe the requirements... Use @ to tag files"}
                                 className="mentionsInput"
                                 onKeyDown={handleKeyDown}
                             >
@@ -1210,18 +1267,20 @@ export function CreateTaskModal({
                                 type="button"
                                 className="themedBtn themedBtnPrimary"
                                 onClick={() => handleSubmit(false)}
-                                disabled={!title.trim() || !prompt.trim()}
+                                disabled={isTeamMemberMode ? !title.trim() : (!title.trim() || !prompt.trim())}
                             >
-                                Create Task
+                                {isTeamMemberMode ? 'Create Team Member' : 'Create Task'}
                             </button>
-                            <button
-                                type="button"
-                                className="themedBtn themedBtnSuccess"
-                                onClick={() => handleSubmit(true)}
-                                disabled={!title.trim() || !prompt.trim()}
-                            >
-                                Create &amp; Run
-                            </button>
+                            {!isTeamMemberMode && (
+                                <button
+                                    type="button"
+                                    className="themedBtn themedBtnSuccess"
+                                    onClick={() => handleSubmit(true)}
+                                    disabled={!title.trim() || !prompt.trim()}
+                                >
+                                    Create &amp; Run
+                                </button>
+                            )}
                         </>
                     )}
                 </div>

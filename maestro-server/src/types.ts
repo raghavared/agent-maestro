@@ -64,6 +64,17 @@ export interface Project {
   updatedAt: number;
 }
 
+// Task type discriminator
+export type TaskType = 'task' | 'team-member';
+
+// Team member metadata (only present when taskType === 'team-member')
+export interface TeamMemberMetadata {
+  role: string;        // e.g. "frontend developer", "tester"
+  identity: string;    // persona/instruction prompt
+  avatar: string;      // emoji or icon identifier
+  mailId: string;      // random generated mail ID for shared mailbox
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -98,6 +109,12 @@ export interface Task {
 
   // Pinned tasks appear in the dedicated "Pinned" tab for quick re-execution
   pinned?: boolean;
+
+  // Task type: 'task' (default) or 'team-member'
+  taskType?: TaskType;
+
+  // Team member metadata (only when taskType === 'team-member')
+  teamMemberMetadata?: TeamMemberMetadata;
 }
 
 export interface Session {
@@ -189,6 +206,8 @@ export interface CreateTaskPayload {
   referenceTaskIds?: string[];
   model?: string;
   agentTool?: AgentTool;
+  taskType?: TaskType;
+  teamMemberMetadata?: TeamMemberMetadata;
 }
 
 export type UpdateSource = 'user' | 'session';
@@ -207,6 +226,8 @@ export interface UpdateTaskPayload {
   model?: string;
   agentTool?: AgentTool;
   pinned?: boolean;
+  taskType?: TaskType;
+  teamMemberMetadata?: TeamMemberMetadata;
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline
   // Update source tracking
   updateSource?: UpdateSource;  // Who is making the update
@@ -253,6 +274,7 @@ export interface SpawnSessionPayload {
   model?: string;                       // Model to use for the session
   agentTool?: AgentTool;                // Agent tool to use ('claude-code', 'codex', or 'gemini')
   context?: Record<string, any>;
+  teamMemberIds?: string[];             // Team member task IDs to include in coordinate mode
 }
 
 // Spawn request event (emitted by server to UI)

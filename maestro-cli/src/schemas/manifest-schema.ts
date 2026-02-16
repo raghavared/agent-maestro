@@ -63,6 +63,11 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
             required: [],
             additionalProperties: true,
           },
+          model: {
+            type: 'string',
+            nullable: true,
+            description: 'Preferred model for this task',
+          },
           status: {
             type: 'string',
             enum: ['todo', 'in_progress', 'in_review', 'completed', 'cancelled', 'blocked'],
@@ -76,6 +81,23 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
           activeSessionId: {
             type: 'string',
             nullable: true,
+          },
+          taskType: {
+            type: 'string',
+            enum: ['task', 'team-member'],
+            nullable: true,
+          },
+          teamMemberMetadata: {
+            type: 'object',
+            nullable: true,
+            properties: {
+              role: { type: 'string' },
+              identity: { type: 'string' },
+              avatar: { type: 'string' },
+              mailId: { type: 'string' },
+            },
+            required: ['role', 'identity', 'avatar', 'mailId'],
+            additionalProperties: false,
           },
         },
         required: ['id', 'title', 'description', 'acceptanceCriteria', 'projectId', 'createdAt'],
@@ -209,6 +231,35 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       items: { type: 'string' },
       nullable: true,
       description: 'Reference task IDs for context (docs from these tasks are provided to the agent)',
+    },
+    teamMembers: {
+      type: 'array',
+      nullable: true,
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          role: { type: 'string' },
+          identity: { type: 'string' },
+          avatar: { type: 'string' },
+          mailId: { type: 'string' },
+          skillIds: {
+            type: 'array',
+            items: { type: 'string' },
+            nullable: true,
+          },
+          model: { type: 'string', nullable: true },
+          agentTool: {
+            type: 'string',
+            enum: ['claude-code', 'codex', 'gemini'],
+            nullable: true,
+          },
+        },
+        required: ['id', 'name', 'role', 'identity', 'avatar', 'mailId'],
+        additionalProperties: false,
+      },
+      description: 'Team members available for coordination (only in coordinate mode)',
     },
   },
   required: ['manifestVersion', 'mode', 'tasks', 'session'],

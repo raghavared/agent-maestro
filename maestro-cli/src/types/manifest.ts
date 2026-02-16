@@ -62,6 +62,33 @@ export interface MaestroManifest {
 
   /** Reference task IDs for context (docs from these tasks are provided to the agent) */
   referenceTaskIds?: string[];
+
+  /** Team members available for coordination (only in coordinate mode) */
+  teamMembers?: TeamMemberData[];
+}
+
+/**
+ * Team member data for manifest (used in coordinate mode prompts)
+ */
+export interface TeamMemberData {
+  /** Team member task ID */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Role description (e.g. "frontend developer", "tester") */
+  role: string;
+  /** Persona/instruction prompt */
+  identity: string;
+  /** Emoji or icon identifier */
+  avatar: string;
+  /** Mail ID for shared mailbox */
+  mailId: string;
+  /** Skill IDs assigned to this member */
+  skillIds?: string[];
+  /** Preferred model */
+  model?: string;
+  /** Agent tool to use */
+  agentTool?: AgentTool;
 }
 
 /**
@@ -125,6 +152,9 @@ export interface TaskData {
   /** Custom metadata (agent assignments, tags, etc.) */
   metadata?: Record<string, any>;
 
+  /** Preferred model for this task (e.g. 'sonnet', 'opus', 'haiku', or native model names) */
+  model?: string;
+
   /** Unified status (single source of truth). Optional in manifests. */
   status?: TaskStatus;
 
@@ -134,6 +164,17 @@ export interface TaskData {
 
   /** Current active session ID */
   activeSessionId?: string;
+
+  /** Task type: 'task' (default) or 'team-member' */
+  taskType?: 'task' | 'team-member';
+
+  /** Team member metadata (only when taskType === 'team-member') */
+  teamMemberMetadata?: {
+    role: string;
+    identity: string;
+    avatar: string;
+    mailId: string;
+  };
 }
 
 /**
