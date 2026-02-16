@@ -1,13 +1,15 @@
-import React, { useMemo, useEffect, useRef } from "react";
-import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy } from "../../app/types/maestro";
+import React, { useMemo, useEffect, useRef, useCallback } from "react";
+import { MaestroTask, MaestroProject, TaskTreeNode } from "../../app/types/maestro";
 import { TaskListItem } from "./TaskListItem";
-import { TaskFilters } from "./TaskFilters";
+import { TaskFilters, SortByOption } from "./TaskFilters";
+import { SortableTaskList } from "./SortableTaskList";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { ExecutionBar } from "./ExecutionBar";
 import { AddSubtaskInput } from "./AddSubtaskInput";
 import { TeamMemberList } from "./TeamMemberList";
+import { CreateTeamMemberModal } from "./CreateTeamMemberModal";
+import { EditTeamMemberModal } from "./EditTeamMemberModal";
 import { PanelIconBar, PrimaryTab, TaskSubTab, SkillSubTab, TeamSubTab } from "./PanelIconBar";
-import { CommandBar } from "./CommandBar";
 import { TaskTabContent } from "./TaskTabContent";
 import { PanelErrorState, NoProjectState } from "./PanelErrorState";
 import { useTasks } from "../../hooks/useTasks";
@@ -23,7 +25,7 @@ type MaestroPanelProps = {
     onClose: () => void;
     projectId: string;
     project: MaestroProject;
-    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: string; mode?: 'execute' | 'coordinate'; teamMemberIds?: string[] }) => Promise<any>;
+    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: string; mode?: 'execute' | 'coordinate'; teamMemberIds?: string[]; teamMemberId?: string }) => Promise<any>;
     onJumpToSession?: (maestroSessionId: string) => void;
     onAddTaskToSession?: (taskId: string) => void;
 };
@@ -47,18 +49,21 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const deleteTask = useMaestroStore(s => s.deleteTask);
     const removeTaskFromSession = useMaestroStore(s => s.removeTaskFromSession);
     const hardRefresh = useMaestroStore(s => s.hardRefresh);
+    const taskOrdering = useMaestroStore(s => s.taskOrdering);
+    const fetchTaskOrdering = useMaestroStore(s => s.fetchTaskOrdering);
+    const saveTaskOrdering = useMaestroStore(s => s.saveTaskOrdering);
 
     // ==================== UI STATE ====================
 
     const [primaryTab, setPrimaryTab] = React.useState<PrimaryTab>("tasks");
-    const [taskSubTab, setTaskSubTab] = React.useState<TaskSubTab>("active");
+    const [taskSubTab, setTaskSubTab] = React.useState<TaskSubTab>("current");
     const [skillSubTab, setSkillSubTab] = React.useState<SkillSubTab>("browse");
     const [teamSubTab, setTeamSubTab] = React.useState<TeamSubTab>("members");
     const [componentError, setComponentError] = React.useState<Error | null>(null);
     const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null);
     const [statusFilter, setStatusFilter] = React.useState<MaestroTask["status"][]>([]);
     const [priorityFilter, setPriorityFilter] = React.useState<MaestroTask["priority"][]>([]);
-    const [sortBy, setSortBy] = React.useState<"updatedAt" | "createdAt" | "priority">("updatedAt");
+    const [sortBy, setSortBy] = React.useState<SortByOption>("custom");
     const [showCreateModal, setShowCreateModal] = React.useState(false);
     const [showDetailModal, setShowDetailModal] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
@@ -72,8 +77,16 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [slidingOutTasks, setSlidingOutTasks] = React.useState<Set<string>>(new Set());
     const [showBoard, setShowBoard] = React.useState(false);
     const [showCreateTeamMemberModal, setShowCreateTeamMemberModal] = React.useState(false);
-    const [selectedTeamMembers, setSelectedTeamMembers] = React.useState<Set<string>>(new Set());
-    const [showTeamMembers, setShowTeamMembers] = React.useState(false);
+    const [showEditTeamMemberModal, setShowEditTeamMemberModal] = React.useState(false);
+    const [editingTeamMember, setEditingTeamMember] = React.useState<any | null>(null);
+    // Team member selection is now handled inside ExecutionBar via dropdowns
+
+    // Fetch task ordering on mount
+    useEffect(() => {
+        if (projectId) {
+            fetchTaskOrdering(projectId);
+        }
+    }, [projectId, fetchTaskOrdering]);
 
     // Listen for global create-task shortcut trigger
     const createTaskRequested = useUIStore(s => s.createTaskRequested);
@@ -83,6 +96,15 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             useUIStore.getState().setCreateTaskRequested(false);
         }
     }, [createTaskRequested]);
+
+    // Listen for global show-board trigger (from SessionsSection)
+    const showBoardRequested = useUIStore(s => s.showBoardRequested);
+    useEffect(() => {
+        if (showBoardRequested) {
+            setShowBoard(true);
+            useUIStore.getState().setShowBoardRequested(false);
+        }
+    }, [showBoardRequested]);
 
     // Track previous task statuses to detect completions
     const prevTaskStatusesRef = useRef<Map<string, string>>(new Map());
@@ -97,13 +119,26 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }));
     }, [tasks]);
 
-    // Separate team members from regular tasks
+    // Team members are now separate entities, not tasks
+    const teamMembersMap = useMaestroStore(s => s.teamMembers);
+    const fetchTeamMembers = useMaestroStore(s => s.fetchTeamMembers);
+    const archiveTeamMember = useMaestroStore(s => s.archiveTeamMember);
+    const unarchiveTeamMember = useMaestroStore(s => s.unarchiveTeamMember);
+    const deleteTeamMember = useMaestroStore(s => s.deleteTeamMember);
+
+    // Fetch team members when projectId changes
+    useEffect(() => {
+        if (projectId) {
+            fetchTeamMembers(projectId);
+        }
+    }, [projectId, fetchTeamMembers]);
+
     const teamMembers = useMemo(() => {
-        return normalizedTasks.filter(t => t.taskType === 'team-member');
-    }, [normalizedTasks]);
+        return Array.from(teamMembersMap.values()).filter(tm => tm.projectId === projectId);
+    }, [teamMembersMap, projectId]);
 
     const regularTasks = useMemo(() => {
-        return normalizedTasks.filter(t => t.taskType !== 'team-member');
+        return normalizedTasks;
     }, [normalizedTasks]);
 
     // Detect when tasks become completed and trigger slide-out animation
@@ -183,8 +218,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 parentId: taskData.parentId,
                 model: taskData.model,
                 agentTool: taskData.agentTool,
-                ...(taskData.taskType ? { taskType: taskData.taskType } : {}),
-                ...(taskData.teamMemberMetadata ? { teamMemberMetadata: taskData.teamMemberMetadata } : {}),
             });
 
             // Task will be added via WebSocket event automatically
@@ -226,24 +259,37 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }
     };
 
+    const handleAssignTeamMember = async (taskId: string, teamMemberId: string) => {
+        try {
+            await updateTask(taskId, { teamMemberId });
+        } catch (err: any) {
+            console.error("[Maestro] Failed to assign team member:", err);
+            setError("Failed to assign team member");
+        }
+    };
+
     const handleWorkOnTask = async (task: MaestroTask) => {
+        // Look up assigned team member (default to first simple_worker default)
+        const teamMemberId = task.teamMemberId;
+        const member = teamMemberId ? teamMembersMap.get(teamMemberId) : null;
+
+        const mode = member?.mode || 'execute';
+        const strategy = member?.strategy || 'simple';
+
         console.log('[MaestroPanel.handleWorkOnTask] ========================================');
-        console.log('[MaestroPanel.handleWorkOnTask] Starting work on task');
         console.log('[MaestroPanel.handleWorkOnTask] Task ID:', task.id);
-        console.log('[MaestroPanel.handleWorkOnTask] Mode: execute');
-        console.log('[MaestroPanel.handleWorkOnTask] Strategy: simple');
+        console.log('[MaestroPanel.handleWorkOnTask] Team Member:', member?.name || '(default)');
+        console.log('[MaestroPanel.handleWorkOnTask] Mode:', mode);
+        console.log('[MaestroPanel.handleWorkOnTask] Strategy:', strategy);
         console.log('[MaestroPanel.handleWorkOnTask] ========================================');
 
         try {
-            const selectedAgentId = selectedAgentByTask[task.id] || 'claude';
-            console.log('[MaestroPanel.handleWorkOnTask] Selected agent:', selectedAgentId);
-
             await onCreateMaestroSession({
                 task,
                 project,
-                skillIds: [selectedAgentId],
-                strategy: 'simple',
-                mode: 'execute',
+                strategy,
+                mode,
+                teamMemberId,
             });
 
             console.log('[MaestroPanel.handleWorkOnTask] ✓ Session created successfully!');
@@ -260,15 +306,20 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }));
     };
 
-    const handleBatchExecute = async (strategy: WorkerStrategy) => {
+    const handleBatchExecute = async (teamMemberId?: string) => {
         const selectedTasks = normalizedTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
+
+        // Derive strategy from the selected team member
+        const member = teamMemberId ? teamMembersMap.get(teamMemberId) : null;
+        const strategy = member?.strategy || 'simple';
 
         try {
             await onCreateMaestroSession({
                 tasks: selectedTasks,
                 project,
                 strategy,
+                teamMemberId,
             });
             setExecutionMode(false);
             setActiveBarMode('none');
@@ -279,11 +330,13 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }
     };
 
-    const handleBatchOrchestrate = async (orchestratorStrategy: OrchestratorStrategy) => {
+    const handleBatchOrchestrate = async (coordinatorId?: string, workerIds?: string[]) => {
         const selectedTasks = regularTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
 
-        const teamMemberIds = Array.from(selectedTeamMembers);
+        // Derive strategy from the selected coordinator
+        const coordinator = coordinatorId ? teamMembersMap.get(coordinatorId) : null;
+        const orchestratorStrategy = coordinator?.strategy || 'default';
 
         try {
             await onCreateMaestroSession({
@@ -292,12 +345,12 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 mode: 'coordinate',
                 strategy: orchestratorStrategy,
                 skillIds: ['maestro-orchestrator'],
-                teamMemberIds: teamMemberIds.length > 0 ? teamMemberIds : undefined,
+                teamMemberId: coordinatorId,
+                teamMemberIds: workerIds && workerIds.length > 0 ? workerIds : undefined,
             });
             setExecutionMode(false);
             setActiveBarMode('none');
             setSelectedForExecution(new Set());
-            setSelectedTeamMembers(new Set());
         } catch (err: any) {
             console.error('[MaestroPanel] Failed to create orchestrate session:', err);
             setError(`Failed to create orchestrator session: ${err.message}`);
@@ -369,6 +422,39 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }
     };
 
+    // Team member handlers
+    const handleEditTeamMember = (member: any) => {
+        setEditingTeamMember(member);
+        setShowEditTeamMemberModal(true);
+    };
+
+    const handleArchiveTeamMember = async (memberId: string) => {
+        try {
+            await archiveTeamMember(memberId, projectId);
+        } catch (err) {
+            console.error("Failed to archive team member:", err);
+            setError("Failed to archive team member");
+        }
+    };
+
+    const handleUnarchiveTeamMember = async (memberId: string) => {
+        try {
+            await unarchiveTeamMember(memberId, projectId);
+        } catch (err) {
+            console.error("Failed to unarchive team member:", err);
+            setError("Failed to unarchive team member");
+        }
+    };
+
+    const handleDeleteTeamMember = async (memberId: string) => {
+        try {
+            await deleteTeamMember(memberId, projectId);
+        } catch (err) {
+            console.error("Failed to delete team member:", err);
+            setError("Failed to delete team member");
+        }
+    };
+
     const handleToggleSubtask = async (_taskId: string, subtaskId: string) => {
         try {
             const subtask = normalizedTasks.find(t => t.id === subtaskId);
@@ -403,17 +489,32 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     // ==================== DERIVED DATA ====================
 
+    const customOrder = taskOrdering.get(projectId) || [];
+
     const activeRoots = roots
         .filter((node) => node.status !== 'completed' && node.status !== 'archived')
         .filter((node) => statusFilter.length === 0 || statusFilter.includes(node.status))
         .filter((node) => priorityFilter.length === 0 || priorityFilter.includes(node.priority))
         .sort((a, b) => {
+            if (sortBy === "custom") {
+                const aIdx = customOrder.indexOf(a.id);
+                const bIdx = customOrder.indexOf(b.id);
+                // Items not in custom order go to the end, sorted by updatedAt
+                if (aIdx === -1 && bIdx === -1) return b.updatedAt - a.updatedAt;
+                if (aIdx === -1) return 1;
+                if (bIdx === -1) return -1;
+                return aIdx - bIdx;
+            }
             if (sortBy === "priority") {
                 const priorityOrder = { high: 0, medium: 1, low: 2 };
                 return priorityOrder[a.priority] - priorityOrder[b.priority];
             }
             return b[sortBy] - a[sortBy];
         });
+
+    const handleTaskReorder = useCallback((orderedIds: string[]) => {
+        saveTaskOrdering(projectId, orderedIds);
+    }, [projectId, saveTaskOrdering]);
 
     const completedRoots = roots
         .filter((node) => node.status === 'completed')
@@ -445,6 +546,8 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         setShowDetailModal(true);
                     }}
                     onWorkOn={() => handleWorkOnTask(node)}
+                    onAssignTeamMember={(teamMemberId: string) => handleAssignTeamMember(node.id, teamMemberId)}
+                    onOpenCreateTeamMember={() => setShowCreateTeamMemberModal(true)}
                     onJumpToSession={(sid) => onJumpToSession?.(sid)}
                     onNavigateToTask={(taskId: string) => {
                         setSelectedTaskId(taskId);
@@ -515,19 +618,10 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     onTeamSubTabChange={setTeamSubTab}
                     roots={roots}
                     teamMembers={teamMembers}
-                    onRefresh={async () => {
-                        if (!projectId) return;
-                        setError(null);
-                        try {
-                            await hardRefresh(projectId);
-                        } catch (err) {
-                            console.error('[MaestroPanel] Hard refresh failed:', err);
-                            setError("Failed to refresh");
-                        }
-                    }}
-                    onShowBoard={() => setShowBoard(true)}
                     loading={loading}
                     projectId={projectId}
+                    onNewTask={() => setShowCreateModal(true)}
+                    onNewTeamMember={() => setShowCreateTeamMemberModal(true)}
                 />
 
                 {(error || fetchError) && (
@@ -541,16 +635,9 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 {/* ==================== TASKS PRIMARY TAB ==================== */}
                 {primaryTab === "tasks" && (
                     <>
-                        {/* Active / New Task sub-tab */}
-                        {taskSubTab === "active" && (
+                        {/* Current task list sub-tab */}
+                        {taskSubTab === "current" && (
                             <>
-                                <CommandBar
-                                    onNewTask={() => setShowCreateModal(true)}
-                                    loading={loading}
-                                    projectId={projectId}
-                                    tasks={normalizedTasks}
-                                />
-
                                 <TaskFilters
                                     statusFilter={statusFilter}
                                     priorityFilter={priorityFilter}
@@ -564,42 +651,60 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                                     isActive={executionMode}
                                     activeMode={activeBarMode}
                                     onActivate={() => { setExecutionMode(true); setActiveBarMode('execute'); }}
-                                    onActivateOrchestrate={() => { setExecutionMode(true); setActiveBarMode('orchestrate'); setShowTeamMembers(true); }}
+                                    onActivateOrchestrate={() => { setExecutionMode(true); setActiveBarMode('orchestrate'); }}
                                     onCancel={handleCancelExecution}
                                     onExecute={handleBatchExecute}
                                     onOrchestrate={handleBatchOrchestrate}
                                     selectedCount={selectedForExecution.size}
                                     selectedTasks={regularTasks.filter(t => selectedForExecution.has(t.id))}
                                     projectId={projectId}
-                                    teamMemberCount={selectedTeamMembers.size}
+                                    teamMembers={teamMembers}
                                 />
 
-                                {activeBarMode === 'orchestrate' && showTeamMembers && teamMembers.length > 0 && (
-                                    <TeamMemberList
-                                        teamMembers={teamMembers}
-                                        selectedIds={selectedTeamMembers}
-                                        onToggleSelect={(id) => {
-                                            setSelectedTeamMembers(prev => {
-                                                const next = new Set(prev);
-                                                if (next.has(id)) next.delete(id);
-                                                else next.add(id);
-                                                return next;
-                                            });
-                                        }}
-                                        onSelectAll={() => setSelectedTeamMembers(new Set(teamMembers.map(m => m.id)))}
-                                        onDeselectAll={() => setSelectedTeamMembers(new Set())}
+                                {sortBy === "custom" ? (
+                                    loading ? (
+                                        <div className="terminalContent">
+                                            <div className="terminalLoadingState">
+                                                <div className="terminalSpinner">
+                                                    <span className="terminalSpinnerDot">●</span>
+                                                    <span className="terminalSpinnerDot">●</span>
+                                                    <span className="terminalSpinnerDot">●</span>
+                                                </div>
+                                                <p className="terminalLoadingText">
+                                                    <span className="terminalCursor">█</span> Loading tasks...
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ) : activeRoots.length === 0 ? (
+                                        <TaskTabContent
+                                            loading={false}
+                                            emptyMessage="NO TASKS IN QUEUE"
+                                            emptySubMessage="$ maestro new task"
+                                            roots={[]}
+                                            renderTaskNode={renderTaskNode}
+                                            showNewTaskButton
+                                            onNewTask={() => setShowCreateModal(true)}
+                                        />
+                                    ) : (
+                                        <div className="terminalContent">
+                                            <SortableTaskList
+                                                roots={activeRoots}
+                                                renderTaskNode={renderTaskNode}
+                                                onReorder={handleTaskReorder}
+                                            />
+                                        </div>
+                                    )
+                                ) : (
+                                    <TaskTabContent
+                                        loading={loading}
+                                        emptyMessage="NO TASKS IN QUEUE"
+                                        emptySubMessage="$ maestro new task"
+                                        roots={activeRoots}
+                                        renderTaskNode={renderTaskNode}
+                                        showNewTaskButton
+                                        onNewTask={() => setShowCreateModal(true)}
                                     />
                                 )}
-
-                                <TaskTabContent
-                                    loading={loading}
-                                    emptyMessage="NO TASKS IN QUEUE"
-                                    emptySubMessage="$ maestro new task"
-                                    roots={activeRoots}
-                                    renderTaskNode={renderTaskNode}
-                                    showNewTaskButton
-                                    onNewTask={() => setShowCreateModal(true)}
-                                />
                             </>
                         )}
 
@@ -664,127 +769,53 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     <>
                         {/* Members sub-tab */}
                         {teamSubTab === "members" && (
-                            <div className="terminalContent">
-                                <div className="terminalCommandBar">
-                                    <div className="terminalCommands">
-                                        <button
-                                            className="terminalCmd terminalCmdPrimary"
-                                            onClick={() => setShowCreateTeamMemberModal(true)}
-                                        >
-                                            <span className="terminalPrompt">$</span> add team member
-                                        </button>
-                                    </div>
-                                    <div className="terminalStats">
-                                        <span className="terminalStat terminalStatActive">
-                                            ◉ {teamMembers.filter(t => t.status !== 'archived').length}
-                                        </span>
-                                    </div>
-                                </div>
-                                {teamMembers.filter(t => t.status !== 'archived').length === 0 ? (
-                                    <div className="terminalEmptyState">
-                                        <pre className="terminalAsciiArt">{`
-    ╔═══════════════════════════════════════╗
-    ║                                       ║
-    ║        NO TEAM MEMBERS                ║
-    ║                                       ║
-    ║    Add team members to use in         ║
-    ║    orchestration mode                 ║
-    ║                                       ║
-    ╚═══════════════════════════════════════╝
-                                        `}</pre>
-                                        <button
-                                            className="terminalCmd terminalCmdPrimary"
-                                            onClick={() => setShowCreateTeamMemberModal(true)}
-                                        >
-                                            <span className="terminalPrompt">$</span> add team member
-                                        </button>
-                                    </div>
-                                ) : (
+                            <>
+                                <div className="terminalContent">
                                     <TeamMemberList
-                                        teamMembers={teamMembers.filter(t => t.status !== 'archived')}
-                                        selectedIds={selectedTeamMembers}
-                                        onToggleSelect={(id) => {
-                                            setSelectedTeamMembers(prev => {
-                                                const next = new Set(prev);
-                                                if (next.has(id)) next.delete(id);
-                                                else next.add(id);
-                                                return next;
-                                            });
-                                        }}
-                                        onSelectAll={() => setSelectedTeamMembers(new Set(teamMembers.map(m => m.id)))}
-                                        onDeselectAll={() => setSelectedTeamMembers(new Set())}
+                                        teamMembers={teamMembers}
+                                        onEdit={handleEditTeamMember}
+                                        onArchive={handleArchiveTeamMember}
+                                        onUnarchive={handleUnarchiveTeamMember}
+                                        onDelete={handleDeleteTeamMember}
+                                        onNewMember={() => setShowCreateTeamMemberModal(true)}
                                     />
-                                )}
-                            </div>
+                                </div>
+                            </>
                         )}
 
-                        {/* Pinned team sub-tab */}
+                        {/* Pinned team sub-tab - TODO: implement pinned feature */}
                         {teamSubTab === "pinned" && (
                             <div className="terminalContent">
-                                {teamMembers.filter(t => t.pinned).length === 0 ? (
-                                    <div className="terminalEmptyState">
-                                        <pre className="terminalAsciiArt">{`
+                                <div className="terminalEmptyState">
+                                    <pre className="terminalAsciiArt">{`
     ╔═══════════════════════════════════════╗
     ║                                       ║
-    ║       NO PINNED TEAM MEMBERS          ║
+    ║       PINNED COMING SOON              ║
     ║                                       ║
     ║    Pin team members for quick         ║
     ║    access                             ║
     ║                                       ║
     ╚═══════════════════════════════════════╝
-                                        `}</pre>
-                                    </div>
-                                ) : (
-                                    <TeamMemberList
-                                        teamMembers={teamMembers.filter(t => t.pinned)}
-                                        selectedIds={selectedTeamMembers}
-                                        onToggleSelect={(id) => {
-                                            setSelectedTeamMembers(prev => {
-                                                const next = new Set(prev);
-                                                if (next.has(id)) next.delete(id);
-                                                else next.add(id);
-                                                return next;
-                                            });
-                                        }}
-                                        onSelectAll={() => {}}
-                                        onDeselectAll={() => setSelectedTeamMembers(new Set())}
-                                    />
-                                )}
+                                    `}</pre>
+                                </div>
                             </div>
                         )}
 
-                        {/* Archived team sub-tab */}
+                        {/* Archived team sub-tab - handled by TeamMemberList component */}
                         {teamSubTab === "archived" && (
                             <div className="terminalContent">
-                                {teamMembers.filter(t => t.status === 'archived').length === 0 ? (
-                                    <div className="terminalEmptyState">
-                                        <pre className="terminalAsciiArt">{`
+                                <div className="terminalEmptyState">
+                                    <pre className="terminalAsciiArt">{`
     ╔═══════════════════════════════════════╗
     ║                                       ║
-    ║       NO ARCHIVED TEAM MEMBERS        ║
+    ║       ARCHIVED TAB DEPRECATED         ║
     ║                                       ║
-    ║    Archived members will appear       ║
-    ║    here                               ║
+    ║    Archived members now appear        ║
+    ║    in the Members tab                 ║
     ║                                       ║
     ╚═══════════════════════════════════════╝
-                                        `}</pre>
-                                    </div>
-                                ) : (
-                                    <TeamMemberList
-                                        teamMembers={teamMembers.filter(t => t.status === 'archived')}
-                                        selectedIds={selectedTeamMembers}
-                                        onToggleSelect={(id) => {
-                                            setSelectedTeamMembers(prev => {
-                                                const next = new Set(prev);
-                                                if (next.has(id)) next.delete(id);
-                                                else next.add(id);
-                                                return next;
-                                            });
-                                        }}
-                                        onSelectAll={() => {}}
-                                        onDeselectAll={() => setSelectedTeamMembers(new Set())}
-                                    />
-                                )}
+                                    `}</pre>
+                                </div>
                             </div>
                         )}
                     </>
@@ -803,12 +834,20 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 parentTitle={subtaskParentTitle}
             />
 
-            <CreateTaskModal
+            <CreateTeamMemberModal
                 isOpen={showCreateTeamMemberModal}
                 onClose={() => setShowCreateTeamMemberModal(false)}
-                onCreate={handleCreateTask}
-                project={project}
-                taskType="team-member"
+                projectId={projectId}
+            />
+
+            <EditTeamMemberModal
+                isOpen={showEditTeamMemberModal}
+                onClose={() => {
+                    setShowEditTeamMemberModal(false);
+                    setEditingTeamMember(null);
+                }}
+                teamMember={editingTeamMember}
+                projectId={projectId}
             />
 
             {selectedTask && showDetailModal && (

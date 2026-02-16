@@ -1,10 +1,27 @@
-import React, { useCallback, useLayoutEffect } from "react";
+import React, { useCallback, useLayoutEffect, useState } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { createPortal } from "react-dom";
 import { getProcessEffectById, type ProcessEffect } from "../processEffects";
 import { shortenPathSmart, normalizeSeparators } from "../pathDisplay";
 import { Icon } from "./Icon";
 import { type MaestroTask, type MaestroSession as MaestroSession } from "../app/types/maestro";
 import { useMaestroStore } from "../stores/useMaestroStore";
+import { useUIStore } from "../stores/useUIStore";
 import { MaestroSessionContent } from "./maestro/MaestroSessionContent";
 import { StrategyBadge } from "./maestro/StrategyBadge";
 import { SessionDetailModal } from "./maestro/SessionDetailModal";
@@ -42,6 +59,7 @@ type SessionsSectionProps = {
   agentShortcuts: ProcessEffect[];
   sessions: Session[];
   activeSessionId: string | null;
+  activeProjectId: string;
   projectName: string | null;
   projectBasePath: string | null;
   onSelectSession: (sessionId: string) => void;
@@ -55,10 +73,41 @@ type SessionsSectionProps = {
   onOpenManageTerminals: () => void;
 };
 
+function SortableSessionItem({ id, children }: { id: string; children: React.ReactNode }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    cursor: isDragging ? "grabbing" : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`sortableItemWrapper ${isDragging ? "sortableItemWrapper--dragging" : ""}`}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function SessionsSection({
   agentShortcuts,
   sessions,
   activeSessionId,
+  activeProjectId,
   projectName,
   projectBasePath,
   onSelectSession,
@@ -92,6 +141,29 @@ export function SessionsSection({
   }, [settingsOpen, computeDropdownPos]);
 
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 300, tolerance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      const draggedSession = sessions.find((s) => s.id === active.id);
+      const targetSession = sessions.find((s) => s.id === over.id);
+      if (!draggedSession || !targetSession) return;
+
+      onReorderSessions(draggedSession.persistId, targetSession.persistId);
+    },
+    [sessions, onReorderSessions]
+  );
+
   const [sessionModalId, setSessionModalId] = React.useState<string | null>(null);
 
   // Session close confirmation state
@@ -105,6 +177,25 @@ export function SessionsSection({
   const maestroTasks = useMaestroStore((s) => s.tasks);
   const maestroSessions = useMaestroStore((s) => s.sessions);
   const fetchSession = useMaestroStore((s) => s.fetchSession);
+  const hardRefresh = useMaestroStore((s) => s.hardRefresh);
+
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const handleRefresh = React.useCallback(async () => {
+    if (!activeProjectId || refreshing) return;
+    setRefreshing(true);
+    try {
+      await hardRefresh(activeProjectId);
+    } catch (err) {
+      console.error('[SessionsSection] Hard refresh failed:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [activeProjectId, refreshing, hardRefresh]);
+
+  const handleShowBoard = React.useCallback(() => {
+    useUIStore.getState().setShowBoardRequested(true);
+  }, []);
 
   // Compute session tasks from global state
   const sessionTasks = React.useMemo(() => {
@@ -183,6 +274,26 @@ export function SessionsSection({
       <div className="sidebarHeader">
         <div className="title">Sessions</div>
         <div className="sidebarHeaderActions">
+          <button
+            type="button"
+            className="btnSmall btnIcon"
+            onClick={handleRefresh}
+            disabled={refreshing || !activeProjectId}
+            title="Refresh tasks"
+            aria-label="Refresh tasks"
+          >
+            <Icon name="refresh" />
+          </button>
+          <button
+            type="button"
+            className="btnSmall btnIcon"
+            onClick={handleShowBoard}
+            disabled={!activeProjectId}
+            title="Open board view"
+            aria-label="Open board view"
+          >
+            <Icon name="layers" />
+          </button>
           <div className="sidebarActionMenu" ref={settingsMenuRef}>
             <button
               ref={settingsBtnRef}
@@ -294,7 +405,16 @@ export function SessionsSection({
         {sessions.length === 0 ? (
           <div className="empty">No sessions in this project.</div>
         ) : (
-          sessions.map((s) => {
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+          <SortableContext
+            items={sessions.map((s) => s.id)}
+            strategy={verticalListSortingStrategy}
+          >
+          {sessions.map((s) => {
             const isActive = s.id === activeSessionId;
             const isExited = Boolean(s.exited);
             const isClosing = Boolean(s.closing);
@@ -328,8 +448,8 @@ export function SessionsSection({
             const needsInput = maestroSession?.needsInput?.active;
 
             return (
+              <SortableSessionItem key={s.id} id={s.id}>
               <div
-                key={s.id}
                 className={`sessionItem ${isActive ? "sessionItemActive" : ""} ${isExited ? "sessionItemExited" : ""
                   } ${isClosing ? "sessionItemClosing" : ""} ${isSshType ? "sessionItemSsh" : ""
                   } ${isPersistent ? "sessionItemPersistent" : ""} ${isDefaultType ? "sessionItemDefault" : ""
@@ -353,6 +473,12 @@ export function SessionsSection({
                   <div className={`dot ${isActive ? "dotActive" : ""}`} />
                   <div className="sessionMeta">
                     <div className="sessionName">
+                      {/* Team member avatar if present */}
+                      {maestroSession?.teamMemberSnapshot && (
+                        <span className="sessionTeamMemberAvatar" title={`${maestroSession.teamMemberSnapshot.name} (${maestroSession.teamMemberSnapshot.role})`}>
+                          {maestroSession.teamMemberSnapshot.avatar}
+                        </span>
+                      )}
                       {hasAgentIcon && chipLabel && effect?.iconSrc && (
                         <span className={`agentBadge chip-${effect.id}`} title={chipLabel}>
                           <img className="agentIcon" src={effect.iconSrc} alt={chipLabel} />
@@ -435,8 +561,12 @@ export function SessionsSection({
                   </div>
                 )}
               </div>
+              </SortableSessionItem>
             );
           })
+          }
+          </SortableContext>
+          </DndContext>
         )}
       </div>
 

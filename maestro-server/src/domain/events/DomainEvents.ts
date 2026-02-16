@@ -1,4 +1,4 @@
-import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, MailMessage } from '../../types';
+import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, MailMessage, TeamMember } from '../../types';
 
 /**
  * Type-safe domain event definitions.
@@ -162,6 +162,27 @@ export interface SessionModalClosedEvent {
   };
 }
 
+// Team Member Events
+export interface TeamMemberCreatedEvent {
+  type: 'team_member:created';
+  data: TeamMember;
+}
+
+export interface TeamMemberUpdatedEvent {
+  type: 'team_member:updated';
+  data: TeamMember;
+}
+
+export interface TeamMemberDeletedEvent {
+  type: 'team_member:deleted';
+  data: { id: string };
+}
+
+export interface TeamMemberArchivedEvent {
+  type: 'team_member:archived';
+  data: TeamMember;
+}
+
 // Mail Events
 export interface MailReceivedEvent {
   type: 'mail:received';
@@ -205,6 +226,10 @@ export type DomainEvent =
   | SessionModalEvent
   | SessionModalActionEvent
   | SessionModalClosedEvent
+  | TeamMemberCreatedEvent
+  | TeamMemberUpdatedEvent
+  | TeamMemberDeletedEvent
+  | TeamMemberArchivedEvent
   | MailReceivedEvent
   | MailDeletedEvent;
 
@@ -257,6 +282,11 @@ export interface TypedEventMap {
     modalId: string;
     timestamp: number;
   };
+  // Team member events
+  'team_member:created': TeamMember;
+  'team_member:updated': TeamMember;
+  'team_member:deleted': { id: string };
+  'team_member:archived': TeamMember;
   // Mail events
   'mail:received': MailMessage;
   'mail:deleted': { id: string };

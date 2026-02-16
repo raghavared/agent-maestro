@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { TaskStatus, TaskPriority } from "../../app/types/maestro";
 
+export type SortByOption = "updatedAt" | "createdAt" | "priority" | "custom";
+
 type TaskFiltersProps = {
     statusFilter: TaskStatus[];
     priorityFilter: TaskPriority[];
-    sortBy: "updatedAt" | "createdAt" | "priority";
+    sortBy: SortByOption;
     onStatusFilterChange: (statuses: TaskStatus[]) => void;
     onPriorityFilterChange: (priorities: TaskPriority[]) => void;
-    onSortChange: (sort: "updatedAt" | "createdAt" | "priority") => void;
+    onSortChange: (sort: SortByOption) => void;
 };
 
 const STATUS_CONFIG: { value: TaskStatus; label: string; icon: string; colorClass: string }[] = [
@@ -25,7 +27,8 @@ const PRIORITY_CONFIG: { value: TaskPriority; label: string; colorClass: string 
     { value: "low", label: "Low", colorClass: "filterChip--low" },
 ];
 
-const SORT_OPTIONS: { value: "updatedAt" | "createdAt" | "priority"; label: string }[] = [
+const SORT_OPTIONS: { value: SortByOption; label: string }[] = [
+    { value: "custom", label: "Custom" },
     { value: "updatedAt", label: "Updated" },
     { value: "createdAt", label: "Created" },
     { value: "priority", label: "Priority" },

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMe
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { MentionsInput, Mention } from 'react-mentions';
-import { TaskPriority, AgentSkill, MaestroProject, MaestroTask, ModelType, AgentTool, DocEntry, TaskType, TeamMemberMetadata } from "../../app/types/maestro";
+import { TaskPriority, AgentSkill, MaestroProject, MaestroTask, ModelType, AgentTool, DocEntry } from "../../app/types/maestro";
 import { maestroClient } from "../../utils/MaestroClient";
 import { Icon } from "../Icon";
 import { AgentSelector } from "./AgentSelector";
@@ -79,14 +79,10 @@ type CreateTaskModalProps = {
         parentId?: string;
         model?: ModelType;
         agentTool?: AgentTool;
-        taskType?: TaskType;
-        teamMemberMetadata?: TeamMemberMetadata;
     }) => void;
     project: MaestroProject;
     parentId?: string;
     parentTitle?: string;
-    // Task type for creation (default: 'task')
-    taskType?: TaskType;
     // Edit mode props
     mode?: "create" | "edit";
     task?: MaestroTask;
@@ -109,7 +105,6 @@ export function CreateTaskModal({
     project,
     parentId,
     parentTitle,
-    taskType: propTaskType,
     mode = "create",
     task,
     onUpdateTask,
@@ -135,8 +130,8 @@ export function CreateTaskModal({
     const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-    // Team member fields
-    const isTeamMemberMode = propTaskType === 'team-member';
+    // Team member fields (deprecated - team members are now separate entities)
+    const isTeamMemberMode = false;
     const [tmRole, setTmRole] = useState("");
     const [tmAvatar, setTmAvatar] = useState("");
 
@@ -378,13 +373,15 @@ export function CreateTaskModal({
         };
 
         if (isTeamMemberMode) {
-            createPayload.taskType = 'team-member';
-            createPayload.teamMemberMetadata = {
-                role: tmRole.trim() || 'agent',
-                identity: prompt,
-                avatar: tmAvatar.trim() || '?',
-                mailId: `tm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-            };
+            // Team members are now separate entities, not tasks
+            // This code path is deprecated
+            // createPayload.taskType = 'team-member';
+            // createPayload.teamMemberMetadata = {
+            //     role: tmRole.trim() || 'agent',
+            //     identity: prompt,
+            //     avatar: tmAvatar.trim() || '?',
+            //     mailId: `tm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            // };
         }
 
         onCreate(createPayload);

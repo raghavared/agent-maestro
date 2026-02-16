@@ -65,6 +65,33 @@ export interface MaestroManifest {
 
   /** Team members available for coordination (only in coordinate mode) */
   teamMembers?: TeamMemberData[];
+
+  /** Team member ID for this session (single team member running this session) */
+  teamMemberId?: string;
+
+  /** Team member name */
+  teamMemberName?: string;
+
+  /** Team member avatar */
+  teamMemberAvatar?: string;
+
+  /** Team member identity/instructions */
+  teamMemberIdentity?: string;
+
+  /** Team member capability overrides (Phase 2) */
+  teamMemberCapabilities?: Record<string, boolean>;
+
+  /** Team member command permission overrides (Phase 2) */
+  teamMemberCommandPermissions?: {
+    groups?: Record<string, boolean>;
+    commands?: Record<string, boolean>;
+  };
+
+  /** Team member workflow template ID (Phase 3) */
+  teamMemberWorkflowTemplateId?: string;
+
+  /** Team member custom workflow text (Phase 3, when templateId === 'custom') */
+  teamMemberCustomWorkflow?: string;
 }
 
 /**
@@ -89,7 +116,19 @@ export interface TeamMemberData {
   model?: string;
   /** Agent tool to use */
   agentTool?: AgentTool;
+  /** Capability overrides from team member */
+  capabilities?: Record<string, boolean>;
+  /** Command permission overrides from team member */
+  commandPermissions?: {
+    groups?: Record<string, boolean>;
+    commands?: Record<string, boolean>;
+  };
 }
+
+/**
+ * Capability overrides type (used when team member has custom capabilities)
+ */
+export type CapabilityOverrides = Partial<Record<CapabilityName, boolean>>;
 
 /**
  * Unified task status (single source of truth)
@@ -164,17 +203,6 @@ export interface TaskData {
 
   /** Current active session ID */
   activeSessionId?: string;
-
-  /** Task type: 'task' (default) or 'team-member' */
-  taskType?: 'task' | 'team-member';
-
-  /** Team member metadata (only when taskType === 'team-member') */
-  teamMemberMetadata?: {
-    role: string;
-    identity: string;
-    avatar: string;
-    mailId: string;
-  };
 }
 
 /**
@@ -310,9 +338,14 @@ export function getEffectiveStrategy(manifest: MaestroManifest): string {
 }
 
 /**
- * Compute capabilities from mode + strategy
+ * Compute capabilities from mode + strategy, with optional overrides from team member.
+ * If overrides are provided, they take precedence over the computed defaults.
  */
-export function computeCapabilities(mode: AgentMode, strategy: string): Capability[] {
+export function computeCapabilities(
+  mode: AgentMode,
+  strategy: string,
+  overrides?: CapabilityOverrides
+): Capability[] {
   const caps: Record<CapabilityName, boolean> = {
     can_spawn_sessions: mode === 'coordinate',
     can_edit_tasks: true,
@@ -320,6 +353,15 @@ export function computeCapabilities(mode: AgentMode, strategy: string): Capabili
     can_report_task_level: true,
     can_report_session_level: true,
   };
+
+  // Apply overrides if provided
+  if (overrides) {
+    for (const [key, value] of Object.entries(overrides)) {
+      if (key in caps && typeof value === 'boolean') {
+        caps[key as CapabilityName] = value;
+      }
+    }
+  }
 
   return Object.entries(caps).map(([name, enabled]) => ({
     name: name as CapabilityName,

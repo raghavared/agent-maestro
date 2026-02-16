@@ -300,12 +300,16 @@ export async function loadCommandPermissions(): Promise<CommandPermissions> {
 }
 
 /**
- * Get command permissions from a manifest object
+ * Get command permissions from a manifest object.
+ * Supports team member capability and command permission overrides (Phase 2).
  */
 export function getPermissionsFromManifest(manifest: MaestroManifest): CommandPermissions {
   const mode = manifest.mode;
   const strategy = getEffectiveStrategy(manifest);
-  const capabilities = computeCapabilities(mode, strategy);
+
+  // Compute capabilities with optional team member overrides
+  const capabilityOverrides = manifest.teamMemberCapabilities as Record<string, boolean> | undefined;
+  const capabilities = computeCapabilities(mode, strategy, capabilityOverrides);
 
   // Start with defaults for the mode
   let allowedCommands = [...DEFAULT_COMMANDS_BY_MODE[mode]];
@@ -315,11 +319,50 @@ export function getPermissionsFromManifest(manifest: MaestroManifest): CommandPe
     allowedCommands = [...allowedCommands, ...QUEUE_STRATEGY_COMMANDS];
   }
 
-  // Add tree commands if using tree strategy
-  // NOTE: Tree strategy not yet implemented
-  // if (strategy === 'tree') {
-  //   allowedCommands = [...allowedCommands, ...TREE_STRATEGY_COMMANDS];
-  // }
+  // Apply team member command permission overrides (Phase 2)
+  const cmdOverrides = manifest.teamMemberCommandPermissions;
+  if (cmdOverrides) {
+    // Group-level overrides: enable/disable entire command groups
+    if (cmdOverrides.groups) {
+      for (const [group, enabled] of Object.entries(cmdOverrides.groups)) {
+        const groupCommands = COMMAND_REGISTRY
+          .filter(c => c.parent === group || (group === 'root' && !c.parent))
+          .map(c => c.name);
+
+        if (enabled) {
+          // Add all commands from this group
+          for (const cmd of groupCommands) {
+            if (!allowedCommands.includes(cmd)) {
+              allowedCommands.push(cmd);
+            }
+          }
+        } else {
+          // Remove all non-core commands from this group
+          const coreNames = new Set(COMMAND_REGISTRY.filter(c => c.isCore).map(c => c.name));
+          allowedCommands = allowedCommands.filter(
+            cmd => !groupCommands.includes(cmd) || coreNames.has(cmd)
+          );
+        }
+      }
+    }
+
+    // Individual command overrides (most specific, wins over group)
+    if (cmdOverrides.commands) {
+      const coreNames = new Set(COMMAND_REGISTRY.filter(c => c.isCore).map(c => c.name));
+      for (const [cmd, enabled] of Object.entries(cmdOverrides.commands)) {
+        if (enabled) {
+          if (!allowedCommands.includes(cmd)) {
+            allowedCommands.push(cmd);
+          }
+        } else {
+          // Don't remove core commands
+          if (!coreNames.has(cmd)) {
+            allowedCommands = allowedCommands.filter(c => c !== cmd);
+          }
+        }
+      }
+    }
+  }
 
   // Override with explicit allowedCommands if provided in manifest
   if (manifest.session && (manifest.session as any).allowedCommands) {
@@ -504,7 +547,7 @@ const COMMAND_SYNTAX: Record<string, string> = {
   'session:list': 'maestro session list',
   'session:info': 'maestro session info',
   'session:watch': 'maestro session watch <sessionId1>,<sessionId2>,...',
-  'session:spawn': 'maestro session spawn',
+  'session:spawn': 'maestro session spawn --task <id> [--team-member-id <tmId>] [--model <model>] [--agent-tool <tool>]',
   'session:register': 'maestro session register',
   'session:complete': 'maestro session complete',
   'session:report:progress': 'maestro session report progress "<message>"',

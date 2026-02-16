@@ -20,15 +20,103 @@ export type GeminiModel = 'gemini-3-pro-preview' | 'gemini-3-flash-preview';
 export type ModelType = ClaudeModel | CodexModel | GeminiModel;
 export type AgentTool = 'claude-code' | 'codex' | 'gemini';
 
-// Task type discriminator
-export type TaskType = 'task' | 'team-member';
+// Team Member types
+export type TeamMemberStatus = 'active' | 'archived';
 
-// Team member metadata (only present when taskType === 'team-member')
-export interface TeamMemberMetadata {
-  role: string;        // e.g. "frontend developer", "tester"
-  identity: string;    // persona/instruction prompt
-  avatar: string;      // emoji or icon identifier
-  mailId: string;      // random generated mail ID for shared mailbox
+export interface TeamMember {
+  id: string;
+  projectId: string;
+  name: string;
+  role: string;
+  identity: string;
+  avatar: string;
+  model?: ModelType;
+  agentTool?: AgentTool;
+  mode?: AgentMode;
+  strategy?: string;
+  skillIds?: string[];
+  isDefault: boolean;
+  status: TeamMemberStatus;
+
+  // Phase 2: Capability overrides
+  capabilities?: {
+    can_spawn_sessions?: boolean;
+    can_edit_tasks?: boolean;
+    can_use_queue?: boolean;
+    can_report_task_level?: boolean;
+    can_report_session_level?: boolean;
+  };
+
+  // Phase 2: Command permission overrides
+  commandPermissions?: {
+    groups?: Record<string, boolean>;
+    commands?: Record<string, boolean>;
+  };
+
+  // Phase 3: Workflow customization
+  workflowTemplateId?: string;
+  customWorkflow?: string;
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Workflow template types (Phase 3)
+export interface WorkflowPhase {
+  name: string;
+  instruction: string;
+}
+
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description: string;
+  mode: AgentMode;
+  strategy?: string;
+  phases: WorkflowPhase[];
+  builtIn: boolean;
+}
+
+export interface TeamMemberSnapshot {
+  name: string;
+  avatar: string;
+  role: string;
+  model?: string;
+  agentTool?: AgentTool;
+}
+
+export interface CreateTeamMemberPayload {
+  projectId: string;
+  name: string;
+  role: string;
+  identity: string;
+  avatar: string;
+  model?: ModelType;
+  agentTool?: AgentTool;
+  mode?: AgentMode;
+  strategy?: string;
+  skillIds?: string[];
+  capabilities?: TeamMember['capabilities'];
+  commandPermissions?: TeamMember['commandPermissions'];
+  workflowTemplateId?: string;
+  customWorkflow?: string;
+}
+
+export interface UpdateTeamMemberPayload {
+  name?: string;
+  role?: string;
+  identity?: string;
+  avatar?: string;
+  model?: ModelType;
+  agentTool?: AgentTool;
+  mode?: AgentMode;
+  strategy?: string;
+  skillIds?: string[];
+  status?: TeamMemberStatus;
+  capabilities?: TeamMember['capabilities'];
+  commandPermissions?: TeamMember['commandPermissions'];
+  workflowTemplateId?: string;
+  customWorkflow?: string;
 }
 
 // Session timeline event types
@@ -171,11 +259,8 @@ export interface MaestroTask {
   // Pinned tasks appear in the dedicated "Pinned" tab for quick re-execution
   pinned?: boolean;
 
-  // Task type: 'task' (default) or 'team-member'
-  taskType?: TaskType;
-
-  // Team member metadata (only when taskType === 'team-member')
-  teamMemberMetadata?: TeamMemberMetadata;
+  // Assigned team member for this task
+  teamMemberId?: string;
 
   // UI/Populated Fields (Optional)
   subtasks?: MaestroTask[];
@@ -214,6 +299,8 @@ export interface MaestroSession {
   manifestPath?: string;
   model?: ModelType;
   docs?: DocEntry[];
+  teamMemberId?: string;
+  teamMemberSnapshot?: TeamMemberSnapshot;
 }
 
 // Payloads
@@ -228,8 +315,7 @@ export interface CreateTaskPayload {
   referenceTaskIds?: string[];
   model?: ModelType;
   agentTool?: AgentTool;
-  taskType?: TaskType;
-  teamMemberMetadata?: TeamMemberMetadata;
+  teamMemberId?: string;
 }
 
 export interface UpdateTaskPayload {
@@ -247,8 +333,7 @@ export interface UpdateTaskPayload {
   model?: ModelType;
   agentTool?: AgentTool;
   pinned?: boolean;
-  taskType?: TaskType;
-  teamMemberMetadata?: TeamMemberMetadata;
+  teamMemberId?: string;
   // NOTE: timeline moved to Session - use addTimelineEvent on session
   completedAt?: number | null;
 }
@@ -314,6 +399,7 @@ export interface SpawnSessionPayload {
   context?: Record<string, any>;
   model?: ModelType;
   agentTool?: AgentTool;
+  teamMemberId?: string;              // Team member running this session
   teamMemberIds?: string[];           // Team member task IDs to include in coordinate mode
 }
 
@@ -325,4 +411,12 @@ export interface SpawnSessionResponse {
 }
 
 export type TaskTreeNode = MaestroTask & { children: TaskTreeNode[] };
+
+// Ordering (separate from task/session models - UI ordering only)
+export interface Ordering {
+  projectId: string;
+  entityType: 'task' | 'session';
+  orderedIds: string[];
+  updatedAt: number;
+}
 

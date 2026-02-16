@@ -14,6 +14,11 @@ import type {
     SpawnSessionPayload,
     SpawnSessionResponse,
     DocEntry,
+    Ordering,
+    TeamMember,
+    CreateTeamMemberPayload,
+    UpdateTeamMemberPayload,
+    WorkflowTemplate,
 } from '../app/types/maestro';
 
 import { API_BASE_URL } from './serverConfig';
@@ -257,6 +262,110 @@ class MaestroClient {
      */
     async getSkills(): Promise<ClaudeCodeSkill[]> {
         return this.fetch<ClaudeCodeSkill[]>('/skills');
+    }
+
+    // ==================== ORDERING ====================
+
+    /**
+     * Get ordering for a project and entity type
+     */
+    async getOrdering(projectId: string, entityType: 'task' | 'session'): Promise<Ordering> {
+        return this.fetch<Ordering>(`/ordering/${entityType}/${encodeURIComponent(projectId)}`);
+    }
+
+    /**
+     * Save ordering for a project and entity type
+     */
+    async saveOrdering(projectId: string, entityType: 'task' | 'session', orderedIds: string[]): Promise<Ordering> {
+        return this.fetch<Ordering>(`/ordering/${entityType}/${encodeURIComponent(projectId)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ orderedIds }),
+        });
+    }
+
+    // ==================== TEAM MEMBERS ====================
+
+    /**
+     * Get all team members for a project
+     */
+    async getTeamMembers(projectId: string): Promise<TeamMember[]> {
+        return this.fetch<TeamMember[]>(`/team-members?projectId=${encodeURIComponent(projectId)}`);
+    }
+
+    /**
+     * Create a new team member
+     */
+    async createTeamMember(data: CreateTeamMemberPayload): Promise<TeamMember> {
+        return this.fetch<TeamMember>('/team-members', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    /**
+     * Update an existing team member
+     */
+    async updateTeamMember(id: string, projectId: string, updates: UpdateTeamMemberPayload): Promise<TeamMember> {
+        return this.fetch<TeamMember>(`/team-members/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ ...updates, projectId }),
+        });
+    }
+
+    /**
+     * Delete a team member
+     */
+    async deleteTeamMember(id: string, projectId: string): Promise<void> {
+        await this.fetch<{ success: boolean }>(`/team-members/${id}?projectId=${encodeURIComponent(projectId)}`, {
+            method: 'DELETE',
+        });
+    }
+
+    /**
+     * Archive a team member
+     */
+    async archiveTeamMember(id: string, projectId: string): Promise<void> {
+        await this.fetch<TeamMember>(`/team-members/${id}/archive`, {
+            method: 'POST',
+            body: JSON.stringify({ projectId }),
+        });
+    }
+
+    /**
+     * Unarchive a team member
+     */
+    async unarchiveTeamMember(id: string, projectId: string): Promise<void> {
+        await this.fetch<TeamMember>(`/team-members/${id}/unarchive`, {
+            method: 'POST',
+            body: JSON.stringify({ projectId }),
+        });
+    }
+
+    /**
+     * Reset a default team member to its default values
+     */
+    async resetDefaultTeamMember(id: string, projectId: string): Promise<void> {
+        await this.fetch<TeamMember>(`/team-members/${id}/reset`, {
+            method: 'POST',
+            body: JSON.stringify({ projectId }),
+        });
+    }
+
+    // ── Workflow Templates ──────────────────────────────────────
+
+    /**
+     * Get all workflow templates, optionally filtered by mode.
+     */
+    async getWorkflowTemplates(mode?: string): Promise<WorkflowTemplate[]> {
+        const query = mode ? `?mode=${encodeURIComponent(mode)}` : '';
+        return this.fetch<WorkflowTemplate[]>(`/workflow-templates${query}`);
+    }
+
+    /**
+     * Get a specific workflow template by ID.
+     */
+    async getWorkflowTemplate(id: string): Promise<WorkflowTemplate> {
+        return this.fetch<WorkflowTemplate>(`/workflow-templates/${encodeURIComponent(id)}`);
     }
 
 }

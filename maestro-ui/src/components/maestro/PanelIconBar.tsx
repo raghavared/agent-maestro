@@ -1,9 +1,9 @@
 import React from "react";
-import { TaskTreeNode, MaestroTask } from "../../app/types/maestro";
+import { TaskTreeNode, MaestroTask, TeamMember } from "../../app/types/maestro";
 
-export type PrimaryTab = "tasks" | "skills" | "team";
-export type TaskSubTab = "active" | "pinned" | "completed" | "archived";
-export type SkillSubTab = "create" | "browse" | "pinned" | "archived";
+export type PrimaryTab = "tasks" | "team" | "skills";
+export type TaskSubTab = "current" | "pinned" | "completed" | "archived";
+export type SkillSubTab = "browse";
 export type TeamSubTab = "members" | "pinned" | "archived";
 
 type PanelIconBarProps = {
@@ -16,11 +16,11 @@ type PanelIconBarProps = {
     teamSubTab: TeamSubTab;
     onTeamSubTabChange: (tab: TeamSubTab) => void;
     roots: TaskTreeNode[];
-    teamMembers: MaestroTask[];
-    onRefresh: () => void;
-    onShowBoard: () => void;
+    teamMembers: TeamMember[];
     loading: boolean;
     projectId: string;
+    onNewTask: () => void;
+    onNewTeamMember: () => void;
 };
 
 export const PanelIconBar: React.FC<PanelIconBarProps> = ({
@@ -34,43 +34,23 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
     onTeamSubTabChange,
     roots,
     teamMembers,
-    onRefresh,
-    onShowBoard,
     loading,
     projectId,
+    onNewTask,
+    onNewTeamMember,
 }) => {
     const activeCount = roots.filter(t => t.status !== 'completed' && t.status !== 'archived').length;
     const pinnedCount = roots.filter(t => t.pinned).length;
     const completedCount = roots.filter(t => t.status === 'completed').length;
     const archivedCount = roots.filter(t => t.status === 'archived').length;
 
-    const pinnedTeamCount = teamMembers.filter(t => t.pinned).length;
+    const pinnedTeamCount = 0;
     const archivedTeamCount = teamMembers.filter(t => t.status === 'archived').length;
     const activeTeamCount = teamMembers.filter(t => t.status !== 'archived').length;
 
     return (
         <div className="maestroPanelTabSystem">
-            {/* Utility bar - refresh & board */}
-            <div className="maestroPanelUtilityBar">
-                <div className="maestroPanelUtilityActions">
-                    <button
-                        className="terminalCmd terminalCmdSmall"
-                        onClick={onRefresh}
-                        disabled={loading || !projectId}
-                    >
-                        <span className="terminalPrompt">$</span> refresh
-                    </button>
-                    <button
-                        className="terminalCmd terminalCmdSmall"
-                        onClick={onShowBoard}
-                        disabled={loading || !projectId}
-                    >
-                        <span className="terminalPrompt">$</span> board
-                    </button>
-                </div>
-            </div>
-
-            {/* Primary tab bar */}
+            {/* Primary tab bar - at the very top */}
             <div className="maestroPanelPrimaryTabs">
                 <button
                     className={`maestroPanelPrimaryTab ${primaryTab === "tasks" ? "maestroPanelPrimaryTabActive" : ""}`}
@@ -82,17 +62,6 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                     </svg>
                     Tasks
                     <span className="maestroPanelTabBadge">{activeCount}</span>
-                </button>
-                <button
-                    className={`maestroPanelPrimaryTab ${primaryTab === "skills" ? "maestroPanelPrimaryTabActive" : ""}`}
-                    onClick={() => onPrimaryTabChange("skills")}
-                >
-                    <svg className="maestroPanelTabIcon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M10 2L3 7l7 5 7-5-7-5z" strokeLinejoin="round" />
-                        <path d="M3 13l7 5 7-5" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M3 10l7 5 7-5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    Skills
                 </button>
                 <button
                     className={`maestroPanelPrimaryTab ${primaryTab === "team" ? "maestroPanelPrimaryTabActive" : ""}`}
@@ -107,6 +76,17 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                     Team
                     <span className="maestroPanelTabBadge">{activeTeamCount}</span>
                 </button>
+                <button
+                    className={`maestroPanelPrimaryTab ${primaryTab === "skills" ? "maestroPanelPrimaryTabActive" : ""}`}
+                    onClick={() => onPrimaryTabChange("skills")}
+                >
+                    <svg className="maestroPanelTabIcon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M10 2L3 7l7 5 7-5-7-5z" strokeLinejoin="round" />
+                        <path d="M3 13l7 5 7-5" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M3 10l7 5 7-5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    Skills
+                </button>
             </div>
 
             {/* Secondary sub-tab bar - contextual */}
@@ -114,10 +94,17 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                 {primaryTab === "tasks" && (
                     <>
                         <button
-                            className={`maestroPanelSubTab ${taskSubTab === "active" ? "maestroPanelSubTabActive" : ""}`}
-                            onClick={() => onTaskSubTabChange("active")}
+                            className="maestroPanelSubTab maestroPanelSubTab--action"
+                            onClick={onNewTask}
                         >
+                            <span className="maestroPanelSubTabPlus">+</span>
                             New Task
+                        </button>
+                        <button
+                            className={`maestroPanelSubTab ${taskSubTab === "current" ? "maestroPanelSubTabActive" : ""}`}
+                            onClick={() => onTaskSubTabChange("current")}
+                        >
+                            Current
                             <span className="maestroPanelSubTabCount">{activeCount}</span>
                         </button>
                         <button
@@ -144,42 +131,20 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                     </>
                 )}
 
-                {primaryTab === "skills" && (
-                    <>
-                        <button
-                            className={`maestroPanelSubTab ${skillSubTab === "create" ? "maestroPanelSubTabActive" : ""}`}
-                            onClick={() => onSkillSubTabChange("create")}
-                        >
-                            Create Skill
-                        </button>
-                        <button
-                            className={`maestroPanelSubTab ${skillSubTab === "browse" ? "maestroPanelSubTabActive" : ""}`}
-                            onClick={() => onSkillSubTabChange("browse")}
-                        >
-                            Browse Skills
-                        </button>
-                        <button
-                            className={`maestroPanelSubTab ${skillSubTab === "pinned" ? "maestroPanelSubTabActive" : ""}`}
-                            onClick={() => onSkillSubTabChange("pinned")}
-                        >
-                            Pinned Skills
-                        </button>
-                        <button
-                            className={`maestroPanelSubTab ${skillSubTab === "archived" ? "maestroPanelSubTabActive" : ""}`}
-                            onClick={() => onSkillSubTabChange("archived")}
-                        >
-                            Archived Skills
-                        </button>
-                    </>
-                )}
-
                 {primaryTab === "team" && (
                     <>
+                        <button
+                            className="maestroPanelSubTab maestroPanelSubTab--action"
+                            onClick={onNewTeamMember}
+                        >
+                            <span className="maestroPanelSubTabPlus">+</span>
+                            New Member
+                        </button>
                         <button
                             className={`maestroPanelSubTab ${teamSubTab === "members" ? "maestroPanelSubTabActive" : ""}`}
                             onClick={() => onTeamSubTabChange("members")}
                         >
-                            Add Team Member
+                            Members
                             <span className="maestroPanelSubTabCount">{activeTeamCount}</span>
                         </button>
                         <button
@@ -198,6 +163,8 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                         </button>
                     </>
                 )}
+
+                {/* Skills has no sub-tabs */}
             </div>
         </div>
     );

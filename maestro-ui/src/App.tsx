@@ -477,6 +477,7 @@ export default function App() {
               agentShortcuts={agentShortcuts}
               sessions={projectSessions}
               activeSessionId={activeId}
+              activeProjectId={activeProjectId}
               projectName={activeProject?.name ?? null}
               projectBasePath={activeProject?.basePath ?? null}
               onSelectSession={(id) => {

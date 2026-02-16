@@ -130,6 +130,10 @@ interface UIState {
   createTaskRequested: boolean;
   setCreateTaskRequested: (requested: boolean) => void;
 
+  // Maestro board trigger (consumed by MaestroPanel)
+  showBoardRequested: boolean;
+  setShowBoardRequested: (requested: boolean) => void;
+
   // App update
   appInfo: AppInfo | null;
   updatesOpen: boolean;
@@ -242,6 +246,10 @@ export const useUIStore = create<UIState>((set, get) => ({
   // -- Maestro create task trigger --
   createTaskRequested: false,
   setCreateTaskRequested: (requested) => set({ createTaskRequested: requested }),
+
+  // -- Maestro board trigger --
+  showBoardRequested: false,
+  setShowBoardRequested: (requested) => set({ showBoardRequested: requested }),
 
   // -- App update --
   appInfo: null,

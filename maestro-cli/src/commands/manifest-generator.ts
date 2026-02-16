@@ -1,6 +1,7 @@
 import type { MaestroManifest, AdditionalContext, AgentTool, AgentMode, TeamMemberData } from '../types/manifest.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
+import { api } from '../api.js';
 
 /**
  * Task data input for manifest generation
@@ -174,6 +175,7 @@ export class ManifestGeneratorCLICommand {
     agentTool?: AgentTool;
     referenceTaskIds?: string[];
     teamMemberIds?: string[];
+    teamMemberId?: string;
   }): Promise<void> {
     try {
       console.error('Generating manifest...');
@@ -239,29 +241,53 @@ export class ManifestGeneratorCLICommand {
         manifest.referenceTaskIds = options.referenceTaskIds;
       }
 
+      // Add team member identity for this session (if specified)
+      if (options.teamMemberId) {
+        try {
+          const teamMember: any = await api.get(`/api/team-members/${options.teamMemberId}?projectId=${options.projectId}`);
+          manifest.teamMemberId = teamMember.id;
+          manifest.teamMemberName = teamMember.name;
+          manifest.teamMemberAvatar = teamMember.avatar;
+          manifest.teamMemberIdentity = teamMember.identity;
+          // Phase 2: Pass capability and command permission overrides
+          if (teamMember.capabilities) {
+            manifest.teamMemberCapabilities = teamMember.capabilities;
+          }
+          if (teamMember.commandPermissions) {
+            manifest.teamMemberCommandPermissions = teamMember.commandPermissions;
+          }
+          // Phase 3: Pass workflow customization
+          if (teamMember.workflowTemplateId) {
+            manifest.teamMemberWorkflowTemplateId = teamMember.workflowTemplateId;
+          }
+          if (teamMember.customWorkflow) {
+            manifest.teamMemberCustomWorkflow = teamMember.customWorkflow;
+          }
+          console.error(`  Team Member: ${teamMember.name} (${teamMember.id})`);
+        } catch (err: any) {
+          console.error(`  Warning: Could not load team member ${options.teamMemberId}: ${err.message}`);
+        }
+      }
+
       // Add team members to manifest (if specified, typically for coordinate mode)
       if (options.teamMemberIds && options.teamMemberIds.length > 0) {
         const teamMembers: TeamMemberData[] = [];
         for (const memberId of options.teamMemberIds) {
           try {
-            const memberTask = await this.fetchTask(memberId);
-            // Read the raw stored task to get teamMemberMetadata
-            await storage.initialize();
-            const rawTask = storage.getTask(memberId);
-            if (rawTask?.teamMemberMetadata) {
-              teamMembers.push({
-                id: memberTask.id,
-                name: memberTask.title,
-                role: rawTask.teamMemberMetadata.role,
-                identity: rawTask.teamMemberMetadata.identity,
-                avatar: rawTask.teamMemberMetadata.avatar,
-                mailId: rawTask.teamMemberMetadata.mailId,
-                skillIds: rawTask.metadata?.skillIds,
-                model: rawTask.model,
-                agentTool: rawTask.metadata?.agentTool,
-              });
-              console.error(`  Team Member: ${memberTask.title} (${memberId})`);
-            }
+            // Fetch team member from new API instead of task storage
+            const teamMember: any = await api.get(`/api/team-members/${memberId}?projectId=${options.projectId}`);
+            teamMembers.push({
+              id: teamMember.id,
+              name: teamMember.name,
+              role: teamMember.role,
+              identity: teamMember.identity,
+              avatar: teamMember.avatar,
+              mailId: `mail_${teamMember.id}`, // Generate mailId from team member ID
+              skillIds: teamMember.skillIds,
+              model: teamMember.model,
+              agentTool: teamMember.agentTool,
+            });
+            console.error(`  Team Member: ${teamMember.name} (${memberId})`);
           } catch (err: any) {
             console.error(`  Warning: Could not load team member ${memberId}: ${err.message}`);
           }
@@ -438,7 +464,8 @@ export function registerManifestCommands(program: any): void {
     .option('--model <model>', 'Model to use (e.g. sonnet, gpt-5.3-codex, gemini-3-pro-preview)', 'sonnet')
     .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)', 'claude-code')
     .option('--reference-task-ids <ids>', 'Comma-separated reference task IDs for context')
-    .option('--team-member-ids <ids>', 'Comma-separated team member task IDs')
+    .option('--team-member-id <id>', 'Team member ID for this session')
+    .option('--team-member-ids <ids>', 'Comma-separated team member IDs (for coordinate mode)')
     .requiredOption('--output <path>', 'Output file path')
     .action(async (options: any) => {
       // Parse comma-separated values
@@ -480,6 +507,7 @@ export function registerManifestCommands(program: any): void {
         model: options.model,
         agentTool: options.agentTool !== 'claude-code' ? options.agentTool : undefined,
         referenceTaskIds,
+        teamMemberId: options.teamMemberId,
         teamMemberIds,
       });
     });
