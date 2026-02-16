@@ -6,6 +6,7 @@ import { randomBytes } from 'crypto';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import type { MaestroManifest } from '../types/manifest.js';
+import { getEffectiveStrategy } from '../types/manifest.js';
 import { SkillLoader } from './skill-loader.js';
 import { WhoamiRenderer } from './whoami-renderer.js';
 import { getPermissionsFromManifest } from './command-permissions.js';
@@ -67,14 +68,16 @@ export class ClaudeSpawner {
     const primaryTask = manifest.tasks[0];
     const allTaskIds = manifest.tasks.map(t => t.id).join(',');
 
+    const strategy = getEffectiveStrategy(manifest);
+
     const env: Record<string, string> = {
       ...process.env,
       // Maestro context
       MAESTRO_SESSION_ID: sessionId,
       MAESTRO_TASK_IDS: allTaskIds,
       MAESTRO_PROJECT_ID: primaryTask.projectId,
-      MAESTRO_ROLE: manifest.role,
-      MAESTRO_STRATEGY: manifest.strategy || 'simple',
+      MAESTRO_MODE: manifest.mode,
+      MAESTRO_STRATEGY: strategy,
       MAESTRO_MANIFEST_PATH: process.env.MAESTRO_MANIFEST_PATH || '',
       // Server URL - explicitly forward so child processes connect to the correct server
       MAESTRO_SERVER_URL: process.env.MAESTRO_SERVER_URL || process.env.MAESTRO_API_URL || '',
@@ -95,21 +98,21 @@ export class ClaudeSpawner {
       env.MAESTRO_TASK_DEPENDENCIES = JSON.stringify(primaryTask.dependencies);
     }
 
-    // Add orchestrator strategy when role is orchestrator
-    if (manifest.role === 'orchestrator') {
-      env.MAESTRO_ORCHESTRATOR_STRATEGY = manifest.orchestratorStrategy || 'default';
+    // Add orchestrator strategy when coordinate mode
+    if (manifest.mode === 'coordinate') {
+      env.MAESTRO_ORCHESTRATOR_STRATEGY = strategy;
     }
 
     return env as Record<string, string>;
   }
 
   /**
-   * Get plugin directory for a role
+   * Get plugin directory for a mode
    *
-   * @param role - The agent role (worker or orchestrator)
+   * @param mode - The agent mode (execute or coordinate)
    * @returns Path to plugin directory, or null if not found
    */
-  getPluginDir(role: 'worker' | 'orchestrator'): string | null {
+  getPluginDir(mode: 'execute' | 'coordinate'): string | null {
     try {
       // Get the maestro-cli root directory
       const __filename = fileURLToPath(import.meta.url);
@@ -117,7 +120,7 @@ export class ClaudeSpawner {
       const cliRoot = join(__dirname, '../..');
 
       // Construct plugin directory path
-      const pluginName = role === 'worker' ? 'maestro-worker' : 'maestro-orchestrator';
+      const pluginName = mode === 'execute' ? 'maestro-worker' : 'maestro-orchestrator';
       const pluginDir = join(cliRoot, 'plugins', pluginName);
 
       // Check if plugin directory exists
@@ -142,7 +145,7 @@ export class ClaudeSpawner {
 
     // Add plugin directory (provides both hooks and skills)
     // Skills in plugins are loaded from the skills/ subdirectory automatically
-    const pluginDir = this.getPluginDir(manifest.role);
+    const pluginDir = this.getPluginDir(manifest.mode);
     if (pluginDir) {
       args.push('--plugin-dir', pluginDir);
     }
@@ -216,7 +219,7 @@ export class ClaudeSpawner {
     // Build arguments (now async to load skills)
     const args = await this.buildClaudeArgs(manifest);
 
-    // Static role instructions + commands go into the system prompt
+    // Static mode instructions + commands go into the system prompt
     args.push('--append-system-prompt', systemPrompt);
 
     // Dynamic task context goes as the user message

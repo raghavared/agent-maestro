@@ -18,9 +18,19 @@ let globalConnecting = false;
 let globalReconnectTimeout: number | null = null;
 let globalReconnectAttempts = 0;
 
+export interface AgentModal {
+  sessionId: string;
+  modalId: string;
+  title: string;
+  html: string;
+  filePath?: string;
+  timestamp: number;
+}
+
 interface MaestroState {
   tasks: Map<string, MaestroTask>;
   sessions: Map<string, MaestroSession>;
+  activeModals: AgentModal[];
   loading: Set<string>;
   errors: Map<string, string>;
   wsConnected: boolean;
@@ -39,6 +49,8 @@ interface MaestroState {
   removeTaskFromSession: (sessionId: string, taskId: string) => Promise<void>;
   clearNeedsInput: (maestroSessionId: string) => void;
   checkAndClearNeedsInputForActiveSession: () => void;
+  showAgentModal: (modal: AgentModal) => void;
+  closeAgentModal: (modalId: string) => void;
   clearCache: () => void;
   hardRefresh: (projectId: string) => Promise<void>;
   initWebSocket: () => void;
@@ -213,6 +225,12 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           console.log(`[useMaestroStore] 🔔 Playing sound for: ${message.event}`);
           playEventSound(message.event as any);
           break;
+        case 'session:modal': {
+          const modalData = message.data as AgentModal;
+          console.log(`[useMaestroStore] 📋 MODAL RECEIVED: ${modalData.modalId} (${modalData.title})`);
+          get().showAgentModal(modalData);
+          break;
+        }
       }
     } catch (err) {
       console.error('\n' + '⚠️'.repeat(40));
@@ -310,6 +328,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
   return {
     tasks: new Map(),
     sessions: new Map(),
+    activeModals: [],
     loading: new Set(),
     errors: new Map(),
     wsConnected: false,
@@ -430,7 +449,21 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       get().clearNeedsInput(activeLocalSession.maestroSessionId);
     },
 
-    clearCache: () => set({ tasks: new Map(), sessions: new Map(), loading: new Set(), errors: new Map() }),
+    showAgentModal: (modal) => {
+      set((prev) => {
+        // Don't add duplicate modals
+        if (prev.activeModals.some((m) => m.modalId === modal.modalId)) return prev;
+        return { activeModals: [...prev.activeModals, modal] };
+      });
+    },
+
+    closeAgentModal: (modalId) => {
+      set((prev) => ({
+        activeModals: prev.activeModals.filter((m) => m.modalId !== modalId),
+      }));
+    },
+
+    clearCache: () => set({ tasks: new Map(), sessions: new Map(), activeModals: [], loading: new Set(), errors: new Map() }),
 
     hardRefresh: async (projectId) => {
       get().clearCache();

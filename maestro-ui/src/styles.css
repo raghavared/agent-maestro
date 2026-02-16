@@ -13499,8 +13499,8 @@ select.input {
 .sessionDetailsValue--status-failed { color: #EF4444; }
 .sessionDetailsValue--status-stopped { color: #94A3B8; }
 
-.sessionDetailsValue--role-worker { color: #22D3EE; }
-.sessionDetailsValue--role-orchestrator { color: #F59E0B; }
+.sessionDetailsValue--mode-execute { color: #22D3EE; }
+.sessionDetailsValue--mode-coordinate { color: #F59E0B; }
 
 .sessionDetailsGroup {
   margin-top: 12px;

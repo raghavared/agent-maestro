@@ -1,4 +1,4 @@
-import type { MaestroManifest, AdditionalContext, WorkerStrategy, OrchestratorStrategy, AgentTool } from '../types/manifest.js';
+import type { MaestroManifest, AdditionalContext, AgentTool, AgentMode } from '../types/manifest.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
 
@@ -97,20 +97,19 @@ export class ManifestGeneratorCLICommand {
    * Execute the CLI command
    */
   async execute(options: {
-    role: 'worker' | 'orchestrator';
+    mode: AgentMode;
     projectId: string;
     taskIds: string[];
     skills?: string[];
     output: string;
     strategy?: string;
     model?: string;
-    orchestratorStrategy?: string;
     agentTool?: AgentTool;
     referenceTaskIds?: string[];
   }): Promise<void> {
     try {
       console.error('Generating manifest...');
-      console.error(`  Role: ${options.role}`);
+      console.error(`  Mode: ${options.mode}`);
       console.error(`  Strategy: ${options.strategy || 'simple'}`);
       console.error(`  Task IDs: ${options.taskIds.join(', ')}`);
       console.error(`  Project ID: ${options.projectId}`);
@@ -142,7 +141,7 @@ export class ManifestGeneratorCLICommand {
 
       // 4. Generate manifest with all tasks
       const manifest = this.generator.generateManifest(
-        options.role,
+        options.mode,
         tasks,
         sessionOptions
       );
@@ -152,12 +151,7 @@ export class ManifestGeneratorCLICommand {
 
       // Add strategy to manifest (if specified)
       if (options.strategy) {
-        manifest.strategy = options.strategy as WorkerStrategy;
-      }
-
-      // Add orchestrator strategy to manifest (when role is orchestrator)
-      if (options.role === 'orchestrator') {
-        manifest.orchestratorStrategy = (options.orchestratorStrategy || 'default') as OrchestratorStrategy;
+        manifest.strategy = options.strategy as any;
       }
 
       // Add agent tool to manifest (if specified)
@@ -208,13 +202,13 @@ export class ManifestGenerator {
   /**
    * Generate a manifest from task data
    *
-   * @param role - Agent role (worker or orchestrator)
+   * @param mode - Agent mode (execute or coordinate)
    * @param tasksData - Array of task information (supports multi-task sessions)
    * @param options - Session configuration
    * @returns Generated manifest
    */
   generateManifest(
-    role: 'worker' | 'orchestrator',
+    mode: AgentMode,
     tasksData: TaskInput | TaskInput[],
     options: SessionOptions
   ): MaestroManifest {
@@ -237,7 +231,7 @@ export class ManifestGenerator {
 
     const manifest: MaestroManifest = {
       manifestVersion: '1.0',
-      role,
+      mode,
       tasks: taskDataArray,
       session: {
         model: options.model,
@@ -293,18 +287,18 @@ export class ManifestGenerator {
   /**
    * Generate and save manifest to file
    *
-   * @param role - Agent role
+   * @param mode - Agent mode
    * @param taskData - Task information
    * @param options - Session configuration
    * @param outputPath - File path to save manifest
    */
   async generateAndSave(
-    role: 'worker' | 'orchestrator',
+    mode: AgentMode,
     taskData: TaskInput,
     options: SessionOptions,
     outputPath: string
   ): Promise<void> {
-    const manifest = this.generateManifest(role, taskData, options);
+    const manifest = this.generateManifest(mode, taskData, options);
 
     // Validate before saving
     if (!this.validateGeneratedManifest(manifest)) {
@@ -328,12 +322,11 @@ export function registerManifestCommands(program: any): void {
   manifest
     .command('generate')
     .description('Generate a manifest file from task and project data')
-    .requiredOption('--role <role>', 'Agent role (worker or orchestrator)')
+    .requiredOption('--mode <mode>', 'Agent mode (execute or coordinate)')
     .requiredOption('--project-id <id>', 'Project ID')
     .requiredOption('--task-ids <ids>', 'Comma-separated task IDs')
     .option('--skills <skills>', 'Comma-separated skills', 'maestro-worker')
-    .option('--strategy <strategy>', 'Worker strategy (simple or queue)', 'simple')
-    .option('--orchestrator-strategy <strategy>', 'Orchestrator strategy (default, intelligent-batching, or dag)', 'default')
+    .option('--strategy <strategy>', 'Strategy (simple, queue, tree, default, intelligent-batching, dag)', 'simple')
     .option('--model <model>', 'Model to use (e.g. sonnet, gpt-5.3-codex, gemini-3-pro-preview)', 'sonnet')
     .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)', 'claude-code')
     .option('--reference-task-ids <ids>', 'Comma-separated reference task IDs for context')
@@ -343,9 +336,9 @@ export function registerManifestCommands(program: any): void {
       const taskIds = options.taskIds.split(',').map((id: string) => id.trim());
       const skills = options.skills.split(',').map((skill: string) => skill.trim());
 
-      // Validate role
-      if (options.role !== 'worker' && options.role !== 'orchestrator') {
-        console.error('Error: role must be "worker" or "orchestrator"');
+      // Validate mode
+      if (options.mode !== 'execute' && options.mode !== 'coordinate') {
+        console.error('Error: mode must be "execute" or "coordinate"');
         process.exit(1);
       }
 
@@ -364,14 +357,13 @@ export function registerManifestCommands(program: any): void {
       // Create and execute command (reads from local storage, no API needed)
       const command = new ManifestGeneratorCLICommand();
       await command.execute({
-        role: options.role,
+        mode: options.mode,
         projectId: options.projectId,
         taskIds,
         skills,
         output: options.output,
         strategy: options.strategy,
         model: options.model,
-        orchestratorStrategy: options.orchestratorStrategy,
         agentTool: options.agentTool !== 'claude-code' ? options.agentTool : undefined,
         referenceTaskIds,
       });

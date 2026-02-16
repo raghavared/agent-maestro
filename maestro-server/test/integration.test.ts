@@ -319,7 +319,7 @@ describe('Integration Tests - Full Workflows', () => {
           taskIds: [task1Id, task2Id],
           name: 'Orchestrator',
           metadata: {
-            role: 'orchestrator',
+            mode: 'coordinate',
             skills: ['maestro-orchestrator']
           }
         })

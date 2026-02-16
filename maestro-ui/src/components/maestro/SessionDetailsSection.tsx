@@ -202,16 +202,16 @@ export function SessionDetailsSection({
             </div>
           )}
 
-          {/* Role & Spawn Info */}
-          {(session.role || session.spawnSource || session.spawnedBy) && (
+          {/* Mode & Spawn Info */}
+          {(session.mode || session.spawnSource || session.spawnedBy) && (
             <div className="sessionDetailsGroup">
               <div className="sessionDetailsGroupTitle">Spawn Information</div>
               <div className="sessionDetailsGrid">
-                {session.role && (
+                {session.mode && (
                   <div className="sessionDetailsRow">
-                    <span className="sessionDetailsLabel">Role:</span>
-                    <span className={`sessionDetailsValue sessionDetailsValue--role-${session.role}`}>
-                      {session.role}
+                    <span className="sessionDetailsLabel">Mode:</span>
+                    <span className={`sessionDetailsValue sessionDetailsValue--mode-${session.mode}`}>
+                      {session.mode}
                     </span>
                   </div>
                 )}

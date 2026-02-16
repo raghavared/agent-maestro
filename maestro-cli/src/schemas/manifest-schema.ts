@@ -20,22 +20,16 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       type: 'string',
       description: 'Manifest format version',
     },
-    role: {
+    mode: {
       type: 'string',
-      enum: ['worker', 'orchestrator'],
-      description: 'Agent role',
+      enum: ['execute', 'coordinate'],
+      description: 'Agent mode: execute (runs tasks) or coordinate (manages agents)',
     },
     strategy: {
       type: 'string',
-      enum: ['simple', 'queue'],
+      enum: ['simple', 'queue', 'default', 'intelligent-batching', 'dag'],
       nullable: true,
-      description: 'Worker strategy: simple (default) or queue (FIFO task processing)',
-    },
-    orchestratorStrategy: {
-      type: 'string',
-      enum: ['default', 'intelligent-batching', 'dag'],
-      nullable: true,
-      description: 'Orchestrator strategy: default, intelligent-batching, or dag',
+      description: 'Strategy for the session — execute modes use simple/queue/tree, coordinate modes use default/intelligent-batching/dag',
     },
     tasks: {
       type: 'array',
@@ -217,7 +211,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       description: 'Reference task IDs for context (docs from these tasks are provided to the agent)',
     },
   },
-  required: ['manifestVersion', 'role', 'tasks', 'session'],
+  required: ['manifestVersion', 'mode', 'tasks', 'session'],
   additionalProperties: false,
 };
 

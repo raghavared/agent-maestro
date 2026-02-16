@@ -9,6 +9,7 @@ import { createTaskRoutes } from './api/taskRoutes';
 import { createSessionRoutes } from './api/sessionRoutes';
 import { createQueueRoutes } from './api/queueRoutes';
 import { createSkillRoutes } from './api/skillRoutes';
+import { createMailRoutes } from './api/mailRoutes';
 import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
 import { AppError } from './domain/common/Errors';
 
@@ -17,7 +18,7 @@ async function startServer() {
   const container = await createContainer();
   await container.initialize();
 
-  const { config, logger, eventBus, projectService, taskService, sessionService, queueService, projectRepo, taskRepo, skillLoader } = container;
+  const { config, logger, eventBus, projectService, taskService, sessionService, queueService, mailService, projectRepo, taskRepo, skillLoader } = container;
 
   console.log('📋 Configuration loaded:');
   console.log(`   Port: ${config.port}`);
@@ -98,6 +99,9 @@ async function startServer() {
     sessionService
   });
 
+  // Mail routes
+  const mailRoutes = createMailRoutes({ mailService });
+
   // Skills route using async FileSystemSkillLoader
   const skillRoutes = createSkillRoutes(skillLoader);
 
@@ -120,6 +124,7 @@ async function startServer() {
   app.use('/api', taskRoutes);
   app.use('/api', sessionRoutes);
   app.use('/api', queueRoutes);
+  app.use('/api', mailRoutes);
   app.use('/api', skillRoutes);
 
   // Global error handling middleware

@@ -93,22 +93,22 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
   });
 
   /**
-   * GET /api/skills/role/:role
-   * Returns skills for a specific role (worker or orchestrator)
+   * GET /api/skills/mode/:mode
+   * Returns skills for a specific mode (execute or coordinate)
    */
-  router.get('/skills/role/:role', async (req: Request, res: Response) => {
+  router.get('/skills/mode/:mode', async (req: Request, res: Response) => {
     try {
-      const role = req.params.role as string;
+      const mode = req.params.mode as string;
 
-      if (role !== 'worker' && role !== 'orchestrator') {
+      if (mode !== 'execute' && mode !== 'coordinate') {
         return res.status(400).json({
           error: true,
-          message: 'Role must be "worker" or "orchestrator"',
+          message: 'Mode must be "execute" or "coordinate"',
           code: 'VALIDATION_ERROR'
         });
       }
 
-      const skills = await skillLoader.loadForRole(role);
+      const skills = await skillLoader.loadForMode(mode);
 
       const result = skills.map(skill => ({
         id: skill.manifest.name,
@@ -120,7 +120,7 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
 
       res.json(result);
     } catch (err: any) {
-      console.error('[Skills API] Failed to load role skills:', err);
+      console.error('[Skills API] Failed to load mode skills:', err);
       res.status(500).json({
         error: true,
         message: err.message,

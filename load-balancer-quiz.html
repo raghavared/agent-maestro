@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Load Balancer Quiz</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #2d3748;
+            margin-bottom: 12px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #718096;
+            margin-bottom: 32px;
+            font-size: 16px;
+        }
+
+        .question {
+            background: #f7fafc;
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .question-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 20px;
+        }
+
+        .dropzone-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .dropzone {
+            background: white;
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 120px;
+            transition: all 0.3s ease;
+        }
+
+        .dropzone.drag-over {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: scale(1.02);
+        }
+
+        .dropzone-label {
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 12px;
+            display: block;
+            font-size: 14px;
+        }
+
+        .dropzone-items {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .options-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            margin-bottom: 24px;
+        }
+
+        .option {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: grab;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .option:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .option:active {
+            cursor: grabbing;
+        }
+
+        .option.dragging {
+            opacity: 0.5;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(72, 187, 120, 0.4);
+        }
+
+        .submit-btn:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .instructions {
+            background: #edf2f7;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            border-left: 4px solid #667eea;
+        }
+
+        .instructions p {
+            color: #4a5568;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .status {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Load Balancer Architecture Quiz</h1>
+        <p class="subtitle">Test your knowledge of load balancing algorithms and techniques</p>
+
+        <div class="instructions">
+            <p><strong>Instructions:</strong> Drag and drop each load balancing algorithm into its correct category. Some algorithms may have multiple use cases, but choose the most appropriate primary category.</p>
+        </div>
+
+        <div class="question">
+            <div class="question-title">Match each load balancing algorithm to its primary use case:</div>
+
+            <div class="dropzone-container">
+                <div class="dropzone" data-category="stateless">
+                    <span class="dropzone-label">📊 Best for Stateless Applications</span>
+                    <div class="dropzone-items" id="stateless-zone"></div>
+                </div>
+
+                <div class="dropzone" data-category="stateful">
+                    <span class="dropzone-label">🔗 Best for Stateful/Session-based Apps</span>
+                    <div class="dropzone-items" id="stateful-zone"></div>
+                </div>
+
+                <div class="dropzone" data-category="uneven">
+                    <span class="dropzone-label">⚖️ Best for Servers with Uneven Capacity</span>
+                    <div class="dropzone-items" id="uneven-zone"></div>
+                </div>
+
+                <div class="dropzone" data-category="geographic">
+                    <span class="dropzone-label">🌍 Best for Geographic Distribution</span>
+                    <div class="dropzone-items" id="geographic-zone"></div>
+                </div>
+            </div>
+
+            <div class="options-container" id="options-container">
+                <div class="option" draggable="true" data-algorithm="round-robin">Round Robin</div>
+                <div class="option" draggable="true" data-algorithm="least-connections">Least Connections</div>
+                <div class="option" draggable="true" data-algorithm="ip-hash">IP Hash</div>
+                <div class="option" draggable="true" data-algorithm="weighted-round-robin">Weighted Round Robin</div>
+                <div class="option" draggable="true" data-algorithm="geolocation">Geolocation Routing</div>
+                <div class="option" draggable="true" data-algorithm="sticky-sessions">Sticky Sessions</div>
+            </div>
+
+            <button class="submit-btn" onclick="submitAnswer()">Submit Answer</button>
+            <div class="status" id="status"></div>
+        </div>
+    </div>
+
+    <script>
+        // Drag and drop functionality
+        let draggedElement = null;
+
+        document.querySelectorAll('.option').forEach(option => {
+            option.addEventListener('dragstart', (e) => {
+                draggedElement = e.target;
+                e.target.classList.add('dragging');
+            });
+
+            option.addEventListener('dragend', (e) => {
+                e.target.classList.remove('dragging');
+            });
+        });
+
+        document.querySelectorAll('.dropzone').forEach(zone => {
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.classList.add('drag-over');
+            });
+
+            zone.addEventListener('dragleave', () => {
+                zone.classList.remove('drag-over');
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('drag-over');
+
+                if (draggedElement) {
+                    const zoneItems = zone.querySelector('.dropzone-items');
+                    zoneItems.appendChild(draggedElement);
+                }
+            });
+        });
+
+        // Allow dragging back to options
+        document.getElementById('options-container').addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        document.getElementById('options-container').addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (draggedElement) {
+                document.getElementById('options-container').appendChild(draggedElement);
+            }
+        });
+
+        function submitAnswer() {
+            const answer = {
+                stateless: [],
+                stateful: [],
+                uneven: [],
+                geographic: []
+            };
+
+            document.querySelectorAll('.dropzone').forEach(zone => {
+                const category = zone.dataset.category;
+                const items = zone.querySelectorAll('.option');
+                items.forEach(item => {
+                    answer[category].push(item.dataset.algorithm);
+                });
+            });
+
+            // Check if all items have been placed
+            const remainingItems = document.getElementById('options-container').querySelectorAll('.option');
+            if (remainingItems.length > 0) {
+                showStatus('Please place all algorithms in categories before submitting!', 'error');
+                return;
+            }
+
+            // Send answer to maestro
+            if (window.maestro && window.maestro.sendAction) {
+                showStatus('Submitting your answer...', 'success');
+                window.maestro.sendAction('submit_answer', answer);
+            }
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status show ' + type;
+        }
+    </script>
+</body>
+</html>

@@ -22,15 +22,15 @@ describe('ManifestGenerator', () => {
         complexity: 'medium' as const,
       };
 
-      const manifest = generator.generateManifest('worker', taskData, {
+      const manifest = generator.generateManifest('execute', taskData, {
         model: 'sonnet',
         permissionMode: 'acceptEdits',
       });
 
       expect(manifest.manifestVersion).toBe('1.0');
-      expect(manifest.role).toBe('worker');
-      expect(manifest.task.id).toBe('task-123');
-      expect(manifest.task.title).toBe('Implement feature');
+      expect(manifest.mode).toBe('execute');
+      expect(manifest.tasks[0].id).toBe('task-123');
+      expect(manifest.tasks[0].title).toBe('Implement feature');
       expect(manifest.session.model).toBe('sonnet');
       expect(manifest.session.permissionMode).toBe('acceptEdits');
     });
@@ -45,12 +45,12 @@ describe('ManifestGenerator', () => {
         createdAt: '2026-02-02T00:00:00Z',
       };
 
-      const manifest = generator.generateManifest('orchestrator', taskData, {
+      const manifest = generator.generateManifest('coordinate', taskData, {
         model: 'opus',
         permissionMode: 'interactive',
       });
 
-      expect(manifest.role).toBe('orchestrator');
+      expect(manifest.mode).toBe('coordinate');
       expect(manifest.session.model).toBe('opus');
       expect(manifest.session.permissionMode).toBe('interactive');
     });
@@ -63,17 +63,17 @@ describe('ManifestGenerator', () => {
         acceptanceCriteria: ['Done'],
         projectId: 'proj-1',
         createdAt: '2026-02-02T00:00:00Z',
-        technicalNotes: 'Use TypeScript',
         dependencies: ['task-0'],
+        priority: 'high' as const,
       };
 
-      const manifest = generator.generateManifest('worker', taskData, {
+      const manifest = generator.generateManifest('execute', taskData, {
         model: 'haiku',
         permissionMode: 'readOnly',
       });
 
-      expect(manifest.task.technicalNotes).toBe('Use TypeScript');
-      expect(manifest.task.dependencies).toEqual(['task-0']);
+      expect(manifest.tasks[0].dependencies).toEqual(['task-0']);
+      expect(manifest.tasks[0].priority).toBe('high');
     });
 
     it('should add context if provided', () => {
@@ -93,7 +93,7 @@ describe('ManifestGenerator', () => {
         },
       };
 
-      const manifest = generator.generateManifest('worker', taskData, {
+      const manifest = generator.generateManifest('execute', taskData, {
         model: 'sonnet',
         permissionMode: 'acceptEdits',
         context,
@@ -119,15 +119,15 @@ describe('ManifestGenerator', () => {
     it('should serialize manifest to JSON', () => {
       const manifest: MaestroManifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -140,22 +140,22 @@ describe('ManifestGenerator', () => {
       expect(typeof json).toBe('string');
 
       const parsed = JSON.parse(json);
-      expect(parsed.role).toBe('worker');
-      expect(parsed.task.id).toBe('task-1');
+      expect(parsed.mode).toBe('execute');
+      expect(parsed.tasks[0].id).toBe('task-1');
     });
 
     it('should format JSON prettily', () => {
       const manifest: MaestroManifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -181,7 +181,7 @@ describe('ManifestGenerator', () => {
         createdAt: '2026-02-02T00:00:00Z',
       };
 
-      const manifest = generator.generateManifest('worker', taskData, {
+      const manifest = generator.generateManifest('execute', taskData, {
         model: 'sonnet',
         permissionMode: 'acceptEdits',
       });

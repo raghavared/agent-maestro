@@ -6,11 +6,13 @@ import { FileSystemProjectRepository } from './infrastructure/repositories/FileS
 import { FileSystemTaskRepository } from './infrastructure/repositories/FileSystemTaskRepository';
 import { FileSystemSessionRepository } from './infrastructure/repositories/FileSystemSessionRepository';
 import { FileSystemQueueRepository } from './infrastructure/repositories/FileSystemQueueRepository';
+import { FileSystemMailRepository } from './infrastructure/repositories/FileSystemMailRepository';
 import { ClaudeCodeSkillLoader } from './infrastructure/skills/ClaudeCodeSkillLoader';
 import { ProjectService } from './application/services/ProjectService';
 import { TaskService } from './application/services/TaskService';
 import { SessionService } from './application/services/SessionService';
 import { QueueService } from './application/services/QueueService';
+import { MailService } from './application/services/MailService';
 import { ILogger } from './domain/common/ILogger';
 import { IIdGenerator } from './domain/common/IIdGenerator';
 import { IEventBus } from './domain/events/IEventBus';
@@ -18,6 +20,7 @@ import { IProjectRepository } from './domain/repositories/IProjectRepository';
 import { ITaskRepository } from './domain/repositories/ITaskRepository';
 import { ISessionRepository } from './domain/repositories/ISessionRepository';
 import { IQueueRepository } from './domain/repositories/IQueueRepository';
+import { IMailRepository } from './domain/repositories/IMailRepository';
 import { ISkillLoader } from './domain/services/ISkillLoader';
 
 /**
@@ -38,6 +41,7 @@ export interface Container {
   taskRepo: ITaskRepository;
   sessionRepo: ISessionRepository;
   queueRepo: IQueueRepository;
+  mailRepo: IMailRepository;
 
   // Loaders
   skillLoader: ISkillLoader;
@@ -47,6 +51,7 @@ export interface Container {
   taskService: TaskService;
   sessionService: SessionService;
   queueService: QueueService;
+  mailService: MailService;
 
   // Lifecycle
   initialize(): Promise<void>;
@@ -77,6 +82,7 @@ export async function createContainer(): Promise<Container> {
     (projectId) => sessionRepo.existsByProjectId(projectId)
   );
   const queueRepo = new FileSystemQueueRepository(config.dataDir, logger);
+  const mailRepo = new FileSystemMailRepository(config.dataDir, logger);
 
   // 4. Loaders
   const skillLoader = new ClaudeCodeSkillLoader(config.skillsDir, logger);
@@ -86,6 +92,7 @@ export async function createContainer(): Promise<Container> {
   const taskService = new TaskService(taskRepo, projectRepo, eventBus, idGenerator);
   const sessionService = new SessionService(sessionRepo, taskRepo, projectRepo, eventBus, idGenerator);
   const queueService = new QueueService(queueRepo, taskRepo, sessionRepo, eventBus);
+  const mailService = new MailService(mailRepo, eventBus, idGenerator);
 
   const container: Container = {
     config,
@@ -96,11 +103,13 @@ export async function createContainer(): Promise<Container> {
     taskRepo,
     sessionRepo,
     queueRepo,
+    mailRepo,
     skillLoader,
     projectService,
     taskService,
     sessionService,
     queueService,
+    mailService,
 
     async initialize() {
       logger.info('Initializing container...');
@@ -110,6 +119,7 @@ export async function createContainer(): Promise<Container> {
       await taskRepo.initialize();
       await sessionRepo.initialize();
       await queueRepo.initialize();
+      await mailRepo.initialize();
 
       logger.info('Container initialized');
     },

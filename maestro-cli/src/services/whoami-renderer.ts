@@ -1,4 +1,5 @@
 import type { MaestroManifest } from '../types/manifest.js';
+import { getEffectiveStrategy } from '../types/manifest.js';
 import { PromptBuilder, type PromptMode } from './prompt-builder.js';
 import {
   generateCommandBrief,
@@ -15,7 +16,7 @@ import { api } from '../api.js';
  * manifest data. No template files needed.
  *
  * Produces:
- * 1. Identity header (role, session ID, strategy, project ID)
+ * 1. Identity header (mode, session ID, strategy, project ID)
  * 2. Prompt content (via PromptBuilder)
  * 3. Available commands (dynamically generated from permissions)
  */
@@ -233,9 +234,11 @@ export class WhoamiRenderer {
   ): object {
     const primaryTask = manifest.tasks[0];
 
+    const strategy = getEffectiveStrategy(manifest);
+
     const result: any = {
-      role: manifest.role,
-      strategy: manifest.strategy || 'simple',
+      mode: manifest.mode,
+      strategy,
       sessionId: sessionId || null,
       projectId: primaryTask.projectId,
       tasks: manifest.tasks.map(t => ({
@@ -250,11 +253,12 @@ export class WhoamiRenderer {
         allowedCommands: permissions.allowedCommands,
         hiddenCommands: permissions.hiddenCommands,
       },
+      capabilities: permissions.capabilities,
       context: manifest.context || null,
     };
 
-    if (manifest.role === 'orchestrator') {
-      result.orchestratorStrategy = manifest.orchestratorStrategy || 'default';
+    if (manifest.mode === 'coordinate') {
+      result.coordinateStrategy = strategy;
     }
 
     if (manifest.agentTool) {

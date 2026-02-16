@@ -5,7 +5,7 @@ export interface SkillManifest {
   name: string;
   version: string;
   description: string;
-  type?: 'system' | 'role' | 'custom';
+  type?: 'system' | 'mode' | 'custom';
   assignTo?: string[];
   capabilities?: string[];
   dependencies?: string[];
@@ -36,11 +36,11 @@ export interface ISkillLoader {
   load(skillName: string): Promise<Skill | null>;
 
   /**
-   * Load all skills appropriate for a role.
-   * @param role - Role type (worker or orchestrator)
-   * @returns Array of skills for the role
+   * Load all skills appropriate for a mode.
+   * @param mode - Agent mode (execute or coordinate)
+   * @returns Array of skills for the mode
    */
-  loadForRole(role: 'worker' | 'orchestrator'): Promise<Skill[]>;
+  loadForMode(mode: 'execute' | 'coordinate'): Promise<Skill[]>;
 
   /**
    * List all available skill names.

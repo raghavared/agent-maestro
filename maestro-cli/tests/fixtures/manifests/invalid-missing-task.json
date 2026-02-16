@@ -1,6 +1,6 @@
 {
   "manifestVersion": "1.0",
-  "role": "worker",
+  "mode": "execute",
   "session": {
     "model": "sonnet",
     "permissionMode": "acceptEdits"

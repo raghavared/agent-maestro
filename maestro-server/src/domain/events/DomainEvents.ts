@@ -1,4 +1,4 @@
-import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus } from '../../types';
+import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, MailMessage } from '../../types';
 
 /**
  * Type-safe domain event definitions.
@@ -129,6 +129,50 @@ export interface NotifyProgressEvent {
   data: { sessionId: string; taskId?: string; message?: string };
 }
 
+// Modal Events
+export interface SessionModalEvent {
+  type: 'session:modal';
+  data: {
+    sessionId: string;
+    modalId: string;
+    title: string;
+    html: string;
+    filePath?: string;
+    timestamp: number;
+  };
+}
+
+export interface SessionModalActionEvent {
+  type: 'session:modal_action';
+  data: {
+    sessionId: string;
+    modalId: string;
+    action: string;
+    data: Record<string, any>;
+    timestamp: number;
+  };
+}
+
+export interface SessionModalClosedEvent {
+  type: 'session:modal_closed';
+  data: {
+    sessionId: string;
+    modalId: string;
+    timestamp: number;
+  };
+}
+
+// Mail Events
+export interface MailReceivedEvent {
+  type: 'mail:received';
+  data: MailMessage;
+}
+
+export interface MailDeletedEvent {
+  type: 'mail:deleted';
+  data: { id: string };
+}
+
 /**
  * Union type of all domain events.
  * Use this for type-safe event handling.
@@ -157,7 +201,12 @@ export type DomainEvent =
   | NotifySessionCompletedEvent
   | NotifySessionFailedEvent
   | NotifyNeedsInputEvent
-  | NotifyProgressEvent;
+  | NotifyProgressEvent
+  | SessionModalEvent
+  | SessionModalActionEvent
+  | SessionModalClosedEvent
+  | MailReceivedEvent
+  | MailDeletedEvent;
 
 /**
  * Type-safe event map for event bus.
@@ -188,6 +237,29 @@ export interface TypedEventMap {
   'notify:session_failed': { sessionId: string; name: string };
   'notify:needs_input': { sessionId: string; name: string; message?: string };
   'notify:progress': { sessionId: string; taskId?: string; message?: string };
+  'session:modal': {
+    sessionId: string;
+    modalId: string;
+    title: string;
+    html: string;
+    filePath?: string;
+    timestamp: number;
+  };
+  'session:modal_action': {
+    sessionId: string;
+    modalId: string;
+    action: string;
+    data: Record<string, any>;
+    timestamp: number;
+  };
+  'session:modal_closed': {
+    sessionId: string;
+    modalId: string;
+    timestamp: number;
+  };
+  // Mail events
+  'mail:received': MailMessage;
+  'mail:deleted': { id: string };
 }
 
 /**

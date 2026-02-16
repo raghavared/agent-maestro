@@ -1,7 +1,40 @@
+// Mail message types
+export type MailMessageType = 'assignment' | 'status_update' | 'query' | 'response' | 'directive' | 'notification';
+
+export interface MailMessage {
+  id: string;                    // "mail_<timestamp>_<random>"
+  projectId: string;
+  fromSessionId: string;
+  toSessionId: string | null;    // null = broadcast
+  replyToMailId: string | null;
+  type: MailMessageType;
+  subject: string;
+  body: Record<string, any>;     // Type-specific structured fields
+  createdAt: number;
+}
+
+export interface SendMailPayload {
+  projectId: string;
+  fromSessionId: string;
+  toSessionId?: string | null;
+  replyToMailId?: string | null;
+  type: MailMessageType;
+  subject: string;
+  body?: Record<string, any>;
+}
+
+export interface MailFilter {
+  type?: MailMessageType;
+  since?: number;
+}
+
 // Worker strategy types
 export type WorkerStrategy = 'simple' | 'queue' | 'tree';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 export type AgentTool = 'claude-code' | 'codex' | 'gemini';
+
+// Three-axis model types
+export type AgentMode = 'execute' | 'coordinate';
 
 export interface QueueItem {
   taskId: string;
@@ -211,16 +244,14 @@ export interface UpdateSessionPayload {
 export interface SpawnSessionPayload {
   projectId: string;
   taskIds: string[];
-  role?: 'worker' | 'orchestrator';
-  strategy?: WorkerStrategy;            // Worker strategy ('simple' or 'queue'), defaults to 'simple'
-  orchestratorStrategy?: OrchestratorStrategy;  // Orchestrator strategy ('default', 'intelligent-batching', or 'dag')
-  spawnSource?: 'ui' | 'session';      // Changed: who is calling (ui or session)
+  mode?: AgentMode;                     // Three-axis model: 'execute' or 'coordinate'
+  strategy?: string;                    // Strategy for the session (mode-dependent)
+  spawnSource?: 'ui' | 'session';      // Who is calling (ui or session)
   sessionId?: string;                   // Required when spawnSource === 'session' (parent session ID)
   sessionName?: string;
   skills?: string[];
-  model?: string;  // Model to use for the session
-  agentTool?: AgentTool;                // Agent tool to use ('claude-code' or 'codex')
-  spawnedBy?: string;                   // Deprecated: use sessionId instead
+  model?: string;                       // Model to use for the session
+  agentTool?: AgentTool;                // Agent tool to use ('claude-code', 'codex', or 'gemini')
   context?: Record<string, any>;
 }
 

@@ -8,6 +8,8 @@ export type SpawnSource = 'ui' | 'session';
 export type TaskSessionStatus = 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'skipped';
 export type WorkerStrategy = 'simple' | 'queue';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
+// Three-axis model
+export type AgentMode = 'execute' | 'coordinate';
 // Claude models
 export type ClaudeModel = 'haiku' | 'sonnet' | 'opus';
 // Codex models
@@ -189,7 +191,7 @@ export interface MaestroSession {
     message?: string;
     since?: number;
   };
-  role?: 'orchestrator' | 'worker';
+  mode?: AgentMode;
   spawnSource?: SpawnSource;
   spawnedBy?: string;
   manifestPath?: string;
@@ -256,7 +258,7 @@ export interface AgentSkill {
   id: string;
   name: string;
   description: string;
-  type: 'system' | 'role';
+  type: 'system' | 'mode';
   version: string;
 }
 
@@ -282,14 +284,12 @@ export interface ClaudeCodeSkill {
 export interface SpawnSessionPayload {
   projectId: string;
   taskIds: string[];
-  role?: 'worker' | 'orchestrator';
-  strategy?: WorkerStrategy;          // 'simple' (default) or 'queue'
-  orchestratorStrategy?: OrchestratorStrategy;  // 'default', 'intelligent-batching', or 'dag'
+  mode?: AgentMode;                    // Three-axis model: 'execute' or 'coordinate'
+  strategy?: string;                  // Unified strategy field
   spawnSource?: SpawnSource;          // 'ui' or 'session'
   sessionId?: string;                  // Required when spawnSource === 'session' (parent session ID)
   sessionName?: string;
   skills?: string[];
-  spawnedBy?: string;                  // Deprecated: use sessionId instead
   context?: Record<string, any>;
   model?: ModelType;
   agentTool?: AgentTool;

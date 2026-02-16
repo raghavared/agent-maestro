@@ -10,28 +10,27 @@ import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
 import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
-import { SessionStatus, WorkerStrategy, AgentTool } from '../types';
+import { SessionStatus, WorkerStrategy, AgentTool, AgentMode } from '../types';
 
 /**
  * Generate manifest via CLI command
  */
 async function generateManifestViaCLI(options: {
-  role: 'worker' | 'orchestrator';
+  mode: AgentMode;
   projectId: string;
   taskIds: string[];
   skills: string[];
   sessionId: string;
-  strategy?: WorkerStrategy;
+  strategy?: string;
   model?: string;
-  orchestratorStrategy?: string;
   agentTool?: AgentTool;
   referenceTaskIds?: string[];
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { role, projectId, taskIds, skills, sessionId, strategy, model, orchestratorStrategy, agentTool, referenceTaskIds } = options;
+  const { mode, projectId, taskIds, skills, sessionId, strategy, model, agentTool, referenceTaskIds } = options;
 
   console.log('\n   📋 GENERATING MANIFEST VIA CLI:');
   console.log(`      • Session ID: ${sessionId}`);
-  console.log(`      • Role: ${role}`);
+  console.log(`      • Mode: ${mode}`);
 
   const sessionDir = process.env.SESSION_DIR
     ? (process.env.SESSION_DIR.startsWith('~') ? join(homedir(), process.env.SESSION_DIR.slice(1)) : process.env.SESSION_DIR)
@@ -43,14 +42,13 @@ async function generateManifestViaCLI(options: {
 
   const args = [
     'manifest', 'generate',
-    '--role', role,
+    '--mode', mode,
     '--project-id', projectId,
     '--task-ids', taskIds.join(','),
     '--skills', skills.join(','),
     '--strategy', strategy || 'simple',
     '--output', manifestPath,
     ...(model ? ['--model', model] : []),
-    ...(orchestratorStrategy ? ['--orchestrator-strategy', orchestratorStrategy] : []),
     ...(agentTool && agentTool !== 'claude-code' ? ['--agent-tool', agentTool] : []),
     ...(referenceTaskIds && referenceTaskIds.length > 0 ? ['--reference-task-ids', referenceTaskIds.join(',')] : []),
   ];
@@ -344,6 +342,113 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     }
   });
 
+  // Show modal in UI (agent-generated HTML content)
+  router.post('/sessions/:id/modal', async (req: Request, res: Response) => {
+    try {
+      const sessionId = req.params.id as string;
+      const { modalId, title, html, filePath } = req.body;
+
+      if (!modalId) {
+        return res.status(400).json({
+          error: true,
+          message: 'modalId is required',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      if (!html) {
+        return res.status(400).json({
+          error: true,
+          message: 'html content is required',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Verify session exists
+      await sessionService.getSession(sessionId);
+
+      // Store modal reference in modals directory
+      const modalsDir = join(config.dataDir, 'modals');
+      await mkdir(modalsDir, { recursive: true });
+      const modalFilePath = join(modalsDir, `${modalId}.html`);
+      await writeFile(modalFilePath, html, 'utf-8');
+
+      // Emit WebSocket event to UI
+      const modalEvent = {
+        sessionId,
+        modalId,
+        title: title || 'Agent Modal',
+        html,
+        filePath: filePath || modalFilePath,
+        timestamp: Date.now(),
+      };
+
+      await eventBus.emit('session:modal', modalEvent);
+      console.log(`📋 Modal ${modalId} sent to UI for session ${sessionId}`);
+
+      res.json({
+        success: true,
+        modalId,
+        sessionId,
+        message: 'Modal sent to UI',
+      });
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
+  // Receive user action from a modal (forwarded by UI)
+  router.post('/sessions/:id/modal/:modalId/actions', async (req: Request, res: Response) => {
+    try {
+      const sessionId = req.params.id as string;
+      const modalId = req.params.modalId as string;
+      const { action, data } = req.body;
+
+      if (!action) {
+        return res.status(400).json({
+          error: true,
+          message: 'action is required',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Emit WebSocket event so the agent CLI can receive it
+      const actionEvent = {
+        sessionId,
+        modalId,
+        action,
+        data: data || {},
+        timestamp: Date.now(),
+      };
+
+      await eventBus.emit('session:modal_action', actionEvent);
+      console.log(`📋 Modal action "${action}" from ${modalId} → session ${sessionId}`);
+
+      res.json({ success: true, modalId, action });
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
+  // Modal closed by user (forwarded by UI)
+  router.post('/sessions/:id/modal/:modalId/close', async (req: Request, res: Response) => {
+    try {
+      const sessionId = req.params.id as string;
+      const modalId = req.params.modalId as string;
+
+      await eventBus.emit('session:modal_closed', {
+        sessionId,
+        modalId,
+        timestamp: Date.now(),
+      });
+      console.log(`📋 Modal ${modalId} closed by user → session ${sessionId}`);
+
+      res.json({ success: true, modalId });
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
   // Spawn session (complex endpoint - uses CLI for manifest generation)
   router.post('/sessions/spawn', async (req: Request, res: Response) => {
     try {
@@ -352,24 +457,25 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         taskIds,
         sessionName,
         skills,
-        sessionId,              // NEW: parent session ID when spawnSource === 'session'
-        spawnSource = 'ui',     // CHANGED: default to 'ui'
-        role = 'worker',
-        strategy = 'simple',    // Worker strategy: 'simple' or 'queue'
+        sessionId,              // Parent session ID when spawnSource === 'session'
+        spawnSource = 'ui',     // 'ui' or 'session'
+        mode: requestedMode,    // Three-axis model: 'execute' or 'coordinate'
+        strategy = 'simple',    // Strategy for the session
         context,
         model,                  // Model selection: 'sonnet' | 'opus' | 'haiku'
-        orchestratorStrategy,   // Orchestrator strategy: 'default' | 'intelligent-batching' | 'dag'
-        agentTool,              // Agent tool: 'claude-code' | 'codex'
+        agentTool,              // Agent tool: 'claude-code' | 'codex' | 'gemini'
       } = req.body;
+
+      // Resolve mode (defaults to 'execute')
+      const resolvedMode: AgentMode = (requestedMode as AgentMode) || 'execute';
 
       console.log('\n🚀 SESSION SPAWN EVENT RECEIVED');
       console.log(`   • projectId: ${projectId}`);
       console.log(`   • taskIds: [${taskIds?.join(', ') || 'NONE'}]`);
-      console.log(`   • role: ${role}`);
+      console.log(`   • mode: ${resolvedMode}`);
       console.log(`   • strategy: ${strategy}`);
       console.log(`   • model: ${model || '(not set - will default to sonnet)'}`);
       console.log(`   • agentTool: ${agentTool || '(not set - will default to claude-code)'}`);
-      console.log(`   • orchestratorStrategy: ${orchestratorStrategy || '(not set)'}`);
 
       // Validation
       if (!projectId) {
@@ -426,11 +532,11 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         }
       }
 
-      if (role !== 'worker' && role !== 'orchestrator') {
+      if (resolvedMode !== 'execute' && resolvedMode !== 'coordinate') {
         return res.status(400).json({
           error: true,
-          code: 'invalid_role',
-          message: 'role must be "worker" or "orchestrator"'
+          code: 'invalid_mode',
+          message: 'mode must be "execute" or "coordinate"'
         });
       }
 
@@ -459,43 +565,33 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       const skillsToUse = skills && Array.isArray(skills) ? skills : [];
 
-      // Validate orchestratorStrategy (only when role is orchestrator)
-      const validOrchestratorStrategies = ['default', 'intelligent-batching', 'dag'];
-      const resolvedOrchestratorStrategy = role === 'orchestrator'
-        ? (orchestratorStrategy || 'default')
-        : orchestratorStrategy;
-      if (resolvedOrchestratorStrategy && !validOrchestratorStrategies.includes(resolvedOrchestratorStrategy)) {
-        return res.status(400).json({
-          error: true,
-          code: 'invalid_orchestrator_strategy',
-          message: `orchestratorStrategy must be one of: ${validOrchestratorStrategies.join(', ')}`
-        });
-      }
-
-      // Validate strategy
-      if (strategy !== 'simple' && strategy !== 'queue' && strategy !== 'tree') {
+      // Validate strategy based on mode
+      const validExecuteStrategies = ['simple', 'queue', 'tree'];
+      const validCoordinateStrategies = ['default', 'intelligent-batching', 'dag'];
+      const validStrategies = resolvedMode === 'coordinate' ? validCoordinateStrategies : validExecuteStrategies;
+      if (!validStrategies.includes(strategy)) {
         return res.status(400).json({
           error: true,
           code: 'invalid_strategy',
-          message: 'strategy must be "simple", "queue", or "tree"'
+          message: `strategy must be one of: ${validStrategies.join(', ')} for ${resolvedMode} mode`
         });
       }
 
       // Create session with suppressed created event
+      const modeLabel = resolvedMode === 'coordinate' ? 'Coordinate' : 'Execute';
       const session = await sessionService.createSession({
         projectId,
         taskIds,
-        name: sessionName || `${role.charAt(0).toUpperCase() + role.slice(1)} for ${taskIds[0]}`,
-        strategy,                            // Worker strategy
+        name: sessionName || `${modeLabel} for ${taskIds[0]}`,
+        strategy,
         status: 'spawning',
         env: {},
         metadata: {
           skills: skillsToUse,
-          spawnedBy: sessionId || null,      // CHANGED: use sessionId (parent session)
-          spawnSource,                        // 'ui' or 'session'
-          role,
-          strategy,                           // Also store in metadata for easy access
-          ...(resolvedOrchestratorStrategy && { orchestratorStrategy: resolvedOrchestratorStrategy }),
+          spawnedBy: sessionId || null,
+          spawnSource,
+          mode: resolvedMode,
+          strategy,
           context: context || {}
         },
         _suppressCreatedEvent: true
@@ -533,14 +629,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       try {
         const result = await generateManifestViaCLI({
-          role,
+          mode: resolvedMode,
           projectId,
           taskIds,
           skills: skillsToUse,
           sessionId: session.id,
           strategy,
           model,
-          orchestratorStrategy: resolvedOrchestratorStrategy,
           agentTool,
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
         });
@@ -558,7 +653,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       // Prepare spawn data
       const resolvedAgentTool = agentTool || 'claude-code';
-      const command = `maestro ${role} init`;
+      const initCommand = resolvedMode === 'coordinate' ? 'orchestrator' : 'worker';
+      const command = `maestro ${initCommand} init`;
       const cwd = project.workingDir;
 
       // Pass through auth-related API keys from server environment
@@ -585,6 +681,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         MAESTRO_SESSION_ID: session.id,
         MAESTRO_MANIFEST_PATH: manifestPath,
         MAESTRO_SERVER_URL: config.serverUrl,
+        MAESTRO_MODE: resolvedMode,
         MAESTRO_STRATEGY: strategy,
         // Pass storage paths so CLI reads/writes to the correct environment directories
         DATA_DIR: config.dataDir,

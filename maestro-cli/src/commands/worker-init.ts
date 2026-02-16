@@ -53,10 +53,10 @@ export class WorkerInitCommand {
   }
 
   /**
-   * Validate that manifest is for worker role
+   * Validate that manifest is for execute mode
    */
   validateWorkerManifest(manifest: MaestroManifest): boolean {
-    return manifest.role === 'worker';
+    return manifest.mode === 'execute';
   }
 
   /**
@@ -73,10 +73,10 @@ export class WorkerInitCommand {
         return `Invalid manifest: ${details}\n\n` +
           'Please check that the manifest file follows the correct schema.';
 
-      case 'wrong_role':
-        return `Wrong role for worker init: ${details}\n\n` +
-          'This command requires a manifest with role="worker". ' +
-          'For orchestrator sessions, use the orchestrator init command.';
+      case 'wrong_mode':
+        return `Wrong mode for worker init: ${details}\n\n` +
+          'This command requires a manifest with mode="execute". ' +
+          'For coordinate sessions, use the orchestrator init command.';
 
       default:
         return `Error: ${details}`;
@@ -136,9 +136,9 @@ export class WorkerInitCommand {
 
       const manifest = result.manifest;
 
-      // Validate role
+      // Validate mode
       if (!this.validateWorkerManifest(manifest)) {
-        throw new Error(this.formatError('wrong_role', manifest.role));
+        throw new Error(this.formatError('wrong_mode', manifest.mode));
       }
 
       // Load command permissions from manifest

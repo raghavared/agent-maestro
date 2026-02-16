@@ -18,7 +18,7 @@ describe('ClaudeSpawner', () => {
 
     workerManifest = {
       manifestVersion: '1.0',
-      role: 'worker',
+      mode: 'execute',
       tasks: [{
         id: 'task-123',
         title: 'Test task',
@@ -50,7 +50,7 @@ describe('ClaudeSpawner', () => {
       expect(env.MAESTRO_SESSION_ID).toBe('session-123');
       expect(env.MAESTRO_TASK_IDS).toBe('task-123');
       expect(env.MAESTRO_PROJECT_ID).toBe('proj-1');
-      expect(env.MAESTRO_ROLE).toBe('worker');
+      expect(env.MAESTRO_MODE).toBe('execute');
     });
 
     it('should preserve existing environment variables', () => {
@@ -63,7 +63,7 @@ describe('ClaudeSpawner', () => {
     it('should handle optional fields', () => {
       const minimalManifest: MaestroManifest = {
         manifestVersion: '1.0',
-        role: 'worker',
+        mode: 'execute',
         tasks: [{
           id: 'task-1',
           title: 'Test',
@@ -104,8 +104,8 @@ describe('ClaudeSpawner', () => {
   });
 
   describe('getPluginDir', () => {
-    it('should return plugin directory for worker role', () => {
-      const pluginDir = spawner.getPluginDir('worker');
+    it('should return plugin directory for execute mode', () => {
+      const pluginDir = spawner.getPluginDir('execute');
 
       if (pluginDir) {
         expect(pluginDir).toContain('maestro-worker');
@@ -115,8 +115,8 @@ describe('ClaudeSpawner', () => {
       }
     });
 
-    it('should return plugin directory for orchestrator role', () => {
-      const pluginDir = spawner.getPluginDir('orchestrator');
+    it('should return plugin directory for coordinate mode', () => {
+      const pluginDir = spawner.getPluginDir('coordinate');
 
       if (pluginDir) {
         expect(pluginDir).toContain('maestro-orchestrator');
@@ -128,7 +128,7 @@ describe('ClaudeSpawner', () => {
 
     it('should return null if plugin directory does not exist', () => {
       // In test environment, plugins may not exist
-      const pluginDir = spawner.getPluginDir('worker');
+      const pluginDir = spawner.getPluginDir('execute');
 
       // Should either exist or be null
       expect(pluginDir === null || typeof pluginDir === 'string').toBe(true);
@@ -136,7 +136,7 @@ describe('ClaudeSpawner', () => {
   });
 
   describe('buildClaudeArgs', () => {
-    it('should include --plugin-dir for worker role', async () => {
+    it('should include --plugin-dir for execute mode', async () => {
       const args = await spawner.buildClaudeArgs(workerManifest);
 
       // Should include --plugin-dir if plugin directory exists
@@ -146,10 +146,10 @@ describe('ClaudeSpawner', () => {
       expect(typeof hasPluginDir).toBe('boolean');
     });
 
-    it('should include --plugin-dir for orchestrator role', async () => {
+    it('should include --plugin-dir for coordinate mode', async () => {
       const orchestratorManifest: MaestroManifest = {
         ...workerManifest,
-        role: 'orchestrator',
+        mode: 'coordinate',
       };
 
       const args = await spawner.buildClaudeArgs(orchestratorManifest);

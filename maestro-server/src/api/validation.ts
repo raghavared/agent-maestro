@@ -18,7 +18,8 @@ const taskPrioritySchema = z.enum(['low', 'medium', 'high']);
 const sessionStatusSchema = z.enum(['spawning', 'idle', 'working', 'completed', 'failed', 'stopped']);
 const workerStrategySchema = z.enum(['simple', 'queue', 'tree']);
 const orchestratorStrategySchema = z.enum(['default', 'intelligent-batching', 'dag']);
-const templateRoleSchema = z.enum(['worker', 'orchestrator']);
+const agentModeSchema = z.enum(['execute', 'coordinate']);
+const templateModeSchema = z.enum(['execute', 'coordinate']);
 const modelSchema = z.enum(['haiku', 'sonnet', 'opus']);
 const updateSourceSchema = z.enum(['user', 'session']);
 
@@ -39,8 +40,8 @@ export const idAndTaskIdParamSchema = z.object({
   taskId: safeId,
 });
 
-export const roleParamSchema = z.object({
-  role: templateRoleSchema,
+export const modeParamSchema = z.object({
+  mode: agentModeSchema,
 });
 
 // --- Project schemas ---
@@ -159,6 +160,8 @@ export const listSessionsQuerySchema = z.object({
 
 // --- Spawn session schema ---
 
+const allStrategySchema = z.enum(['simple', 'queue', 'tree', 'default', 'intelligent-batching', 'dag']);
+
 export const spawnSessionSchema = z.object({
   projectId: safeId,
   taskIds: z.array(safeId).min(1),
@@ -166,11 +169,10 @@ export const spawnSessionSchema = z.object({
   skills: z.array(z.string().max(200)).optional(),
   sessionId: safeId.optional(),
   spawnSource: z.enum(['ui', 'session']).optional().default('ui'),
-  role: z.enum(['worker', 'orchestrator']).optional().default('worker'),
-  strategy: workerStrategySchema.optional().default('simple'),
+  mode: agentModeSchema.optional().default('execute'),
+  strategy: allStrategySchema.optional().default('simple'),
   context: z.record(z.string(), z.unknown()).optional(),
   model: modelSchema.optional(),
-  orchestratorStrategy: orchestratorStrategySchema.optional(),
 }).strict();
 
 // --- Queue schemas ---
@@ -187,13 +189,39 @@ export const queuePushSchema = z.object({
 
 export const createTemplateSchema = z.object({
   name: shortString,
-  role: templateRoleSchema,
+  mode: templateModeSchema,
   content: longString,
 }).strict();
 
 export const updateTemplateSchema = z.object({
   name: shortString.optional(),
   content: longString.optional(),
+}).strict();
+
+// --- Mail schemas ---
+
+const mailMessageTypeSchema = z.enum(['assignment', 'status_update', 'query', 'response', 'directive', 'notification']);
+
+export const sendMailSchema = z.object({
+  projectId: safeId,
+  fromSessionId: safeId,
+  toSessionId: safeId.optional().nullable(),
+  replyToMailId: safeId.optional().nullable(),
+  type: mailMessageTypeSchema,
+  subject: shortString,
+  body: z.record(z.string(), z.unknown()).optional(),
+}).strict();
+
+export const mailInboxQuerySchema = z.object({
+  type: mailMessageTypeSchema.optional(),
+  since: z.coerce.number().optional(),
+  projectId: safeId.optional(),
+}).strict();
+
+export const mailWaitQuerySchema = z.object({
+  timeout: z.coerce.number().min(1000).max(120000).optional(),
+  since: z.coerce.number().optional(),
+  projectId: safeId.optional(),
 }).strict();
 
 // --- Middleware factories ---

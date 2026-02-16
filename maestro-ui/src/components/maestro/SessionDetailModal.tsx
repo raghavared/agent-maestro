@@ -122,9 +122,9 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
                     {session.model.toUpperCase()}
                   </span>
                 )}
-                {session.role && (
-                  <span className="sessionDetailRoleBadge">
-                    {session.role.toUpperCase()}
+                {session.mode && (
+                  <span className="sessionDetailModeBadge">
+                    {session.mode.toUpperCase()}
                   </span>
                 )}
               </div>

@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Load Balancer Simulator Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            padding: 20px;
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+
+        .game-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #1a202c;
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #718096;
+            font-size: 16px;
+        }
+
+        .game-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .game-area {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .request-queue {
+            background: #f7fafc;
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .queue-title {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .request-item {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 3px 10px rgba(240, 147, 251, 0.4);
+            animation: slideIn 0.3s ease-out;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .request-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(240, 147, 251, 0.6);
+        }
+
+        .request-priority {
+            background: rgba(255, 255, 255, 0.3);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .servers-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .server {
+            background: white;
+            border: 3px solid #cbd5e0;
+            border-radius: 12px;
+            padding: 15px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .server:hover {
+            border-color: #667eea;
+            transform: scale(1.02);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .server.selected {
+            border-color: #48bb78;
+            background: #f0fff4;
+        }
+
+        .server.overloaded {
+            border-color: #f56565;
+            background: #fff5f5;
+            animation: shake 0.5s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .server-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .server-name {
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 14px;
+        }
+
+        .server-status {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-healthy {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-busy {
+            background: #feebc8;
+            color: #7c2d12;
+        }
+
+        .status-critical {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .server-load {
+            margin-bottom: 8px;
+        }
+
+        .load-label {
+            font-size: 12px;
+            color: #718096;
+            margin-bottom: 4px;
+        }
+
+        .load-bar {
+            background: #e2e8f0;
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .load-fill {
+            background: linear-gradient(90deg, #48bb78 0%, #38a169 100%);
+            height: 100%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .load-fill.warning {
+            background: linear-gradient(90deg, #ed8936 0%, #dd6b20 100%);
+        }
+
+        .load-fill.critical {
+            background: linear-gradient(90deg, #f56565 0%, #e53e3e 100%);
+        }
+
+        .server-capacity {
+            font-size: 12px;
+            color: #4a5568;
+            margin-top: 5px;
+            text-align: center;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+        }
+
+        .btn-pause {
+            background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+            color: white;
+        }
+
+        .btn-reset {
+            background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+            color: white;
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .algorithm-selector {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .algorithm-selector label {
+            font-weight: 600;
+            color: #2d3748;
+            margin-right: 10px;
+        }
+
+        .algorithm-selector select {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 2px solid #cbd5e0;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            background: white;
+        }
+
+        .message {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+
+        .message.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .message.error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .message.info {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+
+        .instructions {
+            background: #edf2f7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .instructions p {
+            color: #4a5568;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+
+        .instructions p:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1>⚡ Load Balancer Simulator</h1>
+            <p class="subtitle">Balance incoming requests across servers and maximize efficiency!</p>
+        </div>
+
+        <div class="instructions">
+            <p><strong>🎮 How to Play:</strong></p>
+            <p>1. Click on incoming requests (left panel) and then click a server to route them</p>
+            <p>2. Try to balance the load evenly across servers to avoid overloading</p>
+            <p>3. Watch server health bars - red means overloaded!</p>
+            <p>4. You can also select a load balancing algorithm to auto-distribute</p>
+            <p>5. Play for 60 seconds and maximize your score by avoiding failed requests!</p>
+        </div>
+
+        <div class="game-stats">
+            <div class="stat-card">
+                <div class="stat-label">⏱️ Time</div>
+                <div class="stat-value" id="time">60</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">✅ Success</div>
+                <div class="stat-value" id="success">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">❌ Failed</div>
+                <div class="stat-value" id="failed">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">🏆 Score</div>
+                <div class="stat-value" id="score">0</div>
+            </div>
+        </div>
+
+        <div class="algorithm-selector">
+            <label for="algorithm">Load Balancing Strategy:</label>
+            <select id="algorithm">
+                <option value="manual">Manual (You Choose)</option>
+                <option value="round-robin">Round Robin</option>
+                <option value="least-connections">Least Connections</option>
+                <option value="random">Random</option>
+            </select>
+        </div>
+
+        <div class="game-area">
+            <div class="request-queue">
+                <div class="queue-title">📥 Incoming Requests</div>
+                <div id="requests"></div>
+            </div>
+
+            <div class="servers-container" id="servers">
+                <!-- Servers will be generated here -->
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-start" onclick="startGame()">Start Game</button>
+            <button class="btn btn-pause" onclick="pauseGame()">Pause</button>
+            <button class="btn btn-reset" onclick="resetGame()">Reset</button>
+            <button class="btn btn-submit" onclick="submitResults()">Submit Results</button>
+        </div>
+
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        let gameState = {
+            running: false,
+            time: 60,
+            score: 0,
+            successCount: 0,
+            failedCount: 0,
+            selectedRequest: null,
+            nextRequestId: 1,
+            lastRoundRobinIndex: -1,
+            servers: [
+                { id: 1, name: 'Server Alpha', load: 0, capacity: 100, requests: [] },
+                { id: 2, name: 'Server Beta', load: 0, capacity: 100, requests: [] },
+                { id: 3, name: 'Server Gamma', load: 0, capacity: 100, requests: [] }
+            ]
+        };
+
+        let gameInterval = null;
+        let requestInterval = null;
+
+        function initGame() {
+            renderServers();
+            updateStats();
+        }
+
+        function renderServers() {
+            const container = document.getElementById('servers');
+            container.innerHTML = '';
+
+            gameState.servers.forEach(server => {
+                const loadPercent = server.load;
+                let statusClass = 'status-healthy';
+                let statusText = 'Healthy';
+
+                if (loadPercent > 80) {
+                    statusClass = 'status-critical';
+                    statusText = 'Critical';
+                } else if (loadPercent > 60) {
+                    statusClass = 'status-busy';
+                    statusText = 'Busy';
+                }
+
+                let loadFillClass = '';
+                if (loadPercent > 80) loadFillClass = 'critical';
+                else if (loadPercent > 60) loadFillClass = 'warning';
+
+                const serverDiv = document.createElement('div');
+                serverDiv.className = `server ${loadPercent > 90 ? 'overloaded' : ''}`;
+                serverDiv.innerHTML = `
+                    <div class="server-header">
+                        <span class="server-name">${server.name}</span>
+                        <span class="server-status ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="server-load">
+                        <div class="load-label">Load:</div>
+                        <div class="load-bar">
+                            <div class="load-fill ${loadFillClass}" style="width: ${loadPercent}%">
+                                ${loadPercent}%
+                            </div>
+                        </div>
+                    </div>
+                    <div class="server-capacity">
+                        Active Requests: ${server.requests.length}
+                    </div>
+                `;
+                serverDiv.onclick = () => assignRequestToServer(server.id);
+                container.appendChild(serverDiv);
+            });
+        }
+
+        function generateRequest() {
+            const priorities = ['High', 'Medium', 'Low'];
+            const types = ['API', 'Web', 'DB', 'Auth', 'Upload'];
+
+            const request = {
+                id: gameState.nextRequestId++,
+                type: types[Math.floor(Math.random() * types.length)],
+                priority: priorities[Math.floor(Math.random() * priorities.length)],
+                load: Math.floor(Math.random() * 20) + 10
+            };
+
+            const requestsDiv = document.getElementById('requests');
+            const requestDiv = document.createElement('div');
+            requestDiv.className = 'request-item';
+            requestDiv.dataset.requestId = request.id;
+            requestDiv.innerHTML = `
+                <span>${request.type} Request #${request.id}</span>
+                <span class="request-priority">${request.priority}</span>
+            `;
+            requestDiv.onclick = () => selectRequest(request.id);
+
+            requestsDiv.appendChild(requestDiv);
+            return request;
+        }
+
+        function selectRequest(requestId) {
+            document.querySelectorAll('.request-item').forEach(el => {
+                el.style.border = '2px solid transparent';
+            });
+
+            const element = document.querySelector(`[data-request-id="${requestId}"]`);
+            if (element) {
+                element.style.border = '2px solid #48bb78';
+                gameState.selectedRequest = requestId;
+            }
+        }
+
+        function assignRequestToServer(serverId) {
+            const algorithm = document.getElementById('algorithm').value;
+
+            if (algorithm === 'manual') {
+                if (!gameState.selectedRequest) {
+                    showMessage('Please select a request first!', 'info');
+                    return;
+                }
+                processRequest(gameState.selectedRequest, serverId);
+            } else {
+                showMessage('Switch to Manual mode to choose servers yourself!', 'info');
+            }
+        }
+
+        function processRequest(requestId, serverId) {
+            const requestEl = document.querySelector(`[data-request-id="${requestId}"]`);
+            if (!requestEl) return;
+
+            const server = gameState.servers.find(s => s.id === serverId);
+            const requestType = requestEl.textContent.split(' ')[0];
+            const load = Math.floor(Math.random() * 20) + 10;
+
+            server.requests.push(requestId);
+            server.load = Math.min(100, server.load + load);
+
+            if (server.load > 95) {
+                gameState.failedCount++;
+                gameState.score = Math.max(0, gameState.score - 10);
+                showMessage('Request failed! Server overloaded!', 'error');
+            } else {
+                gameState.successCount++;
+                gameState.score += 10;
+                if (server.load < 70) {
+                    gameState.score += 5; // Bonus for good balance
+                }
+            }
+
+            requestEl.remove();
+            gameState.selectedRequest = null;
+            renderServers();
+            updateStats();
+        }
+
+        function autoDistribute() {
+            const algorithm = document.getElementById('algorithm').value;
+            const requests = document.querySelectorAll('.request-item');
+
+            if (requests.length === 0) return;
+
+            const request = requests[0];
+            const requestId = parseInt(request.dataset.requestId);
+            let serverId;
+
+            switch(algorithm) {
+                case 'round-robin':
+                    gameState.lastRoundRobinIndex = (gameState.lastRoundRobinIndex + 1) % gameState.servers.length;
+                    serverId = gameState.servers[gameState.lastRoundRobinIndex].id;
+                    break;
+                case 'least-connections':
+                    const leastLoaded = gameState.servers.reduce((min, server) =>
+                        server.load < min.load ? server : min
+                    );
+                    serverId = leastLoaded.id;
+                    break;
+                case 'random':
+                    serverId = gameState.servers[Math.floor(Math.random() * gameState.servers.length)].id;
+                    break;
+                default:
+                    return;
+            }
+
+            processRequest(requestId, serverId);
+        }
+
+        function updateStats() {
+            document.getElementById('time').textContent = gameState.time;
+            document.getElementById('success').textContent = gameState.successCount;
+            document.getElementById('failed').textContent = gameState.failedCount;
+            document.getElementById('score').textContent = gameState.score;
+        }
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `message show ${type}`;
+            setTimeout(() => msg.classList.remove('show'), 3000);
+        }
+
+        function startGame() {
+            if (gameState.running) return;
+
+            gameState.running = true;
+            showMessage('Game started! Route those requests!', 'success');
+
+            gameInterval = setInterval(() => {
+                gameState.time--;
+
+                // Decay server loads
+                gameState.servers.forEach(server => {
+                    server.load = Math.max(0, server.load - 5);
+                    if (server.load < 30 && server.requests.length > 0) {
+                        server.requests.shift();
+                    }
+                });
+
+                renderServers();
+                updateStats();
+
+                if (gameState.time <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            requestInterval = setInterval(() => {
+                if (gameState.running) {
+                    generateRequest();
+                    autoDistribute();
+                }
+            }, 2000);
+        }
+
+        function pauseGame() {
+            gameState.running = false;
+            clearInterval(gameInterval);
+            clearInterval(requestInterval);
+            showMessage('Game paused', 'info');
+        }
+
+        function resetGame() {
+            pauseGame();
+            gameState.time = 60;
+            gameState.score = 0;
+            gameState.successCount = 0;
+            gameState.failedCount = 0;
+            gameState.nextRequestId = 1;
+            gameState.lastRoundRobinIndex = -1;
+            gameState.servers.forEach(server => {
+                server.load = 0;
+                server.requests = [];
+            });
+            document.getElementById('requests').innerHTML = '';
+            renderServers();
+            updateStats();
+            showMessage('Game reset!', 'info');
+        }
+
+        function endGame() {
+            pauseGame();
+            const performance = gameState.score / Math.max(1, gameState.successCount + gameState.failedCount);
+            let rating = 'Beginner';
+
+            if (performance > 12) rating = 'Expert';
+            else if (performance > 10) rating = 'Advanced';
+            else if (performance > 8) rating = 'Intermediate';
+
+            showMessage(`Game Over! Final Score: ${gameState.score} | Rating: ${rating}`, 'success');
+        }
+
+        function submitResults() {
+            const results = {
+                score: gameState.score,
+                successCount: gameState.successCount,
+                failedCount: gameState.failedCount,
+                algorithm: document.getElementById('algorithm').value,
+                efficiency: (gameState.successCount / Math.max(1, gameState.successCount + gameState.failedCount) * 100).toFixed(2)
+            };
+
+            if (window.maestro && window.maestro.sendAction) {
+                window.maestro.sendAction('submit_game_results', results);
+                showMessage('Results submitted! Check your rating below.', 'success');
+            } else {
+                showMessage('Results ready! Score: ' + results.score + ' | Efficiency: ' + results.efficiency + '%', 'info');
+            }
+        }
+
+        // Initialize game on load
+        initGame();
+    </script>
+</body>
+</html>

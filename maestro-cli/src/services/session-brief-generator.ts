@@ -11,11 +11,11 @@ export class SessionBriefGenerator {
    * Generate complete session brief
    */
   generate(manifest: MaestroManifest): string {
-    const roleTitle = manifest.role === 'worker' ? 'WORKER' : 'ORCHESTRATOR';
+    const modeTitle = manifest.mode === 'execute' ? 'EXECUTE' : 'COORDINATE';
     const primaryTask = manifest.tasks[0];
     const isMultiTask = manifest.tasks.length > 1;
 
-    let brief = this.renderHeader(roleTitle);
+    let brief = this.renderHeader(modeTitle);
 
     // Task information
     brief += this.renderTaskInfo(primaryTask, isMultiTask, manifest.tasks.length);
@@ -47,8 +47,8 @@ export class SessionBriefGenerator {
     }
 
     // Orchestrator strategy information
-    if (manifest.role === 'orchestrator') {
-      brief += this.renderOrchestratorStrategy(manifest.orchestratorStrategy);
+    if (manifest.mode === 'coordinate') {
+      brief += this.renderOrchestratorStrategy(manifest.strategy as string);
     }
 
     brief += this.renderFooter();
@@ -96,8 +96,8 @@ export class SessionBriefGenerator {
   /**
    * Render header
    */
-  private renderHeader(roleTitle: string): string {
-    const title = `MAESTRO ${roleTitle} SESSION BRIEF`;
+  private renderHeader(modeTitle: string): string {
+    const title = `MAESTRO ${modeTitle} SESSION BRIEF`;
     return `
 ╔${'═'.repeat(60)}╗
 ║${this.center(title, 60)}║

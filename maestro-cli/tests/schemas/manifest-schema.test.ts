@@ -6,15 +6,15 @@ describe('Manifest Schema Validation', () => {
     it('should validate a minimal worker manifest', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test task',
           description: 'Test description',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -30,24 +30,21 @@ describe('Manifest Schema Validation', () => {
     it('should validate a full worker manifest with all optional fields', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Complex task',
           description: 'Complex description',
           parentId: 'task-0',
           acceptanceCriteria: ['AC1', 'AC2'],
-          technicalNotes: 'Use TypeScript',
           dependencies: ['task-0'],
-          complexity: 'high',
-          estimatedHours: 8,
           priority: 'critical',
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
           metadata: {
             assignee: 'agent-1',
           },
-        },
+        }],
         session: {
           model: 'opus',
           permissionMode: 'interactive',
@@ -87,15 +84,15 @@ describe('Manifest Schema Validation', () => {
     it('should validate orchestrator manifest', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'orchestrator',
-        task: {
+        mode: 'coordinate',
+        tasks: [{
           id: 'task-1',
           title: 'Orchestrator task',
           description: 'Manage subtasks',
           acceptanceCriteria: ['All subtasks done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'opus',
           permissionMode: 'interactive',
@@ -110,15 +107,15 @@ describe('Manifest Schema Validation', () => {
     it('should validate manifest with empty skills array', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test task',
           description: 'Test description',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -135,15 +132,15 @@ describe('Manifest Schema Validation', () => {
     it('should validate manifest with skills array', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test task',
           description: 'Test description',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -160,15 +157,15 @@ describe('Manifest Schema Validation', () => {
     it('should validate manifest without skills field (optional)', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test task',
           description: 'Test description',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -185,15 +182,15 @@ describe('Manifest Schema Validation', () => {
   describe('Invalid manifests', () => {
     it('should reject manifest without manifestVersion', () => {
       const manifest = {
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -207,18 +204,18 @@ describe('Manifest Schema Validation', () => {
       expect(result.errors).toContain('manifestVersion');
     });
 
-    it('should reject manifest with invalid role', () => {
+    it('should reject manifest with invalid mode', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'invalid',
-        task: {
+        mode: 'invalid',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -228,13 +225,13 @@ describe('Manifest Schema Validation', () => {
       const result = validateManifest(manifest);
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('role');
+      expect(result.errors).toContain('mode');
     });
 
     it('should reject manifest without task', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
+        mode: 'execute',
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -244,18 +241,18 @@ describe('Manifest Schema Validation', () => {
       const result = validateManifest(manifest);
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('task');
+      expect(result.errors).toContain('tasks');
     });
 
     it('should reject task without required fields', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           // missing description, acceptanceCriteria, projectId, createdAt
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -268,42 +265,43 @@ describe('Manifest Schema Validation', () => {
       expect(result.errors).toBeDefined();
     });
 
-    it('should reject manifest with invalid model', () => {
+    it('should reject manifest with invalid thinkingMode', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
-          model: 'gpt-4',
+          model: 'sonnet',
           permissionMode: 'acceptEdits',
+          thinkingMode: 'always',
         },
       };
 
       const result = validateManifest(manifest);
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('model');
+      expect(result.errors).toContain('thinkingMode');
     });
 
     it('should reject manifest with invalid permissionMode', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'fullAccess',
@@ -316,19 +314,19 @@ describe('Manifest Schema Validation', () => {
       expect(result.errors).toContain('permissionMode');
     });
 
-    it('should reject manifest with invalid complexity', () => {
+    it('should reject task with additional unknown properties', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-          complexity: 'extreme',
-        },
+          unknownField: 'extreme',
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -338,14 +336,14 @@ describe('Manifest Schema Validation', () => {
       const result = validateManifest(manifest);
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('complexity');
+      expect(result.errors).toBeDefined();
     });
 
     it('should reject manifest with invalid priority', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
@@ -353,7 +351,7 @@ describe('Manifest Schema Validation', () => {
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
           priority: 'urgent',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -369,15 +367,15 @@ describe('Manifest Schema Validation', () => {
     it('should reject manifest with non-array acceptanceCriteria', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
           acceptanceCriteria: 'Done',
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -393,15 +391,15 @@ describe('Manifest Schema Validation', () => {
     it('should reject manifest with invalid relationship type', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -427,15 +425,15 @@ describe('Manifest Schema Validation', () => {
     it('should reject manifest with non-array skills', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -452,15 +450,15 @@ describe('Manifest Schema Validation', () => {
     it('should reject manifest with non-string items in skills array', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -479,15 +477,15 @@ describe('Manifest Schema Validation', () => {
     it('should return ValidationResult with valid=true for valid manifest', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -503,7 +501,7 @@ describe('Manifest Schema Validation', () => {
     it('should return ValidationResult with valid=false and errors for invalid manifest', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'invalid',
+        mode: 'invalid',
       };
 
       const result: ValidationResult = validateManifest(manifest);

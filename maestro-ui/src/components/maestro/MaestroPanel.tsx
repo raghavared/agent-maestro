@@ -18,7 +18,7 @@ type MaestroPanelProps = {
     onClose: () => void;
     projectId: string;
     project: MaestroProject;
-    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy; role?: 'worker' | 'orchestrator'; orchestratorStrategy?: OrchestratorStrategy }) => Promise<any>;
+    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: string; mode?: 'execute' | 'coordinate' }) => Promise<any>;
     onJumpToSession?: (maestroSessionId: string) => void;
     onAddTaskToSession?: (taskId: string) => void;
 };
@@ -283,7 +283,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         console.log('[MaestroPanel.handleWorkOnTask] ========================================');
         console.log('[MaestroPanel.handleWorkOnTask] Starting work on task');
         console.log('[MaestroPanel.handleWorkOnTask] Task ID:', task.id);
-        console.log('[MaestroPanel.handleWorkOnTask] Role: worker');
+        console.log('[MaestroPanel.handleWorkOnTask] Mode: execute');
         console.log('[MaestroPanel.handleWorkOnTask] Strategy: simple');
         console.log('[MaestroPanel.handleWorkOnTask] ========================================');
 
@@ -298,7 +298,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 project,
                 skillIds: [selectedAgentId],
                 strategy: 'simple',
-                role: 'worker',
+                mode: 'execute',
             });
 
             console.log('[MaestroPanel.handleWorkOnTask] ✓ Session created successfully!');
@@ -342,8 +342,8 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             await onCreateMaestroSession({
                 tasks: selectedTasks,
                 project,
-                role: 'orchestrator',
-                orchestratorStrategy,
+                mode: 'coordinate',
+                strategy: orchestratorStrategy,
                 skillIds: ['maestro-orchestrator'],
             });
             setExecutionMode(false);

@@ -116,7 +116,7 @@ export class ClaudeCodeSkillLoader implements ISkillLoader {
         name: frontmatter.name || skillName,
         version: frontmatter.version || '1.0.0',
         description: frontmatter.description || '',
-        type: frontmatter.role === 'orchestrator' ? 'role' : 'custom',
+        type: frontmatter.role === 'orchestrator' ? 'mode' : 'custom',
         author: frontmatter.license ? `Licensed under ${frontmatter.license}` : undefined,
         license: frontmatter.license,
         config: {
@@ -144,9 +144,9 @@ export class ClaudeCodeSkillLoader implements ISkillLoader {
   }
 
   /**
-   * Load all skills appropriate for a role.
+   * Load all skills appropriate for a mode.
    */
-  async loadForRole(role: 'worker' | 'orchestrator'): Promise<Skill[]> {
+  async loadForMode(mode: 'execute' | 'coordinate'): Promise<Skill[]> {
     const allSkills = await this.listAvailable();
     const skills: Skill[] = [];
 
@@ -154,11 +154,11 @@ export class ClaudeCodeSkillLoader implements ISkillLoader {
       const skill = await this.load(skillName);
       if (!skill) continue;
 
-      // Check if skill matches the requested role
+      // Check if skill matches the requested mode
       const skillRole = skill.manifest.config?.role;
-      if (role === 'orchestrator' && skillRole === 'orchestrator') {
+      if (mode === 'coordinate' && skillRole === 'orchestrator') {
         skills.push(skill);
-      } else if (role === 'worker' && skillRole !== 'orchestrator') {
+      } else if (mode === 'execute' && skillRole !== 'orchestrator') {
         skills.push(skill);
       }
     }
