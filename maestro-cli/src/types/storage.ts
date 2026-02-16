@@ -30,6 +30,14 @@ export interface StoredTask {
   // NOTE: timeline moved to Session
   acceptanceCriteria?: string[];
   metadata?: Record<string, any>;
+  model?: string;
+  taskType?: string;
+  teamMemberMetadata?: {
+    role: string;
+    identity: string;
+    avatar: string;
+    mailId: string;
+  };
 }
 
 export interface StoredSession {

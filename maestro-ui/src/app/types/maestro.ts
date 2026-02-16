@@ -8,6 +8,8 @@ export type SpawnSource = 'ui' | 'session';
 export type TaskSessionStatus = 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'skipped';
 export type WorkerStrategy = 'simple' | 'queue';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
+// Three-axis model
+export type AgentMode = 'execute' | 'coordinate';
 // Claude models
 export type ClaudeModel = 'haiku' | 'sonnet' | 'opus';
 // Codex models
@@ -17,6 +19,17 @@ export type GeminiModel = 'gemini-3-pro-preview' | 'gemini-3-flash-preview';
 // Union of all supported models
 export type ModelType = ClaudeModel | CodexModel | GeminiModel;
 export type AgentTool = 'claude-code' | 'codex' | 'gemini';
+
+// Task type discriminator
+export type TaskType = 'task' | 'team-member';
+
+// Team member metadata (only present when taskType === 'team-member')
+export interface TeamMemberMetadata {
+  role: string;        // e.g. "frontend developer", "tester"
+  identity: string;    // persona/instruction prompt
+  avatar: string;      // emoji or icon identifier
+  mailId: string;      // random generated mail ID for shared mailbox
+}
 
 // Session timeline event types
 export type SessionTimelineEventType =
@@ -158,6 +171,12 @@ export interface MaestroTask {
   // Pinned tasks appear in the dedicated "Pinned" tab for quick re-execution
   pinned?: boolean;
 
+  // Task type: 'task' (default) or 'team-member'
+  taskType?: TaskType;
+
+  // Team member metadata (only when taskType === 'team-member')
+  teamMemberMetadata?: TeamMemberMetadata;
+
   // UI/Populated Fields (Optional)
   subtasks?: MaestroTask[];
   sessionCount?: number; // UI computed field
@@ -189,7 +208,7 @@ export interface MaestroSession {
     message?: string;
     since?: number;
   };
-  role?: 'orchestrator' | 'worker';
+  mode?: AgentMode;
   spawnSource?: SpawnSource;
   spawnedBy?: string;
   manifestPath?: string;
@@ -209,6 +228,8 @@ export interface CreateTaskPayload {
   referenceTaskIds?: string[];
   model?: ModelType;
   agentTool?: AgentTool;
+  taskType?: TaskType;
+  teamMemberMetadata?: TeamMemberMetadata;
 }
 
 export interface UpdateTaskPayload {
@@ -226,6 +247,8 @@ export interface UpdateTaskPayload {
   model?: ModelType;
   agentTool?: AgentTool;
   pinned?: boolean;
+  taskType?: TaskType;
+  teamMemberMetadata?: TeamMemberMetadata;
   // NOTE: timeline moved to Session - use addTimelineEvent on session
   completedAt?: number | null;
 }
@@ -256,7 +279,7 @@ export interface AgentSkill {
   id: string;
   name: string;
   description: string;
-  type: 'system' | 'role';
+  type: 'system' | 'mode';
   version: string;
 }
 
@@ -282,17 +305,16 @@ export interface ClaudeCodeSkill {
 export interface SpawnSessionPayload {
   projectId: string;
   taskIds: string[];
-  role?: 'worker' | 'orchestrator';
-  strategy?: WorkerStrategy;          // 'simple' (default) or 'queue'
-  orchestratorStrategy?: OrchestratorStrategy;  // 'default', 'intelligent-batching', or 'dag'
+  mode?: AgentMode;                    // Three-axis model: 'execute' or 'coordinate'
+  strategy?: string;                  // Unified strategy field
   spawnSource?: SpawnSource;          // 'ui' or 'session'
   sessionId?: string;                  // Required when spawnSource === 'session' (parent session ID)
   sessionName?: string;
   skills?: string[];
-  spawnedBy?: string;                  // Deprecated: use sessionId instead
   context?: Record<string, any>;
   model?: ModelType;
   agentTool?: AgentTool;
+  teamMemberIds?: string[];           // Team member task IDs to include in coordinate mode
 }
 
 export interface SpawnSessionResponse {
@@ -304,26 +326,3 @@ export interface SpawnSessionResponse {
 
 export type TaskTreeNode = MaestroTask & { children: TaskTreeNode[] };
 
-// Template types
-export type TemplateRole = 'worker' | 'orchestrator';
-
-export interface MaestroTemplate {
-  id: string;
-  name: string;
-  role: TemplateRole;
-  content: string;
-  isDefault: boolean;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface CreateTemplatePayload {
-  name: string;
-  role: TemplateRole;
-  content: string;
-}
-
-export interface UpdateTemplatePayload {
-  name?: string;
-  content?: string;
-}

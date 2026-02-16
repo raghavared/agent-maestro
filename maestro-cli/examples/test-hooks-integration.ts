@@ -32,7 +32,7 @@ const env = spawner.prepareEnvironment(manifest, 'test-session-123');
 console.log('MAESTRO_SESSION_ID:', env.MAESTRO_SESSION_ID);
 console.log('MAESTRO_TASK_IDS:', env.MAESTRO_TASK_IDS);
 console.log('MAESTRO_PROJECT_ID:', env.MAESTRO_PROJECT_ID);
-console.log('MAESTRO_ROLE:', env.MAESTRO_ROLE);
+console.log('MAESTRO_MODE:', env.MAESTRO_MODE);
 console.log('MAESTRO_TASK_ACCEPTANCE:', env.MAESTRO_TASK_ACCEPTANCE);
 console.log('MAESTRO_TASK_NOTES:', env.MAESTRO_TASK_NOTES);
 console.log('MAESTRO_TASK_DEPENDENCIES:', env.MAESTRO_TASK_DEPENDENCIES);

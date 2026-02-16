@@ -20,22 +20,16 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       type: 'string',
       description: 'Manifest format version',
     },
-    role: {
+    mode: {
       type: 'string',
-      enum: ['worker', 'orchestrator'],
-      description: 'Agent role',
+      enum: ['execute', 'coordinate'],
+      description: 'Agent mode: execute (runs tasks) or coordinate (manages agents)',
     },
     strategy: {
       type: 'string',
-      enum: ['simple', 'queue'],
+      enum: ['simple', 'queue', 'default', 'intelligent-batching', 'dag'],
       nullable: true,
-      description: 'Worker strategy: simple (default) or queue (FIFO task processing)',
-    },
-    orchestratorStrategy: {
-      type: 'string',
-      enum: ['default', 'intelligent-batching', 'dag'],
-      nullable: true,
-      description: 'Orchestrator strategy: default, intelligent-batching, or dag',
+      description: 'Strategy for the session — execute modes use simple/queue/tree, coordinate modes use default/intelligent-batching/dag',
     },
     tasks: {
       type: 'array',
@@ -69,6 +63,11 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
             required: [],
             additionalProperties: true,
           },
+          model: {
+            type: 'string',
+            nullable: true,
+            description: 'Preferred model for this task',
+          },
           status: {
             type: 'string',
             enum: ['todo', 'in_progress', 'in_review', 'completed', 'cancelled', 'blocked'],
@@ -82,6 +81,23 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
           activeSessionId: {
             type: 'string',
             nullable: true,
+          },
+          taskType: {
+            type: 'string',
+            enum: ['task', 'team-member'],
+            nullable: true,
+          },
+          teamMemberMetadata: {
+            type: 'object',
+            nullable: true,
+            properties: {
+              role: { type: 'string' },
+              identity: { type: 'string' },
+              avatar: { type: 'string' },
+              mailId: { type: 'string' },
+            },
+            required: ['role', 'identity', 'avatar', 'mailId'],
+            additionalProperties: false,
           },
         },
         required: ['id', 'title', 'description', 'acceptanceCriteria', 'projectId', 'createdAt'],
@@ -204,11 +220,6 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       nullable: true,
       description: 'Optional standard skills to load',
     },
-    templateId: {
-      type: 'string',
-      nullable: true,
-      description: 'Optional template ID for prompt generation (fetched from server)',
-    },
     agentTool: {
       type: 'string',
       enum: ['claude-code', 'codex', 'gemini'],
@@ -221,8 +232,37 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       nullable: true,
       description: 'Reference task IDs for context (docs from these tasks are provided to the agent)',
     },
+    teamMembers: {
+      type: 'array',
+      nullable: true,
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          role: { type: 'string' },
+          identity: { type: 'string' },
+          avatar: { type: 'string' },
+          mailId: { type: 'string' },
+          skillIds: {
+            type: 'array',
+            items: { type: 'string' },
+            nullable: true,
+          },
+          model: { type: 'string', nullable: true },
+          agentTool: {
+            type: 'string',
+            enum: ['claude-code', 'codex', 'gemini'],
+            nullable: true,
+          },
+        },
+        required: ['id', 'name', 'role', 'identity', 'avatar', 'mailId'],
+        additionalProperties: false,
+      },
+      description: 'Team members available for coordination (only in coordinate mode)',
+    },
   },
-  required: ['manifestVersion', 'role', 'tasks', 'session'],
+  required: ['manifestVersion', 'mode', 'tasks', 'session'],
   additionalProperties: false,
 };
 

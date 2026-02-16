@@ -1,7 +1,7 @@
 {
   "manifestVersion": "1.0",
-  "role": "orchestrator",
-  "task": {
+  "mode": "coordinate",
+  "tasks": [{
     "id": "task-100",
     "title": "Build complete user management system",
     "description": "Coordinate all subtasks to build user management",
@@ -13,7 +13,7 @@
     "priority": "high",
     "projectId": "proj-456",
     "createdAt": "2026-02-02T09:00:00Z"
-  },
+  }],
   "session": {
     "model": "opus",
     "permissionMode": "interactive"

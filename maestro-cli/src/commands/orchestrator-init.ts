@@ -48,10 +48,10 @@ export class OrchestratorInitCommand {
   }
 
   /**
-   * Validate that manifest is for orchestrator role
+   * Validate that manifest is for coordinate mode
    */
   validateOrchestratorManifest(manifest: MaestroManifest): boolean {
-    return manifest.role === 'orchestrator';
+    return manifest.mode === 'coordinate';
   }
 
   /**
@@ -68,10 +68,10 @@ export class OrchestratorInitCommand {
         return `Invalid manifest: ${details}\n\n` +
           'Please check that the manifest file follows the correct schema.';
 
-      case 'wrong_role':
-        return `Wrong role for orchestrator init: ${details}\n\n` +
-          'This command requires a manifest with role="orchestrator". ' +
-          'For worker sessions, use the worker init command.';
+      case 'wrong_mode':
+        return `Wrong mode for orchestrator init: ${details}\n\n` +
+          'This command requires a manifest with mode="coordinate". ' +
+          'For execute sessions, use the worker init command.';
 
       default:
         return `Error: ${details}`;
@@ -130,9 +130,9 @@ export class OrchestratorInitCommand {
 
       const manifest = result.manifest;
 
-      // Step 3: Validate role
+      // Step 3: Validate mode
       if (!this.validateOrchestratorManifest(manifest)) {
-        throw new Error(this.formatError('wrong_role', manifest.role));
+        throw new Error(this.formatError('wrong_mode', manifest.mode));
       }
 
       // Show task information

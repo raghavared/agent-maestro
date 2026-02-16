@@ -276,7 +276,7 @@ export default function App() {
   }, [updateTask]);
 
   const handleBoardWorkOnTask = useCallback((task: import("./app/types/maestro").MaestroTask, project: import("./app/types/maestro").MaestroProject) => {
-    void createMaestroSession({ task, project, role: "worker", strategy: "simple" });
+    void createMaestroSession({ task, project, mode: "execute", strategy: "simple" });
   }, []);
 
   useEffect(() => {

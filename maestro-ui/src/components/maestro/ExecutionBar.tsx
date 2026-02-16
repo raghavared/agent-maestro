@@ -15,6 +15,7 @@ type ExecutionBarProps = {
     onActivateOrchestrate: () => void;
     selectedTasks?: MaestroTask[];
     projectId?: string;
+    teamMemberCount?: number;
 };
 
 const WORKER_STRATEGIES: { key: WorkerStrategy; label: string; description: string }[] = [
@@ -39,6 +40,7 @@ export function ExecutionBar({
     onActivateOrchestrate,
     selectedTasks = [],
     projectId = '',
+    teamMemberCount = 0,
 }: ExecutionBarProps) {
     const [workerStrategy, setWorkerStrategy] = useState<WorkerStrategy>("simple");
     const [orchestratorStrategy, setOrchestratorStrategy] = useState<OrchestratorStrategy>("default");
@@ -90,7 +92,7 @@ export function ExecutionBar({
                             onClick={() => onOrchestrate(orchestratorStrategy)}
                             disabled={selectedCount === 0}
                         >
-                            <span className="terminalPrompt">$</span> orchestrate ({selectedCount} task{selectedCount !== 1 ? "s" : ""})
+                            <span className="terminalPrompt">$</span> orchestrate ({selectedCount} task{selectedCount !== 1 ? "s" : ""}{teamMemberCount > 0 ? `, ${teamMemberCount} member${teamMemberCount !== 1 ? 's' : ''}` : ''})
                         </button>
                     </div>
                 </div>

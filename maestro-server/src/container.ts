@@ -5,22 +5,22 @@ import { InMemoryEventBus } from './infrastructure/events/InMemoryEventBus';
 import { FileSystemProjectRepository } from './infrastructure/repositories/FileSystemProjectRepository';
 import { FileSystemTaskRepository } from './infrastructure/repositories/FileSystemTaskRepository';
 import { FileSystemSessionRepository } from './infrastructure/repositories/FileSystemSessionRepository';
-import { FileSystemTemplateRepository } from './infrastructure/repositories/FileSystemTemplateRepository';
 import { FileSystemQueueRepository } from './infrastructure/repositories/FileSystemQueueRepository';
+import { FileSystemMailRepository } from './infrastructure/repositories/FileSystemMailRepository';
 import { ClaudeCodeSkillLoader } from './infrastructure/skills/ClaudeCodeSkillLoader';
 import { ProjectService } from './application/services/ProjectService';
 import { TaskService } from './application/services/TaskService';
 import { SessionService } from './application/services/SessionService';
-import { TemplateService } from './application/services/TemplateService';
 import { QueueService } from './application/services/QueueService';
+import { MailService } from './application/services/MailService';
 import { ILogger } from './domain/common/ILogger';
 import { IIdGenerator } from './domain/common/IIdGenerator';
 import { IEventBus } from './domain/events/IEventBus';
 import { IProjectRepository } from './domain/repositories/IProjectRepository';
 import { ITaskRepository } from './domain/repositories/ITaskRepository';
 import { ISessionRepository } from './domain/repositories/ISessionRepository';
-import { ITemplateRepository } from './domain/repositories/ITemplateRepository';
 import { IQueueRepository } from './domain/repositories/IQueueRepository';
+import { IMailRepository } from './domain/repositories/IMailRepository';
 import { ISkillLoader } from './domain/services/ISkillLoader';
 
 /**
@@ -40,8 +40,8 @@ export interface Container {
   projectRepo: IProjectRepository;
   taskRepo: ITaskRepository;
   sessionRepo: ISessionRepository;
-  templateRepo: ITemplateRepository;
   queueRepo: IQueueRepository;
+  mailRepo: IMailRepository;
 
   // Loaders
   skillLoader: ISkillLoader;
@@ -50,8 +50,8 @@ export interface Container {
   projectService: ProjectService;
   taskService: TaskService;
   sessionService: SessionService;
-  templateService: TemplateService;
   queueService: QueueService;
+  mailService: MailService;
 
   // Lifecycle
   initialize(): Promise<void>;
@@ -81,8 +81,8 @@ export async function createContainer(): Promise<Container> {
     (projectId) => taskRepo.existsByProjectId(projectId),
     (projectId) => sessionRepo.existsByProjectId(projectId)
   );
-  const templateRepo = new FileSystemTemplateRepository(config.dataDir, idGenerator, logger);
   const queueRepo = new FileSystemQueueRepository(config.dataDir, logger);
+  const mailRepo = new FileSystemMailRepository(config.dataDir, logger);
 
   // 4. Loaders
   const skillLoader = new ClaudeCodeSkillLoader(config.skillsDir, logger);
@@ -91,8 +91,8 @@ export async function createContainer(): Promise<Container> {
   const projectService = new ProjectService(projectRepo, eventBus);
   const taskService = new TaskService(taskRepo, projectRepo, eventBus, idGenerator);
   const sessionService = new SessionService(sessionRepo, taskRepo, projectRepo, eventBus, idGenerator);
-  const templateService = new TemplateService(templateRepo, eventBus);
   const queueService = new QueueService(queueRepo, taskRepo, sessionRepo, eventBus);
+  const mailService = new MailService(mailRepo, eventBus, idGenerator);
 
   const container: Container = {
     config,
@@ -102,14 +102,14 @@ export async function createContainer(): Promise<Container> {
     projectRepo,
     taskRepo,
     sessionRepo,
-    templateRepo,
     queueRepo,
+    mailRepo,
     skillLoader,
     projectService,
     taskService,
     sessionService,
-    templateService,
     queueService,
+    mailService,
 
     async initialize() {
       logger.info('Initializing container...');
@@ -118,8 +118,8 @@ export async function createContainer(): Promise<Container> {
       await projectRepo.initialize();
       await taskRepo.initialize();
       await sessionRepo.initialize();
-      await templateRepo.initialize();
       await queueRepo.initialize();
+      await mailRepo.initialize();
 
       logger.info('Container initialized');
     },

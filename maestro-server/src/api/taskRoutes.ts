@@ -39,6 +39,10 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
         filter.parentId = req.query.parentId === 'null' ? null : req.query.parentId as string;
       }
 
+      if (req.query.taskType) {
+        filter.taskType = req.query.taskType as string;
+      }
+
       const tasks = await taskService.listTasks(filter);
       res.json(tasks);
     } catch (err: any) {

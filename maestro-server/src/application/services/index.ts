@@ -1,4 +1,3 @@
 export * from './ProjectService';
 export * from './TaskService';
 export * from './SessionService';
-export * from './TemplateService';

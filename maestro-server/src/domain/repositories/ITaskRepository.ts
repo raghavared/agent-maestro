@@ -8,6 +8,7 @@ export interface TaskFilter {
   status?: TaskStatus;
   parentId?: string | null;
   sessionId?: string;
+  taskType?: string;
 }
 
 /**

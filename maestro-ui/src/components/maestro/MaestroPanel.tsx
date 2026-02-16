@@ -5,20 +5,25 @@ import { TaskFilters } from "./TaskFilters";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { ExecutionBar } from "./ExecutionBar";
 import { AddSubtaskInput } from "./AddSubtaskInput";
+import { TeamMemberList } from "./TeamMemberList";
+import { PanelIconBar, PrimaryTab, TaskSubTab, SkillSubTab, TeamSubTab } from "./PanelIconBar";
+import { CommandBar } from "./CommandBar";
+import { TaskTabContent } from "./TaskTabContent";
+import { PanelErrorState, NoProjectState } from "./PanelErrorState";
 import { useTasks } from "../../hooks/useTasks";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useTaskTree } from "../../hooks/useTaskTree";
 import { useUIStore } from "../../stores/useUIStore";
 import { Board } from "./MultiProjectBoard";
 
-type PanelTab = "tasks" | "pinned" | "completed" | "archived";
+// Tab types are imported from PanelIconBar
 
 type MaestroPanelProps = {
     isOpen: boolean;
     onClose: () => void;
     projectId: string;
     project: MaestroProject;
-    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy; role?: 'worker' | 'orchestrator'; orchestratorStrategy?: OrchestratorStrategy }) => Promise<any>;
+    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: string; mode?: 'execute' | 'coordinate'; teamMemberIds?: string[] }) => Promise<any>;
     onJumpToSession?: (maestroSessionId: string) => void;
     onAddTaskToSession?: (taskId: string) => void;
 };
@@ -45,7 +50,10 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     // ==================== UI STATE ====================
 
-    const [activeTab, setActiveTab] = React.useState<PanelTab>("tasks");
+    const [primaryTab, setPrimaryTab] = React.useState<PrimaryTab>("tasks");
+    const [taskSubTab, setTaskSubTab] = React.useState<TaskSubTab>("active");
+    const [skillSubTab, setSkillSubTab] = React.useState<SkillSubTab>("browse");
+    const [teamSubTab, setTeamSubTab] = React.useState<TeamSubTab>("members");
     const [componentError, setComponentError] = React.useState<Error | null>(null);
     const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null);
     const [statusFilter, setStatusFilter] = React.useState<MaestroTask["status"][]>([]);
@@ -63,6 +71,9 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [addingSubtaskTo, setAddingSubtaskTo] = React.useState<string | null>(null);
     const [slidingOutTasks, setSlidingOutTasks] = React.useState<Set<string>>(new Set());
     const [showBoard, setShowBoard] = React.useState(false);
+    const [showCreateTeamMemberModal, setShowCreateTeamMemberModal] = React.useState(false);
+    const [selectedTeamMembers, setSelectedTeamMembers] = React.useState<Set<string>>(new Set());
+    const [showTeamMembers, setShowTeamMembers] = React.useState(false);
 
     // Listen for global create-task shortcut trigger
     const createTaskRequested = useUIStore(s => s.createTaskRequested);
@@ -85,6 +96,15 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             completedAt: task.completedAt || null,
         }));
     }, [tasks]);
+
+    // Separate team members from regular tasks
+    const teamMembers = useMemo(() => {
+        return normalizedTasks.filter(t => t.taskType === 'team-member');
+    }, [normalizedTasks]);
+
+    const regularTasks = useMemo(() => {
+        return normalizedTasks.filter(t => t.taskType !== 'team-member');
+    }, [normalizedTasks]);
 
     // Detect when tasks become completed and trigger slide-out animation
     useEffect(() => {
@@ -128,42 +148,11 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     // Show component error if any
     if (componentError) {
         return (
-            <div className="maestroPanel terminalTheme">
-                <div className="terminalWindowChrome">
-                    <div className="terminalWindowButtons">
-                        <span className="terminalWindowBtn terminalWindowBtnClose" onClick={onClose}>●</span>
-                        <span className="terminalWindowBtn terminalWindowBtnMinimize">●</span>
-                        <span className="terminalWindowBtn terminalWindowBtnMaximize">●</span>
-                    </div>
-                    <div className="terminalWindowTitle">
-                        <span className="terminalPromptSymbol">❯</span>
-                        maestro-agent [ERROR]
-                    </div>
-                    <div className="terminalWindowSpacer"></div>
-                </div>
-                <div className="terminalContent">
-                    <div className="terminalErrorState">
-                        <pre className="terminalErrorAscii">{`
-    ╔═══════════════════════════════════════╗
-    ║     ⚠️  FATAL ERROR                   ║
-    ╚═══════════════════════════════════════╝
-                        `}</pre>
-                        <div className="terminalErrorBox">
-                            <span className="terminalErrorLabel">[TRACEBACK]</span>
-                            <pre className="terminalErrorMessage">{componentError.message}</pre>
-                        </div>
-                        <p className="terminalErrorHint">
-                            → Check DevTools console (Cmd+Option+I) for stack trace
-                        </p>
-                        <button
-                            className="terminalCmd terminalCmdPrimary"
-                            onClick={() => setComponentError(null)}
-                        >
-                            <span className="terminalPrompt">$</span> retry
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <PanelErrorState
+                error={componentError}
+                onRetry={() => setComponentError(null)}
+                onClose={onClose}
+            />
         );
     }
 
@@ -171,54 +160,14 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     // Show message if no project is selected
     if (!projectId) {
-        return (
-            <div className="maestroPanel terminalTheme">
-                <div className="terminalWindowChrome">
-                    <div className="terminalWindowButtons">
-                        <span className="terminalWindowBtn terminalWindowBtnClose" onClick={onClose}>●</span>
-                        <span className="terminalWindowBtn terminalWindowBtnMinimize">●</span>
-                        <span className="terminalWindowBtn terminalWindowBtnMaximize">●</span>
-                    </div>
-                    <div className="terminalWindowTitle">
-                        <span className="terminalPromptSymbol">❯</span>
-                        maestro-agent [IDLE]
-                    </div>
-                    <div className="terminalWindowSpacer"></div>
-                </div>
-                <div className="terminalContent">
-                    <div className="terminalEmptyState">
-                        <pre className="terminalAsciiArt">{`
-    ╔═══════════════════════════════════════╗
-    ║                                       ║
-    ║        NO PROJECT LOADED              ║
-    ║                                       ║
-    ║     Please select or create a         ║
-    ║     project to use Maestro            ║
-    ║                                       ║
-    ╚═══════════════════════════════════════╝
-                        `}</pre>
-                    </div>
-                </div>
-            </div>
-        );
+        return <NoProjectState onClose={onClose} />;
     }
 
-    // Build task tree for hierarchical display
-    const { roots, getChildren } = useTaskTree(normalizedTasks);
+    // Build task tree for hierarchical display (excludes team members)
+    const { roots } = useTaskTree(regularTasks);
 
     // Search all tasks (not just roots) so subtasks can be selected
     const selectedTask = normalizedTasks.find((t) => t.id === selectedTaskId);
-
-    const filteredTasks = normalizedTasks
-        .filter((task) => statusFilter.length === 0 || statusFilter.includes(task.status))
-        .filter((task) => priorityFilter.length === 0 || priorityFilter.includes(task.priority))
-        .sort((a, b) => {
-            if (sortBy === "priority") {
-                const priorityOrder = { high: 0, medium: 1, low: 2 };
-                return priorityOrder[a.priority] - priorityOrder[b.priority];
-            }
-            return b[sortBy] - a[sortBy];
-        });
 
     // ==================== EVENT HANDLERS ====================
 
@@ -234,6 +183,8 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 parentId: taskData.parentId,
                 model: taskData.model,
                 agentTool: taskData.agentTool,
+                ...(taskData.taskType ? { taskType: taskData.taskType } : {}),
+                ...(taskData.teamMemberMetadata ? { teamMemberMetadata: taskData.teamMemberMetadata } : {}),
             });
 
             // Task will be added via WebSocket event automatically
@@ -251,7 +202,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const handleUpdateTask = async (taskId: string, updates: Partial<MaestroTask>) => {
         try {
             await updateTask(taskId, updates);
-            // Task will be updated via WebSocket event
         } catch (err: any) {
             console.error("[Maestro] Failed to update task:", err);
             setError("Failed to update task");
@@ -261,7 +211,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const handleDeleteTask = async (taskId: string) => {
         try {
             await deleteTask(taskId);
-            // Task will be removed via WebSocket event
         } catch (err: any) {
             console.error("[Maestro] Failed to delete task:", err);
             setError("Failed to delete task");
@@ -271,7 +220,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const handleRemoveTaskFromSession = async (sessionId: string, taskId: string) => {
         try {
             await removeTaskFromSession(sessionId, taskId);
-            // Task/Session update will come via WebSocket
         } catch (err: any) {
             console.error("[Maestro] Failed to remove task from session:", err);
             setError("Failed to remove task from session");
@@ -279,26 +227,23 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     };
 
     const handleWorkOnTask = async (task: MaestroTask) => {
-        // Directly execute task with 'simple' worker strategy
         console.log('[MaestroPanel.handleWorkOnTask] ========================================');
         console.log('[MaestroPanel.handleWorkOnTask] Starting work on task');
         console.log('[MaestroPanel.handleWorkOnTask] Task ID:', task.id);
-        console.log('[MaestroPanel.handleWorkOnTask] Role: worker');
+        console.log('[MaestroPanel.handleWorkOnTask] Mode: execute');
         console.log('[MaestroPanel.handleWorkOnTask] Strategy: simple');
         console.log('[MaestroPanel.handleWorkOnTask] ========================================');
 
         try {
-            // Get selected agent for this task (default to claude)
             const selectedAgentId = selectedAgentByTask[task.id] || 'claude';
             console.log('[MaestroPanel.handleWorkOnTask] Selected agent:', selectedAgentId);
 
-            // Create Maestro session with simple worker strategy
             await onCreateMaestroSession({
                 task,
                 project,
                 skillIds: [selectedAgentId],
                 strategy: 'simple',
-                role: 'worker',
+                mode: 'execute',
             });
 
             console.log('[MaestroPanel.handleWorkOnTask] ✓ Session created successfully!');
@@ -335,20 +280,24 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     };
 
     const handleBatchOrchestrate = async (orchestratorStrategy: OrchestratorStrategy) => {
-        const selectedTasks = normalizedTasks.filter(t => selectedForExecution.has(t.id));
+        const selectedTasks = regularTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
+
+        const teamMemberIds = Array.from(selectedTeamMembers);
 
         try {
             await onCreateMaestroSession({
                 tasks: selectedTasks,
                 project,
-                role: 'orchestrator',
-                orchestratorStrategy,
+                mode: 'coordinate',
+                strategy: orchestratorStrategy,
                 skillIds: ['maestro-orchestrator'],
+                teamMemberIds: teamMemberIds.length > 0 ? teamMemberIds : undefined,
             });
             setExecutionMode(false);
             setActiveBarMode('none');
             setSelectedForExecution(new Set());
+            setSelectedTeamMembers(new Set());
         } catch (err: any) {
             console.error('[MaestroPanel] Failed to create orchestrate session:', err);
             setError(`Failed to create orchestrator session: ${err.message}`);
@@ -414,10 +363,8 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     const handleToggleAddSubtask = (taskId: string, hasChildren: boolean) => {
         if (hasChildren) {
-            // Has children: toggle collapse
             handleToggleCollapse(taskId);
         } else {
-            // No children: toggle inline input
             setAddingSubtaskTo(prev => prev === taskId ? null : taskId);
         }
     };
@@ -454,8 +401,8 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }
     };
 
-    // Apply filters/sort to roots only for hierarchical display
-    // Separate active tasks (non-completed) from completed tasks
+    // ==================== DERIVED DATA ====================
+
     const activeRoots = roots
         .filter((node) => node.status !== 'completed' && node.status !== 'archived')
         .filter((node) => statusFilter.length === 0 || statusFilter.includes(node.status))
@@ -471,7 +418,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const completedRoots = roots
         .filter((node) => node.status === 'completed')
         .sort((a, b) => {
-            // Sort by completion time, most recent first
             return (b.completedAt || b.updatedAt) - (a.completedAt || a.updatedAt);
         });
 
@@ -558,51 +504,33 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     return (
         <>
             <div className={`maestroPanel terminalTheme ${executionMode ? 'maestroPanel--executionMode' : ''}`}>
-                {/* Tab navigation */}
-                <div className="maestroPanelTabs">
-                    <button
-                        className={`maestroPanelTab ${activeTab === "tasks" ? "maestroPanelTabActive" : ""}`}
-                        onClick={() => setActiveTab("tasks")}
-                    >
-                        <span className="maestroPanelTabIcon">▸</span>
-                        Tasks
-                        <span className="maestroPanelTabCount">
-                            {roots.filter(t => t.status !== 'completed' && t.status !== 'archived').length}
-                        </span>
-                    </button>
-                    <button
-                        className={`maestroPanelTab ${activeTab === "pinned" ? "maestroPanelTabActive" : ""}`}
-                        onClick={() => setActiveTab("pinned")}
-                    >
-                        <span className="maestroPanelTabIcon">▸</span>
-                        Pinned
-                        <span className="maestroPanelTabCount">
-                            {roots.filter(t => t.pinned).length}
-                        </span>
-                    </button>
-                    <button
-                        className={`maestroPanelTab ${activeTab === "completed" ? "maestroPanelTabActive" : ""}`}
-                        onClick={() => setActiveTab("completed")}
-                    >
-                        <span className="maestroPanelTabIcon">▸</span>
-                        Completed
-                        <span className="maestroPanelTabCount">
-                            {roots.filter(t => t.status === 'completed').length}
-                        </span>
-                    </button>
-                    <button
-                        className={`maestroPanelTab ${activeTab === "archived" ? "maestroPanelTabActive" : ""}`}
-                        onClick={() => setActiveTab("archived")}
-                    >
-                        <span className="maestroPanelTabIcon">▸</span>
-                        Archived
-                        <span className="maestroPanelTabCount">
-                            {roots.filter(t => t.status === 'archived').length}
-                        </span>
-                    </button>
-                </div>
+                <PanelIconBar
+                    primaryTab={primaryTab}
+                    onPrimaryTabChange={setPrimaryTab}
+                    taskSubTab={taskSubTab}
+                    onTaskSubTabChange={setTaskSubTab}
+                    skillSubTab={skillSubTab}
+                    onSkillSubTabChange={setSkillSubTab}
+                    teamSubTab={teamSubTab}
+                    onTeamSubTabChange={setTeamSubTab}
+                    roots={roots}
+                    teamMembers={teamMembers}
+                    onRefresh={async () => {
+                        if (!projectId) return;
+                        setError(null);
+                        try {
+                            await hardRefresh(projectId);
+                        } catch (err) {
+                            console.error('[MaestroPanel] Hard refresh failed:', err);
+                            setError("Failed to refresh");
+                        }
+                    }}
+                    onShowBoard={() => setShowBoard(true)}
+                    loading={loading}
+                    projectId={projectId}
+                />
 
-                {(error || fetchError) && activeTab === "tasks" && (
+                {(error || fetchError) && (
                     <div className="terminalErrorBanner">
                         <span className="terminalErrorSymbol">[ERROR]</span>
                         <span className="terminalErrorText">{error || fetchError}</span>
@@ -610,248 +538,256 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     </div>
                 )}
 
-                {/* Tasks Tab */}
-                {activeTab === "tasks" && (
+                {/* ==================== TASKS PRIMARY TAB ==================== */}
+                {primaryTab === "tasks" && (
                     <>
-                {/* Terminal command bar */}
-                <div className="terminalCommandBar">
-                    <div className="terminalCommands">
-                        <button
-                            className="terminalCmd terminalCmdPrimary"
-                            onClick={() => setShowCreateModal(true)}
-                        >
-                            <span className="terminalPrompt">$</span> new task
-                        </button>
-                        <button
-                            className="terminalCmd"
-                            onClick={async () => {
-                                if (!projectId) return;
-                                setError(null);
-                                try {
-                                    await hardRefresh(projectId);
-                                } catch (err) {
-                                    console.error('[MaestroPanel] Hard refresh failed:', err);
-                                    setError("Failed to refresh");
-                                }
-                            }}
-                            disabled={loading || !projectId}
-                        >
-                            <span className="terminalPrompt">$</span> refresh
-                        </button>
-                        <button
-                            className="terminalCmd"
-                            onClick={() => setShowBoard(true)}
-                            disabled={loading || !projectId}
-                        >
-                            <span className="terminalPrompt">$</span> board
-                        </button>
-                    </div>
-                    <div className="terminalStats">
-                        <span className="terminalStat terminalStatActive">
-                            ◉ {normalizedTasks.filter((t) => t.status === "in_progress").length}
-                        </span>
-                        <span className="terminalStat terminalStatPending">
-                            ○ {normalizedTasks.filter((t) => t.status === "todo").length}
-                        </span>
-                        <span className="terminalStat terminalStatReview">
-                            ◎ {normalizedTasks.filter((t) => t.status === "in_review").length}
-                        </span>
-                        <span className="terminalStat terminalStatDone">
-                            ✓ {normalizedTasks.filter((t) => t.status === "completed").length}
-                        </span>
-                    </div>
-                </div>
+                        {/* Active / New Task sub-tab */}
+                        {taskSubTab === "active" && (
+                            <>
+                                <CommandBar
+                                    onNewTask={() => setShowCreateModal(true)}
+                                    loading={loading}
+                                    projectId={projectId}
+                                    tasks={normalizedTasks}
+                                />
 
-                <TaskFilters
-                    statusFilter={statusFilter}
-                    priorityFilter={priorityFilter}
-                    sortBy={sortBy}
-                    onStatusFilterChange={setStatusFilter}
-                    onPriorityFilterChange={setPriorityFilter}
-                    onSortChange={setSortBy}
-                />
+                                <TaskFilters
+                                    statusFilter={statusFilter}
+                                    priorityFilter={priorityFilter}
+                                    sortBy={sortBy}
+                                    onStatusFilterChange={setStatusFilter}
+                                    onPriorityFilterChange={setPriorityFilter}
+                                    onSortChange={setSortBy}
+                                />
 
-                <ExecutionBar
-                    isActive={executionMode}
-                    activeMode={activeBarMode}
-                    onActivate={() => { setExecutionMode(true); setActiveBarMode('execute'); }}
-                    onActivateOrchestrate={() => { setExecutionMode(true); setActiveBarMode('orchestrate'); }}
-                    onCancel={handleCancelExecution}
-                    onExecute={handleBatchExecute}
-                    onOrchestrate={handleBatchOrchestrate}
-                    selectedCount={selectedForExecution.size}
-                    selectedTasks={normalizedTasks.filter(t => selectedForExecution.has(t.id))}
-                    projectId={projectId}
-                />
+                                <ExecutionBar
+                                    isActive={executionMode}
+                                    activeMode={activeBarMode}
+                                    onActivate={() => { setExecutionMode(true); setActiveBarMode('execute'); }}
+                                    onActivateOrchestrate={() => { setExecutionMode(true); setActiveBarMode('orchestrate'); setShowTeamMembers(true); }}
+                                    onCancel={handleCancelExecution}
+                                    onExecute={handleBatchExecute}
+                                    onOrchestrate={handleBatchOrchestrate}
+                                    selectedCount={selectedForExecution.size}
+                                    selectedTasks={regularTasks.filter(t => selectedForExecution.has(t.id))}
+                                    projectId={projectId}
+                                    teamMemberCount={selectedTeamMembers.size}
+                                />
 
-                <div className="terminalContent">
-                    {loading ? (
-                        <div className="terminalLoadingState">
-                            <div className="terminalSpinner">
-                                <span className="terminalSpinnerDot">●</span>
-                                <span className="terminalSpinnerDot">●</span>
-                                <span className="terminalSpinnerDot">●</span>
-                            </div>
-                            <p className="terminalLoadingText">
-                                <span className="terminalCursor">█</span> Loading tasks...
-                            </p>
-                        </div>
-                    ) : activeRoots.length === 0 ? (
+                                {activeBarMode === 'orchestrate' && showTeamMembers && teamMembers.length > 0 && (
+                                    <TeamMemberList
+                                        teamMembers={teamMembers}
+                                        selectedIds={selectedTeamMembers}
+                                        onToggleSelect={(id) => {
+                                            setSelectedTeamMembers(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(id)) next.delete(id);
+                                                else next.add(id);
+                                                return next;
+                                            });
+                                        }}
+                                        onSelectAll={() => setSelectedTeamMembers(new Set(teamMembers.map(m => m.id)))}
+                                        onDeselectAll={() => setSelectedTeamMembers(new Set())}
+                                    />
+                                )}
+
+                                <TaskTabContent
+                                    loading={loading}
+                                    emptyMessage="NO TASKS IN QUEUE"
+                                    emptySubMessage="$ maestro new task"
+                                    roots={activeRoots}
+                                    renderTaskNode={renderTaskNode}
+                                    showNewTaskButton
+                                    onNewTask={() => setShowCreateModal(true)}
+                                />
+                            </>
+                        )}
+
+                        {/* Pinned sub-tab */}
+                        {taskSubTab === "pinned" && (
+                            <TaskTabContent
+                                loading={loading}
+                                emptyMessage="NO PINNED TASKS"
+                                emptySubMessage="Pin tasks you run frequently"
+                                roots={pinnedRoots}
+                                renderTaskNode={renderTaskNode}
+                            />
+                        )}
+
+                        {/* Completed sub-tab */}
+                        {taskSubTab === "completed" && (
+                            <TaskTabContent
+                                loading={loading}
+                                emptyMessage="NO COMPLETED TASKS YET"
+                                emptySubMessage="Tasks will appear here when"
+                                roots={completedRoots}
+                                renderTaskNode={renderTaskNode}
+                                listClassName="terminalTaskListCompleted"
+                            />
+                        )}
+
+                        {/* Archived sub-tab */}
+                        {taskSubTab === "archived" && (
+                            <TaskTabContent
+                                loading={loading}
+                                emptyMessage="NO ARCHIVED TASKS"
+                                emptySubMessage="Archived tasks will appear here"
+                                roots={archivedRoots}
+                                renderTaskNode={renderTaskNode}
+                                listClassName="terminalTaskListArchived"
+                                showPermanentDelete
+                            />
+                        )}
+                    </>
+                )}
+
+                {/* ==================== SKILLS PRIMARY TAB ==================== */}
+                {primaryTab === "skills" && (
+                    <div className="terminalContent">
                         <div className="terminalEmptyState">
                             <pre className="terminalAsciiArt">{`
     ╔═══════════════════════════════════════╗
     ║                                       ║
-    ║        NO TASKS IN QUEUE              ║
+    ║        SKILLS COMING SOON             ║
     ║                                       ║
-    ║        $ maestro new task             ║
+    ║    Create, browse, and manage         ║
+    ║    reusable skill configurations      ║
     ║                                       ║
     ╚═══════════════════════════════════════╝
                             `}</pre>
-                            <button
-                                className="terminalCmd terminalCmdPrimary"
-                                onClick={() => setShowCreateModal(true)}
-                            >
-                                <span className="terminalPrompt">$</span> new task
-                            </button>
                         </div>
-                    ) : (
-                        <div className="terminalTaskList">
-                            {/* Task list header - like ls -l */}
-                            <div className="terminalTaskHeader">
-                                <span>STATUS</span>
-                                <span>TASK</span>
-                                <span>AGENT</span>
-                                <span>ACTIONS</span>
+                    </div>
+                )}
+
+                {/* ==================== TEAM PRIMARY TAB ==================== */}
+                {primaryTab === "team" && (
+                    <>
+                        {/* Members sub-tab */}
+                        {teamSubTab === "members" && (
+                            <div className="terminalContent">
+                                <div className="terminalCommandBar">
+                                    <div className="terminalCommands">
+                                        <button
+                                            className="terminalCmd terminalCmdPrimary"
+                                            onClick={() => setShowCreateTeamMemberModal(true)}
+                                        >
+                                            <span className="terminalPrompt">$</span> add team member
+                                        </button>
+                                    </div>
+                                    <div className="terminalStats">
+                                        <span className="terminalStat terminalStatActive">
+                                            ◉ {teamMembers.filter(t => t.status !== 'archived').length}
+                                        </span>
+                                    </div>
+                                </div>
+                                {teamMembers.filter(t => t.status !== 'archived').length === 0 ? (
+                                    <div className="terminalEmptyState">
+                                        <pre className="terminalAsciiArt">{`
+    ╔═══════════════════════════════════════╗
+    ║                                       ║
+    ║        NO TEAM MEMBERS                ║
+    ║                                       ║
+    ║    Add team members to use in         ║
+    ║    orchestration mode                 ║
+    ║                                       ║
+    ╚═══════════════════════════════════════╝
+                                        `}</pre>
+                                        <button
+                                            className="terminalCmd terminalCmdPrimary"
+                                            onClick={() => setShowCreateTeamMemberModal(true)}
+                                        >
+                                            <span className="terminalPrompt">$</span> add team member
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <TeamMemberList
+                                        teamMembers={teamMembers.filter(t => t.status !== 'archived')}
+                                        selectedIds={selectedTeamMembers}
+                                        onToggleSelect={(id) => {
+                                            setSelectedTeamMembers(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(id)) next.delete(id);
+                                                else next.add(id);
+                                                return next;
+                                            });
+                                        }}
+                                        onSelectAll={() => setSelectedTeamMembers(new Set(teamMembers.map(m => m.id)))}
+                                        onDeselectAll={() => setSelectedTeamMembers(new Set())}
+                                    />
+                                )}
                             </div>
-                            {activeRoots.map(node => renderTaskNode(node, 0))}
-                        </div>
-                    )}
-                </div>
+                        )}
+
+                        {/* Pinned team sub-tab */}
+                        {teamSubTab === "pinned" && (
+                            <div className="terminalContent">
+                                {teamMembers.filter(t => t.pinned).length === 0 ? (
+                                    <div className="terminalEmptyState">
+                                        <pre className="terminalAsciiArt">{`
+    ╔═══════════════════════════════════════╗
+    ║                                       ║
+    ║       NO PINNED TEAM MEMBERS          ║
+    ║                                       ║
+    ║    Pin team members for quick         ║
+    ║    access                             ║
+    ║                                       ║
+    ╚═══════════════════════════════════════╝
+                                        `}</pre>
+                                    </div>
+                                ) : (
+                                    <TeamMemberList
+                                        teamMembers={teamMembers.filter(t => t.pinned)}
+                                        selectedIds={selectedTeamMembers}
+                                        onToggleSelect={(id) => {
+                                            setSelectedTeamMembers(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(id)) next.delete(id);
+                                                else next.add(id);
+                                                return next;
+                                            });
+                                        }}
+                                        onSelectAll={() => {}}
+                                        onDeselectAll={() => setSelectedTeamMembers(new Set())}
+                                    />
+                                )}
+                            </div>
+                        )}
+
+                        {/* Archived team sub-tab */}
+                        {teamSubTab === "archived" && (
+                            <div className="terminalContent">
+                                {teamMembers.filter(t => t.status === 'archived').length === 0 ? (
+                                    <div className="terminalEmptyState">
+                                        <pre className="terminalAsciiArt">{`
+    ╔═══════════════════════════════════════╗
+    ║                                       ║
+    ║       NO ARCHIVED TEAM MEMBERS        ║
+    ║                                       ║
+    ║    Archived members will appear       ║
+    ║    here                               ║
+    ║                                       ║
+    ╚═══════════════════════════════════════╝
+                                        `}</pre>
+                                    </div>
+                                ) : (
+                                    <TeamMemberList
+                                        teamMembers={teamMembers.filter(t => t.status === 'archived')}
+                                        selectedIds={selectedTeamMembers}
+                                        onToggleSelect={(id) => {
+                                            setSelectedTeamMembers(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(id)) next.delete(id);
+                                                else next.add(id);
+                                                return next;
+                                            });
+                                        }}
+                                        onSelectAll={() => {}}
+                                        onDeselectAll={() => setSelectedTeamMembers(new Set())}
+                                    />
+                                )}
+                            </div>
+                        )}
                     </>
-                )}
-
-                {/* Pinned Tab */}
-                {activeTab === "pinned" && (
-                    <div className="terminalContent">
-                        {loading ? (
-                            <div className="terminalLoadingState">
-                                <div className="terminalSpinner">
-                                    <span className="terminalSpinnerDot">●</span>
-                                    <span className="terminalSpinnerDot">●</span>
-                                    <span className="terminalSpinnerDot">●</span>
-                                </div>
-                                <p className="terminalLoadingText">
-                                    <span className="terminalCursor">█</span> Loading tasks...
-                                </p>
-                            </div>
-                        ) : pinnedRoots.length === 0 ? (
-                            <div className="terminalEmptyState">
-                                <pre className="terminalAsciiArt">{`
-    ╔═══════════════════════════════════════╗
-    ║                                       ║
-    ║       NO PINNED TASKS                 ║
-    ║                                       ║
-    ║    Pin tasks you run frequently       ║
-    ║    for quick access                   ║
-    ║                                       ║
-    ╚═══════════════════════════════════════╝
-                                `}</pre>
-                            </div>
-                        ) : (
-                            <div className="terminalTaskList">
-                                <div className="terminalTaskHeader">
-                                    <span>STATUS</span>
-                                    <span>TASK</span>
-                                    <span>AGENT</span>
-                                    <span>ACTIONS</span>
-                                </div>
-                                {pinnedRoots.map(node => renderTaskNode(node, 0))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Completed Tab */}
-                {activeTab === "completed" && (
-                    <div className="terminalContent">
-                        {loading ? (
-                            <div className="terminalLoadingState">
-                                <div className="terminalSpinner">
-                                    <span className="terminalSpinnerDot">●</span>
-                                    <span className="terminalSpinnerDot">●</span>
-                                    <span className="terminalSpinnerDot">●</span>
-                                </div>
-                                <p className="terminalLoadingText">
-                                    <span className="terminalCursor">█</span> Loading tasks...
-                                </p>
-                            </div>
-                        ) : completedRoots.length === 0 ? (
-                            <div className="terminalEmptyState">
-                                <pre className="terminalAsciiArt">{`
-    ╔═══════════════════════════════════════╗
-    ║                                       ║
-    ║      NO COMPLETED TASKS YET           ║
-    ║                                       ║
-    ║    Tasks will appear here when        ║
-    ║    marked as completed                ║
-    ║                                       ║
-    ╚═══════════════════════════════════════╝
-                                `}</pre>
-                            </div>
-                        ) : (
-                            <div className="terminalTaskList terminalTaskListCompleted">
-                                {/* Task list header */}
-                                <div className="terminalTaskHeader">
-                                    <span>STATUS</span>
-                                    <span>TASK</span>
-                                    <span>AGENT</span>
-                                    <span>ACTIONS</span>
-                                </div>
-                                {completedRoots.map(node => renderTaskNode(node, 0))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Archived Tab */}
-                {activeTab === "archived" && (
-                    <div className="terminalContent">
-                        {loading ? (
-                            <div className="terminalLoadingState">
-                                <div className="terminalSpinner">
-                                    <span className="terminalSpinnerDot">●</span>
-                                    <span className="terminalSpinnerDot">●</span>
-                                    <span className="terminalSpinnerDot">●</span>
-                                </div>
-                                <p className="terminalLoadingText">
-                                    <span className="terminalCursor">█</span> Loading tasks...
-                                </p>
-                            </div>
-                        ) : archivedRoots.length === 0 ? (
-                            <div className="terminalEmptyState">
-                                <pre className="terminalAsciiArt">{`
-    ╔═══════════════════════════════════════╗
-    ║                                       ║
-    ║       NO ARCHIVED TASKS               ║
-    ║                                       ║
-    ║    Archived tasks will appear here    ║
-    ║    You can permanently delete them    ║
-    ║                                       ║
-    ╚═══════════════════════════════════════╝
-                                `}</pre>
-                            </div>
-                        ) : (
-                            <div className="terminalTaskList terminalTaskListArchived">
-                                <div className="terminalTaskHeader">
-                                    <span>STATUS</span>
-                                    <span>TASK</span>
-                                    <span>AGENT</span>
-                                    <span>ACTIONS</span>
-                                </div>
-                                {archivedRoots.map(node => renderTaskNode(node, 0, { showPermanentDelete: true }))}
-                            </div>
-                        )}
-                    </div>
                 )}
             </div>
 
@@ -865,6 +801,14 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 project={project}
                 parentId={subtaskParentId ?? undefined}
                 parentTitle={subtaskParentTitle}
+            />
+
+            <CreateTaskModal
+                isOpen={showCreateTeamMemberModal}
+                onClose={() => setShowCreateTeamMemberModal(false)}
+                onCreate={handleCreateTask}
+                project={project}
+                taskType="team-member"
             />
 
             {selectedTask && showDetailModal && (
@@ -914,4 +858,3 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         </>
     );
 });
-

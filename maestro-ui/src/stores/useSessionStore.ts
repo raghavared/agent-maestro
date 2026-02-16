@@ -1171,9 +1171,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     try {
       console.log('[handleSpawnTerminalSession] Invoking create_session with env_vars:', sessionInfo.envVars);
+
+      // Build export prefix to inline env vars into the command string.
+      // portable-pty's CommandBuilder::env() does not reliably pass env vars
+      // to the child process on macOS, so we export them in the shell command.
+      const envExports = Object.entries(sessionInfo.envVars || {})
+        .filter(([k]) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(k))
+        .map(([k, v]) => `export ${k}=${JSON.stringify(v)}`)
+        .join('; ');
+      const envPrefix = envExports ? `${envExports}; ` : '';
+
       const info = await invoke<TerminalSessionInfo>('create_session', {
         name: sessionInfo.name,
-        command: sessionInfo.command ? `${sessionInfo.command}; exec $SHELL` : sessionInfo.command,
+        command: sessionInfo.command ? `${envPrefix}${sessionInfo.command}; exec $SHELL` : sessionInfo.command,
         cwd: sessionInfo.cwd,
         cols: 200,
         rows: 50,

@@ -16,9 +16,9 @@ describe('ManifestReader', () => {
 
       expect(result.success).toBe(true);
       expect(result.manifest).toBeDefined();
-      expect(result.manifest?.role).toBe('worker');
-      expect(result.manifest?.task.id).toBe('task-123');
-      expect(result.manifest?.task.title).toBe('Implement user authentication');
+      expect(result.manifest?.mode).toBe('execute');
+      expect(result.manifest?.tasks[0].id).toBe('task-123');
+      expect(result.manifest?.tasks[0].title).toBe('Implement user authentication');
       expect(result.manifest?.session.model).toBe('sonnet');
     });
 
@@ -28,8 +28,8 @@ describe('ManifestReader', () => {
 
       expect(result.success).toBe(true);
       expect(result.manifest).toBeDefined();
-      expect(result.manifest?.role).toBe('orchestrator');
-      expect(result.manifest?.task.id).toBe('task-100');
+      expect(result.manifest?.mode).toBe('coordinate');
+      expect(result.manifest?.tasks[0].id).toBe('task-100');
       expect(result.manifest?.session.model).toBe('opus');
     });
 
@@ -53,13 +53,13 @@ describe('ManifestReader', () => {
       expect(result.manifest).toBeUndefined();
     });
 
-    it('should return error for invalid manifest (bad role)', async () => {
-      const manifestPath = join(fixturesDir, 'invalid-bad-role.json');
+    it('should return error for invalid manifest (bad mode)', async () => {
+      const manifestPath = join(fixturesDir, 'invalid-bad-mode.json');
       const result = await readManifest(manifestPath);
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
-      expect(result.error).toContain('role');
+      expect(result.error).toContain('mode');
       expect(result.manifest).toBeUndefined();
     });
 
@@ -97,7 +97,7 @@ describe('ManifestReader', () => {
 
       expect(result.success).toBe(true);
       expect(result.manifest).toBeDefined();
-      expect(result.manifest?.role).toBe('worker');
+      expect(result.manifest?.mode).toBe('execute');
     });
 
     it('should return error for non-existent file (sync)', () => {
@@ -131,13 +131,13 @@ describe('ManifestReader', () => {
 
   describe('Error handling', () => {
     it('should provide helpful error messages', async () => {
-      const manifestPath = join(fixturesDir, 'invalid-bad-role.json');
+      const manifestPath = join(fixturesDir, 'invalid-bad-mode.json');
       const result = await readManifest(manifestPath);
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
       // Should mention what's wrong
-      expect(result.error!.toLowerCase()).toMatch(/role|validation/);
+      expect(result.error!.toLowerCase()).toMatch(/mode|validation/);
     });
 
     it('should handle permission errors gracefully', async () => {

@@ -34,7 +34,8 @@ type WebSocketEvent =
     | { event: 'notify:session_completed'; data: { sessionId: string; name: string } }
     | { event: 'notify:session_failed'; data: { sessionId: string; name: string } }
     | { event: 'notify:needs_input'; data: { sessionId: string; name: string; message?: string } }
-    | { event: 'notify:progress'; data: { sessionId: string; taskId?: string; message?: string } };
+    | { event: 'notify:progress'; data: { sessionId: string; taskId?: string; message?: string } }
+    | { event: 'session:modal'; data: { sessionId: string; modalId: string; title: string; html: string; filePath?: string; timestamp: number } };
 
 export type MaestroWebSocketCallbacks = {
     onTaskCreated?: (task: MaestroTask) => void;
@@ -61,6 +62,7 @@ export type MaestroWebSocketCallbacks = {
     onNotifySessionFailed?: (data: { sessionId: string; name: string }) => void;
     onNotifyNeedsInput?: (data: { sessionId: string; name: string; message?: string }) => void;
     onNotifyProgress?: (data: { sessionId: string; taskId?: string; message?: string }) => void;
+    onSessionModal?: (data: { sessionId: string; modalId: string; title: string; html: string; filePath?: string; timestamp: number }) => void;
     onConnected?: () => void;
     onDisconnected?: () => void;
 };
@@ -222,6 +224,9 @@ export function useMaestroWebSocket(callbacks: MaestroWebSocketCallbacks = {}) {
                         break;
                     case 'notify:progress':
                         callbacks.onNotifyProgress?.(message.data);
+                        break;
+                    case 'session:modal':
+                        callbacks.onSessionModal?.(message.data);
                         break;
                 }
             } catch (error) {

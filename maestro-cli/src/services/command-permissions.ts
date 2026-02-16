@@ -1,14 +1,15 @@
 /**
  * Command Permissions Service
  *
- * Controls which commands are available to workers/orchestrators based on manifest configuration.
+ * Controls which commands are available to agents based on manifest configuration.
  * This module reads the manifest and determines allowed commands based on:
- * - Role (worker vs orchestrator)
- * - Strategy (simple vs queue)
+ * - Mode (execute vs coordinate)
+ * - Strategy (simple, queue, default, etc.)
  * - Explicit allowedCommands list in manifest
  */
 
-import type { MaestroManifest, WorkerStrategy } from '../types/manifest.js';
+import type { MaestroManifest, AgentMode, Capability } from '../types/manifest.js';
+import { getEffectiveStrategy, computeCapabilities } from '../types/manifest.js';
 import { readManifestFromEnv } from './manifest-reader.js';
 
 /**
@@ -19,10 +20,10 @@ export interface CommandDefinition {
   description: string;
   /** Parent command (e.g., 'task' for 'task:list') */
   parent?: string;
-  /** Roles that can use this command */
-  allowedRoles: ('worker' | 'orchestrator')[];
+  /** Modes that can use this command */
+  allowedModes: AgentMode[];
   /** Strategies that enable this command (undefined = all strategies) */
-  allowedStrategies?: WorkerStrategy[];
+  allowedStrategies?: string[];
   /** Whether this is a core command always available */
   isCore?: boolean;
   /** Whether to hide this command from prompt/command briefs (internal/infrastructure commands) */
@@ -34,77 +35,90 @@ export interface CommandDefinition {
  */
 export const COMMAND_REGISTRY: CommandDefinition[] = [
   // Core commands (always available)
-  { name: 'whoami', description: 'Print current context', allowedRoles: ['worker', 'orchestrator'], isCore: true },
-  { name: 'status', description: 'Show project status', allowedRoles: ['worker', 'orchestrator'], isCore: true },
-  // Commands (always available)
-  { name: 'commands', description: 'Show available commands', allowedRoles: ['worker', 'orchestrator'], isCore: true },
+  { name: 'whoami', description: 'Print current context', allowedModes: ['execute', 'coordinate'], isCore: true },
+  { name: 'status', description: 'Show project status', allowedModes: ['execute', 'coordinate'], isCore: true },
+  { name: 'commands', description: 'Show available commands', allowedModes: ['execute', 'coordinate'], isCore: true },
 
   // Task commands
-  { name: 'task:list', description: 'List tasks', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
-  { name: 'task:get', description: 'Get task details', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
-  { name: 'task:create', description: 'Create new task', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
-  { name: 'task:edit', description: 'Edit task fields', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
-  { name: 'task:delete', description: 'Delete a task', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
-  { name: 'task:update', description: 'Update task status/priority', allowedRoles: ['orchestrator'], parent: 'task' },
-  { name: 'task:complete', description: 'Mark task completed', allowedRoles: ['orchestrator'], parent: 'task' },
-  { name: 'task:block', description: 'Mark task blocked', allowedRoles: ['orchestrator'], parent: 'task' },
-  { name: 'task:children', description: 'List child tasks', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
-  { name: 'task:tree', description: 'Show task tree', allowedRoles: ['orchestrator'], parent: 'task' },
-  { name: 'task:report:progress', description: 'Report task progress', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
-  { name: 'task:report:complete', description: 'Report task completion', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
-  { name: 'task:report:blocked', description: 'Report task blocked', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
-  { name: 'task:report:error', description: 'Report task error', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
-  { name: 'task:docs:add', description: 'Add doc to task', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
-  { name: 'task:docs:list', description: 'List task docs', allowedRoles: ['worker', 'orchestrator'], parent: 'task' },
+  { name: 'task:list', description: 'List tasks', allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:get', description: 'Get task details', allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:create', description: 'Create new task', allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:edit', description: 'Edit task fields', allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:delete', description: 'Delete a task', allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:update', description: 'Update task status/priority', allowedModes: ['coordinate'], parent: 'task' },
+  { name: 'task:complete', description: 'Mark task completed', allowedModes: ['coordinate'], parent: 'task' },
+  { name: 'task:block', description: 'Mark task blocked', allowedModes: ['coordinate'], parent: 'task' },
+  { name: 'task:children', description: 'List child tasks', allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:tree', description: 'Show task tree', allowedModes: ['coordinate'], parent: 'task' },
+  { name: 'task:report:progress', description: 'Report task progress', allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:report:complete', description: 'Report task completion', allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:report:blocked', description: 'Report task blocked', allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:report:error', description: 'Report task error', allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:docs:add', description: 'Add doc to task', allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:docs:list', description: 'List task docs', allowedModes: ['execute', 'coordinate'], parent: 'task' },
 
   // Session commands
-  { name: 'session:list', description: 'List sessions', allowedRoles: ['orchestrator'], parent: 'session' },
-  { name: 'session:info', description: 'Get session info', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
-  { name: 'session:spawn', description: 'Spawn new session', allowedRoles: ['orchestrator'], parent: 'session' },
-  { name: 'session:register', description: 'Register session', allowedRoles: ['worker', 'orchestrator'], parent: 'session', isCore: true, hiddenFromPrompt: true },
-  { name: 'session:complete', description: 'Complete session', allowedRoles: ['worker', 'orchestrator'], parent: 'session', isCore: true, hiddenFromPrompt: true },
-  { name: 'session:report:progress', description: 'Report work progress', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
-  { name: 'session:report:complete', description: 'Report completion', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
-  { name: 'session:report:blocked', description: 'Report blocker', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
-  { name: 'session:report:error', description: 'Report error', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
-  { name: 'session:docs:add', description: 'Add doc to session', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
-  { name: 'session:docs:list', description: 'List session docs', allowedRoles: ['worker', 'orchestrator'], parent: 'session' },
+  { name: 'session:list', description: 'List sessions', allowedModes: ['coordinate'], parent: 'session' },
+  { name: 'session:info', description: 'Get session info', allowedModes: ['execute', 'coordinate'], parent: 'session' },
+  { name: 'session:watch', description: 'Watch sessions in real-time', allowedModes: ['coordinate'], parent: 'session' },
+  { name: 'session:spawn', description: 'Spawn new session', allowedModes: ['coordinate'], parent: 'session' },
+  { name: 'session:register', description: 'Register session', allowedModes: ['execute', 'coordinate'], parent: 'session', isCore: true, hiddenFromPrompt: true },
+  { name: 'session:complete', description: 'Complete session', allowedModes: ['execute', 'coordinate'], parent: 'session', isCore: true, hiddenFromPrompt: true },
+  { name: 'session:report:progress', description: 'Report work progress', allowedModes: ['execute', 'coordinate'], parent: 'session' },
+  { name: 'session:report:complete', description: 'Report completion', allowedModes: ['execute', 'coordinate'], parent: 'session' },
+  { name: 'session:report:blocked', description: 'Report blocker', allowedModes: ['execute', 'coordinate'], parent: 'session' },
+  { name: 'session:report:error', description: 'Report error', allowedModes: ['execute', 'coordinate'], parent: 'session' },
+  { name: 'session:docs:add', description: 'Add doc to session', allowedModes: ['execute', 'coordinate'], parent: 'session' },
+  { name: 'session:docs:list', description: 'List session docs', allowedModes: ['execute', 'coordinate'], parent: 'session' },
 
-  // Legacy report commands (backward compat — hidden from prompts, aliased to session:report:*)
-  { name: 'report:progress', description: 'Report work progress', allowedRoles: ['worker', 'orchestrator'], parent: 'report', hiddenFromPrompt: true },
-  { name: 'report:complete', description: 'Report completion', allowedRoles: ['worker', 'orchestrator'], parent: 'report', hiddenFromPrompt: true },
-  { name: 'report:blocked', description: 'Report blocker', allowedRoles: ['worker', 'orchestrator'], parent: 'report', hiddenFromPrompt: true },
-  { name: 'report:error', description: 'Report error', allowedRoles: ['worker', 'orchestrator'], parent: 'report', hiddenFromPrompt: true },
+  // Legacy report commands (hidden from prompts, aliased to session:report:*)
+  { name: 'report:progress', description: 'Report work progress', allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
+  { name: 'report:complete', description: 'Report completion', allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
+  { name: 'report:blocked', description: 'Report blocker', allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
+  { name: 'report:error', description: 'Report error', allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
 
   // Queue commands (only for queue strategy)
-  { name: 'queue:top', description: 'Show next task in queue', allowedRoles: ['worker'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:start', description: 'Start processing task', allowedRoles: ['worker'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:complete', description: 'Complete current task', allowedRoles: ['worker'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:fail', description: 'Mark task failed', allowedRoles: ['worker'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:skip', description: 'Skip current task', allowedRoles: ['worker'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:list', description: 'List queue items', allowedRoles: ['worker'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:status', description: 'Show queue status', allowedRoles: ['worker'], parent: 'queue', allowedStrategies: ['queue'] },
-  { name: 'queue:push', description: 'Add task to queue', allowedRoles: ['worker', 'orchestrator'], parent: 'queue', allowedStrategies: ['queue'] },
+  { name: 'queue:top', description: 'Show next task in queue', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
+  { name: 'queue:start', description: 'Start processing task', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
+  { name: 'queue:complete', description: 'Complete current task', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
+  { name: 'queue:fail', description: 'Mark task failed', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
+  { name: 'queue:skip', description: 'Skip current task', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
+  { name: 'queue:list', description: 'List queue items', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
+  { name: 'queue:status', description: 'Show queue status', allowedModes: ['execute'], parent: 'queue', allowedStrategies: ['queue'] },
+  { name: 'queue:push', description: 'Add task to queue', allowedModes: ['execute', 'coordinate'], parent: 'queue', allowedStrategies: ['queue'] },
 
-  // Project commands (orchestrator only)
-  { name: 'project:list', description: 'List projects', allowedRoles: ['orchestrator'], parent: 'project' },
-  { name: 'project:get', description: 'Get project details', allowedRoles: ['orchestrator'], parent: 'project' },
-  { name: 'project:create', description: 'Create project', allowedRoles: ['orchestrator'], parent: 'project' },
-  { name: 'project:delete', description: 'Delete project', allowedRoles: ['orchestrator'], parent: 'project' },
+  // Project commands (coordinate only)
+  { name: 'project:list', description: 'List projects', allowedModes: ['coordinate'], parent: 'project' },
+  { name: 'project:get', description: 'Get project details', allowedModes: ['coordinate'], parent: 'project' },
+  { name: 'project:create', description: 'Create project', allowedModes: ['coordinate'], parent: 'project' },
+  { name: 'project:delete', description: 'Delete project', allowedModes: ['coordinate'], parent: 'project' },
 
-  // Worker/Orchestrator init commands (invoked by the spawning system, not by agents directly)
-  { name: 'worker:init', description: 'Initialize worker session', allowedRoles: ['worker'], parent: 'worker', hiddenFromPrompt: true },
-  { name: 'orchestrator:init', description: 'Initialize orchestrator session', allowedRoles: ['orchestrator'], parent: 'orchestrator', hiddenFromPrompt: true },
+  // Mail commands
+  { name: 'mail:send', description: 'Send mail to a session', allowedModes: ['execute', 'coordinate'], parent: 'mail' },
+  { name: 'mail:inbox', description: 'List inbox for current session', allowedModes: ['execute', 'coordinate'], parent: 'mail' },
+  { name: 'mail:reply', description: 'Reply to a mail', allowedModes: ['execute', 'coordinate'], parent: 'mail' },
+  { name: 'mail:broadcast', description: 'Send to all sessions', allowedModes: ['coordinate'], parent: 'mail' },
+  { name: 'mail:wait', description: 'Long-poll, block until mail arrives', allowedModes: ['coordinate'], parent: 'mail' },
+
+  // Init commands (invoked by the spawning system, not by agents directly)
+  { name: 'worker:init', description: 'Initialize execute-mode session', allowedModes: ['execute'], parent: 'worker', hiddenFromPrompt: true },
+  { name: 'orchestrator:init', description: 'Initialize coordinate-mode session', allowedModes: ['coordinate'], parent: 'orchestrator', hiddenFromPrompt: true },
+
+  // Show commands (display content in UI)
+  { name: 'show:modal', description: 'Show HTML modal in UI', allowedModes: ['execute', 'coordinate'], parent: 'show' },
+
+  // Modal commands (interact with agent modals)
+  { name: 'modal:events', description: 'Listen for modal user actions', allowedModes: ['execute', 'coordinate'], parent: 'modal' },
 
   // Utility commands (internal — called by hooks, not agents)
-  { name: 'track-file', description: 'Track file modification', allowedRoles: ['worker', 'orchestrator'], isCore: true, hiddenFromPrompt: true },
+  { name: 'track-file', description: 'Track file modification', allowedModes: ['execute', 'coordinate'], isCore: true, hiddenFromPrompt: true },
 ];
 
 /**
- * Default allowed commands by role
+ * Default allowed commands by mode
  */
-export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
-  worker: [
+export const DEFAULT_COMMANDS_BY_MODE: Record<string, string[]> = {
+  execute: [
     'whoami',
     'status',
     'commands',
@@ -129,6 +143,13 @@ export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
     'session:report:error',
     'session:docs:add',
     'session:docs:list',
+    // Mail commands (execute: send, inbox, reply)
+    'mail:send',
+    'mail:inbox',
+    'mail:reply',
+    // Show commands
+    'show:modal',
+    'modal:events',
     // Legacy aliases (backward compat)
     'report:progress',
     'report:complete',
@@ -136,7 +157,7 @@ export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
     'report:error',
     'track-file',
   ],
-  orchestrator: [
+  coordinate: [
     'whoami',
     'status',
     'commands',
@@ -158,6 +179,7 @@ export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
     'task:docs:list',
     'session:list',
     'session:info',
+    'session:watch',
     'session:spawn',
     'session:register',
     'session:complete',
@@ -171,6 +193,15 @@ export const DEFAULT_COMMANDS_BY_ROLE: Record<string, string[]> = {
     'project:get',
     'project:create',
     'project:delete',
+    // Mail commands (coordinate: all 5)
+    'mail:send',
+    'mail:inbox',
+    'mail:reply',
+    'mail:broadcast',
+    'mail:wait',
+    // Show commands
+    'show:modal',
+    'modal:events',
     // Legacy aliases (backward compat)
     'report:progress',
     'report:complete',
@@ -211,10 +242,12 @@ export interface CommandPermissions {
   allowedCommands: string[];
   /** List of hidden command names */
   hiddenCommands: string[];
-  /** Role from manifest */
-  role: 'worker' | 'orchestrator';
-  /** Strategy from manifest */
-  strategy: WorkerStrategy;
+  /** Agent mode */
+  mode: AgentMode;
+  /** Strategy for this session */
+  strategy: string;
+  /** Computed capabilities (three-axis model) */
+  capabilities: Capability[];
   /** Whether permissions were loaded from manifest */
   loadedFromManifest: boolean;
 }
@@ -230,8 +263,9 @@ export async function loadCommandPermissions(): Promise<CommandPermissions> {
     return {
       allowedCommands: COMMAND_REGISTRY.map(c => c.name),
       hiddenCommands: [],
-      role: 'worker',
+      mode: 'execute',
       strategy: 'simple',
+      capabilities: computeCapabilities('execute', 'simple'),
       loadedFromManifest: false,
     };
   }
@@ -244,8 +278,9 @@ export async function loadCommandPermissions(): Promise<CommandPermissions> {
       return {
         allowedCommands: COMMAND_REGISTRY.map(c => c.name),
         hiddenCommands: [],
-        role: 'worker',
+        mode: 'execute',
         strategy: 'simple',
+        capabilities: computeCapabilities('execute', 'simple'),
         loadedFromManifest: false,
       };
     }
@@ -256,8 +291,9 @@ export async function loadCommandPermissions(): Promise<CommandPermissions> {
     return {
       allowedCommands: COMMAND_REGISTRY.map(c => c.name),
       hiddenCommands: [],
-      role: 'worker',
+      mode: 'execute',
       strategy: 'simple',
+      capabilities: computeCapabilities('execute', 'simple'),
       loadedFromManifest: false,
     };
   }
@@ -267,11 +303,12 @@ export async function loadCommandPermissions(): Promise<CommandPermissions> {
  * Get command permissions from a manifest object
  */
 export function getPermissionsFromManifest(manifest: MaestroManifest): CommandPermissions {
-  const role = manifest.role;
-  const strategy = manifest.strategy || 'simple';
+  const mode = manifest.mode;
+  const strategy = getEffectiveStrategy(manifest);
+  const capabilities = computeCapabilities(mode, strategy);
 
-  // Start with defaults for the role
-  let allowedCommands = [...DEFAULT_COMMANDS_BY_ROLE[role]];
+  // Start with defaults for the mode
+  let allowedCommands = [...DEFAULT_COMMANDS_BY_MODE[mode]];
 
   // Add queue commands if using queue strategy
   if (strategy === 'queue') {
@@ -301,8 +338,9 @@ export function getPermissionsFromManifest(manifest: MaestroManifest): CommandPe
   return {
     allowedCommands,
     hiddenCommands,
-    role,
+    mode,
     strategy,
+    capabilities,
     loadedFromManifest: true,
   };
 }
@@ -363,7 +401,7 @@ export function printAvailableCommands(permissions: CommandPermissions): void {
   }
 
   if (permissions.hiddenCommands.length > 0) {
-    console.log(`\n  (${permissions.hiddenCommands.length} commands hidden based on role/strategy)`);
+    console.log(`\n  (${permissions.hiddenCommands.length} commands hidden based on mode/strategy)`);
   }
 
   console.log('');
@@ -411,7 +449,7 @@ export async function guardCommand(commandName: string): Promise<void> {
 
   if (!isCommandAllowed(commandName, permissions)) {
     throw new Error(
-      `Command '${commandName}' is not allowed for ${permissions.role} role with ${permissions.strategy} strategy.\n` +
+      `Command '${commandName}' is not allowed for ${permissions.mode} mode with ${permissions.strategy} strategy.\n` +
         'Run "maestro commands" to see available commands.'
     );
   }
@@ -465,6 +503,7 @@ const COMMAND_SYNTAX: Record<string, string> = {
   // Session commands
   'session:list': 'maestro session list',
   'session:info': 'maestro session info',
+  'session:watch': 'maestro session watch <sessionId1>,<sessionId2>,...',
   'session:spawn': 'maestro session spawn',
   'session:register': 'maestro session register',
   'session:complete': 'maestro session complete',
@@ -488,9 +527,32 @@ const COMMAND_SYNTAX: Record<string, string> = {
   'project:get': 'maestro project get <projectId>',
   'project:create': 'maestro project create "<name>"',
   'project:delete': 'maestro project delete <projectId>',
+  // Mail commands
+  'mail:send': 'maestro mail send <sessionId1>,<sessionId2>,... --type <type> --subject "<subject>" [--message "<message>"]',
+  'mail:inbox': 'maestro mail inbox [--type <type>]',
+  'mail:reply': 'maestro mail reply <mailId> --message "<message>"',
+  'mail:broadcast': 'maestro mail broadcast --type <type> --subject "<subject>" [--message "<message>"]',
+  'mail:wait': 'maestro mail wait [--timeout <ms>] [--since <timestamp>]',
   'worker:init': 'maestro worker init',
   'orchestrator:init': 'maestro orchestrator init',
 };
+
+/**
+ * Get the executable CLI syntax string for a command ID.
+ * Falls back to a best-effort space-separated command form.
+ */
+export function getCommandSyntax(commandName: string): string {
+  if (COMMAND_SYNTAX[commandName]) {
+    return COMMAND_SYNTAX[commandName];
+  }
+
+  // Fallback for unknown commands
+  const parts = commandName.split(':');
+  if (parts.length === 1) {
+    return `maestro ${commandName}`;
+  }
+  return `maestro ${parts.join(' ')}`;
+}
 
 /**
  * Generate brief text listing available commands for inclusion in session prompts
@@ -548,6 +610,7 @@ export function generateCompactCommandBrief(permissions: CommandPermissions): st
     session: { prefix: 'maestro session', description: 'Session management' },
     queue: { prefix: 'maestro queue', description: 'Queue operations' },
     project: { prefix: 'maestro project', description: 'Project management' },
+    mail: { prefix: 'maestro mail', description: 'Mailbox coordination' },
     worker: { prefix: 'maestro worker', description: 'Worker initialization' },
     orchestrator: { prefix: 'maestro orchestrator', description: 'Orchestrator initialization' },
   };

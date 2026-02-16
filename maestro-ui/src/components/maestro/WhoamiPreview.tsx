@@ -81,11 +81,9 @@ You are the **Maestro Orchestrator**. You coordinate and manage work -- you **ne
 }
 
 /**
- * Generates the available commands section based on role and strategy
+ * Generates the available commands section based on mode and strategy
  */
 function renderCommandsSection(mode: 'execute' | 'orchestrate', strategy: WorkerStrategy | OrchestratorStrategy): string {
-    const role = mode === 'execute' ? 'worker' : 'orchestrator';
-
     const coreCommands = [
         { name: 'whoami', desc: 'Print current context' },
         { name: 'status', desc: 'Show project status' },
@@ -132,7 +130,7 @@ function renderCommandsSection(mode: 'execute' | 'orchestrate', strategy: Worker
     const sections: string[] = [
         `## Available Commands`,
         ``,
-        `Role: ${role} | Strategy: ${strategy}`,
+        `Mode: ${mode} | Strategy: ${strategy}`,
         ``,
     ];
 
@@ -180,7 +178,6 @@ function buildWhoamiPreview(
     tasks: MaestroTask[],
     projectId: string,
 ): string {
-    const role = mode === 'execute' ? 'worker' : 'orchestrator';
     const primaryTask = tasks[0];
 
     const parts: string[] = [];
@@ -189,7 +186,7 @@ function buildWhoamiPreview(
     parts.push(`---`);
     parts.push(`# Maestro Session Context`);
     parts.push(``);
-    parts.push(`**Role:** ${role}`);
+    parts.push(`**Mode:** ${mode}`);
     parts.push(`**Strategy:** ${strategy}`);
     if (mode === 'orchestrate') {
         parts.push(`**Orchestrator Strategy:** ${strategy}`);

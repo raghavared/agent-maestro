@@ -12,6 +12,23 @@ export type WorkerStrategy = 'simple' | 'queue';
 /** Orchestrator strategy type */
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 
+/** Agent mode (three-axis model) — replaces role as the primary axis */
+export type AgentMode = 'execute' | 'coordinate';
+
+/** Capability flags derived from mode + strategy */
+export type CapabilityName =
+  | 'can_spawn_sessions'
+  | 'can_edit_tasks'
+  | 'can_use_queue'
+  | 'can_report_task_level'
+  | 'can_report_session_level';
+
+/** Capability entry for prompt rendering */
+export interface Capability {
+  name: CapabilityName;
+  enabled: boolean;
+}
+
 /** Supported agent tools */
 export type AgentTool = 'claude-code' | 'codex' | 'gemini';
 
@@ -22,14 +39,11 @@ export interface MaestroManifest {
   /** Manifest format version (currently "1.0") */
   manifestVersion: string;
 
-  /** Role of the agent: worker (executes tasks) or orchestrator (manages workers) */
-  role: 'worker' | 'orchestrator';
+  /** Agent mode: execute (runs tasks) or coordinate (manages agents) */
+  mode: AgentMode;
 
-  /** Worker strategy: 'simple' (default) or 'queue' (FIFO task processing) */
-  strategy?: WorkerStrategy;
-
-  /** Orchestrator strategy: 'default', 'intelligent-batching', or 'dag' */
-  orchestratorStrategy?: OrchestratorStrategy;
+  /** Strategy for this session — execute modes use WorkerStrategy, coordinate modes use OrchestratorStrategy */
+  strategy?: WorkerStrategy | OrchestratorStrategy;
 
   /** Tasks information and context (array to support multi-task sessions) */
   tasks: TaskData[];
@@ -43,14 +57,38 @@ export interface MaestroManifest {
   /** Optional standard skills to load from ~/.skills/ */
   skills?: string[];
 
-  /** Optional template ID to use for prompt generation (fetched from server) */
-  templateId?: string;
-
   /** Agent tool to use for this session (defaults to 'claude-code') */
   agentTool?: AgentTool;
 
   /** Reference task IDs for context (docs from these tasks are provided to the agent) */
   referenceTaskIds?: string[];
+
+  /** Team members available for coordination (only in coordinate mode) */
+  teamMembers?: TeamMemberData[];
+}
+
+/**
+ * Team member data for manifest (used in coordinate mode prompts)
+ */
+export interface TeamMemberData {
+  /** Team member task ID */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Role description (e.g. "frontend developer", "tester") */
+  role: string;
+  /** Persona/instruction prompt */
+  identity: string;
+  /** Emoji or icon identifier */
+  avatar: string;
+  /** Mail ID for shared mailbox */
+  mailId: string;
+  /** Skill IDs assigned to this member */
+  skillIds?: string[];
+  /** Preferred model */
+  model?: string;
+  /** Agent tool to use */
+  agentTool?: AgentTool;
 }
 
 /**
@@ -114,6 +152,9 @@ export interface TaskData {
   /** Custom metadata (agent assignments, tags, etc.) */
   metadata?: Record<string, any>;
 
+  /** Preferred model for this task (e.g. 'sonnet', 'opus', 'haiku', or native model names) */
+  model?: string;
+
   /** Unified status (single source of truth). Optional in manifests. */
   status?: TaskStatus;
 
@@ -123,6 +164,17 @@ export interface TaskData {
 
   /** Current active session ID */
   activeSessionId?: string;
+
+  /** Task type: 'task' (default) or 'team-member' */
+  taskType?: 'task' | 'team-member';
+
+  /** Team member metadata (only when taskType === 'team-member') */
+  teamMemberMetadata?: {
+    role: string;
+    identity: string;
+    avatar: string;
+    mailId: string;
+  };
 }
 
 /**
@@ -149,7 +201,7 @@ export interface SessionConfig {
 
   /**
    * Explicit list of allowed commands for this session.
-   * If not specified, defaults are determined by role and strategy.
+   * If not specified, defaults are determined by mode and strategy.
    * Format: 'command' or 'parent:subcommand' (e.g., 'task:list', 'queue:start')
    */
   allowedCommands?: string[];
@@ -236,15 +288,41 @@ export interface ProjectStandards {
 }
 
 /**
- * Type guard to check if a manifest is for a worker
+ * Type guard to check if a manifest is for an execute-mode agent
  */
-export function isWorkerManifest(manifest: MaestroManifest): boolean {
-  return manifest.role === 'worker';
+export function isExecuteManifest(manifest: MaestroManifest): boolean {
+  return manifest.mode === 'execute';
 }
 
 /**
- * Type guard to check if a manifest is for an orchestrator
+ * Type guard to check if a manifest is for a coordinate-mode agent
  */
-export function isOrchestratorManifest(manifest: MaestroManifest): boolean {
-  return manifest.role === 'orchestrator';
+export function isCoordinateManifest(manifest: MaestroManifest): boolean {
+  return manifest.mode === 'coordinate';
+}
+
+/**
+ * Get the effective strategy from a manifest, with mode-appropriate defaults
+ */
+export function getEffectiveStrategy(manifest: MaestroManifest): string {
+  if (manifest.strategy) return manifest.strategy;
+  return manifest.mode === 'coordinate' ? 'default' : 'simple';
+}
+
+/**
+ * Compute capabilities from mode + strategy
+ */
+export function computeCapabilities(mode: AgentMode, strategy: string): Capability[] {
+  const caps: Record<CapabilityName, boolean> = {
+    can_spawn_sessions: mode === 'coordinate',
+    can_edit_tasks: true,
+    can_use_queue: mode === 'execute' && strategy === 'queue',
+    can_report_task_level: true,
+    can_report_session_level: true,
+  };
+
+  return Object.entries(caps).map(([name, enabled]) => ({
+    name: name as CapabilityName,
+    enabled,
+  }));
 }

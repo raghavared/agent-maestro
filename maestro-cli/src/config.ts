@@ -51,7 +51,7 @@ export const config = {
     return process.env.MAESTRO_TASK_IDS ? process.env.MAESTRO_TASK_IDS.split(',').filter(Boolean) : [];
   },
   get strategy() {
-    return (process.env.MAESTRO_STRATEGY || 'simple') as 'simple' | 'queue';
+    return process.env.MAESTRO_STRATEGY || 'simple';
   },
   get retries() {
     return parseInt(process.env.MAESTRO_RETRIES || '3', 10);

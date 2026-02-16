@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
 import type { MaestroManifest } from '../types/manifest.js';
+import { getEffectiveStrategy } from '../types/manifest.js';
 import type { SpawnResult, SpawnOptions } from './claude-spawner.js';
 import { WhoamiRenderer } from './whoami-renderer.js';
 import { getPermissionsFromManifest } from './command-permissions.js';
@@ -23,13 +24,15 @@ export class CodexSpawner {
     const primaryTask = manifest.tasks[0];
     const allTaskIds = manifest.tasks.map(t => t.id).join(',');
 
+    const strategy = getEffectiveStrategy(manifest);
+
     const env: Record<string, string> = {
       ...process.env,
       MAESTRO_SESSION_ID: sessionId,
       MAESTRO_TASK_IDS: allTaskIds,
       MAESTRO_PROJECT_ID: primaryTask.projectId,
-      MAESTRO_ROLE: manifest.role,
-      MAESTRO_STRATEGY: manifest.strategy || 'simple',
+      MAESTRO_MODE: manifest.mode,
+      MAESTRO_STRATEGY: strategy,
       MAESTRO_MANIFEST_PATH: process.env.MAESTRO_MANIFEST_PATH || '',
       MAESTRO_SERVER_URL: process.env.MAESTRO_SERVER_URL || process.env.MAESTRO_API_URL || '',
       MAESTRO_TASK_TITLE: primaryTask.title,
@@ -45,8 +48,8 @@ export class CodexSpawner {
       env.MAESTRO_TASK_DEPENDENCIES = JSON.stringify(primaryTask.dependencies);
     }
 
-    if (manifest.role === 'orchestrator') {
-      env.MAESTRO_ORCHESTRATOR_STRATEGY = manifest.orchestratorStrategy || 'default';
+    if (manifest.mode === 'coordinate') {
+      env.MAESTRO_ORCHESTRATOR_STRATEGY = strategy;
     }
 
     return env as Record<string, string>;
@@ -147,8 +150,9 @@ export class CodexSpawner {
 
     const args = this.buildCodexArgs(manifest);
 
-    // Inject static role instructions via Codex config override
-    args.push('-c', `instructions=${systemPrompt}`);
+    // Inject static role instructions via Codex config override.
+    // NOTE: `instructions` is reserved by Codex and ignored; use `developer_instructions`.
+    args.push('-c', `developer_instructions=${JSON.stringify(systemPrompt)}`);
 
     // Dynamic task context as the prompt argument
     args.push(taskContext);

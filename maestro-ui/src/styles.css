@@ -10864,19 +10864,33 @@ select.input {
     display: none;
   }
 
-  /* Compact tabs for narrow panels */
-  .maestroPanelTabs {
-    padding: 0 6px;
-    gap: 0;
+  /* Compact tab system for narrow panels */
+  .maestroPanelUtilityBar {
+    padding: 4px 8px;
   }
 
-  .maestroPanelTab {
+  .maestroPanelPrimaryTabs {
+    padding: 0 8px;
+  }
+
+  .maestroPanelPrimaryTab {
     padding: 8px 10px;
     font-size: 10px;
+    gap: 4px;
   }
 
-  .maestroPanelTabCount {
-    display: none;
+  .maestroPanelTabIcon {
+    width: 12px;
+    height: 12px;
+  }
+
+  .maestroPanelSubTabs {
+    padding: 0 8px;
+  }
+
+  .maestroPanelSubTab {
+    padding: 5px 8px;
+    font-size: 9px;
   }
 
   .terminalCommandBar {
@@ -12541,18 +12555,48 @@ select.input {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Maestro Panel Tabs                                                 */
+/*  Maestro Panel Icon Bar                                             */
 /* ------------------------------------------------------------------ */
 
-.maestroPanelTabs {
+/* ------------------------------------------------------------------ */
+/*  Panel Tab System (two-tier: primary + sub-tabs)                    */
+/* ------------------------------------------------------------------ */
+
+.maestroPanelTabSystem {
   display: flex;
-  gap: 2px;
-  padding: 0 12px;
+  flex-direction: column;
   background: rgba(0, 0, 0, 0.3);
   border-bottom: 1px solid var(--terminal-border);
 }
 
-.maestroPanelTab {
+/* Utility bar - refresh & board at the top */
+.maestroPanelUtilityBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+}
+
+.maestroPanelUtilityActions {
+  display: flex;
+  gap: 6px;
+}
+
+.terminalCmdSmall {
+  padding: 4px 10px !important;
+  font-size: 10px !important;
+}
+
+/* Primary tabs - Tasks / Skills / Team */
+.maestroPanelPrimaryTabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 12px;
+}
+
+.maestroPanelPrimaryTab {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -12562,56 +12606,122 @@ select.input {
   border-bottom: 2px solid transparent;
   color: var(--terminal-text-dim);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
+  text-transform: lowercase;
 }
 
-.maestroPanelTab:hover {
+.maestroPanelPrimaryTab:hover {
   color: var(--terminal-text);
-  background: rgba(var(--theme-primary-rgb), 0.03);
-}
-
-.maestroPanelTabActive {
-  color: var(--terminal-green);
-  border-bottom-color: var(--terminal-green);
   background: rgba(var(--theme-primary-rgb), 0.05);
 }
 
+.maestroPanelPrimaryTabActive {
+  color: var(--terminal-green);
+  border-bottom-color: var(--terminal-green);
+}
+
+.maestroPanelPrimaryTabActive:hover {
+  color: var(--terminal-green);
+}
+
 .maestroPanelTabIcon {
-  font-size: 10px;
-  transition: transform 0.15s ease;
+  width: 14px;
+  height: 14px;
 }
 
-.maestroPanelTabActive .maestroPanelTabIcon {
-  transform: rotate(90deg);
+.maestroPanelTabBadge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 8px;
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--terminal-text-dim);
 }
 
-.maestroPanelTabContent {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
+.maestroPanelPrimaryTabActive .maestroPanelTabBadge {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  color: var(--terminal-green);
 }
 
-.maestroPanelTabCount {
+/* Secondary sub-tabs */
+.maestroPanelSubTabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 12px;
+  border-top: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+}
+
+.maestroPanelSubTab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--terminal-text-dim);
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  color: var(--terminal-text-dim);
-  background: rgba(var(--theme-primary-rgb), 0.08);
-  border: 1px solid rgba(var(--theme-primary-rgb), 0.15);
-  padding: 2px 6px;
-  border-radius: 3px;
-  min-width: 18px;
-  text-align: center;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
 }
 
-.maestroPanelTabActive .maestroPanelTabCount {
-  background: rgba(var(--theme-primary-rgb), 0.15);
-  border-color: rgba(var(--theme-primary-rgb), 0.3);
+.maestroPanelSubTab:hover {
+  color: var(--terminal-text);
+  background: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.maestroPanelSubTabActive {
   color: var(--terminal-green);
+  border-bottom-color: var(--terminal-green);
+}
+
+.maestroPanelSubTabActive:hover {
+  color: var(--terminal-green);
+}
+
+.maestroPanelSubTabCount {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 6px;
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  color: var(--terminal-text-dim);
+}
+
+.maestroPanelSubTabActive .maestroPanelSubTabCount {
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  color: var(--terminal-green);
+}
+
+/* Legacy compat - keep old class names working for responsive */
+.maestroPanelIconBar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid var(--terminal-border);
+}
+
+.maestroPanelIconSvg {
+  width: 16px;
+  height: 16px;
+}
+
+.maestroPanelIconCount {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--terminal-text-dim);
 }
 
 /* ------------------------------------------------------------------ */
@@ -13499,8 +13609,8 @@ select.input {
 .sessionDetailsValue--status-failed { color: #EF4444; }
 .sessionDetailsValue--status-stopped { color: #94A3B8; }
 
-.sessionDetailsValue--role-worker { color: #22D3EE; }
-.sessionDetailsValue--role-orchestrator { color: #F59E0B; }
+.sessionDetailsValue--mode-execute { color: #22D3EE; }
+.sessionDetailsValue--mode-coordinate { color: #F59E0B; }
 
 .sessionDetailsGroup {
   margin-top: 12px;
@@ -14358,6 +14468,98 @@ select.input {
   background: rgba(255, 171, 0, 0.15);
   color: var(--terminal-amber, #ffab00);
   box-shadow: 0 0 8px rgba(255, 171, 0, 0.2);
+}
+
+/* ==================== Team Member List ==================== */
+
+.teamMemberList {
+  border-bottom: 1px solid var(--terminal-border);
+  background: rgba(255, 171, 0, 0.03);
+  padding: 6px 12px;
+}
+
+.teamMemberList--empty {
+  padding: 8px 12px;
+}
+
+.teamMemberListHint {
+  font-size: 11px;
+  color: var(--terminal-dim);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.teamMemberListHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.teamMemberListLabel {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--terminal-amber, #ffab00);
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.teamMemberListItems {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.teamMemberItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+
+.teamMemberItem:hover {
+  background: rgba(255, 171, 0, 0.06);
+  border-color: rgba(255, 171, 0, 0.2);
+}
+
+.teamMemberItem--selected {
+  background: rgba(255, 171, 0, 0.08);
+  border-color: rgba(255, 171, 0, 0.3);
+}
+
+.teamMemberCheckbox {
+  color: var(--terminal-dim);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.teamMemberItem--selected .teamMemberCheckbox {
+  color: var(--terminal-amber, #ffab00);
+}
+
+.teamMemberAvatar {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.teamMemberName {
+  color: var(--terminal-text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teamMemberRole {
+  color: var(--terminal-dim);
+  font-size: 10px;
+  flex-shrink: 0;
 }
 
 /* ==================== Whoami Preview ==================== */

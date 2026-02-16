@@ -82,10 +82,10 @@ describe('WorkerInitCommand', () => {
   });
 
   describe('validation', () => {
-    it('should validate worker role', () => {
+    it('should validate execute mode', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'worker' as const,
+        mode: 'execute' as const,
         task: {
           id: 'task-1',
           title: 'Test',
@@ -105,10 +105,10 @@ describe('WorkerInitCommand', () => {
       expect(isValid).toBe(true);
     });
 
-    it('should reject orchestrator role', () => {
+    it('should reject coordinate mode', () => {
       const manifest = {
         manifestVersion: '1.0',
-        role: 'orchestrator' as const,
+        mode: 'coordinate' as const,
         task: {
           id: 'task-1',
           title: 'Test',
@@ -145,11 +145,11 @@ describe('WorkerInitCommand', () => {
       expect(error.toLowerCase()).toContain('manifest');
     });
 
-    it('should provide helpful error for wrong role', () => {
-      const error = command.formatError('wrong_role', 'orchestrator');
+    it('should provide helpful error for wrong mode', () => {
+      const error = command.formatError('wrong_mode', 'coordinate');
 
-      expect(error).toContain('worker');
-      expect(error.toLowerCase()).toContain('orchestrator');
+      expect(error).toContain('execute');
+      expect(error.toLowerCase()).toContain('coordinate');
     });
   });
 });

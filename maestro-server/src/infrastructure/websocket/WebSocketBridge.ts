@@ -6,9 +6,15 @@ import { EventName, TypedEventMap } from '../../domain/events/DomainEvents';
 /**
  * Bridges domain events to WebSocket clients.
  * Subscribes to all domain events and broadcasts them to connected clients.
+ *
+ * Clients can send a `subscribe` message with `sessionIds` to receive only
+ * events related to those sessions (used by `maestro session watch`).
+ * Clients without a subscription receive ALL events (backward compatible).
  */
 export class WebSocketBridge {
   private logger: ILogger;
+  /** Per-client session subscription filters. Clients not in this map get all events. */
+  private subscriptions = new Map<WebSocket, Set<string>>();
 
   constructor(
     private wss: WebSocketServer,
@@ -27,6 +33,7 @@ export class WebSocketBridge {
       console.log(`🔌 WebSocket client connected (origin=${origin}, addr=${remoteAddr}, total=${this.wss.clients.size})`);
 
       ws.on('close', (code, reason) => {
+        this.subscriptions.delete(ws);
         console.log(`🔌 WebSocket client disconnected (origin=${origin}, code=${code}, total=${this.wss.clients.size})`);
       });
 
@@ -49,6 +56,22 @@ export class WebSocketBridge {
     // Handle ping/pong
     if (message.type === 'ping') {
       ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+      return;
+    }
+
+    // Handle subscribe — client wants events filtered to specific session IDs
+    if (message.type === 'subscribe' && Array.isArray(message.sessionIds)) {
+      const ids = new Set<string>(message.sessionIds.filter((id: any) => typeof id === 'string'));
+      this.subscriptions.set(ws, ids);
+      console.log(`🔌 WebSocket client subscribed to ${ids.size} session(s): ${[...ids].join(', ')}`);
+      ws.send(JSON.stringify({ type: 'subscribed', sessionIds: [...ids], timestamp: Date.now() }));
+      return;
+    }
+
+    // Handle unsubscribe — client goes back to receiving all events
+    if (message.type === 'unsubscribe') {
+      this.subscriptions.delete(ws);
+      ws.send(JSON.stringify({ type: 'unsubscribed', timestamp: Date.now() }));
       return;
     }
 
@@ -85,7 +108,13 @@ export class WebSocketBridge {
       'notify:session_completed',
       'notify:session_failed',
       'notify:needs_input',
-      'notify:progress'
+      'notify:progress',
+      'session:modal',
+      'session:modal_action',
+      'session:modal_closed',
+      // Mail events
+      'mail:received',
+      'mail:deleted'
     ];
 
     // Subscribe to each event
@@ -99,7 +128,22 @@ export class WebSocketBridge {
   }
 
   /**
-   * Broadcast a message to all connected WebSocket clients.
+   * Extract the session ID from an event payload, if present.
+   */
+  private extractSessionId(data: any): string | undefined {
+    if (!data) return undefined;
+    // Direct session ID field
+    if (data.sessionId) return data.sessionId;
+    // Session object with id field (session:updated, session:created, etc.)
+    if (data.id && typeof data.status === 'string') return data.id;
+    // Spawn event
+    if (data.session?.id) return data.session.id;
+    return undefined;
+  }
+
+  /**
+   * Broadcast a message to connected WebSocket clients.
+   * Clients with a subscription filter only receive events matching their session IDs.
    */
   private broadcast(event: string, data: any): void {
     const message = JSON.stringify({
@@ -109,12 +153,20 @@ export class WebSocketBridge {
       timestamp: Date.now()
     });
 
+    const eventSessionId = this.extractSessionId(data);
+
     let sent = 0;
     this.wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(message);
-        sent++;
+      if (client.readyState !== WebSocket.OPEN) return;
+
+      // If client has a subscription, check if this event matches
+      const sub = this.subscriptions.get(client);
+      if (sub && eventSessionId && !sub.has(eventSessionId)) {
+        return; // skip — event not for a subscribed session
       }
+
+      client.send(message);
+      sent++;
     });
 
     // Only log non-high-frequency events in detail

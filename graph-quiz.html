@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graph Algorithms Quiz</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0d1117; color: #e6edf3; padding: 24px;
+  }
+  h1 { text-align: center; font-size: 1.4rem; margin-bottom: 4px; color: #58a6ff; }
+  .sub { text-align: center; color: #8b949e; font-size: 0.85rem; margin-bottom: 20px; }
+  .qc { max-width: 780px; margin: 0 auto; }
+  .cols { display: flex; gap: 28px; margin-bottom: 24px; }
+  .col { flex: 1; }
+  .ch { font-weight: 600; font-size: 0.9rem; color: #58a6ff; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #30363d; }
+  .it { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+  .il { font-weight: 600; color: #ff7b72; min-width: 20px; }
+  .itx { font-size: 0.88rem; line-height: 1.4; }
+  .ms { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 18px; margin-bottom: 18px; }
+  .ms h2 { font-size: 1rem; color: #58a6ff; margin-bottom: 12px; }
+  .mr { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .ml { font-weight: 600; color: #ff7b72; min-width: 22px; }
+  .an { min-width: 140px; font-size: 0.88rem; }
+  .ar { color: #8b949e; }
+  select { background: #0d1117; color: #e6edf3; border: 1px solid #30363d; border-radius: 6px; padding: 8px 12px; font-size: 0.85rem; min-width: 60px; cursor: pointer; }
+  select:focus { border-color: #58a6ff; outline: none; }
+  #sb { display: block; margin: 0 auto; padding: 12px 40px; font-size: 0.95rem; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; background: #238636; color: #fff; }
+  #sb:hover { background: #2ea043; }
+  #st { text-align: center; margin-top: 12px; font-size: 0.85rem; min-height: 20px; }
+</style>
+</head>
+<body>
+<h1>Match the Following</h1>
+<p class="sub">Match each graph algorithm (Column A) with its description (Column B)</p>
+<div class="qc">
+  <div class="cols">
+    <div class="col">
+      <div class="ch">Column A - Algorithm</div>
+      <div class="it"><span class="il">1.</span><span class="itx">Dijkstra's Algorithm</span></div>
+      <div class="it"><span class="il">2.</span><span class="itx">Kruskal's Algorithm</span></div>
+      <div class="it"><span class="il">3.</span><span class="itx">Bellman-Ford Algorithm</span></div>
+      <div class="it"><span class="il">4.</span><span class="itx">Floyd-Warshall Algorithm</span></div>
+      <div class="it"><span class="il">5.</span><span class="itx">Topological Sort</span></div>
+    </div>
+    <div class="col">
+      <div class="ch">Column B - Description</div>
+      <div class="it"><span class="il">A.</span><span class="itx">Finds all-pairs shortest paths using dynamic programming</span></div>
+      <div class="it"><span class="il">B.</span><span class="itx">Single-source shortest path; handles negative edge weights</span></div>
+      <div class="it"><span class="il">C.</span><span class="itx">Linear ordering of DAG vertices (u before v for every edge u->v)</span></div>
+      <div class="it"><span class="il">D.</span><span class="itx">Greedy MST algorithm that sorts and picks edges</span></div>
+      <div class="it"><span class="il">E.</span><span class="itx">Single-source shortest path via priority queue; non-negative weights only</span></div>
+    </div>
+  </div>
+  <div class="ms">
+    <h2>Your Answers</h2>
+    <div class="mr"><span class="ml">1.</span><span class="an">Dijkstra's</span><span class="ar">-></span><select id="m1"><option value="">--</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option></select></div>
+    <div class="mr"><span class="ml">2.</span><span class="an">Kruskal's</span><span class="ar">-></span><select id="m2"><option value="">--</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option></select></div>
+    <div class="mr"><span class="ml">3.</span><span class="an">Bellman-Ford</span><span class="ar">-></span><select id="m3"><option value="">--</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option></select></div>
+    <div class="mr"><span class="ml">4.</span><span class="an">Floyd-Warshall</span><span class="ar">-></span><select id="m4"><option value="">--</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option></select></div>
+    <div class="mr"><span class="ml">5.</span><span class="an">Topological Sort</span><span class="ar">-></span><select id="m5"><option value="">--</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option></select></div>
+  </div>
+  <button id="sb">Submit Answers</button>
+  <div id="st"></div>
+</div>
+<script>
+(function(){
+  var btn = document.getElementById('sb');
+  btn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var st = document.getElementById('st');
+    var v1 = document.getElementById('m1').value;
+    var v2 = document.getElementById('m2').value;
+    var v3 = document.getElementById('m3').value;
+    var v4 = document.getElementById('m4').value;
+    var v5 = document.getElementById('m5').value;
+    if (!v1 || !v2 || !v3 || !v4 || !v5) {
+      st.style.color = '#f0883e';
+      st.textContent = 'Please select an answer for all 5 questions.';
+      return;
+    }
+    var answers = {"1": v1, "2": v2, "3": v3, "4": v4, "5": v5};
+    st.style.color = '#8b949e';
+    st.textContent = 'Sending...';
+    try {
+      if (window.maestro && window.maestro.sendAction) {
+        window.maestro.sendAction('submit_answers', answers);
+      } else {
+        window.parent.postMessage({type:"maestro:modal_action",modalId:"fallback",action:"submit_answers",data:answers},"*");
+      }
+      st.style.color = '#3fb950';
+      st.textContent = 'Submitted! You can close this modal now.';
+      btn.style.background = '#21262d';
+      btn.style.cursor = 'default';
+      btn.textContent = 'Submitted';
+    } catch(err) {
+      st.style.color = '#f85149';
+      st.textContent = 'Error: ' + err.message;
+    }
+  });
+})();
+</script>
+</body>
+</html>

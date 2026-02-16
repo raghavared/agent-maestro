@@ -8,6 +8,7 @@ import { guardCommand } from '../services/command-permissions.js';
 import { executeReport } from './report.js';
 import ora from 'ora';
 import { readFileSync } from 'fs';
+import WebSocket from 'ws';
 
 /**
  * Build comprehensive session context for spawning
@@ -284,6 +285,156 @@ export function registerSessionCommands(program: Command) {
             await executeReport('error', description, program.opts());
         });
 
+    session.command('watch <sessionIds>')
+        .description('Watch spawned sessions in real-time via WebSocket (comma-separated IDs)')
+        .option('--timeout <ms>', 'Auto-exit after N milliseconds (0 = no timeout)', '0')
+        .action(async (sessionIds: string, cmdOpts: any) => {
+            await guardCommand('session:watch');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+
+            const ids = sessionIds.split(',').map(s => s.trim()).filter(Boolean);
+            if (ids.length === 0) {
+                console.error('Error: at least one session ID is required.');
+                process.exit(1);
+            }
+
+            // Derive WebSocket URL from API URL
+            const apiUrl = config.apiUrl;
+            const wsUrl = apiUrl.replace(/^http/, 'ws');
+
+            if (!isJson) {
+                console.log(`[session:watch] Watching ${ids.length} session(s): ${ids.join(', ')}`);
+                console.log(`[session:watch] Connecting to ${wsUrl} ...`);
+            }
+
+            // Track session statuses for completion detection
+            const sessionStatuses = new Map<string, string>();
+            for (const id of ids) {
+                sessionStatuses.set(id, 'unknown');
+            }
+
+            const ws = new WebSocket(wsUrl);
+
+            const timeoutMs = parseInt(cmdOpts.timeout || '0', 10);
+            let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+            const cleanup = () => {
+                if (timeoutHandle) clearTimeout(timeoutHandle);
+                if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                    ws.close();
+                }
+            };
+
+            ws.on('open', () => {
+                if (!isJson) {
+                    console.log(`[session:watch] Connected. Listening for events...`);
+                }
+
+                // Subscribe to specific sessions
+                ws.send(JSON.stringify({
+                    type: 'subscribe',
+                    sessionIds: ids,
+                }));
+
+                if (timeoutMs > 0) {
+                    timeoutHandle = setTimeout(() => {
+                        if (!isJson) console.log(`[session:watch] Timeout reached (${timeoutMs}ms). Exiting.`);
+                        cleanup();
+                    }, timeoutMs);
+                }
+            });
+
+            ws.on('message', (data: WebSocket.Data) => {
+                try {
+                    const msg = JSON.parse(data.toString());
+                    const event = msg.event || msg.type;
+                    const payload = msg.data;
+
+                    if (!event || !payload) return;
+
+                    // Filter: only show events for watched sessions
+                    const eventSessionId = payload.id || payload.sessionId;
+                    if (!eventSessionId || !ids.includes(eventSessionId)) return;
+
+                    if (isJson) {
+                        // JSON mode: output one JSON object per line (JSONL)
+                        console.log(JSON.stringify({ event, sessionId: eventSessionId, data: payload, timestamp: msg.timestamp }));
+                    } else {
+                        // Human-readable output
+                        const ts = new Date(msg.timestamp || Date.now()).toLocaleTimeString();
+
+                        if (event === 'session:updated') {
+                            const status = payload.status;
+                            const prevStatus = sessionStatuses.get(eventSessionId);
+                            sessionStatuses.set(eventSessionId, status);
+
+                            // Show status changes
+                            if (prevStatus !== status) {
+                                console.log(`[${ts}] ${eventSessionId} status: ${status}`);
+                            }
+
+                            // Show latest timeline event if present
+                            const timeline = payload.timeline;
+                            if (timeline && timeline.length > 0) {
+                                const latest = timeline[timeline.length - 1];
+                                if (latest.type === 'progress' || latest.type === 'task_completed' || latest.type === 'task_blocked' || latest.type === 'error') {
+                                    console.log(`[${ts}] ${eventSessionId} ${latest.type}: ${latest.message || ''}`);
+                                }
+                            }
+
+                            // Show needsInput
+                            if (payload.needsInput?.active) {
+                                console.log(`[${ts}] ${eventSessionId} NEEDS INPUT: ${payload.needsInput.message || '(no message)'}`);
+                            }
+                        } else if (event === 'notify:progress') {
+                            console.log(`[${ts}] ${eventSessionId} progress: ${payload.message || ''}`);
+                        } else if (event === 'notify:session_completed') {
+                            console.log(`[${ts}] ${eventSessionId} COMPLETED: ${payload.name || ''}`);
+                        } else if (event === 'notify:session_failed') {
+                            console.log(`[${ts}] ${eventSessionId} FAILED: ${payload.name || ''}`);
+                        } else if (event === 'notify:needs_input') {
+                            console.log(`[${ts}] ${eventSessionId} NEEDS INPUT: ${payload.message || ''}`);
+                        } else {
+                            // Generic event
+                            console.log(`[${ts}] ${eventSessionId} ${event}`);
+                        }
+                    }
+
+                    // Check if ALL watched sessions have completed/failed
+                    const allDone = ids.every(id => {
+                        const s = sessionStatuses.get(id);
+                        return s === 'completed' || s === 'failed' || s === 'stopped';
+                    });
+                    if (allDone) {
+                        if (!isJson) {
+                            console.log(`[session:watch] All watched sessions have finished.`);
+                        }
+                        cleanup();
+                    }
+                } catch {
+                    // ignore parse errors
+                }
+            });
+
+            ws.on('error', (err: Error) => {
+                if (!isJson) {
+                    console.error(`[session:watch] WebSocket error: ${err.message}`);
+                }
+            });
+
+            ws.on('close', () => {
+                if (!isJson) {
+                    console.log(`[session:watch] Disconnected.`);
+                }
+            });
+
+            // Keep the process alive until WS closes
+            await new Promise<void>((resolve) => {
+                ws.on('close', resolve);
+            });
+        });
+
     session.command('spawn')
         .description('Spawn a new session with full task context')
         .requiredOption('--task <id>', 'Task ID to assign to the new session')
@@ -292,6 +443,8 @@ export function registerSessionCommands(program: Command) {
         .option('--reason <reason>', 'Reason for spawning this session')
         .option('--include-related', 'Include related tasks in context')
         .option('--orchestrator-strategy <strategy>', 'Orchestrator strategy (default, intelligent-batching, or dag)')
+        .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)')
+        .option('--model <model>', 'Model to use (e.g. sonnet, opus, haiku, or native model names)')
         .action(async (cmdOpts) => {
             await guardCommand('session:spawn');
             const globalOpts = program.opts();
@@ -323,12 +476,18 @@ export function registerSessionCommands(program: Command) {
                 // Generate session name if not provided
                 const sessionName = cmdOpts.name || generateSessionName(task, skill);
 
-                // Prepare spawn request with spawnSource and role
-                const role = skill === 'maestro-orchestrator' ? 'orchestrator' : 'worker';
+                // Validate agent tool if provided
+                const validAgentTools = ['claude-code', 'codex', 'gemini'];
+                if (cmdOpts.agentTool && !validAgentTools.includes(cmdOpts.agentTool)) {
+                    throw new Error(`Invalid agent tool "${cmdOpts.agentTool}". Must be one of: ${validAgentTools.join(', ')}`);
+                }
+
+                // Prepare spawn request with spawnSource and mode
+                const mode = skill === 'maestro-orchestrator' ? 'coordinate' : 'execute';
                 const spawnRequest: any = {
                     projectId,
                     taskIds: [taskId],
-                    role,
+                    mode,
                     spawnSource: 'session',                     // Session-initiated spawn
                     sessionId: config.sessionId || undefined,   // Parent session ID
                     skills: [skill],
@@ -339,9 +498,19 @@ export function registerSessionCommands(program: Command) {
                     }
                 };
 
-                // Include orchestratorStrategy when spawning an orchestrator
-                if (role === 'orchestrator' && cmdOpts.orchestratorStrategy) {
-                    spawnRequest.orchestratorStrategy = cmdOpts.orchestratorStrategy;
+                // Include agent tool if specified
+                if (cmdOpts.agentTool) {
+                    spawnRequest.agentTool = cmdOpts.agentTool;
+                }
+
+                // Include model if specified
+                if (cmdOpts.model) {
+                    spawnRequest.model = cmdOpts.model;
+                }
+
+                // Include strategy when spawning a coordinate session
+                if (mode === 'coordinate' && cmdOpts.orchestratorStrategy) {
+                    spawnRequest.strategy = cmdOpts.orchestratorStrategy;
                 }
 
                 const spinner3 = !isJson ? ora('Requesting session spawn...').start() : null;
@@ -351,9 +520,13 @@ export function registerSessionCommands(program: Command) {
                 if (isJson) {
                     outputJSON(result);
                 } else {
+                    const toolDisplay = cmdOpts.agentTool || 'claude-code';
+                    const modelDisplay = cmdOpts.model || 'sonnet';
                     console.log(`Spawning ${skill} session: ${sessionName}`);
                     console.log(`   Task: ${task.title}`);
                     console.log(`   Priority: ${task.priority}`);
+                    console.log(`   Agent Tool: ${toolDisplay}`);
+                    console.log(`   Model: ${modelDisplay}`);
                     console.log(`   Session ID: ${result.sessionId}`);
                     console.log('');
                     console.log('   Waiting for Agent Maestro to open terminal window...');
@@ -376,7 +549,7 @@ export function registerSessionCommands(program: Command) {
             const isJson = globalOpts.json;
             const sessionId = config.sessionId;
             const projectId = config.projectId;
-            const role = process.env.MAESTRO_ROLE || 'worker';
+            const mode = process.env.MAESTRO_MODE || 'execute';
             const taskIds = config.taskIds;
             const strategy = config.strategy;
 
@@ -384,7 +557,7 @@ export function registerSessionCommands(program: Command) {
                 console.log(`[session:register] Hook fired (SessionStart)`);
                 console.log(`[session:register]    Session ID: ${sessionId || '(not set)'}`);
                 console.log(`[session:register]    Project ID: ${projectId || '(not set)'}`);
-                console.log(`[session:register]    Role: ${role}`);
+                console.log(`[session:register]    Mode: ${mode}`);
                 console.log(`[session:register]    Task IDs: ${taskIds?.join(', ') || '(none)'}`);
                 console.log(`[session:register]    Strategy: ${strategy || '(not set)'}`);
             }
@@ -420,10 +593,10 @@ export function registerSessionCommands(program: Command) {
                         id: sessionId,
                         projectId,
                         taskIds,
-                        name: `${role}: ${sessionId.substring(0, 16)}`,
+                        name: `${mode}: ${sessionId.substring(0, 16)}`,
                         status: 'working',
                         strategy,
-                        metadata: { role },
+                        metadata: { mode },
                     });
                     if (!isJson) console.log(`[session:register]    New session created with status 'working'`);
                 }

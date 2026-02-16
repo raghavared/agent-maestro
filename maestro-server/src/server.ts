@@ -9,7 +9,7 @@ import { createTaskRoutes } from './api/taskRoutes';
 import { createSessionRoutes } from './api/sessionRoutes';
 import { createQueueRoutes } from './api/queueRoutes';
 import { createSkillRoutes } from './api/skillRoutes';
-import { createTemplateRoutes } from './api/templateRoutes';
+import { createMailRoutes } from './api/mailRoutes';
 import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
 import { AppError } from './domain/common/Errors';
 
@@ -18,7 +18,7 @@ async function startServer() {
   const container = await createContainer();
   await container.initialize();
 
-  const { config, logger, eventBus, projectService, taskService, sessionService, templateService, queueService, projectRepo, taskRepo, skillLoader } = container;
+  const { config, logger, eventBus, projectService, taskService, sessionService, queueService, mailService, projectRepo, taskRepo, skillLoader } = container;
 
   console.log('📋 Configuration loaded:');
   console.log(`   Port: ${config.port}`);
@@ -86,7 +86,6 @@ async function startServer() {
   const taskRoutes = createTaskRoutes(taskService, sessionService);
   const sessionRoutes = createSessionRoutes({
     sessionService,
-    templateService,
     queueService,
     projectRepo,
     taskRepo,
@@ -100,11 +99,11 @@ async function startServer() {
     sessionService
   });
 
+  // Mail routes
+  const mailRoutes = createMailRoutes({ mailService });
+
   // Skills route using async FileSystemSkillLoader
   const skillRoutes = createSkillRoutes(skillLoader);
-
-  // Template routes
-  const templateRoutes = createTemplateRoutes({ templateService });
 
   // API request logging
   app.use('/api', (req: Request, res: Response, next: NextFunction) => {
@@ -125,8 +124,8 @@ async function startServer() {
   app.use('/api', taskRoutes);
   app.use('/api', sessionRoutes);
   app.use('/api', queueRoutes);
+  app.use('/api', mailRoutes);
   app.use('/api', skillRoutes);
-  app.use('/api', templateRoutes);
 
   // Global error handling middleware
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

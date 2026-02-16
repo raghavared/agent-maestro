@@ -14,8 +14,8 @@ describe('Manifest Types', () => {
     it('should define valid worker manifest', () => {
       const manifest: MaestroManifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Implement authentication',
           description: 'Add OAuth2 authentication to the API',
@@ -26,7 +26,7 @@ describe('Manifest Types', () => {
           ],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -34,46 +34,46 @@ describe('Manifest Types', () => {
       };
 
       expect(manifest).toBeDefined();
-      expect(manifest.role).toBe('worker');
+      expect(manifest.mode).toBe('execute');
       expect(manifest.manifestVersion).toBe('1.0');
-      expect(manifest.task.id).toBe('task-1');
+      expect(manifest.tasks[0].id).toBe('task-1');
       expect(manifest.session.model).toBe('sonnet');
     });
 
     it('should define valid orchestrator manifest', () => {
       const manifest: MaestroManifest = {
         manifestVersion: '1.0',
-        role: 'orchestrator',
-        task: {
+        mode: 'coordinate',
+        tasks: [{
           id: 'task-2',
           title: 'Build user management system',
           description: 'Complete user management with auth and profiles',
           acceptanceCriteria: ['All subtasks completed'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'opus',
           permissionMode: 'interactive',
         },
       };
 
-      expect(manifest.role).toBe('orchestrator');
+      expect(manifest.mode).toBe('coordinate');
       expect(manifest.session.model).toBe('opus');
     });
 
     it('should include optional skills array', () => {
       const manifest: MaestroManifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-3',
           title: 'Test task',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'haiku',
           permissionMode: 'readOnly',
@@ -81,21 +81,21 @@ describe('Manifest Types', () => {
       };
 
       expect(manifest.manifestVersion).toBe('1.0');
-      expect(manifest.role).toBe('worker');
+      expect(manifest.mode).toBe('execute');
     });
 
     it('should include optional context', () => {
       const manifest: MaestroManifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-4',
           title: 'Test task',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',

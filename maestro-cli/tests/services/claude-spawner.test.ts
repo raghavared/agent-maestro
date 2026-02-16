@@ -18,15 +18,15 @@ describe('ClaudeSpawner', () => {
 
     workerManifest = {
       manifestVersion: '1.0',
-      role: 'worker',
-      task: {
+      mode: 'execute',
+      tasks: [{
         id: 'task-123',
         title: 'Test task',
         description: 'Test description',
         acceptanceCriteria: ['Test criterion'],
         projectId: 'proj-1',
         createdAt: '2026-02-02T00:00:00Z',
-      },
+      }],
       session: {
         model: 'sonnet',
         permissionMode: 'acceptEdits',
@@ -43,31 +43,6 @@ describe('ClaudeSpawner', () => {
     });
   });
 
-  describe('preparePrompt', () => {
-    it('should generate prompt from manifest', () => {
-      const prompt = spawner.preparePrompt(workerManifest);
-
-      expect(prompt).toBeDefined();
-      expect(prompt).toContain('task-123');
-      expect(prompt).toContain('Test task');
-      expect(prompt).toContain('Worker');
-    });
-
-    it('should generate different prompts for worker vs orchestrator', () => {
-      const orchestratorManifest: MaestroManifest = {
-        ...workerManifest,
-        role: 'orchestrator',
-      };
-
-      const workerPrompt = spawner.preparePrompt(workerManifest);
-      const orchestratorPrompt = spawner.preparePrompt(orchestratorManifest);
-
-      expect(workerPrompt).toContain('Worker');
-      expect(orchestratorPrompt).toContain('Orchestrator');
-      expect(workerPrompt).not.toEqual(orchestratorPrompt);
-    });
-  });
-
   describe('prepareEnvironment', () => {
     it('should set maestro environment variables', () => {
       const env = spawner.prepareEnvironment(workerManifest, 'session-123');
@@ -75,7 +50,7 @@ describe('ClaudeSpawner', () => {
       expect(env.MAESTRO_SESSION_ID).toBe('session-123');
       expect(env.MAESTRO_TASK_IDS).toBe('task-123');
       expect(env.MAESTRO_PROJECT_ID).toBe('proj-1');
-      expect(env.MAESTRO_ROLE).toBe('worker');
+      expect(env.MAESTRO_MODE).toBe('execute');
     });
 
     it('should preserve existing environment variables', () => {
@@ -88,15 +63,15 @@ describe('ClaudeSpawner', () => {
     it('should handle optional fields', () => {
       const minimalManifest: MaestroManifest = {
         manifestVersion: '1.0',
-        role: 'worker',
-        task: {
+        mode: 'execute',
+        tasks: [{
           id: 'task-1',
           title: 'Test',
           description: 'Test',
           acceptanceCriteria: ['Done'],
           projectId: 'proj-1',
           createdAt: '2026-02-02T00:00:00Z',
-        },
+        }],
         session: {
           model: 'sonnet',
           permissionMode: 'acceptEdits',
@@ -112,12 +87,11 @@ describe('ClaudeSpawner', () => {
     it('should add task metadata environment variables', () => {
       const manifestWithMetadata: MaestroManifest = {
         ...workerManifest,
-        task: {
-          ...workerManifest.task,
+        tasks: [{
+          ...workerManifest.tasks[0],
           acceptanceCriteria: ['Criterion 1', 'Criterion 2'],
-          technicalNotes: 'Use TypeScript',
           dependencies: ['task-456', 'task-789'],
-        },
+        }],
       };
 
       const env = spawner.prepareEnvironment(manifestWithMetadata, 'session-123');
@@ -130,8 +104,8 @@ describe('ClaudeSpawner', () => {
   });
 
   describe('getPluginDir', () => {
-    it('should return plugin directory for worker role', () => {
-      const pluginDir = spawner.getPluginDir('worker');
+    it('should return plugin directory for execute mode', () => {
+      const pluginDir = spawner.getPluginDir('execute');
 
       if (pluginDir) {
         expect(pluginDir).toContain('maestro-worker');
@@ -141,8 +115,8 @@ describe('ClaudeSpawner', () => {
       }
     });
 
-    it('should return plugin directory for orchestrator role', () => {
-      const pluginDir = spawner.getPluginDir('orchestrator');
+    it('should return plugin directory for coordinate mode', () => {
+      const pluginDir = spawner.getPluginDir('coordinate');
 
       if (pluginDir) {
         expect(pluginDir).toContain('maestro-orchestrator');
@@ -154,7 +128,7 @@ describe('ClaudeSpawner', () => {
 
     it('should return null if plugin directory does not exist', () => {
       // In test environment, plugins may not exist
-      const pluginDir = spawner.getPluginDir('worker');
+      const pluginDir = spawner.getPluginDir('execute');
 
       // Should either exist or be null
       expect(pluginDir === null || typeof pluginDir === 'string').toBe(true);
@@ -162,7 +136,7 @@ describe('ClaudeSpawner', () => {
   });
 
   describe('buildClaudeArgs', () => {
-    it('should include --plugin-dir for worker role', async () => {
+    it('should include --plugin-dir for execute mode', async () => {
       const args = await spawner.buildClaudeArgs(workerManifest);
 
       // Should include --plugin-dir if plugin directory exists
@@ -172,10 +146,10 @@ describe('ClaudeSpawner', () => {
       expect(typeof hasPluginDir).toBe('boolean');
     });
 
-    it('should include --plugin-dir for orchestrator role', async () => {
+    it('should include --plugin-dir for coordinate mode', async () => {
       const orchestratorManifest: MaestroManifest = {
         ...workerManifest,
-        role: 'orchestrator',
+        mode: 'coordinate',
       };
 
       const args = await spawner.buildClaudeArgs(orchestratorManifest);
@@ -192,21 +166,6 @@ describe('ClaudeSpawner', () => {
 
       expect(args).toContain('--model');
       expect(args).toContain('sonnet');
-    });
-
-    it('should include thinking mode when specified', async () => {
-      const manifestWithThinking: MaestroManifest = {
-        ...workerManifest,
-        session: {
-          ...workerManifest.session,
-          thinkingMode: 'auto',
-        },
-      };
-
-      const args = await spawner.buildClaudeArgs(manifestWithThinking);
-
-      expect(args).toContain('--thinking-mode');
-      expect(args).toContain('auto');
     });
 
     it('should include max turns when specified', async () => {
@@ -233,8 +192,7 @@ describe('ClaudeSpawner', () => {
     });
 
     it('should include skill plugin directories when skills specified', async () => {
-      let testSkillsDir: string;
-      const skillLoader = new SkillLoader(testSkillsDir);
+      let testSkillsDir: string = '';
 
       try {
         // Create test skills directory
@@ -247,7 +205,7 @@ describe('ClaudeSpawner', () => {
         await writeFile(join(skillDir, 'skill.md'), '# Test Skill\n');
 
         // Create spawner with custom skill loader
-        const customSpawner = new ClaudeSpawner(undefined, new SkillLoader(testSkillsDir));
+        const customSpawner = new ClaudeSpawner(new SkillLoader(testSkillsDir));
 
         // Create manifest with skills
         const manifestWithSkills: MaestroManifest = {
@@ -287,7 +245,7 @@ describe('ClaudeSpawner', () => {
     });
 
     it('should gracefully handle missing skills', async () => {
-      const customSpawner = new ClaudeSpawner(undefined, new SkillLoader());
+      const customSpawner = new ClaudeSpawner(new SkillLoader());
 
       // Create manifest with nonexistent skills
       const manifestWithMissingSkills: MaestroManifest = {
@@ -359,33 +317,16 @@ describe('ClaudeSpawner', () => {
       const sessionId = 'test-session-123';
 
       // Prepare all components
-      const prompt = spawner.preparePrompt(workerManifest);
       const env = spawner.prepareEnvironment(workerManifest, sessionId);
       const args = await spawner.buildClaudeArgs(workerManifest);
-      const promptFile = await spawner.writePromptToFile(prompt);
-
-      createdFiles.push(promptFile);
 
       // Verify all components are ready
-      expect(prompt).toContain('task-123');
       expect(env.MAESTRO_SESSION_ID).toBe(sessionId);
       expect(args).toBeDefined();
-      expect(existsSync(promptFile)).toBe(true);
     });
   });
 
   describe('Error handling', () => {
-    it('should handle invalid manifest gracefully', () => {
-      const invalidManifest = {
-        ...workerManifest,
-        role: 'invalid' as any,
-      };
-
-      expect(() => {
-        spawner.preparePrompt(invalidManifest);
-      }).toThrow();
-    });
-
     it('should handle write errors gracefully', async () => {
       // Test with invalid path (implementation should handle this)
       const prompt = 'Test';

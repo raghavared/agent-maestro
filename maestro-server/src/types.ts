@@ -1,7 +1,40 @@
+// Mail message types
+export type MailMessageType = 'assignment' | 'status_update' | 'query' | 'response' | 'directive' | 'notification';
+
+export interface MailMessage {
+  id: string;                    // "mail_<timestamp>_<random>"
+  projectId: string;
+  fromSessionId: string;
+  toSessionId: string | null;    // null = broadcast
+  replyToMailId: string | null;
+  type: MailMessageType;
+  subject: string;
+  body: Record<string, any>;     // Type-specific structured fields
+  createdAt: number;
+}
+
+export interface SendMailPayload {
+  projectId: string;
+  fromSessionId: string;
+  toSessionId?: string | null;
+  replyToMailId?: string | null;
+  type: MailMessageType;
+  subject: string;
+  body?: Record<string, any>;
+}
+
+export interface MailFilter {
+  type?: MailMessageType;
+  since?: number;
+}
+
 // Worker strategy types
 export type WorkerStrategy = 'simple' | 'queue' | 'tree';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 export type AgentTool = 'claude-code' | 'codex' | 'gemini';
+
+// Three-axis model types
+export type AgentMode = 'execute' | 'coordinate';
 
 export interface QueueItem {
   taskId: string;
@@ -29,6 +62,17 @@ export interface Project {
   description?: string;
   createdAt: number;
   updatedAt: number;
+}
+
+// Task type discriminator
+export type TaskType = 'task' | 'team-member';
+
+// Team member metadata (only present when taskType === 'team-member')
+export interface TeamMemberMetadata {
+  role: string;        // e.g. "frontend developer", "tester"
+  identity: string;    // persona/instruction prompt
+  avatar: string;      // emoji or icon identifier
+  mailId: string;      // random generated mail ID for shared mailbox
 }
 
 export interface Task {
@@ -65,6 +109,12 @@ export interface Task {
 
   // Pinned tasks appear in the dedicated "Pinned" tab for quick re-execution
   pinned?: boolean;
+
+  // Task type: 'task' (default) or 'team-member'
+  taskType?: TaskType;
+
+  // Team member metadata (only when taskType === 'team-member')
+  teamMemberMetadata?: TeamMemberMetadata;
 }
 
 export interface Session {
@@ -156,6 +206,8 @@ export interface CreateTaskPayload {
   referenceTaskIds?: string[];
   model?: string;
   agentTool?: AgentTool;
+  taskType?: TaskType;
+  teamMemberMetadata?: TeamMemberMetadata;
 }
 
 export type UpdateSource = 'user' | 'session';
@@ -174,6 +226,8 @@ export interface UpdateTaskPayload {
   model?: string;
   agentTool?: AgentTool;
   pinned?: boolean;
+  taskType?: TaskType;
+  teamMemberMetadata?: TeamMemberMetadata;
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline
   // Update source tracking
   updateSource?: UpdateSource;  // Who is making the update
@@ -211,17 +265,16 @@ export interface UpdateSessionPayload {
 export interface SpawnSessionPayload {
   projectId: string;
   taskIds: string[];
-  role?: 'worker' | 'orchestrator';
-  strategy?: WorkerStrategy;            // Worker strategy ('simple' or 'queue'), defaults to 'simple'
-  orchestratorStrategy?: OrchestratorStrategy;  // Orchestrator strategy ('default', 'intelligent-batching', or 'dag')
-  spawnSource?: 'ui' | 'session';      // Changed: who is calling (ui or session)
+  mode?: AgentMode;                     // Three-axis model: 'execute' or 'coordinate'
+  strategy?: string;                    // Strategy for the session (mode-dependent)
+  spawnSource?: 'ui' | 'session';      // Who is calling (ui or session)
   sessionId?: string;                   // Required when spawnSource === 'session' (parent session ID)
   sessionName?: string;
   skills?: string[];
-  model?: string;  // Model to use for the session
-  agentTool?: AgentTool;                // Agent tool to use ('claude-code' or 'codex')
-  spawnedBy?: string;                   // Deprecated: use sessionId instead
+  model?: string;                       // Model to use for the session
+  agentTool?: AgentTool;                // Agent tool to use ('claude-code', 'codex', or 'gemini')
   context?: Record<string, any>;
+  teamMemberIds?: string[];             // Team member task IDs to include in coordinate mode
 }
 
 // Spawn request event (emitted by server to UI)
@@ -238,26 +291,3 @@ export interface SpawnRequestEvent {
   _isSpawnCreated?: boolean;             // Backward compatibility flag
 }
 
-// Template types
-export type TemplateRole = 'worker' | 'orchestrator';
-
-export interface Template {
-  id: string;
-  name: string;
-  role: TemplateRole;
-  content: string;
-  isDefault: boolean;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface CreateTemplatePayload {
-  name: string;
-  role: TemplateRole;
-  content: string;
-}
-
-export interface UpdateTemplatePayload {
-  name?: string;
-  content?: string;
-}

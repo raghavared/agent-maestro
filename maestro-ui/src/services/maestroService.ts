@@ -1,18 +1,18 @@
 import { maestroClient } from "../utils/MaestroClient";
 
 import { TerminalSession } from "../app/types/session";
-import { MaestroProject, MaestroTask, WorkerStrategy, OrchestratorStrategy, AgentTool } from "../app/types/maestro";
+import { MaestroProject, MaestroTask, AgentMode, AgentTool } from "../app/types/maestro";
 
 export async function createMaestroSession(input: {
     task?: MaestroTask;              // Single task (backward compatible)
     tasks?: MaestroTask[];           // Multiple tasks (PHASE IV-A)
     project: MaestroProject;
-    skillIds?: string[];      // NEW: Skill IDs to load
-    strategy?: WorkerStrategy;       // Worker strategy
-    role?: 'worker' | 'orchestrator';
-    orchestratorStrategy?: OrchestratorStrategy;
+    skillIds?: string[];      // Skill IDs to load
+    strategy?: string;               // Unified strategy
+    mode?: AgentMode;                // 'execute' or 'coordinate'
+    teamMemberIds?: string[];        // Team member task IDs for coordinate mode
   }): Promise<TerminalSession> {
-    const { task, tasks, skillIds, project, strategy, role, orchestratorStrategy } = input;
+    const { task, tasks, skillIds, project, strategy, mode, teamMemberIds } = input;
 
     // Normalize to array (support both single and multi-task)
     const taskList = tasks || (task ? [task] : []);
@@ -20,17 +20,13 @@ export async function createMaestroSession(input: {
       throw new Error('At least one task is required');
     }
 
-    const resolvedRole = role || 'worker';
+    const resolvedMode: AgentMode = mode || 'execute';
 
     console.log('[App.createMaestroSession] Using server spawn flow');
     console.log('[App.createMaestroSession] Tasks:', taskList.map(t => t.id).join(', '));
-    console.log('[App.createMaestroSession] Role:', resolvedRole);
+    console.log('[App.createMaestroSession] Mode:', resolvedMode);
 
-    // NEW: Use server spawn endpoint (Server-Generated Manifests architecture)
-    // The server will:
-    // 1. Generate manifest via CLI
-    // 2. Emit spawn_request via WebSocket
-    // 3. MaestroContext will receive and spawn terminal automatically
+    // Use server spawn endpoint (Server-Generated Manifests architecture)
     const taskIds = taskList.map(t => t.id);
 
     // Get model from the first task (for multi-task sessions, use the first task's model)
@@ -39,23 +35,23 @@ export async function createMaestroSession(input: {
     // Get agent tool from the first task
     const agentTool: AgentTool | undefined = taskList[0].agentTool;
 
-    // Determine skill based on role
-    const defaultSkill = resolvedRole === 'orchestrator' ? 'maestro-orchestrator' : 'maestro-worker';
+    // Determine skill based on mode
+    const defaultSkill = resolvedMode === 'coordinate' ? 'maestro-orchestrator' : 'maestro-worker';
 
     try {
       const response = await maestroClient.spawnSession({
         projectId: project.id,
         taskIds,
-        role: resolvedRole,
+        mode: resolvedMode,
         strategy: strategy || 'simple',
-        ...(resolvedRole === 'orchestrator' && orchestratorStrategy ? { orchestratorStrategy } : {}),
-        spawnSource: 'ui',      // CHANGED: from 'manual' to 'ui'
+        spawnSource: 'ui',
         sessionName: taskList.length > 1
           ? `Multi-Task: ${taskList[0].title}`
           : taskList[0].title,
         skills: skillIds || [defaultSkill],
         model,
         ...(agentTool && agentTool !== 'claude-code' ? { agentTool } : {}),
+        ...(teamMemberIds && teamMemberIds.length > 0 ? { teamMemberIds } : {}),
       });
 
       console.log('[App.createMaestroSession] ✓ Server spawn request sent:', response.sessionId);

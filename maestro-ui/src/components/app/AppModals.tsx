@@ -30,6 +30,8 @@ import { SecureStorageModal } from "../modals/SecureStorageModal";
 import { StartRecordingModal } from "../modals/StartRecordingModal";
 import { RecordingsListModal } from "../modals/RecordingsListModal";
 import { ReplayModal } from "../modals/ReplayModal";
+import { AgentModalViewer } from "../modals/AgentModalViewer";
+import { useMaestroStore } from "../../stores/useMaestroStore";
 import { normalizeSmartQuotes } from "../../app/utils/string";
 
 export function AppModals() {
@@ -216,6 +218,10 @@ export function AppModals() {
 
   // UI store
   const homeDir = useUIStore((s) => s.homeDir);
+
+  // Maestro store — agent modals
+  const activeModals = useMaestroStore((s) => s.activeModals);
+  const closeAgentModal = useMaestroStore((s) => s.closeAgentModal);
 
   // Quick launch hook
   const { commandSuggestions, agentShortcuts } = useQuickLaunch({
@@ -666,6 +672,15 @@ export function AppModals() {
           onSendNext={() => void sendNextReplayStep()}
         />
       )}
+
+      {/* Agent-generated modals */}
+      {activeModals.map((modal) => (
+        <AgentModalViewer
+          key={modal.modalId}
+          modal={modal}
+          onClose={() => closeAgentModal(modal.modalId)}
+        />
+      ))}
     </>
   );
 }

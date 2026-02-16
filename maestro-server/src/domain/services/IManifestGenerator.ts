@@ -2,8 +2,8 @@
  * Options for manifest generation.
  */
 export interface ManifestGenerationOptions {
-  /** Role type: worker or orchestrator */
-  role: 'worker' | 'orchestrator';
+  /** Agent mode: execute or coordinate */
+  mode: 'execute' | 'coordinate';
   /** Project ID to include in manifest */
   projectId: string;
   /** Array of task IDs to include in manifest */
@@ -25,7 +25,7 @@ export interface GeneratedManifest {
   /** The manifest object */
   manifest: {
     manifestVersion: string;
-    role: 'worker' | 'orchestrator';
+    mode: 'execute' | 'coordinate';
     session: {
       id: string;
       model: string;

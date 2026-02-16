@@ -71,19 +71,19 @@ export class FileSystemSkillLoader implements ISkillLoader {
   }
 
   /**
-   * Load all skills appropriate for a role.
+   * Load all skills appropriate for a mode.
    */
-  async loadForRole(role: 'worker' | 'orchestrator'): Promise<Skill[]> {
+  async loadForMode(mode: 'execute' | 'coordinate'): Promise<Skill[]> {
     const skills: Skill[] = [];
 
     // All sessions get maestro-cli
     const cliSkill = await this.load('maestro-cli');
     if (cliSkill) skills.push(cliSkill);
 
-    // Add role-specific skill
-    const roleSkillName = role === 'worker' ? 'maestro-worker' : 'maestro-orchestrator';
-    const roleSkill = await this.load(roleSkillName);
-    if (roleSkill) skills.push(roleSkill);
+    // Add mode-specific skill
+    const modeSkillName = mode === 'execute' ? 'maestro-worker' : 'maestro-orchestrator';
+    const modeSkill = await this.load(modeSkillName);
+    if (modeSkill) skills.push(modeSkill);
 
     return skills;
   }

@@ -131,6 +131,8 @@ export class FileSystemTaskRepository implements ITaskRepository {
       referenceTaskIds: input.referenceTaskIds || [],
       model: input.model,
       agentTool: input.agentTool,
+      taskType: input.taskType,
+      teamMemberMetadata: input.teamMemberMetadata,
       // NOTE: timeline is now on Session, not Task
     };
 
@@ -183,6 +185,9 @@ export class FileSystemTaskRepository implements ITaskRepository {
       if (filter.sessionId) {
         tasks = tasks.filter(t => t.sessionIds.includes(filter.sessionId!));
       }
+      if (filter.taskType) {
+        tasks = tasks.filter(t => (t.taskType || 'task') === filter.taskType);
+      }
     }
 
     return tasks;
@@ -210,6 +215,8 @@ export class FileSystemTaskRepository implements ITaskRepository {
     if (updates.model !== undefined) task.model = updates.model;
     if (updates.agentTool !== undefined) task.agentTool = updates.agentTool;
     if (updates.pinned !== undefined) task.pinned = updates.pinned;
+    if (updates.taskType !== undefined) task.taskType = updates.taskType;
+    if (updates.teamMemberMetadata !== undefined) task.teamMemberMetadata = updates.teamMemberMetadata;
 
     // Handle status changes
     if (updates.status !== undefined) {

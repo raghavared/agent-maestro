@@ -16,6 +16,8 @@ import { registerManifestCommands } from './commands/manifest-generator.js';
 import { registerProjectCommands } from './commands/project.js';
 import { registerQueueCommands } from './commands/queue.js';
 import { registerReportCommands } from './commands/report.js';
+import { registerModalCommands } from './commands/modal.js';
+import { registerMailCommands } from './commands/mail.js';
 import {
   loadCommandPermissions,
   printAvailableCommands,
@@ -105,12 +107,12 @@ program.command('commands')
               const allowed = isCommandAllowed(commandName, permissions);
 
               if (isJson) {
-                  outputJSON({ command: commandName, allowed, role: permissions.role, strategy: permissions.strategy });
+                  outputJSON({ command: commandName, allowed, mode: permissions.mode, strategy: permissions.strategy });
               } else {
                   if (allowed) {
-                      console.log(`Command '${commandName}' is ALLOWED for ${permissions.role} (${permissions.strategy} strategy)`);
+                      console.log(`Command '${commandName}' is ALLOWED for ${permissions.mode} (${permissions.strategy} strategy)`);
                   } else {
-                      console.log(`Command '${commandName}' is NOT ALLOWED for ${permissions.role} (${permissions.strategy} strategy)`);
+                      console.log(`Command '${commandName}' is NOT ALLOWED for ${permissions.mode} (${permissions.strategy} strategy)`);
                       console.log('\nRun "maestro commands" to see available commands.');
                   }
               }
@@ -119,14 +121,14 @@ program.command('commands')
               if (isJson) {
                   const grouped = getAvailableCommandsGrouped(permissions);
                   outputJSON({
-                      role: permissions.role,
+                      mode: permissions.mode,
                       strategy: permissions.strategy,
                       allowedCommands: permissions.allowedCommands,
                       hiddenCommands: permissions.hiddenCommands,
                       grouped,
                   });
               } else {
-                  console.log(`\nSession Role: ${permissions.role}`);
+                  console.log(`\nSession Mode: ${permissions.mode}`);
                   console.log(`Strategy: ${permissions.strategy}`);
                   printAvailableCommands(permissions);
               }
@@ -150,6 +152,8 @@ registerSkillCommands(program);
 registerManifestCommands(program);
 registerQueueCommands(program);
 registerReportCommands(program);
+registerModalCommands(program);
+registerMailCommands(program);
 program.command('status')
   .description('Show summary of current project state')
   .action(async () => {
@@ -183,7 +187,7 @@ program.command('status')
         return acc;
       }, {});
 
-      const activeSessions = sessions.filter((s: any) => s.status === 'running' || s.status === 'spawning');
+      const activeSessions = sessions.filter((s: any) => s.status === 'working' || s.status === 'spawning');
 
       const summary = {
         project: projectId,
