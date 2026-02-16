@@ -1,7 +1,8 @@
-import React, { useMemo, useEffect, useRef } from "react";
+import React, { useMemo, useEffect, useRef, useCallback } from "react";
 import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy } from "../../app/types/maestro";
 import { TaskListItem } from "./TaskListItem";
-import { TaskFilters } from "./TaskFilters";
+import { TaskFilters, SortByOption } from "./TaskFilters";
+import { SortableTaskList } from "./SortableTaskList";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { ExecutionBar } from "./ExecutionBar";
 import { AddSubtaskInput } from "./AddSubtaskInput";
@@ -47,6 +48,9 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const deleteTask = useMaestroStore(s => s.deleteTask);
     const removeTaskFromSession = useMaestroStore(s => s.removeTaskFromSession);
     const hardRefresh = useMaestroStore(s => s.hardRefresh);
+    const taskOrdering = useMaestroStore(s => s.taskOrdering);
+    const fetchTaskOrdering = useMaestroStore(s => s.fetchTaskOrdering);
+    const saveTaskOrdering = useMaestroStore(s => s.saveTaskOrdering);
 
     // ==================== UI STATE ====================
 
@@ -58,7 +62,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null);
     const [statusFilter, setStatusFilter] = React.useState<MaestroTask["status"][]>([]);
     const [priorityFilter, setPriorityFilter] = React.useState<MaestroTask["priority"][]>([]);
-    const [sortBy, setSortBy] = React.useState<"updatedAt" | "createdAt" | "priority">("updatedAt");
+    const [sortBy, setSortBy] = React.useState<SortByOption>("custom");
     const [showCreateModal, setShowCreateModal] = React.useState(false);
     const [showDetailModal, setShowDetailModal] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
@@ -74,6 +78,13 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [showCreateTeamMemberModal, setShowCreateTeamMemberModal] = React.useState(false);
     const [selectedTeamMembers, setSelectedTeamMembers] = React.useState<Set<string>>(new Set());
     const [showTeamMembers, setShowTeamMembers] = React.useState(false);
+
+    // Fetch task ordering on mount
+    useEffect(() => {
+        if (projectId) {
+            fetchTaskOrdering(projectId);
+        }
+    }, [projectId, fetchTaskOrdering]);
 
     // Listen for global create-task shortcut trigger
     const createTaskRequested = useUIStore(s => s.createTaskRequested);
@@ -403,17 +414,32 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     // ==================== DERIVED DATA ====================
 
+    const customOrder = taskOrdering.get(projectId) || [];
+
     const activeRoots = roots
         .filter((node) => node.status !== 'completed' && node.status !== 'archived')
         .filter((node) => statusFilter.length === 0 || statusFilter.includes(node.status))
         .filter((node) => priorityFilter.length === 0 || priorityFilter.includes(node.priority))
         .sort((a, b) => {
+            if (sortBy === "custom") {
+                const aIdx = customOrder.indexOf(a.id);
+                const bIdx = customOrder.indexOf(b.id);
+                // Items not in custom order go to the end, sorted by updatedAt
+                if (aIdx === -1 && bIdx === -1) return b.updatedAt - a.updatedAt;
+                if (aIdx === -1) return 1;
+                if (bIdx === -1) return -1;
+                return aIdx - bIdx;
+            }
             if (sortBy === "priority") {
                 const priorityOrder = { high: 0, medium: 1, low: 2 };
                 return priorityOrder[a.priority] - priorityOrder[b.priority];
             }
             return b[sortBy] - a[sortBy];
         });
+
+    const handleTaskReorder = useCallback((orderedIds: string[]) => {
+        saveTaskOrdering(projectId, orderedIds);
+    }, [projectId, saveTaskOrdering]);
 
     const completedRoots = roots
         .filter((node) => node.status === 'completed')
@@ -591,15 +617,50 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                                     />
                                 )}
 
-                                <TaskTabContent
-                                    loading={loading}
-                                    emptyMessage="NO TASKS IN QUEUE"
-                                    emptySubMessage="$ maestro new task"
-                                    roots={activeRoots}
-                                    renderTaskNode={renderTaskNode}
-                                    showNewTaskButton
-                                    onNewTask={() => setShowCreateModal(true)}
-                                />
+                                {sortBy === "custom" ? (
+                                    loading ? (
+                                        <div className="terminalContent">
+                                            <div className="terminalLoadingState">
+                                                <div className="terminalSpinner">
+                                                    <span className="terminalSpinnerDot">●</span>
+                                                    <span className="terminalSpinnerDot">●</span>
+                                                    <span className="terminalSpinnerDot">●</span>
+                                                </div>
+                                                <p className="terminalLoadingText">
+                                                    <span className="terminalCursor">█</span> Loading tasks...
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ) : activeRoots.length === 0 ? (
+                                        <TaskTabContent
+                                            loading={false}
+                                            emptyMessage="NO TASKS IN QUEUE"
+                                            emptySubMessage="$ maestro new task"
+                                            roots={[]}
+                                            renderTaskNode={renderTaskNode}
+                                            showNewTaskButton
+                                            onNewTask={() => setShowCreateModal(true)}
+                                        />
+                                    ) : (
+                                        <div className="terminalContent">
+                                            <SortableTaskList
+                                                roots={activeRoots}
+                                                renderTaskNode={renderTaskNode}
+                                                onReorder={handleTaskReorder}
+                                            />
+                                        </div>
+                                    )
+                                ) : (
+                                    <TaskTabContent
+                                        loading={loading}
+                                        emptyMessage="NO TASKS IN QUEUE"
+                                        emptySubMessage="$ maestro new task"
+                                        roots={activeRoots}
+                                        renderTaskNode={renderTaskNode}
+                                        showNewTaskButton
+                                        onNewTask={() => setShowCreateModal(true)}
+                                    />
+                                )}
                             </>
                         )}
 

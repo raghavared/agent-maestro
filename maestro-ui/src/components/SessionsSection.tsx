@@ -1,4 +1,20 @@
-import React, { useCallback, useLayoutEffect } from "react";
+import React, { useCallback, useLayoutEffect, useState } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { createPortal } from "react-dom";
 import { getProcessEffectById, type ProcessEffect } from "../processEffects";
 import { shortenPathSmart, normalizeSeparators } from "../pathDisplay";
@@ -55,6 +71,36 @@ type SessionsSectionProps = {
   onOpenManageTerminals: () => void;
 };
 
+function SortableSessionItem({ id, children }: { id: string; children: React.ReactNode }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    cursor: isDragging ? "grabbing" : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`sortableItemWrapper ${isDragging ? "sortableItemWrapper--dragging" : ""}`}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function SessionsSection({
   agentShortcuts,
   sessions,
@@ -91,6 +137,29 @@ export function SessionsSection({
     }
   }, [settingsOpen, computeDropdownPos]);
 
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 300, tolerance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      const draggedSession = sessions.find((s) => s.id === active.id);
+      const targetSession = sessions.find((s) => s.id === over.id);
+      if (!draggedSession || !targetSession) return;
+
+      onReorderSessions(draggedSession.persistId, targetSession.persistId);
+    },
+    [sessions, onReorderSessions]
+  );
 
   const [sessionModalId, setSessionModalId] = React.useState<string | null>(null);
 
@@ -294,7 +363,16 @@ export function SessionsSection({
         {sessions.length === 0 ? (
           <div className="empty">No sessions in this project.</div>
         ) : (
-          sessions.map((s) => {
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+          <SortableContext
+            items={sessions.map((s) => s.id)}
+            strategy={verticalListSortingStrategy}
+          >
+          {sessions.map((s) => {
             const isActive = s.id === activeSessionId;
             const isExited = Boolean(s.exited);
             const isClosing = Boolean(s.closing);
@@ -328,8 +406,8 @@ export function SessionsSection({
             const needsInput = maestroSession?.needsInput?.active;
 
             return (
+              <SortableSessionItem key={s.id} id={s.id}>
               <div
-                key={s.id}
                 className={`sessionItem ${isActive ? "sessionItemActive" : ""} ${isExited ? "sessionItemExited" : ""
                   } ${isClosing ? "sessionItemClosing" : ""} ${isSshType ? "sessionItemSsh" : ""
                   } ${isPersistent ? "sessionItemPersistent" : ""} ${isDefaultType ? "sessionItemDefault" : ""
@@ -435,8 +513,12 @@ export function SessionsSection({
                   </div>
                 )}
               </div>
+              </SortableSessionItem>
             );
           })
+          }
+          </SortableContext>
+          </DndContext>
         )}
       </div>
 

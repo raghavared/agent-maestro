@@ -14,6 +14,7 @@ import type {
     SpawnSessionPayload,
     SpawnSessionResponse,
     DocEntry,
+    Ordering,
 } from '../app/types/maestro';
 
 import { API_BASE_URL } from './serverConfig';
@@ -257,6 +258,25 @@ class MaestroClient {
      */
     async getSkills(): Promise<ClaudeCodeSkill[]> {
         return this.fetch<ClaudeCodeSkill[]>('/skills');
+    }
+
+    // ==================== ORDERING ====================
+
+    /**
+     * Get ordering for a project and entity type
+     */
+    async getOrdering(projectId: string, entityType: 'task' | 'session'): Promise<Ordering> {
+        return this.fetch<Ordering>(`/ordering/${entityType}/${encodeURIComponent(projectId)}`);
+    }
+
+    /**
+     * Save ordering for a project and entity type
+     */
+    async saveOrdering(projectId: string, entityType: 'task' | 'session', orderedIds: string[]): Promise<Ordering> {
+        return this.fetch<Ordering>(`/ordering/${entityType}/${encodeURIComponent(projectId)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ orderedIds }),
+        });
     }
 
 }

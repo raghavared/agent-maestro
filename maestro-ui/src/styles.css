@@ -9072,6 +9072,190 @@ select.input {
   font-size: 10px;
 }
 
+/* Agent Tool / Model Inline Picker */
+.terminalInlineAgentPicker {
+  position: relative;
+  display: inline-flex;
+}
+
+.terminalMetaBadge--agent {
+  font-size: 9px;
+  font-weight: 600;
+  border: 1px solid;
+  color: var(--terminal-gray);
+  background: rgba(128, 128, 128, 0.08);
+  border-color: rgba(128, 128, 128, 0.2);
+}
+
+.terminalMetaBadge--agent-claude-code {
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.1);
+  border-color: rgba(167, 139, 250, 0.25);
+}
+
+.terminalMetaBadge--agent-codex {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.terminalMetaBadge--agent-gemini {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.1);
+  border-color: rgba(96, 165, 250, 0.25);
+}
+
+.terminalInlineAgentDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: #000000;
+  border: 1px solid var(--theme-primary);
+  border-radius: 4px;
+  min-width: 160px;
+  z-index: 9999;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px rgba(var(--theme-primary-rgb), 0.15);
+  overflow: hidden;
+}
+
+.terminalInlineAgentDropdown--fixed {
+  position: fixed;
+  margin-top: 0;
+}
+
+.terminalAgentDropdownHeader {
+  padding: 6px 12px 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--terminal-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.terminalAgentDropdownBack {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px;
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  border: none;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  color: var(--terminal-text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  text-align: left;
+}
+
+.terminalAgentDropdownBack:hover {
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  color: var(--terminal-text);
+}
+
+.terminalInlineAgentOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--terminal-text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  text-align: left;
+}
+
+.terminalInlineAgentOption:hover {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--terminal-text);
+}
+
+.terminalInlineAgentOption--current {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+}
+
+.terminalInlineAgentOption--claude-code {
+  color: #a78bfa;
+}
+
+.terminalInlineAgentOption--claude-code:hover,
+.terminalInlineAgentOption--claude-code.terminalInlineAgentOption--current {
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.15);
+}
+
+.terminalInlineAgentOption--codex {
+  color: #10b981;
+}
+
+.terminalInlineAgentOption--codex:hover,
+.terminalInlineAgentOption--codex.terminalInlineAgentOption--current {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.terminalInlineAgentOption--gemini {
+  color: #60a5fa;
+}
+
+.terminalInlineAgentOption--gemini:hover,
+.terminalInlineAgentOption--gemini.terminalInlineAgentOption--current {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.15);
+}
+
+/* Model options within agent dropdown */
+.terminalInlineAgentOption--model {
+  color: var(--terminal-text-dim);
+}
+
+.terminalInlineAgentOption--model:hover {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--terminal-text);
+}
+
+.terminalInlineAgentOption--model-haiku,
+.terminalInlineAgentOption--model-haiku:hover {
+  color: #00d4ff;
+}
+
+.terminalInlineAgentOption--model-sonnet,
+.terminalInlineAgentOption--model-sonnet:hover {
+  color: #a78bfa;
+}
+
+.terminalInlineAgentOption--model-opus,
+.terminalInlineAgentOption--model-opus:hover {
+  color: #fbbf24;
+}
+
+.terminalInlineAgentOption--model.terminalInlineAgentOption--current {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+}
+
+.terminalAgentSymbol {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.terminalAgentLabel {
+  flex: 1;
+}
+
+.terminalAgentArrow {
+  font-size: 10px;
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+
 /* Session indicator with blinking dot */
 .terminalSessionIndicator {
   display: flex;
@@ -18107,4 +18291,17 @@ body.dragging-active * {
 .mpbUnifiedSessionWrapper .sessionBoardColumn {
   border-top: none;
   border-radius: 0 0 6px 6px;
+}
+
+/* ==================== DRAG & DROP REORDERING ==================== */
+
+.sortableItemWrapper {
+  touch-action: none;
+}
+
+.sortableItemWrapper--dragging {
+  z-index: 100;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  background: var(--terminal-bg, #1a1a2e);
 }

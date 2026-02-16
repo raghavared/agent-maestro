@@ -1,3 +1,15 @@
+// Ordering types (separate from task/session models - UI ordering only)
+export interface Ordering {
+  projectId: string;
+  entityType: 'task' | 'session';
+  orderedIds: string[];  // Ordered array of entity IDs
+  updatedAt: number;
+}
+
+export interface UpdateOrderingPayload {
+  orderedIds: string[];
+}
+
 // Mail message types
 export type MailMessageType = 'assignment' | 'status_update' | 'query' | 'response' | 'directive' | 'notification';
 

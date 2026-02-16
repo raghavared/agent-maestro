@@ -7,12 +7,14 @@ import { FileSystemTaskRepository } from './infrastructure/repositories/FileSyst
 import { FileSystemSessionRepository } from './infrastructure/repositories/FileSystemSessionRepository';
 import { FileSystemQueueRepository } from './infrastructure/repositories/FileSystemQueueRepository';
 import { FileSystemMailRepository } from './infrastructure/repositories/FileSystemMailRepository';
+import { FileSystemOrderingRepository } from './infrastructure/repositories/FileSystemOrderingRepository';
 import { ClaudeCodeSkillLoader } from './infrastructure/skills/ClaudeCodeSkillLoader';
 import { ProjectService } from './application/services/ProjectService';
 import { TaskService } from './application/services/TaskService';
 import { SessionService } from './application/services/SessionService';
 import { QueueService } from './application/services/QueueService';
 import { MailService } from './application/services/MailService';
+import { OrderingService } from './application/services/OrderingService';
 import { ILogger } from './domain/common/ILogger';
 import { IIdGenerator } from './domain/common/IIdGenerator';
 import { IEventBus } from './domain/events/IEventBus';
@@ -21,6 +23,7 @@ import { ITaskRepository } from './domain/repositories/ITaskRepository';
 import { ISessionRepository } from './domain/repositories/ISessionRepository';
 import { IQueueRepository } from './domain/repositories/IQueueRepository';
 import { IMailRepository } from './domain/repositories/IMailRepository';
+import { IOrderingRepository } from './domain/repositories/IOrderingRepository';
 import { ISkillLoader } from './domain/services/ISkillLoader';
 
 /**
@@ -42,6 +45,7 @@ export interface Container {
   sessionRepo: ISessionRepository;
   queueRepo: IQueueRepository;
   mailRepo: IMailRepository;
+  orderingRepo: IOrderingRepository;
 
   // Loaders
   skillLoader: ISkillLoader;
@@ -52,6 +56,7 @@ export interface Container {
   sessionService: SessionService;
   queueService: QueueService;
   mailService: MailService;
+  orderingService: OrderingService;
 
   // Lifecycle
   initialize(): Promise<void>;
@@ -83,6 +88,7 @@ export async function createContainer(): Promise<Container> {
   );
   const queueRepo = new FileSystemQueueRepository(config.dataDir, logger);
   const mailRepo = new FileSystemMailRepository(config.dataDir, logger);
+  const orderingRepo = new FileSystemOrderingRepository(config.dataDir, logger);
 
   // 4. Loaders
   const skillLoader = new ClaudeCodeSkillLoader(config.skillsDir, logger);
@@ -93,6 +99,7 @@ export async function createContainer(): Promise<Container> {
   const sessionService = new SessionService(sessionRepo, taskRepo, projectRepo, eventBus, idGenerator);
   const queueService = new QueueService(queueRepo, taskRepo, sessionRepo, eventBus);
   const mailService = new MailService(mailRepo, eventBus, idGenerator);
+  const orderingService = new OrderingService(orderingRepo);
 
   const container: Container = {
     config,
@@ -104,12 +111,14 @@ export async function createContainer(): Promise<Container> {
     sessionRepo,
     queueRepo,
     mailRepo,
+    orderingRepo,
     skillLoader,
     projectService,
     taskService,
     sessionService,
     queueService,
     mailService,
+    orderingService,
 
     async initialize() {
       logger.info('Initializing container...');
@@ -120,6 +129,7 @@ export async function createContainer(): Promise<Container> {
       await sessionRepo.initialize();
       await queueRepo.initialize();
       await mailRepo.initialize();
+      await orderingRepo.initialize();
 
       logger.info('Container initialized');
     },

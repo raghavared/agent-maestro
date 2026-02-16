@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maestro Agentic Model Architecture</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e8;
+            overflow-x: hidden;
+        }
+
+        .header {
+            text-align: center;
+            padding: 48px 24px 32px;
+            background: linear-gradient(180deg, #12121f 0%, #0a0a0f 100%);
+            border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #818cf8, #c084fc, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 1rem;
+            color: #8888a0;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            padding: 16px 24px;
+            background: #0d0d16;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            padding: 10px 20px;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 8px;
+            background: transparent;
+            color: #8888a0;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .nav-tab:hover { border-color: #818cf8; color: #c4c4d8; }
+        .nav-tab.active {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: #818cf8;
+            color: #e0e0f0;
+        }
+
+        .diagram-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        .diagram-section {
+            display: none;
+        }
+        .diagram-section.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #c4b5fd;
+            margin-bottom: 8px;
+        }
+        .section-desc {
+            color: #7878a0;
+            margin-bottom: 28px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* ==================== DIAGRAM 1: High-Level Architecture ==================== */
+        .arch-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        .tier {
+            background: rgba(20, 20, 35, 0.8);
+            border: 1px solid rgba(99, 102, 241, 0.15);
+            border-radius: 16px;
+            padding: 24px;
+            position: relative;
+        }
+
+        .tier-label {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: #0a0a0f;
+            padding: 2px 12px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #818cf8;
+            font-weight: 600;
+        }
+
+        .tier-content {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .component-box {
+            background: rgba(30, 30, 55, 0.9);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 12px;
+            padding: 16px 20px;
+            min-width: 200px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .component-box:hover {
+            border-color: #818cf8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15);
+        }
+
+        .component-box h3 {
+            font-size: 0.95rem;
+            color: #e0e0f0;
+            margin-bottom: 6px;
+        }
+        .component-box p {
+            font-size: 0.8rem;
+            color: #7878a0;
+        }
+
+        .component-box.agent { border-left: 3px solid #34d399; }
+        .component-box.server { border-left: 3px solid #818cf8; }
+        .component-box.ui { border-left: 3px solid #f472b6; }
+        .component-box.cli { border-left: 3px solid #fbbf24; }
+
+        .bridge-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 0;
+            position: relative;
+        }
+
+        .bridge-arrow .arrow-line {
+            width: 3px;
+            height: 50px;
+            background: linear-gradient(180deg, #818cf8, #c084fc);
+            position: relative;
+        }
+
+        .bridge-arrow .arrow-labels {
+            position: absolute;
+            display: flex;
+            gap: 32px;
+            white-space: nowrap;
+        }
+
+        .bridge-label {
+            font-size: 0.75rem;
+            color: #c084fc;
+            background: rgba(192, 132, 252, 0.1);
+            padding: 3px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(192, 132, 252, 0.2);
+        }
+
+        /* ==================== DIAGRAM 2: Bridge Layers ==================== */
+        .layers-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .layer-card {
+            display: grid;
+            grid-template-columns: 180px 1fr 240px;
+            gap: 16px;
+            align-items: center;
+            background: rgba(20, 20, 35, 0.8);
+            border: 1px solid rgba(99, 102, 241, 0.12);
+            border-radius: 12px;
+            padding: 20px 24px;
+            transition: all 0.3s;
+        }
+        .layer-card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            background: rgba(25, 25, 45, 0.9);
+        }
+
+        .layer-num {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+
+        .layer-info h3 {
+            font-size: 1.05rem;
+            color: #e0e0f0;
+            margin-bottom: 6px;
+        }
+        .layer-info p {
+            font-size: 0.85rem;
+            color: #7878a0;
+            line-height: 1.5;
+        }
+
+        .layer-data {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .data-tag {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            background: rgba(99, 102, 241, 0.08);
+            border: 1px solid rgba(99, 102, 241, 0.15);
+            border-radius: 6px;
+            color: #a0a0c0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ==================== DIAGRAM 3: Lifecycle Flow ==================== */
+        .flow-timeline {
+            position: relative;
+            padding-left: 60px;
+        }
+        .flow-timeline::before {
+            content: '';
+            position: absolute;
+            left: 28px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, #818cf8, #c084fc, #f472b6, #34d399);
+        }
+
+        .flow-step {
+            position: relative;
+            margin-bottom: 32px;
+            background: rgba(20, 20, 35, 0.8);
+            border: 1px solid rgba(99, 102, 241, 0.12);
+            border-radius: 12px;
+            padding: 20px 24px;
+        }
+        .flow-step::before {
+            content: attr(data-step);
+            position: absolute;
+            left: -48px;
+            top: 18px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #818cf8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #fff;
+            z-index: 1;
+        }
+
+        .flow-step h3 {
+            font-size: 1rem;
+            color: #c4b5fd;
+            margin-bottom: 6px;
+        }
+
+        .flow-step p {
+            font-size: 0.85rem;
+            color: #8888a0;
+            line-height: 1.5;
+        }
+
+        .flow-actors {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .actor-badge {
+            font-size: 0.7rem;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        .actor-badge.agent { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
+        .actor-badge.server { background: rgba(129, 140, 248, 0.15); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.3); }
+        .actor-badge.ui { background: rgba(244, 114, 182, 0.15); color: #f472b6; border: 1px solid rgba(244, 114, 182, 0.3); }
+        .actor-badge.hook { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
+
+        .code-block {
+            background: rgba(10, 10, 20, 0.9);
+            border: 1px solid rgba(99, 102, 241, 0.1);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            color: #a0a0c0;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        /* ==================== DIAGRAM 4: Hooks System ==================== */
+        .hooks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 16px;
+        }
+
+        .hook-card {
+            background: rgba(20, 20, 35, 0.8);
+            border: 1px solid rgba(99, 102, 241, 0.12);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        .hook-card:hover {
+            border-color: rgba(251, 191, 36, 0.3);
+        }
+
+        .hook-event {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #fbbf24;
+            margin-bottom: 6px;
+        }
+        .hook-card h3 {
+            font-size: 0.95rem;
+            color: #e0e0f0;
+            margin-bottom: 8px;
+        }
+        .hook-card .hook-command {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            color: #34d399;
+            background: rgba(52, 211, 153, 0.08);
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .hook-card p {
+            font-size: 0.82rem;
+            color: #7878a0;
+            line-height: 1.5;
+        }
+
+        .hook-arrow-flow {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 0.75rem;
+            color: #888;
+            flex-wrap: wrap;
+        }
+        .hook-arrow-flow .arrow { color: #c084fc; }
+
+        /* ==================== DIAGRAM 5: Modal Bridge ==================== */
+        .modal-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .modal-row {
+            display: grid;
+            grid-template-columns: 200px 80px 200px 80px 200px;
+            gap: 0;
+            align-items: center;
+            min-height: 60px;
+        }
+
+        .modal-entity {
+            text-align: center;
+            padding: 12px;
+            background: rgba(20, 20, 35, 0.9);
+            border: 1px solid rgba(99, 102, 241, 0.15);
+            border-radius: 10px;
+            font-size: 0.82rem;
+        }
+
+        .modal-connector {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #c084fc;
+        }
+
+        .modal-connector .arrow-text {
+            display: block;
+            font-size: 0.65rem;
+            color: #7878a0;
+        }
+
+        /* ==================== DIAGRAM 6: Two-way Communication ==================== */
+        .comm-diagram {
+            display: grid;
+            grid-template-columns: 1fr 120px 1fr;
+            gap: 0;
+            align-items: start;
+        }
+
+        .comm-column {
+            padding: 20px;
+        }
+
+        .comm-column h3 {
+            text-align: center;
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid;
+        }
+
+        .comm-column.left h3 { border-color: #34d399; color: #34d399; }
+        .comm-column.right h3 { border-color: #f472b6; color: #f472b6; }
+
+        .comm-item {
+            background: rgba(20, 20, 35, 0.8);
+            border: 1px solid rgba(99, 102, 241, 0.1);
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            font-size: 0.82rem;
+        }
+
+        .comm-item .direction {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .comm-item .direction.outgoing { color: #34d399; }
+        .comm-item .direction.incoming { color: #f472b6; }
+
+        .comm-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding-top: 60px;
+        }
+
+        .comm-center .protocol {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            font-size: 0.75rem;
+            color: #818cf8;
+            letter-spacing: 2px;
+            padding: 12px 8px;
+            background: rgba(129, 140, 248, 0.08);
+            border: 1px solid rgba(129, 140, 248, 0.2);
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        /* ==================== DIAGRAM 7: Status State Machine ==================== */
+        .state-machine {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 32px 0;
+        }
+
+        .state-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .state-node {
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-align: center;
+            min-width: 140px;
+        }
+
+        .state-node.spawning {
+            background: rgba(251, 191, 36, 0.15);
+            border: 2px solid rgba(251, 191, 36, 0.4);
+            color: #fbbf24;
+        }
+        .state-node.working {
+            background: rgba(129, 140, 248, 0.15);
+            border: 2px solid rgba(129, 140, 248, 0.4);
+            color: #818cf8;
+        }
+        .state-node.completed {
+            background: rgba(52, 211, 153, 0.15);
+            border: 2px solid rgba(52, 211, 153, 0.4);
+            color: #34d399;
+        }
+        .state-node.failed {
+            background: rgba(239, 68, 68, 0.15);
+            border: 2px solid rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+        }
+        .state-node.needs-input {
+            background: rgba(244, 114, 182, 0.15);
+            border: 2px solid rgba(244, 114, 182, 0.4);
+            color: #f472b6;
+        }
+
+        .state-transition {
+            font-size: 0.75rem;
+            color: #8888a0;
+            text-align: center;
+        }
+
+        .state-transition .trigger {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: #c084fc;
+        }
+
+        .state-arrow-down {
+            font-size: 1.2rem;
+            color: #818cf8;
+        }
+
+        .state-fork {
+            display: flex;
+            gap: 48px;
+            align-items: flex-start;
+        }
+
+        .state-fork-branch {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ==================== DIAGRAM 8: Three-Axis Model ==================== */
+        .axis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .axis-card {
+            background: rgba(20, 20, 35, 0.8);
+            border: 1px solid rgba(99, 102, 241, 0.12);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .axis-card h3 {
+            font-size: 1.1rem;
+            color: #c4b5fd;
+            margin-bottom: 4px;
+        }
+        .axis-card .axis-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #818cf8;
+            margin-bottom: 16px;
+        }
+
+        .axis-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.06);
+        }
+        .axis-option:last-child { border-bottom: none; }
+
+        .axis-option .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 6px;
+            flex-shrink: 0;
+        }
+        .axis-option .dot.green { background: #34d399; }
+        .axis-option .dot.purple { background: #c084fc; }
+        .axis-option .dot.pink { background: #f472b6; }
+        .axis-option .dot.yellow { background: #fbbf24; }
+
+        .axis-option strong {
+            font-size: 0.9rem;
+            color: #e0e0f0;
+        }
+        .axis-option p {
+            font-size: 0.82rem;
+            color: #7878a0;
+            margin-top: 2px;
+        }
+
+        /* Responsive */
+        @media (max-width: 800px) {
+            .layer-card { grid-template-columns: 1fr; }
+            .comm-diagram { grid-template-columns: 1fr; }
+            .modal-row { grid-template-columns: 1fr; }
+            .header h1 { font-size: 1.5rem; }
+        }
+
+        /* Separator */
+        .sep { height: 1px; background: rgba(99,102,241,0.08); margin: 32px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Maestro Agentic Model Architecture</h1>
+        <p>How the bridge connects Claude Code CLI agents to the Maestro orchestration system, enabling two-way communication, lifecycle tracking, and UI interaction.</p>
+    </div>
+
+    <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="overview">Overview</button>
+        <button class="nav-tab" data-tab="bridge">Bridge Layers</button>
+        <button class="nav-tab" data-tab="lifecycle">Lifecycle Flow</button>
+        <button class="nav-tab" data-tab="hooks">Hooks System</button>
+        <button class="nav-tab" data-tab="modal">Modal Bridge</button>
+        <button class="nav-tab" data-tab="comms">Two-Way Comms</button>
+        <button class="nav-tab" data-tab="states">Status States</button>
+        <button class="nav-tab" data-tab="axes">Three-Axis Model</button>
+    </div>
+
+    <div class="diagram-container">
+
+        <!-- ==================== TAB 1: Overview ==================== -->
+        <div class="diagram-section active" id="overview">
+            <div class="section-title">High-Level Architecture</div>
+            <div class="section-desc">
+                Maestro is a three-tier agentic orchestration system. The Agent (Claude Code CLI) communicates with the Maestro Server via hooks, REST API, and environment variables. The Server broadcasts events to the UI and other clients via WebSocket.
+            </div>
+
+            <div class="arch-grid">
+                <!-- Tier 1: Agent Runtime -->
+                <div class="tier">
+                    <div class="tier-label">Tier 1 - Agent Runtime</div>
+                    <div class="tier-content">
+                        <div class="component-box agent">
+                            <h3>Claude Code CLI</h3>
+                            <p>The AI agent executing tasks. Runs with plugins, hooks, and a manifest that defines its scope.</p>
+                        </div>
+                        <div class="component-box agent">
+                            <h3>Maestro Worker Plugin</h3>
+                            <p>Injects hooks (SessionStart, SessionEnd, Stop, etc.) and the system prompt into the agent.</p>
+                        </div>
+                        <div class="component-box cli">
+                            <h3>Maestro CLI</h3>
+                            <p>Command-line tool the agent uses to communicate with the server (e.g., maestro session report progress).</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bridge Arrow -->
+                <div class="bridge-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="bridge-arrow" style="flex-direction: column; gap: 4px; padding: 0; margin-left: 40px;">
+                        <span class="bridge-label">Hooks + REST API</span>
+                        <span class="bridge-label">Environment Variables</span>
+                        <span class="bridge-label">Manifest File</span>
+                    </div>
+                </div>
+
+                <!-- Tier 2: Server -->
+                <div class="tier">
+                    <div class="tier-label">Tier 2 - Maestro Server</div>
+                    <div class="tier-content">
+                        <div class="component-box server">
+                            <h3>Express REST API</h3>
+                            <p>Handles session CRUD, task management, modal delivery, spawn requests.</p>
+                        </div>
+                        <div class="component-box server">
+                            <h3>Event Bus</h3>
+                            <p>In-memory pub/sub. All state changes emit events consumed by the WebSocket bridge.</p>
+                        </div>
+                        <div class="component-box server">
+                            <h3>WebSocket Bridge</h3>
+                            <p>Broadcasts domain events to all connected clients with subscription filtering.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bridge Arrow -->
+                <div class="bridge-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="bridge-arrow" style="flex-direction: column; gap: 4px; padding: 0; margin-left: 40px;">
+                        <span class="bridge-label">WebSocket Events</span>
+                        <span class="bridge-label">Real-time Updates</span>
+                    </div>
+                </div>
+
+                <!-- Tier 3: UI -->
+                <div class="tier">
+                    <div class="tier-label">Tier 3 - UI & Monitoring</div>
+                    <div class="tier-content">
+                        <div class="component-box ui">
+                            <h3>Maestro Desktop UI</h3>
+                            <p>Electron app showing sessions, tasks, logs. Spawns new terminal sessions for agents.</p>
+                        </div>
+                        <div class="component-box ui">
+                            <h3>Maestro Web UI</h3>
+                            <p>Browser-based dashboard for monitoring. Receives live updates via WebSocket.</p>
+                        </div>
+                        <div class="component-box ui">
+                            <h3>Agent Modals</h3>
+                            <p>HTML iframes rendered inside the UI when agents request user interaction.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 2: Bridge Layers ==================== -->
+        <div class="diagram-section" id="bridge">
+            <div class="section-title">The Four-Layer Bridge</div>
+            <div class="section-desc">
+                The bridge between the agent and Maestro is composed of four distinct communication layers. Each layer serves a specific purpose in the lifecycle.
+            </div>
+
+            <div class="layers-stack">
+                <div class="layer-card">
+                    <div class="layer-num">1</div>
+                    <div class="layer-info">
+                        <h3>Environment Layer</h3>
+                        <p>Session context is bootstrapped into the Claude process via environment variables set when the session is spawned. This is the initial handshake.</p>
+                    </div>
+                    <div class="layer-data">
+                        <span class="data-tag">MAESTRO_SESSION_ID</span>
+                        <span class="data-tag">MAESTRO_TASK_IDS</span>
+                        <span class="data-tag">MAESTRO_PROJECT_ID</span>
+                        <span class="data-tag">MAESTRO_MODE</span>
+                        <span class="data-tag">MAESTRO_STRATEGY</span>
+                        <span class="data-tag">MAESTRO_SERVER_URL</span>
+                        <span class="data-tag">MAESTRO_MANIFEST_PATH</span>
+                    </div>
+                </div>
+
+                <div class="layer-card">
+                    <div class="layer-num">2</div>
+                    <div class="layer-info">
+                        <h3>Hook Layer</h3>
+                        <p>Claude lifecycle events automatically trigger CLI commands via hooks defined in the plugin. This provides implicit state synchronization without the agent needing to act.</p>
+                    </div>
+                    <div class="layer-data">
+                        <span class="data-tag">SessionStart &rarr; register</span>
+                        <span class="data-tag">SessionEnd &rarr; complete</span>
+                        <span class="data-tag">Stop &rarr; needs-input</span>
+                        <span class="data-tag">UserPromptSubmit &rarr; resume</span>
+                        <span class="data-tag">PostToolUse &rarr; track-file</span>
+                    </div>
+                </div>
+
+                <div class="layer-card">
+                    <div class="layer-num">3</div>
+                    <div class="layer-info">
+                        <h3>REST API Layer</h3>
+                        <p>The CLI makes synchronous HTTP requests to the server for explicit actions like reporting progress, showing modals, or spawning child sessions.</p>
+                    </div>
+                    <div class="layer-data">
+                        <span class="data-tag">POST /sessions/:id/timeline</span>
+                        <span class="data-tag">PATCH /sessions/:id</span>
+                        <span class="data-tag">POST /sessions/:id/modal</span>
+                        <span class="data-tag">POST /sessions/spawn</span>
+                    </div>
+                </div>
+
+                <div class="layer-card">
+                    <div class="layer-num">4</div>
+                    <div class="layer-info">
+                        <h3>WebSocket Layer</h3>
+                        <p>Server broadcasts all domain events in real-time to connected clients. Supports subscription filtering so clients only receive relevant events.</p>
+                    </div>
+                    <div class="layer-data">
+                        <span class="data-tag">session:created/updated/deleted</span>
+                        <span class="data-tag">task:created/updated/deleted</span>
+                        <span class="data-tag">notify:progress/completed</span>
+                        <span class="data-tag">session:modal/modal_action</span>
+                        <span class="data-tag">mail:received</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 3: Lifecycle Flow ==================== -->
+        <div class="diagram-section" id="lifecycle">
+            <div class="section-title">Session Lifecycle Flow</div>
+            <div class="section-desc">
+                The complete journey of a session from spawn to completion, showing what happens at each stage and which components are involved.
+            </div>
+
+            <div class="flow-timeline">
+                <div class="flow-step" data-step="1">
+                    <h3>Spawn Request</h3>
+                    <p>UI or a parent orchestrator session sends <code>POST /api/sessions/spawn</code> with project ID, task IDs, mode, and strategy.</p>
+                    <div class="flow-actors">
+                        <span class="actor-badge ui">UI / Parent</span>
+                        <span class="actor-badge server">Server</span>
+                    </div>
+                    <div class="code-block">POST /api/sessions/spawn
+{
+  projectId: "proj_123",
+  taskIds: ["task_456"],
+  mode: "execute",
+  strategy: "simple",
+  skills: ["claude"]
+}</div>
+                </div>
+
+                <div class="flow-step" data-step="2">
+                    <h3>Manifest Generation</h3>
+                    <p>Server runs <code>maestro manifest generate</code> to build a manifest.json containing task context, system prompt, permissions, and skill definitions.</p>
+                    <div class="flow-actors">
+                        <span class="actor-badge server">Server</span>
+                    </div>
+                    <div class="code-block">maestro manifest generate \
+  --mode execute \
+  --project-id proj_123 \
+  --task-ids task_456 \
+  --skills maestro-worker \
+  --strategy simple \
+  --output ~/.maestro/sessions/sess_xyz/manifest.json</div>
+                </div>
+
+                <div class="flow-step" data-step="3">
+                    <h3>Session:Spawn Event Emitted</h3>
+                    <p>Server creates the session object (status: <code>spawning</code>) and emits a <code>session:spawn</code> event via WebSocket, containing the command to run and all environment variables.</p>
+                    <div class="flow-actors">
+                        <span class="actor-badge server">Server</span>
+                        <span class="actor-badge ui">UI (WebSocket)</span>
+                    </div>
+                    <div class="code-block">WebSocket Event: session:spawn
+{
+  command: "maestro worker init",
+  envVars: {
+    MAESTRO_SESSION_ID: "sess_xyz",
+    MAESTRO_MANIFEST_PATH: "/path/manifest.json",
+    MAESTRO_SERVER_URL: "http://localhost:2357",
+    MAESTRO_MODE: "execute",
+    MAESTRO_STRATEGY: "simple"
+  }
+}</div>
+                </div>
+
+                <div class="flow-step" data-step="4">
+                    <h3>Terminal Spawned</h3>
+                    <p>The UI receives the spawn event and opens a new terminal window. It runs the command with the provided env vars, which starts Claude Code CLI with the maestro-worker plugin.</p>
+                    <div class="flow-actors">
+                        <span class="actor-badge ui">UI</span>
+                        <span class="actor-badge agent">Claude CLI</span>
+                    </div>
+                    <div class="code-block">MAESTRO_SESSION_ID=sess_xyz \
+MAESTRO_MANIFEST_PATH=/path/manifest.json \
+  maestro worker init
+  # internally runs: claude --plugin-dir maestro-worker \
+  #   --append-system-prompt manifest_content</div>
+                </div>
+
+                <div class="flow-step" data-step="5">
+                    <h3>SessionStart Hook Fires</h3>
+                    <p>Claude fires the <code>SessionStart</code> event. The hook executes <code>maestro session register</code>, which PATCHes the session status to <code>working</code> on the server.</p>
+                    <div class="flow-actors">
+                        <span class="actor-badge agent">Claude CLI</span>
+                        <span class="actor-badge hook">Hook</span>
+                        <span class="actor-badge server">Server</span>
+                    </div>
+                    <div class="code-block">Hook: SessionStart
+  &rarr; maestro session register
+  &rarr; PATCH /api/sessions/sess_xyz { status: "working" }
+  &rarr; Server emits session:updated via WebSocket
+  &rarr; UI shows session as "working"</div>
+                </div>
+
+                <div class="flow-step" data-step="6">
+                    <h3>Agent Execution</h3>
+                    <p>Claude reads the task from its system prompt and begins working. It reports progress via <code>maestro session report progress</code> (REST) and tracks modified files via PostToolUse hooks.</p>
+                    <div class="flow-actors">
+                        <span class="actor-badge agent">Claude CLI</span>
+                        <span class="actor-badge hook">Hooks</span>
+                        <span class="actor-badge server">Server</span>
+                    </div>
+                    <div class="code-block">Agent works on task...
+  maestro session report progress "Implementing feature X"
+  &rarr; POST /api/sessions/sess_xyz/timeline
+
+PostToolUse hook (Write/Edit):
+  &rarr; maestro session track-file path/to/file.ts</div>
+                </div>
+
+                <div class="flow-step" data-step="7">
+                    <h3>Completion</h3>
+                    <p>When Claude finishes, the <code>SessionEnd</code> hook fires <code>maestro session complete</code>, updating the session status to <code>completed</code>.</p>
+                    <div class="flow-actors">
+                        <span class="actor-badge agent">Claude CLI</span>
+                        <span class="actor-badge hook">Hook</span>
+                        <span class="actor-badge server">Server</span>
+                    </div>
+                    <div class="code-block">Hook: SessionEnd
+  &rarr; maestro session complete
+  &rarr; PATCH /api/sessions/sess_xyz { status: "completed" }
+  &rarr; Server emits notify:session_completed
+  &rarr; UI updates, parent session notified</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 4: Hooks System ==================== -->
+        <div class="diagram-section" id="hooks">
+            <div class="section-title">Hooks System</div>
+            <div class="section-desc">
+                Hooks are the implicit communication layer. Claude fires lifecycle events, and the Maestro plugin intercepts them to run CLI commands that update the server. This happens automatically without the agent needing to act.
+            </div>
+
+            <div class="hooks-grid">
+                <div class="hook-card">
+                    <div class="hook-event">SessionStart</div>
+                    <h3>Session Registration</h3>
+                    <div class="hook-command">maestro session register</div>
+                    <p>Registers the session with the server and sets status to <code>working</code>. First thing that happens when Claude starts.</p>
+                    <div class="hook-arrow-flow">
+                        <span>Claude starts</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>Hook fires</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>PATCH session</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>status: working</span>
+                    </div>
+                </div>
+
+                <div class="hook-card">
+                    <div class="hook-event">SessionEnd</div>
+                    <h3>Session Completion</h3>
+                    <div class="hook-command">maestro session complete</div>
+                    <p>Marks the session as completed when Claude's session ends normally.</p>
+                    <div class="hook-arrow-flow">
+                        <span>Claude exits</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>Hook fires</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>PATCH session</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>status: completed</span>
+                    </div>
+                </div>
+
+                <div class="hook-card">
+                    <div class="hook-event">Stop (Ctrl+C)</div>
+                    <h3>Needs Input Signal</h3>
+                    <div class="hook-command">maestro session needs-input</div>
+                    <p>When user presses Ctrl+C or Claude gets interrupted, signals the session needs user attention.</p>
+                    <div class="hook-arrow-flow">
+                        <span>User interrupts</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>Hook fires</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>needsInput: true</span>
+                    </div>
+                </div>
+
+                <div class="hook-card">
+                    <div class="hook-event">UserPromptSubmit</div>
+                    <h3>Resume Working</h3>
+                    <div class="hook-command">maestro session resume-working</div>
+                    <p>When user submits a new prompt, resumes the session to <code>working</code> status and clears the needsInput flag.</p>
+                    <div class="hook-arrow-flow">
+                        <span>User types</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>Hook fires</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>needsInput: false</span>
+                    </div>
+                </div>
+
+                <div class="hook-card">
+                    <div class="hook-event">PostToolUse (Write/Edit)</div>
+                    <h3>File Tracking</h3>
+                    <div class="hook-command">maestro session track-file $path</div>
+                    <p>When Claude writes or edits a file, the path is tracked on the session for artifact management.</p>
+                    <div class="hook-arrow-flow">
+                        <span>Write/Edit tool</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>Hook fires</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>Track file path</span>
+                    </div>
+                </div>
+
+                <div class="hook-card">
+                    <div class="hook-event">Notification</div>
+                    <h3>Notification Handler</h3>
+                    <div class="hook-command">maestro session needs-input</div>
+                    <p>When Claude sends a notification (e.g., asking a question), signals the UI that user attention is needed.</p>
+                    <div class="hook-arrow-flow">
+                        <span>Claude asks</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>Hook fires</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>needsInput: true</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 5: Modal Bridge ==================== -->
+        <div class="diagram-section" id="modal">
+            <div class="section-title">Modal Bridge (Agent-to-User Interaction)</div>
+            <div class="section-desc">
+                Agents can display interactive HTML modals to collect user input. The server injects a <code>window.maestro</code> bridge into the HTML, enabling bidirectional communication between the modal UI and the agent process.
+            </div>
+
+            <div class="flow-timeline">
+                <div class="flow-step" data-step="1">
+                    <h3>Agent Sends Modal</h3>
+                    <p>The agent runs <code>maestro show modal form.html</code>. The CLI reads the HTML file and POSTs it to the server.</p>
+                    <div class="code-block">maestro show modal form.html --interactive
+&rarr; POST /api/sessions/:id/modal
+{
+  html: "&lt;form&gt;...&lt;/form&gt;",
+  interactive: true
+}</div>
+                </div>
+
+                <div class="flow-step" data-step="2">
+                    <h3>Server Injects Bridge Script</h3>
+                    <p>The server injects <code>window.maestro</code> API into the HTML before broadcasting. This gives the modal the ability to send actions back.</p>
+                    <div class="code-block">// Injected by server
+window.maestro = {
+  sendAction: function(action, data) {
+    // postMessage to parent React frame
+    window.parent.postMessage({
+      type: 'maestro-modal-action',
+      action: action,
+      data: data
+    }, "*");
+    // Also fetch to server as fallback
+    fetch('/api/sessions/:id/modal/:modalId/actions', {
+      method: 'POST',
+      body: JSON.stringify({ action, data })
+    });
+  },
+  close: function() { /* similar */ }
+};</div>
+                </div>
+
+                <div class="flow-step" data-step="3">
+                    <h3>UI Renders Modal</h3>
+                    <p>The WebSocket event <code>session:modal</code> reaches the UI. It renders the modal HTML inside an iframe. The user interacts with the form.</p>
+                    <div class="flow-actors">
+                        <span class="actor-badge ui">UI renders iframe</span>
+                        <span class="actor-badge ui">User interacts</span>
+                    </div>
+                </div>
+
+                <div class="flow-step" data-step="4">
+                    <h3>User Action Sent Back</h3>
+                    <p>When the user clicks a button, <code>window.maestro.sendAction()</code> is called. This sends the action to the server via the REST API.</p>
+                    <div class="code-block">// In modal HTML
+window.maestro.sendAction('submit', {
+  choice: 'option-a',
+  comment: 'Looks good!'
+});
+&rarr; POST /api/sessions/:id/modal/:modalId/actions
+&rarr; Server emits session:modal_action event</div>
+                </div>
+
+                <div class="flow-step" data-step="5">
+                    <h3>Agent Receives Action</h3>
+                    <p>The agent is listening via <code>maestro modal events &lt;modalId&gt;</code> which subscribes to the WebSocket. It receives the action as JSONL and continues execution.</p>
+                    <div class="code-block">maestro modal events modal_123
+# Receives JSONL:
+{"event":"action","action":"submit","data":{"choice":"option-a","comment":"Looks good!"}}
+# Agent processes user input and continues work</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 6: Two-Way Comms ==================== -->
+        <div class="diagram-section" id="comms">
+            <div class="section-title">Two-Way Communication Map</div>
+            <div class="section-desc">
+                All data flowing between the Agent and the Server/UI, organized by direction.
+            </div>
+
+            <div class="comm-diagram">
+                <div class="comm-column left">
+                    <h3>Agent &rarr; Server (Outgoing)</h3>
+
+                    <div class="comm-item">
+                        <div class="direction outgoing">IMPLICIT (HOOKS)</div>
+                        <strong>Session Register</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">SessionStart &rarr; PATCH status: working</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction outgoing">IMPLICIT (HOOKS)</div>
+                        <strong>Session Complete</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">SessionEnd &rarr; PATCH status: completed</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction outgoing">IMPLICIT (HOOKS)</div>
+                        <strong>Needs Input / Resume</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">Stop/Notification &rarr; needsInput: true</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction outgoing">IMPLICIT (HOOKS)</div>
+                        <strong>File Tracking</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">PostToolUse &rarr; track modified files</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction outgoing">EXPLICIT (CLI)</div>
+                        <strong>Report Progress</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">maestro session report progress "msg"</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction outgoing">EXPLICIT (CLI)</div>
+                        <strong>Report Complete</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">maestro session report complete "msg"</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction outgoing">EXPLICIT (CLI)</div>
+                        <strong>Report Blocked/Error</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">maestro session report blocked "reason"</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction outgoing">EXPLICIT (CLI)</div>
+                        <strong>Show Modal</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">maestro show modal form.html</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction outgoing">EXPLICIT (CLI)</div>
+                        <strong>Spawn Child Session</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">maestro session spawn --task taskId</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction outgoing">EXPLICIT (CLI)</div>
+                        <strong>Add Docs</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">maestro session docs add "title" --file path</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction outgoing">EXPLICIT (CLI)</div>
+                        <strong>Send Mail</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">maestro mail send sessionId --subject "..."</p>
+                    </div>
+                </div>
+
+                <div class="comm-center">
+                    <div class="protocol">REST API</div>
+                    <div class="protocol">WebSocket</div>
+                    <div class="protocol">Env Vars</div>
+                    <div class="protocol">Hooks</div>
+                </div>
+
+                <div class="comm-column right">
+                    <h3>Server &rarr; Agent (Incoming)</h3>
+
+                    <div class="comm-item">
+                        <div class="direction incoming">BOOTSTRAP (ENV)</div>
+                        <strong>Session Context</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">MAESTRO_SESSION_ID, TASK_IDS, PROJECT_ID</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction incoming">BOOTSTRAP (MANIFEST)</div>
+                        <strong>Task Details & Prompt</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">Full task description, acceptance criteria, skills</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction incoming">BOOTSTRAP (MANIFEST)</div>
+                        <strong>Capabilities & Permissions</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">can_spawn, can_edit_tasks, mode, strategy</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction incoming">WEBSOCKET EVENT</div>
+                        <strong>Modal User Action</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">session:modal_action { action, data }</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction incoming">WEBSOCKET EVENT</div>
+                        <strong>Modal Closed</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">session:modal_closed { modalId }</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction incoming">REST RESPONSE</div>
+                        <strong>API Confirmations</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">Sync responses to all CLI commands</p>
+                    </div>
+
+                    <div class="comm-item">
+                        <div class="direction incoming">MAIL</div>
+                        <strong>Inter-Session Mail</strong>
+                        <p style="color:#7878a0;font-size:0.8rem;margin-top:4px">maestro mail inbox (from other sessions)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 7: Status States ==================== -->
+        <div class="diagram-section" id="states">
+            <div class="section-title">Session Status State Machine</div>
+            <div class="section-desc">
+                The possible states a session can be in and the transitions between them. The <code>needsInput</code> flag is a sub-state of <code>working</code>.
+            </div>
+
+            <div class="state-machine">
+                <div class="state-row">
+                    <div class="state-node spawning">SPAWNING</div>
+                </div>
+                <div class="state-transition">
+                    <div class="state-arrow-down">&darr;</div>
+                    <div class="trigger">SessionStart hook &rarr; maestro session register</div>
+                </div>
+                <div class="state-row">
+                    <div class="state-node working">WORKING</div>
+                </div>
+
+                <div style="display: flex; gap: 48px; margin-top: 12px;">
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                        <div class="state-transition">
+                            <div class="state-arrow-down">&darr;</div>
+                            <div class="trigger">SessionEnd hook</div>
+                        </div>
+                        <div class="state-node completed">COMPLETED</div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                        <div class="state-transition">
+                            <div class="state-arrow-down">&darr;</div>
+                            <div class="trigger">Error / crash</div>
+                        </div>
+                        <div class="state-node failed">FAILED</div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                        <div class="state-transition">
+                            <div class="state-arrow-down">&darr;</div>
+                            <div class="trigger">Stop / Notification hook</div>
+                        </div>
+                        <div class="state-node needs-input">NEEDS INPUT</div>
+                        <div class="state-transition">
+                            <div class="state-arrow-down">&uarr;</div>
+                            <div class="trigger">UserPromptSubmit &rarr; resume-working</div>
+                        </div>
+                        <div style="font-size: 0.75rem; color: #8888a0; text-align: center;">(returns to WORKING)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 8: Three-Axis Model ==================== -->
+        <div class="diagram-section" id="axes">
+            <div class="section-title">Three-Axis Agentic Model</div>
+            <div class="section-desc">
+                Every session is configured along three axes: Mode, Worker Strategy, and Orchestrator Strategy. These determine the agent's capabilities and behavior.
+            </div>
+
+            <div class="axis-grid">
+                <div class="axis-card">
+                    <div class="axis-label">Axis 1</div>
+                    <h3>Agent Mode</h3>
+                    <div class="axis-option">
+                        <div class="dot green"></div>
+                        <div>
+                            <strong>execute</strong>
+                            <p>Agent works directly on assigned tasks. Has tools to report progress, add docs, but cannot spawn new sessions or edit tasks.</p>
+                        </div>
+                    </div>
+                    <div class="axis-option">
+                        <div class="dot purple"></div>
+                        <div>
+                            <strong>coordinate</strong>
+                            <p>Agent manages other agents. Can spawn child sessions, decompose tasks, assign work, and monitor progress of sub-agents.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="axis-card">
+                    <div class="axis-label">Axis 2</div>
+                    <h3>Worker Strategy (execute mode)</h3>
+                    <div class="axis-option">
+                        <div class="dot green"></div>
+                        <div>
+                            <strong>simple</strong>
+                            <p>Direct task execution. One task, one agent. No queue, no decomposition.</p>
+                        </div>
+                    </div>
+                    <div class="axis-option">
+                        <div class="dot yellow"></div>
+                        <div>
+                            <strong>queue</strong>
+                            <p>Process a queue of tasks sequentially. Agent picks up next task when done.</p>
+                        </div>
+                    </div>
+                    <div class="axis-option">
+                        <div class="dot pink"></div>
+                        <div>
+                            <strong>tree</strong>
+                            <p>Hierarchical task decomposition. Agent can break tasks into subtasks.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="axis-card">
+                    <div class="axis-label">Axis 3</div>
+                    <h3>Orchestrator Strategy (coordinate mode)</h3>
+                    <div class="axis-option">
+                        <div class="dot green"></div>
+                        <div>
+                            <strong>default</strong>
+                            <p>Basic agent coordination. Spawn and monitor agents one at a time.</p>
+                        </div>
+                    </div>
+                    <div class="axis-option">
+                        <div class="dot yellow"></div>
+                        <div>
+                            <strong>intelligent-batching</strong>
+                            <p>Group related tasks and spawn batch workers for parallel execution.</p>
+                        </div>
+                    </div>
+                    <div class="axis-option">
+                        <div class="dot purple"></div>
+                        <div>
+                            <strong>dag</strong>
+                            <p>Dependency-aware scheduling. Builds a DAG of tasks and executes respecting dependencies.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="axis-card">
+                    <div class="axis-label">Capabilities Matrix</div>
+                    <h3>What Each Mode Enables</h3>
+                    <div class="axis-option">
+                        <div class="dot green"></div>
+                        <div>
+                            <strong>can_spawn_sessions</strong>
+                            <p>Only in <code>coordinate</code> mode</p>
+                        </div>
+                    </div>
+                    <div class="axis-option">
+                        <div class="dot green"></div>
+                        <div>
+                            <strong>can_edit_tasks</strong>
+                            <p>Only in <code>coordinate</code> mode</p>
+                        </div>
+                    </div>
+                    <div class="axis-option">
+                        <div class="dot yellow"></div>
+                        <div>
+                            <strong>can_use_queue</strong>
+                            <p>Only with <code>queue</code> or <code>dag</code> strategies</p>
+                        </div>
+                    </div>
+                    <div class="axis-option">
+                        <div class="dot purple"></div>
+                        <div>
+                            <strong>can_report_task_level</strong>
+                            <p>Always available</p>
+                        </div>
+                    </div>
+                    <div class="axis-option">
+                        <div class="dot purple"></div>
+                        <div>
+                            <strong>can_report_session_level</strong>
+                            <p>Always available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Tab switching
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.diagram-section').forEach(s => s.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

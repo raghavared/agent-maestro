@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maestro Team Members - Architecture Diagrams</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --purple: #bc8cff;
+    --orange: #d29922;
+    --red: #f85149;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 40px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .header p {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  .nav {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .nav button {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+  .nav button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .nav button.active {
+    background: rgba(88, 166, 255, 0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 40px;
+  }
+  .diagram-section {
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  .diagram-section.active { display: block; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .diagram-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .diagram-card h2 {
+    font-size: 18px;
+    margin-bottom: 8px;
+    color: var(--accent);
+  }
+  .diagram-card h3 {
+    font-size: 15px;
+    margin: 16px 0 8px;
+    color: var(--purple);
+  }
+  .diagram-card p {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  .mermaid {
+    display: flex;
+    justify-content: center;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .mermaid svg {
+    max-width: 100%;
+  }
+  .wireframe {
+    background: #0a0e14;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--text-muted);
+  }
+  .wireframe .highlight { color: var(--accent); }
+  .wireframe .green { color: var(--green); }
+  .wireframe .purple { color: var(--purple); }
+  .wireframe .orange { color: var(--orange); }
+  .wireframe .red { color: var(--red); }
+  .wireframe .white { color: var(--text); }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 16px;
+    padding: 12px;
+    background: rgba(88, 166, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(88, 166, 255, 0.1);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .note {
+    background: rgba(210, 153, 34, 0.1);
+    border-left: 3px solid var(--orange);
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Maestro Team Members - Architecture Diagrams</h1>
+  <p>Complete design plan for Team Members as first-class entities in Maestro</p>
+  <div class="nav">
+    <button class="active" onclick="showSection('er')">1. Entity Relationships</button>
+    <button onclick="showSection('layers')">2. Layered Architecture</button>
+    <button onclick="showSection('spawn')">3. Session Spawn Flow</button>
+    <button onclick="showSection('ui')">4. UI Layout</button>
+    <button onclick="showSection('orchestration')">5. Orchestration Flow</button>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- 1. Entity Relationship Diagram -->
+  <div id="er" class="diagram-section active">
+    <div class="diagram-card">
+      <h2>1. Entity Relationship Diagram</h2>
+      <p>TeamMember is a new, separate entity from Tasks. Sessions reference team members via ID + snapshot. Tasks and Sessions maintain their existing many-to-many relationship.</p>
+
+      <div class="mermaid">
+erDiagram
+    PROJECT ||--o{ TASK : "has many"
+    PROJECT ||--o{ TEAM_MEMBER : "has many"
+    PROJECT ||--o{ SESSION : "has many"
+    TASK }o--o{ SESSION : "many-to-many"
+    TEAM_MEMBER ||--o{ SESSION : "spawns"
+
+    PROJECT {
+        string id PK
+        string name
+        string description
+        string createdAt
+    }
+
+    TEAM_MEMBER {
+        string id PK
+        string projectId FK
+        string name
+        string role
+        string identity
+        string avatar
+        string mode "execute | coordinate"
+        string model "opus | sonnet | haiku"
+        string agentTool "claude-code | codex | gemini"
+        array skillIds
+        boolean isDefault
+        string createdAt
+        string updatedAt
+    }
+
+    TASK {
+        string id PK
+        string projectId FK
+        string parentId FK
+        string title
+        string description
+        string status "todo | in_progress | completed | ..."
+        string priority "low | medium | high"
+        array sessionIds
+        array skillIds
+        string model
+        string agentTool
+        boolean pinned
+        string createdAt
+        string updatedAt
+    }
+
+    SESSION {
+        string id PK
+        string projectId FK
+        array taskIds
+        string status "spawning | idle | working | ..."
+        string strategy "simple | queue"
+        string teamMemberId FK "nullable"
+        json teamMemberSnapshot "name avatar role mode model"
+        array events
+        array timeline
+        array docs
+        json needsInput
+        string startedAt
+        string lastActivity
+    }
+      </div>
+
+      <div class="note">
+        <strong>Key change:</strong> TeamMember is completely independent from Task. Old tasks with <code>taskType: 'team-member'</code> are ignored. Sessions gain <code>teamMemberId</code> (reference) and <code>teamMemberSnapshot</code> (config at spawn time).
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background: var(--green)"></div> New entity</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--accent)"></div> Modified entity</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--text-muted)"></div> Unchanged entity</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Layered Architecture -->
+  <div id="layers" class="diagram-section">
+    <div class="diagram-card">
+      <h2>2. Layered Architecture</h2>
+      <p>Three layers: UI (React/Zustand), Server (Express/DI), CLI (TypeScript). Team Members are a vertical slice across all three layers.</p>
+
+      <div class="mermaid">
+graph TB
+    subgraph UI["UI Layer (React + Zustand)"]
+        direction TB
+        MP["MaestroPanel<br/><small>Team Tab | Task Tab</small>"]
+        TLI["TaskListItem<br/><small>Split Play | Three-Dot</small>"]
+        SS["SessionsSection<br/><small>Avatar Chips</small>"]
+        SLB["SmartLaunchBar<br/><small>Multi-select + Launch</small>"]
+        CTM["CreateTeamMemberModal<br/><small>CRUD for members</small>"]
+        STORE["useMaestroStore<br/><small>tasks | sessions | teamMembers</small>"]
+        CLIENT["MaestroClient<br/><small>HTTP + WebSocket</small>"]
+
+        MP --> STORE
+        TLI --> STORE
+        SS --> STORE
+        SLB --> STORE
+        CTM --> STORE
+        STORE --> CLIENT
+    end
+
+    subgraph SERVER["Server Layer (Express + DI Container)"]
+        direction TB
+        TMR["teamMemberRoutes<br/><small>/api/team-members</small>"]
+        SR["sessionRoutes<br/><small>/api/sessions</small>"]
+        TR["taskRoutes<br/><small>/api/tasks</small>"]
+        TMS["TeamMemberService"]
+        SSV["SessionService"]
+        TSV["TaskService"]
+        TMRP["TeamMemberRepo<br/><small>FileSystem</small>"]
+        SRP["SessionRepo<br/><small>FileSystem</small>"]
+        TRP["TaskRepo<br/><small>FileSystem</small>"]
+        EB["EventBus"]
+        WS["WebSocket Gateway"]
+
+        TMR --> TMS
+        SR --> SSV
+        TR --> TSV
+        TMS --> TMRP
+        SSV --> SRP
+        TSV --> TRP
+        TMS --> EB
+        SSV --> EB
+        TSV --> EB
+        EB --> WS
+    end
+
+    subgraph CLI["CLI Layer (Agent Spawning)"]
+        direction TB
+        MG["ManifestGenerator<br/><small>Fetches team members</small>"]
+        PB["PromptBuilder<br/><small>team_members XML</small>"]
+        AS["AgentSpawner<br/><small>Factory</small>"]
+        CS["ClaudeSpawner"]
+        CXS["CodexSpawner"]
+        GS["GeminiSpawner"]
+
+        MG --> PB
+        PB --> AS
+        AS --> CS
+        AS --> CXS
+        AS --> GS
+    end
+
+    CLIENT -->|"HTTP"| TMR
+    CLIENT -->|"HTTP"| SR
+    CLIENT -->|"HTTP"| TR
+    WS -->|"WebSocket"| CLIENT
+    SSV -->|"spawn"| MG
+
+    style UI fill:#1a2332,stroke:#58a6ff,stroke-width:2px
+    style SERVER fill:#1a2320,stroke:#3fb950,stroke-width:2px
+    style CLI fill:#2a1a32,stroke:#bc8cff,stroke-width:2px
+    style TMS fill:#1a3320,stroke:#3fb950
+    style TMRP fill:#1a3320,stroke:#3fb950
+    style TMR fill:#1a3320,stroke:#3fb950
+    style CTM fill:#1a2332,stroke:#58a6ff
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background: var(--accent)"></div> UI Layer</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--green)"></div> Server Layer</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--purple)"></div> CLI Layer</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Session Spawn Flow -->
+  <div id="spawn" class="diagram-section">
+    <div class="diagram-card">
+      <h2>3. Session Spawn Flow</h2>
+      <p>What happens when a user clicks Play on a task. The team member is resolved, a snapshot is created, and the agent is spawned with the full identity context.</p>
+
+      <div class="mermaid">
+sequenceDiagram
+    actor User
+    participant TLI as TaskListItem<br/>(Split Play)
+    participant Store as useMaestroStore
+    participant Client as MaestroClient
+    participant Routes as sessionRoutes
+    participant TMS as TeamMemberService
+    participant SS as SessionService
+    participant MG as ManifestGenerator
+    participant PB as PromptBuilder
+    participant AS as AgentSpawner
+    participant Agent as Agent Process
+    participant WS as WebSocket
+
+    User->>TLI: Click ▶ (or ▾ → select member)
+    TLI->>Store: createMaestroSession({ taskId, teamMemberId })
+    Store->>Client: POST /sessions/:id/spawn
+
+    Client->>Routes: { taskIds, teamMemberId, strategy? }
+
+    Routes->>TMS: getTeamMemberSnapshot(teamMemberId)
+    TMS-->>Routes: { name, avatar, role, mode, model, agentTool }
+
+    Routes->>SS: spawn(taskIds, teamMemberSnapshot, strategy)
+    Note over SS: Creates session with<br/>teamMemberId + snapshot
+
+    SS->>MG: generateManifest(session)
+    MG->>TMS: getProjectTeamMembers(projectId)
+    Note over MG: For coordinate mode:<br/>includes all team members
+    MG-->>SS: MaestroManifest
+
+    SS->>PB: buildPrompt(manifest)
+    Note over PB: Renders team_members XML<br/>+ team member identity
+    PB-->>SS: systemPrompt + taskContext
+
+    SS->>AS: spawn(manifest, prompts)
+    AS->>Agent: Launch claude/codex/gemini
+
+    Agent-->>WS: session:created event
+    WS-->>Client: broadcast
+    Client-->>Store: update sessions map
+    Store-->>TLI: re-render with session chip [🔧 working]
+
+    loop Agent Working
+        Agent-->>WS: session:updated (progress)
+        WS-->>Client: broadcast
+        Client-->>Store: update session
+        Store-->>TLI: update chip status
+    end
+
+    Agent-->>WS: session:completed
+    WS-->>Client: broadcast
+    Client-->>Store: session status = completed
+      </div>
+
+      <div class="note">
+        <strong>Default behavior:</strong> When user clicks ▶ without selecting a member, the system auto-resolves the default Worker team member for the project.
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. UI Layout Wireframe -->
+  <div id="ui" class="diagram-section">
+    <div class="diagram-card">
+      <h2>4. UI Layout Wireframes</h2>
+      <p>Key UI components showing team member integration across the panel.</p>
+
+      <h3>A. Team Tab - Member Management</h3>
+      <div class="wireframe"><span class="white">┌────────────────────────────────────────────────────────────────────────────┐
+│</span> <span class="highlight">Tasks</span>  <span class="white">|</span> <span class="highlight">Skills</span>  <span class="white">|</span> <span class="purple">[ Team ]</span>                                          <span class="white">│
+├────────────────────────────────────────────────────────────────────────────┤
+│</span> Team Members                                            <span class="green">[ + New Member ]</span> <span class="white">│
+│                                                                            │
+│</span> <span class="orange">DEFAULT</span>                                                                  <span class="white">│
+│ ┌────────────────────────────────────────────────────────────────────────┐ │
+│ │</span> <span class="green">🔧</span>  <span class="white">Worker</span>              Default executor         <span class="highlight">3 active sessions</span>    <span class="white">│ │
+│ │</span>     Role: Runs tasks directly                       <span class="highlight">[Configure]</span>      <span class="white">│ │
+│ ├────────────────────────────────────────────────────────────────────────┤ │
+│ │</span> <span class="purple">🎯</span>  <span class="white">Coordinator</span>          Task orchestrator        <span class="highlight">1 active session</span>     <span class="white">│ │
+│ │</span>     Role: Decomposes and delegates tasks             <span class="highlight">[Configure]</span>      <span class="white">│ │
+│ └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                            │
+│</span> <span class="orange">CUSTOM</span>                                                                   <span class="white">│
+│ ┌────────────────────────────────────────────────────────────────────────┐ │
+│ │</span> <span class="highlight">🎨</span>  <span class="white">Frontend Dev</span>         Frontend specialist      <span class="highlight">0 active sessions</span>    <span class="white">│ │
+│ │</span>     Model: sonnet  Agent: claude-code               <span class="highlight">[Configure]</span> <span class="white">[...]│ │
+│ ├────────────────────────────────────────────────────────────────────────┤ │
+│ │</span> <span class="green">🧪</span>  <span class="white">Tester</span>               QA & testing             <span class="highlight">1 active session</span>     <span class="white">│ │
+│ │</span>     Model: haiku   Agent: claude-code               <span class="highlight">[Configure]</span> <span class="white">[...]│ │
+│ └────────────────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────────┘</span></div>
+
+      <h3>B. Task List Item - Split Play + Session Chips</h3>
+      <div class="wireframe"><span class="white">┌────────────────────────────────────────────────────────────────────────────┐
+│</span> <span class="highlight">[in_progress ▾]</span> Build Authentication System  <span class="red">[high ▾]</span>                         <span class="white">│
+│</span>                                                                            <span class="white">│
+│</span> <span class="green">[🔧 working]</span> <span class="orange">[🎨 idle]</span> <span class="green">[🧪 working]</span>          2m ago  <span class="white">[+₃]</span> <span class="green">[▶</span><span class="white">|</span><span class="highlight">▾]</span> <span class="white">[...]│
+└────────────────────────────────────────────────────────────────────────────┘</span>
+
+<span class="white">Split Play Dropdown (▾):</span>
+<span class="white">┌──────────────────────────────────────┐
+│</span>  Run with...                         <span class="white">│
+│                                      │
+│</span>  <span class="green">🔧 Worker (execute)</span>         <span class="highlight">← default</span><span class="white">│
+│</span>     ├─ Simple (1 agent)              <span class="white">│
+│</span>     └─ Queue                         <span class="white">│
+│                                      │
+│</span>  <span class="purple">🎯 Coordinator (orchestrate)</span>        <span class="white">│
+│</span>     ├─ Default                       <span class="white">│
+│</span>     ├─ Batching                      <span class="white">│
+│</span>     └─ DAG                           <span class="white">│
+│                                      │
+│</span>  <span class="white">─────────────────────────────────</span>  <span class="white">│
+│</span>  <span class="highlight">🎨 Frontend Dev (execute)</span>           <span class="white">│
+│</span>  <span class="green">🧪 Tester (execute)</span>                 <span class="white">│
+│                                      │
+│</span>  <span class="white">─────────────────────────────────</span>  <span class="white">│
+│</span>  <span class="highlight">+ New Team Member...</span>                <span class="white">│
+└──────────────────────────────────────┘</span>
+
+<span class="white">Three-Dot Menu (...):</span>
+<span class="white">┌──────────────────────────────────┐
+│</span>  <span class="highlight">→ Mark In Progress</span>              <span class="white">│
+│</span>  <span class="highlight">→ Mark Completed</span>                <span class="white">│
+│</span>  <span class="highlight">→ Mark Blocked</span>                  <span class="white">│
+│</span>  ──────────────────────────────  <span class="white">│
+│</span>  Pin / Unpin                     <span class="white">│
+│</span>  Edit Task                       <span class="white">│
+│</span>  Duplicate                       <span class="white">│
+│</span>  <span class="red">Delete</span>                          <span class="white">│
+│</span>  ──────────────────────────────  <span class="white">│
+│</span>  → Move to Project...            <span class="white">│
+│</span>  ↗ Add to Running Session...     <span class="white">│
+└──────────────────────────────────┘</span></div>
+
+      <h3>C. Smart Launch Bar (Multi-Select Mode)</h3>
+      <div class="wireframe"><span class="white">┌────────────────────────────────────────────────────────────────────────────┐
+│</span> <span class="green">☑</span> <span class="white">3 tasks selected</span>    <span class="highlight">[Select All]</span> <span class="highlight">[Clear]</span>                               <span class="white">│
+│                                                                            │
+│</span>  Run with: <span class="purple">[🎯 Coordinator ▾]</span>  Strategy: <span class="highlight">[default ▾]</span>                     <span class="white">│
+│</span>  Assignment: <span class="highlight">[Auto-assign ▾]</span>                                               <span class="white">│
+│                                                                            │
+│</span>  Team: <span class="green">[🔧 Worker ×]</span> <span class="highlight">[🎨 Frontend ×]</span> <span class="green">[🧪 Tester ×]</span> <span class="highlight">[+ Add]</span>             <span class="white">│
+│                                                                            │
+│</span>                                   <span class="white">[Cancel]</span>  <span class="green">[▶ Orchestrate 3 Tasks]</span>      <span class="white">│
+└────────────────────────────────────────────────────────────────────────────┘</span></div>
+
+      <h3>D. Sessions Panel with Team Member Avatars</h3>
+      <div class="wireframe"><span class="white">┌──────────────────────────────────────────────────────────┐
+│</span> <span class="highlight">Sessions</span>                                                  <span class="white">│
+│                                                           │
+│</span> <span class="green">[🔧]</span> sess_abc  <span class="green">WORKING</span>  Build login page      <span class="white">[x]       │
+│</span> <span class="highlight">[🎨]</span> sess_def  <span class="orange">IDLE</span>     Style components      <span class="white">[x]       │
+│</span> <span class="purple">[🎯]</span> sess_ghi  <span class="green">WORKING</span>  Orchestrate auth      <span class="white">[x]       │
+│</span> <span class="white">[  ]</span> Terminal 1                                <span class="white">[x]       │
+│                                                           │
+│</span> <span class="white">▾</span> <span class="purple">[🎯]</span> sess_ghi  <span class="green">WORKING</span>  Orchestrate auth              <span class="white">│
+│</span>   Team Member: <span class="purple">🎯 Coordinator</span>                            <span class="white">│
+│</span>   Strategy: <span class="highlight">default</span>                                       <span class="white">│
+│</span>   Tasks: Build login <span class="green">(🔧 working)</span>, Write tests <span class="orange">(🧪 idle)</span><span class="white">│
+└──────────────────────────────────────────────────────────┘</span></div>
+    </div>
+  </div>
+
+  <!-- 5. Coordinator Orchestration Flow -->
+  <div id="orchestration" class="diagram-section">
+    <div class="diagram-card">
+      <h2>5. Coordinator Orchestration Flow</h2>
+      <p>End-to-end flow when a user orchestrates multiple tasks through the Coordinator. The Coordinator dynamically assigns tasks to team members during execution.</p>
+
+      <div class="mermaid">
+sequenceDiagram
+    actor User
+    participant UI as Smart Launch Bar
+    participant Store as useMaestroStore
+    participant Server as Server API
+    participant TMS as TeamMemberService
+    participant Coord as Coordinator Agent
+    participant W1 as Worker Session
+    participant W2 as Frontend Session
+    participant W3 as Tester Session
+    participant WS as WebSocket
+
+    User->>UI: Select 3 tasks
+    User->>UI: Choose 🎯 Coordinator
+    User->>UI: Set team: [🔧, 🎨, 🧪]
+    User->>UI: Click "Orchestrate 3 Tasks"
+
+    UI->>Store: orchestrate({ taskIds, teamMemberId: coordinator, availableTeam })
+    Store->>Server: POST /sessions/spawn
+
+    Server->>TMS: getSnapshot(coordinatorId)
+    Server->>TMS: getProjectTeamMembers(projectId)
+    Note over Server: Creates coordinator session<br/>with mode: 'coordinate'
+
+    Server->>Coord: Spawn with team_members XML
+
+    Note over Coord: Phase 1: ANALYZE
+    Coord->>Coord: Read task descriptions
+    Coord->>Coord: Identify skills needed
+
+    Note over Coord: Phase 2: ASSIGN (Dynamic)
+    Coord->>Server: Spawn session for Task 1
+    Note right of Coord: "Build login" → 🎨 Frontend Dev
+    Server->>TMS: getSnapshot(frontendDevId)
+    Server->>W2: Spawn with Frontend Dev identity
+
+    Coord->>Server: Spawn session for Task 2
+    Note right of Coord: "Write API tests" → 🧪 Tester
+    Server->>TMS: getSnapshot(testerId)
+    Server->>W3: Spawn with Tester identity
+
+    Coord->>Server: Spawn session for Task 3
+    Note right of Coord: "Design schema" → 🔧 Worker
+    Server->>TMS: getSnapshot(workerId)
+    Server->>W1: Spawn with Worker identity
+
+    par Parallel Execution
+        W2-->>WS: progress: "Building login components"
+        WS-->>UI: update session chip [🎨 working]
+    and
+        W3-->>WS: progress: "Writing test suite"
+        WS-->>UI: update session chip [🧪 working]
+    and
+        W1-->>WS: progress: "Designing DB schema"
+        WS-->>UI: update session chip [🔧 working]
+    end
+
+    Note over Coord: Phase 3: MONITOR
+    loop Check Progress
+        Coord->>Server: Check session statuses
+        Server-->>Coord: Status updates
+    end
+
+    W2-->>WS: session:completed
+    W3-->>WS: session:completed
+    W1-->>WS: session:completed
+
+    Note over Coord: Phase 4: VERIFY
+    Coord->>Coord: Verify all tasks complete
+
+    Note over Coord: Phase 5: COMPLETE
+    Coord-->>WS: session:completed
+    WS-->>UI: All sessions done, show completion
+      </div>
+
+      <div class="note">
+        <strong>Dynamic assignment:</strong> The Coordinator analyzes tasks at runtime and picks the best team member for each. Manual overrides (set in the Launch Bar) are respected as hints that the Coordinator follows.
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <h3>Orchestration State Machine</h3>
+      <p>The Coordinator progresses through defined workflow phases.</p>
+
+      <div class="mermaid">
+stateDiagram-v2
+    [*] --> Spawned
+    Spawned --> Analyzing: Read tasks & team members
+
+    state "Analyzing" as Analyzing
+    Analyzing --> Assigning: Tasks understood
+
+    state "Assigning" as Assigning {
+        [*] --> PickTask
+        PickTask --> MatchMember: Select best member
+        MatchMember --> SpawnSession: Spawn with member identity
+        SpawnSession --> PickTask: More tasks
+        SpawnSession --> [*]: All assigned
+    }
+
+    Assigning --> Monitoring: All sessions spawned
+
+    state "Monitoring" as Monitoring {
+        [*] --> CheckStatus
+        CheckStatus --> HandleProgress: Progress event
+        HandleProgress --> CheckStatus
+        CheckStatus --> HandleComplete: Session completed
+        HandleComplete --> CheckStatus: More sessions
+        HandleComplete --> [*]: All done
+    }
+
+    Monitoring --> Verifying: All sessions complete
+    Verifying --> Complete: Verified
+    Verifying --> Monitoring: Issues found, re-assign
+
+    Complete --> [*]
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1a2332',
+      primaryTextColor: '#e6edf3',
+      primaryBorderColor: '#58a6ff',
+      lineColor: '#58a6ff',
+      secondaryColor: '#1a3320',
+      tertiaryColor: '#2a1a32',
+      noteBkgColor: '#161b22',
+      noteTextColor: '#e6edf3',
+      noteBorderColor: '#30363d',
+      actorBkg: '#161b22',
+      actorTextColor: '#e6edf3',
+      actorBorder: '#58a6ff',
+      actorLineColor: '#30363d',
+      signalColor: '#e6edf3',
+      labelBoxBkgColor: '#161b22',
+      labelBoxBorderColor: '#30363d',
+      labelTextColor: '#e6edf3',
+      loopTextColor: '#8b949e',
+      activationBkgColor: '#1a2332',
+      activationBorderColor: '#58a6ff',
+      sequenceNumberColor: '#0d1117',
+    },
+    sequence: {
+      mirrorActors: false,
+      messageMargin: 40,
+      actorMargin: 80,
+      width: 180,
+    },
+    flowchart: {
+      htmlLabels: true,
+      curve: 'basis',
+    },
+  });
+
+  function showSection(id) {
+    document.querySelectorAll('.diagram-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.target.classList.add('active');
+  }
+</script>
+
+</body>
+</html>

@@ -7,6 +7,7 @@ import type {
   UpdateTaskPayload,
   CreateSessionPayload,
   UpdateSessionPayload,
+  Ordering,
 } from '../app/types/maestro';
 import { useSessionStore } from './useSessionStore';
 import { WS_URL } from '../utils/serverConfig';
@@ -35,6 +36,9 @@ interface MaestroState {
   errors: Map<string, string>;
   wsConnected: boolean;
   activeProjectIdRef: string | null;
+  // Ordering state
+  taskOrdering: Map<string, string[]>;    // projectId -> orderedIds
+  sessionOrdering: Map<string, string[]>; // projectId -> orderedIds
   fetchTasks: (projectId: string) => Promise<void>;
   fetchTask: (taskId: string) => Promise<void>;
   fetchSessions: (taskId?: string) => Promise<void>;
@@ -55,6 +59,11 @@ interface MaestroState {
   hardRefresh: (projectId: string) => Promise<void>;
   initWebSocket: () => void;
   destroyWebSocket: () => void;
+  // Ordering actions
+  fetchTaskOrdering: (projectId: string) => Promise<void>;
+  fetchSessionOrdering: (projectId: string) => Promise<void>;
+  saveTaskOrdering: (projectId: string, orderedIds: string[]) => Promise<void>;
+  saveSessionOrdering: (projectId: string, orderedIds: string[]) => Promise<void>;
 }
 
 export const useMaestroStore = create<MaestroState>((set, get) => {
@@ -333,6 +342,8 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     errors: new Map(),
     wsConnected: false,
     activeProjectIdRef: null,
+    taskOrdering: new Map(),
+    sessionOrdering: new Map(),
 
     fetchTasks: async (projectId) => {
       const key = `tasks:${projectId}`;
@@ -463,13 +474,67 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       }));
     },
 
-    clearCache: () => set({ tasks: new Map(), sessions: new Map(), activeModals: [], loading: new Set(), errors: new Map() }),
+    clearCache: () => set({ tasks: new Map(), sessions: new Map(), activeModals: [], loading: new Set(), errors: new Map(), taskOrdering: new Map(), sessionOrdering: new Map() }),
 
     hardRefresh: async (projectId) => {
       get().clearCache();
       if (projectId) {
         await get().fetchTasks(projectId);
         await get().fetchSessions();
+      }
+    },
+
+    fetchTaskOrdering: async (projectId) => {
+      try {
+        const ordering = await maestroClient.getOrdering(projectId, 'task');
+        set((prev) => {
+          const taskOrdering = new Map(prev.taskOrdering);
+          taskOrdering.set(projectId, ordering.orderedIds);
+          return { taskOrdering };
+        });
+      } catch (err) {
+        console.error('[useMaestroStore] Failed to fetch task ordering:', err);
+      }
+    },
+
+    fetchSessionOrdering: async (projectId) => {
+      try {
+        const ordering = await maestroClient.getOrdering(projectId, 'session');
+        set((prev) => {
+          const sessionOrdering = new Map(prev.sessionOrdering);
+          sessionOrdering.set(projectId, ordering.orderedIds);
+          return { sessionOrdering };
+        });
+      } catch (err) {
+        console.error('[useMaestroStore] Failed to fetch session ordering:', err);
+      }
+    },
+
+    saveTaskOrdering: async (projectId, orderedIds) => {
+      // Optimistic update
+      set((prev) => {
+        const taskOrdering = new Map(prev.taskOrdering);
+        taskOrdering.set(projectId, orderedIds);
+        return { taskOrdering };
+      });
+      try {
+        await maestroClient.saveOrdering(projectId, 'task', orderedIds);
+      } catch (err) {
+        console.error('[useMaestroStore] Failed to save task ordering:', err);
+      }
+    },
+
+    saveSessionOrdering: async (projectId, orderedIds) => {
+      // Optimistic update
+      set((prev) => {
+        const sessionOrdering = new Map(prev.sessionOrdering);
+        sessionOrdering.set(projectId, orderedIds);
+        return { sessionOrdering };
+      });
+      try {
+        await maestroClient.saveOrdering(projectId, 'session', orderedIds);
+      } catch (err) {
+        console.error('[useMaestroStore] Failed to save session ordering:', err);
       }
     },
 

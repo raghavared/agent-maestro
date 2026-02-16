@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useCallback, useLayoutEffect, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry } from "../../app/types/maestro";
+import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, AgentTool, ModelType } from "../../app/types/maestro";
 import { useTaskSessions } from "../../hooks/useTaskSessions";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { maestroClient } from "../../utils/MaestroClient";
@@ -66,6 +66,51 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
     stopped: "Stopped",
 };
 
+// Agent tool / model constants
+const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex", "gemini"];
+
+const AGENT_TOOL_LABELS: Record<AgentTool, string> = {
+    "claude-code": "Claude Code",
+    "codex": "OpenAI Codex",
+    "gemini": "Google Gemini",
+};
+
+const AGENT_TOOL_SYMBOLS: Record<AgentTool, string> = {
+    "claude-code": "◈",
+    "codex": "◇",
+    "gemini": "△",
+};
+
+const AGENT_MODELS: Record<AgentTool, { value: string; label: string }[]> = {
+    "claude-code": [
+        { value: "haiku", label: "Haiku" },
+        { value: "sonnet", label: "Sonnet" },
+        { value: "opus", label: "Opus" },
+    ],
+    "codex": [
+        { value: "gpt-5.3-codex", label: "5.3-codex" },
+        { value: "gpt-5.2-codex", label: "5.2-codex" },
+    ],
+    "gemini": [
+        { value: "gemini-3-pro-preview", label: "3-pro" },
+        { value: "gemini-3-flash-preview", label: "3-flash" },
+    ],
+};
+
+const DEFAULT_MODEL: Record<AgentTool, string> = {
+    "claude-code": "sonnet",
+    "codex": "gpt-5.3-codex",
+    "gemini": "gemini-3-pro-preview",
+};
+
+// Get short display label for a model value
+function getModelDisplayLabel(model?: ModelType, agentTool?: AgentTool): string {
+    if (!model || !agentTool) return "";
+    const models = AGENT_MODELS[agentTool];
+    const found = models?.find(m => m.value === model);
+    return found?.label || model;
+}
+
 function formatTimeAgo(timestamp: number): string {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
 
@@ -113,12 +158,19 @@ export function TaskListItem({
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
     const [isUpdatingPriority, setIsUpdatingPriority] = useState(false);
+    const [showAgentDropdown, setShowAgentDropdown] = useState(false);
+    const [agentDropdownStep, setAgentDropdownStep] = useState<'tool' | 'model'>('tool');
+    const [selectedAgentTool, setSelectedAgentTool] = useState<AgentTool | null>(null);
+    const [isUpdatingAgent, setIsUpdatingAgent] = useState(false);
     const statusDropdownRef = useRef<HTMLDivElement>(null);
     const priorityDropdownRef = useRef<HTMLDivElement>(null);
+    const agentDropdownRef = useRef<HTMLDivElement>(null);
     const statusBtnRef = useRef<HTMLButtonElement>(null);
     const priorityBtnRef = useRef<HTMLButtonElement>(null);
+    const agentBtnRef = useRef<HTMLButtonElement>(null);
     const [statusDropdownPos, setStatusDropdownPos] = useState<{ top: number; left: number } | null>(null);
     const [priorityDropdownPos, setPriorityDropdownPos] = useState<{ top: number; left: number } | null>(null);
+    const [agentDropdownPos, setAgentDropdownPos] = useState<{ top: number; left: number } | null>(null);
 
     const computeDropdownPos = useCallback((btnRef: React.RefObject<HTMLButtonElement | null>) => {
         const btn = btnRef.current;
@@ -138,6 +190,12 @@ export function TaskListItem({
             setPriorityDropdownPos(computeDropdownPos(priorityBtnRef));
         }
     }, [showPriorityDropdown, computeDropdownPos]);
+
+    useLayoutEffect(() => {
+        if (showAgentDropdown) {
+            setAgentDropdownPos(computeDropdownPos(agentBtnRef));
+        }
+    }, [showAgentDropdown, computeDropdownPos]);
 
     const [taskDocs, setTaskDocs] = useState<DocEntry[]>([]);
     const [viewingDoc, setViewingDoc] = useState<DocEntry | null>(null);
@@ -289,6 +347,47 @@ export function TaskListItem({
         }
     };
 
+    const handleOpenAgentDropdown = () => {
+        if (!isUpdatingAgent) {
+            // If task already has an agentTool, go directly to model step
+            if (task.agentTool) {
+                setSelectedAgentTool(task.agentTool);
+                setAgentDropdownStep('model');
+            } else {
+                setSelectedAgentTool(null);
+                setAgentDropdownStep('tool');
+            }
+            setShowAgentDropdown(!showAgentDropdown);
+        }
+    };
+
+    const handleSelectAgentTool = (tool: AgentTool) => {
+        setSelectedAgentTool(tool);
+        setAgentDropdownStep('model');
+    };
+
+    const handleSelectModel = async (model: ModelType) => {
+        if (!selectedAgentTool) return;
+
+        setIsUpdatingAgent(true);
+        try {
+            await updateTask(task.id, {
+                agentTool: selectedAgentTool,
+                model: model,
+            });
+            setShowAgentDropdown(false);
+        } catch (error) {
+            console.error("Failed to update task agent/model:", error);
+        } finally {
+            setIsUpdatingAgent(false);
+        }
+    };
+
+    const handleAgentDropdownBack = () => {
+        setAgentDropdownStep('tool');
+        setSelectedAgentTool(null);
+    };
+
     const handleSubtaskAction = (e: React.MouseEvent) => {
         e.stopPropagation();
         // Always toggle the subtask section - whether to show AddSubtaskInput or existing children
@@ -309,7 +408,7 @@ export function TaskListItem({
 
     return (
         <div
-            className={`terminalTaskRow terminalTaskRow--${task.status} ${isSubtask ? 'terminalTaskRow--subtask' : ''} ${showStatusDropdown || showPriorityDropdown ? 'terminalTaskRow--dropdownOpen' : ''} ${selectionMode ? 'terminalTaskRow--selectable' : ''}`}
+            className={`terminalTaskRow terminalTaskRow--${task.status} ${isSubtask ? 'terminalTaskRow--subtask' : ''} ${showStatusDropdown || showPriorityDropdown || showAgentDropdown ? 'terminalTaskRow--dropdownOpen' : ''} ${selectionMode ? 'terminalTaskRow--selectable' : ''}`}
             draggable
             onDragStart={handleDragStart}
         >
@@ -447,6 +546,102 @@ export function TaskListItem({
                                                 )}
                                             </button>
                                         ))}
+                                    </div>
+                                </>,
+                                document.body
+                            )}
+                        </div>
+
+                        {/* Agent Tool / Model Badge - Clickable */}
+                        <div className="terminalInlineAgentPicker" ref={agentDropdownRef}>
+                            <button
+                                ref={agentBtnRef}
+                                className={`terminalMetaBadge terminalMetaBadge--agent ${task.agentTool ? `terminalMetaBadge--agent-${task.agentTool}` : ''} ${task.model ? `terminalMetaBadge--model-${task.model}` : ''} terminalMetaBadge--clickable ${showAgentDropdown ? 'terminalMetaBadge--open' : ''} ${isUpdatingAgent ? 'terminalMetaBadge--updating' : ''}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenAgentDropdown();
+                                }}
+                                disabled={isUpdatingAgent}
+                                title={task.agentTool ? `${AGENT_TOOL_LABELS[task.agentTool]}${task.model ? ` / ${getModelDisplayLabel(task.model, task.agentTool)}` : ''}` : 'Set agent tool & model'}
+                            >
+                                {isUpdatingAgent ? (
+                                    <span className="terminalStatusSpinner">⟳</span>
+                                ) : (
+                                    <>
+                                        {task.agentTool ? (
+                                            <>
+                                                {AGENT_TOOL_SYMBOLS[task.agentTool]}{' '}
+                                                {task.model ? getModelDisplayLabel(task.model, task.agentTool) : AGENT_TOOL_LABELS[task.agentTool]}
+                                            </>
+                                        ) : (
+                                            <>⬡ Agent</>
+                                        )}
+                                        <span className="terminalMetaBadgeCaret">{showAgentDropdown ? '▴' : '▾'}</span>
+                                    </>
+                                )}
+                            </button>
+
+                            {showAgentDropdown && !isUpdatingAgent && agentDropdownPos && createPortal(
+                                <>
+                                    <div
+                                        className="terminalInlineStatusOverlay"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowAgentDropdown(false);
+                                        }}
+                                    />
+                                    <div
+                                        className="terminalInlineAgentDropdown terminalInlineAgentDropdown--fixed"
+                                        style={{ top: agentDropdownPos.top, left: agentDropdownPos.left }}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        {agentDropdownStep === 'tool' ? (
+                                            <>
+                                                <div className="terminalAgentDropdownHeader">Select Agent Tool</div>
+                                                {AGENT_TOOLS.map((tool) => (
+                                                    <button
+                                                        key={tool}
+                                                        className={`terminalInlineAgentOption terminalInlineAgentOption--${tool} ${tool === task.agentTool ? 'terminalInlineAgentOption--current' : ''}`}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleSelectAgentTool(tool);
+                                                        }}
+                                                    >
+                                                        <span className="terminalAgentSymbol">{AGENT_TOOL_SYMBOLS[tool]}</span>
+                                                        <span className="terminalAgentLabel">{AGENT_TOOL_LABELS[tool]}</span>
+                                                        <span className="terminalAgentArrow">→</span>
+                                                    </button>
+                                                ))}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    className="terminalAgentDropdownBack"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleAgentDropdownBack();
+                                                    }}
+                                                >
+                                                    ← {selectedAgentTool ? AGENT_TOOL_LABELS[selectedAgentTool] : ''}
+                                                </button>
+                                                <div className="terminalAgentDropdownHeader">Select Model</div>
+                                                {selectedAgentTool && AGENT_MODELS[selectedAgentTool].map((model) => (
+                                                    <button
+                                                        key={model.value}
+                                                        className={`terminalInlineAgentOption terminalInlineAgentOption--model terminalInlineAgentOption--model-${model.value} ${model.value === task.model ? 'terminalInlineAgentOption--current' : ''}`}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleSelectModel(model.value as ModelType);
+                                                        }}
+                                                    >
+                                                        <span className="terminalAgentLabel">{model.label}</span>
+                                                        {model.value === task.model && (
+                                                            <span className="terminalStatusCheck">✓</span>
+                                                        )}
+                                                    </button>
+                                                ))}
+                                            </>
+                                        )}
                                     </div>
                                 </>,
                                 document.body

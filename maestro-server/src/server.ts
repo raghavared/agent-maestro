@@ -10,6 +10,7 @@ import { createSessionRoutes } from './api/sessionRoutes';
 import { createQueueRoutes } from './api/queueRoutes';
 import { createSkillRoutes } from './api/skillRoutes';
 import { createMailRoutes } from './api/mailRoutes';
+import { createOrderingRoutes } from './api/orderingRoutes';
 import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
 import { AppError } from './domain/common/Errors';
 
@@ -18,7 +19,7 @@ async function startServer() {
   const container = await createContainer();
   await container.initialize();
 
-  const { config, logger, eventBus, projectService, taskService, sessionService, queueService, mailService, projectRepo, taskRepo, skillLoader } = container;
+  const { config, logger, eventBus, projectService, taskService, sessionService, queueService, mailService, orderingService, projectRepo, taskRepo, skillLoader } = container;
 
   console.log('📋 Configuration loaded:');
   console.log(`   Port: ${config.port}`);
@@ -102,6 +103,9 @@ async function startServer() {
   // Mail routes
   const mailRoutes = createMailRoutes({ mailService });
 
+  // Ordering routes
+  const orderingRoutes = createOrderingRoutes(orderingService);
+
   // Skills route using async FileSystemSkillLoader
   const skillRoutes = createSkillRoutes(skillLoader);
 
@@ -126,6 +130,7 @@ async function startServer() {
   app.use('/api', queueRoutes);
   app.use('/api', mailRoutes);
   app.use('/api', skillRoutes);
+  app.use('/api', orderingRoutes);
 
   // Global error handling middleware
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
