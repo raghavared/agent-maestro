@@ -284,7 +284,7 @@ export function ExecutionBar({
         }
     }, [showLaunchDropdown, computeLaunchPos]);
 
-    const activeMembers = teamMembers.filter(m => m.status === 'active');
+    const activeMembers = teamMembers.filter(m => m.status === 'active' && (!projectId || m.projectId === projectId));
 
     // For orchestrate: coordinators have mode=coordinate, workers have mode=execute
     const coordinatorMembers = activeMembers.filter(m => m.mode === 'coordinate');

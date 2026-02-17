@@ -520,32 +520,12 @@ export class PromptBuilder {
           description:
             'Work through each task directly — do not decompose or delegate.\n' +
             'After completing each task, report it:\n' +
-            '  maestro task report complete <taskId> "<summary of what was done>"',
-        },
-        {
-          name: 'communicate',
-          order: 3,
-          description:
-            'After completing each task (or major sub-step), check your mailbox:\n' +
-            '  maestro mail inbox\n' +
-            'Mail types: "directive" (follow immediately), "query" (respond to), "status" (informational).\n' +
-            'If you receive a directive, prioritize it over current work.\n' +
-            'For queries, respond: maestro mail reply <mailId> --message "<response>"\n' +
-            'If you are BLOCKED or need help, proactively message your coordinator:\n' +
-            '  maestro session report blocked "<what you need>"\n' +
-            'If no mail, continue with remaining tasks.',
-        },
-        {
-          name: 'report',
-          order: 4,
-          description:
-            'After completing each task or making significant progress on a long task, report:\n' +
-            '  maestro session report progress "<what you accomplished>"\n' +
+            '  maestro task report complete <taskId> "<summary of what was done>"\n' +
             'If blocked: maestro session report blocked "<reason and what you need to proceed>"',
         },
         {
           name: 'complete',
-          order: 5,
+          order: 3,
           description:
             'When all tasks are done:\n' +
             '  maestro session report complete "<summary of all work completed>"',

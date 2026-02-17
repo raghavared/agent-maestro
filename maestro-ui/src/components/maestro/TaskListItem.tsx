@@ -637,7 +637,7 @@ export function TaskListItem({
                                         }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
-                                        {teamMembers.filter(m => m.status === 'active').map((member) => {
+                                        {teamMembers.filter(m => m.status === 'active' && m.projectId === task.projectId).map((member) => {
                                             const isSelected = effectiveTeamMemberIds.includes(member.id);
                                             return (
                                                 <button

@@ -49,32 +49,12 @@ const EXECUTE_SIMPLE: WorkflowTemplate = {
       instruction:
         'Work through each task directly — do not decompose or delegate.\n' +
         'After completing each task, report it:\n' +
-        '  maestro task report complete <taskId> "<summary of what was done>"',
-    },
-    {
-      name: 'communicate',
-      order: 3,
-      instruction:
-        'After completing each task (or major sub-step), check your mailbox:\n' +
-        '  maestro mail inbox\n' +
-        'Mail types: "directive" (follow immediately), "query" (respond to), "status" (informational).\n' +
-        'If you receive a directive, prioritize it over current work.\n' +
-        'For queries, respond: maestro mail reply <mailId> --message "<response>"\n' +
-        'If you are BLOCKED or need help, proactively message your coordinator:\n' +
-        '  maestro session report blocked "<what you need>"\n' +
-        'If no mail, continue with remaining tasks.',
-    },
-    {
-      name: 'report',
-      order: 4,
-      instruction:
-        'After completing each task or making significant progress on a long task, report:\n' +
-        '  maestro session report progress "<what you accomplished>"\n' +
+        '  maestro task report complete <taskId> "<summary of what was done>"\n' +
         'If blocked: maestro session report blocked "<reason and what you need to proceed>"',
     },
     {
       name: 'complete',
-      order: 5,
+      order: 3,
       instruction:
         'When all tasks are done:\n' +
         '  maestro session report complete "<summary of all work completed>"',
@@ -115,21 +95,12 @@ const EXECUTE_TREE: WorkflowTemplate = {
         'Work through tasks in order. For each:\n' +
         '  1. maestro task report progress <taskId> "Starting"\n' +
         '  2. Complete it\n' +
-        '  3. maestro task report complete <taskId> "<summary>"',
-    },
-    {
-      name: 'communicate',
-      order: 4,
-      instruction:
-        'After each task completion, check your mailbox for directives:\n' +
-        '  maestro mail inbox\n' +
-        'If you receive a directive, prioritize it. For queries, reply with:\n' +
-        '  maestro mail reply <mailId> --message "<response>"\n' +
-        'If blocked, report: maestro session report blocked "<reason>"',
+        '  3. maestro task report complete <taskId> "<summary>"\n' +
+        'If blocked: maestro session report blocked "<reason>"',
     },
     {
       name: 'complete',
-      order: 5,
+      order: 4,
       instruction:
         'When ALL tasks in the tree are done:\n' +
         '  maestro session report complete "<summary>"',
