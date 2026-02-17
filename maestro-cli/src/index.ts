@@ -28,16 +28,23 @@ import {
   getPermissionsFromManifest,
 } from './services/command-permissions.js';
 
-// Load version
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const pkg = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
+// Load version - use MAESTRO_CLI_VERSION env var (injected at bundle time for binary builds)
+// or fall back to reading package.json for development
+let cliVersion: string;
+if (process.env.MAESTRO_CLI_VERSION) {
+  cliVersion = process.env.MAESTRO_CLI_VERSION;
+} else {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const pkg = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
+  cliVersion = pkg.version;
+}
 
 const program = new Command();
 
 program
   .name('maestro')
   .description('CLI for Maestro Agents')
-  .version(pkg.version)
+  .version(cliVersion)
   .option('--json', 'Output results as JSON')
   .option('--server <url>', 'Override Maestro Server URL')
   .option('--project <id>', 'Override Project ID')
