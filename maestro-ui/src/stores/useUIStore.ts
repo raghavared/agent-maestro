@@ -138,9 +138,11 @@ interface UIState {
   appInfo: AppInfo | null;
   updatesOpen: boolean;
   updateCheckState: UpdateCheckState;
+  updateBannerDismissedVersion: string | null;
   setAppInfo: (info: AppInfo | null) => void;
   setUpdatesOpen: (open: boolean) => void;
   setUpdateCheckState: (state: UpdateCheckState) => void;
+  dismissUpdateBanner: () => void;
   checkForUpdates: () => Promise<void>;
   loadAppInfo: () => Promise<void>;
 
@@ -255,9 +257,16 @@ export const useUIStore = create<UIState>((set, get) => ({
   appInfo: null,
   updatesOpen: false,
   updateCheckState: { status: 'idle' },
+  updateBannerDismissedVersion: null,
   setAppInfo: (info) => set({ appInfo: info }),
   setUpdatesOpen: (open) => set({ updatesOpen: open }),
   setUpdateCheckState: (state) => set({ updateCheckState: state }),
+  dismissUpdateBanner: () => {
+    const { updateCheckState } = get();
+    if (updateCheckState.status === 'updateAvailable') {
+      set({ updateBannerDismissedVersion: updateCheckState.latestVersion });
+    }
+  },
   loadAppInfo: async () => {
     try {
       const info = await invoke<AppInfo>('get_app_info');

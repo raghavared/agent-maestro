@@ -745,6 +745,19 @@ export function initApp(
       null;
     s.session.getState().setActiveId(active ? active.id : null);
     s.session.getState().setHydrated(true);
+
+    // ──── PERIODIC UPDATE CHECK ────
+    // Initial check after a short delay so it doesn't block boot
+    const updateCheckTimeout = window.setTimeout(() => {
+      void s.ui.getState().checkForUpdates();
+    }, 5000);
+    unlisteners.push(() => window.clearTimeout(updateCheckTimeout));
+
+    // Repeat every 30 minutes
+    const updateCheckInterval = window.setInterval(() => {
+      void s.ui.getState().checkForUpdates();
+    }, 30 * 60 * 1000);
+    unlisteners.push(() => window.clearInterval(updateCheckInterval));
   };
 
   void setup().catch((err) => {

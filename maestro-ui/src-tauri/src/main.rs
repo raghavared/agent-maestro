@@ -35,12 +35,22 @@ use startup::get_startup_flags;
 use tray::{build_status_tray, set_tray_agent_count, set_tray_recent_sessions, set_tray_status};
 use tauri::Manager;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(feature = "custom-protocol")]
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandChild;
 
 struct SidecarState {
     child: Arc<Mutex<Option<CommandChild>>>,
+}
+
+struct AllowCloseState {
+    allow: AtomicBool,
+}
+
+#[tauri::command]
+fn allow_window_close(state: tauri::State<'_, AllowCloseState>) {
+    state.allow.store(true, Ordering::SeqCst);
 }
 
 fn main() {
@@ -72,6 +82,7 @@ fn main() {
 
     let app = tauri::Builder::default()
         .manage(AppState::default())
+        .manage(AllowCloseState { allow: AtomicBool::new(false) })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_drag::init())
@@ -194,22 +205,51 @@ fn main() {
             set_tray_recent_sessions,
             open_path_in_file_manager,
             open_path_in_vscode,
-            get_app_info
+            get_app_info,
+            allow_window_close
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
     app.run(|app_handle, event| {
-        if let tauri::RunEvent::ExitRequested { .. } = event {
-            // Kill the sidecar when the app exits
-            if let Some(state) = app_handle.try_state::<SidecarState>() {
-                if let Ok(mut guard) = state.child.lock() {
-                    if let Some(child) = guard.take() {
-                        let _ = child.kill();
-                        eprintln!("[maestro-server] sidecar killed on app exit");
+        match &event {
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::WindowEvent {
+                event: tauri::WindowEvent::CloseRequested { api, .. },
+                ..
+            } => {
+                // On macOS, hide the window instead of closing it so the
+                // sidecar stays alive and the user can reopen via the dock.
+                // The frontend calls `allow_window_close` before
+                // `getCurrentWindow().close()` when the user truly wants to
+                // shut down; in that case we let the close proceed.
+                if let Some(state) = app_handle.try_state::<AllowCloseState>() {
+                    if state.allow.swap(false, Ordering::SeqCst) {
+                        // Frontend said "really close" — let it through.
+                        return;
+                    }
+                }
+                api.prevent_close();
+                // Hide the window (and the app from the taskbar on macOS).
+                let _ = app_handle.get_webview_window("main").map(|w| w.hide());
+                let _ = app_handle.hide();
+            }
+            tauri::RunEvent::Reopen { .. } => {
+                // macOS dock icon clicked — show the hidden window.
+                tray::show_main_window(app_handle);
+            }
+            tauri::RunEvent::ExitRequested { .. } => {
+                // Kill the sidecar when the app exits.
+                if let Some(state) = app_handle.try_state::<SidecarState>() {
+                    if let Ok(mut guard) = state.child.lock() {
+                        if let Some(child) = guard.take() {
+                            let _ = child.kill();
+                            eprintln!("[maestro-server] sidecar killed on app exit");
+                        }
                     }
                 }
             }
+            _ => {}
         }
     });
 }
