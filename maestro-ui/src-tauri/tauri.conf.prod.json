@@ -5,7 +5,7 @@
     "windows": [{ "label": "main", "title": "Maestro Prod", "devtools": true }]
   },
   "bundle": {
-    "homepage": "https://github.com/raghavared/agent-maestro",
+    "homepage": "https://github.com/subhangR/agent-maestro",
     "externalBin": ["binaries/maestro-server"]
   }
 }
