@@ -51,6 +51,7 @@ type CreateTaskModalProps = {
         referenceTaskIds?: string[];
         parentId?: string;
         teamMemberId?: string;
+        teamMemberIds?: string[];
     }) => void;
     project: MaestroProject;
     parentId?: string;

@@ -4,6 +4,7 @@ import type { MaestroManifest } from '../types/manifest.js';
 import type { SpawnResult, SpawnOptions } from './claude-spawner.js';
 import { WhoamiRenderer } from './whoami-renderer.js';
 import { getPermissionsFromManifest } from './command-permissions.js';
+import { prepareSpawnerEnvironment } from './spawner-env.js';
 
 /**
  * GeminiSpawner - Spawns Google Gemini CLI sessions with manifests
@@ -20,31 +21,7 @@ export class GeminiSpawner {
     manifest: MaestroManifest,
     sessionId: string
   ): Record<string, string> {
-    const primaryTask = manifest.tasks[0];
-    const allTaskIds = manifest.tasks.map(t => t.id).join(',');
-
-    const env: Record<string, string> = {
-      ...process.env,
-      MAESTRO_SESSION_ID: sessionId,
-      MAESTRO_TASK_IDS: allTaskIds,
-      MAESTRO_PROJECT_ID: primaryTask.projectId,
-      MAESTRO_MODE: manifest.mode,
-      MAESTRO_MANIFEST_PATH: process.env.MAESTRO_MANIFEST_PATH || '',
-      MAESTRO_SERVER_URL: process.env.MAESTRO_SERVER_URL || process.env.MAESTRO_API_URL || '',
-      MAESTRO_TASK_TITLE: primaryTask.title,
-      MAESTRO_TASK_PRIORITY: primaryTask.priority || 'medium',
-      MAESTRO_ALL_TASKS: JSON.stringify(manifest.tasks),
-    };
-
-    if (primaryTask.acceptanceCriteria && primaryTask.acceptanceCriteria.length > 0) {
-      env.MAESTRO_TASK_ACCEPTANCE = JSON.stringify(primaryTask.acceptanceCriteria);
-    }
-
-    if (primaryTask.dependencies && primaryTask.dependencies.length > 0) {
-      env.MAESTRO_TASK_DEPENDENCIES = JSON.stringify(primaryTask.dependencies);
-    }
-
-    return env as Record<string, string>;
+    return prepareSpawnerEnvironment(manifest, sessionId);
   }
 
   /** All supported Gemini models */
@@ -153,7 +130,6 @@ export class GeminiSpawner {
 
     return {
       sessionId,
-      promptFile: '',
       process: geminiProcess,
       sendInput,
     };

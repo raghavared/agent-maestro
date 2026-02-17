@@ -1,7 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process';
-import { writeFile } from 'fs/promises';
 import { join, dirname } from 'path';
-import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -9,18 +7,17 @@ import type { MaestroManifest } from '../types/manifest.js';
 import { SkillLoader } from './skill-loader.js';
 import { WhoamiRenderer } from './whoami-renderer.js';
 import { getPermissionsFromManifest } from './command-permissions.js';
+import { prepareSpawnerEnvironment } from './spawner-env.js';
 
 /**
- * Result of spawning a Claude session
+ * Result of spawning an agent session
  */
 export interface SpawnResult {
   /** Session ID for this spawn */
   sessionId: string;
-  /** Path to the prompt file */
-  promptFile: string;
   /** The spawned process */
   process: ChildProcess;
-  /** Helper to send input to Claude (when stdio is 'pipe') */
+  /** Helper to send input to the agent (when stdio is 'pipe') */
   sendInput?: (text: string) => void;
 }
 
@@ -54,47 +51,29 @@ export class ClaudeSpawner {
 
   /**
    * Prepare environment variables for Claude session
-   *
-   * @param manifest - The manifest
-   * @param sessionId - Unique session ID
-   * @returns Environment variables object
    */
   prepareEnvironment(
     manifest: MaestroManifest,
     sessionId: string
   ): Record<string, string> {
-    // Use first task as primary task for single/multi-task sessions
-    const primaryTask = manifest.tasks[0];
-    const allTaskIds = manifest.tasks.map(t => t.id).join(',');
+    return prepareSpawnerEnvironment(manifest, sessionId);
+  }
 
-    const env: Record<string, string> = {
-      ...process.env,
-      // Maestro context
-      MAESTRO_SESSION_ID: sessionId,
-      MAESTRO_TASK_IDS: allTaskIds,
-      MAESTRO_PROJECT_ID: primaryTask.projectId,
-      MAESTRO_MODE: manifest.mode,
-      MAESTRO_MANIFEST_PATH: process.env.MAESTRO_MANIFEST_PATH || '',
-      // Server URL - explicitly forward so child processes connect to the correct server
-      MAESTRO_SERVER_URL: process.env.MAESTRO_SERVER_URL || process.env.MAESTRO_API_URL || '',
-      // Primary task metadata (for backward compatibility)
-      MAESTRO_TASK_TITLE: primaryTask.title,
-      MAESTRO_TASK_PRIORITY: primaryTask.priority || 'medium',
-      // All tasks as JSON (for multi-task sessions)
-      MAESTRO_ALL_TASKS: JSON.stringify(manifest.tasks),
-    };
-
-    // Add acceptance criteria as JSON for hooks to access
-    if (primaryTask.acceptanceCriteria && primaryTask.acceptanceCriteria.length > 0) {
-      env.MAESTRO_TASK_ACCEPTANCE = JSON.stringify(primaryTask.acceptanceCriteria);
+  /**
+   * Map manifest permission mode to Claude Code --permission-mode value
+   */
+  private mapPermissionMode(permissionMode: string): string {
+    switch (permissionMode) {
+      case 'acceptEdits':
+        return 'acceptEdits';
+      case 'bypassPermissions':
+        return 'bypassPermissions';
+      case 'readOnly':
+        return 'plan';
+      case 'interactive':
+      default:
+        return 'default';
     }
-
-    // Add dependencies if present
-    if (primaryTask.dependencies && primaryTask.dependencies.length > 0) {
-      env.MAESTRO_TASK_DEPENDENCIES = JSON.stringify(primaryTask.dependencies);
-    }
-
-    return env as Record<string, string>;
   }
 
   /**
@@ -157,6 +136,11 @@ export class ClaudeSpawner {
     // Add model
     args.push('--model', manifest.session.model);
 
+    // Add permission mode
+    if (manifest.session.permissionMode) {
+      const claudePermMode = this.mapPermissionMode(manifest.session.permissionMode);
+      args.push('--permission-mode', claudePermMode);
+    }
 
     // Add max turns if specified
     if (manifest.session.maxTurns) {
@@ -166,21 +150,6 @@ export class ClaudeSpawner {
     return args;
   }
 
-  /**
-   * Write prompt to temporary file
-   *
-   * @param prompt - The prompt content
-   * @returns Path to the created file
-   */
-  async writePromptToFile(prompt: string): Promise<string> {
-    const randomId = randomBytes(8).toString('hex');
-    const fileName = `maestro-prompt-${randomId}.md`;
-    const filePath = join(tmpdir(), fileName);
-
-    await writeFile(filePath, prompt, 'utf-8');
-
-    return filePath;
-  }
 
   /**
    * Spawn Claude Code session with manifest
@@ -213,10 +182,8 @@ export class ClaudeSpawner {
     // Static mode instructions + commands go into the system prompt
     args.push('--append-system-prompt', systemPrompt);
 
-    // Dynamic task context goes as the user message
-    // Append system prompt to initial prompt for debugging (full context visibility)
-    const fullInitialPrompt = `${taskContext}\n\n<debug_system_prompt>\n${systemPrompt}\n</debug_system_prompt>`;
-    args.push(fullInitialPrompt);
+    // Dynamic task context goes as the user message (initial prompt)
+    args.push(taskContext);
 
     // Determine working directory
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
@@ -239,7 +206,6 @@ export class ClaudeSpawner {
 
     return {
       sessionId,
-      promptFile: '', // No longer using a prompt file
       process: claudeProcess,
       sendInput,
     };
@@ -254,19 +220,6 @@ export class ClaudeSpawner {
     return `session-${Date.now()}-${randomBytes(4).toString('hex')}`;
   }
 
-  /**
-   * Clean up temporary files
-   *
-   * @param promptFile - Path to prompt file to clean up
-   */
-  async cleanup(promptFile: string): Promise<void> {
-    try {
-      const { unlink } = await import('fs/promises');
-      await unlink(promptFile);
-    } catch (error) {
-      // Ignore cleanup errors
-    }
-  }
 }
 
 /**

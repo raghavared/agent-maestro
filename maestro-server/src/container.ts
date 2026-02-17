@@ -134,7 +134,7 @@ export async function createContainer(): Promise<Container> {
   const projectService = new ProjectService(projectRepo, eventBus);
   const taskService = new TaskService(taskRepo, projectRepo, eventBus, idGenerator);
   const sessionService = new SessionService(sessionRepo, taskRepo, projectRepo, eventBus, idGenerator);
-  const mailService = new MailService(mailRepo, eventBus, idGenerator);
+  const mailService = new MailService(mailRepo, eventBus, idGenerator, sessionRepo);
   const orderingService = new OrderingService(orderingRepo);
   const teamMemberService = new TeamMemberService(teamMemberRepo, eventBus, idGenerator);
 

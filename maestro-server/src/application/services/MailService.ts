@@ -1,8 +1,9 @@
 import { MailMessage, SendMailPayload, MailFilter } from '../../types';
 import { IMailRepository } from '../../domain/repositories/IMailRepository';
+import { ISessionRepository } from '../../domain/repositories/ISessionRepository';
 import { IEventBus } from '../../domain/events/IEventBus';
 import { IIdGenerator } from '../../domain/common/IIdGenerator';
-import { NotFoundError } from '../../domain/common/Errors';
+import { NotFoundError, ValidationError } from '../../domain/common/Errors';
 
 /**
  * Application service for mail operations.
@@ -12,13 +13,55 @@ export class MailService {
   constructor(
     private mailRepo: IMailRepository,
     private eventBus: IEventBus,
-    private idGenerator: IIdGenerator
+    private idGenerator: IIdGenerator,
+    private sessionRepo?: ISessionRepository
   ) {}
 
   /**
    * Send a mail message.
+   * If toTeamMemberId is provided, resolves to active session IDs for that team member.
    */
-  async sendMail(payload: SendMailPayload): Promise<MailMessage> {
+  async sendMail(payload: SendMailPayload): Promise<MailMessage | MailMessage[]> {
+    // Resolve toTeamMemberId to session IDs if provided
+    if (payload.toTeamMemberId && !payload.toSessionId) {
+      if (!this.sessionRepo) {
+        throw new ValidationError('Session repository not available for team member resolution');
+      }
+
+      const sessions = await this.sessionRepo.findAll({
+        projectId: payload.projectId,
+      });
+
+      // Find active sessions for this team member
+      const targetSessions = sessions.filter(s =>
+        s.teamMemberId === payload.toTeamMemberId &&
+        ['working', 'idle', 'spawning'].includes(s.status)
+      );
+
+      if (targetSessions.length === 0) {
+        throw new NotFoundError('Active session for team member', payload.toTeamMemberId);
+      }
+
+      // Send to each matching session
+      const results: MailMessage[] = [];
+      for (const session of targetSessions) {
+        const mail = await this.createAndStoreMail({
+          ...payload,
+          toSessionId: session.id,
+          toTeamMemberId: undefined,
+        });
+        results.push(mail);
+      }
+      return results.length === 1 ? results[0] : results;
+    }
+
+    return this.createAndStoreMail(payload);
+  }
+
+  /**
+   * Create and store a single mail message.
+   */
+  private async createAndStoreMail(payload: SendMailPayload): Promise<MailMessage> {
     const id = this.idGenerator.generate('mail');
 
     const mail: MailMessage = {

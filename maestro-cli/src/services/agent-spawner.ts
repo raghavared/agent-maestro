@@ -13,6 +13,9 @@ export interface IAgentSpawner {
   generateSessionId(): string;
 }
 
+// Re-export shared environment preparation utility
+export { prepareSpawnerEnvironment } from './spawner-env.js';
+
 /**
  * AgentSpawner - Factory that creates the appropriate spawner based on the manifest's agentTool
  *

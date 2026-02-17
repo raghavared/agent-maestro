@@ -45,12 +45,13 @@ type ExecutionBarProps = {
 
 // Hook to compute portal menu position from a trigger button ref
 function useDropdownPosition(triggerRef: React.RefObject<HTMLButtonElement | null>, isOpen: boolean) {
-    const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+    const [pos, setPos] = useState<{ top: number; right: number; width: number } | null>(null);
 
     const updatePos = useCallback(() => {
         if (triggerRef.current) {
             const rect = triggerRef.current.getBoundingClientRect();
-            setPos({ top: rect.bottom + 2, left: rect.left, width: rect.width });
+            const rightOffset = window.innerWidth - rect.right;
+            setPos({ top: rect.bottom + 2, right: rightOffset, width: rect.width });
         }
     }, [triggerRef]);
 
@@ -112,7 +113,7 @@ function TeamMemberDropdown({
                     <div
                         ref={menuRef}
                         className="executionBarDropdownMenu executionBarDropdownMenu--portal"
-                        style={{ top: pos.top, left: pos.left, width: pos.width }}
+                        style={{ top: pos.top, right: pos.right, minWidth: pos.width }}
                     >
                         {members.length === 0 ? (
                             <div className="executionBarDropdownEmpty">No members available</div>
@@ -199,7 +200,7 @@ function TeamMemberMultiDropdown({
                     <div
                         ref={menuRef}
                         className="executionBarDropdownMenu executionBarDropdownMenu--portal"
-                        style={{ top: pos.top, left: pos.left, width: pos.width }}
+                        style={{ top: pos.top, right: pos.right, minWidth: pos.width }}
                     >
                         {members.length === 0 ? (
                             <div className="executionBarDropdownEmpty">No members available</div>
@@ -310,7 +311,7 @@ export function ExecutionBar({
 
     if (!isActive) {
         return (
-            <div className="executionBar">
+            <div className="executionBar executionBar--inactive">
                 <button
                     className="terminalCmd terminalCmdPrimary"
                     onClick={onActivate}
@@ -402,37 +403,37 @@ export function ExecutionBar({
         return (
             <>
                 <div className="executionBar executionBar--active executionBar--orchestrate executionBar--column">
+                    <div className="executionBarDropdowns">
+                        <TeamMemberDropdown
+                            label="Coordinator"
+                            members={coordinatorMembers}
+                            selectedId={selectedCoordinatorId}
+                            onSelect={handleSelectCoordinator}
+                            accentColor="var(--terminal-amber, #ffab00)"
+                        />
+                        <TeamMemberMultiDropdown
+                            label="Workers"
+                            members={workerMembers}
+                            selectedIds={selectedWorkerIds}
+                            onToggle={(id) => {
+                                setSelectedWorkerIds(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(id)) next.delete(id);
+                                    else next.add(id);
+                                    return next;
+                                });
+                            }}
+                            onSelectAll={() => setSelectedWorkerIds(new Set(workerMembers.map(m => m.id)))}
+                            onClearAll={() => setSelectedWorkerIds(new Set())}
+                            accentColor="var(--terminal-amber, #ffab00)"
+                        />
+                    </div>
                     <div className="executionBarRow">
-                        <div className="executionBarDropdowns">
-                            <TeamMemberDropdown
-                                label="Coordinator"
-                                members={coordinatorMembers}
-                                selectedId={selectedCoordinatorId}
-                                onSelect={handleSelectCoordinator}
-                                accentColor="var(--terminal-amber, #ffab00)"
-                            />
-                            {effectiveCoordinatorModel && (
-                                <span className={`executionBarModelBadge ${launchOverride ? 'executionBarModelBadge--override' : ''}`}>
-                                    {effectiveCoordinatorModel}
-                                </span>
-                            )}
-                            <TeamMemberMultiDropdown
-                                label="Workers"
-                                members={workerMembers}
-                                selectedIds={selectedWorkerIds}
-                                onToggle={(id) => {
-                                    setSelectedWorkerIds(prev => {
-                                        const next = new Set(prev);
-                                        if (next.has(id)) next.delete(id);
-                                        else next.add(id);
-                                        return next;
-                                    });
-                                }}
-                                onSelectAll={() => setSelectedWorkerIds(new Set(workerMembers.map(m => m.id)))}
-                                onClearAll={() => setSelectedWorkerIds(new Set())}
-                                accentColor="var(--terminal-amber, #ffab00)"
-                            />
-                        </div>
+                        {effectiveCoordinatorModel && (
+                            <span className={`executionBarModelBadge ${launchOverride ? 'executionBarModelBadge--override' : ''}`}>
+                                {effectiveCoordinatorModel}
+                            </span>
+                        )}
                         <div className="executionBarActions">
                             <button className="terminalCmd" onClick={onCancel}>cancel</button>
                             <div className="executionBarSplitBtn">
@@ -479,20 +480,20 @@ export function ExecutionBar({
     return (
         <>
             <div className="executionBar executionBar--active executionBar--column">
+                <div className="executionBarDropdowns">
+                    <TeamMemberDropdown
+                        label="Team Member"
+                        members={activeMembers}
+                        selectedId={selectedExecuteMemberId}
+                        onSelect={handleSelectExecuteMember}
+                    />
+                </div>
                 <div className="executionBarRow">
-                    <div className="executionBarDropdowns">
-                        <TeamMemberDropdown
-                            label="Team Member"
-                            members={activeMembers}
-                            selectedId={selectedExecuteMemberId}
-                            onSelect={handleSelectExecuteMember}
-                        />
-                        {effectiveExecuteModel && (
-                            <span className={`executionBarModelBadge ${launchOverride ? 'executionBarModelBadge--override' : ''}`}>
-                                {effectiveExecuteModel}
-                            </span>
-                        )}
-                    </div>
+                    {effectiveExecuteModel && (
+                        <span className={`executionBarModelBadge ${launchOverride ? 'executionBarModelBadge--override' : ''}`}>
+                            {effectiveExecuteModel}
+                        </span>
+                    )}
                     <div className="executionBarActions">
                         <button className="terminalCmd" onClick={onCancel}>cancel</button>
                         <div className="executionBarSplitBtn">

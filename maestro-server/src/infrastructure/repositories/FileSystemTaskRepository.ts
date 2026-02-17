@@ -130,6 +130,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
       dependencies: [],
       referenceTaskIds: input.referenceTaskIds || [],
       teamMemberId: input.teamMemberId,
+      teamMemberIds: input.teamMemberIds,
       // NOTE: timeline is now on Session, not Task
     };
 
@@ -208,6 +209,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
     if (updates.referenceTaskIds !== undefined) task.referenceTaskIds = updates.referenceTaskIds;
     if (updates.pinned !== undefined) task.pinned = updates.pinned;
     if (updates.teamMemberId !== undefined) task.teamMemberId = updates.teamMemberId;
+    if (updates.teamMemberIds !== undefined) task.teamMemberIds = updates.teamMemberIds;
 
     // Handle status changes
     if (updates.status !== undefined) {

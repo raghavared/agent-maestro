@@ -41,18 +41,19 @@ function buildBody(type: string, message?: string): Record<string, any> {
 export function registerMailCommands(program: Command) {
   const mail = program.command('mail').description('Mailbox coordination system');
 
-  // mail send <toSessionIds> — comma-separated session IDs
-  mail.command('send <toSessionIds>')
-    .description('Send mail to one or more sessions (comma-separated IDs)')
+  // mail send <toSessionIds> — comma-separated session IDs or use --to-team-member
+  mail.command('send [toSessionIds]')
+    .description('Send mail to sessions (by ID) or team member (by --to-team-member)')
     .requiredOption('--type <type>', 'Message type (assignment, status_update, query, response, directive, notification)')
     .requiredOption('--subject <subject>', 'Mail subject')
     .option('--message <message>', 'Message body content')
+    .option('--to-team-member <teamMemberId>', 'Send to active session(s) for this team member ID')
     .option('--task-id <taskId>', 'Task ID (for assignment/status_update/directive types)')
     .option('--priority <priority>', 'Priority (for assignment type)')
     .option('--status <status>', 'Status (for status_update type)')
     .option('--action <action>', 'Action (for directive type)')
     .option('--reply-to <mailId>', 'Reply to a specific mail ID')
-    .action(async (toSessionIds: string, cmdOpts: any) => {
+    .action(async (toSessionIds: string | undefined, cmdOpts: any) => {
       await guardCommand('mail:send');
       const globalOpts = program.opts();
       const isJson = globalOpts.json;
@@ -72,14 +73,15 @@ export function registerMailCommands(program: Command) {
         else { console.error(err.message); process.exit(1); }
       }
 
-      const ids = toSessionIds.split(',').map(s => s.trim()).filter(Boolean);
-      if (ids.length === 0) {
-        const err = { message: 'At least one session ID is required.' };
+      // Either session IDs or --to-team-member must be provided
+      const teamMemberId = cmdOpts.toTeamMember;
+      if (!toSessionIds && !teamMemberId) {
+        const err = { message: 'Either session IDs or --to-team-member is required.' };
         if (isJson) { outputErrorJSON(err); process.exit(1); }
         else { console.error(err.message); process.exit(1); }
       }
 
-      const spinner = !isJson ? ora(`Sending mail to ${ids.length} session(s)...`).start() : null;
+      const spinner = !isJson ? ora(teamMemberId ? `Sending mail to team member ${teamMemberId}...` : `Sending mail...`).start() : null;
 
       try {
         const body = buildBody(cmdOpts.type, cmdOpts.message);
@@ -90,31 +92,67 @@ export function registerMailCommands(program: Command) {
         if (cmdOpts.status) body.status = cmdOpts.status;
         if (cmdOpts.action) body.action = cmdOpts.action;
 
-        const results: any[] = [];
-        for (const toId of ids) {
+        if (teamMemberId) {
+          // Send via team member ID — server resolves to session(s)
           const result = await api.post('/api/mail', {
             projectId,
             fromSessionId: sessionId,
-            toSessionId: toId,
+            toTeamMemberId: teamMemberId,
             replyToMailId: cmdOpts.replyTo || null,
             type: cmdOpts.type,
             subject: cmdOpts.subject,
             body,
           });
-          results.push(result);
-        }
 
-        spinner?.succeed(`Mail sent to ${ids.length} session(s)`);
+          spinner?.succeed('Mail sent to team member');
 
-        if (isJson) {
-          outputJSON(results.length === 1 ? results[0] : results);
-        } else {
-          for (const result of results) {
-            outputKeyValue('Mail ID', result.id);
-            outputKeyValue('To', result.toSessionId);
+          if (isJson) {
+            outputJSON(result);
+          } else {
+            const results = Array.isArray(result) ? result : [result];
+            for (const r of results) {
+              outputKeyValue('Mail ID', r.id);
+              outputKeyValue('To', r.toSessionId);
+            }
+            outputKeyValue('Type', cmdOpts.type);
+            outputKeyValue('Subject', cmdOpts.subject);
           }
-          outputKeyValue('Type', cmdOpts.type);
-          outputKeyValue('Subject', cmdOpts.subject);
+        } else {
+          // Send by session IDs
+          const ids = (toSessionIds as string).split(',').map(s => s.trim()).filter(Boolean);
+          if (ids.length === 0) {
+            spinner?.stop();
+            const err = { message: 'At least one session ID is required.' };
+            if (isJson) { outputErrorJSON(err); process.exit(1); }
+            else { console.error(err.message); process.exit(1); }
+          }
+
+          const results: any[] = [];
+          for (const toId of ids) {
+            const result = await api.post('/api/mail', {
+              projectId,
+              fromSessionId: sessionId,
+              toSessionId: toId,
+              replyToMailId: cmdOpts.replyTo || null,
+              type: cmdOpts.type,
+              subject: cmdOpts.subject,
+              body,
+            });
+            results.push(result);
+          }
+
+          spinner?.succeed(`Mail sent to ${ids.length} session(s)`);
+
+          if (isJson) {
+            outputJSON(results.length === 1 ? results[0] : results);
+          } else {
+            for (const result of results) {
+              outputKeyValue('Mail ID', result.id);
+              outputKeyValue('To', result.toSessionId);
+            }
+            outputKeyValue('Type', cmdOpts.type);
+            outputKeyValue('Subject', cmdOpts.subject);
+          }
         }
       } catch (err) {
         spinner?.stop();

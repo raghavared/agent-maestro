@@ -450,6 +450,31 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }
     };
 
+    const handleRunTeamMember = async (member: any) => {
+        try {
+            // Create an ad-hoc task for this team member session
+            const task = await createTask({
+                projectId,
+                title: `Session with ${member.name}`,
+                description: `Ad-hoc session started from team member: ${member.name}`,
+                priority: 'medium',
+                teamMemberId: member.id,
+            });
+
+            const mode = member.mode || 'execute';
+
+            await onCreateMaestroSession({
+                task,
+                project,
+                mode,
+                teamMemberId: member.id,
+            });
+        } catch (err: any) {
+            console.error('[MaestroPanel] Failed to run team member:', err);
+            setError(`Failed to start session: ${err.message}`);
+        }
+    };
+
     const handleToggleSubtask = async (_taskId: string, subtaskId: string) => {
         try {
             const subtask = normalizedTasks.find(t => t.id === subtaskId);
@@ -786,6 +811,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                                             onUnarchive={handleUnarchiveTeamMember}
                                             onDelete={handleDeleteTeamMember}
                                             onNewMember={() => setShowCreateTeamMemberModal(true)}
+                                            onRun={handleRunTeamMember}
                                         />
                                     )}
                                 </div>

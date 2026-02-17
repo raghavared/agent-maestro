@@ -8,6 +8,7 @@ type TeamMemberListProps = {
     onUnarchive?: (memberId: string) => void | Promise<void>;
     onDelete?: (memberId: string) => void | Promise<void>;
     onNewMember: () => void;
+    onRun?: (member: TeamMember) => void | Promise<void>;
 };
 
 const AGENT_TOOL_SYMBOLS: Partial<Record<AgentTool, string>> = {
@@ -39,6 +40,7 @@ function TeamMemberRow({
     onArchive,
     onUnarchive,
     onDelete,
+    onRun,
     loadingAction,
     setLoadingAction,
 }: {
@@ -48,6 +50,7 @@ function TeamMemberRow({
     onArchive?: (memberId: string) => void | Promise<void>;
     onUnarchive?: (memberId: string) => void | Promise<void>;
     onDelete?: (memberId: string) => void | Promise<void>;
+    onRun?: (member: TeamMember) => void | Promise<void>;
     loadingAction: string | null;
     setLoadingAction: (v: string | null) => void;
 }) {
@@ -80,6 +83,16 @@ function TeamMemberRow({
         setLoadingAction(`unarchive:${member.id}`);
         try {
             await onUnarchive?.(member.id);
+        } finally {
+            setLoadingAction(null);
+        }
+    };
+
+    const handleRun = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setLoadingAction(`run:${member.id}`);
+        try {
+            await onRun?.(member);
         } finally {
             setLoadingAction(null);
         }
@@ -159,6 +172,18 @@ function TeamMemberRow({
 
                     {/* Actions bar */}
                     <div className="terminalTaskActionsBar terminalTaskActionsBar--right">
+                        {!isArchived && onRun && (
+                            <button
+                                className="terminalCmd terminalCmdPrimary"
+                                onClick={handleRun}
+                                disabled={!!loadingAction}
+                                title={`Run a session with ${member.name}`}
+                                style={{ padding: '2px 8px', fontSize: '11px' }}
+                            >
+                                {isLoading('run') ? 'Starting...' : '▶ Run'}
+                            </button>
+                        )}
+
                         {!isArchived && (
                             <button
                                 className="terminalViewDetailsBtn"
@@ -214,6 +239,7 @@ export function TeamMemberList({
     onUnarchive,
     onDelete,
     onNewMember,
+    onRun,
 }: TeamMemberListProps) {
     const [showArchived, setShowArchived] = useState(false);
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -232,6 +258,7 @@ export function TeamMemberList({
             onArchive={onArchive}
             onUnarchive={onUnarchive}
             onDelete={onDelete}
+            onRun={onRun}
             loadingAction={loadingAction}
             setLoadingAction={setLoadingAction}
         />

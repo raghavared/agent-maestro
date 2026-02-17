@@ -251,6 +251,9 @@ export interface MaestroTask {
   // Assigned team member for this task
   teamMemberId?: string;
 
+  // Multiple team member identities for this task
+  teamMemberIds?: string[];
+
   // UI/Populated Fields (Optional)
   subtasks?: MaestroTask[];
   sessionCount?: number; // UI computed field
@@ -290,6 +293,10 @@ export interface MaestroSession {
   docs?: DocEntry[];
   teamMemberId?: string;
   teamMemberSnapshot?: TeamMemberSnapshot;
+
+  // Multiple team member identities
+  teamMemberIds?: string[];
+  teamMemberSnapshots?: TeamMemberSnapshot[];
 }
 
 // Payloads
@@ -303,6 +310,7 @@ export interface CreateTaskPayload {
   skillIds?: string[];
   referenceTaskIds?: string[];
   teamMemberId?: string;
+  teamMemberIds?: string[];
 }
 
 export interface UpdateTaskPayload {
@@ -319,6 +327,7 @@ export interface UpdateTaskPayload {
   referenceTaskIds?: string[];
   pinned?: boolean;
   teamMemberId?: string;
+  teamMemberIds?: string[];
   // NOTE: timeline moved to Session - use addTimelineEvent on session
   completedAt?: number | null;
 }
@@ -381,8 +390,9 @@ export interface SpawnSessionPayload {
   sessionName?: string;
   skills?: string[];
   context?: Record<string, any>;
-  teamMemberId?: string;              // Team member running this session
-  teamMemberIds?: string[];           // Team member task IDs to include in coordinate mode
+  teamMemberId?: string;              // Team member running this session (backward compat)
+  teamMemberIds?: string[];           // Multiple team member identities for this session
+  delegateTeamMemberIds?: string[];   // Team member IDs for coordination delegation pool
   agentTool?: AgentTool;              // Override agent tool for this run
   model?: ModelType;                  // Override model for this run
 }

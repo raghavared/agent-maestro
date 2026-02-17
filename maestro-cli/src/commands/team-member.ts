@@ -97,6 +97,98 @@ export function registerTeamMemberCommands(program: Command) {
             }
         });
 
+    teamMember.command('edit <teamMemberId>')
+        .description('Edit a team member')
+        .option('--name <name>', 'Update team member name')
+        .option('--role <role>', 'Update role description')
+        .option('--avatar <emoji>', 'Update avatar emoji')
+        .option('--mode <mode>', 'Update agent mode: execute or coordinate')
+        .option('--model <model>', 'Update model (e.g. sonnet, opus, haiku)')
+        .option('--agent-tool <tool>', 'Update agent tool (claude-code, codex, or gemini)')
+        .option('--identity <instructions>', 'Update identity/persona instructions')
+        .option('--workflow-template <templateId>', 'Update workflow template ID')
+        .option('--custom-workflow <workflow>', 'Update custom workflow text (use with --workflow-template custom)')
+        .action(async (teamMemberId: string, cmdOpts: any) => {
+            await guardCommand('team-member:edit');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const projectId = globalOpts.project || config.projectId;
+
+            if (!projectId) {
+                const err = { message: 'No project context found. Use --project <id> or set MAESTRO_PROJECT_ID.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            // Validate mode if provided
+            if (cmdOpts.mode) {
+                const validModes = ['execute', 'coordinate'];
+                if (!validModes.includes(cmdOpts.mode)) {
+                    const err = { message: `Invalid mode "${cmdOpts.mode}". Must be one of: ${validModes.join(', ')}` };
+                    if (isJson) { outputErrorJSON(err); process.exit(1); }
+                    else { console.error(err.message); process.exit(1); }
+                }
+            }
+
+            // Validate agent tool if provided
+            if (cmdOpts.agentTool) {
+                const validAgentTools = ['claude-code', 'codex', 'gemini'];
+                if (!validAgentTools.includes(cmdOpts.agentTool)) {
+                    const err = { message: `Invalid agent tool "${cmdOpts.agentTool}". Must be one of: ${validAgentTools.join(', ')}` };
+                    if (isJson) { outputErrorJSON(err); process.exit(1); }
+                    else { console.error(err.message); process.exit(1); }
+                }
+            }
+
+            // Build update payload from provided options
+            const updates: Record<string, any> = { projectId };
+            if (cmdOpts.name) updates.name = cmdOpts.name.trim();
+            if (cmdOpts.role) updates.role = cmdOpts.role.trim();
+            if (cmdOpts.avatar) updates.avatar = cmdOpts.avatar.trim();
+            if (cmdOpts.mode) updates.mode = cmdOpts.mode;
+            if (cmdOpts.model) updates.model = cmdOpts.model;
+            if (cmdOpts.agentTool) updates.agentTool = cmdOpts.agentTool;
+            if (cmdOpts.identity) updates.identity = cmdOpts.identity.trim();
+            if (cmdOpts.workflowTemplate) updates.workflowTemplateId = cmdOpts.workflowTemplate;
+            if (cmdOpts.customWorkflow) updates.customWorkflow = cmdOpts.customWorkflow.trim();
+
+            // Check that at least one field is being updated
+            const fieldCount = Object.keys(updates).length - 1; // exclude projectId
+            if (fieldCount === 0) {
+                const err = { message: 'No fields to update. Provide at least one option (e.g. --name, --role, --identity, --mode).' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Updating team member...').start() : null;
+
+            try {
+                const member: any = await api.patch(`/api/team-members/${teamMemberId}`, updates);
+
+                spinner?.succeed('Team member updated');
+
+                if (isJson) {
+                    outputJSON(member);
+                } else {
+                    outputKeyValue('ID', member.id);
+                    outputKeyValue('Name', `${member.avatar} ${member.name}`);
+                    outputKeyValue('Role', member.role);
+                    outputKeyValue('Mode', member.mode || 'execute');
+                    outputKeyValue('Model', member.model || 'sonnet');
+                    outputKeyValue('Agent Tool', member.agentTool || 'claude-code');
+                    if (member.identity) {
+                        outputKeyValue('Identity', member.identity);
+                    }
+                    if (member.workflowTemplateId) {
+                        outputKeyValue('Workflow Template', member.workflowTemplateId);
+                    }
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
     teamMember.command('create <name>')
         .description('Create a new team member')
         .requiredOption('--role <role>', 'Role description for the team member')
