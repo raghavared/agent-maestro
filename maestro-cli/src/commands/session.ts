@@ -91,6 +91,8 @@ export function registerSessionCommands(program: Command) {
     session.command('list')
         .description('List sessions')
         .option('--task <taskId>', 'Filter by task ID')
+        .option('--team-member-id <tmId>', 'Filter by team member ID')
+        .option('--active', 'Show only active sessions (working, idle, spawning)')
         .action(async (cmdOpts) => {
             await guardCommand('session:list');
             const globalOpts = program.opts();
@@ -105,9 +107,15 @@ export function registerSessionCommands(program: Command) {
                 const queryParts = [];
                 if (cmdOpts.task) queryParts.push(`taskId=${cmdOpts.task}`);
                 if (projectId) queryParts.push(`projectId=${projectId}`);
+                if (cmdOpts.active) queryParts.push(`active=true`);
                 if (queryParts.length) endpoint += '?' + queryParts.join('&');
 
-                const sessions: any[] = await api.get(endpoint);
+                let sessions: any[] = await api.get(endpoint);
+
+                // Client-side filter by teamMemberId (server doesn't support this filter yet)
+                if (cmdOpts.teamMemberId) {
+                    sessions = sessions.filter(s => s.teamMemberId === cmdOpts.teamMemberId);
+                }
 
                 spinner?.stop();
 
@@ -118,8 +126,14 @@ export function registerSessionCommands(program: Command) {
                         console.log('No sessions found.');
                     } else {
                         outputTable(
-                            ['ID', 'Name', 'Status', 'Tasks'],
-                            sessions.map(s => [s.id, s.name, s.status, (s.taskIds || []).length])
+                            ['ID', 'Name', 'Status', 'Team Member', 'Tasks'],
+                            sessions.map(s => [
+                                s.id,
+                                s.name,
+                                s.status,
+                                s.teamMemberSnapshot?.name || s.teamMemberId || '-',
+                                (s.taskIds || []).length,
+                            ])
                         );
                     }
                 }

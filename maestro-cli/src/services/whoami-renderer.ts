@@ -114,8 +114,16 @@ export class WhoamiRenderer {
     const taskParts: string[] = [
       '  <session_context>',
       `    <session_id>${this.esc(sessionId || 'N/A')}</session_id>`,
-      '  </session_context>',
+      `    <project_id>${this.esc(manifest.tasks[0]?.projectId || 'N/A')}</project_id>`,
+      `    <mode>${this.esc(manifest.mode)}</mode>`,
     ];
+    if (manifest.agentTool) {
+      taskParts.push(`    <agent_tool>${this.esc(manifest.agentTool)}</agent_tool>`);
+    }
+    if (manifest.session?.model) {
+      taskParts.push(`    <model>${this.esc(manifest.session.model)}</model>`);
+    }
+    taskParts.push('  </session_context>');
 
     // Reference task IDs only — agents fetch details lazily
     if (manifest.referenceTaskIds && manifest.referenceTaskIds.length > 0) {

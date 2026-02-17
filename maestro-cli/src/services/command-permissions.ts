@@ -84,11 +84,11 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'project:delete', description: 'Delete project', allowedModes: ['coordinate'], parent: 'project' },
 
   // Mail commands
-  { name: 'mail:send', description: 'Send mail to a session', allowedModes: ['execute', 'coordinate'], parent: 'mail' },
+  { name: 'mail:send', description: 'Send mail to session(s) or team member', allowedModes: ['execute', 'coordinate'], parent: 'mail' },
   { name: 'mail:inbox', description: 'List inbox for current session', allowedModes: ['execute', 'coordinate'], parent: 'mail' },
   { name: 'mail:reply', description: 'Reply to a mail', allowedModes: ['execute', 'coordinate'], parent: 'mail' },
   { name: 'mail:broadcast', description: 'Send to all sessions', allowedModes: ['coordinate'], parent: 'mail' },
-  { name: 'mail:wait', description: 'Long-poll, block until mail arrives', allowedModes: ['coordinate'], parent: 'mail' },
+  { name: 'mail:wait', description: 'Long-poll, block until mail arrives', allowedModes: ['execute', 'coordinate'], parent: 'mail' },
 
   // Init commands (invoked by the spawning system, not by agents directly)
   { name: 'worker:init', description: 'Initialize execute-mode session', allowedModes: ['execute'], parent: 'worker', hiddenFromPrompt: true },
@@ -98,6 +98,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'team-member:create', description: 'Create a new team member', allowedModes: ['execute'], parent: 'team-member' },
   { name: 'team-member:list', description: 'List team members', allowedModes: ['execute'], parent: 'team-member' },
   { name: 'team-member:get', description: 'Get team member details', allowedModes: ['execute'], parent: 'team-member' },
+  { name: 'team-member:edit', description: 'Edit a team member', allowedModes: ['execute'], parent: 'team-member' },
 
   // Show commands (display content in UI)
   { name: 'show:modal', description: 'Show HTML modal in UI', allowedModes: ['execute', 'coordinate'], parent: 'show' },
@@ -138,6 +139,11 @@ export const DEFAULT_COMMANDS_BY_MODE: Record<string, string[]> = {
     'session:report:error',
     'session:docs:add',
     'session:docs:list',
+    // Mail commands (execute: send, inbox, reply, wait)
+    'mail:send',
+    'mail:inbox',
+    'mail:reply',
+    'mail:wait',
     // Show commands
     'show:modal',
     'modal:events',
@@ -501,7 +507,7 @@ const COMMAND_SYNTAX: Record<string, string> = {
   'task:docs:add': 'maestro task docs add <taskId> "<title>" --file <filePath>',
   'task:docs:list': 'maestro task docs list <taskId>',
   // Session commands
-  'session:list': 'maestro session list',
+  'session:list': 'maestro session list [--team-member-id <tmId>] [--active]',
   'session:info': 'maestro session info',
   'session:watch': 'maestro session watch <sessionId1>,<sessionId2>,...',
   'session:spawn': 'maestro session spawn --task <id> [--team-member-id <tmId>] [--model <model>] [--agent-tool <tool>]',
@@ -519,7 +525,7 @@ const COMMAND_SYNTAX: Record<string, string> = {
   'project:create': 'maestro project create "<name>"',
   'project:delete': 'maestro project delete <projectId>',
   // Mail commands
-  'mail:send': 'maestro mail send <sessionId1>,<sessionId2>,... --type <type> --subject "<subject>" [--message "<message>"]',
+  'mail:send': 'maestro mail send [<sessionId1>,<sessionId2>,...] --type <type> --subject "<subject>" [--message "<message>"] [--to-team-member <tmId>]',
   'mail:inbox': 'maestro mail inbox [--type <type>]',
   'mail:reply': 'maestro mail reply <mailId> --message "<message>"',
   'mail:broadcast': 'maestro mail broadcast --type <type> --subject "<subject>" [--message "<message>"]',
@@ -528,6 +534,7 @@ const COMMAND_SYNTAX: Record<string, string> = {
   'team-member:create': 'maestro team-member create "<name>" --role "<role>" --avatar "<emoji>" --mode <execute|coordinate> [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"]',
   'team-member:list': 'maestro team-member list',
   'team-member:get': 'maestro team-member get <teamMemberId>',
+  'team-member:edit': 'maestro team-member edit <teamMemberId> [--name "<name>"] [--role "<role>"] [--avatar "<emoji>"] [--mode <execute|coordinate>] [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"] [--workflow-template <templateId>] [--custom-workflow "<workflow>"]',
   'worker:init': 'maestro worker init',
   'orchestrator:init': 'maestro orchestrator init',
 };
@@ -616,36 +623,39 @@ export function generateCompactCommandBrief(permissions: CommandPermissions): st
     if (parent === 'root') continue;
 
     const meta = groupMeta[parent];
-    const prefix = meta?.prefix || `maestro ${parent}`;
     const desc = meta?.description || '';
 
     // Separate simple sub-commands from nested ones (e.g. task:report:*, task:docs:*)
     const simple: string[] = [];
-    const nested: Map<string, string[]> = new Map();
+    const nestedCmds: CommandDefinition[] = [];
 
     for (const cmd of commands) {
       const parts = cmd.name.replace(`${parent}:`, '').split(':');
       if (parts.length === 1) {
         simple.push(parts[0]);
       } else {
-        const nestedGroup = parts[0];
-        if (!nested.has(nestedGroup)) {
-          nested.set(nestedGroup, []);
-        }
-        nested.get(nestedGroup)!.push(parts.slice(1).join(' '));
+        nestedCmds.push(cmd);
       }
     }
 
-    // Render simple sub-commands
+    // Render simple sub-commands as compact group
     if (simple.length > 0) {
+      const prefix = meta?.prefix || `maestro ${parent}`;
       const subCmds = simple.join('|');
       lines.push(`${prefix} {${subCmds}} — ${desc}`);
     }
 
-    // Render nested sub-groups
-    for (const [nestedGroup, subCmds] of nested.entries()) {
-      const nestedJoined = subCmds.join('|');
-      lines.push(`${prefix} ${nestedGroup} {${nestedJoined}} — ${capitalize(parent)} ${nestedGroup}`);
+    // Render nested sub-commands with FULL SYNTAX (report, docs commands)
+    // These are the commands agents get wrong most often due to complex arg patterns
+    for (const cmd of nestedCmds) {
+      const syntax = COMMAND_SYNTAX[cmd.name];
+      if (syntax) {
+        lines.push(`${syntax} — ${cmd.description}`);
+      } else {
+        // Fallback: convert colon-separated name to space-separated
+        const parts = cmd.name.split(':');
+        lines.push(`maestro ${parts.join(' ')} — ${cmd.description}`);
+      }
     }
   }
 

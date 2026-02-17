@@ -91,6 +91,29 @@ export interface MaestroManifest {
 
   /** Team member custom workflow text (Phase 3, when templateId === 'custom') */
   teamMemberCustomWorkflow?: string;
+
+  /** Multiple team member profiles for multi-identity sessions */
+  teamMemberProfiles?: TeamMemberProfile[];
+}
+
+/**
+ * Team member profile for multi-identity sessions
+ * Contains full member data for prompt rendering
+ */
+export interface TeamMemberProfile {
+  id: string;
+  name: string;
+  avatar: string;
+  identity: string;
+  capabilities?: Record<string, boolean>;
+  commandPermissions?: {
+    groups?: Record<string, boolean>;
+    commands?: Record<string, boolean>;
+  };
+  workflowTemplateId?: string;
+  customWorkflow?: string;
+  model?: string;
+  agentTool?: AgentTool;
 }
 
 /**

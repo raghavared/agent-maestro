@@ -463,27 +463,47 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         spawnSource = 'ui',     // 'ui' or 'session'
         mode: requestedMode,    // Three-axis model: 'execute' or 'coordinate'
         context,
-        teamMemberIds,          // Team member task IDs for coordinate mode
-        teamMemberId,           // Single team member assigned to this task
+        teamMemberIds,          // Multiple team member identities for this session
+        delegateTeamMemberIds,  // Team member IDs for coordination delegation pool
+        teamMemberId,           // Single team member assigned to this task (backward compat)
         agentTool: requestedAgentTool,   // Override agent tool for this run
         model: requestedModel,           // Override model for this run
       } = req.body;
 
-      // If teamMemberId is provided, fetch the team member and use its mode as defaults
+      // Resolve effective team member IDs: teamMemberIds takes precedence over teamMemberId
+      const effectiveTeamMemberIds: string[] = teamMemberIds && teamMemberIds.length > 0
+        ? teamMemberIds
+        : (teamMemberId ? [teamMemberId] : []);
+
+      // Fetch team member defaults from the effective members
+      const MODEL_POWER: Record<string, number> = { 'opus': 3, 'sonnet': 2, 'haiku': 1 };
       let teamMemberDefaults: { mode?: AgentMode; model?: string; agentTool?: AgentTool } = {};
-      if (teamMemberId && projectId) {
-        try {
-          const teamMember = await teamMemberRepo.findById(projectId, teamMemberId);
-          if (teamMember) {
-            teamMemberDefaults = {
-              mode: teamMember.mode as AgentMode | undefined,
-              model: teamMember.model,
-              agentTool: teamMember.agentTool,
-            };
-            console.log(`   ✓ Team member resolved: ${teamMember.name} (mode=${teamMember.mode})`);
+
+      if (effectiveTeamMemberIds.length > 0 && projectId) {
+        let highestModelPower = 0;
+        for (const tmId of effectiveTeamMemberIds) {
+          try {
+            const teamMember = await teamMemberRepo.findById(projectId, tmId);
+            if (teamMember) {
+              // Mode: use first member's mode (or most capable)
+              if (!teamMemberDefaults.mode && teamMember.mode) {
+                teamMemberDefaults.mode = teamMember.mode as AgentMode;
+              }
+              // Model: most powerful wins
+              const power = MODEL_POWER[teamMember.model || ''] || 0;
+              if (power > highestModelPower) {
+                highestModelPower = power;
+                teamMemberDefaults.model = teamMember.model;
+              }
+              // AgentTool: first non-default wins
+              if (!teamMemberDefaults.agentTool && teamMember.agentTool) {
+                teamMemberDefaults.agentTool = teamMember.agentTool;
+              }
+              console.log(`   ✓ Team member resolved: ${teamMember.name} (mode=${teamMember.mode})`);
+            }
+          } catch (err) {
+            console.warn(`   ⚠ Failed to fetch team member ${tmId}:`, err);
           }
-        } catch (err) {
-          console.warn(`   ⚠ Failed to fetch team member ${teamMemberId}:`, err);
         }
       }
 
@@ -500,7 +520,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       console.log(`   • mode: ${resolvedMode}`);
       console.log(`   • model: ${resolvedModel || '(not set - will default to sonnet)'}`);
       console.log(`   • agentTool: ${resolvedAgentToolFromMember || '(not set - will default to claude-code)'}`);
-      console.log(`   • teamMemberId: ${teamMemberId || '(none)'}`);
+      console.log(`   • teamMemberIds: [${effectiveTeamMemberIds.join(', ') || 'none'}]`);
 
       // Validation
       if (!projectId) {
@@ -603,7 +623,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           spawnedBy: sessionId || null,
           spawnSource,
           mode: resolvedMode,
-          teamMemberId: teamMemberId || null,
+          teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : null,
+          teamMemberIds: effectiveTeamMemberIds.length > 0 ? effectiveTeamMemberIds : null,
           context: context || {}
         },
         _suppressCreatedEvent: true
@@ -638,8 +659,10 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           model: resolvedModel,
           agentTool: resolvedAgentToolFromMember,
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
-          teamMemberIds: teamMemberIds && teamMemberIds.length > 0 ? teamMemberIds : undefined,
-          teamMemberId: teamMemberId || undefined,
+          // Multi-identity: pass teamMemberIds for multi-member sessions
+          teamMemberIds: effectiveTeamMemberIds.length > 1 ? effectiveTeamMemberIds : (delegateTeamMemberIds && delegateTeamMemberIds.length > 0 ? delegateTeamMemberIds : undefined),
+          // Single identity: backward compat
+          teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : undefined,
         });
         manifestPath = result.manifestPath;
         manifest = result.manifest;

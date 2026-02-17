@@ -14929,10 +14929,21 @@ select.input {
   z-index: 2;
 }
 
+.executionBar--inactive {
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.executionBar--inactive .terminalCmd {
+  flex: 1;
+  max-width: 180px;
+  text-align: center;
+  justify-content: center;
+}
+
 .executionBar--active {
   background: rgba(var(--theme-primary-rgb), 0.06);
   border-bottom-color: var(--terminal-green);
-  justify-content: space-between;
 }
 
 .executionBarStrategy {
@@ -14969,6 +14980,8 @@ select.input {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .executionBarActions .terminalCmd:disabled {
@@ -15011,30 +15024,29 @@ select.input {
 .executionBar--column {
   flex-direction: column;
   align-items: stretch;
-  gap: 0;
+  gap: 6px;
+  padding: 8px 12px;
 }
 
 .executionBarRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .executionBarDropdowns {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  margin-top: 8px;
+  align-items: stretch;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 /* Dropdown trigger and menu */
 .executionBarDropdown {
   position: relative;
   flex: 1;
-  min-width: 0;
+  min-width: 120px;
 }
 
 .executionBarDropdownTrigger {
@@ -15042,19 +15054,21 @@ select.input {
   align-items: center;
   gap: 6px;
   width: 100%;
-  padding: 5px 10px;
+  padding: 6px 10px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--terminal-border);
+  border-radius: 3px;
   color: var(--terminal-text);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   cursor: pointer;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease;
   text-align: left;
 }
 
 .executionBarDropdownTrigger:hover {
   border-color: var(--terminal-green);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .executionBarDropdownLabel {
@@ -15098,9 +15112,11 @@ select.input {
   z-index: 99999;
   background: var(--panel, #10151e);
   border: 1px solid var(--terminal-border);
+  border-radius: 3px;
   max-height: 220px;
   overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.5);
+  min-width: 180px;
 }
 
 .executionBarDropdownEmpty {

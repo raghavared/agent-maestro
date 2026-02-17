@@ -69,6 +69,8 @@ export const createTaskSchema = z.object({
   initialPrompt: longString.optional(),
   skillIds: z.array(safeId).optional(),
   model: modelSchema.optional(),
+  teamMemberId: safeId.optional(),
+  teamMemberIds: z.array(safeId).optional(),
 }).strict();
 
 export const updateTaskSchema = z.object({
@@ -84,6 +86,8 @@ export const updateTaskSchema = z.object({
   model: modelSchema.optional(),
   updateSource: updateSourceSchema.optional(),
   sessionId: safeId.optional(),
+  teamMemberId: safeId.optional(),
+  teamMemberIds: z.array(safeId).optional(),
 }).strict();
 
 export const taskTimelineSchema = z.object({
@@ -173,6 +177,9 @@ export const spawnSessionSchema = z.object({
   strategy: allStrategySchema.optional().default('simple'),
   context: z.record(z.string(), z.unknown()).optional(),
   model: modelSchema.optional(),
+  teamMemberId: safeId.optional(),
+  teamMemberIds: z.array(safeId).optional(),
+  delegateTeamMemberIds: z.array(safeId).optional(),
 }).strict();
 
 // --- Template schemas ---
@@ -196,6 +203,7 @@ export const sendMailSchema = z.object({
   projectId: safeId,
   fromSessionId: safeId,
   toSessionId: safeId.optional().nullable(),
+  toTeamMemberId: safeId.optional(),
   replyToMailId: safeId.optional().nullable(),
   type: mailMessageTypeSchema,
   subject: shortString,

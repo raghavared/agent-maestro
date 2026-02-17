@@ -1,4 +1,4 @@
-import type { MaestroManifest, AdditionalContext, AgentTool, AgentMode, TeamMemberData } from '../types/manifest.js';
+import type { MaestroManifest, AdditionalContext, AgentTool, AgentMode, TeamMemberData, TeamMemberProfile } from '../types/manifest.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
 import { api } from '../api.js';
@@ -164,22 +164,26 @@ export class ManifestGeneratorCLICommand {
         manifest.referenceTaskIds = options.referenceTaskIds;
       }
 
-      // Add team member identity for this session (if specified)
-      if (options.teamMemberId) {
+      // Add team member identity for this session
+      // Multi-identity: if teamMemberIds (array) is provided, build profiles array
+      const effectiveTeamMemberIds = options.teamMemberIds && options.teamMemberIds.length > 0
+        ? options.teamMemberIds
+        : (options.teamMemberId ? [options.teamMemberId] : []);
+
+      if (effectiveTeamMemberIds.length === 1 && !options.teamMemberIds?.length) {
+        // Single team member — backward compat: use singular fields
         try {
-          const teamMember: any = await api.get(`/api/team-members/${options.teamMemberId}?projectId=${options.projectId}`);
+          const teamMember: any = await api.get(`/api/team-members/${effectiveTeamMemberIds[0]}?projectId=${options.projectId}`);
           manifest.teamMemberId = teamMember.id;
           manifest.teamMemberName = teamMember.name;
           manifest.teamMemberAvatar = teamMember.avatar;
           manifest.teamMemberIdentity = teamMember.identity;
-          // Phase 2: Pass capability and command permission overrides
           if (teamMember.capabilities) {
             manifest.teamMemberCapabilities = teamMember.capabilities;
           }
           if (teamMember.commandPermissions) {
             manifest.teamMemberCommandPermissions = teamMember.commandPermissions;
           }
-          // Phase 3: Pass workflow customization
           if (teamMember.workflowTemplateId) {
             manifest.teamMemberWorkflowTemplateId = teamMember.workflowTemplateId;
           }
@@ -188,7 +192,100 @@ export class ManifestGeneratorCLICommand {
           }
           console.error(`  Team Member: ${teamMember.name} (${teamMember.id})`);
         } catch (err: any) {
-          console.error(`  Warning: Could not load team member ${options.teamMemberId}: ${err.message}`);
+          console.error(`  Warning: Could not load team member ${effectiveTeamMemberIds[0]}: ${err.message}`);
+        }
+      } else if (effectiveTeamMemberIds.length > 0) {
+        // Multi-identity: fetch all and build profiles array
+        const profiles: TeamMemberProfile[] = [];
+        const MODEL_POWER: Record<string, number> = { 'opus': 3, 'sonnet': 2, 'haiku': 1 };
+        let highestModelPower = 0;
+        let resolvedModelFromProfiles: string | undefined;
+        let resolvedAgentToolFromProfiles: AgentTool | undefined;
+
+        for (const memberId of effectiveTeamMemberIds) {
+          try {
+            const tm: any = await api.get(`/api/team-members/${memberId}?projectId=${options.projectId}`);
+            profiles.push({
+              id: tm.id,
+              name: tm.name,
+              avatar: tm.avatar,
+              identity: tm.identity,
+              capabilities: tm.capabilities,
+              commandPermissions: tm.commandPermissions,
+              workflowTemplateId: tm.workflowTemplateId,
+              customWorkflow: tm.customWorkflow,
+              model: tm.model,
+              agentTool: tm.agentTool,
+            });
+
+            // Resolve model: most powerful wins
+            const power = MODEL_POWER[tm.model || ''] || 0;
+            if (power > highestModelPower) {
+              highestModelPower = power;
+              resolvedModelFromProfiles = tm.model;
+            }
+
+            // Resolve agentTool: first non-default wins
+            if (!resolvedAgentToolFromProfiles && tm.agentTool) {
+              resolvedAgentToolFromProfiles = tm.agentTool;
+            }
+
+            console.error(`  Team Member Profile: ${tm.name} (${memberId})`);
+          } catch (err: any) {
+            console.error(`  Warning: Could not load team member ${memberId}: ${err.message}`);
+          }
+        }
+
+        if (profiles.length > 0) {
+          manifest.teamMemberProfiles = profiles;
+
+          // Override model with most powerful from profiles (if not already set by launch settings)
+          if (resolvedModelFromProfiles && !options.model) {
+            manifest.session.model = resolvedModelFromProfiles;
+          }
+
+          // Override agentTool from profiles (if not already set)
+          if (resolvedAgentToolFromProfiles && !options.agentTool) {
+            manifest.agentTool = resolvedAgentToolFromProfiles;
+          }
+
+          // Merge capabilities: union (if any member allows, it's allowed)
+          const mergedCapabilities: Record<string, boolean> = {};
+          for (const profile of profiles) {
+            if (profile.capabilities) {
+              for (const [key, value] of Object.entries(profile.capabilities)) {
+                if (value) mergedCapabilities[key] = true;
+                else if (!(key in mergedCapabilities)) mergedCapabilities[key] = false;
+              }
+            }
+          }
+          if (Object.keys(mergedCapabilities).length > 0) {
+            manifest.teamMemberCapabilities = mergedCapabilities;
+          }
+
+          // Merge command permissions: union (most permissive)
+          const mergedGroups: Record<string, boolean> = {};
+          const mergedCommands: Record<string, boolean> = {};
+          for (const profile of profiles) {
+            if (profile.commandPermissions?.groups) {
+              for (const [key, value] of Object.entries(profile.commandPermissions.groups)) {
+                if (value) mergedGroups[key] = true;
+                else if (!(key in mergedGroups)) mergedGroups[key] = false;
+              }
+            }
+            if (profile.commandPermissions?.commands) {
+              for (const [key, value] of Object.entries(profile.commandPermissions.commands)) {
+                if (value) mergedCommands[key] = true;
+                else if (!(key in mergedCommands)) mergedCommands[key] = false;
+              }
+            }
+          }
+          if (Object.keys(mergedGroups).length > 0 || Object.keys(mergedCommands).length > 0) {
+            manifest.teamMemberCommandPermissions = {
+              ...(Object.keys(mergedGroups).length > 0 ? { groups: mergedGroups } : {}),
+              ...(Object.keys(mergedCommands).length > 0 ? { commands: mergedCommands } : {}),
+            };
+          }
         }
       }
 

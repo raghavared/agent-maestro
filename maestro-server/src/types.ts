@@ -29,6 +29,7 @@ export interface SendMailPayload {
   projectId: string;
   fromSessionId: string;
   toSessionId?: string | null;
+  toTeamMemberId?: string;          // Resolve to session IDs for this team member
   replyToMailId?: string | null;
   type: MailMessageType;
   subject: string;
@@ -170,6 +171,9 @@ export interface Task {
 
   // Assigned team member for this task
   teamMemberId?: string;
+
+  // Multiple team member identities for this task (takes precedence over teamMemberId)
+  teamMemberIds?: string[];
 }
 
 export interface Session {
@@ -201,6 +205,10 @@ export interface Session {
   };
   teamMemberId?: string;
   teamMemberSnapshot?: TeamMemberSnapshot;
+
+  // Multiple team member identities for this session
+  teamMemberIds?: string[];
+  teamMemberSnapshots?: TeamMemberSnapshot[];
 }
 
 // Supporting types
@@ -262,6 +270,7 @@ export interface CreateTaskPayload {
   skillIds?: string[];
   referenceTaskIds?: string[];
   teamMemberId?: string;
+  teamMemberIds?: string[];
 }
 
 export type UpdateSource = 'user' | 'session';
@@ -279,6 +288,7 @@ export interface UpdateTaskPayload {
   referenceTaskIds?: string[];
   pinned?: boolean;
   teamMemberId?: string;
+  teamMemberIds?: string[];
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline
   // Update source tracking
   updateSource?: UpdateSource;  // Who is making the update
@@ -323,8 +333,9 @@ export interface SpawnSessionPayload {
   sessionName?: string;
   skills?: string[];
   context?: Record<string, any>;
-  teamMemberId?: string;                // Team member running this session
-  teamMemberIds?: string[];             // Team member task IDs to include in coordinate mode
+  teamMemberId?: string;                // Team member running this session (backward compat)
+  teamMemberIds?: string[];             // Multiple team member identities for this session
+  delegateTeamMemberIds?: string[];     // Team member IDs for coordination delegation pool
 }
 
 // Spawn request event (emitted by server to UI)

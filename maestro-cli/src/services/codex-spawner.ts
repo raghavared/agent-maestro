@@ -4,6 +4,7 @@ import type { MaestroManifest } from '../types/manifest.js';
 import type { SpawnResult, SpawnOptions } from './claude-spawner.js';
 import { WhoamiRenderer } from './whoami-renderer.js';
 import { getPermissionsFromManifest } from './command-permissions.js';
+import { prepareSpawnerEnvironment } from './spawner-env.js';
 
 /**
  * CodexSpawner - Spawns OpenAI Codex CLI sessions with manifests
@@ -20,31 +21,7 @@ export class CodexSpawner {
     manifest: MaestroManifest,
     sessionId: string
   ): Record<string, string> {
-    const primaryTask = manifest.tasks[0];
-    const allTaskIds = manifest.tasks.map(t => t.id).join(',');
-
-    const env: Record<string, string> = {
-      ...process.env,
-      MAESTRO_SESSION_ID: sessionId,
-      MAESTRO_TASK_IDS: allTaskIds,
-      MAESTRO_PROJECT_ID: primaryTask.projectId,
-      MAESTRO_MODE: manifest.mode,
-      MAESTRO_MANIFEST_PATH: process.env.MAESTRO_MANIFEST_PATH || '',
-      MAESTRO_SERVER_URL: process.env.MAESTRO_SERVER_URL || process.env.MAESTRO_API_URL || '',
-      MAESTRO_TASK_TITLE: primaryTask.title,
-      MAESTRO_TASK_PRIORITY: primaryTask.priority || 'medium',
-      MAESTRO_ALL_TASKS: JSON.stringify(manifest.tasks),
-    };
-
-    if (primaryTask.acceptanceCriteria && primaryTask.acceptanceCriteria.length > 0) {
-      env.MAESTRO_TASK_ACCEPTANCE = JSON.stringify(primaryTask.acceptanceCriteria);
-    }
-
-    if (primaryTask.dependencies && primaryTask.dependencies.length > 0) {
-      env.MAESTRO_TASK_DEPENDENCIES = JSON.stringify(primaryTask.dependencies);
-    }
-
-    return env as Record<string, string>;
+    return prepareSpawnerEnvironment(manifest, sessionId);
   }
 
   /** All supported Codex models */
@@ -97,6 +74,22 @@ export class CodexSpawner {
   }
 
   /**
+   * Map manifest permission mode to Codex sandbox mode
+   */
+  private mapSandboxMode(permissionMode: string): string {
+    switch (permissionMode) {
+      case 'bypassPermissions':
+      case 'acceptEdits':
+        return 'danger-full-access';
+      case 'readOnly':
+        return 'locked-down';
+      case 'interactive':
+      default:
+        return 'locked-down';
+    }
+  }
+
+  /**
    * Build Codex CLI arguments
    */
   buildCodexArgs(manifest: MaestroManifest): string[] {
@@ -110,12 +103,18 @@ export class CodexSpawner {
     const approval = this.mapApprovalPolicy(manifest.session.permissionMode);
     args.push('--ask-for-approval', approval);
 
-    // Set sandbox mode to danger-full-access
-    args.push('--sandbox', 'danger-full-access');
+    // Set sandbox mode based on permission mode
+    const sandbox = this.mapSandboxMode(manifest.session.permissionMode);
+    args.push('--sandbox', sandbox);
 
     // Set working directory if specified
     if (manifest.session.workingDirectory) {
       args.push('--cd', manifest.session.workingDirectory);
+    }
+
+    // Add max turns if specified
+    if (manifest.session.maxTurns) {
+      args.push('--max-turns', manifest.session.maxTurns.toString());
     }
 
     return args;
@@ -147,9 +146,7 @@ export class CodexSpawner {
     args.push('-c', `developer_instructions=${JSON.stringify(systemPrompt)}`);
 
     // Dynamic task context as the prompt argument
-    // Append system prompt to initial prompt for debugging (full context visibility)
-    const fullInitialPrompt = `${taskContext}\n\n<debug_developer_instructions>\n${systemPrompt}\n</debug_developer_instructions>`;
-    args.push(fullInitialPrompt);
+    args.push(taskContext);
 
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
 
@@ -167,7 +164,6 @@ export class CodexSpawner {
 
     return {
       sessionId,
-      promptFile: '',
       process: codexProcess,
       sendInput,
     };

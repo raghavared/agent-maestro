@@ -44,7 +44,7 @@ export class PromptBuilder {
 
     const parts: string[] = [];
     parts.push(`<maestro_system_prompt mode="${mode}" version="3.0">`);
-    parts.push(this.buildIdentity(mode));
+    parts.push(this.buildIdentity(mode, manifest));
     // Team member identity (if this session is for a custom team member)
     const teamMemberIdentity = this.buildTeamMemberIdentity(manifest);
     if (teamMemberIdentity) parts.push(teamMemberIdentity);
@@ -52,6 +52,9 @@ export class PromptBuilder {
     const teamMembers = this.buildTeamMembers(manifest.teamMembers);
     if (teamMembers) parts.push(teamMembers);
     parts.push(this.buildWorkflow(mode, manifest));
+    // Note: commands_reference is injected by WhoamiRenderer.renderSystemPrompt()
+    // using the dynamic compact command brief from command-permissions.ts.
+    // Do NOT add buildCommandsReference() here — it would create a duplicate block.
     parts.push('</maestro_system_prompt>');
     return parts.join('\n');
   }
@@ -76,7 +79,9 @@ export class PromptBuilder {
     const context = this.buildContext(manifest);
     if (context) parts.push(context);
 
-    if (manifest.skills && manifest.skills.length > 0) {
+    // Only include skills for Claude (other agent tools don't support plugin-based skills)
+    const agentTool = manifest.agentTool || 'claude-code';
+    if (manifest.skills && manifest.skills.length > 0 && agentTool === 'claude-code') {
       parts.push(this.buildSkills(manifest.skills));
     }
 
@@ -102,7 +107,7 @@ export class PromptBuilder {
     parts.push(`<maestro_prompt mode="${mode}" version="3.0">`);
 
     // Identity
-    parts.push(this.buildIdentity(mode));
+    parts.push(this.buildIdentity(mode, manifest));
 
     // Tasks
     parts.push(this.buildTasks(manifest));
@@ -136,7 +141,7 @@ export class PromptBuilder {
 
   // ── Internal builders ────────────────────────────────────────
 
-  private buildIdentity(mode: AgentMode): string {
+  private buildIdentity(mode: AgentMode, manifest?: MaestroManifest): string {
     const lines = ['  <identity>'];
     lines.push('    <profile>maestro-agent</profile>');
     if (mode === 'execute') {
@@ -144,16 +149,53 @@ export class PromptBuilder {
     } else {
       lines.push('    <instruction>You are a coordinator agent. You NEVER do tasks directly. Your job is to decompose tasks into subtasks, spawn worker sessions, monitor their progress, and report results. Follow the workflow phases in order.</instruction>');
     }
+    if (manifest) {
+      if (manifest.agentTool) {
+        lines.push(`    <agent_tool>${this.esc(manifest.agentTool)}</agent_tool>`);
+      }
+      if (manifest.session?.model) {
+        lines.push(`    <model>${this.esc(manifest.session.model)}</model>`);
+      }
+      const projectId = manifest.tasks[0]?.projectId;
+      if (projectId) {
+        lines.push(`    <project_id>${this.esc(projectId)}</project_id>`);
+      }
+    }
     lines.push('  </identity>');
     return lines.join('\n');
   }
 
   private buildTeamMemberIdentity(manifest: MaestroManifest): string | null {
-    if (!manifest.teamMemberId || !manifest.teamMemberName) return null;
+    // Multi-identity: if teamMemberProfiles has multiple entries, render all
+    if (manifest.teamMemberProfiles && manifest.teamMemberProfiles.length > 1) {
+      const profiles = manifest.teamMemberProfiles.filter(p => p.identity);
+      if (profiles.length === 0) return null;
 
-    // Only emit identity block for custom team members with custom instructions.
-    // Default members (Worker/Coordinator) already have their identity in buildIdentity().
-    // Skip if no custom identity is provided.
+      const lines = [`  <team_member_identities count="${profiles.length}">`];
+      lines.push('    <instruction>You are assuming all the following identities simultaneously. Draw on the combined expertise, perspectives, and domain knowledge of each identity when executing your tasks.</instruction>');
+      for (const profile of profiles) {
+        lines.push(`    <team_member_identity name="${this.esc(profile.name)}" avatar="${this.esc(profile.avatar)}">`);
+        lines.push(`      <instructions>${this.esc(profile.identity)}</instructions>`);
+        lines.push('    </team_member_identity>');
+      }
+      lines.push('  </team_member_identities>');
+      return lines.join('\n');
+    }
+
+    // Single identity (backward compat): check singular fields or single-element profiles array
+    if (manifest.teamMemberProfiles && manifest.teamMemberProfiles.length === 1) {
+      const profile = manifest.teamMemberProfiles[0];
+      if (!profile.identity) return null;
+      const lines = ['  <team_member_identity>'];
+      lines.push(`    <name>${this.esc(profile.name)}</name>`);
+      lines.push(`    <avatar>${this.esc(profile.avatar)}</avatar>`);
+      lines.push(`    <instructions>${this.esc(profile.identity)}</instructions>`);
+      lines.push('  </team_member_identity>');
+      return lines.join('\n');
+    }
+
+    // Original singular fields (backward compat)
+    if (!manifest.teamMemberId || !manifest.teamMemberName) return null;
     if (!manifest.teamMemberIdentity) return null;
 
     const lines = ['  <team_member_identity>'];
@@ -180,8 +222,14 @@ export class PromptBuilder {
       if (t.parentId) {
         lines.push(`      <parent_id>${this.esc(t.parentId)}</parent_id>`);
       }
+      if (t.status) {
+        lines.push(`      <status>${this.esc(t.status)}</status>`);
+      }
       lines.push(`      <priority>${t.priority || 'medium'}</priority>`);
-      lines.push(`      <acceptance_criteria>${this.formatAcceptanceCriteria(t.acceptanceCriteria)}</acceptance_criteria>`);
+      const ac = this.formatAcceptanceCriteria(t.acceptanceCriteria);
+      if (ac) {
+        lines.push(`      <acceptance_criteria>${ac}</acceptance_criteria>`);
+      }
       if (t.dependencies && t.dependencies.length > 0) {
         lines.push('      <dependencies>' + t.dependencies.map(d => `<dep>${this.esc(d)}</dep>`).join('') + '</dependencies>');
       }
@@ -365,9 +413,46 @@ export class PromptBuilder {
   }
 
   private buildWorkflow(mode: AgentMode, manifest?: MaestroManifest): string {
-    // Phase 3: Check for custom workflow or template from team member
+    // Multi-identity: merge workflows from all profiles
+    if (manifest?.teamMemberProfiles && manifest.teamMemberProfiles.length > 1) {
+      const allPhases: { name: string; description: string }[] = [];
+      const seenPhaseNames = new Set<string>();
+
+      for (const profile of manifest.teamMemberProfiles) {
+        if (profile.customWorkflow) {
+          // Custom freeform — add as a single phase
+          const phaseName = `custom_${profile.name.toLowerCase().replace(/\s+/g, '_')}`;
+          if (!seenPhaseNames.has(phaseName)) {
+            allPhases.push({ name: phaseName, description: profile.customWorkflow });
+            seenPhaseNames.add(phaseName);
+          }
+        } else if (profile.workflowTemplateId) {
+          const template = getWorkflowTemplate(profile.workflowTemplateId);
+          if (template) {
+            for (const phase of template.phases) {
+              if (!seenPhaseNames.has(phase.name)) {
+                allPhases.push({ name: phase.name, description: phase.instruction });
+                seenPhaseNames.add(phase.name);
+              }
+            }
+          }
+        }
+      }
+
+      // If we collected phases from profiles, use them; otherwise fall through to defaults
+      if (allPhases.length > 0) {
+        const lines = ['  <workflow>'];
+        for (const phase of allPhases) {
+          lines.push(`    <phase name="${phase.name}">${phase.description}</phase>`);
+        }
+        lines.push('  </workflow>');
+        return lines.join('\n');
+      }
+      // Fall through to default mode-based workflow
+    }
+
+    // Phase 3: Check for custom workflow or template from team member (singular)
     if (manifest?.teamMemberCustomWorkflow) {
-      // Custom freeform workflow text
       const lines = ['  <workflow>'];
       lines.push(`    ${manifest.teamMemberCustomWorkflow}`);
       lines.push('  </workflow>');
@@ -384,7 +469,6 @@ export class PromptBuilder {
         lines.push('  </workflow>');
         return lines.join('\n');
       }
-      // Template not found, fall through to default
     }
 
     // Default: compute from mode
@@ -407,7 +491,13 @@ export class PromptBuilder {
         {
           name: 'execute',
           description:
-            'Read your assigned tasks in the <tasks> block. Work through each task directly — do not decompose or delegate.',
+            'Read your assigned tasks in the <tasks> block. Work through each task directly — do not decompose or delegate.\n' +
+            'After completing each task (or major sub-step), check your mailbox for directives:\n' +
+            '  maestro mail inbox\n' +
+            'Mail types you may receive: "directive" (instructions to follow), "query" (questions to answer), "status" (informational).\n' +
+            'If you receive a directive, prioritize it over current work. For queries, respond using:\n' +
+            '  maestro mail reply <mailId> --message "<response>"\n' +
+            'If no mail is present, continue with your tasks.',
         },
         {
           name: 'report',
@@ -442,16 +532,31 @@ export class PromptBuilder {
       {
         name: 'spawn',
         description:
-          'Spawn a worker session for each subtask:\n' +
+          'Spawn worker sessions for subtasks. You can spawn multiple workers in parallel — do NOT wait for each to finish before spawning the next:\n' +
           '  maestro session spawn --task <subtaskId> [--team-member-id <tmId>] [--agent-tool <claude-code|codex|gemini>] [--model <model>]\n' +
-          'Spawn sequentially. Collect all session IDs.',
+          'Collect all session IDs for monitoring.',
       },
       {
         name: 'monitor',
         description:
           'Watch spawned sessions:\n' +
           '  maestro session watch <id1>,<id2>,...\n' +
-          'If a worker is BLOCKED, investigate with `maestro task get <taskId>`.',
+          'If a worker is BLOCKED, investigate with `maestro task get <taskId>` and review session docs.\n' +
+          'You can send directives to running workers via mail:\n' +
+          '  maestro mail send <sessionId> --type directive --subject "<subject>" --message "<instructions>"\n' +
+          '  maestro mail send --to-team-member <tmId> --type directive --subject "<subject>" --message "<instructions>"\n' +
+          'Check your own inbox for status updates from workers:\n' +
+          '  maestro mail inbox',
+      },
+      {
+        name: 'recover',
+        description:
+          'If a worker fails or reports blocked:\n' +
+          '  1. Check the error: maestro task get <taskId>\n' +
+          '  2. Review session docs: maestro session docs list\n' +
+          '  3. Either re-spawn the task with a different approach or reassign to another team member:\n' +
+          '     maestro session spawn --task <taskId> [--team-member-id <tmId>]\n' +
+          '  4. If the issue is systemic, adjust remaining subtasks before proceeding.',
       },
       {
         name: 'verify',
@@ -469,11 +574,43 @@ export class PromptBuilder {
     ];
   }
 
+  private buildCommandsReference(mode: AgentMode): string {
+    const lines = ['  <commands_reference>'];
+    lines.push('    ## Maestro Commands');
+    lines.push('    maestro {whoami|status|commands} — Core utilities');
+    lines.push('    maestro task {list|get|create|edit|delete|children} — Task management');
+    lines.push('    maestro task report {progress|complete|blocked|error} — Task report');
+    lines.push('    maestro task docs {add|list} — Task docs');
+    lines.push('    maestro session {info} — Session management');
+    lines.push('    maestro session report {progress|complete|blocked|error} — Session report');
+    lines.push('    maestro session docs {add|list} — Session docs');
+    lines.push('    maestro show {modal} — UI display');
+    lines.push('    maestro modal {events} — Modal interaction');
+
+    // Mail commands - available for both modes
+    lines.push('    maestro mail send [<sessionId>,...] --type <type> --subject "<subject>" [--message "<msg>"] [--to-team-member <tmId>] — Send mail');
+    lines.push('    maestro mail inbox [--type <type>] — Check inbox');
+    lines.push('    maestro mail reply <mailId> --message "<msg>" — Reply to mail');
+    lines.push('    maestro mail wait [--timeout <ms>] — Wait for new mail');
+
+    if (mode === 'coordinate') {
+      lines.push('    maestro session {list|watch|spawn} — Session coordination');
+      lines.push('    maestro mail broadcast --type <type> --subject "<subject>" [--message "<msg>"] — Broadcast to all');
+    }
+
+    lines.push('    Run `maestro commands` for full syntax reference.');
+    lines.push('  </commands_reference>');
+    return lines.join('\n');
+  }
+
   // ── Formatting helpers ───────────────────────────────────────
 
-  formatAcceptanceCriteria(criteria?: string[]): string {
+  formatAcceptanceCriteria(criteria?: string[]): string | null {
     if (!criteria || criteria.length === 0) {
-      return 'No acceptance criteria specified.';
+      return null;
+    }
+    if (criteria.length === 1) {
+      return criteria[0];
     }
     return criteria.map((c, i) => `${i + 1}. ${c}`).join('\n');
   }

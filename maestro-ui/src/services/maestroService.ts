@@ -35,8 +35,15 @@ export async function createMaestroSession(input: {
     // Determine skill based on mode
     const defaultSkill = resolvedMode === 'coordinate' ? 'maestro-orchestrator' : 'maestro-worker';
 
-    // Resolve teamMemberId from the first task if not explicitly provided
-    const resolvedTeamMemberId = teamMemberId || taskList[0].teamMemberId;
+    // Resolve team member identities:
+    // 1. Explicit teamMemberIds from input (multi-identity)
+    // 2. Task's teamMemberIds (multi-identity from task)
+    // 3. Explicit teamMemberId from input (single)
+    // 4. Task's teamMemberId (single, backward compat)
+    const resolvedTeamMemberIds = teamMemberIds && teamMemberIds.length > 0
+      ? teamMemberIds
+      : (taskList[0].teamMemberIds && taskList[0].teamMemberIds.length > 0 ? taskList[0].teamMemberIds : undefined);
+    const resolvedTeamMemberId = !resolvedTeamMemberIds ? (teamMemberId || taskList[0].teamMemberId) : undefined;
 
     try {
       const response = await maestroClient.spawnSession({
@@ -48,7 +55,7 @@ export async function createMaestroSession(input: {
           ? `Multi-Task: ${taskList[0].title}`
           : taskList[0].title,
         skills: skillIds || [defaultSkill],
-        ...(teamMemberIds && teamMemberIds.length > 0 ? { teamMemberIds } : {}),
+        ...(resolvedTeamMemberIds && resolvedTeamMemberIds.length > 0 ? { teamMemberIds: resolvedTeamMemberIds } : {}),
         ...(resolvedTeamMemberId ? { teamMemberId: resolvedTeamMemberId } : {}),
         ...(agentTool ? { agentTool } : {}),
         ...(model ? { model } : {}),

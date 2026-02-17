@@ -273,42 +273,15 @@ describe('ClaudeSpawner', () => {
     });
   });
 
-  describe('writePromptToFile', () => {
-    it('should write prompt to temp file', async () => {
-      const prompt = 'Test prompt content';
-      const filePath = await spawner.writePromptToFile(prompt);
-
-      createdFiles.push(filePath);
-
-      expect(filePath).toBeDefined();
-      expect(existsSync(filePath)).toBe(true);
-      expect(filePath).toContain('.md');
-    });
-
-    it('should create unique file paths', async () => {
-      const prompt = 'Test prompt';
-      const filePath1 = await spawner.writePromptToFile(prompt);
-      const filePath2 = await spawner.writePromptToFile(prompt);
-
-      createdFiles.push(filePath1, filePath2);
-
-      expect(filePath1).not.toEqual(filePath2);
-      expect(existsSync(filePath1)).toBe(true);
-      expect(existsSync(filePath2)).toBe(true);
-    });
-  });
-
   describe('SpawnResult interface', () => {
     it('should define SpawnResult structure', () => {
       // This is a type check test
       const result: SpawnResult = {
         sessionId: 'session-123',
-        promptFile: '/tmp/prompt.md',
         process: null as any, // Would be ChildProcess in real usage
       };
 
       expect(result.sessionId).toBe('session-123');
-      expect(result.promptFile).toBe('/tmp/prompt.md');
     });
   });
 
@@ -326,13 +299,4 @@ describe('ClaudeSpawner', () => {
     });
   });
 
-  describe('Error handling', () => {
-    it('should handle write errors gracefully', async () => {
-      // Test with invalid path (implementation should handle this)
-      const prompt = 'Test';
-
-      // This should not throw, or should handle error gracefully
-      await expect(spawner.writePromptToFile(prompt)).resolves.toBeDefined();
-    });
-  });
 });
