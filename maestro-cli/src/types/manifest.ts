@@ -190,9 +190,6 @@ export interface TaskData {
   /** Custom metadata (agent assignments, tags, etc.) */
   metadata?: Record<string, any>;
 
-  /** Preferred model for this task (e.g. 'sonnet', 'opus', 'haiku', or native model names) */
-  model?: string;
-
   /** Unified status (single source of truth). Optional in manifests. */
   status?: TaskStatus;
 

@@ -1,16 +1,40 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { MaestroTask, TeamMember, WorkerStrategy, OrchestratorStrategy } from "../../app/types/maestro";
+import { MaestroTask, TeamMember, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType, ClaudeModel, CodexModel } from "../../app/types/maestro";
 import { WhoamiPreview } from "./WhoamiPreview";
 
 type ExecutionMode = 'none' | 'execute' | 'orchestrate';
+
+type LaunchOverride = { agentTool: AgentTool; model: ModelType };
+
+const AGENT_TOOLS: { id: AgentTool; label: string; symbol: string; models: { id: ModelType; label: string }[] }[] = [
+    {
+        id: 'claude-code',
+        label: 'Claude Code',
+        symbol: '◈',
+        models: [
+            { id: 'haiku' as ClaudeModel, label: 'Haiku' },
+            { id: 'sonnet' as ClaudeModel, label: 'Sonnet' },
+            { id: 'opus' as ClaudeModel, label: 'Opus' },
+        ],
+    },
+    {
+        id: 'codex',
+        label: 'Codex',
+        symbol: '◇',
+        models: [
+            { id: 'gpt-5.2-codex' as CodexModel, label: 'GPT 5.2' },
+            { id: 'gpt-5.3-codex' as CodexModel, label: 'GPT 5.3' },
+        ],
+    },
+];
 
 type ExecutionBarProps = {
     isActive: boolean;
     onActivate: () => void;
     onCancel: () => void;
-    onExecute: (teamMemberId?: string) => void;
-    onOrchestrate: (coordinatorId?: string, workerIds?: string[]) => void;
+    onExecute: (teamMemberId?: string, override?: LaunchOverride) => void;
+    onOrchestrate: (coordinatorId?: string, workerIds?: string[], override?: LaunchOverride) => void;
     selectedCount: number;
     activeMode?: ExecutionMode;
     onActivateOrchestrate: () => void;
@@ -232,6 +256,33 @@ export function ExecutionBar({
     const [selectedCoordinatorId, setSelectedCoordinatorId] = useState<string | null>(null);
     const [selectedWorkerIds, setSelectedWorkerIds] = useState<Set<string>>(new Set());
 
+    // Launch override (model/tool override for the session)
+    const [launchOverride, setLaunchOverride] = useState<LaunchOverride | null>(null);
+    const [showLaunchDropdown, setShowLaunchDropdown] = useState(false);
+    const [expandedTool, setExpandedTool] = useState<AgentTool | null>(null);
+    const launchBtnRef = useRef<HTMLButtonElement>(null);
+    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; right: number; openDirection: 'down' | 'up' } | null>(null);
+
+    const computeLaunchPos = useCallback(() => {
+        const btn = launchBtnRef.current;
+        if (!btn) return null;
+        const rect = btn.getBoundingClientRect();
+        const rightOffset = window.innerWidth - rect.right;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        if (spaceAbove >= 200 || spaceAbove >= spaceBelow) {
+            return { bottom: (window.innerHeight - rect.top) + 4, right: rightOffset, openDirection: 'up' as const };
+        } else {
+            return { top: rect.bottom + 4, right: rightOffset, openDirection: 'down' as const };
+        }
+    }, []);
+
+    useLayoutEffect(() => {
+        if (showLaunchDropdown) {
+            setLaunchDropdownPos(computeLaunchPos());
+        }
+    }, [showLaunchDropdown, computeLaunchPos]);
+
     const activeMembers = teamMembers.filter(m => m.status === 'active');
 
     // For orchestrate: coordinators have mode=coordinate, workers have mode=execute
@@ -241,6 +292,21 @@ export function ExecutionBar({
     // Derive strategy from selected team member for WhoamiPreview
     const selectedExecuteMember = activeMembers.find(m => m.id === selectedExecuteMemberId);
     const selectedCoordinator = coordinatorMembers.find(m => m.id === selectedCoordinatorId);
+
+    // Effective model: override > selected team member's model
+    const effectiveExecuteModel = launchOverride?.model || selectedExecuteMember?.model || null;
+    const effectiveCoordinatorModel = launchOverride?.model || selectedCoordinator?.model || null;
+
+    // Reset override when team member changes
+    const handleSelectExecuteMember = (id: string | null) => {
+        setSelectedExecuteMemberId(id);
+        setLaunchOverride(null);
+    };
+
+    const handleSelectCoordinator = (id: string | null) => {
+        setSelectedCoordinatorId(id);
+        setLaunchOverride(null);
+    };
 
     if (!isActive) {
         return (
@@ -261,6 +327,75 @@ export function ExecutionBar({
         );
     }
 
+    // Shared launch dropdown portal
+    const launchDropdownPortal = showLaunchDropdown && launchDropdownPos && createPortal(
+        <>
+            <div
+                className="executionBarDropdownBackdrop"
+                onClick={() => setShowLaunchDropdown(false)}
+            />
+            <div
+                className={`terminalLaunchDropdown terminalLaunchDropdown--fixed ${launchDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
+                style={{
+                    ...(launchDropdownPos.openDirection === 'down'
+                        ? { top: launchDropdownPos.top }
+                        : { bottom: launchDropdownPos.bottom }),
+                    right: launchDropdownPos.right,
+                }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="terminalLaunchDropdown__header">Launch With</div>
+                {AGENT_TOOLS.map((tool) => (
+                    <div key={tool.id} className="terminalLaunchDropdown__toolGroup">
+                        <button
+                            className={`terminalLaunchDropdown__tool ${expandedTool === tool.id ? 'terminalLaunchDropdown__tool--expanded' : ''}`}
+                            onClick={() => setExpandedTool(expandedTool === tool.id ? null : tool.id)}
+                        >
+                            <span className="terminalLaunchDropdown__toolSymbol">{tool.symbol}</span>
+                            <span className="terminalLaunchDropdown__toolLabel">{tool.label}</span>
+                            <span className="terminalLaunchDropdown__toolCaret">{expandedTool === tool.id ? '▴' : '▸'}</span>
+                        </button>
+                        {expandedTool === tool.id && (
+                            <div className="terminalLaunchDropdown__models">
+                                {tool.models.map((model) => (
+                                    <button
+                                        key={model.id}
+                                        className={`terminalLaunchDropdown__model ${launchOverride?.model === model.id && launchOverride?.agentTool === tool.id ? 'terminalLaunchDropdown__model--selected' : ''}`}
+                                        onClick={() => {
+                                            setShowLaunchDropdown(false);
+                                            setLaunchOverride({ agentTool: tool.id, model: model.id });
+                                        }}
+                                    >
+                                        {model.label}
+                                        {launchOverride?.model === model.id && launchOverride?.agentTool === tool.id && (
+                                            <span style={{ marginLeft: 'auto', color: 'var(--terminal-green)' }}> ✓</span>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ))}
+                {launchOverride && (
+                    <>
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
+                        <button
+                            className="terminalLaunchDropdown__model"
+                            style={{ color: 'var(--terminal-text-dim)', paddingLeft: 10 }}
+                            onClick={() => {
+                                setShowLaunchDropdown(false);
+                                setLaunchOverride(null);
+                            }}
+                        >
+                            ✕ Clear override
+                        </button>
+                    </>
+                )}
+            </div>
+        </>,
+        document.body
+    );
+
     if (activeMode === 'orchestrate') {
         const totalWorkerCount = selectedWorkerIds.size;
 
@@ -273,9 +408,14 @@ export function ExecutionBar({
                                 label="Coordinator"
                                 members={coordinatorMembers}
                                 selectedId={selectedCoordinatorId}
-                                onSelect={setSelectedCoordinatorId}
+                                onSelect={handleSelectCoordinator}
                                 accentColor="var(--terminal-amber, #ffab00)"
                             />
+                            {effectiveCoordinatorModel && (
+                                <span className={`executionBarModelBadge ${launchOverride ? 'executionBarModelBadge--override' : ''}`}>
+                                    {effectiveCoordinatorModel}
+                                </span>
+                            )}
                             <TeamMemberMultiDropdown
                                 label="Workers"
                                 members={workerMembers}
@@ -295,19 +435,34 @@ export function ExecutionBar({
                         </div>
                         <div className="executionBarActions">
                             <button className="terminalCmd" onClick={onCancel}>cancel</button>
-                            <button
-                                className="terminalCmd terminalCmdOrchestrate"
-                                onClick={() => onOrchestrate(
-                                    selectedCoordinatorId || undefined,
-                                    selectedWorkerIds.size > 0 ? Array.from(selectedWorkerIds) : undefined,
-                                )}
-                                disabled={selectedCount === 0}
-                            >
-                                <span className="terminalPrompt">$</span> orchestrate ({selectedCount} task{selectedCount !== 1 ? "s" : ""}{totalWorkerCount > 0 ? `, ${totalWorkerCount} worker${totalWorkerCount !== 1 ? 's' : ''}` : ''})
-                            </button>
+                            <div className="executionBarSplitBtn">
+                                <button
+                                    className="terminalCmd terminalCmdOrchestrate executionBarSplitBtn__main"
+                                    onClick={() => onOrchestrate(
+                                        selectedCoordinatorId || undefined,
+                                        selectedWorkerIds.size > 0 ? Array.from(selectedWorkerIds) : undefined,
+                                        launchOverride || undefined,
+                                    )}
+                                    disabled={selectedCount === 0}
+                                >
+                                    <span className="terminalPrompt">$</span> orchestrate ({selectedCount} task{selectedCount !== 1 ? "s" : ""}{totalWorkerCount > 0 ? `, ${totalWorkerCount} worker${totalWorkerCount !== 1 ? 's' : ''}` : ''})
+                                </button>
+                                <button
+                                    ref={launchBtnRef}
+                                    className={`terminalCmd terminalCmdOrchestrate executionBarSplitBtn__caret ${showLaunchDropdown ? 'executionBarSplitBtn__caret--open' : ''}`}
+                                    onClick={() => {
+                                        setShowLaunchDropdown(!showLaunchDropdown);
+                                        setExpandedTool(null);
+                                    }}
+                                    title="Launch options"
+                                >
+                                    ▾
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
+                {launchDropdownPortal}
                 {selectedTasks.length > 0 && projectId && (
                     <WhoamiPreview
                         mode="orchestrate"
@@ -330,21 +485,40 @@ export function ExecutionBar({
                             label="Team Member"
                             members={activeMembers}
                             selectedId={selectedExecuteMemberId}
-                            onSelect={setSelectedExecuteMemberId}
+                            onSelect={handleSelectExecuteMember}
                         />
+                        {effectiveExecuteModel && (
+                            <span className={`executionBarModelBadge ${launchOverride ? 'executionBarModelBadge--override' : ''}`}>
+                                {effectiveExecuteModel}
+                            </span>
+                        )}
                     </div>
                     <div className="executionBarActions">
                         <button className="terminalCmd" onClick={onCancel}>cancel</button>
-                        <button
-                            className="terminalCmd terminalCmdPrimary"
-                            onClick={() => onExecute(selectedExecuteMemberId || undefined)}
-                            disabled={selectedCount === 0}
-                        >
-                            <span className="terminalPrompt">$</span> execute ({selectedCount} task{selectedCount !== 1 ? "s" : ""})
-                        </button>
+                        <div className="executionBarSplitBtn">
+                            <button
+                                className="terminalCmd terminalCmdPrimary executionBarSplitBtn__main"
+                                onClick={() => onExecute(selectedExecuteMemberId || undefined, launchOverride || undefined)}
+                                disabled={selectedCount === 0}
+                            >
+                                <span className="terminalPrompt">$</span> execute ({selectedCount} task{selectedCount !== 1 ? "s" : ""})
+                            </button>
+                            <button
+                                ref={launchBtnRef}
+                                className={`terminalCmd terminalCmdPrimary executionBarSplitBtn__caret ${showLaunchDropdown ? 'executionBarSplitBtn__caret--open' : ''}`}
+                                onClick={() => {
+                                    setShowLaunchDropdown(!showLaunchDropdown);
+                                    setExpandedTool(null);
+                                }}
+                                title="Launch options"
+                            >
+                                ▾
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
+            {launchDropdownPortal}
             {selectedTasks.length > 0 && projectId && (
                 <WhoamiPreview
                     mode="execute"

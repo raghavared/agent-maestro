@@ -63,11 +63,6 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
             required: [],
             additionalProperties: true,
           },
-          model: {
-            type: 'string',
-            nullable: true,
-            description: 'Preferred model for this task',
-          },
           status: {
             type: 'string',
             enum: ['todo', 'in_progress', 'in_review', 'completed', 'cancelled', 'blocked'],

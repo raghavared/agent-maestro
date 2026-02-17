@@ -165,12 +165,6 @@ export interface Task {
   // Reference task IDs for context (docs from these tasks are provided to the agent)
   referenceTaskIds?: string[];
 
-  // Model configuration
-  model?: string;
-
-  // Agent tool configuration
-  agentTool?: AgentTool;
-
   // Pinned tasks appear in the dedicated "Pinned" tab for quick re-execution
   pinned?: boolean;
 
@@ -267,8 +261,6 @@ export interface CreateTaskPayload {
   initialPrompt?: string;
   skillIds?: string[];
   referenceTaskIds?: string[];
-  model?: string;
-  agentTool?: AgentTool;
   teamMemberId?: string;
 }
 
@@ -285,8 +277,6 @@ export interface UpdateTaskPayload {
   skillIds?: string[];         // PHASE IV-B
   agentIds?: string[];         // PHASE IV-C
   referenceTaskIds?: string[];
-  model?: string;
-  agentTool?: AgentTool;
   pinned?: boolean;
   teamMemberId?: string;
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline
@@ -332,8 +322,6 @@ export interface SpawnSessionPayload {
   sessionId?: string;                   // Required when spawnSource === 'session' (parent session ID)
   sessionName?: string;
   skills?: string[];
-  model?: string;                       // Model to use for the session
-  agentTool?: AgentTool;                // Agent tool to use ('claude-code', 'codex', or 'gemini')
   context?: Record<string, any>;
   teamMemberId?: string;                // Team member running this session
   teamMemberIds?: string[];             // Team member task IDs to include in coordinate mode

@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useRef, useCallback } from "react";
-import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy } from "../../app/types/maestro";
+import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType } from "../../app/types/maestro";
 import { TaskListItem } from "./TaskListItem";
 import { TaskFilters, SortByOption } from "./TaskFilters";
 import { SortableTaskList } from "./SortableTaskList";
@@ -25,7 +25,7 @@ type MaestroPanelProps = {
     onClose: () => void;
     projectId: string;
     project: MaestroProject;
-    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy | OrchestratorStrategy; mode?: 'execute' | 'coordinate'; teamMemberIds?: string[]; teamMemberId?: string }) => Promise<any>;
+    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy | OrchestratorStrategy; mode?: 'execute' | 'coordinate'; teamMemberIds?: string[]; teamMemberId?: string; agentTool?: AgentTool; model?: ModelType }) => Promise<any>;
     onJumpToSession?: (maestroSessionId: string) => void;
     onAddTaskToSession?: (taskId: string) => void;
 };
@@ -219,8 +219,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 skillIds: taskData.skillIds,
                 referenceTaskIds: taskData.referenceTaskIds,
                 parentId: taskData.parentId,
-                model: taskData.model,
-                agentTool: taskData.agentTool,
+                teamMemberId: taskData.teamMemberId,
             });
 
             // Task will be added via WebSocket event automatically
@@ -271,7 +270,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }
     };
 
-    const handleWorkOnTask = async (task: MaestroTask) => {
+    const handleWorkOnTask = async (task: MaestroTask, override?: { agentTool: AgentTool; model: ModelType }) => {
         // Look up assigned team member (default to first simple_worker default)
         const teamMemberId = task.teamMemberId;
         const member = teamMemberId ? teamMembersMap.get(teamMemberId) : null;
@@ -282,6 +281,9 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         console.log('[MaestroPanel.handleWorkOnTask] Task ID:', task.id);
         console.log('[MaestroPanel.handleWorkOnTask] Team Member:', member?.name || '(default)');
         console.log('[MaestroPanel.handleWorkOnTask] Mode:', mode);
+        if (override) {
+            console.log('[MaestroPanel.handleWorkOnTask] Override:', override.agentTool, override.model);
+        }
         console.log('[MaestroPanel.handleWorkOnTask] ========================================');
 
         try {
@@ -290,6 +292,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 project,
                 mode,
                 teamMemberId,
+                ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
             });
 
             console.log('[MaestroPanel.handleWorkOnTask] ✓ Session created successfully!');
@@ -306,7 +309,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }));
     };
 
-    const handleBatchExecute = async (teamMemberId?: string) => {
+    const handleBatchExecute = async (teamMemberId?: string, override?: { agentTool: AgentTool; model: ModelType }) => {
         const selectedTasks = normalizedTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
 
@@ -315,6 +318,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 tasks: selectedTasks,
                 project,
                 teamMemberId,
+                ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
             });
             setExecutionMode(false);
             setActiveBarMode('none');
@@ -325,7 +329,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }
     };
 
-    const handleBatchOrchestrate = async (coordinatorId?: string, workerIds?: string[]) => {
+    const handleBatchOrchestrate = async (coordinatorId?: string, workerIds?: string[], override?: { agentTool: AgentTool; model: ModelType }) => {
         const selectedTasks = regularTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
 
@@ -337,6 +341,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 skillIds: ['maestro-orchestrator'],
                 teamMemberId: coordinatorId,
                 teamMemberIds: workerIds && workerIds.length > 0 ? workerIds : undefined,
+                ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
             });
             setExecutionMode(false);
             setActiveBarMode('none');
@@ -536,6 +541,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         setShowDetailModal(true);
                     }}
                     onWorkOn={() => handleWorkOnTask(node)}
+                    onWorkOnWithOverride={(agentTool: AgentTool, model: ModelType) => handleWorkOnTask(node, { agentTool, model })}
                     onAssignTeamMember={(teamMemberId: string) => handleAssignTeamMember(node.id, teamMemberId)}
                     onOpenCreateTeamMember={() => setShowCreateTeamMemberModal(true)}
                     onJumpToSession={(sid) => onJumpToSession?.(sid)}

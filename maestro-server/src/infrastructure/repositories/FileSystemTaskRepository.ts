@@ -129,8 +129,6 @@ export class FileSystemTaskRepository implements ITaskRepository {
       agentIds: [],
       dependencies: [],
       referenceTaskIds: input.referenceTaskIds || [],
-      model: input.model,
-      agentTool: input.agentTool,
       teamMemberId: input.teamMemberId,
       // NOTE: timeline is now on Session, not Task
     };
@@ -208,8 +206,6 @@ export class FileSystemTaskRepository implements ITaskRepository {
       task.taskSessionStatuses = { ...(task.taskSessionStatuses || {}), ...updates.taskSessionStatuses };
     }
     if (updates.referenceTaskIds !== undefined) task.referenceTaskIds = updates.referenceTaskIds;
-    if (updates.model !== undefined) task.model = updates.model;
-    if (updates.agentTool !== undefined) task.agentTool = updates.agentTool;
     if (updates.pinned !== undefined) task.pinned = updates.pinned;
     if (updates.teamMemberId !== undefined) task.teamMemberId = updates.teamMemberId;
 

@@ -9061,6 +9061,91 @@ select.input {
   font-size: 10px;
 }
 
+/* Team Member Inline Picker */
+.terminalInlineTeamMemberPicker {
+  position: relative;
+  display: inline-flex;
+}
+
+.terminalInlineTeamMemberDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: #000000;
+  border: 1px solid var(--theme-primary);
+  border-radius: 4px;
+  min-width: 160px;
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow:
+    0 0 20px rgba(var(--theme-primary-rgb), 0.4),
+    0 8px 32px rgba(0, 0, 0, 0.9);
+  animation: statusDropdownSlide 0.15s ease;
+}
+
+.terminalInlineTeamMemberDropdown--fixed {
+  position: fixed;
+  margin-top: 0;
+  z-index: 10001;
+}
+
+.terminalInlineTeamMemberOption {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--terminal-text-dim);
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.terminalInlineTeamMemberOption:last-child {
+  border-bottom: none;
+}
+
+.terminalInlineTeamMemberOption:hover {
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  color: var(--terminal-text);
+}
+
+.terminalInlineTeamMemberOption--current {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  color: var(--terminal-text);
+}
+
+.terminalInlineTeamMemberOption--create {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--terminal-text-dim);
+}
+
+.terminalInlineTeamMemberOption--create:hover {
+  color: var(--terminal-green);
+}
+
+.terminalTeamMemberAvatar {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.terminalTeamMemberLabel {
+  flex: 1;
+  font-weight: 500;
+}
+
+.terminalInlineTeamMemberOption .terminalStatusCheck {
+  font-size: 10px;
+  color: var(--terminal-green);
+}
+
 /* Agent Tool / Model Inline Picker */
 .terminalInlineAgentPicker {
   position: relative;
@@ -9073,6 +9158,10 @@ select.input {
   border: 1px solid;
   color: var(--terminal-gray);
   background: rgba(128, 128, 128, 0.08);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   border-color: rgba(128, 128, 128, 0.2);
 }
 
@@ -9086,6 +9175,23 @@ select.input {
   color: #10b981;
   background: rgba(16, 185, 129, 0.1);
   border-color: rgba(16, 185, 129, 0.25);
+}
+
+/* Model Badge (shows effective model next to team member) */
+.terminalMetaBadge--model {
+  font-size: 9px;
+  font-weight: 600;
+  border: 1px solid rgba(192, 192, 192, 0.35);
+  color: #c0c0c0;
+  background: #0a0a0a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.terminalMetaBadge--model-override {
+  color: #d4d4d4;
+  background: #0a0a0a;
+  border-color: rgba(212, 212, 212, 0.5);
 }
 
 .terminalInlineAgentDropdown {
@@ -9648,6 +9754,181 @@ select.input {
 
 .terminalPlayBtn:active {
   transform: scale(0.9);
+}
+
+/* Split Play Button */
+.terminalSplitPlay {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.5);
+  box-shadow: 0 0 10px rgba(var(--theme-primary-rgb), 0.25);
+  transition: box-shadow 0.2s ease;
+}
+
+.terminalSplitPlay:hover {
+  box-shadow: 0 0 16px rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.terminalSplitPlay__play {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  border: none;
+  border-right: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+  color: var(--terminal-green);
+  width: 26px;
+  height: 26px;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.terminalSplitPlay__play:hover {
+  background: rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.terminalSplitPlay__play:active {
+  background: rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.terminalSplitPlay__dropdown {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  border: none;
+  color: var(--terminal-green);
+  width: 18px;
+  height: 26px;
+  font-size: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.terminalSplitPlay__dropdown:hover {
+  background: rgba(var(--theme-primary-rgb), 0.25);
+}
+
+.terminalSplitPlay__dropdown--open {
+  background: rgba(var(--theme-primary-rgb), 0.3);
+}
+
+/* Launch Options Dropdown */
+.terminalLaunchDropdown {
+  position: absolute;
+  background: #0a0a0a;
+  border: 1px solid var(--theme-primary);
+  border-radius: 4px;
+  min-width: 180px;
+  z-index: 100;
+  box-shadow:
+    0 0 20px rgba(var(--theme-primary-rgb), 0.4),
+    0 8px 32px rgba(0, 0, 0, 0.9);
+  animation: statusDropdownSlide 0.15s ease;
+  overflow: hidden;
+}
+
+.terminalLaunchDropdown--fixed {
+  position: fixed;
+  z-index: 10001;
+}
+
+.terminalLaunchDropdown__header {
+  padding: 6px 10px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--terminal-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.terminalLaunchDropdown__toolGroup {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.terminalLaunchDropdown__toolGroup:last-child {
+  border-bottom: none;
+}
+
+.terminalLaunchDropdown__tool {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  color: var(--terminal-text);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+}
+
+.terminalLaunchDropdown__tool:hover {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.terminalLaunchDropdown__tool--expanded {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+}
+
+.terminalLaunchDropdown__toolSymbol {
+  font-size: 12px;
+  flex-shrink: 0;
+  color: var(--terminal-green);
+}
+
+.terminalLaunchDropdown__toolLabel {
+  flex: 1;
+}
+
+.terminalLaunchDropdown__toolCaret {
+  font-size: 8px;
+  color: var(--terminal-text-dim);
+  flex-shrink: 0;
+}
+
+.terminalLaunchDropdown__models {
+  background: rgba(0, 0, 0, 0.3);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.terminalLaunchDropdown__model {
+  width: 100%;
+  display: block;
+  padding: 6px 10px 6px 30px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--terminal-text-dim);
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.terminalLaunchDropdown__model:last-child {
+  border-bottom: none;
+}
+
+.terminalLaunchDropdown__model:hover {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  color: var(--terminal-green);
+  padding-left: 34px;
+}
+
+.terminalLaunchDropdown__model--selected {
+  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.1);
 }
 
 /* Pin Button */
@@ -14691,6 +14972,7 @@ select.input {
 
 .executionBarDropdowns {
   display: flex;
+  align-items: center;
   gap: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
@@ -14871,6 +15153,52 @@ select.input {
   border-color: var(--terminal-green);
   color: var(--terminal-green);
   background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+/* ExecutionBar Model Badge */
+.executionBarModelBadge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 3px;
+  border: 1px solid rgba(192, 192, 192, 0.35);
+  color: #c0c0c0;
+  background: #0a0a0a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.executionBarModelBadge--override {
+  color: #d4d4d4;
+  border-color: rgba(212, 212, 212, 0.5);
+}
+
+/* ExecutionBar Split Button */
+.executionBarSplitBtn {
+  display: flex;
+  align-items: stretch;
+}
+
+.executionBarSplitBtn__main {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-right: none !important;
+}
+
+.executionBarSplitBtn__caret {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  min-width: 0 !important;
+  font-size: 9px !important;
+}
+
+.executionBarSplitBtn__caret--open {
+  background: rgba(var(--theme-primary-rgb), 0.2);
 }
 
 /* ==================== Team Member List ==================== */

@@ -17,7 +17,6 @@ export interface TaskInput {
   dependencies?: string[];
   priority?: 'low' | 'medium' | 'high' | 'critical';
   metadata?: Record<string, any>;
-  model?: string;
 }
 
 /**
@@ -31,71 +30,6 @@ export interface SessionOptions {
   timeout?: number;
   workingDirectory?: string;
   context?: AdditionalContext;
-}
-
-/**
- * Model capability ranking for max-model resolution.
- * When multiple tasks specify different models, the highest-ranked model wins.
- * Native model names are treated as equivalent to their abstract mapping.
- */
-const MODEL_RANK: Record<string, number> = {
-  'haiku': 1,
-  'sonnet': 2,
-  'opus': 3,
-};
-
-/**
- * Normalize a model name to its abstract equivalent for ranking.
- * Native model names (gpt-*, gemini-*) are mapped to their abstract tier.
- */
-function normalizeModelForRanking(model: string): string {
-  // Already abstract
-  if (MODEL_RANK[model] !== undefined) return model;
-
-  // Codex native → abstract
-  if (model.includes('codex-mini') || model.includes('codex-lite')) return 'haiku';
-  if (model.includes('5.2-codex') || model.includes('5-codex') && !model.includes('mini')) return 'sonnet';
-  if (model.includes('5.3-codex')) return 'opus';
-
-  // Gemini native → abstract
-  if (model.includes('flash-lite') || model.includes('flash')) return 'haiku';
-  if (model.includes('2.5-pro')) return 'sonnet';
-  if (model.includes('3-pro')) return 'opus';
-
-  // Claude native → abstract
-  if (model.includes('haiku')) return 'haiku';
-  if (model.includes('sonnet')) return 'sonnet';
-  if (model.includes('opus')) return 'opus';
-
-  // Unknown model — treat as sonnet tier
-  return 'sonnet';
-}
-
-/**
- * Resolve the max model across multiple tasks.
- * Returns the most capable model (highest rank) from all task models,
- * falling back to the session-level default if no tasks specify a model.
- */
-function resolveMaxModel(tasks: TaskInput[], sessionDefault: string): string {
-  const taskModels = tasks
-    .map(t => t.model)
-    .filter((m): m is string => !!m);
-
-  if (taskModels.length === 0) return sessionDefault;
-
-  // Find the highest-ranked model
-  let maxModel = sessionDefault;
-  let maxRank = MODEL_RANK[normalizeModelForRanking(sessionDefault)] ?? 2;
-
-  for (const model of taskModels) {
-    const rank = MODEL_RANK[normalizeModelForRanking(model)] ?? 2;
-    if (rank > maxRank) {
-      maxRank = rank;
-      maxModel = model;
-    }
-  }
-
-  return maxModel;
 }
 
 /**
@@ -141,7 +75,6 @@ export class ManifestGeneratorCLICommand {
       dependencies: task.dependencies,
       priority: task.priority as any,
       metadata: task.metadata,
-      model: task.model,
     };
   }
 
@@ -195,12 +128,8 @@ export class ManifestGeneratorCLICommand {
       const project = await this.fetchProject(options.projectId);
       console.error(`  Working Directory: ${project.workingDir}`);
 
-      // 3. Resolve model: use max model across all tasks, falling back to CLI option or 'sonnet'
-      const baseModel = options.model || 'sonnet';
-      const resolvedModel = resolveMaxModel(tasks, baseModel);
-      if (resolvedModel !== baseModel) {
-        console.error(`  Model resolved: ${baseModel} → ${resolvedModel} (max across ${tasks.length} tasks)`);
-      }
+      // 3. Resolve model from CLI option (set by team member via server) or default to 'sonnet'
+      const resolvedModel = options.model || 'sonnet';
 
       // 4. Build session options
       const sessionOptions: SessionOptions = {
@@ -354,7 +283,6 @@ export class ManifestGenerator {
       ...(taskData.dependencies && { dependencies: taskData.dependencies }),
       ...(taskData.priority && { priority: taskData.priority }),
       ...(taskData.metadata && { metadata: taskData.metadata }),
-      ...(taskData.model && { model: taskData.model }),
     }));
 
     const manifest: MaestroManifest = {
