@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useCallback, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { TerminalRegistry } from "./SessionTerminal";
 import { PendingDataBuffer } from "./app/types/app-state";
 import * as DEFAULTS from "./app/constants/defaults";
@@ -38,6 +39,7 @@ import { AppWorkspace } from "./components/app/AppWorkspace";
 import { ConfirmActionModal } from "./components/modals/ConfirmActionModal";
 import { StartupSettingsOverlay } from "./components/StartupSettingsOverlay";
 import { Board } from "./components/maestro/MultiProjectBoard";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { createMaestroSession } from "./services/maestroService";
 import { STORAGE_SETUP_COMPLETE_KEY } from "./app/constants/defaults";
 
@@ -311,11 +313,24 @@ export default function App() {
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
         if (cancelled) return;
-        unlisten = await getCurrentWindow().onCloseRequested((event) => {
-          if (bypassAppCloseConfirmRef.current) return;
-          const grouped = groupRunningSessionsByProject();
-          if (grouped.length === 0) return;
+        const win = getCurrentWindow();
+        unlisten = await win.onCloseRequested(async (event) => {
+          if (bypassAppCloseConfirmRef.current) {
+            bypassAppCloseConfirmRef.current = false;
+            return;
+          }
+          // Always prevent the native close so the Rust handler doesn't
+          // hide the window before we've had a chance to set the allow flag.
           event.preventDefault();
+
+          const grouped = groupRunningSessionsByProject();
+          if (grouped.length === 0) {
+            // No running sessions — set flag then re-trigger close
+            bypassAppCloseConfirmRef.current = true;
+            await invoke("allow_window_close").catch(() => {});
+            await win.close();
+            return;
+          }
           setRunningSessionsByProject(grouped);
           setConfirmCloseAppOpen(true);
         });
@@ -337,15 +352,19 @@ export default function App() {
     setConfirmCloseAppBusy(true);
     try {
       const running = sessionsRef.current.filter((s) => !s.exited && !s.closing);
-      for (const session of running) {
-        try {
-          await onCloseRef.current(session.id);
-        } catch {
-          // Best-effort shutdown while closing app.
-        }
-      }
+
+      // Close all sessions in parallel with a 3-second timeout per session
+      await Promise.all(
+        running.map((session) =>
+          Promise.race([
+            onCloseRef.current(session.id).catch(() => {}),
+            new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+          ])
+        )
+      );
 
       bypassAppCloseConfirmRef.current = true;
+      await invoke("allow_window_close").catch(() => {});
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().close();
     } catch {
@@ -402,6 +421,9 @@ export default function App() {
           onOpenMultiProjectBoard={() => setShowMultiProjectBoard(true)}
         />
       )}
+
+      {/* -------- Update Banner -------- */}
+      <UpdateBanner />
 
       {isEmpty ? (
         <>
