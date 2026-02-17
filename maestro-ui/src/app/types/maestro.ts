@@ -245,12 +245,6 @@ export interface MaestroTask {
   // Reference task IDs for context (docs from these tasks are provided to the agent)
   referenceTaskIds?: string[];
 
-  // Model configuration
-  model?: ModelType;
-
-  // Agent tool configuration
-  agentTool?: AgentTool;
-
   // Pinned tasks appear in the dedicated "Pinned" tab for quick re-execution
   pinned?: boolean;
 
@@ -308,8 +302,6 @@ export interface CreateTaskPayload {
   initialPrompt?: string; // Standardized
   skillIds?: string[];
   referenceTaskIds?: string[];
-  model?: ModelType;
-  agentTool?: AgentTool;
   teamMemberId?: string;
 }
 
@@ -325,8 +317,6 @@ export interface UpdateTaskPayload {
   skillIds?: string[];
   agentIds?: string[];
   referenceTaskIds?: string[];
-  model?: ModelType;
-  agentTool?: AgentTool;
   pinned?: boolean;
   teamMemberId?: string;
   // NOTE: timeline moved to Session - use addTimelineEvent on session
@@ -391,10 +381,10 @@ export interface SpawnSessionPayload {
   sessionName?: string;
   skills?: string[];
   context?: Record<string, any>;
-  model?: ModelType;
-  agentTool?: AgentTool;
   teamMemberId?: string;              // Team member running this session
   teamMemberIds?: string[];           // Team member task IDs to include in coordinate mode
+  agentTool?: AgentTool;              // Override agent tool for this run
+  model?: ModelType;                  // Override model for this run
 }
 
 export interface SpawnSessionResponse {

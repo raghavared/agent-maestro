@@ -94,7 +94,7 @@ async function buildSessionConfig(
 
         // Agent configuration (optional)
         MAESTRO_AGENT_ID: session.agentId || 'claude',
-        MAESTRO_AGENT_MODEL: session.model || tasks[0].model || 'sonnet',
+        MAESTRO_AGENT_MODEL: session.model || 'sonnet',
     };
 
     // 4. Command: Just call 'maestro worker init'

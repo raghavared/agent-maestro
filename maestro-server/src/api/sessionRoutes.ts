@@ -463,10 +463,10 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         spawnSource = 'ui',     // 'ui' or 'session'
         mode: requestedMode,    // Three-axis model: 'execute' or 'coordinate'
         context,
-        model,                  // Model selection: 'sonnet' | 'opus' | 'haiku'
-        agentTool,              // Agent tool: 'claude-code' | 'codex' | 'gemini'
         teamMemberIds,          // Team member task IDs for coordinate mode
         teamMemberId,           // Single team member assigned to this task
+        agentTool: requestedAgentTool,   // Override agent tool for this run
+        model: requestedModel,           // Override model for this run
       } = req.body;
 
       // If teamMemberId is provided, fetch the team member and use its mode as defaults
@@ -490,9 +490,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       // Resolve mode (defaults to team member's mode, then 'execute')
       const resolvedMode: AgentMode = (requestedMode as AgentMode) || teamMemberDefaults.mode || 'execute';
 
-      // Resolve model and agentTool from team member if not explicitly provided
-      const resolvedModel = model || teamMemberDefaults.model;
-      const resolvedAgentToolFromMember = agentTool || teamMemberDefaults.agentTool;
+      // Resolve model and agentTool: request overrides > team member defaults
+      const resolvedModel = requestedModel || teamMemberDefaults.model;
+      const resolvedAgentToolFromMember = requestedAgentTool || teamMemberDefaults.agentTool;
 
       console.log('\n🚀 SESSION SPAWN EVENT RECEIVED');
       console.log(`   • projectId: ${projectId}`);
