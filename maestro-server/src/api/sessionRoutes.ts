@@ -211,6 +211,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       if (req.query.status) {
         filter.status = req.query.status as SessionStatus;
       }
+      if (req.query.parentSessionId) {
+        filter.parentSessionId = req.query.parentSessionId as string;
+      }
 
       let sessions = await sessionService.listSessions(filter);
 
@@ -695,6 +698,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           teamMemberIds: effectiveTeamMemberIds.length > 0 ? effectiveTeamMemberIds : null,
           context: context || {}
         },
+        parentSessionId: sessionId || null,
         _suppressCreatedEvent: true
       });
 
@@ -787,6 +791,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         MAESTRO_MANIFEST_PATH: manifestPath,
         MAESTRO_SERVER_URL: config.serverUrl,
         MAESTRO_MODE: resolvedMode,
+        MAESTRO_COORDINATOR_SESSION_ID: sessionId || '',
         // Pass storage paths so CLI reads/writes to the correct environment directories
         DATA_DIR: config.dataDir,
         SESSION_DIR: config.sessionDir,

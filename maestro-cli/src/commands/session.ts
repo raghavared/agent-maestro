@@ -93,6 +93,8 @@ export function registerSessionCommands(program: Command) {
         .option('--task <taskId>', 'Filter by task ID')
         .option('--team-member-id <tmId>', 'Filter by team member ID')
         .option('--active', 'Show only active sessions (working, idle, spawning)')
+        .option('--siblings', 'Show sibling sessions (spawned by the same coordinator)')
+        .option('--my-workers', 'Show worker sessions spawned by this session')
         .action(async (cmdOpts) => {
             await guardCommand('session:list');
             const globalOpts = program.opts();
@@ -108,6 +110,26 @@ export function registerSessionCommands(program: Command) {
                 if (cmdOpts.task) queryParts.push(`taskId=${cmdOpts.task}`);
                 if (projectId) queryParts.push(`projectId=${projectId}`);
                 if (cmdOpts.active) queryParts.push(`active=true`);
+                if (cmdOpts.siblings) {
+                    const coordinatorId = config.coordinatorSessionId;
+                    if (!coordinatorId) {
+                        spinner?.stop();
+                        console.error('No coordinator session ID found (MAESTRO_COORDINATOR_SESSION_ID not set).');
+                        process.exit(1);
+                    }
+                    queryParts.push(`parentSessionId=${coordinatorId}`);
+                    if (!cmdOpts.active) queryParts.push('active=true');
+                }
+                if (cmdOpts.myWorkers) {
+                    const myId = config.sessionId;
+                    if (!myId) {
+                        spinner?.stop();
+                        console.error('No session ID found (MAESTRO_SESSION_ID not set).');
+                        process.exit(1);
+                    }
+                    queryParts.push(`parentSessionId=${myId}`);
+                    if (!cmdOpts.active) queryParts.push('active=true');
+                }
                 if (queryParts.length) endpoint += '?' + queryParts.join('&');
 
                 let sessions: any[] = await api.get(endpoint);

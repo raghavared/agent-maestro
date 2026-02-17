@@ -128,7 +128,8 @@ export class FileSystemSessionRepository implements ISessionRepository {
         }
       ],
       docs: [],
-      metadata: input.metadata
+      metadata: input.metadata,
+      parentSessionId: input.parentSessionId || null,
     };
 
     this.sessions.set(session.id, session);
@@ -171,6 +172,9 @@ export class FileSystemSessionRepository implements ISessionRepository {
       }
       if (filter.status) {
         sessions = sessions.filter(s => s.status === filter.status);
+      }
+      if (filter.parentSessionId) {
+        sessions = sessions.filter(s => (s as any).parentSessionId === filter.parentSessionId);
       }
     }
 

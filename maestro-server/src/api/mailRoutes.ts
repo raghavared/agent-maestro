@@ -85,6 +85,21 @@ export function createMailRoutes(deps: MailRouteDependencies) {
     }
   );
 
+  // GET /api/mail/thread/:id — Get all messages in a thread
+  router.get(
+    '/mail/thread/:id',
+    validateParams(idParamSchema),
+    async (req: Request, res: Response) => {
+      try {
+        const threadId = req.params.id as string;
+        const messages = await mailService.getThread(threadId);
+        res.json(messages);
+      } catch (err: any) {
+        handleError(err, res);
+      }
+    }
+  );
+
   // GET /api/mail/:id — Get a single mail message
   router.get(
     '/mail/:id',

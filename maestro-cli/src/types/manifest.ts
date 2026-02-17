@@ -92,6 +92,16 @@ export interface MaestroManifest {
   /** Team member custom workflow text (Phase 3, when templateId === 'custom') */
   teamMemberCustomWorkflow?: string;
 
+  /** Coordinator session ID (the session that spawned this worker) */
+  coordinatorSessionId?: string;
+
+  /** Initial directive from the coordinator (embedded in manifest for guaranteed delivery) */
+  initialDirective?: {
+    subject: string;
+    message: string;
+    fromSessionId: string;
+  };
+
   /** Multiple team member profiles for multi-identity sessions */
   teamMemberProfiles?: TeamMemberProfile[];
 }

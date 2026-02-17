@@ -30,6 +30,11 @@ export interface IMailRepository {
   findSince(sessionId: string, projectId: string, since: number): Promise<MailMessage[]>;
 
   /**
+   * Find all messages in a thread by threadId.
+   */
+  findByThreadId(threadId: string): Promise<MailMessage[]>;
+
+  /**
    * Delete a mail message.
    */
   delete(id: string): Promise<void>;

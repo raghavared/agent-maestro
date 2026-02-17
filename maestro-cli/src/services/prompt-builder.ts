@@ -76,6 +76,14 @@ export class PromptBuilder {
       if (tree) parts.push(tree);
     }
 
+    // Session context (session ID, coordinator, project, mode)
+    const taskSessionContext = this.buildSessionContext(manifest);
+    if (taskSessionContext) parts.push(taskSessionContext);
+
+    // Coordinator directive (if present in manifest)
+    const taskDirective = this.buildCoordinatorDirective(manifest);
+    if (taskDirective) parts.push(taskDirective);
+
     const context = this.buildContext(manifest);
     if (context) parts.push(context);
 
@@ -117,6 +125,14 @@ export class PromptBuilder {
       const tree = this.buildTaskTree(manifest.tasks);
       if (tree) parts.push(tree);
     }
+
+    // Session context
+    const sessionContext = this.buildSessionContext(manifest);
+    if (sessionContext) parts.push(sessionContext);
+
+    // Coordinator directive
+    const directive = this.buildCoordinatorDirective(manifest);
+    if (directive) parts.push(directive);
 
     // Context
     const context = this.buildContext(manifest);
@@ -266,6 +282,37 @@ export class PromptBuilder {
 
     roots.forEach(root => renderNode(root, '    '));
     lines.push('  </task_tree>');
+    return lines.join('\n');
+  }
+
+  private buildSessionContext(manifest: MaestroManifest): string | null {
+    const projectId = manifest.tasks[0]?.projectId;
+    const sessionId = process.env.MAESTRO_SESSION_ID;
+
+    if (!sessionId && !projectId && !manifest.coordinatorSessionId) return null;
+
+    const lines: string[] = ['  <session_context>'];
+    if (sessionId) {
+      lines.push(`    <session_id>${this.esc(sessionId)}</session_id>`);
+    }
+    if (manifest.coordinatorSessionId) {
+      lines.push(`    <coordinator_session_id>${this.esc(manifest.coordinatorSessionId)}</coordinator_session_id>`);
+    }
+    if (projectId) {
+      lines.push(`    <project_id>${this.esc(projectId)}</project_id>`);
+    }
+    lines.push(`    <mode>${manifest.mode}</mode>`);
+    lines.push('  </session_context>');
+    return lines.join('\n');
+  }
+
+  private buildCoordinatorDirective(manifest: MaestroManifest): string | null {
+    if (!manifest.initialDirective) return null;
+
+    const lines: string[] = ['  <coordinator_directive>'];
+    lines.push(`    <subject>${this.raw(manifest.initialDirective.subject)}</subject>`);
+    lines.push(`    <message>${this.raw(manifest.initialDirective.message)}</message>`);
+    lines.push('  </coordinator_directive>');
     return lines.join('\n');
   }
 
@@ -512,16 +559,23 @@ export class PromptBuilder {
             'If a <reference_tasks> block is present, you MUST first fetch each reference task and its docs BEFORE starting work:\n' +
             '  1. maestro task get <refTaskId>  — read the reference task details\n' +
             '  2. maestro task docs list <refTaskId>  — list and read all attached docs\n' +
-            'Reference task docs contain critical context, examples, or prior work. Read them thoroughly.',
+            'Reference task docs contain critical context, examples, or prior work. Read them thoroughly.\n' +
+            'If a <coordinator_directive> is present, read it carefully — it contains your coordinator\'s specific instructions.\n' +
+            'Check `maestro mail inbox` for any initial messages from your coordinator.',
         },
         {
           name: 'execute',
           order: 2,
           description:
             'Work through each task directly — do not decompose or delegate.\n' +
+            'IMPORTANT: Before starting each task, check for new directives from your coordinator:\n' +
+            '  maestro mail inbox\n' +
+            'If you receive a directive that changes your priorities or approach, adjust accordingly.\n' +
+            'If blocked, notify your coordinator:\n' +
+            '  maestro mail send --to-coordinator --type query --subject "<what you need>" --message "<details>"\n' +
+            'Then wait for a response: maestro mail wait --timeout 30000\n' +
             'After completing each task, report it:\n' +
-            '  maestro task report complete <taskId> "<summary of what was done>"\n' +
-            'If blocked: maestro session report blocked "<reason and what you need to proceed>"',
+            '  maestro task report complete <taskId> "<summary of what was done>"',
         },
         {
           name: 'complete',
@@ -567,13 +621,15 @@ export class PromptBuilder {
         name: 'monitor',
         order: 4,
         description:
-          'Actively monitor workers by polling your mailbox and task statuses in a loop:\n' +
-          '  maestro mail inbox                    — check for worker messages\n' +
-          '  maestro task children <parentTaskId>   — check subtask statuses\n' +
-          'Polling cadence: check every 30-60 seconds while workers are active.\n' +
-          'If a worker is BLOCKED, investigate and send a directive to unblock them:\n' +
-          '  maestro task get <taskId>              — understand the blocker\n' +
-          '  maestro mail send <sessionId> --type directive --subject "<subject>" --message "<instructions>"\n' +
+          'Monitor workers using an event-driven loop (do NOT poll on a timer):\n' +
+          '  1. maestro mail wait --timeout 60000     — block until a worker message arrives\n' +
+          '  2. maestro mail inbox                    — read ALL pending messages\n' +
+          '  3. maestro task children <parentTaskId>  — check subtask statuses\n' +
+          '  4. React to each message:\n' +
+          '     - status_update → acknowledge, adjust plan if needed\n' +
+          '     - query → answer via maestro mail reply <mailId> --message "<answer>"\n' +
+          '     - blocked → investigate and send a directive to unblock\n' +
+          '  5. Repeat until all subtasks are completed\n' +
           'If a worker goes silent for too long, send a status query:\n' +
           '  maestro mail send <sessionId> --type query --subject "Status check" --message "Please report your current progress."',
       },

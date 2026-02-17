@@ -160,6 +160,7 @@ export const listSessionsQuerySchema = z.object({
   taskId: safeId.optional(),
   status: sessionStatusSchema.optional(),
   active: z.enum(['true', 'false']).optional(),
+  parentSessionId: safeId.optional(),
 }).strict();
 
 // --- Spawn session schema ---
@@ -208,6 +209,8 @@ export const sendMailSchema = z.object({
   type: mailMessageTypeSchema,
   subject: shortString,
   body: z.record(z.string(), z.unknown()).optional(),
+  priority: z.enum(['critical', 'high', 'normal', 'low']).optional(),
+  scope: z.enum(['all', 'my-workers', 'team']).optional(),
 }).strict();
 
 export const mailInboxQuerySchema = z.object({
