@@ -48,8 +48,8 @@ export class PromptBuilder {
     // Team member identity (if this session is for a custom team member)
     const teamMemberIdentity = this.buildTeamMemberIdentity(manifest);
     if (teamMemberIdentity) parts.push(teamMemberIdentity);
-    // Team members (coordinate mode)
-    const teamMembers = this.buildTeamMembers(manifest.teamMembers);
+    // Team members roster
+    const teamMembers = this.buildTeamMembers(manifest.teamMembers, mode, manifest);
     if (teamMembers) parts.push(teamMembers);
     parts.push(this.buildWorkflow(mode, manifest));
     // Note: commands_reference is injected by WhoamiRenderer.renderSystemPrompt()
@@ -127,8 +127,8 @@ export class PromptBuilder {
       parts.push(this.buildSkills(manifest.skills));
     }
 
-    // Team members (coordinate mode)
-    const xmlTeamMembers = this.buildTeamMembers(manifest.teamMembers);
+    // Team members roster
+    const xmlTeamMembers = this.buildTeamMembers(manifest.teamMembers, mode, manifest);
     if (xmlTeamMembers) parts.push(xmlTeamMembers);
 
     // Workflow
@@ -143,19 +143,14 @@ export class PromptBuilder {
 
   private buildIdentity(mode: AgentMode, manifest?: MaestroManifest): string {
     const lines = ['  <identity>'];
-    lines.push('    <profile>maestro-agent</profile>');
+    // Use role-specific profile names for clearer identity signal
+    lines.push(`    <profile>${mode === 'execute' ? 'maestro-worker' : 'maestro-coordinator'}</profile>`);
     if (mode === 'execute') {
-      lines.push('    <instruction>You are a worker agent. You complete assigned tasks directly. Report progress, blockers, and completion using Maestro CLI commands. Follow the workflow phases in order.</instruction>');
+      lines.push('    <instruction>You are a worker agent in a coordinated multi-agent team. You execute assigned tasks directly and autonomously. You communicate with your coordinator and peers via the Maestro mailbox. Report progress at meaningful milestones and escalate blockers promptly. Follow the workflow phases in order.</instruction>');
     } else {
-      lines.push('    <instruction>You are a coordinator agent. You NEVER do tasks directly. Your job is to decompose tasks into subtasks, spawn worker sessions, monitor their progress, and report results. Follow the workflow phases in order.</instruction>');
+      lines.push('    <instruction>You are a coordinator agent leading a multi-agent team. You NEVER do tasks directly. Your job is to decompose tasks into subtasks, spawn worker sessions, send them clear directives, monitor their progress via mailbox, unblock workers when needed, and report results. Follow the workflow phases in order.</instruction>');
     }
     if (manifest) {
-      if (manifest.agentTool) {
-        lines.push(`    <agent_tool>${this.esc(manifest.agentTool)}</agent_tool>`);
-      }
-      if (manifest.session?.model) {
-        lines.push(`    <model>${this.esc(manifest.session.model)}</model>`);
-      }
       const projectId = manifest.tasks[0]?.projectId;
       if (projectId) {
         lines.push(`    <project_id>${this.esc(projectId)}</project_id>`);
@@ -166,19 +161,20 @@ export class PromptBuilder {
   }
 
   private buildTeamMemberIdentity(manifest: MaestroManifest): string | null {
-    // Multi-identity: if teamMemberProfiles has multiple entries, render all
+    // Multi-identity: merge into a single unified identity block
     if (manifest.teamMemberProfiles && manifest.teamMemberProfiles.length > 1) {
       const profiles = manifest.teamMemberProfiles.filter(p => p.identity);
       if (profiles.length === 0) return null;
 
-      const lines = [`  <team_member_identities count="${profiles.length}">`];
-      lines.push('    <instruction>You are assuming all the following identities simultaneously. Draw on the combined expertise, perspectives, and domain knowledge of each identity when executing your tasks.</instruction>');
+      const lines = ['  <team_member_identity>'];
+      lines.push(`    <name>${this.esc(profiles[0].name)}</name>`);
+      lines.push(`    <avatar>${this.esc(profiles[0].avatar)}</avatar>`);
+      const roleList = profiles.map(p => p.name).join(', ');
+      lines.push(`    <instructions>You have the combined expertise of: ${roleList}. Apply all domain knowledge when executing your tasks.</instructions>`);
       for (const profile of profiles) {
-        lines.push(`    <team_member_identity name="${this.esc(profile.name)}" avatar="${this.esc(profile.avatar)}">`);
-        lines.push(`      <instructions>${this.esc(profile.identity)}</instructions>`);
-        lines.push('    </team_member_identity>');
+        lines.push(`    <expertise source="${this.esc(profile.name)}">${this.raw(profile.identity)}</expertise>`);
       }
-      lines.push('  </team_member_identities>');
+      lines.push('  </team_member_identity>');
       return lines.join('\n');
     }
 
@@ -189,7 +185,7 @@ export class PromptBuilder {
       const lines = ['  <team_member_identity>'];
       lines.push(`    <name>${this.esc(profile.name)}</name>`);
       lines.push(`    <avatar>${this.esc(profile.avatar)}</avatar>`);
-      lines.push(`    <instructions>${this.esc(profile.identity)}</instructions>`);
+      lines.push(`    <instructions>${this.raw(profile.identity)}</instructions>`);
       lines.push('  </team_member_identity>');
       return lines.join('\n');
     }
@@ -204,7 +200,7 @@ export class PromptBuilder {
       lines.push(`    <avatar>${this.esc(manifest.teamMemberAvatar)}</avatar>`);
     }
     if (manifest.teamMemberIdentity) {
-      lines.push(`    <instructions>${this.esc(manifest.teamMemberIdentity)}</instructions>`);
+      lines.push(`    <instructions>${this.raw(manifest.teamMemberIdentity)}</instructions>`);
     }
     lines.push('  </team_member_identity>');
     return lines.join('\n');
@@ -218,7 +214,7 @@ export class PromptBuilder {
     for (const t of tasks) {
       lines.push(`    <task id="${this.esc(t.id)}">`);
       lines.push(`      <title>${this.esc(t.title)}</title>`);
-      lines.push(`      <description>${this.esc(t.description)}</description>`);
+      lines.push(`      <description>${this.raw(t.description)}</description>`);
       if (t.parentId) {
         lines.push(`      <parent_id>${this.esc(t.parentId)}</parent_id>`);
       }
@@ -261,7 +257,7 @@ export class PromptBuilder {
       lines.push(`${indent}<node ${attrs.join(' ')}>`);
       lines.push(`${indent}  <title>${this.esc(task.title)}</title>`);
       if (task.description) {
-        lines.push(`${indent}  <description>${this.esc(task.description)}</description>`);
+        lines.push(`${indent}  <description>${this.raw(task.description)}</description>`);
       }
       const children = childrenOf(task.id);
       children.forEach(child => renderNode(child, indent + '  '));
@@ -316,7 +312,7 @@ export class PromptBuilder {
     }
 
     if (ctx.architecture) {
-      lines.push(`      <architecture>${this.esc(ctx.architecture)}</architecture>`);
+      lines.push(`      <architecture>${this.raw(ctx.architecture)}</architecture>`);
       hasContent = true;
     }
 
@@ -391,22 +387,39 @@ export class PromptBuilder {
     return lines.join('\n');
   }
 
-  private buildTeamMembers(teamMembers?: TeamMemberData[]): string | null {
+  private buildTeamMembers(teamMembers?: TeamMemberData[], mode?: AgentMode, manifest?: MaestroManifest): string | null {
     if (!teamMembers || teamMembers.length === 0) return null;
 
-    const lines: string[] = [`  <team_members count="${teamMembers.length}">`];
-    for (const member of teamMembers) {
-      lines.push(`    <team_member id="${this.esc(member.id)}" name="${this.esc(member.name)}" role="${this.esc(member.role)}">`);
-      lines.push(`      <identity>${this.esc(member.identity)}</identity>`);
-      lines.push(`      <avatar>${this.esc(member.avatar)}</avatar>`);
-      lines.push(`      <mail_id>${this.esc(member.mailId)}</mail_id>`);
-      if (member.model) {
-        lines.push(`      <model>${this.esc(member.model)}</model>`);
+    // Filter out team members that form this agent's own identity
+    const selfIds = new Set<string>();
+    if (manifest?.teamMemberId) selfIds.add(manifest.teamMemberId);
+    if (manifest?.teamMemberProfiles) {
+      for (const p of manifest.teamMemberProfiles) selfIds.add(p.id);
+    }
+    const visibleMembers = selfIds.size > 0
+      ? teamMembers.filter(m => !selfIds.has(m.id))
+      : teamMembers;
+
+    if (visibleMembers.length === 0) return null;
+
+    const lines: string[] = [`  <team_members count="${visibleMembers.length}">`];
+    for (const member of visibleMembers) {
+      if (mode === 'coordinate') {
+        // Coordinators need full member details for spawning and delegation
+        lines.push(`    <team_member id="${this.esc(member.id)}" name="${this.esc(member.name)}" role="${this.esc(member.role)}">`);
+        lines.push(`      <avatar>${this.esc(member.avatar)}</avatar>`);
+        lines.push(`      <mail_id>${this.esc(member.mailId)}</mail_id>`);
+        if (member.model) {
+          lines.push(`      <model>${this.esc(member.model)}</model>`);
+        }
+        if (member.agentTool) {
+          lines.push(`      <agent_tool>${this.esc(member.agentTool)}</agent_tool>`);
+        }
+        lines.push('    </team_member>');
+      } else {
+        // Workers only need a slim roster for communication (name + mail_id)
+        lines.push(`    <team_member name="${this.esc(member.name)}" role="${this.esc(member.role)}" mail_id="${this.esc(member.mailId)}" />`);
       }
-      if (member.agentTool) {
-        lines.push(`      <agent_tool>${this.esc(member.agentTool)}</agent_tool>`);
-      }
-      lines.push('    </team_member>');
     }
     lines.push('  </team_members>');
     return lines.join('\n');
@@ -442,8 +455,9 @@ export class PromptBuilder {
       // If we collected phases from profiles, use them; otherwise fall through to defaults
       if (allPhases.length > 0) {
         const lines = ['  <workflow>'];
-        for (const phase of allPhases) {
-          lines.push(`    <phase name="${phase.name}">${phase.description}</phase>`);
+        for (let i = 0; i < allPhases.length; i++) {
+          const phase = allPhases[i];
+          lines.push(`    <phase name="${phase.name}" order="${i + 1}">${phase.description}</phase>`);
         }
         lines.push('  </workflow>');
         return lines.join('\n');
@@ -463,8 +477,10 @@ export class PromptBuilder {
       const template = getWorkflowTemplate(manifest.teamMemberWorkflowTemplateId);
       if (template) {
         const lines = ['  <workflow>'];
-        for (const phase of template.phases) {
-          lines.push(`    <phase name="${phase.name}">${phase.instruction}</phase>`);
+        for (let i = 0; i < template.phases.length; i++) {
+          const phase = template.phases[i];
+          const order = phase.order ?? (i + 1);
+          lines.push(`    <phase name="${phase.name}" order="${order}">${phase.instruction}</phase>`);
         }
         lines.push('  </workflow>');
         return lines.join('\n');
@@ -475,7 +491,7 @@ export class PromptBuilder {
     const phases = this.getWorkflowPhases(mode);
     const lines = ['  <workflow>'];
     for (const phase of phases) {
-      lines.push(`    <phase name="${phase.name}">${phase.description}</phase>`);
+      lines.push(`    <phase name="${phase.name}" order="${phase.order}">${phase.description}</phase>`);
     }
     lines.push('  </workflow>');
     return lines.join('\n');
@@ -485,36 +501,54 @@ export class PromptBuilder {
    * Default workflow phases by mode.
    * Custom workflows are handled via team member workflow templates.
    */
-  private getWorkflowPhases(mode: AgentMode): { name: string; description: string }[] {
+  private getWorkflowPhases(mode: AgentMode): { name: string; description: string; order: number }[] {
     if (mode === 'execute') {
       return [
         {
-          name: 'execute',
+          name: 'init',
+          order: 1,
           description:
-            'Read your assigned tasks in the <tasks> block. Work through each task directly — do not decompose or delegate.\n' +
+            'Read your assigned tasks in the <tasks> block.\n' +
             'If a <reference_tasks> block is present, you MUST first fetch each reference task and its docs BEFORE starting work:\n' +
             '  1. maestro task get <refTaskId>  — read the reference task details\n' +
             '  2. maestro task docs list <refTaskId>  — list and read all attached docs\n' +
-            'Reference task docs contain critical context, examples, or prior work. Read them thoroughly and apply their guidance to your tasks.\n' +
-            'After completing each task (or major sub-step), check your mailbox for directives:\n' +
+            'Reference task docs contain critical context, examples, or prior work. Read them thoroughly.',
+        },
+        {
+          name: 'execute',
+          order: 2,
+          description:
+            'Work through each task directly — do not decompose or delegate.\n' +
+            'After completing each task, report it:\n' +
+            '  maestro task report complete <taskId> "<summary of what was done>"',
+        },
+        {
+          name: 'communicate',
+          order: 3,
+          description:
+            'After completing each task (or major sub-step), check your mailbox:\n' +
             '  maestro mail inbox\n' +
-            'Mail types you may receive: "directive" (instructions to follow), "query" (questions to answer), "status" (informational).\n' +
-            'If you receive a directive, prioritize it over current work. For queries, respond using:\n' +
-            '  maestro mail reply <mailId> --message "<response>"\n' +
-            'If no mail is present, continue with your tasks.',
+            'Mail types: "directive" (follow immediately), "query" (respond to), "status" (informational).\n' +
+            'If you receive a directive, prioritize it over current work.\n' +
+            'For queries, respond: maestro mail reply <mailId> --message "<response>"\n' +
+            'If you are BLOCKED or need help, proactively message your coordinator:\n' +
+            '  maestro session report blocked "<what you need>"\n' +
+            'If no mail, continue with remaining tasks.',
         },
         {
           name: 'report',
+          order: 4,
           description:
-            'After each meaningful milestone, report progress:\n' +
+            'After completing each task or making significant progress on a long task, report:\n' +
             '  maestro session report progress "<what you accomplished>"\n' +
-            'If blocked: maestro session report blocked "<reason>"',
+            'If blocked: maestro session report blocked "<reason and what you need to proceed>"',
         },
         {
           name: 'complete',
+          order: 5,
           description:
             'When all tasks are done:\n' +
-            '  maestro session report complete "<summary>"',
+            '  maestro session report complete "<summary of all work completed>"',
         },
       ];
     }
@@ -523,6 +557,7 @@ export class PromptBuilder {
     return [
       {
         name: 'analyze',
+        order: 1,
         description:
           'Read all assigned tasks in the <tasks> block. Understand the requirements and acceptance criteria. ' +
           'If a <reference_tasks> block is present, first fetch each reference task and its docs:\n' +
@@ -533,12 +568,14 @@ export class PromptBuilder {
       },
       {
         name: 'decompose',
+        order: 2,
         description:
           'Break tasks into small subtasks, each completable by a single worker:\n' +
           '  maestro task create "<title>" -d "<description with acceptance criteria>" --priority <high|medium|low> --parent <parentTaskId>',
       },
       {
         name: 'spawn',
+        order: 3,
         description:
           'Spawn worker sessions for subtasks. IMPORTANT: Include an initial directive with each spawn using --subject and --message. ' +
           'This ensures workers receive instructions BEFORE they start working:\n' +
@@ -548,32 +585,40 @@ export class PromptBuilder {
       },
       {
         name: 'monitor',
+        order: 4,
         description:
-          'Monitor workers by checking your mailbox and task statuses:\n' +
-          '  maestro mail inbox\n' +
-          '  maestro task children <parentTaskId>\n' +
-          'If a worker is BLOCKED, investigate with `maestro task get <taskId>` and send directives:\n' +
+          'Actively monitor workers by polling your mailbox and task statuses in a loop:\n' +
+          '  maestro mail inbox                    — check for worker messages\n' +
+          '  maestro task children <parentTaskId>   — check subtask statuses\n' +
+          'Polling cadence: check every 30-60 seconds while workers are active.\n' +
+          'If a worker is BLOCKED, investigate and send a directive to unblock them:\n' +
+          '  maestro task get <taskId>              — understand the blocker\n' +
           '  maestro mail send <sessionId> --type directive --subject "<subject>" --message "<instructions>"\n' +
-          'Keep checking mail inbox periodically for status updates from workers.',
+          'If a worker goes silent for too long, send a status query:\n' +
+          '  maestro mail send <sessionId> --type query --subject "Status check" --message "Please report your current progress."',
       },
       {
         name: 'recover',
+        order: 5,
         description:
           'If a worker fails or reports blocked:\n' +
-          '  1. Check the error: maestro task get <taskId>\n' +
-          '  2. Review session docs: maestro session docs list\n' +
-          '  3. Either re-spawn the task with a different approach or reassign to another team member:\n' +
-          '     maestro session spawn --task <taskId> --subject "<directive>" --message "<new instructions>" [--team-member-id <tmId>]\n' +
-          '  4. If the issue is systemic, adjust remaining subtasks before proceeding.',
+          '  1. Diagnose: maestro task get <taskId> — read error details\n' +
+          '  2. Decide: Can the worker be unblocked with a directive, or does the task need re-spawning?\n' +
+          '  3. Unblock: maestro mail send <sessionId> --type directive --subject "<guidance>" --message "<specific fix instructions>"\n' +
+          '  4. Re-spawn if needed: maestro session spawn --task <taskId> --subject "<new approach>" --message "<revised instructions>" [--team-member-id <tmId>]\n' +
+          '  5. If the issue is systemic, adjust remaining subtasks before proceeding.',
       },
       {
         name: 'verify',
+        order: 6,
         description:
-          'After workers finish, check subtask statuses with `maestro task children <parentTaskId>`. ' +
-          'Retry failures or report blocked.',
+          'After workers finish, verify all subtask statuses:\n' +
+          '  maestro task children <parentTaskId>\n' +
+          'Ensure all are completed. Retry any failures or report blocked if unresolvable.',
       },
       {
         name: 'complete',
+        order: 7,
         description:
           'When all subtasks are done:\n' +
           '  maestro task report complete <parentTaskId> "<summary>"\n' +
@@ -618,14 +663,31 @@ export class PromptBuilder {
     if (!criteria || criteria.length === 0) {
       return null;
     }
-    if (criteria.length === 1) {
-      return criteria[0];
+    // Filter out generic placeholder strings that add no value
+    const PLACEHOLDER_PATTERNS = [
+      'task completion as described',
+      'complete the task',
+      'as described',
+      'n/a',
+      'none',
+      'tbd',
+    ];
+    const meaningful = criteria.filter(c => {
+      const lower = c.trim().toLowerCase();
+      return lower.length > 0 && !PLACEHOLDER_PATTERNS.includes(lower);
+    });
+    if (meaningful.length === 0) {
+      return null;
     }
-    return criteria.map((c, i) => `${i + 1}. ${c}`).join('\n');
+    if (meaningful.length === 1) {
+      return meaningful[0];
+    }
+    return meaningful.map((c, i) => `${i + 1}. ${c}`).join('\n');
   }
 
   /**
-   * Escape XML special characters.
+   * Escape XML special characters in attribute values and short structured fields.
+   * NOT for freeform text content (identity, descriptions) — use raw() for those.
    */
   private esc(str: string): string {
     return str
@@ -633,5 +695,14 @@ export class PromptBuilder {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  /**
+   * Pass through freeform text content as-is (no escaping).
+   * Used for identity instructions, task descriptions, workflow phases, etc.
+   * LLMs read these as natural text — escaping makes them harder to parse.
+   */
+  private raw(str: string): string {
+    return str;
   }
 }
