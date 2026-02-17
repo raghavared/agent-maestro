@@ -1,0 +1,294 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Build server + CLI binaries for all 4 platforms
+  # ---------------------------------------------------------------------------
+  build-binaries:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: darwin-arm64
+            rust-target: aarch64-apple-darwin
+          - os: macos-13
+            target: darwin-x64
+            rust-target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: linux-x64
+            rust-target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: win-x64
+            rust-target: x86_64-pc-windows-msvc
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: bun install
+
+      # -- Server binary --
+      - name: Build server
+        working-directory: maestro-server
+        run: |
+          bun run build
+          bun run build:binary:${{ matrix.target }}
+
+      # -- CLI binary --
+      - name: Build CLI
+        working-directory: maestro-cli
+        run: |
+          bun run build
+          bun run build:binary:${{ matrix.target }}
+
+      # -- Package (Unix) --
+      - name: Package binaries (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p staging
+          cp maestro-server/dist/bin/maestro-server staging/
+          cp maestro-cli/dist/bin/maestro staging/
+          chmod +x staging/*
+          tar -czf maestro-${{ matrix.target }}.tar.gz -C staging .
+
+      # -- Package (Windows) --
+      - name: Package binaries (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path staging
+          Copy-Item maestro-server/dist/bin/maestro-server.exe staging/
+          Copy-Item maestro-cli/dist/bin/maestro.exe staging/
+          Compress-Archive -Path staging/* -DestinationPath maestro-${{ matrix.target }}.zip
+
+      # -- Upload archive artifact --
+      - name: Upload binary archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.target }}
+          path: maestro-${{ matrix.target }}.*
+
+      # -- Upload raw server binary for Tauri sidecar --
+      - name: Upload server binary for Tauri (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-binary-${{ matrix.target }}
+          path: maestro-server/dist/bin/maestro-server
+
+      - name: Upload server binary for Tauri (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-binary-${{ matrix.target }}
+          path: maestro-server/dist/bin/maestro-server.exe
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Build Tauri desktop app for each platform
+  # ---------------------------------------------------------------------------
+  build-tauri:
+    needs: build-binaries
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: darwin-arm64
+            rust-target: aarch64-apple-darwin
+            sidecar-name: maestro-server-aarch64-apple-darwin
+            bundles: app
+            desktop-ext: tar.gz
+          - os: macos-13
+            target: darwin-x64
+            rust-target: x86_64-apple-darwin
+            sidecar-name: maestro-server-x86_64-apple-darwin
+            bundles: app
+            desktop-ext: tar.gz
+          - os: ubuntu-latest
+            target: linux-x64
+            rust-target: x86_64-unknown-linux-gnu
+            sidecar-name: maestro-server-x86_64-unknown-linux-gnu
+            bundles: appimage
+            desktop-ext: AppImage
+          - os: windows-latest
+            target: win-x64
+            rust-target: x86_64-pc-windows-msvc
+            sidecar-name: maestro-server-x86_64-pc-windows-msvc.exe
+            bundles: nsis
+            desktop-ext: exe
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: maestro-ui/src-tauri -> target
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install dependencies
+        run: bun install
+
+      # -- Download the server binary built in the previous job --
+      - name: Download server binary
+        uses: actions/download-artifact@v4
+        with:
+          name: server-binary-${{ matrix.target }}
+          path: maestro-ui/src-tauri/binaries
+
+      # -- Rename sidecar to Rust target triple --
+      - name: Rename sidecar binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mv maestro-ui/src-tauri/binaries/maestro-server \
+             maestro-ui/src-tauri/binaries/${{ matrix.sidecar-name }}
+          chmod +x maestro-ui/src-tauri/binaries/${{ matrix.sidecar-name }}
+
+      - name: Rename sidecar binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Move-Item `
+            maestro-ui/src-tauri/binaries/maestro-server.exe `
+            maestro-ui/src-tauri/binaries/${{ matrix.sidecar-name }}
+
+      # -- Build the Tauri app --
+      - name: Build Tauri app
+        working-directory: maestro-ui
+        env:
+          VITE_API_URL: http://localhost:2357/api
+          VITE_WS_URL: ws://localhost:2357
+        run: bunx tauri build --features custom-protocol --config src-tauri/tauri.conf.prod.json --bundles ${{ matrix.bundles }}
+
+      # -- Package desktop artifact (macOS) --
+      - name: Package desktop app (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          APP_DIR=$(find maestro-ui/src-tauri/target/release/bundle -name "*.app" -type d | head -1)
+          if [ -z "$APP_DIR" ]; then
+            echo "ERROR: .app bundle not found"
+            find maestro-ui/src-tauri/target/release/bundle -type d
+            exit 1
+          fi
+          # Rename "Maestro Prod.app" -> "Agent Maestro.app"
+          APP_PARENT=$(dirname "$APP_DIR")
+          mv "$APP_DIR" "$APP_PARENT/Agent Maestro.app"
+          tar -czf maestro-desktop-${{ matrix.target }}.tar.gz -C "$APP_PARENT" "Agent Maestro.app"
+
+      # -- Package desktop artifact (Linux) --
+      - name: Package desktop app (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          APPIMAGE=$(find maestro-ui/src-tauri/target/release/bundle -name "*.AppImage" | head -1)
+          if [ -z "$APPIMAGE" ]; then
+            echo "ERROR: AppImage not found"
+            find maestro-ui/src-tauri/target/release/bundle -type f
+            exit 1
+          fi
+          cp "$APPIMAGE" maestro-desktop-${{ matrix.target }}.AppImage
+
+      # -- Package desktop artifact (Windows) --
+      - name: Package desktop app (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path maestro-ui/src-tauri/target/release/bundle -Filter "*.exe" -Recurse | Select-Object -First 1
+          if (-not $installer) {
+            Write-Error "NSIS installer not found"
+            Get-ChildItem -Path maestro-ui/src-tauri/target/release/bundle -Recurse
+            exit 1
+          }
+          Copy-Item $installer.FullName "maestro-desktop-${{ matrix.target }}.exe"
+
+      # -- Upload desktop artifact --
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.target }}
+          path: maestro-desktop-${{ matrix.target }}.*
+
+  # ---------------------------------------------------------------------------
+  # Job 3: Create GitHub Release with all artifacts
+  # ---------------------------------------------------------------------------
+  release:
+    needs: [build-binaries, build-tauri]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # -- Download all artifacts --
+      - name: Download all binary archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binaries-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Download all desktop artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release-assets
+          merge-multiple: true
+
+      # -- Generate checksums --
+      - name: Generate checksums
+        working-directory: release-assets
+        run: |
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      # -- Create GitHub Release --
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
