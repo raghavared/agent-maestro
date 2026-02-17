@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useCallback, useLayoutEffect, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, AgentTool, ModelType } from "../../app/types/maestro";
+import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType, ClaudeModel, CodexModel } from "../../app/types/maestro";
 import { useTaskSessions } from "../../hooks/useTaskSessions";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { maestroClient } from "../../utils/MaestroClient";
@@ -10,13 +10,13 @@ import { DocViewer } from "./DocViewer";
 import { StrategyBadge } from "./StrategyBadge";
 import { SessionDetailModal } from "./SessionDetailModal";
 import { ConfirmActionModal } from "../modals/ConfirmActionModal";
-import { SplitPlayButton } from "./SplitPlayButton";
 
 type TaskListItemProps = {
     task: MaestroTask;
     onSelect: () => void;
     onWorkOn: () => void;
-    onWorkOnWithTeamMember?: (teamMemberId: string, strategy?: string) => void;
+    onWorkOnWithOverride?: (agentTool: AgentTool, model: ModelType) => void;
+    onWorkOnWithTeamMember?: (teamMemberId: string, strategy?: WorkerStrategy | OrchestratorStrategy) => void;
     onAssignTeamMember?: (teamMemberId: string) => void;
     onOpenCreateTeamMember?: () => void;
     onJumpToSession: (maestroSessionId: string) => void;
@@ -70,50 +70,27 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
     stopped: "Stopped",
 };
 
-// Agent tool / model constants
-const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex", "gemini"];
-
-const AGENT_TOOL_LABELS: Record<AgentTool, string> = {
-    "claude-code": "Claude Code",
-    "codex": "OpenAI Codex",
-    "gemini": "Google Gemini",
-};
-
-const AGENT_TOOL_SYMBOLS: Record<AgentTool, string> = {
-    "claude-code": "◈",
-    "codex": "◇",
-    "gemini": "△",
-};
-
-const AGENT_MODELS: Record<AgentTool, { value: string; label: string }[]> = {
-    "claude-code": [
-        { value: "haiku", label: "Haiku" },
-        { value: "sonnet", label: "Sonnet" },
-        { value: "opus", label: "Opus" },
-    ],
-    "codex": [
-        { value: "gpt-5.3-codex", label: "5.3-codex" },
-        { value: "gpt-5.2-codex", label: "5.2-codex" },
-    ],
-    "gemini": [
-        { value: "gemini-3-pro-preview", label: "3-pro" },
-        { value: "gemini-3-flash-preview", label: "3-flash" },
-    ],
-};
-
-const DEFAULT_MODEL: Record<AgentTool, string> = {
-    "claude-code": "sonnet",
-    "codex": "gpt-5.3-codex",
-    "gemini": "gemini-3-pro-preview",
-};
-
-// Get short display label for a model value
-function getModelDisplayLabel(model?: ModelType, agentTool?: AgentTool): string {
-    if (!model || !agentTool) return "";
-    const models = AGENT_MODELS[agentTool];
-    const found = models?.find(m => m.value === model);
-    return found?.label || model;
-}
+const AGENT_TOOLS: { id: AgentTool; label: string; symbol: string; models: { id: ModelType; label: string }[] }[] = [
+    {
+        id: 'claude-code',
+        label: 'Claude Code',
+        symbol: '◈',
+        models: [
+            { id: 'haiku' as ClaudeModel, label: 'Haiku' },
+            { id: 'sonnet' as ClaudeModel, label: 'Sonnet' },
+            { id: 'opus' as ClaudeModel, label: 'Opus' },
+        ],
+    },
+    {
+        id: 'codex',
+        label: 'Codex',
+        symbol: '◇',
+        models: [
+            { id: 'gpt-5.2-codex' as CodexModel, label: 'GPT 5.2' },
+            { id: 'gpt-5.3-codex' as CodexModel, label: 'GPT 5.3' },
+        ],
+    },
+];
 
 function formatTimeAgo(timestamp: number): string {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -140,6 +117,7 @@ export function TaskListItem({
     task,
     onSelect,
     onWorkOn,
+    onWorkOnWithOverride,
     onWorkOnWithTeamMember,
     onAssignTeamMember,
     onOpenCreateTeamMember,
@@ -165,25 +143,36 @@ export function TaskListItem({
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
     const [isUpdatingPriority, setIsUpdatingPriority] = useState(false);
-    const [showAgentDropdown, setShowAgentDropdown] = useState(false);
-    const [agentDropdownStep, setAgentDropdownStep] = useState<'tool' | 'model'>('tool');
-    const [selectedAgentTool, setSelectedAgentTool] = useState<AgentTool | null>(null);
-    const [isUpdatingAgent, setIsUpdatingAgent] = useState(false);
+    const [showTeamMemberDropdown, setShowTeamMemberDropdown] = useState(false);
+    const [isUpdatingTeamMember, setIsUpdatingTeamMember] = useState(false);
+    const [showLaunchDropdown, setShowLaunchDropdown] = useState(false);
+    const [expandedTool, setExpandedTool] = useState<AgentTool | null>(null);
+    const [launchOverride, setLaunchOverride] = useState<{ agentTool: AgentTool; model: ModelType } | null>(null);
     const statusDropdownRef = useRef<HTMLDivElement>(null);
     const priorityDropdownRef = useRef<HTMLDivElement>(null);
-    const agentDropdownRef = useRef<HTMLDivElement>(null);
+    const teamMemberDropdownRef = useRef<HTMLDivElement>(null);
+    const launchDropdownRef = useRef<HTMLDivElement>(null);
     const statusBtnRef = useRef<HTMLButtonElement>(null);
     const priorityBtnRef = useRef<HTMLButtonElement>(null);
-    const agentBtnRef = useRef<HTMLButtonElement>(null);
-    const [statusDropdownPos, setStatusDropdownPos] = useState<{ top: number; left: number } | null>(null);
-    const [priorityDropdownPos, setPriorityDropdownPos] = useState<{ top: number; left: number } | null>(null);
-    const [agentDropdownPos, setAgentDropdownPos] = useState<{ top: number; left: number } | null>(null);
+    const teamMemberBtnRef = useRef<HTMLButtonElement>(null);
+    const launchBtnRef = useRef<HTMLButtonElement>(null);
+    const [statusDropdownPos, setStatusDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' } | null>(null);
+    const [priorityDropdownPos, setPriorityDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' } | null>(null);
+    const [teamMemberDropdownPos, setTeamMemberDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' } | null>(null);
+    // launchDropdownRightPos is declared below with computeLaunchDropdownPos
 
-    const computeDropdownPos = useCallback((btnRef: React.RefObject<HTMLButtonElement | null>) => {
+    const computeDropdownPos = useCallback((btnRef: React.RefObject<HTMLButtonElement | null>, estimatedHeight = 250) => {
         const btn = btnRef.current;
         if (!btn) return null;
         const rect = btn.getBoundingClientRect();
-        return { top: rect.bottom + 4, left: rect.left };
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+
+        if (spaceBelow >= estimatedHeight || spaceBelow >= spaceAbove) {
+            return { top: rect.bottom + 4, left: rect.left, openDirection: 'down' as const };
+        } else {
+            return { bottom: (window.innerHeight - rect.top) + 4, left: rect.left, openDirection: 'up' as const };
+        }
     }, []);
 
     useLayoutEffect(() => {
@@ -199,10 +188,33 @@ export function TaskListItem({
     }, [showPriorityDropdown, computeDropdownPos]);
 
     useLayoutEffect(() => {
-        if (showAgentDropdown) {
-            setAgentDropdownPos(computeDropdownPos(agentBtnRef));
+        if (showTeamMemberDropdown) {
+            setTeamMemberDropdownPos(computeDropdownPos(teamMemberBtnRef));
         }
-    }, [showAgentDropdown, computeDropdownPos]);
+    }, [showTeamMemberDropdown, computeDropdownPos]);
+
+    const computeLaunchDropdownPos = useCallback(() => {
+        const btn = launchBtnRef.current;
+        if (!btn) return null;
+        const rect = btn.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const rightOffset = window.innerWidth - rect.right;
+
+        if (spaceBelow >= 200 || spaceBelow >= spaceAbove) {
+            return { top: rect.bottom + 4, right: rightOffset, openDirection: 'down' as const };
+        } else {
+            return { bottom: (window.innerHeight - rect.top) + 4, right: rightOffset, openDirection: 'up' as const };
+        }
+    }, []);
+
+    const [launchDropdownRightPos, setLaunchDropdownRightPos] = useState<{ top?: number; bottom?: number; right: number; openDirection: 'down' | 'up' } | null>(null);
+
+    useLayoutEffect(() => {
+        if (showLaunchDropdown) {
+            setLaunchDropdownRightPos(computeLaunchDropdownPos());
+        }
+    }, [showLaunchDropdown, computeLaunchDropdownPos]);
 
     const [taskDocs, setTaskDocs] = useState<DocEntry[]>([]);
     const [viewingDoc, setViewingDoc] = useState<DocEntry | null>(null);
@@ -221,6 +233,13 @@ export function TaskListItem({
     const updateTask = useMaestroStore(s => s.updateTask);
 
     const teamMembers = useMemo(() => Array.from(teamMembersMap.values()), [teamMembersMap]);
+    const assignedTeamMember = useMemo(() =>
+        task.teamMemberId ? teamMembersMap.get(task.teamMemberId) : undefined,
+        [task.teamMemberId, teamMembersMap]
+    );
+
+    // Effective model: launch override takes priority over team member's model
+    const effectiveModel = launchOverride?.model || assignedTeamMember?.model || null;
 
     const isSubtask = task.parentId !== null;
 
@@ -357,45 +376,23 @@ export function TaskListItem({
         }
     };
 
-    const handleOpenAgentDropdown = () => {
-        if (!isUpdatingAgent) {
-            // If task already has an agentTool, go directly to model step
-            if (task.agentTool) {
-                setSelectedAgentTool(task.agentTool);
-                setAgentDropdownStep('model');
-            } else {
-                setSelectedAgentTool(null);
-                setAgentDropdownStep('tool');
-            }
-            setShowAgentDropdown(!showAgentDropdown);
+    const handleInlineTeamMemberChange = async (teamMemberId: string) => {
+        if (teamMemberId === task.teamMemberId) {
+            setShowTeamMemberDropdown(false);
+            return;
         }
-    };
 
-    const handleSelectAgentTool = (tool: AgentTool) => {
-        setSelectedAgentTool(tool);
-        setAgentDropdownStep('model');
-    };
-
-    const handleSelectModel = async (model: ModelType) => {
-        if (!selectedAgentTool) return;
-
-        setIsUpdatingAgent(true);
+        setIsUpdatingTeamMember(true);
         try {
-            await updateTask(task.id, {
-                agentTool: selectedAgentTool,
-                model: model,
-            });
-            setShowAgentDropdown(false);
+            await updateTask(task.id, { teamMemberId });
+            setShowTeamMemberDropdown(false);
+            // Reset launch override — new team member's model takes priority
+            setLaunchOverride(null);
         } catch (error) {
-            console.error("Failed to update task agent/model:", error);
+            console.error("Failed to update team member:", error);
         } finally {
-            setIsUpdatingAgent(false);
+            setIsUpdatingTeamMember(false);
         }
-    };
-
-    const handleAgentDropdownBack = () => {
-        setAgentDropdownStep('tool');
-        setSelectedAgentTool(null);
     };
 
     const handleSubtaskAction = (e: React.MouseEvent) => {
@@ -418,7 +415,7 @@ export function TaskListItem({
 
     return (
         <div
-            className={`terminalTaskRow terminalTaskRow--${task.status} ${isSubtask ? 'terminalTaskRow--subtask' : ''} ${showStatusDropdown || showPriorityDropdown || showAgentDropdown ? 'terminalTaskRow--dropdownOpen' : ''} ${selectionMode ? 'terminalTaskRow--selectable' : ''}`}
+            className={`terminalTaskRow terminalTaskRow--${task.status} ${isSubtask ? 'terminalTaskRow--subtask' : ''} ${showStatusDropdown || showPriorityDropdown || showTeamMemberDropdown ? 'terminalTaskRow--dropdownOpen' : ''} ${selectionMode ? 'terminalTaskRow--selectable' : ''}`}
             draggable
             onDragStart={handleDragStart}
         >
@@ -477,8 +474,13 @@ export function TaskListItem({
                                         }}
                                     />
                                     <div
-                                        className="terminalInlineStatusDropdown terminalInlineStatusDropdown--fixed"
-                                        style={{ top: statusDropdownPos.top, left: statusDropdownPos.left }}
+                                        className={`terminalInlineStatusDropdown terminalInlineStatusDropdown--fixed ${statusDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
+                                        style={{
+                                            ...(statusDropdownPos.openDirection === 'down'
+                                                ? { top: statusDropdownPos.top }
+                                                : { bottom: statusDropdownPos.bottom }),
+                                            left: statusDropdownPos.left,
+                                        }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         {statusOptions.map((status) => (
@@ -537,8 +539,13 @@ export function TaskListItem({
                                         }}
                                     />
                                     <div
-                                        className="terminalInlinePriorityDropdown terminalInlinePriorityDropdown--fixed"
-                                        style={{ top: priorityDropdownPos.top, left: priorityDropdownPos.left }}
+                                        className={`terminalInlinePriorityDropdown terminalInlinePriorityDropdown--fixed ${priorityDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
+                                        style={{
+                                            ...(priorityDropdownPos.openDirection === 'down'
+                                                ? { top: priorityDropdownPos.top }
+                                                : { bottom: priorityDropdownPos.bottom }),
+                                            left: priorityDropdownPos.left,
+                                        }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         {priorityOptions.map((priority) => (
@@ -562,101 +569,103 @@ export function TaskListItem({
                             )}
                         </div>
 
-                        {/* Agent Tool / Model Badge - Clickable */}
-                        <div className="terminalInlineAgentPicker" ref={agentDropdownRef}>
+                        {/* Team Member Dropdown */}
+                        <div className="terminalInlineTeamMemberPicker" ref={teamMemberDropdownRef}>
                             <button
-                                ref={agentBtnRef}
-                                className={`terminalMetaBadge terminalMetaBadge--agent ${task.agentTool ? `terminalMetaBadge--agent-${task.agentTool}` : ''} ${task.model ? `terminalMetaBadge--model-${task.model}` : ''} terminalMetaBadge--clickable ${showAgentDropdown ? 'terminalMetaBadge--open' : ''} ${isUpdatingAgent ? 'terminalMetaBadge--updating' : ''}`}
+                                ref={teamMemberBtnRef}
+                                className={`terminalMetaBadge terminalMetaBadge--agent terminalMetaBadge--clickable ${showTeamMemberDropdown ? 'terminalMetaBadge--open' : ''} ${isUpdatingTeamMember ? 'terminalMetaBadge--updating' : ''}`}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    handleOpenAgentDropdown();
+                                    if (!isUpdatingTeamMember) {
+                                        setShowTeamMemberDropdown(!showTeamMemberDropdown);
+                                    }
                                 }}
-                                disabled={isUpdatingAgent}
-                                title={task.agentTool ? `${AGENT_TOOL_LABELS[task.agentTool]}${task.model ? ` / ${getModelDisplayLabel(task.model, task.agentTool)}` : ''}` : 'Set agent tool & model'}
+                                disabled={isUpdatingTeamMember}
+                                title={assignedTeamMember
+                                    ? `${assignedTeamMember.name}${assignedTeamMember.agentTool ? ` · ${assignedTeamMember.agentTool}` : ''}${assignedTeamMember.model ? ` / ${assignedTeamMember.model}` : ''}`
+                                    : "Click to assign team member"
+                                }
                             >
-                                {isUpdatingAgent ? (
+                                {isUpdatingTeamMember ? (
                                     <span className="terminalStatusSpinner">⟳</span>
                                 ) : (
                                     <>
-                                        {task.agentTool ? (
-                                            <>
-                                                {AGENT_TOOL_SYMBOLS[task.agentTool]}{' '}
-                                                {task.model ? getModelDisplayLabel(task.model, task.agentTool) : AGENT_TOOL_LABELS[task.agentTool]}
-                                            </>
+                                        {assignedTeamMember ? (
+                                            <>{assignedTeamMember.avatar} {assignedTeamMember.name}</>
                                         ) : (
-                                            <>⬡ Agent</>
+                                            <>👤 Assign</>
                                         )}
-                                        <span className="terminalMetaBadgeCaret">{showAgentDropdown ? '▴' : '▾'}</span>
+                                        <span className="terminalMetaBadgeCaret">{showTeamMemberDropdown ? '▴' : '▾'}</span>
                                     </>
                                 )}
                             </button>
 
-                            {showAgentDropdown && !isUpdatingAgent && agentDropdownPos && createPortal(
+                            {showTeamMemberDropdown && !isUpdatingTeamMember && teamMemberDropdownPos && createPortal(
                                 <>
                                     <div
                                         className="terminalInlineStatusOverlay"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setShowAgentDropdown(false);
+                                            setShowTeamMemberDropdown(false);
                                         }}
                                     />
                                     <div
-                                        className="terminalInlineAgentDropdown terminalInlineAgentDropdown--fixed"
-                                        style={{ top: agentDropdownPos.top, left: agentDropdownPos.left }}
+                                        className={`terminalInlineTeamMemberDropdown terminalInlineTeamMemberDropdown--fixed ${teamMemberDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
+                                        style={{
+                                            ...(teamMemberDropdownPos.openDirection === 'down'
+                                                ? { top: teamMemberDropdownPos.top }
+                                                : { bottom: teamMemberDropdownPos.bottom }),
+                                            left: teamMemberDropdownPos.left,
+                                        }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
-                                        {agentDropdownStep === 'tool' ? (
-                                            <>
-                                                <div className="terminalAgentDropdownHeader">Select Agent Tool</div>
-                                                {AGENT_TOOLS.map((tool) => (
-                                                    <button
-                                                        key={tool}
-                                                        className={`terminalInlineAgentOption terminalInlineAgentOption--${tool} ${tool === task.agentTool ? 'terminalInlineAgentOption--current' : ''}`}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleSelectAgentTool(tool);
-                                                        }}
-                                                    >
-                                                        <span className="terminalAgentSymbol">{AGENT_TOOL_SYMBOLS[tool]}</span>
-                                                        <span className="terminalAgentLabel">{AGENT_TOOL_LABELS[tool]}</span>
-                                                        <span className="terminalAgentArrow">→</span>
-                                                    </button>
-                                                ))}
-                                            </>
-                                        ) : (
-                                            <>
-                                                <button
-                                                    className="terminalAgentDropdownBack"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleAgentDropdownBack();
-                                                    }}
-                                                >
-                                                    ← {selectedAgentTool ? AGENT_TOOL_LABELS[selectedAgentTool] : ''}
-                                                </button>
-                                                <div className="terminalAgentDropdownHeader">Select Model</div>
-                                                {selectedAgentTool && AGENT_MODELS[selectedAgentTool].map((model) => (
-                                                    <button
-                                                        key={model.value}
-                                                        className={`terminalInlineAgentOption terminalInlineAgentOption--model terminalInlineAgentOption--model-${model.value} ${model.value === task.model ? 'terminalInlineAgentOption--current' : ''}`}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleSelectModel(model.value as ModelType);
-                                                        }}
-                                                    >
-                                                        <span className="terminalAgentLabel">{model.label}</span>
-                                                        {model.value === task.model && (
-                                                            <span className="terminalStatusCheck">✓</span>
-                                                        )}
-                                                    </button>
-                                                ))}
-                                            </>
+                                        {teamMembers.filter(m => m.status === 'active').map((member) => (
+                                            <button
+                                                key={member.id}
+                                                className={`terminalInlineTeamMemberOption ${member.id === task.teamMemberId ? 'terminalInlineTeamMemberOption--current' : ''}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleInlineTeamMemberChange(member.id);
+                                                }}
+                                            >
+                                                <span className="terminalTeamMemberAvatar">{member.avatar}</span>
+                                                <span className="terminalTeamMemberLabel">{member.name}</span>
+                                                {member.id === task.teamMemberId && (
+                                                    <span className="terminalStatusCheck">✓</span>
+                                                )}
+                                            </button>
+                                        ))}
+                                        {onOpenCreateTeamMember && (
+                                            <button
+                                                className="terminalInlineTeamMemberOption terminalInlineTeamMemberOption--create"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setShowTeamMemberDropdown(false);
+                                                    onOpenCreateTeamMember();
+                                                }}
+                                            >
+                                                <span className="terminalTeamMemberAvatar">+</span>
+                                                <span className="terminalTeamMemberLabel">New Member</span>
+                                            </button>
                                         )}
                                     </div>
                                 </>,
                                 document.body
                             )}
                         </div>
+
+                        {/* Effective Model Badge */}
+                        {effectiveModel && (
+                            <span
+                                className={`terminalMetaBadge terminalMetaBadge--model ${launchOverride ? 'terminalMetaBadge--model-override' : ''}`}
+                                title={launchOverride
+                                    ? `Override: ${launchOverride.model} (${launchOverride.agentTool})`
+                                    : `From team member: ${effectiveModel}`
+                                }
+                            >
+                                {effectiveModel}
+                            </span>
+                        )}
 
                         {/* Combined session status chips: show task-session status with breathing animation when working */}
                         {sessionCount > 0 && (
@@ -677,15 +686,12 @@ export function TaskListItem({
                                             <span
                                                 key={session.id}
                                                 className={`terminalSessionStatusChip terminalSessionStatusChip--${taskIsTerminal ? 'completed' : displayStatus} terminalSessionStatusChip--clickable ${isWorking && !sessionNeedsInput ? 'terminalSessionStatusChip--breathing' : ''} ${sessionNeedsInput ? 'terminalSessionStatusChip--needsInput' : ''}`}
-                                                title={`${session.name || session.id}: ${taskIsTerminal ? 'Completed' : sessionNeedsInput ? 'Needs Input' : taskStatus ? taskStatus.replace('_', ' ') : (SESSION_STATUS_LABELS[session.status] || session.status || 'Unknown')}${session.strategy ? ` [${session.strategy}]` : ''}`}
+                                                title={`${session.name || session.id}: ${taskIsTerminal ? 'Completed' : sessionNeedsInput ? 'Needs Input' : taskStatus ? taskStatus.replace('_', ' ') : (SESSION_STATUS_LABELS[session.status] || session.status || 'Unknown')}`}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setSessionModalId(session.id);
                                                 }}
                                             >
-                                                {session.strategy === 'queue' && (
-                                                    <span className="terminalSessionStrategyTag">Q</span>
-                                                )}
                                                 <span className="terminalSessionStatusLabel">
                                                     {taskIsTerminal ? 'DONE' : sessionNeedsInput ? 'NEEDS INPUT' : taskStatus ? taskStatus.toUpperCase().replace('_', ' ') : (SESSION_STATUS_LABELS[session.status] || session.status || 'UNKNOWN').toUpperCase()}
                                                 </span>
@@ -706,7 +712,7 @@ export function TaskListItem({
 
                 {/* Right-side action buttons */}
                 <div className="terminalTaskActions">
-                    {/* Subtask button - always visible */}
+                    {/* Subtask button */}
                     <button
                         className={`terminalSubtaskBtn ${hasChildren ? (isChildrenCollapsed ? 'terminalSubtaskBtn--collapsed' : 'terminalSubtaskBtn--expanded') : (isAddingSubtask ? 'terminalSubtaskBtn--adding' : 'terminalSubtaskBtn--empty')}`}
                         onClick={handleSubtaskAction}
@@ -724,29 +730,90 @@ export function TaskListItem({
                         )}
                     </button>
 
-                    {/* Pin button */}
-                    <button
-                        className={`terminalPinBtn ${task.pinned ? 'terminalPinBtn--pinned' : ''}`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onTogglePin?.();
-                        }}
-                        title={task.pinned ? "Unpin task" : "Pin task"}
-                    >
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill={task.pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M9.828 1.172a2 2 0 0 1 2.828 0l2.172 2.172a2 2 0 0 1 0 2.828L12 9l-1 4-4-1L4.172 14.828 1.172 11.828 4 9l-1-4 4-1z" />
-                        </svg>
-                    </button>
+                    {/* Split Play button with launch options */}
+                    <div className="terminalSplitPlay" ref={launchDropdownRef}>
+                        <button
+                            className="terminalSplitPlay__play"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (launchOverride) {
+                                    onWorkOnWithOverride?.(launchOverride.agentTool, launchOverride.model);
+                                } else {
+                                    onWorkOn();
+                                }
+                            }}
+                            title={launchOverride ? `Run with ${launchOverride.model}` : "Run task"}
+                        >
+                            ▶
+                        </button>
+                        <button
+                            ref={launchBtnRef}
+                            className={`terminalSplitPlay__dropdown ${showLaunchDropdown ? 'terminalSplitPlay__dropdown--open' : ''}`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowLaunchDropdown(!showLaunchDropdown);
+                                setExpandedTool(null);
+                            }}
+                            title="Launch options"
+                        >
+                            ▾
+                        </button>
 
-                    {/* Split Play button */}
-                    <div onClick={(e) => e.stopPropagation()}>
-                        <SplitPlayButton
-                            onPlayDefault={onWorkOn}
-                            assignedTeamMemberId={task.teamMemberId}
-                            onAssignTeamMember={onAssignTeamMember}
-                            onOpenCreateTeamMember={onOpenCreateTeamMember}
-                            teamMembers={teamMembers}
-                        />
+                        {showLaunchDropdown && launchDropdownRightPos && createPortal(
+                            <>
+                                <div
+                                    className="terminalInlineStatusOverlay"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowLaunchDropdown(false);
+                                    }}
+                                />
+                                <div
+                                    className={`terminalLaunchDropdown terminalLaunchDropdown--fixed ${launchDropdownRightPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
+                                    style={{
+                                        ...(launchDropdownRightPos.openDirection === 'down'
+                                            ? { top: launchDropdownRightPos.top }
+                                            : { bottom: launchDropdownRightPos.bottom }),
+                                        right: launchDropdownRightPos.right,
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div className="terminalLaunchDropdown__header">Launch With</div>
+                                    {AGENT_TOOLS.map((tool) => (
+                                        <div key={tool.id} className="terminalLaunchDropdown__toolGroup">
+                                            <button
+                                                className={`terminalLaunchDropdown__tool ${expandedTool === tool.id ? 'terminalLaunchDropdown__tool--expanded' : ''}`}
+                                                onClick={() => setExpandedTool(expandedTool === tool.id ? null : tool.id)}
+                                            >
+                                                <span className="terminalLaunchDropdown__toolSymbol">{tool.symbol}</span>
+                                                <span className="terminalLaunchDropdown__toolLabel">{tool.label}</span>
+                                                <span className="terminalLaunchDropdown__toolCaret">{expandedTool === tool.id ? '▴' : '▸'}</span>
+                                            </button>
+                                            {expandedTool === tool.id && (
+                                                <div className="terminalLaunchDropdown__models">
+                                                    {tool.models.map((model) => (
+                                                        <button
+                                                            key={model.id}
+                                                            className={`terminalLaunchDropdown__model ${launchOverride?.model === model.id && launchOverride?.agentTool === tool.id ? 'terminalLaunchDropdown__model--selected' : ''}`}
+                                                            onClick={() => {
+                                                                setShowLaunchDropdown(false);
+                                                                setLaunchOverride({ agentTool: tool.id, model: model.id });
+                                                            }}
+                                                        >
+                                                            {model.label}
+                                                            {launchOverride?.model === model.id && launchOverride?.agentTool === tool.id && (
+                                                                <span className="terminalStatusCheck"> ✓</span>
+                                                            )}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </>,
+                            document.body
+                        )}
                     </div>
                 </div>
             </div>

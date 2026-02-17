@@ -7,7 +7,7 @@
  */
 
 /** Worker strategy type */
-export type WorkerStrategy = 'simple' | 'queue';
+export type WorkerStrategy = 'simple';
 
 /** Orchestrator strategy type */
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
@@ -15,11 +15,10 @@ export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 /** Agent mode (three-axis model) — replaces role as the primary axis */
 export type AgentMode = 'execute' | 'coordinate';
 
-/** Capability flags derived from mode + strategy */
+/** Capability flags derived from mode */
 export type CapabilityName =
   | 'can_spawn_sessions'
   | 'can_edit_tasks'
-  | 'can_use_queue'
   | 'can_report_task_level'
   | 'can_report_session_level';
 
@@ -191,9 +190,6 @@ export interface TaskData {
   /** Custom metadata (agent assignments, tags, etc.) */
   metadata?: Record<string, any>;
 
-  /** Preferred model for this task (e.g. 'sonnet', 'opus', 'haiku', or native model names) */
-  model?: string;
-
   /** Unified status (single source of truth). Optional in manifests. */
   status?: TaskStatus;
 
@@ -229,7 +225,7 @@ export interface SessionConfig {
 
   /**
    * Explicit list of allowed commands for this session.
-   * If not specified, defaults are determined by mode and strategy.
+   * If not specified, defaults are determined by mode.
    * Format: 'command' or 'parent:subcommand' (e.g., 'task:list', 'queue:start')
    */
   allowedCommands?: string[];
@@ -330,26 +326,16 @@ export function isCoordinateManifest(manifest: MaestroManifest): boolean {
 }
 
 /**
- * Get the effective strategy from a manifest, with mode-appropriate defaults
- */
-export function getEffectiveStrategy(manifest: MaestroManifest): string {
-  if (manifest.strategy) return manifest.strategy;
-  return manifest.mode === 'coordinate' ? 'default' : 'simple';
-}
-
-/**
- * Compute capabilities from mode + strategy, with optional overrides from team member.
+ * Compute capabilities from mode, with optional overrides from team member.
  * If overrides are provided, they take precedence over the computed defaults.
  */
 export function computeCapabilities(
   mode: AgentMode,
-  strategy: string,
   overrides?: CapabilityOverrides
 ): Capability[] {
   const caps: Record<CapabilityName, boolean> = {
     can_spawn_sessions: mode === 'coordinate',
     can_edit_tasks: true,
-    can_use_queue: mode === 'execute' && strategy === 'queue',
     can_report_task_level: true,
     can_report_session_level: true,
   };

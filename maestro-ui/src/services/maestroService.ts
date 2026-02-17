@@ -1,19 +1,21 @@
 import { maestroClient } from "../utils/MaestroClient";
 
 import { TerminalSession } from "../app/types/session";
-import { MaestroProject, MaestroTask, AgentMode, AgentTool } from "../app/types/maestro";
+import { MaestroProject, MaestroTask, AgentMode, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType } from "../app/types/maestro";
 
 export async function createMaestroSession(input: {
     task?: MaestroTask;              // Single task (backward compatible)
     tasks?: MaestroTask[];           // Multiple tasks (PHASE IV-A)
     project: MaestroProject;
     skillIds?: string[];      // Skill IDs to load
-    strategy?: string;               // Unified strategy
     mode?: AgentMode;                // 'execute' or 'coordinate'
+    strategy?: WorkerStrategy | OrchestratorStrategy;  // Strategy for this session
     teamMemberIds?: string[];        // Team member task IDs for coordinate mode
     teamMemberId?: string;           // Single team member assigned to this task
+    agentTool?: AgentTool;           // Override agent tool for this run
+    model?: ModelType;               // Override model for this run
   }): Promise<TerminalSession> {
-    const { task, tasks, skillIds, project, strategy, mode, teamMemberIds, teamMemberId } = input;
+    const { task, tasks, skillIds, project, mode, teamMemberIds, teamMemberId, agentTool, model } = input;
 
     // Normalize to array (support both single and multi-task)
     const taskList = tasks || (task ? [task] : []);
@@ -30,30 +32,26 @@ export async function createMaestroSession(input: {
     // Use server spawn endpoint (Server-Generated Manifests architecture)
     const taskIds = taskList.map(t => t.id);
 
-    // Get model from the first task (for multi-task sessions, use the first task's model)
-    const model = taskList[0].model || 'sonnet';
-
-    // Get agent tool from the first task
-    const agentTool: AgentTool | undefined = taskList[0].agentTool;
-
     // Determine skill based on mode
     const defaultSkill = resolvedMode === 'coordinate' ? 'maestro-orchestrator' : 'maestro-worker';
+
+    // Resolve teamMemberId from the first task if not explicitly provided
+    const resolvedTeamMemberId = teamMemberId || taskList[0].teamMemberId;
 
     try {
       const response = await maestroClient.spawnSession({
         projectId: project.id,
         taskIds,
         mode: resolvedMode,
-        strategy: strategy || 'simple',
         spawnSource: 'ui',
         sessionName: taskList.length > 1
           ? `Multi-Task: ${taskList[0].title}`
           : taskList[0].title,
         skills: skillIds || [defaultSkill],
-        model,
-        ...(agentTool && agentTool !== 'claude-code' ? { agentTool } : {}),
         ...(teamMemberIds && teamMemberIds.length > 0 ? { teamMemberIds } : {}),
-        ...(teamMemberId ? { teamMemberId } : {}),
+        ...(resolvedTeamMemberId ? { teamMemberId: resolvedTeamMemberId } : {}),
+        ...(agentTool ? { agentTool } : {}),
+        ...(model ? { model } : {}),
       });
 
       console.log('[App.createMaestroSession] ✓ Server spawn request sent:', response.sessionId);

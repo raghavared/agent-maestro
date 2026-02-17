@@ -41,30 +41,12 @@ export interface MailFilter {
 }
 
 // Worker strategy types
-export type WorkerStrategy = 'simple' | 'queue' | 'tree';
+export type WorkerStrategy = 'simple' | 'tree';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 export type AgentTool = 'claude-code' | 'codex' | 'gemini';
 
 // Three-axis model types
 export type AgentMode = 'execute' | 'coordinate';
-
-export interface QueueItem {
-  taskId: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed' | 'skipped';
-  addedAt: number;
-  startedAt?: number;
-  completedAt?: number;
-  failReason?: string;
-}
-
-export interface QueueState {
-  sessionId: string;
-  strategy: WorkerStrategy;
-  items: QueueItem[];
-  currentIndex: number;  // -1 if no item is being processed
-  createdAt: number;
-  updatedAt: number;
-}
 
 // Base types
 export interface Project {
@@ -89,24 +71,22 @@ export interface TeamMember {
   model?: string;                      // "opus", "sonnet", "haiku"
   agentTool?: AgentTool;               // "claude-code", "codex", "gemini"
   mode?: AgentMode;                    // "execute" or "coordinate"
-  strategy?: string;                   // Strategy: "simple", "queue", "default", "intelligent-batching", "dag"
+  strategy?: string;                   // Deprecated: kept for backward compatibility
   skillIds?: string[];
   isDefault: boolean;                  // true for Worker & Coordinator
   status: TeamMemberStatus;            // 'active' | 'archived'
 
-  // Phase 2: Capability overrides (if set, override computed defaults from mode+strategy)
   capabilities?: {
     can_spawn_sessions?: boolean;
     can_edit_tasks?: boolean;
-    can_use_queue?: boolean;
     can_report_task_level?: boolean;
     can_report_session_level?: boolean;
   };
 
   // Phase 2: Command permission overrides
   commandPermissions?: {
-    groups?: Record<string, boolean>;    // e.g. { task: true, session: false, queue: true }
-    commands?: Record<string, boolean>;  // e.g. { "session:spawn": true, "queue:next": false }
+    groups?: Record<string, boolean>;    // e.g. { task: true, session: false }
+    commands?: Record<string, boolean>;  // e.g. { "session:spawn": true }
   };
 
   // Phase 3: Workflow customization
@@ -185,12 +165,6 @@ export interface Task {
   // Reference task IDs for context (docs from these tasks are provided to the agent)
   referenceTaskIds?: string[];
 
-  // Model configuration
-  model?: string;
-
-  // Agent tool configuration
-  agentTool?: AgentTool;
-
   // Pinned tasks appear in the dedicated "Pinned" tab for quick re-execution
   pinned?: boolean;
 
@@ -208,7 +182,7 @@ export interface Session {
   name: string;                // Session name
   agentId?: string;            // Agent running this session (Phase IV-C)
   env: Record<string, string>; // Environment variables
-  strategy: WorkerStrategy | OrchestratorStrategy;    // Worker strategy ('simple' or 'queue') or orchestrator strategy
+  strategy?: string;    // Deprecated: kept for backward compatibility
 
   status: SessionStatus;
   startedAt: number;
@@ -231,7 +205,7 @@ export interface Session {
 
 // Supporting types
 export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'completed' | 'cancelled' | 'blocked' | 'archived';
-export type TaskSessionStatus = 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'skipped';
+export type TaskSessionStatus = 'working' | 'blocked' | 'completed' | 'failed' | 'skipped';
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type SessionStatus = 'spawning' | 'idle' | 'working' | 'completed' | 'failed' | 'stopped';
 
@@ -256,7 +230,7 @@ export interface SessionTimelineEvent {
   timestamp: number;
   message?: string;
   taskId?: string;                    // Which task this event relates to
-  metadata?: Record<string, any>;     // Extensible for strategy-specific data
+  metadata?: Record<string, any>;     // Extensible metadata
 }
 
 // Document entry for session/task docs
@@ -287,8 +261,6 @@ export interface CreateTaskPayload {
   initialPrompt?: string;
   skillIds?: string[];
   referenceTaskIds?: string[];
-  model?: string;
-  agentTool?: AgentTool;
   teamMemberId?: string;
 }
 
@@ -305,8 +277,6 @@ export interface UpdateTaskPayload {
   skillIds?: string[];         // PHASE IV-B
   agentIds?: string[];         // PHASE IV-C
   referenceTaskIds?: string[];
-  model?: string;
-  agentTool?: AgentTool;
   pinned?: boolean;
   teamMemberId?: string;
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline
@@ -321,7 +291,7 @@ export interface CreateSessionPayload {
   taskIds: string[];           // PHASE IV-A: Array of task IDs
   name?: string;
   agentId?: string;
-  strategy?: WorkerStrategy | OrchestratorStrategy;   // Worker or orchestrator strategy, defaults to 'simple'
+  strategy?: string;   // Deprecated: kept for backward compatibility
   status?: SessionStatus;
   env?: Record<string, string>;
   metadata?: Record<string, any>;
@@ -347,13 +317,11 @@ export interface SpawnSessionPayload {
   projectId: string;
   taskIds: string[];
   mode?: AgentMode;                     // Three-axis model: 'execute' or 'coordinate'
-  strategy?: string;                    // Strategy for the session (mode-dependent)
+  strategy?: string;                    // Deprecated: kept for backward compatibility
   spawnSource?: 'ui' | 'session';      // Who is calling (ui or session)
   sessionId?: string;                   // Required when spawnSource === 'session' (parent session ID)
   sessionName?: string;
   skills?: string[];
-  model?: string;                       // Model to use for the session
-  agentTool?: AgentTool;                // Agent tool to use ('claude-code', 'codex', or 'gemini')
   context?: Record<string, any>;
   teamMemberId?: string;                // Team member running this session
   teamMemberIds?: string[];             // Team member task IDs to include in coordinate mode

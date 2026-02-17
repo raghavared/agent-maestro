@@ -27,9 +27,9 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
     },
     strategy: {
       type: 'string',
-      enum: ['simple', 'queue', 'default', 'intelligent-batching', 'dag'],
+      enum: ['simple', 'default', 'intelligent-batching', 'dag'],
       nullable: true,
-      description: 'Strategy for the session — execute modes use simple/queue/tree, coordinate modes use default/intelligent-batching/dag',
+      description: 'Strategy for this session',
     },
     tasks: {
       type: 'array',
@@ -62,11 +62,6 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
             nullable: true,
             required: [],
             additionalProperties: true,
-          },
-          model: {
-            type: 'string',
-            nullable: true,
-            description: 'Preferred model for this task',
           },
           status: {
             type: 'string',

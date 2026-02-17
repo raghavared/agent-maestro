@@ -1,6 +1,5 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import { TeamMember, AgentTool } from "../../app/types/maestro";
-import { createPortal } from "react-dom";
 
 type TeamMemberListProps = {
     teamMembers: TeamMember[];
@@ -11,16 +10,14 @@ type TeamMemberListProps = {
     onNewMember: () => void;
 };
 
-const AGENT_TOOL_SYMBOLS: Record<AgentTool, string> = {
+const AGENT_TOOL_SYMBOLS: Partial<Record<AgentTool, string>> = {
     "claude-code": "◈",
     "codex": "◇",
-    "gemini": "△",
 };
 
-const AGENT_TOOL_LABELS: Record<AgentTool, string> = {
+const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
     "claude-code": "Claude Code",
     "codex": "OpenAI Codex",
-    "gemini": "Google Gemini",
 };
 
 function getModelDisplayLabel(model?: string, agentTool?: AgentTool): string {
@@ -31,10 +28,183 @@ function getModelDisplayLabel(model?: string, agentTool?: AgentTool): string {
         opus: "Opus",
         "gpt-5.3-codex": "5.3-codex",
         "gpt-5.2-codex": "5.2-codex",
-        "gemini-3-pro-preview": "3-pro",
-        "gemini-3-flash-preview": "3-flash",
     };
     return modelLabels[model] || model;
+}
+
+function TeamMemberRow({
+    member,
+    isArchived,
+    onEdit,
+    onArchive,
+    onUnarchive,
+    onDelete,
+    loadingAction,
+    setLoadingAction,
+}: {
+    member: TeamMember;
+    isArchived: boolean;
+    onEdit: (member: TeamMember) => void;
+    onArchive?: (memberId: string) => void | Promise<void>;
+    onUnarchive?: (memberId: string) => void | Promise<void>;
+    onDelete?: (memberId: string) => void | Promise<void>;
+    loadingAction: string | null;
+    setLoadingAction: (v: string | null) => void;
+}) {
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    const isLoading = (action: string) => loadingAction === `${action}:${member.id}`;
+
+    const handleArchive = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setLoadingAction(`archive:${member.id}`);
+        try {
+            await onArchive?.(member.id);
+        } finally {
+            setLoadingAction(null);
+        }
+    };
+
+    const handleDelete = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setLoadingAction(`delete:${member.id}`);
+        try {
+            await onDelete?.(member.id);
+        } finally {
+            setLoadingAction(null);
+        }
+    };
+
+    const handleUnarchive = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setLoadingAction(`unarchive:${member.id}`);
+        try {
+            await onUnarchive?.(member.id);
+        } finally {
+            setLoadingAction(null);
+        }
+    };
+
+    const modelLabel = member.model
+        ? getModelDisplayLabel(member.model, member.agentTool)
+        : member.agentTool
+            ? AGENT_TOOL_LABELS[member.agentTool]
+            : null;
+
+    return (
+        <div
+            className={`terminalTaskRow ${isArchived ? 'terminalTaskRow--completed' : ''}`}
+        >
+            {/* Single row: avatar + name + model + default badge */}
+            <div className="terminalTaskMain" onClick={() => setIsExpanded(!isExpanded)}>
+                <div className="terminalTaskPrimaryContent" style={{ flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px', flexShrink: 0 }}>
+                        {member.avatar}
+                    </span>
+                    <span className="terminalTaskTitle" style={{ flex: 1, minWidth: 0 }}>{member.name}</span>
+
+                    {/* Model badge */}
+                    {modelLabel && (
+                        <span className={`terminalMetaBadge terminalMetaBadge--agent ${member.agentTool ? `terminalMetaBadge--agent-${member.agentTool}` : ''}`}>
+                            {member.agentTool && AGENT_TOOL_SYMBOLS[member.agentTool]}{' '}
+                            {modelLabel}
+                        </span>
+                    )}
+
+                    {/* Default indicator */}
+                    {member.isDefault && (
+                        <span className="terminalMetaBadge terminalMetaBadge--status terminalMetaBadge--status-in_progress">
+                            DEFAULT
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            {/* Expanded content - shown on click */}
+            {isExpanded && (
+                <div className="terminalTaskExpanded">
+                    <div className="terminalTaskTabContent" onClick={(e) => e.stopPropagation()}>
+                        <div className="terminalTabPane terminalTabPane--context">
+                            {/* Role */}
+                            {member.role && (
+                                <div className="terminalDetailBlock">
+                                    <div className="terminalDetailBlockLabel">Role</div>
+                                    <div className="terminalDetailBlockContent terminalDescriptionText">
+                                        {member.role}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Identity / Instructions */}
+                            {member.identity && (
+                                <div className="terminalDetailBlock">
+                                    <div className="terminalDetailBlockLabel">Instructions</div>
+                                    <div className="terminalDetailBlockContent terminalDescriptionText">
+                                        {member.identity}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Skills */}
+                            {member.skillIds && member.skillIds.length > 0 && (
+                                <div className="terminalDetailBlock">
+                                    <div className="terminalDetailBlockLabel">Skills</div>
+                                    <div className="terminalDetailBlockContent terminalDescriptionText">
+                                        {member.skillIds.join(', ')}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Actions bar */}
+                    <div className="terminalTaskActionsBar terminalTaskActionsBar--right">
+                        {!isArchived && (
+                            <button
+                                className="terminalViewDetailsBtn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(member);
+                                }}
+                                title={member.isDefault ? "Configure default member" : "Edit member"}
+                            >
+                                {member.isDefault ? 'Configure' : 'Edit'}
+                            </button>
+                        )}
+
+                        {!isArchived && (
+                            <button
+                                className="terminalArchiveBtn"
+                                onClick={handleArchive}
+                                disabled={!!loadingAction}
+                            >
+                                {isLoading('archive') ? 'Archiving...' : 'Archive'}
+                            </button>
+                        )}
+
+                        {isArchived && (
+                            <>
+                                <button
+                                    className="terminalViewDetailsBtn"
+                                    onClick={handleUnarchive}
+                                    disabled={!!loadingAction}
+                                >
+                                    {isLoading('unarchive') ? '...' : 'Restore'}
+                                </button>
+                                <button
+                                    className="terminalDeleteBtn"
+                                    onClick={handleDelete}
+                                    disabled={!!loadingAction}
+                                >
+                                    {isLoading('delete') ? '...' : 'Delete'}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
 
 export function TeamMemberList({
@@ -45,217 +215,27 @@ export function TeamMemberList({
     onDelete,
     onNewMember,
 }: TeamMemberListProps) {
-    const [menuOpenForId, setMenuOpenForId] = useState<string | null>(null);
     const [showArchived, setShowArchived] = useState(false);
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
-    const menuBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-    const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
 
     const activeMembers = teamMembers.filter(m => m.status === 'active');
     const archivedMembers = teamMembers.filter(m => m.status === 'archived');
     const defaultMembers = activeMembers.filter(m => m.isDefault);
     const customMembers = activeMembers.filter(m => !m.isDefault);
 
-    const handleMenuToggle = (memberId: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (menuOpenForId === memberId) {
-            setMenuOpenForId(null);
-        } else {
-            const btn = menuBtnRefs.current.get(memberId);
-            if (btn) {
-                const rect = btn.getBoundingClientRect();
-                setMenuPos({ top: rect.bottom + 4, left: rect.left });
-            }
-            setMenuOpenForId(memberId);
-        }
-    };
-
-    const handleArchive = async (memberId: string) => {
-        setMenuOpenForId(null);
-        setLoadingAction(`archive:${memberId}`);
-        try {
-            await onArchive?.(memberId);
-        } finally {
-            setLoadingAction(null);
-        }
-    };
-
-    const handleDelete = async (memberId: string) => {
-        setMenuOpenForId(null);
-        setLoadingAction(`delete:${memberId}`);
-        try {
-            await onDelete?.(memberId);
-        } finally {
-            setLoadingAction(null);
-        }
-    };
-
-    const handleUnarchive = async (memberId: string) => {
-        setMenuOpenForId(null);
-        setLoadingAction(`unarchive:${memberId}`);
-        try {
-            await onUnarchive?.(memberId);
-        } finally {
-            setLoadingAction(null);
-        }
-    };
-
-    const isLoading = (action: string, memberId: string) => loadingAction === `${action}:${memberId}`;
-
-    const renderMemberRow = (member: TeamMember, options?: { isArchived?: boolean }) => {
-        const isArchived = options?.isArchived ?? false;
-
-        return (
-            <div
-                key={member.id}
-                className={`terminalTaskRow ${isArchived ? 'terminalTaskRow--completed' : ''}`}
-            >
-                <div className="terminalTaskMain" onClick={() => onEdit(member)}>
-                    {/* Primary content area - matches TaskListItem layout */}
-                    <div className="terminalTaskPrimaryContent">
-                        <div className="terminalTaskTitleRow">
-                            <span style={{ fontSize: '14px', flexShrink: 0, marginRight: '6px' }}>
-                                {member.avatar}
-                            </span>
-                            <span className="terminalTaskTitle">{member.name}</span>
-                        </div>
-
-                        <div className="terminalTaskMeta">
-                            {/* Role badge */}
-                            <span className="terminalMetaBadge">
-                                {member.role}
-                            </span>
-
-                            {/* Default badge */}
-                            {member.isDefault && (
-                                <span className="terminalMetaBadge terminalMetaBadge--status terminalMetaBadge--status-in_progress">
-                                    DEFAULT
-                                </span>
-                            )}
-
-                            {/* Agent tool + model badge - matches TaskListItem agent badge */}
-                            {member.agentTool && (
-                                <span className={`terminalMetaBadge terminalMetaBadge--agent terminalMetaBadge--agent-${member.agentTool}`}>
-                                    {AGENT_TOOL_SYMBOLS[member.agentTool]}{' '}
-                                    {member.model ? getModelDisplayLabel(member.model, member.agentTool) : AGENT_TOOL_LABELS[member.agentTool]}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Right-side action buttons - matches terminalTaskActions */}
-                    <div className="terminalTaskActions">
-                        {!isArchived && !member.isDefault && (
-                            <button
-                                ref={(el) => {
-                                    if (el) menuBtnRefs.current.set(member.id, el);
-                                }}
-                                className="terminalViewDetailsBtn"
-                                onClick={(e) => handleMenuToggle(member.id, e)}
-                                title="More actions"
-                                style={{ padding: '2px 6px' }}
-                            >
-                                ...
-                            </button>
-                        )}
-
-                        {!isArchived && member.isDefault && (
-                            <button
-                                className="terminalViewDetailsBtn"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onEdit(member);
-                                }}
-                                title="Configure default member"
-                            >
-                                Configure
-                            </button>
-                        )}
-
-                        {isArchived && (
-                            <>
-                                <button
-                                    className="terminalViewDetailsBtn"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleUnarchive(member.id);
-                                    }}
-                                    disabled={!!loadingAction}
-                                >
-                                    {isLoading('unarchive', member.id) ? '...' : 'Restore'}
-                                </button>
-                                <button
-                                    className="terminalDeleteBtn"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDelete(member.id);
-                                    }}
-                                    disabled={!!loadingAction}
-                                >
-                                    {isLoading('delete', member.id) ? '...' : 'Delete'}
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </div>
-
-                {/* Context menu for custom members - uses themed dropdown like TaskListItem */}
-                {menuOpenForId === member.id && menuPos && createPortal(
-                    <>
-                        <div
-                            className="terminalInlineStatusOverlay"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setMenuOpenForId(null);
-                            }}
-                        />
-                        <div
-                            className="terminalInlineStatusDropdown terminalInlineStatusDropdown--fixed"
-                            style={{ top: menuPos.top, left: menuPos.left }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <button
-                                className="terminalInlineStatusOption"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onEdit(member);
-                                    setMenuOpenForId(null);
-                                }}
-                            >
-                                <span className="terminalStatusLabel">Edit</span>
-                            </button>
-                            <button
-                                className="terminalInlineStatusOption"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleArchive(member.id);
-                                }}
-                                disabled={!!loadingAction}
-                            >
-                                <span className="terminalStatusLabel">
-                                    {isLoading('archive', member.id) ? 'Archiving...' : 'Archive'}
-                                </span>
-                            </button>
-                            <button
-                                className="terminalInlineStatusOption"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(member.id);
-                                }}
-                                disabled={!!loadingAction}
-                                style={{ color: 'var(--theme-danger, #f87171)' }}
-                            >
-                                <span className="terminalStatusLabel">
-                                    {isLoading('delete', member.id) ? 'Deleting...' : 'Delete'}
-                                </span>
-                            </button>
-                        </div>
-                    </>,
-                    document.body
-                )}
-            </div>
-        );
-    };
+    const renderMemberRow = (member: TeamMember, options?: { isArchived?: boolean }) => (
+        <TeamMemberRow
+            key={member.id}
+            member={member}
+            isArchived={options?.isArchived ?? false}
+            onEdit={onEdit}
+            onArchive={onArchive}
+            onUnarchive={onUnarchive}
+            onDelete={onDelete}
+            loadingAction={loadingAction}
+            setLoadingAction={setLoadingAction}
+        />
+    );
 
     return (
         <div>

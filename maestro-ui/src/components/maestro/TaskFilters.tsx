@@ -70,48 +70,50 @@ export function TaskFilters({
 
     return (
         <div className={`filterBar ${isExpanded ? "filterBar--expanded" : ""}`}>
-            <button
-                className="filterBar__toggle"
-                onClick={() => setIsExpanded(!isExpanded)}
-            >
-                <span className="filterBar__toggleIcon">⚙</span>
-                <span className="filterBar__toggleLabel">Filters</span>
-                {activeFilterCount > 0 && (
-                    <span className="filterBar__badge">{activeFilterCount}</span>
-                )}
-                <span className={`filterBar__arrow ${isExpanded ? "filterBar__arrow--open" : ""}`}>▾</span>
-            </button>
-
-            {activeFilterCount > 0 && !isExpanded && (
-                <div className="filterBar__activeSummary">
-                    {statusFilter.map(s => {
-                        const cfg = STATUS_CONFIG.find(c => c.value === s);
-                        return cfg ? (
-                            <span key={s} className={`filterChip filterChip--active ${cfg.colorClass}`}>
-                                <span className="filterChip__icon">{cfg.icon}</span>
-                                {cfg.label}
-                                <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); toggleStatus(s); }}>×</button>
-                            </span>
-                        ) : null;
-                    })}
-                    {priorityFilter.map(p => {
-                        const cfg = PRIORITY_CONFIG.find(c => c.value === p);
-                        return cfg ? (
-                            <span key={p} className={`filterChip filterChip--active ${cfg.colorClass}`}>
-                                {cfg.label}
-                                <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); togglePriority(p); }}>×</button>
-                            </span>
-                        ) : null;
-                    })}
-                    {sortBy !== "updatedAt" && (
-                        <span className="filterChip filterChip--active filterChip--sort">
-                            Sort: {SORT_OPTIONS.find(o => o.value === sortBy)?.label}
-                            <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); onSortChange("updatedAt"); }}>×</button>
-                        </span>
+            <div className="filterBar__header">
+                <button
+                    className="filterBar__toggle"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                >
+                    <span className="filterBar__toggleIcon">⚙</span>
+                    <span className="filterBar__toggleLabel">Filters</span>
+                    {activeFilterCount > 0 && (
+                        <span className="filterBar__badge">{activeFilterCount}</span>
                     )}
-                    <button className="filterBar__clearAll" onClick={handleClearAll}>Clear all</button>
-                </div>
-            )}
+                    <span className={`filterBar__arrow ${isExpanded ? "filterBar__arrow--open" : ""}`}>▾</span>
+                </button>
+
+                {activeFilterCount > 0 && !isExpanded && (
+                    <div className="filterBar__activeSummary">
+                        {statusFilter.map(s => {
+                            const cfg = STATUS_CONFIG.find(c => c.value === s);
+                            return cfg ? (
+                                <span key={s} className={`filterChip filterChip--active ${cfg.colorClass}`}>
+                                    <span className="filterChip__icon">{cfg.icon}</span>
+                                    {cfg.label}
+                                    <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); toggleStatus(s); }}>×</button>
+                                </span>
+                            ) : null;
+                        })}
+                        {priorityFilter.map(p => {
+                            const cfg = PRIORITY_CONFIG.find(c => c.value === p);
+                            return cfg ? (
+                                <span key={p} className={`filterChip filterChip--active ${cfg.colorClass}`}>
+                                    {cfg.label}
+                                    <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); togglePriority(p); }}>×</button>
+                                </span>
+                            ) : null;
+                        })}
+                        {sortBy !== "updatedAt" && (
+                            <span className="filterChip filterChip--active filterChip--sort">
+                                Sort: {SORT_OPTIONS.find(o => o.value === sortBy)?.label}
+                                <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); onSortChange("updatedAt"); }}>×</button>
+                            </span>
+                        )}
+                        <button className="filterBar__clearAll" onClick={handleClearAll}>Clear all</button>
+                    </div>
+                )}
+            </div>
 
             {isExpanded && (
                 <div className="filterBar__panel">

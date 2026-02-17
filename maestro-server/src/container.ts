@@ -5,7 +5,7 @@ import { InMemoryEventBus } from './infrastructure/events/InMemoryEventBus';
 import { FileSystemProjectRepository } from './infrastructure/repositories/FileSystemProjectRepository';
 import { FileSystemTaskRepository } from './infrastructure/repositories/FileSystemTaskRepository';
 import { FileSystemSessionRepository } from './infrastructure/repositories/FileSystemSessionRepository';
-import { FileSystemQueueRepository } from './infrastructure/repositories/FileSystemQueueRepository';
+
 import { FileSystemMailRepository } from './infrastructure/repositories/FileSystemMailRepository';
 import { FileSystemOrderingRepository } from './infrastructure/repositories/FileSystemOrderingRepository';
 import { FileSystemTeamMemberRepository } from './infrastructure/repositories/FileSystemTeamMemberRepository';
@@ -13,7 +13,7 @@ import { ClaudeCodeSkillLoader } from './infrastructure/skills/ClaudeCodeSkillLo
 import { ProjectService } from './application/services/ProjectService';
 import { TaskService } from './application/services/TaskService';
 import { SessionService } from './application/services/SessionService';
-import { QueueService } from './application/services/QueueService';
+
 import { MailService } from './application/services/MailService';
 import { OrderingService } from './application/services/OrderingService';
 import { TeamMemberService } from './application/services/TeamMemberService';
@@ -23,7 +23,7 @@ import { IEventBus } from './domain/events/IEventBus';
 import { IProjectRepository } from './domain/repositories/IProjectRepository';
 import { ITaskRepository } from './domain/repositories/ITaskRepository';
 import { ISessionRepository } from './domain/repositories/ISessionRepository';
-import { IQueueRepository } from './domain/repositories/IQueueRepository';
+
 import { IMailRepository } from './domain/repositories/IMailRepository';
 import { IOrderingRepository } from './domain/repositories/IOrderingRepository';
 import { ITeamMemberRepository } from './domain/repositories/ITeamMemberRepository';
@@ -80,7 +80,6 @@ export interface Container {
   projectRepo: IProjectRepository;
   taskRepo: ITaskRepository;
   sessionRepo: ISessionRepository;
-  queueRepo: IQueueRepository;
   mailRepo: IMailRepository;
   orderingRepo: IOrderingRepository;
   teamMemberRepo: ITeamMemberRepository;
@@ -92,7 +91,6 @@ export interface Container {
   projectService: ProjectService;
   taskService: TaskService;
   sessionService: SessionService;
-  queueService: QueueService;
   mailService: MailService;
   orderingService: OrderingService;
   teamMemberService: TeamMemberService;
@@ -125,7 +123,6 @@ export async function createContainer(): Promise<Container> {
     (projectId) => taskRepo.existsByProjectId(projectId),
     (projectId) => sessionRepo.existsByProjectId(projectId)
   );
-  const queueRepo = new FileSystemQueueRepository(config.dataDir, logger);
   const mailRepo = new FileSystemMailRepository(config.dataDir, logger);
   const orderingRepo = new FileSystemOrderingRepository(config.dataDir, logger);
   const teamMemberRepo = new FileSystemTeamMemberRepository(config.dataDir, idGenerator, logger);
@@ -137,7 +134,6 @@ export async function createContainer(): Promise<Container> {
   const projectService = new ProjectService(projectRepo, eventBus);
   const taskService = new TaskService(taskRepo, projectRepo, eventBus, idGenerator);
   const sessionService = new SessionService(sessionRepo, taskRepo, projectRepo, eventBus, idGenerator);
-  const queueService = new QueueService(queueRepo, taskRepo, sessionRepo, eventBus);
   const mailService = new MailService(mailRepo, eventBus, idGenerator);
   const orderingService = new OrderingService(orderingRepo);
   const teamMemberService = new TeamMemberService(teamMemberRepo, eventBus, idGenerator);
@@ -150,7 +146,6 @@ export async function createContainer(): Promise<Container> {
     projectRepo,
     taskRepo,
     sessionRepo,
-    queueRepo,
     mailRepo,
     orderingRepo,
     teamMemberRepo,
@@ -158,7 +153,6 @@ export async function createContainer(): Promise<Container> {
     projectService,
     taskService,
     sessionService,
-    queueService,
     mailService,
     orderingService,
     teamMemberService,
@@ -170,7 +164,6 @@ export async function createContainer(): Promise<Container> {
       await projectRepo.initialize();
       await taskRepo.initialize();
       await sessionRepo.initialize();
-      await queueRepo.initialize();
       await mailRepo.initialize();
       await orderingRepo.initialize();
       await teamMemberRepo.initialize();

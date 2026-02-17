@@ -13,10 +13,10 @@ const longString = z.string().min(1).max(10000);
 // --- Enums ---
 
 const taskStatusSchema = z.enum(['todo', 'in_progress', 'in_review', 'completed', 'cancelled', 'blocked']);
-const taskSessionStatusSchema = z.enum(['queued', 'working', 'blocked', 'completed', 'failed', 'skipped']);
+const taskSessionStatusSchema = z.enum(['working', 'blocked', 'completed', 'failed', 'skipped']);
 const taskPrioritySchema = z.enum(['low', 'medium', 'high']);
 const sessionStatusSchema = z.enum(['spawning', 'idle', 'working', 'completed', 'failed', 'stopped']);
-const workerStrategySchema = z.enum(['simple', 'queue', 'tree']);
+const workerStrategySchema = z.enum(['simple', 'tree']);
 const orchestratorStrategySchema = z.enum(['default', 'intelligent-batching', 'dag']);
 const agentModeSchema = z.enum(['execute', 'coordinate']);
 const templateModeSchema = z.enum(['execute', 'coordinate']);
@@ -160,7 +160,7 @@ export const listSessionsQuerySchema = z.object({
 
 // --- Spawn session schema ---
 
-const allStrategySchema = z.enum(['simple', 'queue', 'tree', 'default', 'intelligent-batching', 'dag']);
+const allStrategySchema = z.enum(['simple', 'tree', 'default', 'intelligent-batching', 'dag']);
 
 export const spawnSessionSchema = z.object({
   projectId: safeId,
@@ -173,16 +173,6 @@ export const spawnSessionSchema = z.object({
   strategy: allStrategySchema.optional().default('simple'),
   context: z.record(z.string(), z.unknown()).optional(),
   model: modelSchema.optional(),
-}).strict();
-
-// --- Queue schemas ---
-
-export const queueFailSchema = z.object({
-  reason: z.string().max(1000).optional(),
-}).strict();
-
-export const queuePushSchema = z.object({
-  taskId: safeId,
 }).strict();
 
 // --- Template schemas ---

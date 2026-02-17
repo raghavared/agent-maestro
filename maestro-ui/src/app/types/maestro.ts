@@ -6,19 +6,19 @@ export type TaskPriority = 'low' | 'medium' | 'high';
 export type MaestroSessionStatus = 'spawning' | 'idle' | 'working' | 'completed' | 'failed' | 'stopped';
 export type SpawnSource = 'ui' | 'session';
 export type TaskSessionStatus = 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'skipped';
-export type WorkerStrategy = 'simple' | 'queue';
-export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 // Three-axis model
 export type AgentMode = 'execute' | 'coordinate';
 // Claude models
 export type ClaudeModel = 'haiku' | 'sonnet' | 'opus';
 // Codex models
 export type CodexModel = 'gpt-5.3-codex' | 'gpt-5.2-codex';
-// Gemini models
-export type GeminiModel = 'gemini-3-pro-preview' | 'gemini-3-flash-preview';
 // Union of all supported models
-export type ModelType = ClaudeModel | CodexModel | GeminiModel;
-export type AgentTool = 'claude-code' | 'codex' | 'gemini';
+export type ModelType = ClaudeModel | CodexModel;
+export type AgentTool = 'claude-code' | 'codex';
+
+// Strategy types
+export type WorkerStrategy = 'simple' | 'queue';
+export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 
 // Team Member types
 export type TeamMemberStatus = 'active' | 'archived';
@@ -33,16 +33,14 @@ export interface TeamMember {
   model?: ModelType;
   agentTool?: AgentTool;
   mode?: AgentMode;
-  strategy?: string;
+  strategy?: WorkerStrategy | OrchestratorStrategy;
   skillIds?: string[];
   isDefault: boolean;
   status: TeamMemberStatus;
 
-  // Phase 2: Capability overrides
   capabilities?: {
     can_spawn_sessions?: boolean;
     can_edit_tasks?: boolean;
-    can_use_queue?: boolean;
     can_report_task_level?: boolean;
     can_report_session_level?: boolean;
   };
@@ -72,7 +70,6 @@ export interface WorkflowTemplate {
   name: string;
   description: string;
   mode: AgentMode;
-  strategy?: string;
   phases: WorkflowPhase[];
   builtIn: boolean;
 }
@@ -94,7 +91,6 @@ export interface CreateTeamMemberPayload {
   model?: ModelType;
   agentTool?: AgentTool;
   mode?: AgentMode;
-  strategy?: string;
   skillIds?: string[];
   capabilities?: TeamMember['capabilities'];
   commandPermissions?: TeamMember['commandPermissions'];
@@ -110,7 +106,6 @@ export interface UpdateTeamMemberPayload {
   model?: ModelType;
   agentTool?: AgentTool;
   mode?: AgentMode;
-  strategy?: string;
   skillIds?: string[];
   status?: TeamMemberStatus;
   capabilities?: TeamMember['capabilities'];
@@ -250,12 +245,6 @@ export interface MaestroTask {
   // Reference task IDs for context (docs from these tasks are provided to the agent)
   referenceTaskIds?: string[];
 
-  // Model configuration
-  model?: ModelType;
-
-  // Agent tool configuration
-  agentTool?: AgentTool;
-
   // Pinned tasks appear in the dedicated "Pinned" tab for quick re-execution
   pinned?: boolean;
 
@@ -278,8 +267,6 @@ export interface MaestroSession {
   name: string;
   agentId?: string;
   env: Record<string, string>;
-  strategy?: WorkerStrategy;
-  orchestratorStrategy?: OrchestratorStrategy;
   status: MaestroSessionStatus;
   startedAt: number;
   lastActivity: number;
@@ -294,6 +281,8 @@ export interface MaestroSession {
     since?: number;
   };
   mode?: AgentMode;
+  strategy?: WorkerStrategy;
+  orchestratorStrategy?: OrchestratorStrategy;
   spawnSource?: SpawnSource;
   spawnedBy?: string;
   manifestPath?: string;
@@ -313,8 +302,6 @@ export interface CreateTaskPayload {
   initialPrompt?: string; // Standardized
   skillIds?: string[];
   referenceTaskIds?: string[];
-  model?: ModelType;
-  agentTool?: AgentTool;
   teamMemberId?: string;
 }
 
@@ -330,8 +317,6 @@ export interface UpdateTaskPayload {
   skillIds?: string[];
   agentIds?: string[];
   referenceTaskIds?: string[];
-  model?: ModelType;
-  agentTool?: AgentTool;
   pinned?: boolean;
   teamMemberId?: string;
   // NOTE: timeline moved to Session - use addTimelineEvent on session
@@ -391,16 +376,15 @@ export interface SpawnSessionPayload {
   projectId: string;
   taskIds: string[];
   mode?: AgentMode;                    // Three-axis model: 'execute' or 'coordinate'
-  strategy?: string;                  // Unified strategy field
   spawnSource?: SpawnSource;          // 'ui' or 'session'
   sessionId?: string;                  // Required when spawnSource === 'session' (parent session ID)
   sessionName?: string;
   skills?: string[];
   context?: Record<string, any>;
-  model?: ModelType;
-  agentTool?: AgentTool;
   teamMemberId?: string;              // Team member running this session
   teamMemberIds?: string[];           // Team member task IDs to include in coordinate mode
+  agentTool?: AgentTool;              // Override agent tool for this run
+  model?: ModelType;                  // Override model for this run
 }
 
 export interface SpawnSessionResponse {
