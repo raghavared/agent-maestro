@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { api } from './api.js';
 import { outputJSON, outputKeyValue } from './utils/formatter.js';
-import { readManifestFromEnv } from './services/manifest-reader.js';
+import { readManifest, readManifestFromEnv } from './services/manifest-reader.js';
 import { WhoamiRenderer } from './services/whoami-renderer.js';
 import { registerTaskCommands } from './commands/task.js';
 import { registerSessionCommands } from './commands/session.js';
@@ -89,6 +89,100 @@ program.command('whoami')
               outputKeyValue('Mode', 'execute');
           }
       }
+  });
+
+// Debug prompt - show the exact system prompt and initial prompt sent to agent
+program.command('debug-prompt')
+  .description('Show the system prompt and initial prompt that would be sent to an agent session')
+  .option('--manifest <path>', 'Path to manifest file (defaults to MAESTRO_MANIFEST_PATH)')
+  .option('--session <id>', 'Fetch manifest for a specific session from server')
+  .option('--system-only', 'Show only the system prompt')
+  .option('--initial-only', 'Show only the initial prompt (task context)')
+  .option('--raw', 'Output raw text without formatting headers')
+  .action(async (cmdOpts) => {
+    const opts = program.opts();
+    const isJson = opts.json;
+
+    try {
+      let manifest;
+
+      if (cmdOpts.session) {
+        // Fetch session from server, which should have the manifest
+        const sessionId = cmdOpts.session;
+        const session: any = await api.get(`/api/sessions/${sessionId}`);
+        if (!session.manifest) {
+          console.error(`Error: Session ${sessionId} does not have a stored manifest.`);
+          console.error('Try using --manifest <path> with the manifest file path instead.');
+          process.exit(1);
+        }
+        manifest = session.manifest;
+      } else if (cmdOpts.manifest) {
+        const result = await readManifest(cmdOpts.manifest);
+        if (!result.success || !result.manifest) {
+          console.error(`Error: ${result.error}`);
+          process.exit(1);
+        }
+        manifest = result.manifest;
+      } else {
+        const result = await readManifestFromEnv();
+        if (!result.success || !result.manifest) {
+          console.error('Error: No manifest available.');
+          console.error('Use --manifest <path> to specify a manifest file,');
+          console.error('or --session <id> to fetch from a session,');
+          console.error('or set MAESTRO_MANIFEST_PATH environment variable.');
+          process.exit(1);
+        }
+        manifest = result.manifest;
+      }
+
+      const renderer = new WhoamiRenderer();
+      const permissions = getPermissionsFromManifest(manifest);
+      const sessionId = cmdOpts.session || config.sessionId || 'debug';
+
+      const systemPrompt = renderer.renderSystemPrompt(manifest, permissions);
+      const initialPrompt = await renderer.renderTaskContext(manifest, sessionId);
+
+      if (isJson) {
+        const output: any = {};
+        if (!cmdOpts.initialOnly) output.systemPrompt = systemPrompt;
+        if (!cmdOpts.systemOnly) output.initialPrompt = initialPrompt;
+        outputJSON(output);
+      } else {
+        if (!cmdOpts.initialOnly) {
+          if (!cmdOpts.raw) {
+            console.log('╔══════════════════════════════════════════════════════════════╗');
+            console.log('║                      SYSTEM PROMPT                          ║');
+            console.log('║  (sent via --append-system-prompt)                          ║');
+            console.log('╚══════════════════════════════════════════════════════════════╝');
+            console.log('');
+          }
+          console.log(systemPrompt);
+        }
+
+        if (!cmdOpts.systemOnly && !cmdOpts.initialOnly) {
+          console.log('');
+          console.log('');
+        }
+
+        if (!cmdOpts.systemOnly) {
+          if (!cmdOpts.raw) {
+            console.log('╔══════════════════════════════════════════════════════════════╗');
+            console.log('║                     INITIAL PROMPT                          ║');
+            console.log('║  (sent as user message / CLI argument)                      ║');
+            console.log('╚══════════════════════════════════════════════════════════════╝');
+            console.log('');
+          }
+          console.log(initialPrompt);
+        }
+      }
+    } catch (err: any) {
+      if (isJson) {
+        console.log(JSON.stringify({ success: false, error: err.message }));
+      } else {
+        console.error('Failed to generate debug prompt:', err.message);
+      }
+      process.exit(1);
+    }
   });
 
 // Commands - show available commands based on manifest permissions

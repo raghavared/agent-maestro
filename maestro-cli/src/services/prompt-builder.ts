@@ -492,6 +492,10 @@ export class PromptBuilder {
           name: 'execute',
           description:
             'Read your assigned tasks in the <tasks> block. Work through each task directly — do not decompose or delegate.\n' +
+            'If a <reference_tasks> block is present, you MUST first fetch each reference task and its docs BEFORE starting work:\n' +
+            '  1. maestro task get <refTaskId>  — read the reference task details\n' +
+            '  2. maestro task docs list <refTaskId>  — list and read all attached docs\n' +
+            'Reference task docs contain critical context, examples, or prior work. Read them thoroughly and apply their guidance to your tasks.\n' +
             'After completing each task (or major sub-step), check your mailbox for directives:\n' +
             '  maestro mail inbox\n' +
             'Mail types you may receive: "directive" (instructions to follow), "query" (questions to answer), "status" (informational).\n' +
@@ -521,6 +525,10 @@ export class PromptBuilder {
         name: 'analyze',
         description:
           'Read all assigned tasks in the <tasks> block. Understand the requirements and acceptance criteria. ' +
+          'If a <reference_tasks> block is present, first fetch each reference task and its docs:\n' +
+          '  1. maestro task get <refTaskId>  — read the reference task details\n' +
+          '  2. maestro task docs list <refTaskId>  — list and read all attached docs\n' +
+          'Reference task docs provide critical context for planning. ' +
           'You must decompose and delegate — do NOT do them yourself.',
       },
       {
@@ -532,21 +540,21 @@ export class PromptBuilder {
       {
         name: 'spawn',
         description:
-          'Spawn worker sessions for subtasks. You can spawn multiple workers in parallel — do NOT wait for each to finish before spawning the next:\n' +
-          '  maestro session spawn --task <subtaskId> [--team-member-id <tmId>] [--agent-tool <claude-code|codex|gemini>] [--model <model>]\n' +
+          'Spawn worker sessions for subtasks. IMPORTANT: Include an initial directive with each spawn using --subject and --message. ' +
+          'This ensures workers receive instructions BEFORE they start working:\n' +
+          '  maestro session spawn --task <subtaskId> --subject "<clear directive>" --message "<detailed instructions, context, and guidance>" [--team-member-id <tmId>] [--agent-tool <claude-code|codex|gemini>] [--model <model>]\n' +
+          'You can spawn multiple workers in parallel — do NOT wait for each to finish before spawning the next.\n' +
           'Collect all session IDs for monitoring.',
       },
       {
         name: 'monitor',
         description:
-          'Watch spawned sessions:\n' +
-          '  maestro session watch <id1>,<id2>,...\n' +
-          'If a worker is BLOCKED, investigate with `maestro task get <taskId>` and review session docs.\n' +
-          'You can send directives to running workers via mail:\n' +
+          'Monitor workers by checking your mailbox and task statuses:\n' +
+          '  maestro mail inbox\n' +
+          '  maestro task children <parentTaskId>\n' +
+          'If a worker is BLOCKED, investigate with `maestro task get <taskId>` and send directives:\n' +
           '  maestro mail send <sessionId> --type directive --subject "<subject>" --message "<instructions>"\n' +
-          '  maestro mail send --to-team-member <tmId> --type directive --subject "<subject>" --message "<instructions>"\n' +
-          'Check your own inbox for status updates from workers:\n' +
-          '  maestro mail inbox',
+          'Keep checking mail inbox periodically for status updates from workers.',
       },
       {
         name: 'recover',
@@ -555,7 +563,7 @@ export class PromptBuilder {
           '  1. Check the error: maestro task get <taskId>\n' +
           '  2. Review session docs: maestro session docs list\n' +
           '  3. Either re-spawn the task with a different approach or reassign to another team member:\n' +
-          '     maestro session spawn --task <taskId> [--team-member-id <tmId>]\n' +
+          '     maestro session spawn --task <taskId> --subject "<directive>" --message "<new instructions>" [--team-member-id <tmId>]\n' +
           '  4. If the issue is systemic, adjust remaining subtasks before proceeding.',
       },
       {
@@ -594,7 +602,8 @@ export class PromptBuilder {
     lines.push('    maestro mail wait [--timeout <ms>] — Wait for new mail');
 
     if (mode === 'coordinate') {
-      lines.push('    maestro session {list|watch|spawn} — Session coordination');
+      lines.push('    maestro session {list|spawn} — Session coordination');
+      lines.push('    maestro session spawn --task <id> [--subject "<directive>"] [--message "<instructions>"] [--team-member-id <tmId>] — Spawn with initial directive');
       lines.push('    maestro mail broadcast --type <type> --subject "<subject>" [--message "<msg>"] — Broadcast to all');
     }
 

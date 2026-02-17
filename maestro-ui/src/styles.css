@@ -19484,6 +19484,34 @@ body.dragging-active * {
   opacity: 0.9;
 }
 
+/* ==================== SESSION TEAM MEMBER BADGE ==================== */
+
+.sessionTeamMemberBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  padding: 1px 5px 1px 3px;
+  border-radius: 2px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #c4b5fd;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.sessionTeamMemberBadge__avatar {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.sessionTeamMemberBadge__name {
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ==================== TEAM MEMBER MODAL STYLES ==================== */
 
 .modalInfo {

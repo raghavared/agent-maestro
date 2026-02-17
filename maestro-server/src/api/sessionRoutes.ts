@@ -9,7 +9,7 @@ import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
 import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
-import { SessionStatus, AgentTool, AgentMode, TeamMember } from '../types';
+import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
 
 /**
@@ -165,6 +165,34 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   });
 
   // List sessions
+  // Helper: enrich session with team member snapshots if missing
+  async function enrichSessionWithSnapshots(session: any): Promise<void> {
+    if (session.teamMemberSnapshots?.length > 0 || session.teamMemberSnapshot) return;
+    const meta = session.metadata;
+    if (!meta) return;
+    const tmIds: string[] = meta.teamMemberIds?.length > 0
+      ? meta.teamMemberIds
+      : (meta.teamMemberId ? [meta.teamMemberId] : []);
+    if (tmIds.length === 0) return;
+    const snapshots: TeamMemberSnapshot[] = [];
+    for (const tmId of tmIds) {
+      try {
+        const tm = await teamMemberRepo.findById(session.projectId, tmId);
+        if (tm) {
+          snapshots.push({ name: tm.name, avatar: tm.avatar, role: tm.role, model: tm.model, agentTool: tm.agentTool });
+        }
+      } catch { /* skip */ }
+    }
+    if (snapshots.length > 0) {
+      session.teamMemberIds = tmIds;
+      session.teamMemberSnapshots = snapshots;
+      if (tmIds.length === 1) {
+        session.teamMemberId = tmIds[0];
+        session.teamMemberSnapshot = snapshots[0];
+      }
+    }
+  }
+
   router.get('/sessions', async (req: Request, res: Response) => {
     try {
       const filter: any = {};
@@ -185,6 +213,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         sessions = sessions.filter(s => s.status !== 'completed');
       }
 
+      // Enrich sessions with team member snapshots
+      await Promise.all(sessions.map(s => enrichSessionWithSnapshots(s)));
+
       res.json(sessions);
     } catch (err: any) {
       handleError(err, res);
@@ -196,6 +227,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     try {
       const id = req.params.id as string;
       const session = await sessionService.getSession(id);
+      await enrichSessionWithSnapshots(session);
       res.json(session);
     } catch (err: any) {
       handleError(err, res);
@@ -478,6 +510,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       // Fetch team member defaults from the effective members
       const MODEL_POWER: Record<string, number> = { 'opus': 3, 'sonnet': 2, 'haiku': 1 };
       let teamMemberDefaults: { mode?: AgentMode; model?: string; agentTool?: AgentTool } = {};
+      const teamMemberSnapshots: TeamMemberSnapshot[] = [];
 
       if (effectiveTeamMemberIds.length > 0 && projectId) {
         let highestModelPower = 0;
@@ -499,6 +532,14 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
               if (!teamMemberDefaults.agentTool && teamMember.agentTool) {
                 teamMemberDefaults.agentTool = teamMember.agentTool;
               }
+              // Build snapshot for UI display
+              teamMemberSnapshots.push({
+                name: teamMember.name,
+                avatar: teamMember.avatar,
+                role: teamMember.role,
+                model: teamMember.model,
+                agentTool: teamMember.agentTool,
+              });
               console.log(`   ✓ Team member resolved: ${teamMember.name} (mode=${teamMember.mode})`);
             }
           } catch (err) {
@@ -629,6 +670,16 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         },
         _suppressCreatedEvent: true
       });
+
+      // Set team member fields directly on session for UI display
+      if (effectiveTeamMemberIds.length > 0) {
+        (session as any).teamMemberIds = effectiveTeamMemberIds;
+        (session as any).teamMemberSnapshots = teamMemberSnapshots;
+        if (effectiveTeamMemberIds.length === 1) {
+          (session as any).teamMemberId = effectiveTeamMemberIds[0];
+          (session as any).teamMemberSnapshot = teamMemberSnapshots[0] || undefined;
+        }
+      }
 
       console.log(`   ✓ Session created: ${session.id}`);
 

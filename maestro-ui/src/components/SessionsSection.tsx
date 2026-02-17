@@ -473,12 +473,6 @@ export function SessionsSection({
                   <div className={`dot ${isActive ? "dotActive" : ""}`} />
                   <div className="sessionMeta">
                     <div className="sessionName">
-                      {/* Team member avatar if present */}
-                      {maestroSession?.teamMemberSnapshot && (
-                        <span className="sessionTeamMemberAvatar" title={`${maestroSession.teamMemberSnapshot.name} (${maestroSession.teamMemberSnapshot.role})`}>
-                          {maestroSession.teamMemberSnapshot.avatar}
-                        </span>
-                      )}
                       {hasAgentIcon && chipLabel && effect?.iconSrc && (
                         <span className={`agentBadge chip-${effect.id}`} title={chipLabel}>
                           <img className="agentIcon" src={effect.iconSrc} alt={chipLabel} />
@@ -525,7 +519,7 @@ export function SessionsSection({
 
                 {/* Session status indicator at bottom */}
                 {maestroSession && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingTop: '4px', paddingLeft: '24px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingTop: '4px', paddingLeft: '24px', flexWrap: 'wrap' }}>
                     <span className={`sessionStatusBadge sessionStatusBadge--${maestroSession.status} sessionStatusBadge--clickable`}
                       style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '2px' }}
                       onClick={(e) => {
@@ -534,6 +528,24 @@ export function SessionsSection({
                       }}>
                       {maestroSession.status === 'spawning' ? 'SPAWN' : maestroSession.status === 'stopped' ? 'STOP' : maestroSession.status.toUpperCase()}
                     </span>
+                    {/* Team member badges */}
+                    {(() => {
+                      const snapshots = maestroSession.teamMemberSnapshots?.length
+                        ? maestroSession.teamMemberSnapshots
+                        : maestroSession.teamMemberSnapshot
+                          ? [maestroSession.teamMemberSnapshot]
+                          : [];
+                      return snapshots.map((member, idx) => (
+                        <span
+                          key={idx}
+                          className="sessionTeamMemberBadge"
+                          title={`${member.name} (${member.role})`}
+                        >
+                          <span className="sessionTeamMemberBadge__avatar">{member.avatar}</span>
+                          <span className="sessionTeamMemberBadge__name">{member.name}</span>
+                        </span>
+                      ));
+                    })()}
                     {maestroSession.needsInput?.active && (
                       <span className="sessionStatusBadge sessionStatusBadge--needsInput"
                         style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '2px' }}>
