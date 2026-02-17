@@ -220,6 +220,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 referenceTaskIds: taskData.referenceTaskIds,
                 parentId: taskData.parentId,
                 teamMemberId: taskData.teamMemberId,
+                teamMemberIds: taskData.teamMemberIds,
             });
 
             // Task will be added via WebSocket event automatically
@@ -263,7 +264,8 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     const handleAssignTeamMember = async (taskId: string, teamMemberId: string) => {
         try {
-            await updateTask(taskId, { teamMemberId });
+            // When assigning a single member via this handler, set both fields for backward compat
+            await updateTask(taskId, { teamMemberId, teamMemberIds: [teamMemberId] });
         } catch (err: any) {
             console.error("[Maestro] Failed to assign team member:", err);
             setError("Failed to assign team member");
@@ -271,15 +273,19 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     };
 
     const handleWorkOnTask = async (task: MaestroTask, override?: { agentTool: AgentTool; model: ModelType }) => {
-        // Look up assigned team member (default to first simple_worker default)
-        const teamMemberId = task.teamMemberId;
+        // Resolve effective team member IDs (prefer array over singular)
+        const effectiveIds = task.teamMemberIds && task.teamMemberIds.length > 0
+            ? task.teamMemberIds
+            : task.teamMemberId ? [task.teamMemberId] : [];
+        const teamMemberId = effectiveIds.length === 1 ? effectiveIds[0] : undefined;
+        const teamMemberIds = effectiveIds.length > 1 ? effectiveIds : undefined;
         const member = teamMemberId ? teamMembersMap.get(teamMemberId) : null;
 
         const mode = member?.mode || 'execute';
 
         console.log('[MaestroPanel.handleWorkOnTask] ========================================');
         console.log('[MaestroPanel.handleWorkOnTask] Task ID:', task.id);
-        console.log('[MaestroPanel.handleWorkOnTask] Team Member:', member?.name || '(default)');
+        console.log('[MaestroPanel.handleWorkOnTask] Team Members:', effectiveIds.length > 0 ? effectiveIds.join(', ') : '(default)');
         console.log('[MaestroPanel.handleWorkOnTask] Mode:', mode);
         if (override) {
             console.log('[MaestroPanel.handleWorkOnTask] Override:', override.agentTool, override.model);
@@ -292,6 +298,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 project,
                 mode,
                 teamMemberId,
+                teamMemberIds,
                 ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
             });
 

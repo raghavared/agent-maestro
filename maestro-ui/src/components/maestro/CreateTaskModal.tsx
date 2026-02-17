@@ -95,7 +95,7 @@ export function CreateTaskModal({
 
     const [title, setTitle] = useState("");
     const [priority, setPriority] = useState<TaskPriority>("medium");
-    const [selectedTeamMemberId, setSelectedTeamMemberId] = useState<string | undefined>(undefined);
+    const [selectedTeamMemberIds, setSelectedTeamMemberIds] = useState<string[]>([]);
     const [prompt, setPrompt] = useState("");
     const [activeTab, setActiveTab] = useState<string | null>(null);
     const [files, setFiles] = useState<{ id: string, display: string }[]>([]);
@@ -205,9 +205,11 @@ export function CreateTaskModal({
         Array.from(teamMembersMap.values()).filter(m => m.status === 'active'),
         [teamMembersMap]
     );
-    const selectedTeamMember = useMemo(() =>
-        selectedTeamMemberId ? teamMembers.find(m => m.id === selectedTeamMemberId) : undefined,
-        [selectedTeamMemberId, teamMembers]
+    const selectedTeamMembers = useMemo(() =>
+        selectedTeamMemberIds.length > 0
+            ? selectedTeamMemberIds.map(id => teamMembers.find(m => m.id === id)).filter(Boolean) as typeof teamMembers
+            : [],
+        [selectedTeamMemberIds, teamMembers]
     );
 
     // Aggregated timeline data from all sessions
@@ -234,7 +236,11 @@ export function CreateTaskModal({
             setTitle(task.title);
             setPrompt(task.description || "");
             setPriority(task.priority);
-            setSelectedTeamMemberId(task.teamMemberId);
+            setSelectedTeamMemberIds(
+                task.teamMemberIds && task.teamMemberIds.length > 0
+                    ? task.teamMemberIds
+                    : task.teamMemberId ? [task.teamMemberId] : []
+            );
             setSelectedSkills(task.skillIds || []);
             // Load reference tasks by ID
             if (task.referenceTaskIds && task.referenceTaskIds.length > 0) {
@@ -252,7 +258,7 @@ export function CreateTaskModal({
                 setSelectedReferenceTasks([]);
             }
         }
-    }, [isEditMode, isOpen, task?.id, task?.title, task?.description, task?.priority, task?.teamMemberId, JSON.stringify(task?.referenceTaskIds)]);
+    }, [isEditMode, isOpen, task?.id, task?.title, task?.description, task?.priority, task?.teamMemberId, JSON.stringify(task?.teamMemberIds), JSON.stringify(task?.referenceTaskIds)]);
 
     // Fetch task docs in edit mode
     useEffect(() => {
@@ -269,7 +275,7 @@ export function CreateTaskModal({
             setTitle("");
             setPrompt("");
             setPriority("medium");
-            setSelectedTeamMemberId(undefined);
+            setSelectedTeamMemberIds([]);
             setSelectedSkills([]);
             setSelectedReferenceTasks([]);
             setActiveTab(null);
@@ -282,7 +288,7 @@ export function CreateTaskModal({
             title !== task.title ||
             prompt !== (task.description || "") ||
             priority !== task.priority ||
-            selectedTeamMemberId !== task.teamMemberId
+            JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(task.teamMemberIds || (task.teamMemberId ? [task.teamMemberId] : []))
         ));
 
     const handleClose = () => {
@@ -298,7 +304,7 @@ export function CreateTaskModal({
         setTitle("");
         setPrompt("");
         setPriority("medium");
-        setSelectedTeamMemberId(undefined);
+        setSelectedTeamMemberIds([]);
         setActiveTab(null);
         setSelectedSkills([]);
         setSelectedReferenceTasks([]);
@@ -346,7 +352,8 @@ export function CreateTaskModal({
             skillIds: selectedSkills.length > 0 ? selectedSkills : undefined,
             referenceTaskIds: selectedReferenceTasks.length > 0 ? selectedReferenceTasks.map(t => t.id) : undefined,
             parentId,
-            teamMemberId: selectedTeamMemberId,
+            teamMemberId: selectedTeamMemberIds.length === 1 ? selectedTeamMemberIds[0] : undefined,
+            teamMemberIds: selectedTeamMemberIds.length > 0 ? selectedTeamMemberIds : undefined,
         };
 
         if (isTeamMemberMode) {
@@ -367,7 +374,7 @@ export function CreateTaskModal({
         setTitle("");
         setPrompt("");
         setPriority("medium");
-        setSelectedTeamMemberId(undefined);
+        setSelectedTeamMemberIds([]);
         setActiveTab(null);
         setSelectedSkills([]);
         setSelectedReferenceTasks([]);
@@ -382,7 +389,11 @@ export function CreateTaskModal({
         if (title.trim() && title !== task.title) updates.title = title.trim();
         if (prompt !== (task.description || "")) updates.description = prompt;
         if (priority !== task.priority) updates.priority = priority;
-        if (selectedTeamMemberId !== task.teamMemberId) updates.teamMemberId = selectedTeamMemberId;
+        const currentIds = task.teamMemberIds || (task.teamMemberId ? [task.teamMemberId] : []);
+        if (JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(currentIds)) {
+            updates.teamMemberIds = selectedTeamMemberIds.length > 0 ? selectedTeamMemberIds : undefined;
+            updates.teamMemberId = selectedTeamMemberIds.length === 1 ? selectedTeamMemberIds[0] : undefined;
+        }
         if (JSON.stringify(selectedSkills) !== JSON.stringify(task.skillIds || [])) updates.skillIds = selectedSkills;
         const newRefIds = selectedReferenceTasks.map(t => t.id);
         if (JSON.stringify(newRefIds) !== JSON.stringify(task.referenceTaskIds || [])) updates.referenceTaskIds = newRefIds;
@@ -1096,13 +1107,13 @@ export function CreateTaskModal({
                                             setShowTeamMemberDropdown(!showTeamMemberDropdown);
                                         }}
                                     >
-                                        {selectedTeamMember ? (
+                                        {selectedTeamMembers.length > 0 ? (
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <span>{selectedTeamMember.avatar}</span>
-                                                <span>{selectedTeamMember.name}</span>
+                                                <span>{selectedTeamMembers.map(m => m.avatar).join('')}</span>
+                                                <span>{selectedTeamMembers.length === 1 ? selectedTeamMembers[0].name : `${selectedTeamMembers.length} members`}</span>
                                             </span>
                                         ) : (
-                                            <span style={{ opacity: 0.6 }}>Select Team Member</span>
+                                            <span style={{ opacity: 0.6 }}>Select Team Members</span>
                                         )}
                                         <span className="themedDropdownCaret">{showTeamMemberDropdown ? '\u25B4' : '\u25BE'}</span>
                                     </button>
@@ -1120,38 +1131,53 @@ export function CreateTaskModal({
                                                 style={{ top: 'auto', bottom: teamMemberDropdownPos.bottom, left: teamMemberDropdownPos.left, minWidth: '240px', maxHeight: `${Math.min(window.innerHeight - 40, 320)}px`, overflowY: 'auto' }}
                                                 onClick={(e) => e.stopPropagation()}
                                             >
-                                                <div style={{ padding: '4px 8px', fontSize: '10px', opacity: 0.5, borderBottom: '1px solid var(--theme-border)', position: 'sticky', top: 0, backgroundColor: 'var(--theme-bg)', zIndex: 1 }}>
-                                                    Select team member
+                                                <div style={{ padding: '4px 8px', fontSize: '10px', opacity: 0.5, borderBottom: '1px solid var(--theme-border)', position: 'sticky', top: 0, backgroundColor: 'var(--theme-bg)', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span>Select team members</span>
+                                                    {selectedTeamMemberIds.length > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); setSelectedTeamMemberIds([]); }}
+                                                            style={{ background: 'none', border: 'none', color: 'var(--theme-primary)', cursor: 'pointer', padding: '0 2px', fontSize: '10px', opacity: 0.7 }}
+                                                        >
+                                                            clear
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                {teamMembers.map(member => (
-                                                    <button
-                                                        key={member.id}
-                                                        className={`themedDropdownOption ${member.id === selectedTeamMemberId ? 'themedDropdownOption--current' : ''}`}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedTeamMemberId(member.id);
-                                                            setShowTeamMemberDropdown(false);
-                                                        }}
-                                                        style={{ textAlign: 'left' }}
-                                                    >
-                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                                                            <span style={{ fontSize: '14px', flexShrink: 0 }}>{member.avatar}</span>
-                                                            <span style={{ flex: 1, minWidth: 0 }}>
-                                                                <span className="themedDropdownLabel">{member.name}</span>
-                                                                <span style={{ display: 'block', fontSize: '9px', opacity: 0.5 }}>
-                                                                    {[
-                                                                        member.role,
-                                                                        member.agentTool ? AGENT_TOOL_LABELS[member.agentTool] || member.agentTool : null,
-                                                                        member.model,
-                                                                    ].filter(Boolean).join(' · ')}
+                                                {teamMembers.map(member => {
+                                                    const isSelected = selectedTeamMemberIds.includes(member.id);
+                                                    return (
+                                                        <button
+                                                            key={member.id}
+                                                            className={`themedDropdownOption ${isSelected ? 'themedDropdownOption--current' : ''}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedTeamMemberIds(prev =>
+                                                                    isSelected
+                                                                        ? prev.filter(id => id !== member.id)
+                                                                        : [...prev, member.id]
+                                                                );
+                                                            }}
+                                                            style={{ textAlign: 'left' }}
+                                                        >
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                                                                <span style={{ fontSize: '14px', flexShrink: 0 }}>{member.avatar}</span>
+                                                                <span style={{ flex: 1, minWidth: 0 }}>
+                                                                    <span className="themedDropdownLabel">{member.name}</span>
+                                                                    <span style={{ display: 'block', fontSize: '9px', opacity: 0.5 }}>
+                                                                        {[
+                                                                            member.role,
+                                                                            member.agentTool ? AGENT_TOOL_LABELS[member.agentTool] || member.agentTool : null,
+                                                                            member.model,
+                                                                        ].filter(Boolean).join(' · ')}
+                                                                    </span>
                                                                 </span>
+                                                                {isSelected && (
+                                                                    <span className="themedDropdownCheck">{'\u2713'}</span>
+                                                                )}
                                                             </span>
-                                                            {member.id === selectedTeamMemberId && (
-                                                                <span className="themedDropdownCheck">{'\u2713'}</span>
-                                                            )}
-                                                        </span>
-                                                    </button>
-                                                ))}
+                                                        </button>
+                                                    );
+                                                })}
                                                 {teamMembers.length === 0 && (
                                                     <div style={{ padding: '8px 12px', fontSize: '11px', opacity: 0.5 }}>
                                                         No team members configured
@@ -1162,12 +1188,17 @@ export function CreateTaskModal({
                                         document.body
                                     )}
                                 </div>
-                                {selectedTeamMember && (
+                                {selectedTeamMembers.length === 1 && (
                                     <span style={{ fontSize: '10px', opacity: 0.5 }}>
                                         {[
-                                            selectedTeamMember.agentTool ? AGENT_TOOL_LABELS[selectedTeamMember.agentTool] : null,
-                                            selectedTeamMember.model,
+                                            selectedTeamMembers[0].agentTool ? AGENT_TOOL_LABELS[selectedTeamMembers[0].agentTool] : null,
+                                            selectedTeamMembers[0].model,
                                         ].filter(Boolean).join(' / ')}
+                                    </span>
+                                )}
+                                {selectedTeamMembers.length > 1 && (
+                                    <span style={{ fontSize: '10px', opacity: 0.5 }}>
+                                        {selectedTeamMembers.map(m => m.avatar).join(' ')}
                                     </span>
                                 )}
                             </div>
@@ -1201,13 +1232,13 @@ export function CreateTaskModal({
                                             setShowTeamMemberDropdown(!showTeamMemberDropdown);
                                         }}
                                     >
-                                        {selectedTeamMember ? (
+                                        {selectedTeamMembers.length > 0 ? (
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <span>{selectedTeamMember.avatar}</span>
-                                                <span>{selectedTeamMember.name}</span>
+                                                <span>{selectedTeamMembers.map(m => m.avatar).join('')}</span>
+                                                <span>{selectedTeamMembers.length === 1 ? selectedTeamMembers[0].name : `${selectedTeamMembers.length} members`}</span>
                                             </span>
                                         ) : (
-                                            <span style={{ opacity: 0.6 }}>Select Team Member</span>
+                                            <span style={{ opacity: 0.6 }}>Select Team Members</span>
                                         )}
                                         <span className="themedDropdownCaret">{showTeamMemberDropdown ? '\u25B4' : '\u25BE'}</span>
                                     </button>
@@ -1225,38 +1256,53 @@ export function CreateTaskModal({
                                                 style={{ top: 'auto', bottom: teamMemberDropdownPos.bottom, left: teamMemberDropdownPos.left, minWidth: '240px', maxHeight: `${Math.min(window.innerHeight - 40, 320)}px`, overflowY: 'auto' }}
                                                 onClick={(e) => e.stopPropagation()}
                                             >
-                                                <div style={{ padding: '4px 8px', fontSize: '10px', opacity: 0.5, borderBottom: '1px solid var(--theme-border)', position: 'sticky', top: 0, backgroundColor: 'var(--theme-bg)', zIndex: 1 }}>
-                                                    Select team member
+                                                <div style={{ padding: '4px 8px', fontSize: '10px', opacity: 0.5, borderBottom: '1px solid var(--theme-border)', position: 'sticky', top: 0, backgroundColor: 'var(--theme-bg)', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span>Select team members</span>
+                                                    {selectedTeamMemberIds.length > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); setSelectedTeamMemberIds([]); }}
+                                                            style={{ background: 'none', border: 'none', color: 'var(--theme-primary)', cursor: 'pointer', padding: '0 2px', fontSize: '10px', opacity: 0.7 }}
+                                                        >
+                                                            clear
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                {teamMembers.map(member => (
-                                                    <button
-                                                        key={member.id}
-                                                        className={`themedDropdownOption ${member.id === selectedTeamMemberId ? 'themedDropdownOption--current' : ''}`}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedTeamMemberId(member.id);
-                                                            setShowTeamMemberDropdown(false);
-                                                        }}
-                                                        style={{ textAlign: 'left' }}
-                                                    >
-                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                                                            <span style={{ fontSize: '14px', flexShrink: 0 }}>{member.avatar}</span>
-                                                            <span style={{ flex: 1, minWidth: 0 }}>
-                                                                <span className="themedDropdownLabel">{member.name}</span>
-                                                                <span style={{ display: 'block', fontSize: '9px', opacity: 0.5 }}>
-                                                                    {[
-                                                                        member.role,
-                                                                        member.agentTool ? AGENT_TOOL_LABELS[member.agentTool] || member.agentTool : null,
-                                                                        member.model,
-                                                                    ].filter(Boolean).join(' · ')}
+                                                {teamMembers.map(member => {
+                                                    const isSelected = selectedTeamMemberIds.includes(member.id);
+                                                    return (
+                                                        <button
+                                                            key={member.id}
+                                                            className={`themedDropdownOption ${isSelected ? 'themedDropdownOption--current' : ''}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedTeamMemberIds(prev =>
+                                                                    isSelected
+                                                                        ? prev.filter(id => id !== member.id)
+                                                                        : [...prev, member.id]
+                                                                );
+                                                            }}
+                                                            style={{ textAlign: 'left' }}
+                                                        >
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                                                                <span style={{ fontSize: '14px', flexShrink: 0 }}>{member.avatar}</span>
+                                                                <span style={{ flex: 1, minWidth: 0 }}>
+                                                                    <span className="themedDropdownLabel">{member.name}</span>
+                                                                    <span style={{ display: 'block', fontSize: '9px', opacity: 0.5 }}>
+                                                                        {[
+                                                                            member.role,
+                                                                            member.agentTool ? AGENT_TOOL_LABELS[member.agentTool] || member.agentTool : null,
+                                                                            member.model,
+                                                                        ].filter(Boolean).join(' · ')}
+                                                                    </span>
                                                                 </span>
+                                                                {isSelected && (
+                                                                    <span className="themedDropdownCheck">{'\u2713'}</span>
+                                                                )}
                                                             </span>
-                                                            {member.id === selectedTeamMemberId && (
-                                                                <span className="themedDropdownCheck">{'\u2713'}</span>
-                                                            )}
-                                                        </span>
-                                                    </button>
-                                                ))}
+                                                        </button>
+                                                    );
+                                                })}
                                                 {teamMembers.length === 0 && (
                                                     <div style={{ padding: '8px 12px', fontSize: '11px', opacity: 0.5 }}>
                                                         No team members configured
@@ -1267,12 +1313,17 @@ export function CreateTaskModal({
                                         document.body
                                     )}
                                 </div>
-                                {selectedTeamMember && (
+                                {selectedTeamMembers.length === 1 && (
                                     <span style={{ fontSize: '10px', opacity: 0.5 }}>
                                         {[
-                                            selectedTeamMember.agentTool ? AGENT_TOOL_LABELS[selectedTeamMember.agentTool] : null,
-                                            selectedTeamMember.model,
+                                            selectedTeamMembers[0].agentTool ? AGENT_TOOL_LABELS[selectedTeamMembers[0].agentTool] : null,
+                                            selectedTeamMembers[0].model,
                                         ].filter(Boolean).join(' / ')}
+                                    </span>
+                                )}
+                                {selectedTeamMembers.length > 1 && (
+                                    <span style={{ fontSize: '10px', opacity: 0.5 }}>
+                                        {selectedTeamMembers.map(m => m.avatar).join(' ')}
                                     </span>
                                 )}
                             </div>
