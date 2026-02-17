@@ -459,6 +459,8 @@ export function registerSessionCommands(program: Command) {
         .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)')
         .option('--model <model>', 'Model to use (e.g. sonnet, opus, haiku, or native model names)')
         .option('--team-member-id <id>', 'Team member ID to run this session')
+        .option('--subject <subject>', 'Send initial directive mail with this subject (sent before worker starts)')
+        .option('--message <message>', 'Initial directive message body (requires --subject)')
         .action(async (cmdOpts) => {
             await guardCommand('session:spawn');
             const globalOpts = program.opts();
@@ -530,6 +532,24 @@ export function registerSessionCommands(program: Command) {
                 const spinner3 = !isJson ? ora('Requesting session spawn...').start() : null;
                 const result: any = await api.post('/api/sessions/spawn', spawnRequest);
                 spinner3?.succeed('Spawn request sent');
+
+                // Send initial directive mail if --subject/--message provided
+                if (cmdOpts.subject && result.sessionId) {
+                    const mailSpinner = !isJson ? ora('Sending initial directive mail...').start() : null;
+                    try {
+                        await api.post('/api/mail', {
+                            projectId,
+                            fromSessionId: config.sessionId || undefined,
+                            toSessionId: result.sessionId,
+                            type: 'directive',
+                            subject: cmdOpts.subject,
+                            body: { details: cmdOpts.message || '' },
+                        });
+                        mailSpinner?.succeed('Initial directive mail sent (before worker starts)');
+                    } catch (mailErr: any) {
+                        mailSpinner?.fail(`Failed to send initial mail: ${mailErr.message}`);
+                    }
+                }
 
                 if (isJson) {
                     outputJSON(result);

@@ -108,6 +108,9 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
 
   // Utility commands (internal — called by hooks, not agents)
   { name: 'track-file', description: 'Track file modification', allowedModes: ['execute', 'coordinate'], isCore: true, hiddenFromPrompt: true },
+
+  // Developer debug commands
+  { name: 'debug-prompt', description: 'Show system and initial prompts sent to agent', allowedModes: ['execute', 'coordinate'], isCore: true, hiddenFromPrompt: true },
 ];
 
 /**
