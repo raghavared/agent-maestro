@@ -94,11 +94,11 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'worker:init', description: 'Initialize execute-mode session', allowedModes: ['execute'], parent: 'worker', hiddenFromPrompt: true },
   { name: 'orchestrator:init', description: 'Initialize coordinate-mode session', allowedModes: ['coordinate'], parent: 'orchestrator', hiddenFromPrompt: true },
 
-  // Team member commands (recruiter only)
-  { name: 'team-member:create', description: 'Create a new team member', allowedModes: ['execute'], parent: 'team-member' },
-  { name: 'team-member:list', description: 'List team members', allowedModes: ['execute'], parent: 'team-member' },
-  { name: 'team-member:get', description: 'Get team member details', allowedModes: ['execute'], parent: 'team-member' },
-  { name: 'team-member:edit', description: 'Edit a team member', allowedModes: ['execute'], parent: 'team-member' },
+  // Team member commands (disabled by default, enabled via team member commandPermissions for recruiters)
+  { name: 'team-member:create', description: 'Create a new team member', allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
+  { name: 'team-member:list', description: 'List team members', allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
+  { name: 'team-member:get', description: 'Get team member details', allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
+  { name: 'team-member:edit', description: 'Edit a team member', allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
 
   // Show commands (display content in UI)
   { name: 'show:modal', description: 'Show HTML modal in UI', allowedModes: ['execute', 'coordinate'], parent: 'show' },

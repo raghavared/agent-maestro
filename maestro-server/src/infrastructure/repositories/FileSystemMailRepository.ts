@@ -121,6 +121,13 @@ export class FileSystemMailRepository implements IMailRepository {
     return this.findInbox(sessionId, projectId, { since });
   }
 
+  async findByThreadId(threadId: string): Promise<MailMessage[]> {
+    await this.ensureInitialized();
+    return Array.from(this.messages.values())
+      .filter(m => (m as any).threadId === threadId)
+      .sort((a, b) => a.createdAt - b.createdAt);
+  }
+
   async delete(id: string): Promise<void> {
     await this.ensureInitialized();
 

@@ -7,6 +7,7 @@ export interface SessionFilter {
   projectId?: string;
   taskId?: string;
   status?: SessionStatus;
+  parentSessionId?: string;
 }
 
 /**

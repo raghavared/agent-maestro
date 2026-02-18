@@ -56,6 +56,9 @@ export const config = {
   get retryDelay() {
     return parseInt(process.env.MAESTRO_RETRY_DELAY || '1000', 10);
   },
+  get coordinatorSessionId() {
+    return process.env.MAESTRO_COORDINATOR_SESSION_ID;
+  },
   get debug() {
     return process.env.MAESTRO_DEBUG === 'true';
   },

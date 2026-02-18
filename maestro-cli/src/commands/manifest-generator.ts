@@ -151,6 +151,12 @@ export class ManifestGeneratorCLICommand {
         sessionOptions
       );
 
+      // Add coordinator session ID from environment
+      const coordinatorSessionId = process.env.MAESTRO_COORDINATOR_SESSION_ID;
+      if (coordinatorSessionId) {
+        manifest.coordinatorSessionId = coordinatorSessionId;
+      }
+
       // Add skills to manifest root
       manifest.skills = options.skills || ['maestro-worker'];
 

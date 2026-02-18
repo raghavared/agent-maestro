@@ -48,6 +48,7 @@ export function registerMailCommands(program: Command) {
     .requiredOption('--subject <subject>', 'Mail subject')
     .option('--message <message>', 'Message body content')
     .option('--to-team-member <teamMemberId>', 'Send to active session(s) for this team member ID')
+    .option('--to-coordinator', 'Send to the coordinator that spawned this session')
     .option('--task-id <taskId>', 'Task ID (for assignment/status_update/directive types)')
     .option('--priority <priority>', 'Priority (for assignment type)')
     .option('--status <status>', 'Status (for status_update type)')
@@ -71,6 +72,17 @@ export function registerMailCommands(program: Command) {
         const err = { message: 'No project context found (MAESTRO_PROJECT_ID not set).' };
         if (isJson) { outputErrorJSON(err); process.exit(1); }
         else { console.error(err.message); process.exit(1); }
+      }
+
+      // Resolve --to-coordinator shorthand
+      if (cmdOpts.toCoordinator) {
+        const coordinatorId = config.coordinatorSessionId;
+        if (!coordinatorId) {
+          const err = { message: 'No coordinator session ID found (MAESTRO_COORDINATOR_SESSION_ID not set). This flag is only available for sessions spawned by a coordinator.' };
+          if (isJson) { outputErrorJSON(err); process.exit(1); }
+          else { console.error(err.message); process.exit(1); }
+        }
+        toSessionIds = coordinatorId;
       }
 
       // Either session IDs or --to-team-member must be provided
@@ -102,6 +114,7 @@ export function registerMailCommands(program: Command) {
             type: cmdOpts.type,
             subject: cmdOpts.subject,
             body,
+            priority: cmdOpts.priority || undefined,
           });
 
           spinner?.succeed('Mail sent to team member');
@@ -137,6 +150,7 @@ export function registerMailCommands(program: Command) {
               type: cmdOpts.type,
               subject: cmdOpts.subject,
               body,
+              priority: cmdOpts.priority || undefined,
             });
             results.push(result);
           }
@@ -164,6 +178,7 @@ export function registerMailCommands(program: Command) {
   mail.command('inbox')
     .description('List inbox for current session')
     .option('--type <type>', 'Filter by message type')
+    .option('--thread', 'Group messages by thread')
     .action(async (cmdOpts: any) => {
       await guardCommand('mail:inbox');
       const globalOpts = program.opts();
@@ -193,6 +208,27 @@ export function registerMailCommands(program: Command) {
 
         if (isJson) {
           outputJSON(messages);
+        } else if (cmdOpts.thread && messages.length > 0) {
+          // Group by threadId
+          const threads = new Map<string, any[]>();
+          for (const m of messages) {
+            const tid = m.threadId || m.id;
+            if (!threads.has(tid)) threads.set(tid, []);
+            threads.get(tid)!.push(m);
+          }
+          for (const [tid, msgs] of threads) {
+            console.log(`\nThread: ${tid} (${msgs.length} message${msgs.length > 1 ? 's' : ''})`);
+            outputTable(
+              ['ID', 'Type', 'From', 'Subject', 'Time'],
+              msgs.map(m => [
+                m.id,
+                m.type,
+                m.fromSessionId.substring(0, 20),
+                m.subject.substring(0, 40),
+                new Date(m.createdAt).toLocaleTimeString(),
+              ])
+            );
+          }
         } else {
           if (messages.length === 0) {
             console.log('No mail in inbox.');
@@ -270,6 +306,8 @@ export function registerMailCommands(program: Command) {
     .requiredOption('--type <type>', 'Message type')
     .requiredOption('--subject <subject>', 'Mail subject')
     .option('--message <message>', 'Message body content')
+    .option('--priority <priority>', 'Message priority (critical, high, normal, low)')
+    .option('--scope <scope>', 'Broadcast scope: all (default), my-workers, team')
     .action(async (cmdOpts: any) => {
       await guardCommand('mail:broadcast');
       const globalOpts = program.opts();
@@ -296,6 +334,8 @@ export function registerMailCommands(program: Command) {
           type: cmdOpts.type,
           subject: cmdOpts.subject,
           body,
+          priority: cmdOpts.priority || undefined,
+          scope: cmdOpts.scope || undefined,
         });
 
         spinner?.succeed('Mail broadcast sent');

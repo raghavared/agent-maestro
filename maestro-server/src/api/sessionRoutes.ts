@@ -26,8 +26,9 @@ async function generateManifestViaCLI(options: {
   referenceTaskIds?: string[];
   teamMemberIds?: string[];
   teamMemberId?: string;
+  serverUrl?: string;
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId } = options;
+  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl } = options;
 
   console.log('\n   📋 GENERATING MANIFEST VIA CLI:');
   console.log(`      • Session ID: ${sessionId}`);
@@ -69,7 +70,11 @@ async function generateManifestViaCLI(options: {
 
   console.log(`   🔧 CLI: ${maestroBin} ${args.join(' ')}`);
 
-  const spawnEnv = { ...process.env };
+  const spawnEnv: Record<string, string | undefined> = { ...process.env };
+  // Ensure CLI subprocess can reach the server API (CLI reads MAESTRO_SERVER_URL, not SERVER_URL)
+  if (serverUrl) {
+    spawnEnv.MAESTRO_SERVER_URL = serverUrl;
+  }
   if (!isPkg) {
     const monorepoRoot = resolvePath(__dirname, '..', '..', '..');
     const nodeModulesBin = join(monorepoRoot, 'node_modules', '.bin');
@@ -205,6 +210,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
       if (req.query.status) {
         filter.status = req.query.status as SessionStatus;
+      }
+      if (req.query.parentSessionId) {
+        filter.parentSessionId = req.query.parentSessionId as string;
       }
 
       let sessions = await sessionService.listSessions(filter);
@@ -502,12 +510,102 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         model: requestedModel,           // Override model for this run
       } = req.body;
 
-      // Resolve effective team member IDs: teamMemberIds takes precedence over teamMemberId
-      const effectiveTeamMemberIds: string[] = teamMemberIds && teamMemberIds.length > 0
+      // Resolve effective team member IDs from request params
+      let effectiveTeamMemberIds: string[] = teamMemberIds && teamMemberIds.length > 0
         ? teamMemberIds
         : (teamMemberId ? [teamMemberId] : []);
 
-      // Fetch team member defaults from the effective members
+      // Validation
+      if (!projectId) {
+        return res.status(400).json({
+          error: true,
+          code: 'missing_project_id',
+          message: 'projectId is required'
+        });
+      }
+
+      if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+        return res.status(400).json({
+          error: true,
+          code: 'invalid_task_ids',
+          message: 'taskIds must be a non-empty array'
+        });
+      }
+
+      if (spawnSource !== 'ui' && spawnSource !== 'session') {
+        return res.status(400).json({
+          error: true,
+          code: 'invalid_spawn_source',
+          message: 'spawnSource must be "ui" or "session"'
+        });
+      }
+
+      // Validate sessionId when spawnSource === 'session'
+      if (spawnSource === 'session') {
+        if (!sessionId) {
+          return res.status(400).json({
+            error: true,
+            code: 'missing_session_id',
+            message: 'sessionId is required when spawnSource is "session"'
+          });
+        }
+
+        // Verify parent session exists
+        try {
+          const parentSession = await sessionService.getSession(sessionId);
+          if (!parentSession) {
+            return res.status(404).json({
+              error: true,
+              code: 'parent_session_not_found',
+              message: `Parent session ${sessionId} not found`
+            });
+          }
+          console.log(`   ✓ Parent session verified: ${sessionId}`);
+        } catch (err: any) {
+          return res.status(404).json({
+            error: true,
+            code: 'parent_session_not_found',
+            message: `Parent session ${sessionId} not found`
+          });
+        }
+      }
+
+      // Verify all tasks exist and collect task-level team member IDs as fallback
+      const verifiedTasks: any[] = [];
+      for (const taskId of taskIds) {
+        const task = await taskRepo.findById(taskId);
+        if (!task) {
+          return res.status(404).json({
+            error: true,
+            code: 'task_not_found',
+            message: `Task ${taskId} not found`,
+            details: { taskId }
+          });
+        }
+        verifiedTasks.push(task);
+      }
+
+      // Fall back to task-level teamMemberId/teamMemberIds if none provided in request
+      if (effectiveTeamMemberIds.length === 0) {
+        const taskTeamMemberIds: string[] = [];
+        for (const task of verifiedTasks) {
+          if (task.teamMemberIds && task.teamMemberIds.length > 0) {
+            for (const tmId of task.teamMemberIds) {
+              if (!taskTeamMemberIds.includes(tmId)) {
+                taskTeamMemberIds.push(tmId);
+              }
+            }
+          } else if (task.teamMemberId && !taskTeamMemberIds.includes(task.teamMemberId)) {
+            taskTeamMemberIds.push(task.teamMemberId);
+          }
+        }
+        if (taskTeamMemberIds.length > 0) {
+          effectiveTeamMemberIds = taskTeamMemberIds;
+          console.log(`   ℹ Resolved team member IDs from tasks: [${taskTeamMemberIds.join(', ')}]`);
+        }
+      }
+
+      // Fetch team member defaults from the effective members (after task-level fallback)
       const MODEL_POWER: Record<string, number> = { 'opus': 3, 'sonnet': 2, 'haiku': 1 };
       let teamMemberDefaults: { mode?: AgentMode; model?: string; agentTool?: AgentTool } = {};
       const teamMemberSnapshots: TeamMemberSnapshot[] = [];
@@ -551,6 +649,14 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       // Resolve mode (defaults to team member's mode, then 'execute')
       const resolvedMode: AgentMode = (requestedMode as AgentMode) || teamMemberDefaults.mode || 'execute';
 
+      if (resolvedMode !== 'execute' && resolvedMode !== 'coordinate') {
+        return res.status(400).json({
+          error: true,
+          code: 'invalid_mode',
+          message: 'mode must be "execute" or "coordinate"'
+        });
+      }
+
       // Resolve model and agentTool: request overrides > team member defaults
       const resolvedModel = requestedModel || teamMemberDefaults.model;
       const resolvedAgentToolFromMember = requestedAgentTool || teamMemberDefaults.agentTool;
@@ -562,82 +668,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       console.log(`   • model: ${resolvedModel || '(not set - will default to sonnet)'}`);
       console.log(`   • agentTool: ${resolvedAgentToolFromMember || '(not set - will default to claude-code)'}`);
       console.log(`   • teamMemberIds: [${effectiveTeamMemberIds.join(', ') || 'none'}]`);
-
-      // Validation
-      if (!projectId) {
-        return res.status(400).json({
-          error: true,
-          code: 'missing_project_id',
-          message: 'projectId is required'
-        });
-      }
-
-      if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
-        return res.status(400).json({
-          error: true,
-          code: 'invalid_task_ids',
-          message: 'taskIds must be a non-empty array'
-        });
-      }
-
-      if (spawnSource !== 'ui' && spawnSource !== 'session') {
-        return res.status(400).json({
-          error: true,
-          code: 'invalid_spawn_source',
-          message: 'spawnSource must be "ui" or "session"'
-        });
-      }
-
-      // NEW: Validate sessionId when spawnSource === 'session'
-      if (spawnSource === 'session') {
-        if (!sessionId) {
-          return res.status(400).json({
-            error: true,
-            code: 'missing_session_id',
-            message: 'sessionId is required when spawnSource is "session"'
-          });
-        }
-
-        // Verify parent session exists
-        try {
-          const parentSession = await sessionService.getSession(sessionId);
-          if (!parentSession) {
-            return res.status(404).json({
-              error: true,
-              code: 'parent_session_not_found',
-              message: `Parent session ${sessionId} not found`
-            });
-          }
-          console.log(`   ✓ Parent session verified: ${sessionId}`);
-        } catch (err: any) {
-          return res.status(404).json({
-            error: true,
-            code: 'parent_session_not_found',
-            message: `Parent session ${sessionId} not found`
-          });
-        }
-      }
-
-      if (resolvedMode !== 'execute' && resolvedMode !== 'coordinate') {
-        return res.status(400).json({
-          error: true,
-          code: 'invalid_mode',
-          message: 'mode must be "execute" or "coordinate"'
-        });
-      }
-
-      // Verify all tasks exist
-      for (const taskId of taskIds) {
-        const task = await taskRepo.findById(taskId);
-        if (!task) {
-          return res.status(404).json({
-            error: true,
-            code: 'task_not_found',
-            message: `Task ${taskId} not found`,
-            details: { taskId }
-          });
-        }
-      }
 
       // Get project
       const project = await projectRepo.findById(projectId);
@@ -668,6 +698,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           teamMemberIds: effectiveTeamMemberIds.length > 0 ? effectiveTeamMemberIds : null,
           context: context || {}
         },
+        parentSessionId: sessionId || null,
         _suppressCreatedEvent: true
       });
 
@@ -714,6 +745,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           teamMemberIds: effectiveTeamMemberIds.length > 1 ? effectiveTeamMemberIds : (delegateTeamMemberIds && delegateTeamMemberIds.length > 0 ? delegateTeamMemberIds : undefined),
           // Single identity: backward compat
           teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : undefined,
+          // Pass server URL so CLI subprocess can reach the API
+          serverUrl: config.serverUrl,
         });
         manifestPath = result.manifestPath;
         manifest = result.manifest;
@@ -758,6 +791,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         MAESTRO_MANIFEST_PATH: manifestPath,
         MAESTRO_SERVER_URL: config.serverUrl,
         MAESTRO_MODE: resolvedMode,
+        MAESTRO_COORDINATOR_SESSION_ID: sessionId || '',
         // Pass storage paths so CLI reads/writes to the correct environment directories
         DATA_DIR: config.dataDir,
         SESSION_DIR: config.sessionDir,

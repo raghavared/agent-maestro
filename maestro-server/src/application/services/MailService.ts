@@ -55,6 +55,54 @@ export class MailService {
       return results.length === 1 ? results[0] : results;
     }
 
+    // Handle scoped broadcasts
+    if (payload.toSessionId === undefined && payload.scope && payload.scope !== 'all') {
+      if (!this.sessionRepo) {
+        throw new ValidationError('Session repository not available for scoped broadcast');
+      }
+
+      const allSessions = await this.sessionRepo.findAll({
+        projectId: payload.projectId,
+      });
+
+      let targetSessions: any[];
+      if (payload.scope === 'my-workers') {
+        targetSessions = allSessions.filter(s =>
+          (s as any).parentSessionId === payload.fromSessionId &&
+          ['working', 'idle', 'spawning'].includes(s.status)
+        );
+      } else if (payload.scope === 'team') {
+        const mySession = allSessions.find(s => s.id === payload.fromSessionId);
+        const myParent = (mySession as any)?.parentSessionId;
+        if (myParent) {
+          targetSessions = allSessions.filter(s =>
+            (s as any).parentSessionId === myParent &&
+            s.id !== payload.fromSessionId &&
+            ['working', 'idle', 'spawning'].includes(s.status)
+          );
+        } else {
+          targetSessions = [];
+        }
+      } else {
+        targetSessions = [];
+      }
+
+      if (targetSessions.length === 0) {
+        return this.createAndStoreMail(payload);
+      }
+
+      const results: MailMessage[] = [];
+      for (const session of targetSessions) {
+        const mail = await this.createAndStoreMail({
+          ...payload,
+          toSessionId: session.id,
+          scope: undefined,
+        });
+        results.push(mail);
+      }
+      return results.length === 1 ? results[0] : results;
+    }
+
     return this.createAndStoreMail(payload);
   }
 
@@ -63,6 +111,19 @@ export class MailService {
    */
   private async createAndStoreMail(payload: SendMailPayload): Promise<MailMessage> {
     const id = this.idGenerator.generate('mail');
+
+    // Threading: propagate threadId from reply, or set to own id for new messages
+    let threadId: string | undefined;
+    if (payload.replyToMailId) {
+      try {
+        const original = await this.mailRepo.findById(payload.replyToMailId);
+        if (original) {
+          threadId = original.threadId || original.id;
+        }
+      } catch {
+        threadId = payload.replyToMailId;
+      }
+    }
 
     const mail: MailMessage = {
       id,
@@ -74,6 +135,8 @@ export class MailService {
       subject: payload.subject,
       body: payload.body || {},
       createdAt: Date.now(),
+      priority: payload.priority || undefined,
+      threadId: threadId || id,
     };
 
     const created = await this.mailRepo.create(mail);
@@ -87,7 +150,15 @@ export class MailService {
    * Get inbox for a session.
    */
   async getInbox(sessionId: string, projectId: string, filter?: MailFilter): Promise<MailMessage[]> {
-    return this.mailRepo.findInbox(sessionId, projectId, filter);
+    const messages = await this.mailRepo.findInbox(sessionId, projectId, filter);
+    // Sort by priority: critical > high > normal > low > undefined
+    const priorityOrder: Record<string, number> = { critical: 0, high: 1, normal: 2, low: 3 };
+    return messages.sort((a, b) => {
+      const pa = priorityOrder[a.priority || 'normal'] ?? 2;
+      const pb = priorityOrder[b.priority || 'normal'] ?? 2;
+      if (pa !== pb) return pa - pb;
+      return a.createdAt - b.createdAt;
+    });
   }
 
   /**
@@ -141,6 +212,13 @@ export class MailService {
 
       this.eventBus.on('mail:received', handler);
     });
+  }
+
+  /**
+   * Get all messages in a thread.
+   */
+  async getThread(threadId: string): Promise<MailMessage[]> {
+    return this.mailRepo.findByThreadId(threadId);
   }
 
   /**

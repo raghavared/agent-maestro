@@ -148,6 +148,7 @@ export function TaskListItem({
     const [showLaunchDropdown, setShowLaunchDropdown] = useState(false);
     const [expandedTool, setExpandedTool] = useState<AgentTool | null>(null);
     const [launchOverride, setLaunchOverride] = useState<{ agentTool: AgentTool; model: ModelType } | null>(null);
+    const [copiedField, setCopiedField] = useState<string | null>(null);
     const statusDropdownRef = useRef<HTMLDivElement>(null);
     const priorityDropdownRef = useRef<HTMLDivElement>(null);
     const teamMemberDropdownRef = useRef<HTMLDivElement>(null);
@@ -233,10 +234,22 @@ export function TaskListItem({
     const updateTask = useMaestroStore(s => s.updateTask);
 
     const teamMembers = useMemo(() => Array.from(teamMembersMap.values()), [teamMembersMap]);
-    const assignedTeamMember = useMemo(() =>
-        task.teamMemberId ? teamMembersMap.get(task.teamMemberId) : undefined,
-        [task.teamMemberId, teamMembersMap]
+
+    // Resolve effective team member IDs (prefer array, fallback to singular)
+    const effectiveTeamMemberIds = useMemo(() =>
+        task.teamMemberIds && task.teamMemberIds.length > 0
+            ? task.teamMemberIds
+            : task.teamMemberId ? [task.teamMemberId] : [],
+        [task.teamMemberIds, task.teamMemberId]
     );
+
+    const assignedTeamMembers = useMemo(() =>
+        effectiveTeamMemberIds.map(id => teamMembersMap.get(id)).filter(Boolean) as typeof teamMembers,
+        [effectiveTeamMemberIds, teamMembersMap]
+    );
+
+    // Keep backward compat reference for single member
+    const assignedTeamMember = assignedTeamMembers.length > 0 ? assignedTeamMembers[0] : undefined;
 
     // Effective model: launch override takes priority over team member's model
     const effectiveModel = launchOverride?.model || assignedTeamMember?.model || null;
@@ -376,17 +389,21 @@ export function TaskListItem({
         }
     };
 
-    const handleInlineTeamMemberChange = async (teamMemberId: string) => {
-        if (teamMemberId === task.teamMemberId) {
-            setShowTeamMemberDropdown(false);
-            return;
-        }
+    const handleInlineTeamMemberToggle = async (teamMemberId: string) => {
+        const currentIds = effectiveTeamMemberIds;
+        const isAlreadySelected = currentIds.includes(teamMemberId);
+
+        const newIds = isAlreadySelected
+            ? currentIds.filter(id => id !== teamMemberId)
+            : [...currentIds, teamMemberId];
 
         setIsUpdatingTeamMember(true);
         try {
-            await updateTask(task.id, { teamMemberId });
-            setShowTeamMemberDropdown(false);
-            // Reset launch override — new team member's model takes priority
+            await updateTask(task.id, {
+                teamMemberIds: newIds.length > 0 ? newIds : undefined,
+                teamMemberId: newIds.length === 1 ? newIds[0] : undefined,
+            });
+            // Reset launch override — team members changed
             setLaunchOverride(null);
         } catch (error) {
             console.error("Failed to update team member:", error);
@@ -412,6 +429,13 @@ export function TaskListItem({
         e.dataTransfer.setData('text/plain', text);
         e.dataTransfer.effectAllowed = 'copy';
     }, [task.title, task.description, task.initialPrompt]);
+
+    const handleCopyField = useCallback((label: string, value: string) => {
+        navigator.clipboard.writeText(value).then(() => {
+            setCopiedField(label);
+            setTimeout(() => setCopiedField(null), 1500);
+        }).catch(() => {});
+    }, []);
 
     return (
         <div
@@ -581,16 +605,18 @@ export function TaskListItem({
                                     }
                                 }}
                                 disabled={isUpdatingTeamMember}
-                                title={assignedTeamMember
-                                    ? `${assignedTeamMember.name}${assignedTeamMember.agentTool ? ` · ${assignedTeamMember.agentTool}` : ''}${assignedTeamMember.model ? ` / ${assignedTeamMember.model}` : ''}`
-                                    : "Click to assign team member"
+                                title={assignedTeamMembers.length > 0
+                                    ? assignedTeamMembers.map(m => `${m.name}${m.agentTool ? ` · ${m.agentTool}` : ''}${m.model ? ` / ${m.model}` : ''}`).join(', ')
+                                    : "Click to assign team members"
                                 }
                             >
                                 {isUpdatingTeamMember ? (
                                     <span className="terminalStatusSpinner">⟳</span>
                                 ) : (
                                     <>
-                                        {assignedTeamMember ? (
+                                        {assignedTeamMembers.length > 1 ? (
+                                            <>{assignedTeamMembers.map(m => m.avatar).join('')} {assignedTeamMembers.length} members</>
+                                        ) : assignedTeamMember ? (
                                             <>{assignedTeamMember.avatar} {assignedTeamMember.name}</>
                                         ) : (
                                             <>👤 Assign</>
@@ -619,22 +645,25 @@ export function TaskListItem({
                                         }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
-                                        {teamMembers.filter(m => m.status === 'active').map((member) => (
-                                            <button
-                                                key={member.id}
-                                                className={`terminalInlineTeamMemberOption ${member.id === task.teamMemberId ? 'terminalInlineTeamMemberOption--current' : ''}`}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleInlineTeamMemberChange(member.id);
-                                                }}
-                                            >
-                                                <span className="terminalTeamMemberAvatar">{member.avatar}</span>
-                                                <span className="terminalTeamMemberLabel">{member.name}</span>
-                                                {member.id === task.teamMemberId && (
-                                                    <span className="terminalStatusCheck">✓</span>
-                                                )}
-                                            </button>
-                                        ))}
+                                        {teamMembers.filter(m => m.status === 'active' && m.projectId === task.projectId).map((member) => {
+                                            const isSelected = effectiveTeamMemberIds.includes(member.id);
+                                            return (
+                                                <button
+                                                    key={member.id}
+                                                    className={`terminalInlineTeamMemberOption ${isSelected ? 'terminalInlineTeamMemberOption--current' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleInlineTeamMemberToggle(member.id);
+                                                    }}
+                                                >
+                                                    <span className="terminalTeamMemberAvatar">{member.avatar}</span>
+                                                    <span className="terminalTeamMemberLabel">{member.name}</span>
+                                                    {isSelected && (
+                                                        <span className="terminalStatusCheck">✓</span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
                                         {onOpenCreateTeamMember && (
                                             <button
                                                 className="terminalInlineTeamMemberOption terminalInlineTeamMemberOption--create"
@@ -1045,6 +1074,26 @@ export function TaskListItem({
 
                     {/* Actions Bar at Bottom Right */}
                     <div className="terminalTaskActionsBar terminalTaskActionsBar--right">
+                        <button
+                            className="terminalCopyBtn"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyField('id', task.id);
+                            }}
+                            title="Copy task ID"
+                        >
+                            {copiedField === 'id' ? 'Copied!' : 'Copy ID'}
+                        </button>
+                        <button
+                            className="terminalCopyBtn"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyField('title', task.title);
+                            }}
+                            title="Copy task title"
+                        >
+                            {copiedField === 'title' ? 'Copied!' : 'Copy Title'}
+                        </button>
                         <button
                             className="terminalViewDetailsBtn"
                             onClick={(e) => {

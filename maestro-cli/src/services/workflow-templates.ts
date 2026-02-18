@@ -10,6 +10,7 @@ import type { AgentMode } from '../types/manifest.js';
 export interface WorkflowPhase {
   name: string;
   instruction: string;
+  order?: number;
 }
 
 export interface WorkflowTemplate {
@@ -33,32 +34,37 @@ const EXECUTE_SIMPLE: WorkflowTemplate = {
   builtIn: true,
   phases: [
     {
-      name: 'execute',
+      name: 'init',
+      order: 1,
       instruction:
-        'Read your assigned tasks in the <tasks> block. Work through each task directly — do not decompose or delegate.\n' +
+        'Read your assigned tasks in the <tasks> block.\n' +
         'If a <reference_tasks> block is present, you MUST first fetch each reference task and its docs BEFORE starting work:\n' +
         '  1. maestro task get <refTaskId>  — read the reference task details\n' +
         '  2. maestro task docs list <refTaskId>  — list and read all attached docs\n' +
-        'Reference task docs contain critical context, examples, or prior work. Read them thoroughly and apply their guidance to your tasks.\n' +
-        'After completing each task (or major sub-step), check your mailbox for directives:\n' +
-        '  maestro mail inbox\n' +
-        'Mail types you may receive: "directive" (instructions to follow), "query" (questions to answer), "status" (informational).\n' +
-        'If you receive a directive, prioritize it over current work. For queries, respond using:\n' +
-        '  maestro mail reply <mailId> --message "<response>"\n' +
-        'If no mail is present, continue with your tasks.',
+        'Reference task docs contain critical context, examples, or prior work. Read them thoroughly.\n' +
+        'If a <coordinator_directive> is present, read it carefully — it contains your coordinator\'s specific instructions.\n' +
+        'Check `maestro mail inbox` for any initial messages from your coordinator.',
     },
     {
-      name: 'report',
+      name: 'execute',
+      order: 2,
       instruction:
-        'After each meaningful milestone, report progress:\n' +
-        '  maestro session report progress "<what you accomplished>"\n' +
-        'If blocked: maestro session report blocked "<reason>"',
+        'Work through each task directly — do not decompose or delegate.\n' +
+        'IMPORTANT: Before starting each task, check for new directives from your coordinator:\n' +
+        '  maestro mail inbox\n' +
+        'If you receive a directive that changes your priorities or approach, adjust accordingly.\n' +
+        'If blocked, notify your coordinator:\n' +
+        '  maestro mail send --to-coordinator --type query --subject "<what you need>" --message "<details>"\n' +
+        'Then wait for a response: maestro mail wait --timeout 30000\n' +
+        'After completing each task, report it:\n' +
+        '  maestro task report complete <taskId> "<summary of what was done>"',
     },
     {
       name: 'complete',
+      order: 3,
       instruction:
         'When all tasks are done:\n' +
-        '  maestro session report complete "<summary>"',
+        '  maestro session report complete "<summary of all work completed>"',
     },
   ],
 };
@@ -73,34 +79,40 @@ const EXECUTE_TREE: WorkflowTemplate = {
   phases: [
     {
       name: 'analyze',
+      order: 1,
       instruction:
         'If a <reference_tasks> block is present, you MUST first fetch each reference task and its docs BEFORE starting work:\n' +
         '  1. maestro task get <refTaskId>  — read the reference task details\n' +
         '  2. maestro task docs list <refTaskId>  — list and read all attached docs\n' +
         'Reference task docs contain critical context, examples, or prior work. Read them thoroughly and apply their guidance to your tasks.\n' +
         'Run `maestro task children <taskId> --recursive` to see the full task tree. ' +
-        'Identify leaf tasks and check dependencies.',
+        'Identify leaf tasks and check dependencies.\n' +
+        'Check `maestro mail inbox` for any initial messages or directives from your coordinator.',
     },
     {
       name: 'plan',
+      order: 2,
       instruction:
         'Determine execution order: tasks with no unresolved dependencies go first. ' +
         'Group independent siblings for sequential execution.',
     },
     {
       name: 'execute',
+      order: 3,
       instruction:
-        'Work through tasks in order. For each:\n' +
+        'Work through tasks in order. IMPORTANT: Before starting each task, check for new directives:\n' +
+        '  maestro mail inbox\n' +
+        'If you receive a directive that changes your priorities, adjust accordingly.\n' +
+        'For each task:\n' +
         '  1. maestro task report progress <taskId> "Starting"\n' +
         '  2. Complete it\n' +
         '  3. maestro task report complete <taskId> "<summary>"\n' +
-        'After each task completion, check your mailbox for directives:\n' +
-        '  maestro mail inbox\n' +
-        'If you receive a directive, prioritize it. For queries, reply with:\n' +
-        '  maestro mail reply <mailId> --message "<response>"',
+        'If blocked, notify your coordinator:\n' +
+        '  maestro mail send --to-coordinator --type query --subject "<what you need>" --message "<details>"',
     },
     {
       name: 'complete',
+      order: 4,
       instruction:
         'When ALL tasks in the tree are done:\n' +
         '  maestro session report complete "<summary>"',
@@ -118,18 +130,21 @@ const COORDINATE_DEFAULT: WorkflowTemplate = {
   phases: [
     {
       name: 'analyze',
+      order: 1,
       instruction:
         'Read all assigned tasks in the <tasks> block. Understand the requirements and acceptance criteria. ' +
         'You must decompose and delegate — do NOT do them yourself.',
     },
     {
       name: 'decompose',
+      order: 2,
       instruction:
         'Break tasks into small subtasks, each completable by a single worker:\n' +
         '  maestro task create "<title>" -d "<description with acceptance criteria>" --priority <high|medium|low> --parent <parentTaskId>',
     },
     {
       name: 'spawn',
+      order: 3,
       instruction:
         'Spawn worker sessions for subtasks. IMPORTANT: Include an initial directive with each spawn using --subject and --message. ' +
         'This ensures workers receive instructions BEFORE they start working:\n' +
@@ -139,32 +154,42 @@ const COORDINATE_DEFAULT: WorkflowTemplate = {
     },
     {
       name: 'monitor',
+      order: 4,
       instruction:
-        'Monitor workers by checking your mailbox and task statuses:\n' +
-        '  maestro mail inbox\n' +
-        '  maestro task children <parentTaskId>\n' +
-        'If a worker is BLOCKED, investigate with `maestro task get <taskId>` and send directives:\n' +
-        '  maestro mail send <sessionId> --type directive --subject "<subject>" --message "<instructions>"\n' +
-        'Keep checking mail inbox periodically for status updates from workers.',
+        'Monitor workers using an event-driven loop (do NOT poll on a timer):\n' +
+        '  1. maestro mail wait --timeout 60000     — block until a worker message arrives\n' +
+        '  2. maestro mail inbox                    — read ALL pending messages\n' +
+        '  3. maestro task children <parentTaskId>  — check subtask statuses\n' +
+        '  4. React to each message:\n' +
+        '     - status_update → acknowledge, adjust plan if needed\n' +
+        '     - query → answer via maestro mail reply <mailId> --message "<answer>"\n' +
+        '     - blocked → investigate and send a directive to unblock\n' +
+        '  5. Repeat until all subtasks are completed\n' +
+        'If a worker goes silent for too long, send a status query:\n' +
+        '  maestro mail send <sessionId> --type query --subject "Status check" --message "Please report your current progress."',
     },
     {
       name: 'recover',
+      order: 5,
       instruction:
         'If a worker fails or reports blocked:\n' +
-        '  1. Check the error: maestro task get <taskId>\n' +
-        '  2. Review session docs: maestro session docs list\n' +
-        '  3. Either re-spawn the task with a different approach or reassign to another team member:\n' +
-        '     maestro session spawn --task <taskId> --subject "<directive>" --message "<new instructions>" [--team-member-id <tmId>]\n' +
-        '  4. If the issue is systemic, adjust remaining subtasks before proceeding.',
+        '  1. Diagnose: maestro task get <taskId> — read error details\n' +
+        '  2. Decide: Can the worker be unblocked with a directive, or does the task need re-spawning?\n' +
+        '  3. Unblock: maestro mail send <sessionId> --type directive --subject "<guidance>" --message "<specific fix instructions>"\n' +
+        '  4. Re-spawn if needed: maestro session spawn --task <taskId> --subject "<new approach>" --message "<revised instructions>" [--team-member-id <tmId>]\n' +
+        '  5. If the issue is systemic, adjust remaining subtasks before proceeding.',
     },
     {
       name: 'verify',
+      order: 6,
       instruction:
-        'After workers finish, check subtask statuses with `maestro task children <parentTaskId>`. ' +
-        'Retry failures or report blocked.',
+        'After workers finish, verify all subtask statuses:\n' +
+        '  maestro task children <parentTaskId>\n' +
+        'Ensure all are completed. Retry any failures or report blocked if unresolvable.',
     },
     {
       name: 'complete',
+      order: 7,
       instruction:
         'When all subtasks are done:\n' +
         '  maestro task report complete <parentTaskId> "<summary>"\n' +
@@ -183,12 +208,14 @@ const COORDINATE_BATCHING: WorkflowTemplate = {
   phases: [
     {
       name: 'analyze',
+      order: 1,
       instruction:
         'Read all assigned tasks in the <tasks> block. ' +
         'Identify which pieces of work are independent vs dependent.',
     },
     {
       name: 'decompose',
+      order: 2,
       instruction:
         'Break tasks into subtasks grouped into BATCHES (independent subtasks that can run in parallel). ' +
         'Order batches so later ones depend on earlier ones.\n' +
@@ -196,18 +223,23 @@ const COORDINATE_BATCHING: WorkflowTemplate = {
     },
     {
       name: 'execute_batch',
+      order: 3,
       instruction:
         'For each batch:\n' +
         '  1. Spawn all workers in the batch with initial directives (spawn them all, do not wait between spawns):\n' +
         '     maestro session spawn --task <subtaskId> --subject "<directive>" --message "<detailed instructions>" [--team-member-id <tmId>]\n' +
-        '  2. Monitor via mail and task statuses:\n' +
-        '     maestro mail inbox\n' +
-        '     maestro task children <parentTaskId>\n' +
+        '  2. Monitor via event-driven loop:\n' +
+        '     a. maestro mail wait --timeout 60000  — block until worker message arrives\n' +
+        '     b. maestro mail inbox                 — read all pending messages\n' +
+        '     c. maestro task children <parentTaskId> — check subtask statuses\n' +
+        '     d. React: reply to queries, unblock workers, send directives as needed\n' +
+        '     e. Repeat until all batch tasks are completed\n' +
         '  3. If a worker fails, re-spawn or reassign before proceeding.\n' +
         '  4. Proceed to next batch only when current batch succeeds.',
     },
     {
       name: 'complete',
+      order: 4,
       instruction:
         'When all batches succeeded:\n' +
         '  maestro task report complete <parentTaskId> "<summary>"\n' +
@@ -226,12 +258,14 @@ const COORDINATE_DAG: WorkflowTemplate = {
   phases: [
     {
       name: 'analyze',
+      order: 1,
       instruction:
         'Read all assigned tasks in the <tasks> block. ' +
         'Map out dependency relationships between the pieces of work.',
     },
     {
       name: 'build_dag',
+      order: 2,
       instruction:
         'Decompose into subtasks with dependency edges (DAG):\n' +
         '  maestro task create "<title>" -d "<description. DEPENDS ON: <taskId1>, <taskId2>>" --parent <parentTaskId>\n' +
@@ -239,21 +273,24 @@ const COORDINATE_DAG: WorkflowTemplate = {
     },
     {
       name: 'execute_wave',
+      order: 3,
       instruction:
         'Execute in waves:\n' +
         '  1. Find READY tasks → spawn all workers in parallel with initial directives (do not wait between spawns):\n' +
         '     maestro session spawn --task <subtaskId> --subject "<directive>" --message "<detailed instructions>"\n' +
-        '  2. Monitor via mail and task statuses:\n' +
-        '     maestro mail inbox\n' +
-        '     maestro task children <parentTaskId>\n' +
-        '  3. Send follow-up directives to workers as needed:\n' +
-        '     maestro mail send <sessionId> --type directive --subject "<subject>" --message "<msg>"\n' +
-        '  4. On completion, unlock downstream tasks\n' +
-        '  5. If a worker fails, re-spawn or adjust the DAG before proceeding\n' +
-        '  6. Repeat until no tasks remain.',
+        '  2. Monitor via event-driven loop:\n' +
+        '     a. maestro mail wait --timeout 60000  — block until worker message arrives\n' +
+        '     b. maestro mail inbox                 — read all pending messages\n' +
+        '     c. maestro task children <parentTaskId> — check subtask statuses\n' +
+        '     d. React: reply to queries, unblock workers, send directives as needed\n' +
+        '     e. Repeat until current wave is completed\n' +
+        '  3. On completion, unlock downstream tasks\n' +
+        '  4. If a worker fails, re-spawn or adjust the DAG before proceeding\n' +
+        '  5. Repeat until no tasks remain.',
     },
     {
       name: 'complete',
+      order: 4,
       instruction:
         'When the full DAG is resolved:\n' +
         '  maestro task report complete <parentTaskId> "<summary>"\n' +
@@ -272,12 +309,14 @@ const EXECUTE_RECRUIT: WorkflowTemplate = {
   phases: [
     {
       name: 'analyze',
+      order: 1,
       instruction:
         'Read your assigned tasks. Determine what team members are needed. ' +
         'Run `maestro team-member list` to check existing members.',
     },
     {
       name: 'recruit',
+      order: 2,
       instruction:
         'Create team members:\n' +
         '  maestro team-member create "<name>" --role "<role>" --avatar "<emoji>" --mode <execute|coordinate> [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"]\n\n' +
@@ -285,6 +324,7 @@ const EXECUTE_RECRUIT: WorkflowTemplate = {
     },
     {
       name: 'complete',
+      order: 3,
       instruction:
         'When all team members are created:\n' +
         '  maestro session report complete "<summary with IDs, roles, and configurations>"',

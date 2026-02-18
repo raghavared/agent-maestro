@@ -129,12 +129,7 @@ export class WhoamiRenderer {
       `    <project_id>${this.esc(manifest.tasks[0]?.projectId || 'N/A')}</project_id>`,
       `    <mode>${this.esc(manifest.mode)}</mode>`,
     ];
-    if (manifest.agentTool) {
-      taskParts.push(`    <agent_tool>${this.esc(manifest.agentTool)}</agent_tool>`);
-    }
-    if (manifest.session?.model) {
-      taskParts.push(`    <model>${this.esc(manifest.session.model)}</model>`);
-    }
+    // Note: agent_tool and model are omitted here to avoid duplication with <identity> in system prompt
     taskParts.push('  </session_context>');
 
     // Reference task IDs only — agents fetch details lazily

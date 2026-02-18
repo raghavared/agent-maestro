@@ -25,6 +25,7 @@ import { useUIStore } from "../stores/useUIStore";
 import { MaestroSessionContent } from "./maestro/MaestroSessionContent";
 import { StrategyBadge } from "./maestro/StrategyBadge";
 import { SessionDetailModal } from "./maestro/SessionDetailModal";
+import { SessionLogModal } from "./session-log/SessionLogModal";
 import { ConfirmActionModal } from "./modals/ConfirmActionModal";
 
 function isSshCommand(commandLine: string | null | undefined): boolean {
@@ -165,6 +166,7 @@ export function SessionsSection({
   );
 
   const [sessionModalId, setSessionModalId] = React.useState<string | null>(null);
+  const [logModalSessionId, setLogModalSessionId] = React.useState<string | null>(null);
 
   // Session close confirmation state
   const [sessionToClose, setSessionToClose] = React.useState<Session | null>(null);
@@ -470,7 +472,16 @@ export function SessionsSection({
                       {expandedSessions.has(s.id) ? '▾' : '▸'}
                     </button>
                   )}
-                  <div className={`dot ${isActive ? "dotActive" : ""}`} />
+                  <button
+                    className="logBtn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLogModalSessionId(s.id);
+                    }}
+                    title="View session log"
+                  >
+                    <Icon name="log" size={12} />
+                  </button>
                   <div className="sessionMeta">
                     <div className="sessionName">
                       {hasAgentIcon && chipLabel && effect?.iconSrc && (
@@ -590,6 +601,19 @@ export function SessionsSection({
         />,
         document.body
       )}
+
+      {logModalSessionId && (() => {
+        const logSession = sessions.find(s => s.id === logModalSessionId);
+        return logSession?.cwd ? createPortal(
+          <SessionLogModal
+            sessionName={logSession.name}
+            cwd={logSession.cwd}
+            maestroSessionId={logSession.maestroSessionId}
+            onClose={() => setLogModalSessionId(null)}
+          />,
+          document.body
+        ) : null;
+      })()}
 
       {sessionToClose && createPortal(
         <ConfirmActionModal

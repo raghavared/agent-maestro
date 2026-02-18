@@ -323,6 +323,23 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       nullable: true,
       description: 'Team member custom workflow text',
     },
+    coordinatorSessionId: {
+      type: 'string',
+      nullable: true,
+      description: 'Coordinator session ID (the session that spawned this worker)',
+    },
+    initialDirective: {
+      type: 'object',
+      nullable: true,
+      properties: {
+        subject: { type: 'string' },
+        message: { type: 'string' },
+        fromSessionId: { type: 'string' },
+      },
+      required: ['subject', 'message', 'fromSessionId'] as const,
+      additionalProperties: false,
+      description: 'Initial directive from the coordinator',
+    },
     teamMemberProfiles: {
       type: 'array',
       nullable: true,

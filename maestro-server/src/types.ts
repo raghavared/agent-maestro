@@ -23,6 +23,8 @@ export interface MailMessage {
   subject: string;
   body: Record<string, any>;     // Type-specific structured fields
   createdAt: number;
+  priority?: 'critical' | 'high' | 'normal' | 'low';
+  threadId?: string;
 }
 
 export interface SendMailPayload {
@@ -34,6 +36,8 @@ export interface SendMailPayload {
   type: MailMessageType;
   subject: string;
   body?: Record<string, any>;
+  priority?: 'critical' | 'high' | 'normal' | 'low';
+  scope?: 'all' | 'my-workers' | 'team';
 }
 
 export interface MailFilter {
@@ -209,6 +213,7 @@ export interface Session {
   // Multiple team member identities for this session
   teamMemberIds?: string[];
   teamMemberSnapshots?: TeamMemberSnapshot[];
+  parentSessionId?: string | null;
 }
 
 // Supporting types
@@ -305,6 +310,7 @@ export interface CreateSessionPayload {
   status?: SessionStatus;
   env?: Record<string, string>;
   metadata?: Record<string, any>;
+  parentSessionId?: string | null;
   _suppressCreatedEvent?: boolean;  // Internal: suppress session:created event
 }
 
