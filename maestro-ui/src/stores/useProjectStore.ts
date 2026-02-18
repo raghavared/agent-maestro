@@ -28,6 +28,7 @@ interface ProjectState {
   confirmDeleteProjectOpen: boolean;
   deleteProjectError: string | null;
   deleteProjectId: string | null;
+  closedProjectIds: string[];
   setProjects: (projects: MaestroProject[] | ((prev: MaestroProject[]) => MaestroProject[])) => void;
   setActiveProjectId: (id: string) => void;
   setActiveSessionByProject: (
@@ -42,6 +43,7 @@ interface ProjectState {
   setProjectSoundInstrument: (instrument: string) => void;
   setProjectSoundConfig: (config: ProjectSoundConfig | undefined) => void;
   setConfirmDeleteProjectOpen: (open: boolean) => void;
+  setClosedProjectIds: (ids: string[] | ((prev: string[]) => string[])) => void;
   selectProject: (projectId: string) => void;
   moveProject: (projectId: string, targetProjectId: string, position: 'before' | 'after') => void;
   openNewProject: () => void;
@@ -89,6 +91,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     confirmDeleteProjectOpen: false,
     deleteProjectError: null,
     deleteProjectId: null,
+    closedProjectIds: [],
 
     setProjects: (projects) =>
       set((s) => ({
@@ -108,6 +111,10 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     setProjectSoundInstrument: (instrument) => set({ projectSoundInstrument: instrument }),
     setProjectSoundConfig: (config) => set({ projectSoundConfig: config }),
     setConfirmDeleteProjectOpen: (open) => set({ confirmDeleteProjectOpen: open }),
+    setClosedProjectIds: (ids) =>
+      set((s) => ({
+        closedProjectIds: typeof ids === 'function' ? ids(s.closedProjectIds) : ids,
+      })),
 
     selectProject: (projectId) => {
       set({ activeProjectId: projectId });
@@ -350,13 +357,25 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
       const remaining = projects.filter((p) => p.id !== projectId);
       if (remaining.length === 0) {
-        set({ projects: [], activeProjectId: '', confirmDeleteProjectOpen: false, deleteProjectId: null });
+        set((s) => ({
+          projects: [],
+          activeProjectId: '',
+          confirmDeleteProjectOpen: false,
+          deleteProjectId: null,
+          closedProjectIds: s.closedProjectIds.filter((id) => id !== projectId),
+        }));
         setActiveId(null);
         return;
       }
 
       const nextProjectId = remaining[0].id;
-      set({ projects: remaining, activeProjectId: nextProjectId, confirmDeleteProjectOpen: false, deleteProjectId: null });
+      set((s) => ({
+        projects: remaining,
+        activeProjectId: nextProjectId,
+        confirmDeleteProjectOpen: false,
+        deleteProjectId: null,
+        closedProjectIds: s.closedProjectIds.filter((id) => id !== projectId),
+      }));
       setActiveId(pickActiveSessionId(nextProjectId));
     },
 
@@ -392,16 +411,28 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         return { activeSessionByProject: next };
       });
 
-      // Remove project from UI (but NOT from server)
+      // Remove project from UI (but NOT from server); track it as closed
       const remaining = projects.filter((p) => p.id !== projectId);
       if (remaining.length === 0) {
-        set({ projects: [], activeProjectId: '' });
+        set((s) => ({
+          projects: [],
+          activeProjectId: '',
+          closedProjectIds: s.closedProjectIds.includes(projectId)
+            ? s.closedProjectIds
+            : [...s.closedProjectIds, projectId],
+        }));
         setActiveId(null);
         return;
       }
 
       const nextProjectId = activeProjectId === projectId ? remaining[0].id : activeProjectId;
-      set({ projects: remaining, activeProjectId: nextProjectId });
+      set((s) => ({
+        projects: remaining,
+        activeProjectId: nextProjectId,
+        closedProjectIds: s.closedProjectIds.includes(projectId)
+          ? s.closedProjectIds
+          : [...s.closedProjectIds, projectId],
+      }));
       if (activeProjectId === projectId) {
         setActiveId(pickActiveSessionId(nextProjectId));
       }
@@ -443,6 +474,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         set((s) => ({
           projects: [...s.projects, project],
           activeProjectId: project.id,
+          closedProjectIds: s.closedProjectIds.filter((id) => id !== projectId),
         }));
         setActiveId(null);
       } catch (err) {

@@ -1,4 +1,4 @@
-import { readdir, stat } from 'fs/promises';
+import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
@@ -11,10 +11,14 @@ export interface SkillInfo {
   name: string;
   /** Full path to the skill directory */
   path: string;
-  /** Whether this is a valid skill (has skill.md) */
+  /** Whether this is a valid skill (has SKILL.md or skill.md) */
   valid: boolean;
-  /** Optional description extracted from skill.md */
+  /** Optional description extracted from SKILL.md */
   description?: string;
+  /** Scope: project-level or global */
+  scope: 'project' | 'global';
+  /** Source: which skills directory tree */
+  source: 'claude' | 'agents';
 }
 
 /**
@@ -25,88 +29,167 @@ export interface SkillLoadResult {
   loaded: string[];
   /** Array of skill names that were not found */
   missing: string[];
-  /** Array of skill directories that don't contain skill.md */
+  /** Array of skill directories that don't contain SKILL.md */
   invalid: string[];
 }
 
 /**
- * SkillLoader - Manages discovery and loading of Claude Code skills
+ * A directory to scan for skills, with associated metadata
+ */
+interface SkillDirectory {
+  path: string;
+  scope: 'project' | 'global';
+  source: 'claude' | 'agents';
+}
+
+/**
+ * Check if a skill directory has a valid skill file (SKILL.md or skill.md).
+ * Returns the path to the skill file if found, null otherwise.
+ */
+function findSkillFile(skillPath: string): string | null {
+  const uppercase = join(skillPath, 'SKILL.md');
+  if (existsSync(uppercase)) return uppercase;
+  const lowercase = join(skillPath, 'skill.md');
+  if (existsSync(lowercase)) return lowercase;
+  return null;
+}
+
+/**
+ * Extract the first non-heading, non-empty line as a description from a skill file.
+ */
+async function extractDescription(skillFilePath: string): Promise<string | undefined> {
+  try {
+    const content = await readFile(skillFilePath, 'utf-8');
+    const lines = content.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        return trimmed.length > 120 ? trimmed.slice(0, 117) + '...' : trimmed;
+      }
+    }
+  } catch {
+    // ignore read errors
+  }
+  return undefined;
+}
+
+/**
+ * SkillLoader - Manages discovery and loading of Claude Code and Agent skills
  *
- * Skills are stored in ~/.claude/skills/ directory, with each skill in its own
- * subdirectory containing at minimum a SKILL.md file.
+ * Skills can be stored in multiple directories:
+ * - ~/.claude/skills/       (global, claude)
+ * - ~/.agents/skills/       (global, agents)
+ * - <project>/.claude/skills/  (project, claude)
+ * - <project>/.agents/skills/  (project, agents)
  *
- * Features:
- * - Discover all available skills
- * - Load specific skills and categorize results
- * - Graceful error handling (no exceptions, categorized results)
- * - Configurable skills directory (for testing)
+ * Each skill lives in its own subdirectory containing a SKILL.md (preferred)
+ * or skill.md (backwards compat) file.
+ *
+ * Project-scoped skills override global skills with the same name.
  */
 export class SkillLoader {
-  private skillsDir: string;
+  private projectPath?: string;
+  private directories: SkillDirectory[];
 
   /**
    * Create a new SkillLoader
    *
-   * @param skillsDir - Optional custom skills directory (defaults to ~/.claude/skills/)
+   * @param projectPath - Optional project root for project-scoped skills
    */
-  constructor(skillsDir?: string) {
-    this.skillsDir = skillsDir || join(homedir(), '.claude', 'skills');
+  constructor(projectPath?: string) {
+    this.projectPath = projectPath;
+    this.directories = this.buildDirectories();
+  }
+
+  private buildDirectories(): SkillDirectory[] {
+    const home = homedir();
+    const dirs: SkillDirectory[] = [
+      { path: join(home, '.claude', 'skills'), scope: 'global', source: 'claude' },
+      { path: join(home, '.agents', 'skills'), scope: 'global', source: 'agents' },
+    ];
+
+    if (this.projectPath) {
+      dirs.push(
+        { path: join(this.projectPath, '.claude', 'skills'), scope: 'project', source: 'claude' },
+        { path: join(this.projectPath, '.agents', 'skills'), scope: 'project', source: 'agents' },
+      );
+    }
+
+    return dirs;
   }
 
   /**
-   * Discover all available skills in the skills directory
+   * Discover all available skills across all configured directories.
    *
-   * Returns empty array if skills directory doesn't exist.
-   * Does not throw errors - gracefully handles missing directory.
-   *
-   * @returns Array of discovered SkillInfo objects
+   * Project skills override global skills with the same name.
+   * Returns empty array if no skills directories exist.
    */
   async discover(): Promise<SkillInfo[]> {
-    try {
-      // Return empty array if directory doesn't exist
-      if (!existsSync(this.skillsDir)) {
-        return [];
+    const skillMap = new Map<string, SkillInfo>();
+
+    for (const dir of this.directories) {
+      const skills = await this.scanDirectory(dir);
+      for (const skill of skills) {
+        const existing = skillMap.get(skill.name);
+        // Project scope overrides global scope
+        if (!existing || (skill.scope === 'project' && existing.scope === 'global')) {
+          skillMap.set(skill.name, skill);
+        }
       }
+    }
 
-      // Read directory entries
-      const entries = await readdir(this.skillsDir, { withFileTypes: true });
+    // Sort: project first, then global; alphabetical within each group
+    return Array.from(skillMap.values()).sort((a, b) => {
+      if (a.scope !== b.scope) return a.scope === 'project' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+  }
 
-      // Filter to directories only and check for skill.md
+  /**
+   * Discover all skills without deduplication (useful for validation).
+   */
+  async discoverAll(): Promise<SkillInfo[]> {
+    const skills: SkillInfo[] = [];
+    for (const dir of this.directories) {
+      skills.push(...await this.scanDirectory(dir));
+    }
+    return skills;
+  }
+
+  private async scanDirectory(dir: SkillDirectory): Promise<SkillInfo[]> {
+    try {
+      if (!existsSync(dir.path)) return [];
+
+      const entries = await readdir(dir.path, { withFileTypes: true });
       const skills: SkillInfo[] = [];
 
       for (const entry of entries) {
-        if (!entry.isDirectory()) {
-          continue;
-        }
+        if (!entry.isDirectory()) continue;
 
-        const skillPath = join(this.skillsDir, entry.name);
-        const skillMdPath = join(skillPath, 'skill.md');
-        const valid = existsSync(skillMdPath);
+        const skillPath = join(dir.path, entry.name);
+        const skillFile = findSkillFile(skillPath);
+        const valid = skillFile !== null;
+        const description = skillFile ? await extractDescription(skillFile) : undefined;
 
         skills.push({
           name: entry.name,
           path: skillPath,
           valid,
+          description,
+          scope: dir.scope,
+          source: dir.source,
         });
       }
 
       return skills;
-    } catch (error) {
-      // Graceful degradation - return empty array on error
+    } catch {
       return [];
     }
   }
 
   /**
-   * Load specific skills and categorize results
-   *
-   * Does not throw errors. Returns categorized results for:
-   * - loaded: Successfully loaded skill paths
-   * - missing: Skill names where directory doesn't exist
-   * - invalid: Skill directories without skill.md
-   *
-   * @param skillNames - Array of skill names to load
-   * @returns SkillLoadResult with categorized results
+   * Load specific skills and categorize results.
+   * Searches all directories; project scope takes priority.
    */
   async load(skillNames: string[]): Promise<SkillLoadResult> {
     const result: SkillLoadResult = {
@@ -115,28 +198,17 @@ export class SkillLoader {
       invalid: [],
     };
 
+    const allSkills = await this.discover();
+    const skillsByName = new Map(allSkills.map(s => [s.name, s]));
+
     for (const skillName of skillNames) {
-      const skillPath = join(this.skillsDir, skillName);
-      const skillMdPath = join(skillPath, 'skill.md');
-
-      try {
-        // Check if directory exists
-        if (!existsSync(skillPath)) {
-          result.missing.push(skillName);
-          continue;
-        }
-
-        // Check if skill.md exists
-        if (!existsSync(skillMdPath)) {
-          result.invalid.push(skillName);
-          continue;
-        }
-
-        // Successfully loaded
-        result.loaded.push(skillPath);
-      } catch (error) {
-        // On any error, categorize as invalid
+      const skill = skillsByName.get(skillName);
+      if (!skill) {
+        result.missing.push(skillName);
+      } else if (!skill.valid) {
         result.invalid.push(skillName);
+      } else {
+        result.loaded.push(skill.path);
       }
     }
 
@@ -144,39 +216,33 @@ export class SkillLoader {
   }
 
   /**
-   * Get information about a specific skill
-   *
-   * Returns null if skill not found or invalid.
-   * Does not throw errors.
-   *
-   * @param skillName - Name of the skill
-   * @returns SkillInfo if found, null otherwise
+   * Get information about a specific skill.
+   * Searches all directories; project scope takes priority.
    */
   async getSkillInfo(skillName: string): Promise<SkillInfo | null> {
-    try {
-      const skillPath = join(this.skillsDir, skillName);
+    const allSkills = await this.discover();
+    return allSkills.find(s => s.name === skillName) || null;
+  }
 
-      // Check if directory exists
-      if (!existsSync(skillPath)) {
-        return null;
-      }
-
-      // Check if skill.md exists
-      const skillMdPath = join(skillPath, 'skill.md');
-      const valid = existsSync(skillMdPath);
-
-      return {
-        name: skillName,
-        path: skillPath,
-        valid,
-      };
-    } catch (error) {
-      return null;
+  /**
+   * Get the target directory path for installing a skill.
+   */
+  getInstallDir(scope: 'project' | 'global', target: 'claude' | 'agents'): string {
+    if (scope === 'project' && this.projectPath) {
+      return join(this.projectPath, target === 'claude' ? '.claude' : '.agents', 'skills');
     }
+    return join(homedir(), target === 'claude' ? '.claude' : '.agents', 'skills');
   }
 }
 
 /**
- * Default instance of SkillLoader
+ * Default instance of SkillLoader (global-only, backwards compatible)
  */
 export const defaultSkillLoader = new SkillLoader();
+
+/**
+ * Factory function to create a SkillLoader with optional project path
+ */
+export function createSkillLoader(projectPath?: string): SkillLoader {
+  return new SkillLoader(projectPath);
+}

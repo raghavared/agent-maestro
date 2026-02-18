@@ -3,7 +3,7 @@ import { TaskTreeNode, MaestroTask, TeamMember } from "../../app/types/maestro";
 
 export type PrimaryTab = "tasks" | "team" | "skills";
 export type TaskSubTab = "current" | "pinned" | "completed" | "archived";
-export type SkillSubTab = "browse";
+export type SkillSubTab = "browse" | "installed" | "marketplace";
 export type TeamSubTab = "members" | "pinned" | "archived";
 
 type PanelIconBarProps = {

@@ -1,6 +1,7 @@
 @import './styles-sessions.css';
 @import './styles-mentions.css';
 @import './styles-claude-skills.css';
+@import './styles-skills-panel.css';
 @import './styles-session-log.css';
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 

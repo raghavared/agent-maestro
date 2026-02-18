@@ -33,6 +33,7 @@ export type PersistedStateV1 = {
   assets?: AssetTemplate[];
   assetSettings?: AssetSettings;
   agentShortcutIds?: string[];
+  closedProjectIds?: string[];
 };
 
 export type PersistedStateMetaV1 = {

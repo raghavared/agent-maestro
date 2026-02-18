@@ -259,9 +259,11 @@ class MaestroClient {
 
     /**
      * Get all available Claude Code skills
+     * @param projectPath Optional project path to also discover project-level skills
      */
-    async getSkills(): Promise<ClaudeCodeSkill[]> {
-        return this.fetch<ClaudeCodeSkill[]>('/skills');
+    async getSkills(projectPath?: string): Promise<ClaudeCodeSkill[]> {
+        const params = projectPath ? `?projectPath=${encodeURIComponent(projectPath)}` : '';
+        return this.fetch<ClaudeCodeSkill[]>(`/skills${params}`);
     }
 
     // ==================== ORDERING ====================

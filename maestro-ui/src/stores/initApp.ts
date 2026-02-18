@@ -338,6 +338,11 @@ export function initApp(
     );
 
     // ──── SYNC PROJECTS WITH MAESTRO SERVER ────
+    // Load closed project IDs from persisted state so we don't re-open them on restart
+    const closedProjectIds = new Set<string>(
+      (state as { closedProjectIds?: string[] }).closedProjectIds ?? [],
+    );
+
     try {
       const serverProjects = await maestroClient.getProjects();
       const serverProjectsById = new Map(serverProjects.map((p) => [p.id, p]));
@@ -346,6 +351,9 @@ export function initApp(
       const mergedProjects: MaestroProject[] = [];
 
       for (const serverProj of serverProjects) {
+        // Skip projects that were explicitly closed by the user
+        if (closedProjectIds.has(serverProj.id)) continue;
+
         const localProj = localProjectsById.get(serverProj.id);
         mergedProjects.push({
           id: serverProj.id,
@@ -400,6 +408,7 @@ export function initApp(
     s.project.getState().setProjects(state.projects);
     s.project.getState().setActiveProjectId(activeProjectId);
     s.project.getState().setActiveSessionByProject(activeSessionByProject);
+    s.project.getState().setClosedProjectIds(Array.from(closedProjectIds));
 
     // ──── WORKSPACE VIEW RESTORATION ────
     const workspaceStorage = loadWorkspaceViewStorageV1();

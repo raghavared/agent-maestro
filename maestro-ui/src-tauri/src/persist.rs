@@ -98,6 +98,8 @@ pub struct PersistedStateV1 {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_shortcut_ids: Option<Vec<String>>,
     pub asset_settings: Option<PersistedAssetSettingsV1>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub closed_project_ids: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Clone)]

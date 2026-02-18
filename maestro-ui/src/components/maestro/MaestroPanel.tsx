@@ -17,6 +17,7 @@ import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useTaskTree } from "../../hooks/useTaskTree";
 import { useUIStore } from "../../stores/useUIStore";
 import { Board } from "./MultiProjectBoard";
+import { SkillsPanel } from "./SkillsPanel";
 
 // Tab types are imported from PanelIconBar
 
@@ -183,6 +184,26 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             }, 500);
         }
     }, [normalizedTasks]);
+
+    // Initialize collapsed state - all parent tasks collapsed by default
+    const hasInitializedCollapsedRef = useRef(false);
+    useEffect(() => {
+        hasInitializedCollapsedRef.current = false;
+        setCollapsedTasks(new Set());
+    }, [projectId]);
+    useEffect(() => {
+        if (!hasInitializedCollapsedRef.current && regularTasks.length > 0) {
+            const parentIds = new Set<string>(
+                regularTasks
+                    .filter(task => task.parentId)
+                    .map(task => task.parentId as string)
+            );
+            if (parentIds.size > 0) {
+                hasInitializedCollapsedRef.current = true;
+                setCollapsedTasks(parentIds);
+            }
+        }
+    }, [regularTasks]);
 
     // Show component error if any
     if (componentError) {
@@ -812,20 +833,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
                 {/* ==================== SKILLS PRIMARY TAB ==================== */}
                 {primaryTab === "skills" && (
-                    <div className="terminalContent">
-                        <div className="terminalEmptyState">
-                            <pre className="terminalAsciiArt">{`
-    ╔═══════════════════════════════════════╗
-    ║                                       ║
-    ║        SKILLS COMING SOON             ║
-    ║                                       ║
-    ║    Create, browse, and manage         ║
-    ║    reusable skill configurations      ║
-    ║                                       ║
-    ╚═══════════════════════════════════════╝
-                            `}</pre>
-                        </div>
-                    </div>
+                    <SkillsPanel project={project} />
                 )}
 
                 {/* ==================== TEAM PRIMARY TAB ==================== */}
