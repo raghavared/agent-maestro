@@ -249,6 +249,7 @@ jobs:
   # ---------------------------------------------------------------------------
   release:
     needs: [build-binaries, build-tauri]
+    if: always() && needs.build-binaries.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -262,6 +263,7 @@ jobs:
           merge-multiple: true
 
       - name: Download all desktop artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           pattern: desktop-*
