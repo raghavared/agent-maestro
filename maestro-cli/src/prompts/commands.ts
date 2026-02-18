@@ -30,7 +30,7 @@ export const COMMANDS_REFERENCE_TASK_MGMT = 'maestro task {list|get|create|edit|
 export const COMMANDS_REFERENCE_TASK_REPORT = 'maestro task report {progress|complete|blocked|error} — Task report';
 export const COMMANDS_REFERENCE_TASK_DOCS = 'maestro task docs {add|list} — Task docs';
 
-export const COMMANDS_REFERENCE_SESSION_MGMT = 'maestro session {info} — Session management';
+export const COMMANDS_REFERENCE_SESSION_MGMT = 'maestro session {info|prompt} — Session management';
 export const COMMANDS_REFERENCE_SESSION_REPORT = 'maestro session report {progress|complete|blocked|error} — Session report';
 export const COMMANDS_REFERENCE_SESSION_DOCS = 'maestro session docs {add|list} — Session docs';
 
@@ -85,6 +85,7 @@ export const CMD_DESC = {
   'session:info': 'Get session info',
   'session:watch': 'Watch sessions in real-time',
   'session:spawn': 'Spawn new session',
+  'session:prompt': 'Send an input prompt to another active session',
   'session:register': 'Register session',
   'session:complete': 'Complete session',
   'session:report:progress': 'Report work progress',
@@ -166,6 +167,7 @@ export const CMD_SYNTAX: Record<string, string> = {
   'session:info': 'maestro session info',
   'session:watch': 'maestro session watch <sessionId1>,<sessionId2>,...',
   'session:spawn': 'maestro session spawn --task <id> [--team-member-id <tmId>] [--model <model>] [--agent-tool <tool>]',
+  'session:prompt': 'maestro session prompt <targetSessionId> --message "<text>" [--mode send|paste]',
   'session:register': 'maestro session register',
   'session:complete': 'maestro session complete',
   'session:report:progress': 'maestro session report progress "<message>"',

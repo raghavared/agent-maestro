@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { invoke } from '@tauri-apps/api/core';
 import { maestroClient } from '../utils/MaestroClient';
 import type {
   MaestroTask,
@@ -225,6 +226,37 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           });
           // Play sound for session creation
           playEventSound('session:created');
+          break;
+        }
+        case 'session:prompt_send': {
+          const { sessionId: maestroSessionId, content, mode: promptMode } = message.data;
+          const sessions = useSessionStore.getState().sessions;
+          const terminalSession = sessions.find(
+            (s) => s.maestroSessionId === maestroSessionId && !s.exited
+          );
+          if (!terminalSession) {
+            console.warn(`[session:prompt_send] No active terminal for maestro session ${maestroSessionId}`);
+            break;
+          }
+          // Write directly to PTY with 'system' source to distinguish programmatic input from user keyboard input
+          const ptyId = terminalSession.id;
+          const text = content.replace(/[\r\n]+$/, '');
+          (async () => {
+            try {
+              if (promptMode === 'paste') {
+                await invoke('write_to_session', { id: ptyId, data: text, source: 'system' });
+              } else {
+                if (text) {
+                  await invoke('write_to_session', { id: ptyId, data: text, source: 'system' });
+                  await new Promise(r => setTimeout(r, 30));
+                }
+                await invoke('write_to_session', { id: ptyId, data: '\r', source: 'system' });
+              }
+              console.log(`[session:prompt_send] Sent prompt to terminal ${ptyId} (maestro: ${maestroSessionId})`);
+            } catch (err) {
+              console.error(`[session:prompt_send] Failed to write to terminal ${ptyId}:`, err);
+            }
+          })();
           break;
         }
         case 'task:session_added':

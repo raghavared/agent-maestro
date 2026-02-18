@@ -162,6 +162,17 @@ export interface SessionModalClosedEvent {
   };
 }
 
+export interface SessionPromptSendEvent {
+  type: 'session:prompt_send';
+  data: {
+    sessionId: string;
+    content: string;
+    mode: 'send' | 'paste';
+    senderSessionId: string | null;
+    timestamp: number;
+  };
+}
+
 // Team Member Events
 export interface TeamMemberCreatedEvent {
   type: 'team_member:created';
@@ -226,6 +237,7 @@ export type DomainEvent =
   | SessionModalEvent
   | SessionModalActionEvent
   | SessionModalClosedEvent
+  | SessionPromptSendEvent
   | TeamMemberCreatedEvent
   | TeamMemberUpdatedEvent
   | TeamMemberDeletedEvent
@@ -280,6 +292,13 @@ export interface TypedEventMap {
   'session:modal_closed': {
     sessionId: string;
     modalId: string;
+    timestamp: number;
+  };
+  'session:prompt_send': {
+    sessionId: string;
+    content: string;
+    mode: 'send' | 'paste';
+    senderSessionId: string | null;
     timestamp: number;
   };
   // Team member events

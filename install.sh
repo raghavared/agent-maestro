@@ -102,7 +102,7 @@ success "Server built"
 printf "\n"
 info "[3/6] Building CLI..."
 bun run build:cli
-(cd maestro-cli && bun run build:binary:darwin-arm64)
+(cd maestro-cli && bun run bundle)
 success "CLI built"
 
 # ── Step 4: Build Tauri desktop app ───────────────────────
@@ -128,9 +128,14 @@ elif [ -f "maestro-server/dist/bin/maestro-server" ]; then
   cp "maestro-server/dist/bin/maestro-server" "${INSTALL_DIR}/bin/maestro-server"
 fi
 
-# CLI binary
-if [ -f "maestro-cli/dist/bin/maestro" ]; then
-  cp "maestro-cli/dist/bin/maestro" "${INSTALL_DIR}/bin/maestro"
+# CLI: copy bundle and create shell wrapper (more reliable than pkg binary)
+mkdir -p "${INSTALL_DIR}/cli"
+if [ -f "maestro-cli/dist/bundle.cjs" ]; then
+  cp "maestro-cli/dist/bundle.cjs" "${INSTALL_DIR}/cli/bundle.cjs"
+  cat > "${INSTALL_DIR}/bin/maestro" << 'WRAPPER'
+#!/bin/bash
+exec node "$HOME/.maestro/cli/bundle.cjs" "$@"
+WRAPPER
 fi
 
 chmod +x "${INSTALL_DIR}/bin/"* 2>/dev/null || true

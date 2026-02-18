@@ -235,7 +235,8 @@ export type SessionTimelineEventType =
   | 'progress'           // General progress update
   | 'error'              // Error occurred
   | 'milestone'          // Milestone reached
-  | 'doc_added';         // Documentation added
+  | 'doc_added'          // Documentation added
+  | 'prompt_received';   // Prompt received from another session
 
 export interface SessionTimelineEvent {
   id: string;

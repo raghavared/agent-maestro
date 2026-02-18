@@ -491,6 +491,50 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     }
   });
 
+  // Send a prompt to a running session's terminal
+  router.post('/sessions/:id/prompt', async (req: Request, res: Response) => {
+    try {
+      const { content, mode = 'send', senderSessionId } = req.body;
+
+      if (!content || typeof content !== 'string') {
+        return res.status(400).json({ error: 'content is required and must be a string' });
+      }
+      if (!['send', 'paste'].includes(mode)) {
+        return res.status(400).json({ error: 'mode must be "send" or "paste"' });
+      }
+
+      const sessionId = req.params.id as string;
+      const session = await sessionService.getSession(sessionId);
+
+      const activeStatuses = ['working', 'idle', 'needs_input', 'spawning'];
+      if (!activeStatuses.includes(session.status)) {
+        return res.status(409).json({
+          error: `Session is not active (status: ${session.status}). Prompt can only be sent to active sessions.`
+        });
+      }
+
+      await eventBus.emit('session:prompt_send', {
+        sessionId,
+        content,
+        mode,
+        senderSessionId: senderSessionId || null,
+        timestamp: Date.now(),
+      });
+
+      await sessionService.addTimelineEvent(
+        sessionId,
+        'prompt_received',
+        `Received prompt from session ${senderSessionId || 'unknown'}: "${content.substring(0, 100)}${content.length > 100 ? '...' : ''}"`,
+        undefined,
+        { senderSessionId, mode }
+      );
+
+      res.json({ success: true });
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
   // Spawn session (complex endpoint - uses CLI for manifest generation)
   router.post('/sessions/spawn', async (req: Request, res: Response) => {
     try {

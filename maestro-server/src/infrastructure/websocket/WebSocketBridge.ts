@@ -112,6 +112,7 @@ export class WebSocketBridge {
       'session:modal',
       'session:modal_action',
       'session:modal_closed',
+      'session:prompt_send',
       // Team member events
       'team_member:created',
       'team_member:updated',

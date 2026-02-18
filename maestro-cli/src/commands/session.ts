@@ -792,4 +792,41 @@ export function registerSessionCommands(program: Command) {
                 process.exit(0);
             }
         });
+
+    session
+        .command('prompt <targetSessionId>')
+        .description('Send an input prompt to another active Maestro session')
+        .requiredOption('--message <message>', 'The prompt message to send')
+        .option('--mode <mode>', '"send" (type + Enter) or "paste" (type only)', 'send')
+        .action(async (targetSessionId: string, cmdOpts: any) => {
+            await guardCommand('session:prompt');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const { message, mode } = cmdOpts;
+
+            if (!['send', 'paste'].includes(mode)) {
+                console.error('Error: --mode must be "send" or "paste"');
+                process.exit(1);
+            }
+
+            const senderSessionId = config.sessionId;
+            if (!senderSessionId) {
+                console.error('Error: MAESTRO_SESSION_ID not set. Must be run from within a Maestro session.');
+                process.exit(1);
+            }
+
+            const spinner = !isJson ? ora(`Sending prompt to session ${targetSessionId}...`).start() : null;
+            try {
+                await api.post(`/api/sessions/${targetSessionId}/prompt`, {
+                    content: message,
+                    mode,
+                    senderSessionId,
+                });
+                spinner?.succeed(`✓ Prompt sent to session ${targetSessionId}`);
+                if (isJson) outputJSON({ success: true, targetSessionId });
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
 }

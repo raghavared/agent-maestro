@@ -73,6 +73,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'session:info', description: CMD_DESC['session:info'], allowedModes: ['execute', 'coordinate'], parent: 'session' },
   { name: 'session:watch', description: CMD_DESC['session:watch'], allowedModes: ['coordinate'], parent: 'session' },
   { name: 'session:spawn', description: CMD_DESC['session:spawn'], allowedModes: ['coordinate'], parent: 'session' },
+  { name: 'session:prompt', description: CMD_DESC['session:prompt'], allowedModes: ['execute', 'coordinate'], parent: 'session' },
   { name: 'session:register', description: CMD_DESC['session:register'], allowedModes: ['execute', 'coordinate'], parent: 'session', isCore: true, hiddenFromPrompt: true },
   { name: 'session:complete', description: CMD_DESC['session:complete'], allowedModes: ['execute', 'coordinate'], parent: 'session', isCore: true, hiddenFromPrompt: true },
   { name: 'session:report:progress', description: CMD_DESC['session:report:progress'], allowedModes: ['execute', 'coordinate'], parent: 'session' },
@@ -151,6 +152,7 @@ export const DEFAULT_COMMANDS_BY_MODE: Record<string, string[]> = {
     'session:report:complete',
     'session:report:blocked',
     'session:report:error',
+    'session:prompt',
     'session:docs:add',
     'session:docs:list',
     // Mail commands (execute: send, inbox, reply, wait)
@@ -192,6 +194,7 @@ export const DEFAULT_COMMANDS_BY_MODE: Record<string, string[]> = {
     'session:info',
     'session:watch',
     'session:spawn',
+    'session:prompt',
     'session:register',
     'session:complete',
     'session:report:progress',
