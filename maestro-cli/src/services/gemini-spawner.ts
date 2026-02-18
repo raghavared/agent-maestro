@@ -5,6 +5,7 @@ import type { SpawnResult, SpawnOptions } from './claude-spawner.js';
 import { WhoamiRenderer } from './whoami-renderer.js';
 import { getPermissionsFromManifest } from './command-permissions.js';
 import { prepareSpawnerEnvironment } from './spawner-env.js';
+import { buildGeminiStructuredPrompt } from '../prompts/index.js';
 
 /**
  * GeminiSpawner - Spawns Google Gemini CLI sessions with manifests
@@ -111,8 +112,7 @@ export class GeminiSpawner {
 
     // Gemini doesn't have a separate system prompt flag, so we concatenate
     // with clear section headers for better organization
-    const structuredPrompt = `[SYSTEM INSTRUCTIONS]\n${systemPrompt}\n\n[TASK]\n${taskContext}`;
-    args.push('--prompt', structuredPrompt);
+    args.push('--prompt', buildGeminiStructuredPrompt(systemPrompt, taskContext));
 
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
 

@@ -8,6 +8,15 @@ import {
   setCachedPermissions,
   type CommandPermissions
 } from '../services/command-permissions.js';
+import {
+  MANIFEST_PATH_NOT_SET,
+  MANIFEST_NOT_FOUND_PREFIX,
+  MANIFEST_NOT_FOUND_HINT,
+  INVALID_MANIFEST_PREFIX,
+  INVALID_MANIFEST_HINT,
+  WRONG_MODE_WORKER_PREFIX,
+  WRONG_MODE_WORKER_HINT,
+} from '../prompts/index.js';
 
 /**
  * WorkerInitCommand - Initialize a worker session from a manifest
@@ -29,10 +38,7 @@ export class WorkerInitCommand {
     const path = process.env.MAESTRO_MANIFEST_PATH;
 
     if (!path) {
-      throw new Error(
-        'MAESTRO_MANIFEST_PATH environment variable not set. ' +
-          'This variable should point to the manifest JSON file.'
-      );
+      throw new Error(MANIFEST_PATH_NOT_SET);
     }
 
     return path;
@@ -65,18 +71,13 @@ export class WorkerInitCommand {
   formatError(errorType: string, details?: string): string {
     switch (errorType) {
       case 'manifest_not_found':
-        return `Manifest file not found: ${details}\n\n` +
-          'Please ensure the MAESTRO_MANIFEST_PATH environment variable ' +
-          'points to a valid manifest file.';
+        return `${MANIFEST_NOT_FOUND_PREFIX}${details}\n\n${MANIFEST_NOT_FOUND_HINT}`;
 
       case 'invalid_manifest':
-        return `Invalid manifest: ${details}\n\n` +
-          'Please check that the manifest file follows the correct schema.';
+        return `${INVALID_MANIFEST_PREFIX}${details}\n\n${INVALID_MANIFEST_HINT}`;
 
       case 'wrong_mode':
-        return `Wrong mode for worker init: ${details}\n\n` +
-          'This command requires a manifest with mode="execute". ' +
-          'For coordinate sessions, use the orchestrator init command.';
+        return `${WRONG_MODE_WORKER_PREFIX}${details}\n\n${WRONG_MODE_WORKER_HINT}`;
 
       default:
         return `Error: ${details}`;

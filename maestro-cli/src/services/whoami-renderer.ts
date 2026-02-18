@@ -5,6 +5,12 @@ import {
   generateCompactCommandBrief,
   type CommandPermissions,
 } from './command-permissions.js';
+import {
+  REFERENCE_TASKS_INSTRUCTION,
+  REFERENCE_TASKS_STEP_GET,
+  REFERENCE_TASKS_STEP_DOCS,
+  REFERENCE_TASKS_INLINE_HINT,
+} from '../prompts/index.js';
 
 
 /**
@@ -76,10 +82,10 @@ export class WhoamiRenderer {
     if (!referenceTaskIds || referenceTaskIds.length === 0) return '';
     const lines: string[] = [];
     lines.push('  <reference_tasks>');
-    lines.push('    <instruction>IMPORTANT: Before starting your assigned tasks, you MUST read each reference task and its docs. Reference tasks provide critical context, examples, or prior work that directly informs your current work. For each reference task ID below, run BOTH commands:</instruction>');
+    lines.push(`    <instruction>${REFERENCE_TASKS_INSTRUCTION}</instruction>`);
     lines.push('    <steps>');
-    lines.push('      <step>maestro task get &lt;id&gt; — Read the task details (title, description, acceptance criteria)</step>');
-    lines.push('      <step>maestro task docs list &lt;id&gt; — List all attached docs, then read each doc thoroughly</step>');
+    lines.push(`      <step>${REFERENCE_TASKS_STEP_GET}</step>`);
+    lines.push(`      <step>${REFERENCE_TASKS_STEP_DOCS}</step>`);
     lines.push('    </steps>');
     lines.push('    <task_ids>');
     for (const id of referenceTaskIds) {
@@ -166,7 +172,7 @@ export class WhoamiRenderer {
 
     // 3. Reference task IDs (if any)
     if (manifest.referenceTaskIds && manifest.referenceTaskIds.length > 0) {
-      parts.push(`**Reference Tasks:** ${manifest.referenceTaskIds.join(', ')}\n> Before starting work, run \`maestro task get <id>\` AND \`maestro task docs list <id>\` for each reference task to get full context and docs.`);
+      parts.push(`**Reference Tasks:** ${manifest.referenceTaskIds.join(', ')}\n> ${REFERENCE_TASKS_INLINE_HINT}`);
     }
 
     // 4. Available commands

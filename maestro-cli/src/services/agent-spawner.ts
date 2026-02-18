@@ -3,6 +3,7 @@ import { ClaudeSpawner, type SpawnResult, type SpawnOptions } from './claude-spa
 import { CodexSpawner } from './codex-spawner.js';
 import { GeminiSpawner } from './gemini-spawner.js';
 import { randomBytes } from 'crypto';
+import { AGENT_TOOL_DISPLAY_NAMES } from '../prompts/index.js';
 
 /**
  * Common spawner interface that both ClaudeSpawner and CodexSpawner implement
@@ -53,15 +54,7 @@ export class AgentSpawner implements IAgentSpawner {
    * Get the display name for the agent tool
    */
   static getToolDisplayName(agentTool?: AgentTool): string {
-    switch (agentTool) {
-      case 'codex':
-        return 'OpenAI Codex';
-      case 'gemini':
-        return 'Google Gemini';
-      case 'claude-code':
-      default:
-        return 'Claude Code';
-    }
+    return AGENT_TOOL_DISPLAY_NAMES[agentTool || 'claude-code'] || AGENT_TOOL_DISPLAY_NAMES['claude-code'];
   }
 
   /**

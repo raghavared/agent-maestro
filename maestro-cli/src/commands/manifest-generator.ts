@@ -1,4 +1,5 @@
 import type { MaestroManifest, AdditionalContext, AgentTool, AgentMode, TeamMemberData, TeamMemberProfile } from '../types/manifest.js';
+import { DEFAULT_ACCEPTANCE_CRITERIA, MODE_VALIDATION_ERROR, AGENT_TOOL_VALIDATION_PREFIX } from '../prompts/index.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
 import { api } from '../api.js';
@@ -58,7 +59,7 @@ export class ManifestGeneratorCLICommand {
     // Ensure acceptanceCriteria has at least one item
     let acceptanceCriteria = task.acceptanceCriteria || [];
     if (acceptanceCriteria.length === 0) {
-      acceptanceCriteria = ['Task completion as described'];
+      acceptanceCriteria = [DEFAULT_ACCEPTANCE_CRITERIA];
     }
 
     // Convert timestamp to ISO string
@@ -495,14 +496,14 @@ export function registerManifestCommands(program: any): void {
 
       // Validate mode
       if (options.mode !== 'execute' && options.mode !== 'coordinate') {
-        console.error('Error: mode must be "execute" or "coordinate"');
+        console.error(MODE_VALIDATION_ERROR);
         process.exit(1);
       }
 
       // Validate agent tool
       const validTools = ['claude-code', 'codex', 'gemini'];
       if (options.agentTool && !validTools.includes(options.agentTool)) {
-        console.error(`Error: agent-tool must be one of: ${validTools.join(', ')}`);
+        console.error(`${AGENT_TOOL_VALIDATION_PREFIX}${validTools.join(', ')}`);
         process.exit(1);
       }
 
