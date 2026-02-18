@@ -145,13 +145,19 @@ detect_platform() {
 
   TARGET="${PLATFORM}-${ARCH}"
 
+  # On macOS x64, use the arm64 binary (runs fine under Rosetta 2)
+  if [ "$TARGET" = "darwin-x64" ]; then
+    info "No native x64 build available; using arm64 binary (runs via Rosetta 2)"
+    TARGET="darwin-arm64"
+  fi
+
   # Validate supported targets
   case "$TARGET" in
-    darwin-arm64|darwin-x64|linux-x64)
+    darwin-arm64|linux-x64)
       ;;
     *)
       error "Unsupported platform/architecture combination: $TARGET"
-      error "Supported targets: darwin-arm64, darwin-x64, linux-x64"
+      error "Supported targets: darwin-arm64 (also covers x64 via Rosetta), linux-x64"
       exit 1
       ;;
   esac
