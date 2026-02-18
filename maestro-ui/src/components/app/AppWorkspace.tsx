@@ -11,6 +11,7 @@ import {
   getActiveWorkspaceView,
 } from "../../stores/useWorkspaceStore";
 import { isSshCommandLine, sshTargetFromCommandLine } from "../../app/utils/ssh";
+import { SessionLogStrip } from "../session-log/SessionLogStrip";
 
 const LazyCodeEditorPanel = React.lazy(() => import("../CodeEditorPanel"));
 
@@ -128,6 +129,14 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
         onDragLeave={handleTerminalDragLeave}
         onDrop={handleTerminalDrop}
       >
+        {/* Live session log strip for Maestro sessions - inside terminalPane for overlay */}
+        {active?.maestroSessionId && active?.cwd && (
+          <SessionLogStrip
+            key={active.id}
+            cwd={active.cwd}
+            maestroSessionId={active.maestroSessionId}
+          />
+        )}
         {sessions.length === 0 && (
           <div className="terminalEmptyState">
             <div className="terminalEmptyAscii" aria-hidden="true">

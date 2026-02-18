@@ -6,9 +6,10 @@ import { maestroClient } from "../../utils/MaestroClient";
 interface ClaudeCodeSkillsSelectorProps {
     selectedSkills: string[];
     onSelectionChange: (skillIds: string[]) => void;
+    projectPath?: string;
 }
 
-export function ClaudeCodeSkillsSelector({ selectedSkills, onSelectionChange }: ClaudeCodeSkillsSelectorProps) {
+export function ClaudeCodeSkillsSelector({ selectedSkills, onSelectionChange, projectPath }: ClaudeCodeSkillsSelectorProps) {
     const [skills, setSkills] = useState<ClaudeCodeSkill[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -18,24 +19,25 @@ export function ClaudeCodeSkillsSelector({ selectedSkills, onSelectionChange }: 
 
     useEffect(() => {
         loadSkills();
-    }, []);
+    }, [projectPath]);
 
     const loadSkills = async () => {
         setLoading(true);
         setError(null);
         try {
-            const skillsList = await maestroClient.getSkills();
+            const skillsList = await maestroClient.getSkills(projectPath);
             setSkills(skillsList);
         } catch (err) {
-            console.error("Failed to load Claude Code skills:", err);
+            console.error("Failed to load skills:", err);
             setError(err instanceof Error ? err.message : "Failed to load skills");
         } finally {
             setLoading(false);
         }
     };
 
-    const filteredSkills = useMemo(() => {
-        return skills.filter(skill => {
+    // Group by scope
+    const { projectSkills, globalSkills, filteredSkills } = useMemo(() => {
+        const filtered = skills.filter(skill => {
             if (searchQuery) {
                 const query = searchQuery.toLowerCase();
                 const matchesName = skill.name.toLowerCase().includes(query);
@@ -48,6 +50,12 @@ export function ClaudeCodeSkillsSelector({ selectedSkills, onSelectionChange }: 
             }
             return true;
         });
+
+        return {
+            projectSkills: filtered.filter(s => s.skillScope === 'project'),
+            globalSkills: filtered.filter(s => s.skillScope !== 'project'),
+            filteredSkills: filtered,
+        };
     }, [skills, searchQuery]);
 
     const handleToggleSkill = (skillId: string) => {
@@ -58,10 +66,83 @@ export function ClaudeCodeSkillsSelector({ selectedSkills, onSelectionChange }: 
         }
     };
 
+    const renderSkillCard = (skill: ClaudeCodeSkill) => {
+        const isSelected = selectedSkills.includes(skill.id);
+        const isExpanded = expandedSkillId === skill.id;
+
+        return (
+            <div
+                key={skill.id}
+                className={`claudeCodeSkillCard ${isSelected ? "selected" : ""}`}
+                onClick={() => setExpandedSkillId(isExpanded ? null : skill.id)}
+            >
+                <div className="claudeCodeSkillCardHeader">
+                    <span
+                        className="claudeCodeSkillCheckbox"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleSkill(skill.id);
+                        }}
+                    >
+                        {isSelected ? "[\u2713]" : "[ ]"}
+                    </span>
+                    <span className="claudeCodeSkillName">{skill.name}</span>
+                    {skill.skillScope && (
+                        <span style={{
+                            fontSize: '9px',
+                            padding: '1px 4px',
+                            border: '1px solid var(--theme-border)',
+                            color: 'rgba(var(--theme-primary-rgb), 0.4)',
+                            marginLeft: 'auto',
+                            flexShrink: 0,
+                        }}>
+                            {skill.skillScope === 'project' ? 'proj' : 'global'}
+                        </span>
+                    )}
+                </div>
+
+                {isExpanded && (
+                    <div className="claudeCodeSkillDetails">
+                        <div className="claudeCodeSkillDescription">
+                            {skill.description}
+                        </div>
+
+                        {skill.triggers && skill.triggers.length > 0 && (
+                            <div className="claudeCodeSkillTriggers">
+                                <strong>Triggers:</strong>{" "}
+                                {skill.triggers.join(", ")}
+                            </div>
+                        )}
+
+                        {skill.tags && skill.tags.length > 0 && (
+                            <div className="claudeCodeSkillTags">
+                                <strong>Tags:</strong>{" "}
+                                {skill.tags.join(", ")}
+                            </div>
+                        )}
+
+                        {skill.hasReferences && (
+                            <div className="claudeCodeSkillReferences">
+                                <Icon name="file" />{" "}
+                                {skill.referenceCount} reference file{skill.referenceCount !== 1 ? "s" : ""}
+                            </div>
+                        )}
+
+                        {skill.skillSource && (
+                            <div style={{ fontSize: '9px', color: 'rgba(var(--theme-primary-rgb), 0.3)' }}>
+                                source: {skill.skillSource === 'claude' ? '.claude/skills' : '.agents/skills'}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     if (loading) {
         return (
             <div className="claudeCodeSkillsLoading">
-                <span className="claudeCodeSkillsSpinner">&#x27F3;</span> Loading Claude Code skills...
+                <span className="claudeCodeSkillsSpinner">&#x27F3;</span> Loading skills...
             </div>
         );
     }
@@ -80,7 +161,7 @@ export function ClaudeCodeSkillsSelector({ selectedSkills, onSelectionChange }: 
     if (skills.length === 0) {
         return (
             <div className="claudeCodeSkillsEmpty">
-                No Claude Code skills found. Expected at <code>~/.agents/skills/</code>
+                No skills found. Expected at <code>~/.claude/skills/</code> or <code>~/.agents/skills/</code>
             </div>
         );
     }
@@ -130,60 +211,25 @@ export function ClaudeCodeSkillsSelector({ selectedSkills, onSelectionChange }: 
                                 No skills match your search.
                             </div>
                         ) : (
-                            filteredSkills.map((skill) => {
-                                const isSelected = selectedSkills.includes(skill.id);
-                                const isExpanded = expandedSkillId === skill.id;
-
-                                return (
-                                    <div
-                                        key={skill.id}
-                                        className={`claudeCodeSkillCard ${isSelected ? "selected" : ""}`}
-                                        onClick={() => setExpandedSkillId(isExpanded ? null : skill.id)}
-                                    >
-                                        <div className="claudeCodeSkillCardHeader">
-                                            <span
-                                                className="claudeCodeSkillCheckbox"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleToggleSkill(skill.id);
-                                                }}
-                                            >
-                                                {isSelected ? "[\u2713]" : "[ ]"}
-                                            </span>
-                                            <span className="claudeCodeSkillName">{skill.name}</span>
+                            <>
+                                {/* Show project skills first if any */}
+                                {projectSkills.length > 0 && (
+                                    <>
+                                        <div style={{ gridColumn: '1 / -1', fontSize: '9px', color: 'rgba(var(--theme-primary-rgb), 0.4)', padding: '4px 0 2px 0', borderBottom: '1px solid var(--theme-border)' }}>
+                                            PROJECT
                                         </div>
-
-                                        {isExpanded && (
-                                            <div className="claudeCodeSkillDetails">
-                                                <div className="claudeCodeSkillDescription">
-                                                    {skill.description}
-                                                </div>
-
-                                                {skill.triggers && skill.triggers.length > 0 && (
-                                                    <div className="claudeCodeSkillTriggers">
-                                                        <strong>Triggers:</strong>{" "}
-                                                        {skill.triggers.join(", ")}
-                                                    </div>
-                                                )}
-
-                                                {skill.tags && skill.tags.length > 0 && (
-                                                    <div className="claudeCodeSkillTags">
-                                                        <strong>Tags:</strong>{" "}
-                                                        {skill.tags.join(", ")}
-                                                    </div>
-                                                )}
-
-                                                {skill.hasReferences && (
-                                                    <div className="claudeCodeSkillReferences">
-                                                        <Icon name="file" />{" "}
-                                                        {skill.referenceCount} reference file{skill.referenceCount !== 1 ? "s" : ""}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })
+                                        {projectSkills.map(renderSkillCard)}
+                                    </>
+                                )}
+                                {globalSkills.length > 0 && (
+                                    <>
+                                        <div style={{ gridColumn: '1 / -1', fontSize: '9px', color: 'rgba(var(--theme-primary-rgb), 0.4)', padding: '4px 0 2px 0', borderBottom: '1px solid var(--theme-border)' }}>
+                                            GLOBAL
+                                        </div>
+                                        {globalSkills.map(renderSkillCard)}
+                                    </>
+                                )}
+                            </>
                         )}
                     </div>
                 </>

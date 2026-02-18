@@ -9,7 +9,7 @@ import { FileSystemSessionRepository } from './infrastructure/repositories/FileS
 import { FileSystemMailRepository } from './infrastructure/repositories/FileSystemMailRepository';
 import { FileSystemOrderingRepository } from './infrastructure/repositories/FileSystemOrderingRepository';
 import { FileSystemTeamMemberRepository } from './infrastructure/repositories/FileSystemTeamMemberRepository';
-import { ClaudeCodeSkillLoader } from './infrastructure/skills/ClaudeCodeSkillLoader';
+import { MultiScopeSkillLoader } from './infrastructure/skills/MultiScopeSkillLoader';
 import { ProjectService } from './application/services/ProjectService';
 import { TaskService } from './application/services/TaskService';
 import { SessionService } from './application/services/SessionService';
@@ -128,7 +128,7 @@ export async function createContainer(): Promise<Container> {
   const teamMemberRepo = new FileSystemTeamMemberRepository(config.dataDir, idGenerator, logger);
 
   // 4. Loaders
-  const skillLoader = new ClaudeCodeSkillLoader(config.skillsDir, logger);
+  const skillLoader = new MultiScopeSkillLoader(logger);
 
   // 5. Services
   const projectService = new ProjectService(projectRepo, eventBus);

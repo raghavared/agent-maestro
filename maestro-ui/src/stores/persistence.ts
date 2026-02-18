@@ -29,7 +29,7 @@ let pendingWorkspaceViewSaveRef: any = null;
 /* ------------------------------------------------------------------ */
 
 function buildPersistedState(): PersistedStateV1 {
-  const { projects, activeProjectId, activeSessionByProject } = useProjectStore.getState();
+  const { projects, activeProjectId, activeSessionByProject, closedProjectIds } = useProjectStore.getState();
   const { sessions } = useSessionStore.getState();
   const { prompts } = usePromptStore.getState();
   const { environments } = useEnvironmentStore.getState();
@@ -80,6 +80,7 @@ function buildPersistedState(): PersistedStateV1 {
     assets,
     assetSettings,
     agentShortcutIds,
+    closedProjectIds: closedProjectIds.length > 0 ? closedProjectIds : undefined,
   };
 }
 

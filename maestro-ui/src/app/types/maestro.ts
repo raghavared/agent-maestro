@@ -379,6 +379,10 @@ export interface ClaudeCodeSkill {
   content: string;
   hasReferences: boolean;
   referenceCount: number;
+  // Multi-scope metadata
+  skillScope?: 'project' | 'global';
+  skillSource?: 'claude' | 'agents';
+  skillPath?: string;
 }
 
 export interface SpawnSessionPayload {

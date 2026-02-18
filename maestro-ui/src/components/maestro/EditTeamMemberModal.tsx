@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { AgentTool, AgentMode, ModelType, TeamMember, UpdateTeamMemberPayload, WorkflowTemplate } from "../../app/types/maestro";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
 
 // Capability definitions
 const CAPABILITY_DEFS = [
@@ -120,7 +121,8 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
     const [mode, setMode] = useState<AgentMode>("execute");
     const [isUpdating, setIsUpdating] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [activeTab, setActiveTab] = useState<string | null>(null);
+    const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
     const [capabilities, setCapabilities] = useState<Record<string, boolean>>(() => getDefaultCapabilities('execute'));
     const [commandOverrides, setCommandOverrides] = useState<Record<string, boolean>>({});
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -159,6 +161,10 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
         });
     }, []);
 
+    const toggleTab = (tab: string) => {
+        setActiveTab(prev => prev === tab ? null : tab);
+    };
+
     const toggleGroupExpanded = useCallback((group: string) => {
         setExpandedGroups(prev => {
             const next = new Set(prev);
@@ -179,6 +185,8 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
             setModel(teamMember.model || "sonnet");
             setMode(teamMember.mode || "execute");
             setError(null);
+            setSelectedSkills(teamMember.skillIds || []);
+            setActiveTab(null);
             // Load capabilities (from member or compute defaults)
             const memberMode = teamMember.mode || 'execute';
             setCapabilities(
@@ -198,7 +206,6 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
                 setCustomWorkflow('');
                 setWorkflowTemplateId(teamMember.workflowTemplateId || '');
             }
-            setShowAdvanced(false);
             setExpandedGroups(new Set());
         } else {
             setName("");
@@ -209,12 +216,13 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
             setModel("sonnet");
             setMode("execute");
             setError(null);
+            setSelectedSkills([]);
+            setActiveTab(null);
             setCapabilities(getDefaultCapabilities('execute'));
             setCommandOverrides({});
             setWorkflowTemplateId('');
             setUseCustomWorkflow(false);
             setCustomWorkflow('');
-            setShowAdvanced(false);
             setExpandedGroups(new Set());
         }
     }, [teamMember]);
@@ -244,6 +252,7 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
             setMode(defaults.mode);
             setCapabilities(getDefaultCapabilities(defaults.mode));
             setCommandOverrides({});
+            setSelectedSkills([]);
             setWorkflowTemplateId('');
             setUseCustomWorkflow(false);
             setCustomWorkflow('');
@@ -279,6 +288,7 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
                 agentTool,
                 model,
                 mode,
+                skillIds: selectedSkills,
                 capabilities,
                 ...(cmdPerms && { commandPermissions: cmdPerms }),
                 workflowTemplateId: useCustomWorkflow ? undefined : (workflowTemplateId || undefined),
@@ -435,27 +445,35 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
                         </div>
                     </div>
 
-                    {/* Advanced: Capabilities & Command Permissions */}
-                    <div style={{ marginTop: '4px' }}>
-                        <button
-                            type="button"
-                            className="themedBtn"
-                            onClick={() => setShowAdvanced(!showAdvanced)}
-                            style={{ fontSize: '10px', padding: '2px 8px', opacity: 0.8 }}
-                        >
-                            {showAdvanced ? '▾' : '▸'} Capabilities & Permissions
-                        </button>
-                    </div>
+                </div>
 
-                    {showAdvanced && (
-                        <div style={{ marginTop: '4px', border: '1px solid var(--border-secondary)', borderRadius: '4px', padding: '8px' }}>
-                            {/* Workflow Template */}
-                            <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Workflow</div>
-                            <div style={{ marginBottom: '8px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                {/* Tab Content - between content and footer */}
+                {activeTab && (
+                    <div className="themedModalTabContent" style={{ maxHeight: '250px', overflowY: 'auto', borderTop: '1px solid var(--theme-border)' }}>
+                        {/* Skills Tab */}
+                        {activeTab === 'skills' && (
+                            <ClaudeCodeSkillsSelector
+                                selectedSkills={selectedSkills}
+                                onSelectionChange={setSelectedSkills}
+                            />
+                        )}
+
+                        {/* Capabilities & Permissions Tab */}
+                        {activeTab === 'permissions' && (
+                            <div style={{ overflowX: 'hidden' }}>
+                                {/* Workflow Template */}
+                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Workflow</div>
+                                <div style={{ marginBottom: '10px' }}>
                                     <select
-                                        className="themedFormInput"
-                                        style={{ margin: 0, padding: '4px 8px', fontSize: '11px', flex: 1 }}
+                                        className="themedFormSelect"
+                                        style={{
+                                            margin: 0,
+                                            padding: '4px 8px',
+                                            fontSize: '11px',
+                                            width: '100%',
+                                            boxSizing: 'border-box',
+                                            marginBottom: '4px',
+                                        }}
                                         value={useCustomWorkflow ? '__custom__' : workflowTemplateId}
                                         onChange={(e) => {
                                             if (e.target.value === '__custom__') {
@@ -476,98 +494,178 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
                                         ))}
                                         <option value="__custom__">Custom workflow...</option>
                                     </select>
-                                </div>
-                                {selectedTemplate && !useCustomWorkflow && (
-                                    <div style={{ fontSize: '10px', opacity: 0.7, padding: '4px 8px', border: '1px solid var(--border-secondary)', borderRadius: '3px', maxHeight: '100px', overflow: 'auto' }}>
-                                        {selectedTemplate.phases.map((p, i) => (
-                                            <div key={i} style={{ marginBottom: i < selectedTemplate.phases.length - 1 ? '4px' : 0 }}>
-                                                <span style={{ fontWeight: 600 }}>{p.name}:</span> {p.instruction.substring(0, 80)}{p.instruction.length > 80 ? '...' : ''}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                {useCustomWorkflow && (
-                                    <textarea
-                                        className="themedFormInput"
-                                        style={{
-                                            margin: 0, padding: '6px 8px', fontSize: '11px',
-                                            fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                                            minHeight: '100px', maxHeight: '200px', resize: 'vertical',
-                                            width: '100%', boxSizing: 'border-box',
-                                        }}
-                                        placeholder="Enter custom workflow instructions..."
-                                        value={customWorkflow}
-                                        onChange={(e) => setCustomWorkflow(e.target.value)}
-                                        disabled={isUpdating}
-                                    />
-                                )}
-                            </div>
-
-                            {/* Capabilities */}
-                            <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Capabilities</div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginBottom: '8px' }}>
-                                {CAPABILITY_DEFS.map(cap => (
-                                    <label key={cap.key} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }} title={cap.desc}>
-                                        <input
-                                            type="checkbox"
-                                            checked={capabilities[cap.key] ?? false}
-                                            onChange={() => handleCapabilityToggle(cap.key)}
-                                            disabled={isUpdating}
-                                            style={{ margin: 0 }}
-                                        />
-                                        {cap.label}
-                                    </label>
-                                ))}
-                            </div>
-
-                            {/* Command Permissions */}
-                            <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Command Permissions</div>
-                            <div style={{ fontSize: '10px', opacity: 0.6, marginBottom: '4px' }}>
-                                All commands enabled by default. Toggle off individual commands to restrict.
-                            </div>
-                            {COMMAND_GROUPS.map(group => {
-                                const isExpanded = expandedGroups.has(group.key);
-                                const disabledCount = group.commands.filter(c => commandOverrides[c] === false).length;
-                                return (
-                                    <div key={group.key} style={{ marginBottom: '2px' }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => toggleGroupExpanded(group.key)}
+                                    {selectedTemplate && !useCustomWorkflow && (
+                                        <div style={{
+                                            fontSize: '10px',
+                                            opacity: 0.7,
+                                            padding: '6px 8px',
+                                            border: '1px solid var(--theme-border)',
+                                            borderRadius: '3px',
+                                            maxHeight: '80px',
+                                            overflow: 'auto',
+                                        }}>
+                                            {selectedTemplate.phases.map((p, i) => (
+                                                <div key={i} style={{ marginBottom: i < selectedTemplate.phases.length - 1 ? '4px' : 0 }}>
+                                                    <span style={{ fontWeight: 600 }}>{p.name}:</span> {p.instruction.substring(0, 80)}{p.instruction.length > 80 ? '...' : ''}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {useCustomWorkflow && (
+                                        <textarea
+                                            className="themedFormInput"
                                             style={{
-                                                background: 'none', border: 'none', cursor: 'pointer',
-                                                fontSize: '11px', padding: '2px 0', color: 'var(--text-primary)',
-                                                display: 'flex', alignItems: 'center', gap: '4px', width: '100%',
+                                                margin: 0,
+                                                padding: '6px 8px',
+                                                fontSize: '11px',
+                                                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                                                minHeight: '80px',
+                                                maxHeight: '150px',
+                                                resize: 'vertical',
+                                                width: '100%',
+                                                boxSizing: 'border-box',
                                             }}
-                                        >
-                                            <span>{isExpanded ? '▾' : '▸'}</span>
-                                            <span style={{ fontWeight: 500 }}>{group.label}</span>
-                                            <span style={{ opacity: 0.5, fontSize: '10px' }}>
-                                                ({group.commands.length - disabledCount}/{group.commands.length})
-                                            </span>
-                                        </button>
-                                        {isExpanded && (
-                                            <div style={{ paddingLeft: '16px', display: 'flex', flexWrap: 'wrap', gap: '2px 12px' }}>
-                                                {group.commands.map(cmd => {
-                                                    const isDisabled = commandOverrides[cmd] === false;
-                                                    return (
-                                                        <label key={cmd} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', cursor: 'pointer', opacity: isDisabled ? 0.5 : 1 }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={!isDisabled}
-                                                                onChange={() => handleCommandToggle(cmd)}
-                                                                disabled={isUpdating}
-                                                                style={{ margin: 0 }}
-                                                            />
-                                                            {cmd}
-                                                        </label>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                            placeholder="Enter custom workflow instructions..."
+                                            value={customWorkflow}
+                                            onChange={(e) => setCustomWorkflow(e.target.value)}
+                                            disabled={isUpdating}
+                                        />
+                                    )}
+                                </div>
+
+                                {/* Capabilities */}
+                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '6px' }}>Capabilities</div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginBottom: '12px' }}>
+                                    {CAPABILITY_DEFS.map(cap => {
+                                        const isChecked = capabilities[cap.key] ?? false;
+                                        return (
+                                            <label
+                                                key={cap.key}
+                                                className="terminalTaskCheckbox"
+                                                title={cap.desc}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', marginRight: 0 }}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    if (!isUpdating) handleCapabilityToggle(cap.key);
+                                                }}
+                                            >
+                                                <input type="checkbox" checked={isChecked} readOnly />
+                                                <span className={`terminalTaskCheckmark ${isChecked ? 'terminalTaskCheckmark--checked' : ''}`}>
+                                                    {isChecked ? '\u2713' : ''}
+                                                </span>
+                                                <span style={{ fontSize: '11px', color: 'var(--theme-text)', fontFamily: '"JetBrains Mono", monospace' }}>
+                                                    {cap.label}
+                                                </span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Command Permissions */}
+                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Command Permissions</div>
+                                <div className="themedFormHint" style={{ marginBottom: '6px' }}>
+                                    All commands enabled by default. Toggle off individual commands to restrict.
+                                </div>
+                                {COMMAND_GROUPS.map(group => {
+                                    const isExpanded = expandedGroups.has(group.key);
+                                    const disabledCount = group.commands.filter(c => commandOverrides[c] === false).length;
+                                    return (
+                                        <div key={group.key} style={{ marginBottom: '2px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleGroupExpanded(group.key)}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    fontSize: '11px',
+                                                    padding: '3px 0',
+                                                    color: 'var(--theme-text)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    width: '100%',
+                                                    fontFamily: '"JetBrains Mono", monospace',
+                                                }}
+                                            >
+                                                <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)', fontSize: '10px' }}>
+                                                    {isExpanded ? '\u25BC' : '\u25B6'}
+                                                </span>
+                                                <span style={{ fontWeight: 500 }}>{group.label}</span>
+                                                <span style={{ opacity: 0.5, fontSize: '10px' }}>
+                                                    ({group.commands.length - disabledCount}/{group.commands.length})
+                                                </span>
+                                            </button>
+                                            {isExpanded && (
+                                                <div style={{ paddingLeft: '20px', display: 'flex', flexWrap: 'wrap', gap: '4px 16px', paddingTop: '4px', paddingBottom: '4px' }}>
+                                                    {group.commands.map(cmd => {
+                                                        const isDisabled = commandOverrides[cmd] === false;
+                                                        const isChecked = !isDisabled;
+                                                        return (
+                                                            <label
+                                                                key={cmd}
+                                                                className="terminalTaskCheckbox"
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '5px',
+                                                                    cursor: 'pointer',
+                                                                    opacity: isDisabled ? 0.5 : 1,
+                                                                    marginRight: 0,
+                                                                }}
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    if (!isUpdating) handleCommandToggle(cmd);
+                                                                }}
+                                                            >
+                                                                <input type="checkbox" checked={isChecked} readOnly />
+                                                                <span className={`terminalTaskCheckmark ${isChecked ? 'terminalTaskCheckmark--checked' : ''}`} style={{ width: '14px', height: '14px', fontSize: '9px' }}>
+                                                                    {isChecked ? '\u2713' : ''}
+                                                                </span>
+                                                                <span style={{ fontSize: '10px', whiteSpace: 'nowrap', fontFamily: '"JetBrains Mono", monospace', color: 'var(--theme-text)' }}>
+                                                                    {cmd}
+                                                                </span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Tab Bar */}
+                <div className="themedModalTabBar" style={{ borderTop: '1px solid var(--theme-border)', marginTop: 'auto' }}>
+                    <button
+                        type="button"
+                        className={`themedModalTab ${activeTab === 'skills' ? 'themedModalTab--active' : ''}`}
+                        onClick={() => toggleTab('skills')}
+                    >
+                        Skills
+                        {selectedSkills.length > 0 && (
+                            <span className="themedModalTabBadge">{selectedSkills.length}</span>
+                        )}
+                    </button>
+                    <button
+                        type="button"
+                        className={`themedModalTab ${activeTab === 'permissions' ? 'themedModalTab--active' : ''}`}
+                        onClick={() => toggleTab('permissions')}
+                    >
+                        Permissions
+                    </button>
+                    {activeTab && (
+                        <button
+                            type="button"
+                            className="themedModalTab themedModalTabClose"
+                            onClick={() => setActiveTab(null)}
+                            title="Collapse tab panel"
+                        >
+                            ×
+                        </button>
                     )}
                 </div>
 

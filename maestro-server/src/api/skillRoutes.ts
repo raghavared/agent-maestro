@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { ISkillLoader } from '../domain/services/ISkillLoader';
+import { MultiScopeSkillLoader, SkillWithMeta } from '../infrastructure/skills/MultiScopeSkillLoader';
 
 /**
  * Create skill routes using the ISkillLoader.
@@ -9,13 +10,43 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
 
   /**
    * GET /api/skills
-   * Returns array of available skills with full metadata (Claude Code format)
+   * Returns array of available skills with full metadata (Claude Code format).
+   * Supports optional ?projectPath= query parameter for project-scoped skills.
    */
   router.get('/skills', async (req: Request, res: Response) => {
     try {
-      const skillIds = await skillLoader.listAvailable();
+      const projectPath = req.query.projectPath as string | undefined;
 
-      // Load skill metadata for each skill
+      // If the loader supports multi-scope and we can use it, prefer loadAllWithScope
+      if (skillLoader instanceof MultiScopeSkillLoader) {
+        const scopedSkills = await skillLoader.loadAllWithScope(projectPath);
+
+        const skills = scopedSkills.map((skill: SkillWithMeta) => ({
+          id: skill.manifest.name,
+          name: skill.manifest.name,
+          description: skill.manifest.description || '',
+          version: skill.manifest.version || '1.0.0',
+          triggers: skill.manifest.config?.triggers,
+          role: skill.manifest.config?.role,
+          skillScope: skill.meta.scope,
+          skillSource: skill.meta.source,
+          skillPath: skill.meta.path,
+          outputFormat: skill.manifest.config?.outputFormat,
+          language: skill.manifest.config?.language,
+          framework: skill.manifest.config?.framework,
+          tags: skill.manifest.config?.tags,
+          category: skill.manifest.config?.category,
+          license: skill.manifest.license,
+          content: skill.instructions,
+          hasReferences: false,
+          referenceCount: 0,
+        }));
+
+        return res.json(skills);
+      }
+
+      // Fallback: use basic ISkillLoader interface
+      const skillIds = await skillLoader.listAvailable();
       const skills = [];
 
       for (const id of skillIds) {
@@ -27,7 +58,6 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
               name: skill.manifest.name || id,
               description: skill.manifest.description || '',
               version: skill.manifest.version || '1.0.0',
-              // Extract Claude Code specific metadata from config
               triggers: skill.manifest.config?.triggers,
               role: skill.manifest.config?.role,
               scope: skill.manifest.config?.scope,
@@ -38,13 +68,11 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
               category: skill.manifest.config?.category,
               license: skill.manifest.license,
               content: skill.instructions,
-              // TODO: Check for references directory
               hasReferences: false,
               referenceCount: 0,
             });
           }
         } catch (err) {
-          // Skip skills that fail to load
           console.warn(`[Skills API] Failed to load skill ${id}:`, err);
         }
       }
@@ -52,7 +80,6 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
       res.json(skills);
     } catch (err) {
       console.error('[Skills API] Failed to list skills:', err);
-      // Return empty array if skills directory is missing or error occurs
       res.json([]);
     }
   });
