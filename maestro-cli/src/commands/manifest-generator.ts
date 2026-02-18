@@ -2,6 +2,8 @@ import type { MaestroManifest, AdditionalContext, AgentTool, AgentMode, TeamMemb
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
 import { api } from '../api.js';
+import { writeFile, mkdir } from 'fs/promises';
+import { dirname } from 'path';
 
 /**
  * Task data input for manifest generation
@@ -326,15 +328,11 @@ export class ManifestGeneratorCLICommand {
       // 5. Validate manifest
       const validationResult = this.generator.validateGeneratedManifest(manifest);
       if (!validationResult) {
-        // Get detailed validation errors
-        const { validateManifest } = await import('../schemas/manifest-schema.js');
         const result = validateManifest(manifest);
         throw new Error(`Generated manifest failed validation: ${result.errors || 'Unknown error'}`);
       }
 
       // 6. Save to file with skills included
-      const { writeFile, mkdir } = await import('fs/promises');
-      const { dirname } = await import('path');
 
       // Ensure output directory exists
       const outputDir = dirname(options.output);
@@ -467,7 +465,6 @@ export class ManifestGenerator {
     const json = this.serializeManifest(manifest);
 
     // Save to file
-    const { writeFile } = await import('fs/promises');
     await writeFile(outputPath, json, 'utf-8');
   }
 }
