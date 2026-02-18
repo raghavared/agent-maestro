@@ -1,6 +1,7 @@
 @import './styles-sessions.css';
 @import './styles-mentions.css';
 @import './styles-claude-skills.css';
+@import './styles-session-log.css';
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
@@ -10469,6 +10470,35 @@ select.input {
   transform: scale(0.95);
 }
 
+.terminalCopyBtn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--terminal-text-dim);
+  padding: 6px 12px;
+  font-size: 11px;
+  font-family: var(--terminal-font);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 72px;
+  justify-content: center;
+}
+
+.terminalCopyBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--terminal-text);
+}
+
+.terminalCopyBtn:active {
+  transform: scale(0.95);
+}
+
 .terminalViewDetailsBtn {
   background: rgba(0, 150, 255, 0.12);
   border: 1px solid var(--terminal-cyan);
@@ -11422,6 +11452,62 @@ select.input {
   background: rgba(255, 176, 0, 0.1);
   border-radius: 3px;
   animation: blinkAlert 1s infinite;
+}
+
+/* ========== Task Search Bar ========== */
+
+.taskSearchBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--terminal-border);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.taskSearchBar__icon {
+  color: var(--terminal-text-dim);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.taskSearchBar__input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--terminal-border);
+  border-radius: 4px;
+  padding: 5px 10px;
+  color: var(--terminal-text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.taskSearchBar__input::placeholder {
+  color: var(--terminal-text-dim);
+  opacity: 0.6;
+}
+
+.taskSearchBar__input:focus {
+  border-color: var(--terminal-accent, #58a6ff);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.taskSearchBar__clear {
+  background: none;
+  border: none;
+  color: var(--terminal-text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.taskSearchBar__clear:hover {
+  color: var(--terminal-text);
 }
 
 /* ========== Filter Bar (Redesigned) ========== */

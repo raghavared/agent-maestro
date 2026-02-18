@@ -1,0 +1,869 @@
+/* ------------------------------------------------------------------ */
+/*  Session Log Viewer                                                 */
+/* ------------------------------------------------------------------ */
+
+/* Log button replacing the dot */
+.logBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+.logBtn:hover {
+  color: var(--accent);
+  background: rgba(107, 138, 253, 0.1);
+}
+
+/* Modal sizing */
+.sessionLogModal {
+  max-width: 900px;
+  width: 90vw;
+  max-height: 85vh;
+}
+.sessionLogModalBody {
+  overflow-y: auto;
+  max-height: calc(85vh - 140px);
+}
+
+/* Header meta row */
+.sessionLogHeaderMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.sessionLogFileSelect {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.sessionLogFilename {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.sessionLogMetrics {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sessionLogMetricItem {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Log viewer container */
+.sessionLogViewer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Conversation group */
+.sessionLogGroup {
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+  margin-bottom: 8px;
+}
+
+/* User message */
+.sessionLogUserMsg {
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  background: rgba(107, 138, 253, 0.08);
+  border-radius: 4px;
+  border: 1px solid rgba(107, 138, 253, 0.15);
+}
+.sessionLogUserLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+.sessionLogUserText {
+  font-size: 12px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* AI block */
+.sessionLogAiBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Text block */
+.sessionLogTextBlock {
+  font-size: 12px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 4px 0;
+  line-height: 1.5;
+}
+
+/* Thinking block */
+.sessionLogThinking {
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.sessionLogThinkingHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--muted);
+  user-select: none;
+}
+.sessionLogThinkingHeader:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.sessionLogThinkingChevron {
+  font-size: 10px;
+  width: 12px;
+}
+.sessionLogThinkingLabel {
+  font-style: italic;
+  font-weight: 500;
+}
+.sessionLogThinkingPreview {
+  color: rgba(240, 244, 248, 0.4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.sessionLogThinkingBody {
+  padding: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+  border-top: 1px dashed var(--border);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Tool call card */
+.sessionLogToolCard {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--panel);
+}
+.sessionLogToolCardError {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+.sessionLogToolCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  user-select: none;
+}
+.sessionLogToolCardHeader:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.sessionLogToolCardChevron {
+  font-size: 10px;
+  width: 12px;
+  color: var(--muted);
+}
+.sessionLogToolCardIcon {
+  font-size: 12px;
+}
+.sessionLogToolCardName {
+  font-weight: 600;
+  color: var(--text);
+}
+.sessionLogToolCardSummary {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+}
+.sessionLogToolCardErrorBadge {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  font-weight: 600;
+}
+.sessionLogToolCardBody {
+  border-top: 1px solid var(--border);
+  padding: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Diff viewer */
+.sessionLogDiff {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.sessionLogDiffBody {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.sessionLogDiffLine {
+  display: flex;
+  min-width: 100%;
+  line-height: 1.6;
+}
+.sessionLogDiffLineAdded {
+  background: rgba(34, 197, 94, 0.1);
+  border-left: 3px solid rgba(34, 197, 94, 0.5);
+}
+.sessionLogDiffLineRemoved {
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 3px solid rgba(239, 68, 68, 0.5);
+}
+.sessionLogDiffPrefix {
+  width: 16px;
+  flex-shrink: 0;
+  text-align: center;
+  user-select: none;
+}
+.sessionLogDiffLineAdded .sessionLogDiffPrefix,
+.sessionLogDiffLineAdded .sessionLogLineContent {
+  color: #22c55e;
+}
+.sessionLogDiffLineRemoved .sessionLogDiffPrefix,
+.sessionLogDiffLineRemoved .sessionLogLineContent {
+  color: #ef4444;
+}
+.sessionLogDiffStats {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+}
+.sessionLogDiffAdded {
+  color: #22c55e;
+}
+.sessionLogDiffRemoved {
+  color: #ef4444;
+}
+.sessionLogDiffEmpty {
+  padding: 8px;
+  font-style: italic;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* Code block */
+.sessionLogCode {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.sessionLogCodeBody {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  max-height: 400px;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.2);
+}
+.sessionLogCodeLine {
+  display: flex;
+  line-height: 1.6;
+}
+.sessionLogLineNum {
+  width: 40px;
+  flex-shrink: 0;
+  text-align: right;
+  padding-right: 8px;
+  color: rgba(240, 244, 248, 0.25);
+  user-select: none;
+}
+.sessionLogLineContent {
+  flex: 1;
+  white-space: pre;
+  color: var(--text);
+}
+.sessionLogCodeTruncated {
+  padding: 4px 8px;
+  font-size: 10px;
+  color: var(--muted);
+  font-style: italic;
+  text-align: center;
+  border-top: 1px solid var(--border);
+}
+
+/* File header (shared by diff and code) */
+.sessionLogFileHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+.sessionLogFileName {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent);
+  font-weight: 500;
+}
+.sessionLogLangBadge {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+/* Bash output */
+.sessionLogBash {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.sessionLogBashCommand {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.3);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.sessionLogBashPrompt {
+  color: var(--accent);
+  font-weight: 600;
+  user-select: none;
+}
+.sessionLogBashOutput {
+  padding: 6px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  max-height: 300px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(0, 0, 0, 0.15);
+}
+.sessionLogBashError {
+  color: #ef4444;
+}
+.sessionLogShowMore {
+  display: block;
+  width: 100%;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--accent);
+  font-size: 10px;
+  cursor: pointer;
+  margin-top: 4px;
+  text-align: center;
+}
+.sessionLogShowMore:hover {
+  background: rgba(107, 138, 253, 0.1);
+}
+
+/* Token usage badge */
+.sessionLogTokenBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  border: 1px solid var(--border-subtle);
+}
+
+/* Group footer */
+.sessionLogGroupFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 2px 0;
+}
+
+/* JSON display */
+.sessionLogJsonSection {
+  margin-bottom: 8px;
+}
+.sessionLogJsonLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.sessionLogJsonBlock {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 6px 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+}
+
+/* Live mode button */
+.sessionLogLiveBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.5px;
+  transition: all 0.15s;
+}
+.sessionLogLiveBtn:hover {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: var(--text);
+}
+.sessionLogLiveBtnActive {
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* Pulsing live indicator in footer */
+.sessionLogLiveIndicator {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  margin-left: 6px;
+  animation: sessionLogPulse 1.5s ease-in-out infinite;
+}
+@keyframes sessionLogPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* Session state badge */
+.sessionLogStateBadge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.sessionLogStateBadgeActive {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.sessionLogStateBadgeIdle {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+/* Ongoing indicator in footer */
+.sessionLogOngoingIndicator {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  margin-left: 6px;
+  animation: sessionLogPulse 1.5s ease-in-out infinite;
+}
+
+/* View mode toggle */
+.sessionLogViewToggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.sessionLogViewBtn {
+  font-size: 10px;
+  padding: 2px 10px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  transition: all 0.15s;
+}
+.sessionLogViewBtn:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+.sessionLogViewBtnActive {
+  background: rgba(107, 138, 253, 0.12);
+  color: var(--accent);
+}
+.sessionLogViewBtn:hover:not(.sessionLogViewBtnActive) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Subagent Card                                                      */
+/* ------------------------------------------------------------------ */
+
+.sessionLogSubagent {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--panel);
+  border-left: 3px solid var(--accent-3);
+}
+.sessionLogSubagentError {
+  border-left-color: #ef4444;
+}
+.sessionLogSubagentHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  user-select: none;
+}
+.sessionLogSubagentHeader:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.sessionLogSubagentIcon {
+  font-size: 12px;
+  width: 16px;
+  text-align: center;
+}
+.sessionLogSubagentTypeBadge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: rgba(129, 140, 248, 0.12);
+  color: var(--accent-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(129, 140, 248, 0.2);
+}
+.sessionLogSubagentDesc {
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sessionLogSubagentMetric {
+  font-size: 10px;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+}
+.sessionLogSubagentBody {
+  border-top: 1px solid var(--border);
+  padding: 10px;
+}
+.sessionLogSubagentMeta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.sessionLogSubagentMeta strong {
+  color: var(--text);
+}
+.sessionLogSubagentFullDesc {
+  font-size: 12px;
+  color: var(--text);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.sessionLogSubagentUsage {
+  margin-bottom: 10px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+.sessionLogSubagentUsageTitle {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.sessionLogSubagentUsageRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 2px 0;
+  font-family: 'JetBrains Mono', monospace;
+}
+.sessionLogSubagentResult {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.sessionLogSubagentTraceToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+}
+.sessionLogSubagentTraceToggle:hover {
+  color: var(--text);
+}
+.sessionLogSubagentTraceContent {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Teammate Message Card                                              */
+/* ------------------------------------------------------------------ */
+
+.sessionLogTeammateCard {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--panel);
+  border-left: 3px solid #3b82f6;
+}
+.sessionLogTeammateHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  user-select: none;
+}
+.sessionLogTeammateHeader:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.sessionLogTeammateDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sessionLogTeammateBadge {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid;
+  letter-spacing: 0.3px;
+}
+.sessionLogTeammateType {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+.sessionLogTeammateSummary {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: 11px;
+}
+.sessionLogTeammateBody {
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+
+/* Teammate noise (inline minimal) */
+.sessionLogTeammateNoise {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  opacity: 0.45;
+}
+.sessionLogTeammateNoiseName {
+  font-size: 10px;
+  color: var(--muted);
+}
+.sessionLogTeammateNoiseLabel {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Context Panel                                                      */
+/* ------------------------------------------------------------------ */
+
+.sessionLogContext {
+  padding: 8px 0;
+}
+.sessionLogContextEmpty {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  padding: 40px 0;
+}
+.sessionLogContextHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.sessionLogContextTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.sessionLogContextTotal {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.sessionLogContextSections {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sessionLogContextSection {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.sessionLogContextSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  user-select: none;
+}
+.sessionLogContextSectionHeader:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.sessionLogContextSectionLabel {
+  font-weight: 600;
+  color: var(--text);
+  min-width: 120px;
+}
+.sessionLogContextSectionBar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.sessionLogContextSectionBarFill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+.sessionLogContextSectionTokens {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--muted);
+  font-size: 10px;
+  min-width: 50px;
+  text-align: right;
+}
+.sessionLogContextSectionPct {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--muted);
+  font-size: 10px;
+  min-width: 30px;
+  text-align: right;
+}
+.sessionLogContextSectionBody {
+  border-top: 1px solid var(--border);
+  padding: 4px 8px;
+}
+.sessionLogContextItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 11px;
+}
+.sessionLogContextItemName {
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sessionLogContextItemCount {
+  color: var(--muted);
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.sessionLogContextItemTokens {
+  color: var(--muted);
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  min-width: 50px;
+  text-align: right;
+}

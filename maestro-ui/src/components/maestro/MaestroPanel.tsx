@@ -79,6 +79,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [showCreateTeamMemberModal, setShowCreateTeamMemberModal] = React.useState(false);
     const [showEditTeamMemberModal, setShowEditTeamMemberModal] = React.useState(false);
     const [editingTeamMember, setEditingTeamMember] = React.useState<any | null>(null);
+    const [searchQuery, setSearchQuery] = React.useState("");
     // Team member selection is now handled inside ExecutionBar via dropdowns
 
     // Fetch task ordering on mount
@@ -516,9 +517,23 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     // ==================== DERIVED DATA ====================
 
+    // Search filter helper: recursively filters tree nodes by search query
+    const filterBySearch = useCallback((nodes: TaskTreeNode[]): TaskTreeNode[] => {
+        if (!searchQuery.trim()) return nodes;
+        const query = searchQuery.toLowerCase().trim();
+
+        const matches = (node: TaskTreeNode): boolean => {
+            if (node.title.toLowerCase().includes(query)) return true;
+            if (node.description?.toLowerCase().includes(query)) return true;
+            return node.children.some(child => matches(child));
+        };
+
+        return nodes.filter(node => matches(node));
+    }, [searchQuery]);
+
     const customOrder = taskOrdering.get(projectId) || [];
 
-    const activeRoots = roots
+    const activeRoots = filterBySearch(roots
         .filter((node) => node.status !== 'completed' && node.status !== 'archived')
         .filter((node) => statusFilter.length === 0 || statusFilter.includes(node.status))
         .filter((node) => priorityFilter.length === 0 || priorityFilter.includes(node.priority))
@@ -537,25 +552,25 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 return priorityOrder[a.priority] - priorityOrder[b.priority];
             }
             return b[sortBy] - a[sortBy];
-        });
+        }));
 
     const handleTaskReorder = useCallback((orderedIds: string[]) => {
         saveTaskOrdering(projectId, orderedIds);
     }, [projectId, saveTaskOrdering]);
 
-    const completedRoots = roots
+    const completedRoots = filterBySearch(roots
         .filter((node) => node.status === 'completed')
         .sort((a, b) => {
             return (b.completedAt || b.updatedAt) - (a.completedAt || a.updatedAt);
-        });
+        }));
 
-    const pinnedRoots = roots
+    const pinnedRoots = filterBySearch(roots
         .filter((node) => node.pinned)
-        .sort((a, b) => b.updatedAt - a.updatedAt);
+        .sort((a, b) => b.updatedAt - a.updatedAt));
 
-    const archivedRoots = roots
+    const archivedRoots = filterBySearch(roots
         .filter((node) => node.status === 'archived')
-        .sort((a, b) => b.updatedAt - a.updatedAt);
+        .sort((a, b) => b.updatedAt - a.updatedAt));
 
     // Recursive rendering function for task tree
     const renderTaskNode = (node: TaskTreeNode, depth: number = 0, options?: { showPermanentDelete?: boolean }): React.ReactNode => {
@@ -651,6 +666,27 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     onNewTask={() => setShowCreateModal(true)}
                     onNewTeamMember={() => setShowCreateTeamMemberModal(true)}
                 />
+
+                {primaryTab === "tasks" && (
+                    <div className="taskSearchBar">
+                        <span className="taskSearchBar__icon">⌕</span>
+                        <input
+                            type="text"
+                            className="taskSearchBar__input"
+                            placeholder="Search tasks..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        {searchQuery && (
+                            <button
+                                className="taskSearchBar__clear"
+                                onClick={() => setSearchQuery("")}
+                            >
+                                ×
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {(error || fetchError) && (
                     <div className="terminalErrorBanner">

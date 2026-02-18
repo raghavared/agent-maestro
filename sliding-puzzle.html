@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sliding Tile Puzzle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 32px;
+            max-width: 520px;
+            width: 100%;
+            box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .puzzle-icon {
+            font-size: 42px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        h1 {
+            color: #ffffff;
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,0.5);
+            font-size: 14px;
+        }
+
+        /* Difficulty selector */
+        .difficulty-bar {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .diff-btn {
+            padding: 7px 18px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: transparent;
+            color: rgba(255,255,255,0.6);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .diff-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+
+        .diff-btn.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Stats row */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px;
+            padding: 14px 12px;
+            text-align: center;
+        }
+
+        .stat-label {
+            color: rgba(255,255,255,0.45);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-value.highlight {
+            color: #a78bfa;
+        }
+
+        /* Puzzle board */
+        .board-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .board {
+            display: grid;
+            gap: 6px;
+            padding: 12px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 18px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .board.size-3 { grid-template-columns: repeat(3, 100px); }
+        .board.size-4 { grid-template-columns: repeat(4, 85px); }
+        .board.size-5 { grid-template-columns: repeat(5, 72px); }
+
+        .tile {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .board.size-3 .tile { height: 100px; font-size: 28px; }
+        .board.size-4 .tile { height: 85px; font-size: 22px; }
+        .board.size-5 .tile { height: 72px; font-size: 17px; }
+
+        .tile.number {
+            background: linear-gradient(145deg, #2d3561, #1e2447);
+            color: #ffffff;
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        .tile.number:hover {
+            transform: scale(1.04);
+            background: linear-gradient(145deg, #3d4671, #2d3557);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+
+        .tile.number:active {
+            transform: scale(0.97);
+        }
+
+        .tile.number.movable {
+            background: linear-gradient(145deg, #4c3fb0, #3730a3);
+            border-color: rgba(167, 139, 250, 0.4);
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35), inset 0 1px 0 rgba(255,255,255,0.2);
+            cursor: pointer;
+        }
+
+        .tile.number.movable:hover {
+            background: linear-gradient(145deg, #5b4dc0, #4540b3);
+            transform: scale(1.05);
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5), inset 0 1px 0 rgba(255,255,255,0.25);
+        }
+
+        .tile.number.correct {
+            background: linear-gradient(145deg, #065f46, #047857);
+            border-color: rgba(52, 211, 153, 0.4);
+            box-shadow: 0 4px 14px rgba(5, 150, 105, 0.3);
+        }
+
+        .tile.empty {
+            background: rgba(0,0,0,0.2);
+            border: 2px dashed rgba(255,255,255,0.08);
+            cursor: default;
+            pointer-events: none;
+        }
+
+        .tile .tile-number {
+            position: relative;
+            z-index: 1;
+        }
+
+        .tile::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 40%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.06), transparent);
+            border-radius: 12px 12px 0 0;
+            pointer-events: none;
+        }
+
+        /* Sliding animation */
+        .tile.sliding {
+            animation: slide-pop 0.12s ease;
+        }
+
+        @keyframes slide-pop {
+            0% { transform: scale(0.96); }
+            50% { transform: scale(1.06); }
+            100% { transform: scale(1); }
+        }
+
+        /* Action buttons */
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 13px 16px;
+            border-radius: 14px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.35);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.8);
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.13);
+            color: white;
+        }
+
+        .btn:active {
+            transform: scale(0.98) translateY(0);
+        }
+
+        /* Win overlay */
+        .win-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(8px);
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .win-overlay.show {
+            display: flex;
+        }
+
+        .win-card {
+            background: linear-gradient(135deg, #1e1b4b, #312e81);
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            border-radius: 28px;
+            padding: 48px 40px;
+            text-align: center;
+            max-width: 380px;
+            width: 90%;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 80px rgba(99,102,241,0.2);
+            animation: win-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes win-pop {
+            0% { transform: scale(0.5) rotate(-5deg); opacity: 0; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        .win-emoji {
+            font-size: 64px;
+            margin-bottom: 16px;
+            display: block;
+            animation: bounce 1s ease infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .win-title {
+            color: #ffffff;
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .win-sub {
+            color: rgba(255,255,255,0.55);
+            font-size: 15px;
+            margin-bottom: 28px;
+            line-height: 1.5;
+        }
+
+        .win-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .win-stat {
+            background: rgba(255,255,255,0.07);
+            border-radius: 14px;
+            padding: 14px;
+        }
+
+        .win-stat-label {
+            color: rgba(255,255,255,0.45);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .win-stat-value {
+            color: #a78bfa;
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .win-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Hint flash */
+        @keyframes hint-flash {
+            0%, 100% { box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35); }
+            50% { box-shadow: 0 0 0 4px rgba(167, 139, 250, 0.6), 0 8px 24px rgba(99, 102, 241, 0.6); }
+        }
+
+        .tile.hint {
+            animation: hint-flash 0.5s ease 3;
+        }
+
+        /* Confetti */
+        .confetti-piece {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            animation: confetti-fall linear forwards;
+            z-index: 200;
+            pointer-events: none;
+        }
+
+        @keyframes confetti-fall {
+            0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* Progress bar */
+        .progress-bar-wrap {
+            margin-bottom: 20px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            height: 6px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 8px;
+            background: linear-gradient(90deg, #667eea, #a78bfa);
+            transition: width 0.4s ease;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <span class="puzzle-icon">🧩</span>
+        <h1>Sliding Tile Puzzle</h1>
+        <p class="subtitle">Arrange tiles in order from 1 to N</p>
+    </div>
+
+    <div class="difficulty-bar">
+        <button class="diff-btn" data-size="3">Easy (3×3)</button>
+        <button class="diff-btn active" data-size="4">Medium (4×4)</button>
+        <button class="diff-btn" data-size="5">Hard (5×5)</button>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-label">Moves</div>
+            <div class="stat-value" id="moves-val">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Time</div>
+            <div class="stat-value highlight" id="time-val">0:00</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Best</div>
+            <div class="stat-value" id="best-val">--</div>
+        </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+    </div>
+
+    <div class="board-wrapper">
+        <div class="board size-4" id="board"></div>
+    </div>
+
+    <div class="actions">
+        <button class="btn btn-secondary" id="hint-btn">Hint</button>
+        <button class="btn btn-primary" id="shuffle-btn">New Puzzle</button>
+    </div>
+</div>
+
+<!-- Win Overlay -->
+<div class="win-overlay" id="win-overlay">
+    <div class="win-card">
+        <span class="win-emoji">🎉</span>
+        <div class="win-title">Puzzle Solved!</div>
+        <div class="win-sub" id="win-sub">Amazing work! You're a puzzle master.</div>
+        <div class="win-stats">
+            <div class="win-stat">
+                <div class="win-stat-label">Moves</div>
+                <div class="win-stat-value" id="win-moves">-</div>
+            </div>
+            <div class="win-stat">
+                <div class="win-stat-label">Time</div>
+                <div class="win-stat-value" id="win-time">-</div>
+            </div>
+        </div>
+        <div class="win-buttons">
+            <button class="btn btn-primary" id="win-play-again">Play Again</button>
+            <button class="btn btn-secondary" id="win-close">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ─── Game State ────────────────────────────────────────────────────────────
+    let SIZE = 4;
+    let tiles = [];
+    let emptyIndex = 0;
+    let moves = 0;
+    let seconds = 0;
+    let timerInterval = null;
+    let gameActive = false;
+    let bestTimes = { 3: null, 4: null, 5: null };
+    let hintUsed = false;
+
+    const boardEl = document.getElementById('board');
+    const movesEl = document.getElementById('moves-val');
+    const timeEl = document.getElementById('time-val');
+    const bestEl = document.getElementById('best-val');
+    const progressEl = document.getElementById('progress-bar');
+    const winOverlay = document.getElementById('win-overlay');
+
+    // ─── Puzzle Logic ──────────────────────────────────────────────────────────
+    function initPuzzle(size) {
+        SIZE = size;
+        boardEl.className = `board size-${size}`;
+        moves = 0;
+        seconds = 0;
+        gameActive = false;
+        hintUsed = false;
+        clearInterval(timerInterval);
+        movesEl.textContent = '0';
+        timeEl.textContent = '0:00';
+        updateBestDisplay();
+
+        // Build solved state
+        tiles = Array.from({ length: size * size }, (_, i) => i);
+        shuffle();
+        renderBoard();
+        updateProgress();
+
+        if (typeof window.maestro !== 'undefined') {
+            window.maestro.sendAction('puzzle_started', {
+                size: SIZE,
+                difficulty: SIZE === 3 ? 'easy' : SIZE === 4 ? 'medium' : 'hard'
+            });
+        }
+    }
+
+    function shuffle() {
+        // Fisher-Yates shuffle, then verify solvability
+        do {
+            for (let i = tiles.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+            }
+        } while (!isSolvable() || isSolved());
+        emptyIndex = tiles.indexOf(0);
+    }
+
+    function isSolvable() {
+        const flatTiles = tiles.filter(t => t !== 0);
+        let inversions = 0;
+        for (let i = 0; i < flatTiles.length; i++) {
+            for (let j = i + 1; j < flatTiles.length; j++) {
+                if (flatTiles[i] > flatTiles[j]) inversions++;
+            }
+        }
+        if (SIZE % 2 === 1) {
+            return inversions % 2 === 0;
+        } else {
+            const emptyRow = Math.floor(tiles.indexOf(0) / SIZE);
+            const emptyFromBottom = SIZE - emptyRow;
+            if (emptyFromBottom % 2 === 1) return inversions % 2 === 0;
+            else return inversions % 2 === 1;
+        }
+    }
+
+    function isSolved() {
+        for (let i = 0; i < tiles.length - 1; i++) {
+            if (tiles[i] !== i + 1) return false;
+        }
+        return tiles[tiles.length - 1] === 0;
+    }
+
+    function canMove(index) {
+        const row = Math.floor(index / SIZE);
+        const col = index % SIZE;
+        const emptyRow = Math.floor(emptyIndex / SIZE);
+        const emptyCol = emptyIndex % SIZE;
+        return (row === emptyRow && Math.abs(col - emptyCol) === 1) ||
+               (col === emptyCol && Math.abs(row - emptyRow) === 1);
+    }
+
+    function moveTile(index) {
+        if (!canMove(index) || !gameActive && moves > 0) return false;
+        if (!gameActive) {
+            gameActive = true;
+            startTimer();
+        }
+
+        // Swap
+        [tiles[index], tiles[emptyIndex]] = [tiles[emptyIndex], tiles[index]];
+        emptyIndex = index;
+        moves++;
+        movesEl.textContent = moves;
+
+        renderBoard();
+        updateProgress();
+
+        if (isSolved()) {
+            onWin();
+        }
+        return true;
+    }
+
+    function getMovableTiles() {
+        const movable = [];
+        const dirs = [-1, 1, -SIZE, SIZE];
+        for (const d of dirs) {
+            const ni = emptyIndex + d;
+            if (ni < 0 || ni >= SIZE * SIZE) continue;
+            if (d === 1 && emptyIndex % SIZE === SIZE - 1) continue;
+            if (d === -1 && emptyIndex % SIZE === 0) continue;
+            movable.push(ni);
+        }
+        return movable;
+    }
+
+    // ─── Render ────────────────────────────────────────────────────────────────
+    function renderBoard() {
+        boardEl.innerHTML = '';
+        tiles.forEach((val, index) => {
+            const tile = document.createElement('div');
+            tile.className = 'tile';
+
+            if (val === 0) {
+                tile.classList.add('empty');
+            } else {
+                tile.classList.add('number');
+                if (val === index + 1) tile.classList.add('correct');
+                if (canMove(index)) tile.classList.add('movable');
+
+                const span = document.createElement('span');
+                span.className = 'tile-number';
+                span.textContent = val;
+                tile.appendChild(span);
+
+                tile.addEventListener('click', () => {
+                    if (moveTile(index)) {
+                        tile.classList.add('sliding');
+                        setTimeout(() => tile.classList.remove('sliding'), 150);
+                    }
+                });
+            }
+            boardEl.appendChild(tile);
+        });
+    }
+
+    function updateProgress() {
+        const total = SIZE * SIZE - 1;
+        let correct = 0;
+        for (let i = 0; i < SIZE * SIZE - 1; i++) {
+            if (tiles[i] === i + 1) correct++;
+        }
+        const pct = Math.round((correct / total) * 100);
+        progressEl.style.width = pct + '%';
+    }
+
+    // ─── Timer ─────────────────────────────────────────────────────────────────
+    function startTimer() {
+        seconds = 0;
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            seconds++;
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            timeEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+        }, 1000);
+    }
+
+    function formatTime(s) {
+        const m = Math.floor(s / 60);
+        const sec = s % 60;
+        return `${m}:${sec.toString().padStart(2, '0')}`;
+    }
+
+    function updateBestDisplay() {
+        const b = bestTimes[SIZE];
+        bestEl.textContent = b !== null ? formatTime(b) : '--';
+    }
+
+    // ─── Win ───────────────────────────────────────────────────────────────────
+    function onWin() {
+        clearInterval(timerInterval);
+        gameActive = false;
+
+        if (bestTimes[SIZE] === null || seconds < bestTimes[SIZE]) {
+            bestTimes[SIZE] = seconds;
+        }
+        updateBestDisplay();
+
+        const sub = moves < 30 ? "Incredible efficiency!" :
+                    moves < 60 ? "Great solving skills!" :
+                    moves < 100 ? "Well done, keep practicing!" :
+                    "You made it! Every puzzle is a victory.";
+
+        document.getElementById('win-moves').textContent = moves;
+        document.getElementById('win-time').textContent = formatTime(seconds);
+        document.getElementById('win-sub').textContent = sub;
+
+        spawnConfetti();
+
+        setTimeout(() => {
+            winOverlay.classList.add('show');
+        }, 300);
+
+        if (typeof window.maestro !== 'undefined') {
+            window.maestro.sendAction('puzzle_solved', {
+                size: SIZE,
+                moves: moves,
+                seconds: seconds,
+                difficulty: SIZE === 3 ? 'easy' : SIZE === 4 ? 'medium' : 'hard',
+                hintUsed: hintUsed,
+                best: bestTimes[SIZE] === seconds
+            });
+        }
+    }
+
+    // ─── Hint ──────────────────────────────────────────────────────────────────
+    function showHint() {
+        hintUsed = true;
+        const movable = getMovableTiles();
+        const tileEls = boardEl.querySelectorAll('.tile.movable');
+        tileEls.forEach(el => {
+            el.classList.add('hint');
+            setTimeout(() => el.classList.remove('hint'), 1600);
+        });
+
+        if (typeof window.maestro !== 'undefined') {
+            window.maestro.sendAction('hint_used', { movable_count: movable.length });
+        }
+    }
+
+    // ─── Confetti ──────────────────────────────────────────────────────────────
+    function spawnConfetti() {
+        const colors = ['#667eea', '#a78bfa', '#34d399', '#f59e0b', '#f472b6', '#60a5fa'];
+        for (let i = 0; i < 80; i++) {
+            setTimeout(() => {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                piece.style.left = Math.random() * 100 + 'vw';
+                piece.style.top = '-10px';
+                piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.width = (6 + Math.random() * 8) + 'px';
+                piece.style.height = (6 + Math.random() * 8) + 'px';
+                piece.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+                piece.style.animationDelay = '0s';
+                document.body.appendChild(piece);
+                setTimeout(() => piece.remove(), 3500);
+            }, Math.random() * 500);
+        }
+    }
+
+    // ─── Event Listeners ───────────────────────────────────────────────────────
+    document.getElementById('shuffle-btn').addEventListener('click', () => {
+        winOverlay.classList.remove('show');
+        initPuzzle(SIZE);
+    });
+
+    document.getElementById('hint-btn').addEventListener('click', showHint);
+
+    document.getElementById('win-play-again').addEventListener('click', () => {
+        winOverlay.classList.remove('show');
+        initPuzzle(SIZE);
+    });
+
+    document.getElementById('win-close').addEventListener('click', () => {
+        winOverlay.classList.remove('show');
+        if (typeof window.maestro !== 'undefined') {
+            window.maestro.close();
+        }
+    });
+
+    document.querySelectorAll('.diff-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const size = parseInt(btn.dataset.size);
+            initPuzzle(size);
+        });
+    });
+
+    // Keyboard support: arrow keys move tiles
+    document.addEventListener('keydown', (e) => {
+        const keyMap = {
+            'ArrowUp':    SIZE,     // move tile below empty up
+            'ArrowDown': -SIZE,     // move tile above empty down
+            'ArrowLeft':  1,        // move tile to right of empty left
+            'ArrowRight': -1        // move tile to left of empty right
+        };
+        const delta = keyMap[e.key];
+        if (delta === undefined) return;
+        e.preventDefault();
+        const target = emptyIndex + delta;
+        if (target < 0 || target >= SIZE * SIZE) return;
+        // Prevent wrapping rows
+        if (Math.abs(delta) === 1) {
+            const eRow = Math.floor(emptyIndex / SIZE);
+            const tRow = Math.floor(target / SIZE);
+            if (eRow !== tRow) return;
+        }
+        moveTile(target);
+    });
+
+    // ─── Init ──────────────────────────────────────────────────────────────────
+    initPuzzle(4);
+</script>
+</body>
+</html>

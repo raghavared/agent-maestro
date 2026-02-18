@@ -1,6 +1,7 @@
 mod app_menu;
 mod app_info;
 mod assets;
+mod claude_logs;
 mod files;
 mod file_manager;
 mod pty;
@@ -15,6 +16,7 @@ mod tray;
 use app_info::get_app_info;
 use assets::apply_text_assets;
 use app_menu::{build_app_menu, handle_app_menu_event};
+use claude_logs::{list_claude_session_logs, read_claude_session_log, tail_claude_session_log};
 use files::{copy_fs_entry, delete_fs_entry, list_fs_entries, list_project_files, read_text_file, rename_fs_entry, write_text_file};
 use file_manager::{open_path_in_file_manager, open_path_in_vscode};
 use pty::{
@@ -206,7 +208,10 @@ fn main() {
             open_path_in_file_manager,
             open_path_in_vscode,
             get_app_info,
-            allow_window_close
+            allow_window_close,
+            list_claude_session_logs,
+            read_claude_session_log,
+            tail_claude_session_log
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

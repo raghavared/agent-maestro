@@ -40,6 +40,7 @@ dependencies = [
  "keyring",
  "portable-pty",
  "rand_core 0.6.4",
+ "regex",
  "serde",
  "serde_json",
  "tauri",

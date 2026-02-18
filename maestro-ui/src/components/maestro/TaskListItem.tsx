@@ -148,6 +148,7 @@ export function TaskListItem({
     const [showLaunchDropdown, setShowLaunchDropdown] = useState(false);
     const [expandedTool, setExpandedTool] = useState<AgentTool | null>(null);
     const [launchOverride, setLaunchOverride] = useState<{ agentTool: AgentTool; model: ModelType } | null>(null);
+    const [copiedField, setCopiedField] = useState<string | null>(null);
     const statusDropdownRef = useRef<HTMLDivElement>(null);
     const priorityDropdownRef = useRef<HTMLDivElement>(null);
     const teamMemberDropdownRef = useRef<HTMLDivElement>(null);
@@ -428,6 +429,13 @@ export function TaskListItem({
         e.dataTransfer.setData('text/plain', text);
         e.dataTransfer.effectAllowed = 'copy';
     }, [task.title, task.description, task.initialPrompt]);
+
+    const handleCopyField = useCallback((label: string, value: string) => {
+        navigator.clipboard.writeText(value).then(() => {
+            setCopiedField(label);
+            setTimeout(() => setCopiedField(null), 1500);
+        }).catch(() => {});
+    }, []);
 
     return (
         <div
@@ -1066,6 +1074,26 @@ export function TaskListItem({
 
                     {/* Actions Bar at Bottom Right */}
                     <div className="terminalTaskActionsBar terminalTaskActionsBar--right">
+                        <button
+                            className="terminalCopyBtn"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyField('id', task.id);
+                            }}
+                            title="Copy task ID"
+                        >
+                            {copiedField === 'id' ? 'Copied!' : 'Copy ID'}
+                        </button>
+                        <button
+                            className="terminalCopyBtn"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyField('title', task.title);
+                            }}
+                            title="Copy task title"
+                        >
+                            {copiedField === 'title' ? 'Copied!' : 'Copy Title'}
+                        </button>
                         <button
                             className="terminalViewDetailsBtn"
                             onClick={(e) => {
