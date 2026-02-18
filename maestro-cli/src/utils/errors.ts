@@ -1,3 +1,15 @@
+import {
+  CONNECTION_REFUSED_MESSAGE,
+  CONNECTION_REFUSED_SUGGESTION,
+  NETWORK_ERROR_MESSAGE,
+  NETWORK_ERROR_SUGGESTION,
+  NOT_FOUND_SUGGESTION,
+  PERMISSION_DENIED_SUGGESTION,
+  INVALID_REQUEST_SUGGESTION,
+  SERVER_ERROR_SUGGESTION,
+  SPAWN_FAILED_SUGGESTION,
+} from '../prompts/index.js';
+
 export interface CLIError {
   success: false;
   error: string;
@@ -46,7 +58,7 @@ export function handleError(err: any, json: boolean): never {
           'resource_not_found',
           data.message || 'Resource not found',
           { status, url: err.config?.url },
-          'Use list commands to see available resources'
+          NOT_FOUND_SUGGESTION
         );
         exitCode = 2;
         break;
@@ -56,7 +68,7 @@ export function handleError(err: any, json: boolean): never {
           'permission_denied',
           data.message || 'Permission denied',
           { status },
-          'Check your access permissions'
+          PERMISSION_DENIED_SUGGESTION
         );
         exitCode = 4;
         break;
@@ -66,7 +78,7 @@ export function handleError(err: any, json: boolean): never {
           'invalid_request',
           data.message || 'Invalid request',
           { status, errors: data.errors },
-          'Check command arguments and try again'
+          INVALID_REQUEST_SUGGESTION
         );
         exitCode = 1;
         break;
@@ -76,7 +88,7 @@ export function handleError(err: any, json: boolean): never {
           'server_error',
           data.message || 'Internal server error',
           { status },
-          'Check server logs or try again later'
+          SERVER_ERROR_SUGGESTION
         );
         exitCode = 1;
         break;
@@ -92,21 +104,21 @@ export function handleError(err: any, json: boolean): never {
     // Connection refused
     cliError = createError(
       'connection_refused',
-      'Cannot connect to Maestro Server',
+      CONNECTION_REFUSED_MESSAGE,
       {
         server: err.config?.baseURL || 'http://localhost:3000',
         errno: err.code
       },
-      'Is the Maestro Server running? Try: cd maestro-server && npm run dev'
+      CONNECTION_REFUSED_SUGGESTION
     );
     exitCode = 3;
   } else if (err.code === 'ETIMEDOUT' || err.code === 'ENOTFOUND') {
     // Network timeout or DNS failure
     cliError = createError(
       'network_error',
-      'Network connection failed',
+      NETWORK_ERROR_MESSAGE,
       { errno: err.code, server: err.config?.baseURL },
-      'Check your network connection and server URL'
+      NETWORK_ERROR_SUGGESTION
     );
     exitCode = 3;
   } else if (err.error === 'resource_not_found') {
@@ -114,7 +126,7 @@ export function handleError(err: any, json: boolean): never {
       'resource_not_found',
       err.message || 'Resource not found',
       err.details,
-      err.suggestion || 'Use list commands to see available resources'
+      err.suggestion || NOT_FOUND_SUGGESTION
     );
     exitCode = 2;
   } else if (err.error === 'permission_denied') {
@@ -130,7 +142,7 @@ export function handleError(err: any, json: boolean): never {
       'spawn_failed',
       err.message || 'Claude spawn failed',
       err.details,
-      err.suggestion || 'Check Claude Code installation and configuration'
+      err.suggestion || SPAWN_FAILED_SUGGESTION
     );
     exitCode = 5;
   } else if (err.success === false) {
@@ -142,7 +154,7 @@ export function handleError(err: any, json: boolean): never {
       'resource_not_found',
       err.message,
       {},
-      'Use list commands to see available resources'
+      NOT_FOUND_SUGGESTION
     );
     exitCode = 2;
   } else {

@@ -3,6 +3,15 @@ import { readManifestFromEnv } from '../services/manifest-reader.js';
 import { AgentSpawner } from '../services/agent-spawner.js';
 import { api } from '../api.js';
 import { randomBytes } from 'crypto';
+import {
+  MANIFEST_PATH_NOT_SET,
+  MANIFEST_NOT_FOUND_PREFIX,
+  MANIFEST_NOT_FOUND_HINT,
+  INVALID_MANIFEST_PREFIX,
+  INVALID_MANIFEST_HINT,
+  WRONG_MODE_ORCHESTRATOR_PREFIX,
+  WRONG_MODE_ORCHESTRATOR_HINT,
+} from '../prompts/index.js';
 
 /**
  * OrchestratorInitCommand - Initialize an orchestrator session from a manifest
@@ -24,10 +33,7 @@ export class OrchestratorInitCommand {
     const path = process.env.MAESTRO_MANIFEST_PATH;
 
     if (!path) {
-      throw new Error(
-        'MAESTRO_MANIFEST_PATH environment variable not set. ' +
-          'This variable should point to the manifest JSON file.'
-      );
+      throw new Error(MANIFEST_PATH_NOT_SET);
     }
 
     return path;
@@ -60,18 +66,13 @@ export class OrchestratorInitCommand {
   formatError(errorType: string, details?: string): string {
     switch (errorType) {
       case 'manifest_not_found':
-        return `Manifest file not found: ${details}\n\n` +
-          'Please ensure the MAESTRO_MANIFEST_PATH environment variable ' +
-          'points to a valid manifest file.';
+        return `${MANIFEST_NOT_FOUND_PREFIX}${details}\n\n${MANIFEST_NOT_FOUND_HINT}`;
 
       case 'invalid_manifest':
-        return `Invalid manifest: ${details}\n\n` +
-          'Please check that the manifest file follows the correct schema.';
+        return `${INVALID_MANIFEST_PREFIX}${details}\n\n${INVALID_MANIFEST_HINT}`;
 
       case 'wrong_mode':
-        return `Wrong mode for orchestrator init: ${details}\n\n` +
-          'This command requires a manifest with mode="coordinate". ' +
-          'For execute sessions, use the worker init command.';
+        return `${WRONG_MODE_ORCHESTRATOR_PREFIX}${details}\n\n${WRONG_MODE_ORCHESTRATOR_HINT}`;
 
       default:
         return `Error: ${details}`;

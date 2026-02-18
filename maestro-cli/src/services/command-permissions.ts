@@ -11,6 +11,17 @@
 import type { MaestroManifest, AgentMode, Capability } from '../types/manifest.js';
 import { computeCapabilities } from '../types/manifest.js';
 import { readManifestFromEnv } from './manifest-reader.js';
+import {
+  CMD_DESC,
+  CMD_SYNTAX,
+  COMMAND_GROUP_META,
+  COMMANDS_REFERENCE_HEADER,
+  COMMANDS_REFERENCE_FOOTER,
+  formatCommandNotAllowed,
+  AVAILABLE_COMMANDS_HEADER,
+  AVAILABLE_COMMANDS_SEPARATOR,
+  HIDDEN_COMMANDS_LABEL,
+} from '../prompts/index.js';
 
 /**
  * Command definition with metadata
@@ -35,82 +46,82 @@ export interface CommandDefinition {
  */
 export const COMMAND_REGISTRY: CommandDefinition[] = [
   // Core commands (always available)
-  { name: 'whoami', description: 'Print current context', allowedModes: ['execute', 'coordinate'], isCore: true },
-  { name: 'status', description: 'Show project status', allowedModes: ['execute', 'coordinate'], isCore: true },
-  { name: 'commands', description: 'Show available commands', allowedModes: ['execute', 'coordinate'], isCore: true },
+  { name: 'whoami', description: CMD_DESC.whoami, allowedModes: ['execute', 'coordinate'], isCore: true },
+  { name: 'status', description: CMD_DESC.status, allowedModes: ['execute', 'coordinate'], isCore: true },
+  { name: 'commands', description: CMD_DESC.commands, allowedModes: ['execute', 'coordinate'], isCore: true },
 
   // Task commands
-  { name: 'task:list', description: 'List tasks', allowedModes: ['execute', 'coordinate'], parent: 'task' },
-  { name: 'task:get', description: 'Get task details', allowedModes: ['execute', 'coordinate'], parent: 'task' },
-  { name: 'task:create', description: 'Create new task', allowedModes: ['execute', 'coordinate'], parent: 'task' },
-  { name: 'task:edit', description: 'Edit task fields', allowedModes: ['execute', 'coordinate'], parent: 'task' },
-  { name: 'task:delete', description: 'Delete a task', allowedModes: ['execute', 'coordinate'], parent: 'task' },
-  { name: 'task:update', description: 'Update task status/priority', allowedModes: ['coordinate'], parent: 'task' },
-  { name: 'task:complete', description: 'Mark task completed', allowedModes: ['coordinate'], parent: 'task' },
-  { name: 'task:block', description: 'Mark task blocked', allowedModes: ['coordinate'], parent: 'task' },
-  { name: 'task:children', description: 'List child tasks', allowedModes: ['execute', 'coordinate'], parent: 'task' },
-  { name: 'task:tree', description: 'Show task tree', allowedModes: ['coordinate'], parent: 'task' },
-  { name: 'task:report:progress', description: 'Report task progress', allowedModes: ['execute', 'coordinate'], parent: 'task' },
-  { name: 'task:report:complete', description: 'Report task completion', allowedModes: ['execute', 'coordinate'], parent: 'task' },
-  { name: 'task:report:blocked', description: 'Report task blocked', allowedModes: ['execute', 'coordinate'], parent: 'task' },
-  { name: 'task:report:error', description: 'Report task error', allowedModes: ['execute', 'coordinate'], parent: 'task' },
-  { name: 'task:docs:add', description: 'Add doc to task', allowedModes: ['execute', 'coordinate'], parent: 'task' },
-  { name: 'task:docs:list', description: 'List task docs', allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:list', description: CMD_DESC['task:list'], allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:get', description: CMD_DESC['task:get'], allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:create', description: CMD_DESC['task:create'], allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:edit', description: CMD_DESC['task:edit'], allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:delete', description: CMD_DESC['task:delete'], allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:update', description: CMD_DESC['task:update'], allowedModes: ['coordinate'], parent: 'task' },
+  { name: 'task:complete', description: CMD_DESC['task:complete'], allowedModes: ['coordinate'], parent: 'task' },
+  { name: 'task:block', description: CMD_DESC['task:block'], allowedModes: ['coordinate'], parent: 'task' },
+  { name: 'task:children', description: CMD_DESC['task:children'], allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:tree', description: CMD_DESC['task:tree'], allowedModes: ['coordinate'], parent: 'task' },
+  { name: 'task:report:progress', description: CMD_DESC['task:report:progress'], allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:report:complete', description: CMD_DESC['task:report:complete'], allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:report:blocked', description: CMD_DESC['task:report:blocked'], allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:report:error', description: CMD_DESC['task:report:error'], allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:docs:add', description: CMD_DESC['task:docs:add'], allowedModes: ['execute', 'coordinate'], parent: 'task' },
+  { name: 'task:docs:list', description: CMD_DESC['task:docs:list'], allowedModes: ['execute', 'coordinate'], parent: 'task' },
 
   // Session commands
-  { name: 'session:list', description: 'List sessions', allowedModes: ['coordinate'], parent: 'session' },
-  { name: 'session:info', description: 'Get session info', allowedModes: ['execute', 'coordinate'], parent: 'session' },
-  { name: 'session:watch', description: 'Watch sessions in real-time', allowedModes: ['coordinate'], parent: 'session' },
-  { name: 'session:spawn', description: 'Spawn new session', allowedModes: ['coordinate'], parent: 'session' },
-  { name: 'session:register', description: 'Register session', allowedModes: ['execute', 'coordinate'], parent: 'session', isCore: true, hiddenFromPrompt: true },
-  { name: 'session:complete', description: 'Complete session', allowedModes: ['execute', 'coordinate'], parent: 'session', isCore: true, hiddenFromPrompt: true },
-  { name: 'session:report:progress', description: 'Report work progress', allowedModes: ['execute', 'coordinate'], parent: 'session' },
-  { name: 'session:report:complete', description: 'Report completion', allowedModes: ['execute', 'coordinate'], parent: 'session' },
-  { name: 'session:report:blocked', description: 'Report blocker', allowedModes: ['execute', 'coordinate'], parent: 'session' },
-  { name: 'session:report:error', description: 'Report error', allowedModes: ['execute', 'coordinate'], parent: 'session' },
-  { name: 'session:docs:add', description: 'Add doc to session', allowedModes: ['execute', 'coordinate'], parent: 'session' },
-  { name: 'session:docs:list', description: 'List session docs', allowedModes: ['execute', 'coordinate'], parent: 'session' },
+  { name: 'session:list', description: CMD_DESC['session:list'], allowedModes: ['coordinate'], parent: 'session' },
+  { name: 'session:info', description: CMD_DESC['session:info'], allowedModes: ['execute', 'coordinate'], parent: 'session' },
+  { name: 'session:watch', description: CMD_DESC['session:watch'], allowedModes: ['coordinate'], parent: 'session' },
+  { name: 'session:spawn', description: CMD_DESC['session:spawn'], allowedModes: ['coordinate'], parent: 'session' },
+  { name: 'session:register', description: CMD_DESC['session:register'], allowedModes: ['execute', 'coordinate'], parent: 'session', isCore: true, hiddenFromPrompt: true },
+  { name: 'session:complete', description: CMD_DESC['session:complete'], allowedModes: ['execute', 'coordinate'], parent: 'session', isCore: true, hiddenFromPrompt: true },
+  { name: 'session:report:progress', description: CMD_DESC['session:report:progress'], allowedModes: ['execute', 'coordinate'], parent: 'session' },
+  { name: 'session:report:complete', description: CMD_DESC['session:report:complete'], allowedModes: ['execute', 'coordinate'], parent: 'session' },
+  { name: 'session:report:blocked', description: CMD_DESC['session:report:blocked'], allowedModes: ['execute', 'coordinate'], parent: 'session' },
+  { name: 'session:report:error', description: CMD_DESC['session:report:error'], allowedModes: ['execute', 'coordinate'], parent: 'session' },
+  { name: 'session:docs:add', description: CMD_DESC['session:docs:add'], allowedModes: ['execute', 'coordinate'], parent: 'session' },
+  { name: 'session:docs:list', description: CMD_DESC['session:docs:list'], allowedModes: ['execute', 'coordinate'], parent: 'session' },
 
   // Legacy report commands (hidden from prompts, aliased to session:report:*)
-  { name: 'report:progress', description: 'Report work progress', allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
-  { name: 'report:complete', description: 'Report completion', allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
-  { name: 'report:blocked', description: 'Report blocker', allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
-  { name: 'report:error', description: 'Report error', allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
+  { name: 'report:progress', description: CMD_DESC['report:progress'], allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
+  { name: 'report:complete', description: CMD_DESC['report:complete'], allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
+  { name: 'report:blocked', description: CMD_DESC['report:blocked'], allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
+  { name: 'report:error', description: CMD_DESC['report:error'], allowedModes: ['execute', 'coordinate'], parent: 'report', hiddenFromPrompt: true },
 
   // Project commands (coordinate only)
-  { name: 'project:list', description: 'List projects', allowedModes: ['coordinate'], parent: 'project' },
-  { name: 'project:get', description: 'Get project details', allowedModes: ['coordinate'], parent: 'project' },
-  { name: 'project:create', description: 'Create project', allowedModes: ['coordinate'], parent: 'project' },
-  { name: 'project:delete', description: 'Delete project', allowedModes: ['coordinate'], parent: 'project' },
+  { name: 'project:list', description: CMD_DESC['project:list'], allowedModes: ['coordinate'], parent: 'project' },
+  { name: 'project:get', description: CMD_DESC['project:get'], allowedModes: ['coordinate'], parent: 'project' },
+  { name: 'project:create', description: CMD_DESC['project:create'], allowedModes: ['coordinate'], parent: 'project' },
+  { name: 'project:delete', description: CMD_DESC['project:delete'], allowedModes: ['coordinate'], parent: 'project' },
 
   // Mail commands
-  { name: 'mail:send', description: 'Send mail to session(s) or team member', allowedModes: ['execute', 'coordinate'], parent: 'mail' },
-  { name: 'mail:inbox', description: 'List inbox for current session', allowedModes: ['execute', 'coordinate'], parent: 'mail' },
-  { name: 'mail:reply', description: 'Reply to a mail', allowedModes: ['execute', 'coordinate'], parent: 'mail' },
-  { name: 'mail:broadcast', description: 'Send to all sessions', allowedModes: ['coordinate'], parent: 'mail' },
-  { name: 'mail:wait', description: 'Long-poll, block until mail arrives', allowedModes: ['execute', 'coordinate'], parent: 'mail' },
+  { name: 'mail:send', description: CMD_DESC['mail:send'], allowedModes: ['execute', 'coordinate'], parent: 'mail' },
+  { name: 'mail:inbox', description: CMD_DESC['mail:inbox'], allowedModes: ['execute', 'coordinate'], parent: 'mail' },
+  { name: 'mail:reply', description: CMD_DESC['mail:reply'], allowedModes: ['execute', 'coordinate'], parent: 'mail' },
+  { name: 'mail:broadcast', description: CMD_DESC['mail:broadcast'], allowedModes: ['coordinate'], parent: 'mail' },
+  { name: 'mail:wait', description: CMD_DESC['mail:wait'], allowedModes: ['execute', 'coordinate'], parent: 'mail' },
 
   // Init commands (invoked by the spawning system, not by agents directly)
-  { name: 'worker:init', description: 'Initialize execute-mode session', allowedModes: ['execute'], parent: 'worker', hiddenFromPrompt: true },
-  { name: 'orchestrator:init', description: 'Initialize coordinate-mode session', allowedModes: ['coordinate'], parent: 'orchestrator', hiddenFromPrompt: true },
+  { name: 'worker:init', description: CMD_DESC['worker:init'], allowedModes: ['execute'], parent: 'worker', hiddenFromPrompt: true },
+  { name: 'orchestrator:init', description: CMD_DESC['orchestrator:init'], allowedModes: ['coordinate'], parent: 'orchestrator', hiddenFromPrompt: true },
 
   // Team member commands (disabled by default, enabled via team member commandPermissions for recruiters)
-  { name: 'team-member:create', description: 'Create a new team member', allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
-  { name: 'team-member:list', description: 'List team members', allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
-  { name: 'team-member:get', description: 'Get team member details', allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
-  { name: 'team-member:edit', description: 'Edit a team member', allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
+  { name: 'team-member:create', description: CMD_DESC['team-member:create'], allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
+  { name: 'team-member:list', description: CMD_DESC['team-member:list'], allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
+  { name: 'team-member:get', description: CMD_DESC['team-member:get'], allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
+  { name: 'team-member:edit', description: CMD_DESC['team-member:edit'], allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
 
   // Show commands (display content in UI)
-  { name: 'show:modal', description: 'Show HTML modal in UI', allowedModes: ['execute', 'coordinate'], parent: 'show' },
+  { name: 'show:modal', description: CMD_DESC['show:modal'], allowedModes: ['execute', 'coordinate'], parent: 'show' },
 
   // Modal commands (interact with agent modals)
-  { name: 'modal:events', description: 'Listen for modal user actions', allowedModes: ['execute', 'coordinate'], parent: 'modal' },
+  { name: 'modal:events', description: CMD_DESC['modal:events'], allowedModes: ['execute', 'coordinate'], parent: 'modal' },
 
   // Utility commands (internal — called by hooks, not agents)
-  { name: 'track-file', description: 'Track file modification', allowedModes: ['execute', 'coordinate'], isCore: true, hiddenFromPrompt: true },
+  { name: 'track-file', description: CMD_DESC['track-file'], allowedModes: ['execute', 'coordinate'], isCore: true, hiddenFromPrompt: true },
 
   // Developer debug commands
-  { name: 'debug-prompt', description: 'Show system and initial prompts sent to agent', allowedModes: ['execute', 'coordinate'], isCore: true, hiddenFromPrompt: true },
+  { name: 'debug-prompt', description: CMD_DESC['debug-prompt'], allowedModes: ['execute', 'coordinate'], isCore: true, hiddenFromPrompt: true },
 ];
 
 /**
@@ -386,8 +397,8 @@ export function getAvailableCommandsGrouped(permissions: CommandPermissions, exc
  * Print available commands to console
  */
 export function printAvailableCommands(permissions: CommandPermissions): void {
-  console.log('\nAvailable Commands:');
-  console.log('-------------------');
+  console.log(AVAILABLE_COMMANDS_HEADER);
+  console.log(AVAILABLE_COMMANDS_SEPARATOR);
 
   const grouped = getAvailableCommandsGrouped(permissions);
 
@@ -410,7 +421,7 @@ export function printAvailableCommands(permissions: CommandPermissions): void {
   }
 
   if (permissions.hiddenCommands.length > 0) {
-    console.log(`\n  (${permissions.hiddenCommands.length} commands hidden based on mode)`);
+    console.log(`\n  ${HIDDEN_COMMANDS_LABEL(permissions.hiddenCommands.length)}`);
   }
 
   console.log('');
@@ -457,10 +468,7 @@ export async function guardCommand(commandName: string): Promise<void> {
   }
 
   if (!isCommandAllowed(commandName, permissions)) {
-    throw new Error(
-      `Command '${commandName}' is not allowed for ${permissions.mode} mode.\n` +
-        'Run "maestro commands" to see available commands.'
-    );
+    throw new Error(formatCommandNotAllowed(commandName, permissions.mode));
   }
 }
 
@@ -480,67 +488,10 @@ export function guardCommandSync(commandName: string): boolean {
 }
 
 /**
- * Command syntax/usage for each command (maps command name to usage string)
+ * Command syntax/usage for each command (maps command name to usage string).
+ * Imported from prompts module.
  */
-const COMMAND_SYNTAX: Record<string, string> = {
-  'whoami': 'maestro whoami',
-  'status': 'maestro status',
-  'commands': 'maestro commands',
-  'track-file': 'maestro track-file <filePath>',
-  // Legacy report aliases
-  'report:progress': 'maestro report progress "<message>"',
-  'report:complete': 'maestro report complete "<summary>"',
-  'report:blocked': 'maestro report blocked "<reason>"',
-  'report:error': 'maestro report error "<description>"',
-  // Task commands
-  'task:list': 'maestro task list [taskId] [--status <status>] [--priority <priority>]',
-  'task:get': 'maestro task get <taskId>',
-  'task:create': 'maestro task create "<title>" [-d "<description>"] [--priority <high|medium|low>] [--parent <parentId>]',
-  'task:edit': 'maestro task edit <taskId> [--title "<title>"] [--desc "<description>"] [--priority <priority>]',
-  'task:delete': 'maestro task delete <taskId> [--cascade]',
-  'task:update': 'maestro task update <taskId> [--status <status>] [--priority <priority>] [--title "<title>"]',
-  'task:complete': 'maestro task complete <taskId>',
-  'task:block': 'maestro task block <taskId> --reason "<reason>"',
-  'task:children': 'maestro task children <taskId> [--recursive]',
-  'task:tree': 'maestro task tree [--root <taskId>] [--depth <n>] [--status <status>]',
-  'task:report:progress': 'maestro task report progress <taskId> "<message>"',
-  'task:report:complete': 'maestro task report complete <taskId> "<summary>"',
-  'task:report:blocked': 'maestro task report blocked <taskId> "<reason>"',
-  'task:report:error': 'maestro task report error <taskId> "<description>"',
-  'task:docs:add': 'maestro task docs add <taskId> "<title>" --file <filePath>',
-  'task:docs:list': 'maestro task docs list <taskId>',
-  // Session commands
-  'session:list': 'maestro session list [--team-member-id <tmId>] [--active]',
-  'session:info': 'maestro session info',
-  'session:watch': 'maestro session watch <sessionId1>,<sessionId2>,...',
-  'session:spawn': 'maestro session spawn --task <id> [--team-member-id <tmId>] [--model <model>] [--agent-tool <tool>]',
-  'session:register': 'maestro session register',
-  'session:complete': 'maestro session complete',
-  'session:report:progress': 'maestro session report progress "<message>"',
-  'session:report:complete': 'maestro session report complete "<summary>"',
-  'session:report:blocked': 'maestro session report blocked "<reason>"',
-  'session:report:error': 'maestro session report error "<description>"',
-  'session:docs:add': 'maestro session docs add "<title>" --file <filePath>',
-  'session:docs:list': 'maestro session docs list',
-  // Project commands
-  'project:list': 'maestro project list',
-  'project:get': 'maestro project get <projectId>',
-  'project:create': 'maestro project create "<name>"',
-  'project:delete': 'maestro project delete <projectId>',
-  // Mail commands
-  'mail:send': 'maestro mail send [<sessionId1>,<sessionId2>,...] --type <type> --subject "<subject>" [--message "<message>"] [--to-team-member <tmId>]',
-  'mail:inbox': 'maestro mail inbox [--type <type>]',
-  'mail:reply': 'maestro mail reply <mailId> --message "<message>"',
-  'mail:broadcast': 'maestro mail broadcast --type <type> --subject "<subject>" [--message "<message>"]',
-  'mail:wait': 'maestro mail wait [--timeout <ms>] [--since <timestamp>]',
-  // Team member commands
-  'team-member:create': 'maestro team-member create "<name>" --role "<role>" --avatar "<emoji>" --mode <execute|coordinate> [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"]',
-  'team-member:list': 'maestro team-member list',
-  'team-member:get': 'maestro team-member get <teamMemberId>',
-  'team-member:edit': 'maestro team-member edit <teamMemberId> [--name "<name>"] [--role "<role>"] [--avatar "<emoji>"] [--mode <execute|coordinate>] [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"] [--workflow-template <templateId>] [--custom-workflow "<workflow>"]',
-  'worker:init': 'maestro worker init',
-  'orchestrator:init': 'maestro orchestrator init',
-};
+const COMMAND_SYNTAX = CMD_SYNTAX;
 
 /**
  * Get the executable CLI syntax string for a command ID.
@@ -564,7 +515,7 @@ export function getCommandSyntax(commandName: string): string {
  */
 export function generateCommandBrief(permissions: CommandPermissions): string {
   const lines: string[] = [
-    '## Maestro Commands',
+    COMMANDS_REFERENCE_HEADER,
     '',
   ];
 
@@ -598,7 +549,7 @@ export function generateCommandBrief(permissions: CommandPermissions): string {
  * Much shorter than generateCommandBrief() — designed to save context window space.
  */
 export function generateCompactCommandBrief(permissions: CommandPermissions): string {
-  const lines: string[] = ['## Maestro Commands'];
+  const lines: string[] = [COMMANDS_REFERENCE_HEADER];
 
   const grouped = getAvailableCommandsGrouped(permissions, true);
 
@@ -608,19 +559,8 @@ export function generateCompactCommandBrief(permissions: CommandPermissions): st
     lines.push(`maestro {${subCmds}} — Core utilities`);
   }
 
-  // Group definitions for compact rendering
-  const groupMeta: Record<string, { prefix: string; description: string }> = {
-    report: { prefix: 'maestro report', description: 'Status reporting' },
-    task: { prefix: 'maestro task', description: 'Task management' },
-    session: { prefix: 'maestro session', description: 'Session management' },
-    project: { prefix: 'maestro project', description: 'Project management' },
-    mail: { prefix: 'maestro mail', description: 'Mailbox coordination' },
-    'team-member': { prefix: 'maestro team-member', description: 'Team member management' },
-    worker: { prefix: 'maestro worker', description: 'Worker initialization' },
-    orchestrator: { prefix: 'maestro orchestrator', description: 'Orchestrator initialization' },
-    show: { prefix: 'maestro show', description: 'UI display' },
-    modal: { prefix: 'maestro modal', description: 'Modal interaction' },
-  };
+  // Group definitions for compact rendering (imported from prompts)
+  const groupMeta = COMMAND_GROUP_META;
 
   for (const [parent, commands] of Object.entries(grouped)) {
     if (parent === 'root') continue;
@@ -662,7 +602,7 @@ export function generateCompactCommandBrief(permissions: CommandPermissions): st
     }
   }
 
-  lines.push('Run `maestro commands` for full syntax reference.');
+  lines.push(COMMANDS_REFERENCE_FOOTER);
 
   return lines.join('\n');
 }

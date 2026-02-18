@@ -8,6 +8,7 @@ import { SkillLoader } from './skill-loader.js';
 import { WhoamiRenderer } from './whoami-renderer.js';
 import { getPermissionsFromManifest } from './command-permissions.js';
 import { prepareSpawnerEnvironment } from './spawner-env.js';
+import { STDIN_UNAVAILABLE_WARNING } from '../prompts/index.js';
 
 /**
  * Result of spawning an agent session
@@ -200,7 +201,7 @@ export class ClaudeSpawner {
       if (claudeProcess.stdin && !claudeProcess.stdin.destroyed) {
         claudeProcess.stdin.write(text + '\n');
       } else {
-        console.warn('Cannot send input: stdin is not available (using inherit mode) or process has ended');
+        console.warn(STDIN_UNAVAILABLE_WARNING);
       }
     };
 

@@ -9,6 +9,42 @@ import type {
 } from '../types/manifest.js';
 import type { CapabilityOverrides } from '../types/manifest.js';
 import { getWorkflowTemplate } from './workflow-templates.js';
+import {
+  WORKER_PROFILE,
+  COORDINATOR_PROFILE,
+  WORKER_IDENTITY_INSTRUCTION,
+  COORDINATOR_IDENTITY_INSTRUCTION,
+  buildMultiIdentityInstruction,
+  EXECUTE_INIT_PHASE,
+  EXECUTE_WORK_PHASE,
+  EXECUTE_COMPLETE_PHASE,
+  COORDINATE_ANALYZE_PHASE,
+  COORDINATE_DECOMPOSE_PHASE,
+  COORDINATE_SPAWN_PHASE,
+  COORDINATE_MONITOR_PHASE,
+  COORDINATE_RECOVER_PHASE,
+  COORDINATE_VERIFY_PHASE,
+  COORDINATE_COMPLETE_PHASE,
+  COMMANDS_REFERENCE_HEADER,
+  COMMANDS_REFERENCE_CORE,
+  COMMANDS_REFERENCE_TASK_MGMT,
+  COMMANDS_REFERENCE_TASK_REPORT,
+  COMMANDS_REFERENCE_TASK_DOCS,
+  COMMANDS_REFERENCE_SESSION_MGMT,
+  COMMANDS_REFERENCE_SESSION_REPORT,
+  COMMANDS_REFERENCE_SESSION_DOCS,
+  COMMANDS_REFERENCE_SHOW,
+  COMMANDS_REFERENCE_MODAL,
+  COMMANDS_REFERENCE_MAIL_SEND,
+  COMMANDS_REFERENCE_MAIL_INBOX,
+  COMMANDS_REFERENCE_MAIL_REPLY,
+  COMMANDS_REFERENCE_MAIL_WAIT,
+  COMMANDS_REFERENCE_SESSION_COORD,
+  COMMANDS_REFERENCE_SESSION_SPAWN,
+  COMMANDS_REFERENCE_MAIL_BROADCAST,
+  COMMANDS_REFERENCE_FOOTER,
+  ACCEPTANCE_CRITERIA_PLACEHOLDER_PATTERNS,
+} from '../prompts/index.js';
 
 export type PromptMode = 'normal' | 'xml';
 
@@ -160,11 +196,11 @@ export class PromptBuilder {
   private buildIdentity(mode: AgentMode, manifest?: MaestroManifest): string {
     const lines = ['  <identity>'];
     // Use role-specific profile names for clearer identity signal
-    lines.push(`    <profile>${mode === 'execute' ? 'maestro-worker' : 'maestro-coordinator'}</profile>`);
+    lines.push(`    <profile>${mode === 'execute' ? WORKER_PROFILE : COORDINATOR_PROFILE}</profile>`);
     if (mode === 'execute') {
-      lines.push('    <instruction>You are a worker agent in a coordinated multi-agent team. You execute assigned tasks directly and autonomously. You communicate with your coordinator and peers via the Maestro mailbox. Report progress at meaningful milestones and escalate blockers promptly. Follow the workflow phases in order.</instruction>');
+      lines.push(`    <instruction>${WORKER_IDENTITY_INSTRUCTION}</instruction>`);
     } else {
-      lines.push('    <instruction>You are a coordinator agent leading a multi-agent team. You NEVER do tasks directly. Your job is to decompose tasks into subtasks, spawn worker sessions, send them clear directives, monitor their progress via mailbox, unblock workers when needed, and report results. Follow the workflow phases in order.</instruction>');
+      lines.push(`    <instruction>${COORDINATOR_IDENTITY_INSTRUCTION}</instruction>`);
     }
     if (manifest) {
       const projectId = manifest.tasks[0]?.projectId;
@@ -186,7 +222,7 @@ export class PromptBuilder {
       lines.push(`    <name>${this.esc(profiles[0].name)}</name>`);
       lines.push(`    <avatar>${this.esc(profiles[0].avatar)}</avatar>`);
       const roleList = profiles.map(p => p.name).join(', ');
-      lines.push(`    <instructions>You have the combined expertise of: ${roleList}. Apply all domain knowledge when executing your tasks.</instructions>`);
+      lines.push(`    <instructions>${buildMultiIdentityInstruction(roleList)}</instructions>`);
       for (const profile of profiles) {
         lines.push(`    <expertise source="${this.esc(profile.name)}">${this.raw(profile.identity)}</expertise>`);
       }
@@ -551,144 +587,50 @@ export class PromptBuilder {
   private getWorkflowPhases(mode: AgentMode): { name: string; description: string; order: number }[] {
     if (mode === 'execute') {
       return [
-        {
-          name: 'init',
-          order: 1,
-          description:
-            'Read your assigned tasks in the <tasks> block.\n' +
-            'If a <reference_tasks> block is present, you MUST first fetch each reference task and its docs BEFORE starting work:\n' +
-            '  1. maestro task get <refTaskId>  — read the reference task details\n' +
-            '  2. maestro task docs list <refTaskId>  — list and read all attached docs\n' +
-            'Reference task docs contain critical context, examples, or prior work. Read them thoroughly.\n' +
-            'If a <coordinator_directive> is present, read it carefully — it contains your coordinator\'s specific instructions.\n' +
-            'Check `maestro mail inbox` for any initial messages from your coordinator.',
-        },
-        {
-          name: 'execute',
-          order: 2,
-          description:
-            'Work through each task directly — do not decompose or delegate.\n' +
-            'IMPORTANT: Before starting each task, check for new directives from your coordinator:\n' +
-            '  maestro mail inbox\n' +
-            'If you receive a directive that changes your priorities or approach, adjust accordingly.\n' +
-            'If blocked, notify your coordinator:\n' +
-            '  maestro mail send --to-coordinator --type query --subject "<what you need>" --message "<details>"\n' +
-            'Then wait for a response: maestro mail wait --timeout 30000\n' +
-            'After completing each task, report it:\n' +
-            '  maestro task report complete <taskId> "<summary of what was done>"',
-        },
-        {
-          name: 'complete',
-          order: 3,
-          description:
-            'When all tasks are done:\n' +
-            '  maestro session report complete "<summary of all work completed>"',
-        },
+        { name: 'init', order: 1, description: EXECUTE_INIT_PHASE },
+        { name: 'execute', order: 2, description: EXECUTE_WORK_PHASE },
+        { name: 'complete', order: 3, description: EXECUTE_COMPLETE_PHASE },
       ];
     }
 
     // coordinate mode
     return [
-      {
-        name: 'analyze',
-        order: 1,
-        description:
-          'Read all assigned tasks in the <tasks> block. Understand the requirements and acceptance criteria. ' +
-          'If a <reference_tasks> block is present, first fetch each reference task and its docs:\n' +
-          '  1. maestro task get <refTaskId>  — read the reference task details\n' +
-          '  2. maestro task docs list <refTaskId>  — list and read all attached docs\n' +
-          'Reference task docs provide critical context for planning. ' +
-          'You must decompose and delegate — do NOT do them yourself.',
-      },
-      {
-        name: 'decompose',
-        order: 2,
-        description:
-          'Break tasks into small subtasks, each completable by a single worker:\n' +
-          '  maestro task create "<title>" -d "<description with acceptance criteria>" --priority <high|medium|low> --parent <parentTaskId>',
-      },
-      {
-        name: 'spawn',
-        order: 3,
-        description:
-          'Spawn worker sessions for subtasks. IMPORTANT: Include an initial directive with each spawn using --subject and --message. ' +
-          'This ensures workers receive instructions BEFORE they start working:\n' +
-          '  maestro session spawn --task <subtaskId> --subject "<clear directive>" --message "<detailed instructions, context, and guidance>" [--team-member-id <tmId>] [--agent-tool <claude-code|codex|gemini>] [--model <model>]\n' +
-          'You can spawn multiple workers in parallel — do NOT wait for each to finish before spawning the next.\n' +
-          'Collect all session IDs for monitoring.',
-      },
-      {
-        name: 'monitor',
-        order: 4,
-        description:
-          'Monitor workers using an event-driven loop (do NOT poll on a timer):\n' +
-          '  1. maestro mail wait --timeout 60000     — block until a worker message arrives\n' +
-          '  2. maestro mail inbox                    — read ALL pending messages\n' +
-          '  3. maestro task children <parentTaskId>  — check subtask statuses\n' +
-          '  4. React to each message:\n' +
-          '     - status_update → acknowledge, adjust plan if needed\n' +
-          '     - query → answer via maestro mail reply <mailId> --message "<answer>"\n' +
-          '     - blocked → investigate and send a directive to unblock\n' +
-          '  5. Repeat until all subtasks are completed\n' +
-          'If a worker goes silent for too long, send a status query:\n' +
-          '  maestro mail send <sessionId> --type query --subject "Status check" --message "Please report your current progress."',
-      },
-      {
-        name: 'recover',
-        order: 5,
-        description:
-          'If a worker fails or reports blocked:\n' +
-          '  1. Diagnose: maestro task get <taskId> — read error details\n' +
-          '  2. Decide: Can the worker be unblocked with a directive, or does the task need re-spawning?\n' +
-          '  3. Unblock: maestro mail send <sessionId> --type directive --subject "<guidance>" --message "<specific fix instructions>"\n' +
-          '  4. Re-spawn if needed: maestro session spawn --task <taskId> --subject "<new approach>" --message "<revised instructions>" [--team-member-id <tmId>]\n' +
-          '  5. If the issue is systemic, adjust remaining subtasks before proceeding.',
-      },
-      {
-        name: 'verify',
-        order: 6,
-        description:
-          'After workers finish, verify all subtask statuses:\n' +
-          '  maestro task children <parentTaskId>\n' +
-          'Ensure all are completed. Retry any failures or report blocked if unresolvable.',
-      },
-      {
-        name: 'complete',
-        order: 7,
-        description:
-          'When all subtasks are done:\n' +
-          '  maestro task report complete <parentTaskId> "<summary>"\n' +
-          '  maestro session report complete "<overall summary>"',
-      },
+      { name: 'analyze', order: 1, description: COORDINATE_ANALYZE_PHASE },
+      { name: 'decompose', order: 2, description: COORDINATE_DECOMPOSE_PHASE },
+      { name: 'spawn', order: 3, description: COORDINATE_SPAWN_PHASE },
+      { name: 'monitor', order: 4, description: COORDINATE_MONITOR_PHASE },
+      { name: 'recover', order: 5, description: COORDINATE_RECOVER_PHASE },
+      { name: 'verify', order: 6, description: COORDINATE_VERIFY_PHASE },
+      { name: 'complete', order: 7, description: COORDINATE_COMPLETE_PHASE },
     ];
   }
 
   private buildCommandsReference(mode: AgentMode): string {
     const lines = ['  <commands_reference>'];
-    lines.push('    ## Maestro Commands');
-    lines.push('    maestro {whoami|status|commands} — Core utilities');
-    lines.push('    maestro task {list|get|create|edit|delete|children} — Task management');
-    lines.push('    maestro task report {progress|complete|blocked|error} — Task report');
-    lines.push('    maestro task docs {add|list} — Task docs');
-    lines.push('    maestro session {info} — Session management');
-    lines.push('    maestro session report {progress|complete|blocked|error} — Session report');
-    lines.push('    maestro session docs {add|list} — Session docs');
-    lines.push('    maestro show {modal} — UI display');
-    lines.push('    maestro modal {events} — Modal interaction');
+    lines.push(`    ${COMMANDS_REFERENCE_HEADER}`);
+    lines.push(`    ${COMMANDS_REFERENCE_CORE}`);
+    lines.push(`    ${COMMANDS_REFERENCE_TASK_MGMT}`);
+    lines.push(`    ${COMMANDS_REFERENCE_TASK_REPORT}`);
+    lines.push(`    ${COMMANDS_REFERENCE_TASK_DOCS}`);
+    lines.push(`    ${COMMANDS_REFERENCE_SESSION_MGMT}`);
+    lines.push(`    ${COMMANDS_REFERENCE_SESSION_REPORT}`);
+    lines.push(`    ${COMMANDS_REFERENCE_SESSION_DOCS}`);
+    lines.push(`    ${COMMANDS_REFERENCE_SHOW}`);
+    lines.push(`    ${COMMANDS_REFERENCE_MODAL}`);
 
     // Mail commands - available for both modes
-    lines.push('    maestro mail send [<sessionId>,...] --type <type> --subject "<subject>" [--message "<msg>"] [--to-team-member <tmId>] — Send mail');
-    lines.push('    maestro mail inbox [--type <type>] — Check inbox');
-    lines.push('    maestro mail reply <mailId> --message "<msg>" — Reply to mail');
-    lines.push('    maestro mail wait [--timeout <ms>] — Wait for new mail');
+    lines.push(`    ${COMMANDS_REFERENCE_MAIL_SEND}`);
+    lines.push(`    ${COMMANDS_REFERENCE_MAIL_INBOX}`);
+    lines.push(`    ${COMMANDS_REFERENCE_MAIL_REPLY}`);
+    lines.push(`    ${COMMANDS_REFERENCE_MAIL_WAIT}`);
 
     if (mode === 'coordinate') {
-      lines.push('    maestro session {list|spawn} — Session coordination');
-      lines.push('    maestro session spawn --task <id> [--subject "<directive>"] [--message "<instructions>"] [--team-member-id <tmId>] — Spawn with initial directive');
-      lines.push('    maestro mail broadcast --type <type> --subject "<subject>" [--message "<msg>"] — Broadcast to all');
+      lines.push(`    ${COMMANDS_REFERENCE_SESSION_COORD}`);
+      lines.push(`    ${COMMANDS_REFERENCE_SESSION_SPAWN}`);
+      lines.push(`    ${COMMANDS_REFERENCE_MAIL_BROADCAST}`);
     }
 
-    lines.push('    Run `maestro commands` for full syntax reference.');
+    lines.push(`    ${COMMANDS_REFERENCE_FOOTER}`);
     lines.push('  </commands_reference>');
     return lines.join('\n');
   }
@@ -700,14 +642,7 @@ export class PromptBuilder {
       return null;
     }
     // Filter out generic placeholder strings that add no value
-    const PLACEHOLDER_PATTERNS = [
-      'task completion as described',
-      'complete the task',
-      'as described',
-      'n/a',
-      'none',
-      'tbd',
-    ];
+    const PLACEHOLDER_PATTERNS = ACCEPTANCE_CRITERIA_PLACEHOLDER_PATTERNS;
     const meaningful = criteria.filter(c => {
       const lower = c.trim().toLowerCase();
       return lower.length > 0 && !PLACEHOLDER_PATTERNS.includes(lower);

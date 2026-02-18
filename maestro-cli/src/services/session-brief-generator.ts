@@ -1,4 +1,18 @@
 import type { MaestroManifest } from '../types/manifest.js';
+import {
+  MODE_TITLE_EXECUTE,
+  MODE_TITLE_COORDINATE,
+  BRIEF_TITLE_TEMPLATE,
+  BRIEF_PRIMARY_TASK_HEADER,
+  BRIEF_SINGLE_TASK_HEADER,
+  BRIEF_ACCEPTANCE_CRITERIA_HEADER,
+  BRIEF_ACCEPTANCE_CRITERIA_INTRO,
+  BRIEF_ADDITIONAL_TASKS_HEADER,
+  BRIEF_DEPENDENCIES_HEADER,
+  BRIEF_DEPENDENCIES_INTRO,
+  BRIEF_SKILLS_HEADER,
+  BRIEF_SESSION_CONFIG_HEADER,
+} from '../prompts/index.js';
 
 /**
  * SessionBriefGenerator - Generate formatted session brief for display before Claude spawns
@@ -11,7 +25,7 @@ export class SessionBriefGenerator {
    * Generate complete session brief
    */
   generate(manifest: MaestroManifest): string {
-    const modeTitle = manifest.mode === 'execute' ? 'EXECUTE' : 'COORDINATE';
+    const modeTitle = manifest.mode === 'execute' ? MODE_TITLE_EXECUTE : MODE_TITLE_COORDINATE;
     const primaryTask = manifest.tasks[0];
     const isMultiTask = manifest.tasks.length > 1;
 
@@ -50,7 +64,7 @@ export class SessionBriefGenerator {
    * Render header
    */
   private renderHeader(modeTitle: string): string {
-    const title = `MAESTRO ${modeTitle} SESSION BRIEF`;
+    const title = BRIEF_TITLE_TEMPLATE(modeTitle);
     return `
 ╔${'═'.repeat(60)}╗
 ║${this.center(title, 60)}║
@@ -64,8 +78,8 @@ export class SessionBriefGenerator {
    */
   private renderTaskInfo(task: any, isMultiTask: boolean, totalTasks: number): string {
     let section = isMultiTask
-      ? `# Primary Task (1 of ${totalTasks})\n\n`
-      : `# Your Task\n\n`;
+      ? BRIEF_PRIMARY_TASK_HEADER(totalTasks)
+      : BRIEF_SINGLE_TASK_HEADER;
 
     section += `**Title**: ${task.title}\n`;
     section += `**ID**: ${task.id}\n`;
@@ -83,8 +97,8 @@ export class SessionBriefGenerator {
       return '';
     }
 
-    let section = `## Acceptance Criteria\n\n`;
-    section += `When this task is complete, the following must be true:\n\n`;
+    let section = BRIEF_ACCEPTANCE_CRITERIA_HEADER;
+    section += BRIEF_ACCEPTANCE_CRITERIA_INTRO;
 
     for (const criterion of criteria) {
       section += `  ✓ ${criterion}\n`;
@@ -102,7 +116,7 @@ export class SessionBriefGenerator {
       return '';
     }
 
-    let section = `## Additional Tasks\n\n`;
+    let section = BRIEF_ADDITIONAL_TASKS_HEADER;
 
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
@@ -118,8 +132,8 @@ export class SessionBriefGenerator {
    * Render dependencies
    */
   private renderDependencies(dependencies: string[]): string {
-    let section = `## Dependencies\n\n`;
-    section += `This task depends on:\n`;
+    let section = BRIEF_DEPENDENCIES_HEADER;
+    section += BRIEF_DEPENDENCIES_INTRO;
 
     for (const dep of dependencies) {
       section += `  • ${dep}\n`;
@@ -133,7 +147,7 @@ export class SessionBriefGenerator {
    * Render loaded skills
    */
   private renderSkills(skills: string[]): string {
-    let section = `## Skills Loaded\n\n`;
+    let section = BRIEF_SKILLS_HEADER;
 
     for (const skill of skills) {
       section += `  • ${skill}\n`;
@@ -147,7 +161,7 @@ export class SessionBriefGenerator {
    * Render session configuration
    */
   private renderSessionConfig(session: any): string {
-    let section = `## Session Configuration\n\n`;
+    let section = BRIEF_SESSION_CONFIG_HEADER;
     section += `**Model**: ${session.model}\n`;
     section += `**Permission Mode**: ${session.permissionMode}\n`;
 
