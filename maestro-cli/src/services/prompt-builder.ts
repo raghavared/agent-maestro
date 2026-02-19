@@ -199,20 +199,26 @@ export class PromptBuilder {
       const profiles = manifest.teamMemberProfiles.filter(p => p.identity);
       if (profiles.length === 0) return null;
 
+      // P1.3: Combined name from all profiles; use first avatar
+      const combinedName = profiles.map(p => p.name).join(' + ');
+      // P1.5: Use roles (not names) for the expertise instruction
+      const roleList = profiles.map(p => p.role || p.name).join(', ');
+
       const lines = ['  <team_member_identity>'];
-      lines.push(`    <name>${this.esc(profiles[0].name)}</name>`);
+      lines.push(`    <name>${this.esc(combinedName)}</name>`);
       lines.push(`    <avatar>${this.esc(profiles[0].avatar)}</avatar>`);
-      const roleList = profiles.map(p => p.name).join(', ');
+      // P3.1: Combined role element
+      lines.push(`    <role>${this.esc(roleList)}</role>`);
       lines.push(`    <instructions>${buildMultiIdentityInstruction(roleList)}</instructions>`);
       for (const profile of profiles) {
         lines.push(`    <expertise source="${this.esc(profile.name)}">${this.raw(profile.identity)}</expertise>`);
       }
-      // Merge memory from all profiles
-      const allMemory = profiles.flatMap(p => p.memory || []);
+      // Merge memory from all profiles with source attribution (P1.6)
+      const allMemory = profiles.flatMap(p => (p.memory || []).map(m => ({ source: p.name, text: m })));
       if (allMemory.length > 0) {
         lines.push('    <memory>');
         for (const entry of allMemory) {
-          lines.push(`      <entry>${this.raw(entry)}</entry>`);
+          lines.push(`      <entry source="${this.esc(entry.source)}">${this.raw(entry.text)}</entry>`);
         }
         lines.push('    </memory>');
       }
@@ -227,6 +233,10 @@ export class PromptBuilder {
       const lines = ['  <team_member_identity>'];
       lines.push(`    <name>${this.esc(profile.name)}</name>`);
       lines.push(`    <avatar>${this.esc(profile.avatar)}</avatar>`);
+      // P3.1: Add role element
+      if (profile.role) {
+        lines.push(`    <role>${this.esc(profile.role)}</role>`);
+      }
       lines.push(`    <instructions>${this.raw(profile.identity)}</instructions>`);
       if (profile.memory && profile.memory.length > 0) {
         lines.push('    <memory>');
@@ -241,12 +251,16 @@ export class PromptBuilder {
 
     // Original singular fields (backward compat)
     if (!manifest.teamMemberId || !manifest.teamMemberName) return null;
-    if (!manifest.teamMemberIdentity) return null;
+    if (manifest.teamMemberIdentity === undefined || manifest.teamMemberIdentity === null) return null;
 
     const lines = ['  <team_member_identity>'];
     lines.push(`    <name>${this.esc(manifest.teamMemberName)}</name>`);
     if (manifest.teamMemberAvatar) {
       lines.push(`    <avatar>${this.esc(manifest.teamMemberAvatar)}</avatar>`);
+    }
+    // P3.1: Add role element
+    if (manifest.teamMemberRole) {
+      lines.push(`    <role>${this.esc(manifest.teamMemberRole)}</role>`);
     }
     if (manifest.teamMemberIdentity) {
       lines.push(`    <instructions>${this.raw(manifest.teamMemberIdentity)}</instructions>`);
@@ -477,11 +491,17 @@ export class PromptBuilder {
   private buildTeamMembers(teamMembers?: TeamMemberData[], mode?: AgentMode, manifest?: MaestroManifest): string | null {
     if (!teamMembers || teamMembers.length === 0) return null;
 
-    // Filter out team members that form this agent's own identity
+    // Filter out team members that form this agent's own identity (P1.7: hardened)
     const selfIds = new Set<string>();
-    if (manifest?.teamMemberId) selfIds.add(manifest.teamMemberId);
+    // Always include singular teamMemberId if set
+    if (manifest?.teamMemberId) {
+      selfIds.add(manifest.teamMemberId);
+    }
+    // Include all profile IDs (defensive: skip falsy ids)
     if (manifest?.teamMemberProfiles) {
-      for (const p of manifest.teamMemberProfiles) selfIds.add(p.id);
+      for (const p of manifest.teamMemberProfiles) {
+        if (p.id) selfIds.add(p.id);
+      }
     }
     const visibleMembers = selfIds.size > 0
       ? teamMembers.filter(m => !selfIds.has(m.id))
@@ -492,19 +512,32 @@ export class PromptBuilder {
     const lines: string[] = [`  <team_members count="${visibleMembers.length}">`];
     for (const member of visibleMembers) {
       if (mode === 'coordinate') {
-        // Coordinators need full member details for spawning and delegation
+        // Coordinators need full member details for spawning and delegation (P3.2: enriched)
         lines.push(`    <team_member id="${this.esc(member.id)}" name="${this.esc(member.name)}" role="${this.esc(member.role)}">`);
         lines.push(`      <avatar>${this.esc(member.avatar)}</avatar>`);
+        if (member.mode) {
+          lines.push(`      <mode>${this.esc(member.mode)}</mode>`);
+        }
+        if (member.permissionMode) {
+          lines.push(`      <permission_mode>${this.esc(member.permissionMode)}</permission_mode>`);
+        }
         if (member.model) {
           lines.push(`      <model>${this.esc(member.model)}</model>`);
         }
         if (member.agentTool) {
           lines.push(`      <agent_tool>${this.esc(member.agentTool)}</agent_tool>`);
         }
+        if (member.capabilities && Object.keys(member.capabilities).length > 0) {
+          lines.push('      <capabilities>');
+          for (const [cap, enabled] of Object.entries(member.capabilities)) {
+            lines.push(`        <capability name="${this.esc(cap)}" enabled="${enabled}" />`);
+          }
+          lines.push('      </capabilities>');
+        }
         lines.push('    </team_member>');
       } else {
-        // Workers only need a slim roster for peer awareness
-        lines.push(`    <team_member name="${this.esc(member.name)}" role="${this.esc(member.role)}" />`);
+        // Workers need slim roster with ID for peer discovery (P3.3: added id)
+        lines.push(`    <team_member id="${this.esc(member.id)}" name="${this.esc(member.name)}" role="${this.esc(member.role)}" />`);
       }
     }
     lines.push('  </team_members>');
@@ -553,8 +586,9 @@ export class PromptBuilder {
 
     // Phase 3: Check for custom workflow or template from team member (singular)
     if (manifest?.teamMemberCustomWorkflow) {
+      // P1.4: Wrap in <phase> tags for consistency with template-based rendering
       const lines = ['  <workflow>'];
-      lines.push(`    ${manifest.teamMemberCustomWorkflow}`);
+      lines.push(`    <phase name="custom" order="1">${this.raw(manifest.teamMemberCustomWorkflow)}</phase>`);
       lines.push('  </workflow>');
       return lines.join('\n');
     }

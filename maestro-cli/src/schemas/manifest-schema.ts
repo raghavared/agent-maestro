@@ -27,7 +27,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
     },
     strategy: {
       type: 'string',
-      enum: ['simple', 'default', 'intelligent-batching', 'dag'],
+      enum: ['simple', 'tree', 'recruit', 'default', 'intelligent-batching', 'dag'],
       nullable: true,
       description: 'Strategy for this session',
     },
@@ -221,6 +221,12 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
           role: { type: 'string' },
           identity: { type: 'string' },
           avatar: { type: 'string' },
+          mode: {
+            type: 'string',
+            enum: ['execute', 'coordinate'],
+            nullable: true,
+          },
+          permissionMode: { type: 'string', nullable: true },
           skillIds: {
             type: 'array',
             items: { type: 'string' },
@@ -278,6 +284,11 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       type: 'string',
       nullable: true,
       description: 'Team member name',
+    },
+    teamMemberRole: {
+      type: 'string',
+      nullable: true,
+      description: 'Team member role',
     },
     teamMemberAvatar: {
       type: 'string',
@@ -358,6 +369,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
         properties: {
           id: { type: 'string' },
           name: { type: 'string' },
+          role: { type: 'string', nullable: true },
           avatar: { type: 'string' },
           identity: { type: 'string' },
           capabilities: {

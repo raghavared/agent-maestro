@@ -7,7 +7,7 @@
  */
 
 /** Worker strategy type */
-export type WorkerStrategy = 'simple';
+export type WorkerStrategy = 'simple' | 'tree' | 'recruit';
 
 /** Orchestrator strategy type */
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
@@ -71,6 +71,9 @@ export interface MaestroManifest {
   /** Team member name */
   teamMemberName?: string;
 
+  /** Team member role */
+  teamMemberRole?: string;
+
   /** Team member avatar */
   teamMemberAvatar?: string;
 
@@ -116,6 +119,7 @@ export interface MaestroManifest {
 export interface TeamMemberProfile {
   id: string;
   name: string;
+  role?: string;
   avatar: string;
   identity: string;
   capabilities?: Record<string, boolean>;
@@ -144,6 +148,10 @@ export interface TeamMemberData {
   identity: string;
   /** Emoji or icon identifier */
   avatar: string;
+  /** Agent mode (execute or coordinate) */
+  mode?: AgentMode;
+  /** Permission mode for spawning */
+  permissionMode?: string;
   /** Skill IDs assigned to this member */
   skillIds?: string[];
   /** Preferred model */

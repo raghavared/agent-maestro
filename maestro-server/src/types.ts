@@ -36,7 +36,7 @@ export interface TeamMember {
   projectId: string;
   name: string;                        // "Worker", "Coordinator", "Frontend Dev"
   role: string;                        // "Default executor", "Task orchestrator"
-  identity: string;                    // Custom instructions / persona prompt
+  identity?: string;                   // Custom instructions / persona prompt (optional; empty means no persona)
   avatar: string;                      // Emoji: "🔧", "🎯", "🎨"
   model?: string;                      // "opus", "sonnet", "haiku"
   agentTool?: AgentTool;               // "claude-code", "codex", "gemini"
@@ -84,7 +84,7 @@ export interface CreateTeamMemberPayload {
   projectId: string;
   name: string;
   role: string;
-  identity: string;
+  identity?: string;
   avatar: string;
   model?: string;
   agentTool?: AgentTool;
