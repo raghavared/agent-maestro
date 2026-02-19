@@ -28,3 +28,4 @@ fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs" }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+devtools = []

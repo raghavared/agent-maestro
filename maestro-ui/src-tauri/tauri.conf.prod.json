@@ -1,8 +1,8 @@
 {
-  "productName": "Maestro Prod",
+  "productName": "Maestro",
   "identifier": "com.maestro.prod",
   "app": {
-    "windows": [{ "label": "main", "title": "Maestro Prod", "devtools": true }]
+    "windows": [{ "label": "main", "title": "Maestro", "devtools": true }]
   },
   "bundle": {
     "homepage": "https://github.com/subhangR/agent-maestro",

@@ -148,18 +148,26 @@ program.command('debug-prompt')
       } else {
         if (!cmdOpts.initialOnly) {
           if (!cmdOpts.raw) {
+            console.log('=== SYSTEM PROMPT ===');
+          }
+          console.log(systemPrompt);
+          if (!cmdOpts.raw && !cmdOpts.systemOnly) {
+            console.log('');
           }
         }
 
         if (!cmdOpts.systemOnly) {
           if (!cmdOpts.raw) {
+            console.log('=== INITIAL PROMPT ===');
           }
+          console.log(initialPrompt);
         }
       }
     } catch (err: any) {
       if (isJson) {
         outputJSON({ success: false, error: err.message });
       } else {
+        console.error(`Error: ${err.message || String(err)}`);
       }
       process.exit(1);
     }
