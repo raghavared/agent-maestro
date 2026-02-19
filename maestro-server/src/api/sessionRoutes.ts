@@ -728,7 +728,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         for (const tmId of effectiveTeamMemberIds) {
           try {
             const teamMember = await teamMemberRepo.findById(projectId, tmId);
-            if (teamMember) {
+            if (teamMember && teamMember.status !== 'archived') {
               // Mode: use first member's mode (or most capable)
               if (!teamMemberDefaults.mode && teamMember.mode) {
                 teamMemberDefaults.mode = teamMember.mode as AgentMode;
@@ -754,6 +754,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
                 role: teamMember.role,
                 model: teamMember.model,
                 agentTool: teamMember.agentTool,
+                permissionMode: teamMember.permissionMode,
               });
             }
           } catch (err) {

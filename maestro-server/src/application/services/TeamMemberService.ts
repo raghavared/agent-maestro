@@ -48,6 +48,7 @@ export class TeamMemberService {
       model: data.model,
       agentTool: data.agentTool,
       mode: data.mode,
+      permissionMode: data.permissionMode,
       skillIds: data.skillIds || [],
       isDefault: false,
       status: 'active',
@@ -132,11 +133,18 @@ export class TeamMemberService {
     if (updates.agentTool !== undefined) cleanUpdates.agentTool = updates.agentTool;
     if (updates.mode !== undefined) cleanUpdates.mode = updates.mode;
     if (updates.skillIds !== undefined) cleanUpdates.skillIds = updates.skillIds;
-    if (updates.status !== undefined) cleanUpdates.status = updates.status;
+    if (updates.status !== undefined) {
+      // Prevent archiving default members via PATCH bypass
+      if (updates.status === 'archived' && current.isDefault) {
+        throw new ForbiddenError('Cannot archive default team members.');
+      }
+      cleanUpdates.status = updates.status;
+    }
     if (updates.capabilities !== undefined) cleanUpdates.capabilities = updates.capabilities;
     if (updates.commandPermissions !== undefined) cleanUpdates.commandPermissions = updates.commandPermissions;
     if (updates.workflowTemplateId !== undefined) cleanUpdates.workflowTemplateId = updates.workflowTemplateId;
     if (updates.customWorkflow !== undefined) cleanUpdates.customWorkflow = updates.customWorkflow;
+    if (updates.memory !== undefined) cleanUpdates.memory = updates.memory;
 
     // Update through repository (handles both defaults via override and custom via file)
     const updated = await this.teamMemberRepo.update(id, { ...cleanUpdates, projectId });
@@ -275,6 +283,7 @@ export class TeamMemberService {
       role: member.role,
       model: member.model,
       agentTool: member.agentTool,
+      permissionMode: member.permissionMode,
     };
   }
 }

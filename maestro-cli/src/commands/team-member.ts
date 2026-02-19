@@ -264,12 +264,19 @@ export function registerTeamMemberCommands(program: Command) {
                 else { console.error(err.message); process.exit(1); }
             }
 
+            const trimmedEntry = cmdOpts.entry.trim();
+            if (!trimmedEntry) {
+                const err = { message: 'Memory entry cannot be empty.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
             const spinner = !isJson ? ora('Appending to memory...').start() : null;
 
             try {
                 const member: any = await api.post(`/api/team-members/${teamMemberId}/memory`, {
                     projectId,
-                    entries: [cmdOpts.entry.trim()],
+                    entries: [trimmedEntry],
                 });
 
                 spinner?.succeed('Memory entry added');

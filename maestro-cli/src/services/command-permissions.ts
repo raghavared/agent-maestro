@@ -162,7 +162,11 @@ export const DEFAULT_COMMANDS_BY_MODE: Record<string, string[]> = {
     'session:prompt',
     'session:docs:add',
     'session:docs:list',
-    // Team member self-awareness commands
+    // Team member commands (all available to all sessions)
+    'team-member:create',
+    'team-member:list',
+    'team-member:get',
+    'team-member:edit',
     'team-member:update-identity',
     'team-member:memory:append',
     'team-member:memory:list',
@@ -218,10 +222,11 @@ export const DEFAULT_COMMANDS_BY_MODE: Record<string, string[]> = {
     'project:get',
     'project:create',
     'project:delete',
-    // Team member commands (read-only — coordinators need these to pick --team-member-id when spawning)
+    // Team member commands (all available to all sessions)
+    'team-member:create',
     'team-member:list',
     'team-member:get',
-    // Team member self-awareness commands
+    'team-member:edit',
     'team-member:update-identity',
     'team-member:memory:append',
     'team-member:memory:list',

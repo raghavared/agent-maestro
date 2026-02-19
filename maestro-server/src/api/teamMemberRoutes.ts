@@ -201,10 +201,20 @@ export function createTeamMemberRoutes(teamMemberService: TeamMemberService) {
         });
       }
 
+      // Filter out empty entries
+      const validEntries = entries.map((e: string) => (typeof e === 'string' ? e.trim() : '')).filter((e: string) => e.length > 0);
+      if (validEntries.length === 0) {
+        return res.status(400).json({
+          error: true,
+          message: 'All entries are empty after trimming',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
       // Get current member, append to memory, then update
       const current = await teamMemberService.getTeamMember(projectId, id);
       const existingMemory = (current as any).memory || [];
-      const newMemory = [...existingMemory, ...entries];
+      const newMemory = [...existingMemory, ...validEntries];
 
       const member = await teamMemberService.updateTeamMember(projectId, id, { memory: newMemory });
       res.json(member);

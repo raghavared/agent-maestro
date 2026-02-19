@@ -38,10 +38,11 @@ type CreateTeamMemberModalProps = {
     projectId: string;
 };
 
-const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex"];
+const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex", "gemini"];
 const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
     "claude-code": "Claude Code",
     "codex": "OpenAI Codex",
+    "gemini": "Google Gemini",
 };
 
 const MODELS_BY_TOOL: Partial<Record<AgentTool, { value: ModelType; label: string }[]>> = {
@@ -54,11 +55,16 @@ const MODELS_BY_TOOL: Partial<Record<AgentTool, { value: ModelType; label: strin
         { value: "gpt-5.3-codex", label: "GPT 5.3 Codex" },
         { value: "gpt-5.2-codex", label: "GPT 5.2 Codex" },
     ],
+    "gemini": [
+        { value: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview" },
+        { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    ],
 };
 
 const DEFAULT_MODEL: Record<string, string> = {
     "claude-code": "sonnet",
     "codex": "gpt-5.3-codex",
+    "gemini": "gemini-3-pro-preview",
 };
 
 // Style for react-mentions (matching CreateTaskModal)

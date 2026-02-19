@@ -12,9 +12,11 @@ export type AgentMode = 'execute' | 'coordinate';
 export type ClaudeModel = 'haiku' | 'sonnet' | 'opus';
 // Codex models
 export type CodexModel = 'gpt-5.3-codex' | 'gpt-5.2-codex';
+// Gemini models
+export type GeminiModel = 'gemini-3-pro-preview' | 'gemini-2.5-pro';
 // Union of all supported models
-export type ModelType = ClaudeModel | CodexModel;
-export type AgentTool = 'claude-code' | 'codex';
+export type ModelType = ClaudeModel | CodexModel | GeminiModel;
+export type AgentTool = 'claude-code' | 'codex' | 'gemini';
 
 // Strategy types
 export type WorkerStrategy = 'simple' | 'queue';
@@ -30,7 +32,7 @@ export interface TeamMember {
   role: string;
   identity: string;
   avatar: string;
-  model?: ModelType;
+  model?: string;
   agentTool?: AgentTool;
   mode?: AgentMode;
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
@@ -84,6 +86,7 @@ export interface TeamMemberSnapshot {
   role: string;
   model?: string;
   agentTool?: AgentTool;
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
 }
 
 export interface CreateTeamMemberPayload {
