@@ -16,9 +16,8 @@ const CAPABILITY_DEFS = [
 const COMMAND_GROUPS = [
     { key: 'root', label: 'Root', commands: ['whoami', 'status', 'commands'] },
     { key: 'task', label: 'Task', commands: ['task:list', 'task:get', 'task:create', 'task:edit', 'task:delete', 'task:children', 'task:report:progress', 'task:report:complete', 'task:report:blocked', 'task:report:error', 'task:docs:add', 'task:docs:list'] },
-    { key: 'session', label: 'Session', commands: ['session:info', 'session:report:progress', 'session:report:complete', 'session:report:blocked', 'session:report:error', 'session:docs:add', 'session:docs:list'] },
+    { key: 'session', label: 'Session', commands: ['session:siblings', 'session:info', 'session:prompt', 'session:report:progress', 'session:report:complete', 'session:report:blocked', 'session:report:error', 'session:docs:add', 'session:docs:list'] },
     { key: 'team-member', label: 'Team Member', commands: ['team-member:create', 'team-member:list', 'team-member:get'] },
-    { key: 'mail', label: 'Mail', commands: ['mail:send', 'mail:inbox', 'mail:reply'] },
     { key: 'show', label: 'Show', commands: ['show:modal'] },
     { key: 'modal', label: 'Modal', commands: ['modal:events'] },
 ] as const;
@@ -39,10 +38,11 @@ type EditTeamMemberModalProps = {
     projectId: string;
 };
 
-const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex"];
+const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex", "gemini"];
 const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
     "claude-code": "Claude Code",
     "codex": "OpenAI Codex",
+    "gemini": "Google Gemini",
 };
 
 const MODELS_BY_TOOL: Partial<Record<AgentTool, { value: ModelType; label: string }[]>> = {
@@ -55,11 +55,16 @@ const MODELS_BY_TOOL: Partial<Record<AgentTool, { value: ModelType; label: strin
         { value: "gpt-5.3-codex", label: "GPT 5.3 Codex" },
         { value: "gpt-5.2-codex", label: "GPT 5.2 Codex" },
     ],
+    "gemini": [
+        { value: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview" },
+        { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    ],
 };
 
 const DEFAULT_MODEL: Record<string, string> = {
     "claude-code": "sonnet",
     "codex": "gpt-5.3-codex",
+    "gemini": "gemini-3-pro-preview",
 };
 
 // Default configurations for the default team members
@@ -129,6 +134,7 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
     const [workflowTemplateId, setWorkflowTemplateId] = useState<string>('');
     const [useCustomWorkflow, setUseCustomWorkflow] = useState(false);
     const [customWorkflow, setCustomWorkflow] = useState('');
+    const [permissionMode, setPermissionMode] = useState<'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions'>('acceptEdits');
 
     const updateTeamMember = useMaestroStore(s => s.updateTeamMember);
     const workflowTemplates = useMaestroStore(s => s.workflowTemplates);
@@ -182,8 +188,9 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
             setAvatar(teamMember.avatar);
             setIdentity(teamMember.identity);
             setAgentTool(teamMember.agentTool || "claude-code");
-            setModel(teamMember.model || "sonnet");
+            setModel((teamMember.model || "sonnet") as ModelType);
             setMode(teamMember.mode || "execute");
+            setPermissionMode(teamMember.permissionMode || "acceptEdits");
             setError(null);
             setSelectedSkills(teamMember.skillIds || []);
             setActiveTab(null);
@@ -215,6 +222,7 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
             setAgentTool("claude-code");
             setModel("sonnet");
             setMode("execute");
+            setPermissionMode("acceptEdits");
             setError(null);
             setSelectedSkills([]);
             setActiveTab(null);
@@ -250,6 +258,7 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
             setAgentTool(defaults.agentTool);
             setModel(defaults.model);
             setMode(defaults.mode);
+            setPermissionMode('acceptEdits');
             setCapabilities(getDefaultCapabilities(defaults.mode));
             setCommandOverrides({});
             setSelectedSkills([]);
@@ -288,6 +297,7 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
                 agentTool,
                 model,
                 mode,
+                permissionMode,
                 skillIds: selectedSkills,
                 capabilities,
                 ...(cmdPerms && { commandPermissions: cmdPerms }),
@@ -298,7 +308,6 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
             await updateTeamMember(teamMember.id, projectId, payload);
             handleClose();
         } catch (err) {
-            console.error("Failed to update team member:", err);
             setError(err instanceof Error ? err.message : "Failed to update team member");
         } finally {
             setIsUpdating(false);
@@ -445,6 +454,33 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
                         </div>
                     </div>
 
+                    {/* Memory (read-only view) */}
+                    {teamMember.memory && teamMember.memory.length > 0 && (
+                        <div style={{ marginTop: '4px' }}>
+                            <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Memory ({teamMember.memory.length} entries)</div>
+                            <div style={{
+                                maxHeight: '100px',
+                                overflowY: 'auto',
+                                padding: '6px 8px',
+                                border: '1px solid var(--theme-border)',
+                                borderRadius: '3px',
+                                fontSize: '11px',
+                                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                                lineHeight: '1.4',
+                                opacity: 0.8,
+                            }}>
+                                {teamMember.memory.map((entry, i) => (
+                                    <div key={i} style={{ marginBottom: i < teamMember.memory!.length - 1 ? '3px' : 0 }}>
+                                        <span style={{ opacity: 0.5 }}>{i + 1}.</span> {entry}
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="themedFormHint" style={{ marginTop: '2px' }}>
+                                Memory is managed by the agent via CLI commands.
+                            </div>
+                        </div>
+                    )}
+
                 </div>
 
                 {/* Tab Content - between content and footer */}
@@ -461,6 +497,34 @@ export function EditTeamMemberModal({ isOpen, onClose, teamMember, projectId }: 
                         {/* Capabilities & Permissions Tab */}
                         {activeTab === 'permissions' && (
                             <div style={{ overflowX: 'hidden' }}>
+                                {/* Permission Mode */}
+                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Permission Mode</div>
+                                <div style={{ marginBottom: '10px' }}>
+                                    <select
+                                        className="themedFormSelect"
+                                        style={{
+                                            margin: 0,
+                                            padding: '4px 8px',
+                                            fontSize: '11px',
+                                            width: '100%',
+                                            boxSizing: 'border-box' as const,
+                                        }}
+                                        value={permissionMode}
+                                        onChange={(e) => setPermissionMode(e.target.value as typeof permissionMode)}
+                                        disabled={isUpdating}
+                                    >
+                                        <option value="acceptEdits">Accept Edits (default)</option>
+                                        <option value="interactive">Interactive</option>
+                                        <option value="readOnly">Read Only</option>
+                                        <option value="bypassPermissions">Bypass — auto-approves all tool calls</option>
+                                    </select>
+                                    {permissionMode === 'bypassPermissions' && (
+                                        <div style={{ fontSize: '10px', color: 'var(--theme-warning, #e8a030)', marginTop: '4px', fontFamily: '"JetBrains Mono", monospace' }}>
+                                            ⚠ All tool calls will be auto-approved. Use for trusted coordinator roles.
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* Workflow Template */}
                                 <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Workflow</div>
                                 <div style={{ marginBottom: '10px' }}>

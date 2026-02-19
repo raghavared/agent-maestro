@@ -12,7 +12,6 @@ export const COMMAND_GROUP_META: Record<string, { prefix: string; description: s
   task: { prefix: 'maestro task', description: 'Task management' },
   session: { prefix: 'maestro session', description: 'Session management' },
   project: { prefix: 'maestro project', description: 'Project management' },
-  mail: { prefix: 'maestro mail', description: 'Mailbox coordination' },
   'team-member': { prefix: 'maestro team-member', description: 'Team member management' },
   worker: { prefix: 'maestro worker', description: 'Worker initialization' },
   orchestrator: { prefix: 'maestro orchestrator', description: 'Orchestrator initialization' },
@@ -20,7 +19,7 @@ export const COMMAND_GROUP_META: Record<string, { prefix: string; description: s
   modal: { prefix: 'maestro modal', description: 'Modal interaction' },
 };
 
-// ── Static commands reference (used in PromptBuilder.buildCommandsReference) ──
+// ── Static commands reference (used in WhoamiRenderer via generateCompactCommandBrief) ──
 
 export const COMMANDS_REFERENCE_HEADER = '## Maestro Commands';
 
@@ -30,23 +29,17 @@ export const COMMANDS_REFERENCE_TASK_MGMT = 'maestro task {list|get|create|edit|
 export const COMMANDS_REFERENCE_TASK_REPORT = 'maestro task report {progress|complete|blocked|error} — Task report';
 export const COMMANDS_REFERENCE_TASK_DOCS = 'maestro task docs {add|list} — Task docs';
 
-export const COMMANDS_REFERENCE_SESSION_MGMT = 'maestro session {info} — Session management';
+export const COMMANDS_REFERENCE_SESSION_MGMT = 'maestro session {info|prompt} — Session management';
 export const COMMANDS_REFERENCE_SESSION_REPORT = 'maestro session report {progress|complete|blocked|error} — Session report';
 export const COMMANDS_REFERENCE_SESSION_DOCS = 'maestro session docs {add|list} — Session docs';
 
 export const COMMANDS_REFERENCE_SHOW = 'maestro show {modal} — UI display';
 export const COMMANDS_REFERENCE_MODAL = 'maestro modal {events} — Modal interaction';
 
-// Mail commands
-export const COMMANDS_REFERENCE_MAIL_SEND = 'maestro mail send [<sessionId>,...] --type <type> --subject "<subject>" [--message "<msg>"] [--to-team-member <tmId>] — Send mail';
-export const COMMANDS_REFERENCE_MAIL_INBOX = 'maestro mail inbox [--type <type>] — Check inbox';
-export const COMMANDS_REFERENCE_MAIL_REPLY = 'maestro mail reply <mailId> --message "<msg>" — Reply to mail';
-export const COMMANDS_REFERENCE_MAIL_WAIT = 'maestro mail wait [--timeout <ms>] — Wait for new mail';
-
 // Coordinate-only commands
-export const COMMANDS_REFERENCE_SESSION_COORD = 'maestro session {list|spawn} — Session coordination';
+export const COMMANDS_REFERENCE_SESSION_COORD = 'maestro session {list|spawn|logs} — Session coordination';
 export const COMMANDS_REFERENCE_SESSION_SPAWN = 'maestro session spawn --task <id> [--subject "<directive>"] [--message "<instructions>"] [--team-member-id <tmId>] — Spawn with initial directive';
-export const COMMANDS_REFERENCE_MAIL_BROADCAST = 'maestro mail broadcast --type <type> --subject "<subject>" [--message "<msg>"] — Broadcast to all';
+export const COMMANDS_REFERENCE_SESSION_LOGS = 'maestro session logs [ids] [--my-workers] [--last <n>] — Read worker text output from session logs';
 
 export const COMMANDS_REFERENCE_FOOTER = 'Run `maestro commands` for full syntax reference.';
 
@@ -82,9 +75,14 @@ export const CMD_DESC = {
 
   // Session
   'session:list': 'List sessions',
+  'session:siblings': 'List sibling sessions (other active workers spawned by the same coordinator)',
   'session:info': 'Get session info',
-  'session:watch': 'Watch sessions in real-time',
+  'session:watch': 'Watch domain events (status changes, explicit reports) via WebSocket — does NOT show agent text output; use session logs for that',
   'session:spawn': 'Spawn new session',
+  'session:logs': 'Read worker text output from session logs',
+  'session:notify': 'Notify one or more sessions with a PTY wakeup and persistent mail message',
+  'session:mail:read': 'Read unread mail for the current session',
+  'session:prompt': 'Send an input prompt to another active session',
   'session:register': 'Register session',
   'session:complete': 'Complete session',
   'session:report:progress': 'Report work progress',
@@ -106,13 +104,6 @@ export const CMD_DESC = {
   'project:create': 'Create project',
   'project:delete': 'Delete project',
 
-  // Mail
-  'mail:send': 'Send mail to session(s) or team member',
-  'mail:inbox': 'List inbox for current session',
-  'mail:reply': 'Reply to a mail',
-  'mail:broadcast': 'Send to all sessions',
-  'mail:wait': 'Long-poll, block until mail arrives',
-
   // Init
   'worker:init': 'Initialize execute-mode session',
   'orchestrator:init': 'Initialize coordinate-mode session',
@@ -122,6 +113,10 @@ export const CMD_DESC = {
   'team-member:list': 'List team members',
   'team-member:get': 'Get team member details',
   'team-member:edit': 'Edit a team member',
+  'team-member:update-identity': 'Update own identity/persona (self-awareness)',
+  'team-member:memory:append': 'Append an entry to team member memory',
+  'team-member:memory:list': 'List team member memory entries',
+  'team-member:memory:clear': 'Clear team member memory',
 
   // Show/Modal
   'show:modal': 'Show HTML modal in UI',
@@ -163,9 +158,14 @@ export const CMD_SYNTAX: Record<string, string> = {
   'task:docs:list': 'maestro task docs list <taskId>',
   // Session commands
   'session:list': 'maestro session list [--team-member-id <tmId>] [--active]',
-  'session:info': 'maestro session info',
+  'session:siblings': 'maestro session siblings',
+  'session:info': 'maestro session info [sessionId]',
   'session:watch': 'maestro session watch <sessionId1>,<sessionId2>,...',
   'session:spawn': 'maestro session spawn --task <id> [--team-member-id <tmId>] [--model <model>] [--agent-tool <tool>]',
+  'session:logs': 'maestro session logs [ids] [--my-workers] [--last <n>] [--full] [--max-length <n>]',
+  'session:notify': 'maestro session notify <sessionId> [<sessionId2> ...] --message "<brief>" [--detail "<full>"]',
+  'session:mail:read': 'maestro session mail read',
+  'session:prompt': 'maestro session prompt <targetSessionId> --message "<text>" [--mode send|paste]',
   'session:register': 'maestro session register',
   'session:complete': 'maestro session complete',
   'session:report:progress': 'maestro session report progress "<message>"',
@@ -179,17 +179,15 @@ export const CMD_SYNTAX: Record<string, string> = {
   'project:get': 'maestro project get <projectId>',
   'project:create': 'maestro project create "<name>"',
   'project:delete': 'maestro project delete <projectId>',
-  // Mail commands
-  'mail:send': 'maestro mail send [<sessionId1>,<sessionId2>,...] --type <type> --subject "<subject>" [--message "<message>"] [--to-team-member <tmId>]',
-  'mail:inbox': 'maestro mail inbox [--type <type>]',
-  'mail:reply': 'maestro mail reply <mailId> --message "<message>"',
-  'mail:broadcast': 'maestro mail broadcast --type <type> --subject "<subject>" [--message "<message>"]',
-  'mail:wait': 'maestro mail wait [--timeout <ms>] [--since <timestamp>]',
   // Team member commands
   'team-member:create': 'maestro team-member create "<name>" --role "<role>" --avatar "<emoji>" --mode <execute|coordinate> [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"]',
   'team-member:list': 'maestro team-member list',
   'team-member:get': 'maestro team-member get <teamMemberId>',
   'team-member:edit': 'maestro team-member edit <teamMemberId> [--name "<name>"] [--role "<role>"] [--avatar "<emoji>"] [--mode <execute|coordinate>] [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"] [--workflow-template <templateId>] [--custom-workflow "<workflow>"]',
+  'team-member:update-identity': 'maestro team-member update-identity <teamMemberId> --identity "<new instructions>"',
+  'team-member:memory:append': 'maestro team-member memory append <teamMemberId> --entry "<text to remember>"',
+  'team-member:memory:list': 'maestro team-member memory list <teamMemberId>',
+  'team-member:memory:clear': 'maestro team-member memory clear <teamMemberId>',
   'worker:init': 'maestro worker init',
   'orchestrator:init': 'maestro orchestrator init',
 };

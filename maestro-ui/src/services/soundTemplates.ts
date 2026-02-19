@@ -62,8 +62,7 @@ function loadCustomTemplates(): SoundTemplate[] {
     if (stored) {
       return JSON.parse(stored) as SoundTemplate[];
     }
-  } catch (error) {
-    console.error('[SoundTemplates] Failed to load custom templates:', error);
+  } catch {
   }
   return [];
 }
@@ -71,8 +70,7 @@ function loadCustomTemplates(): SoundTemplate[] {
 function saveCustomTemplates(templates: SoundTemplate[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
-  } catch (error) {
-    console.error('[SoundTemplates] Failed to save custom templates:', error);
+  } catch {
   }
 }
 

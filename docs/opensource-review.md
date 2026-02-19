@@ -176,8 +176,6 @@ Agent Maestro is a sophisticated multi-agent task orchestration system with stro
 - Test runner: Jest (configured in `maestro-server/package.json`)
 - Coverage script: `npm run test:coverage`
 - HTML report generation: `npm run test:report`
-- Repository tests: `test/repositories/FileSystemMailRepository.test.ts`
-- Service tests: `test/services/MailService.test.ts`
 
 **CLI Tests** (`maestro-cli/tests/`):
 - Test structure: `unit/`, `integration/`, `commands/`, `schemas/`, `types/`

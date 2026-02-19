@@ -200,8 +200,6 @@ export class ClaudeSpawner {
     const sendInput = (text: string) => {
       if (claudeProcess.stdin && !claudeProcess.stdin.destroyed) {
         claudeProcess.stdin.write(text + '\n');
-      } else {
-        console.warn(STDIN_UNAVAILABLE_WARNING);
       }
     };
 

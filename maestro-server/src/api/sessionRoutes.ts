@@ -4,6 +4,7 @@ import { readFile, mkdir, writeFile } from 'fs/promises';
 import { join, resolve as resolvePath } from 'path';
 import { homedir } from 'os';
 import { SessionService } from '../application/services/SessionService';
+import { LogDigestService } from '../application/services/LogDigestService';
 import { IProjectRepository } from '../domain/repositories/IProjectRepository';
 import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
@@ -11,6 +12,7 @@ import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
 import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
+import { MailService } from '../application/services/MailService';
 
 /**
  * Generate manifest via CLI command
@@ -27,12 +29,10 @@ async function generateManifestViaCLI(options: {
   teamMemberIds?: string[];
   teamMemberId?: string;
   serverUrl?: string;
+  initialDirective?: { subject: string; message: string; fromSessionId?: string };
+  coordinatorSessionId?: string;
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl } = options;
-
-  console.log('\n   📋 GENERATING MANIFEST VIA CLI:');
-  console.log(`      • Session ID: ${sessionId}`);
-  console.log(`      • Mode: ${mode}`);
+  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective } = options;
 
   const sessionDir = process.env.SESSION_DIR
     ? (process.env.SESSION_DIR.startsWith('~') ? join(homedir(), process.env.SESSION_DIR.slice(1)) : process.env.SESSION_DIR)
@@ -68,8 +68,6 @@ async function generateManifestViaCLI(options: {
     maestroBin = 'maestro';
   }
 
-  console.log(`   🔧 CLI: ${maestroBin} ${args.join(' ')}`);
-
   const spawnEnv: Record<string, string | undefined> = { ...process.env };
   // Ensure CLI subprocess can reach the server API (CLI reads MAESTRO_SERVER_URL, not SERVER_URL)
   if (serverUrl) {
@@ -79,6 +77,15 @@ async function generateManifestViaCLI(options: {
     const monorepoRoot = resolvePath(__dirname, '..', '..', '..');
     const nodeModulesBin = join(monorepoRoot, 'node_modules', '.bin');
     spawnEnv.PATH = `${nodeModulesBin}:${spawnEnv.PATH || ''}`;
+  }
+
+  // Pass initial directive as env var for manifest generation
+  if (initialDirective) {
+    spawnEnv.MAESTRO_INITIAL_DIRECTIVE = JSON.stringify(initialDirective);
+  }
+
+  if (options.coordinatorSessionId) {
+    spawnEnv.MAESTRO_COORDINATOR_SESSION_ID = options.coordinatorSessionId;
   }
 
   return new Promise((resolve, reject) => {
@@ -98,7 +105,6 @@ async function generateManifestViaCLI(options: {
         try {
           const manifestContent = await readFile(manifestPath, 'utf-8');
           const manifest = JSON.parse(manifestContent);
-          console.log(`   ✅ Manifest generated: ${manifestPath}`);
           resolve({ manifestPath, manifest });
         } catch (error: any) {
           reject(new Error(`Failed to read manifest: ${error.message}`));
@@ -120,9 +126,11 @@ async function generateManifestViaCLI(options: {
 
 interface SessionRouteDependencies {
   sessionService: SessionService;
+  logDigestService: LogDigestService;
   projectRepo: IProjectRepository;
   taskRepo: ITaskRepository;
   teamMemberRepo: ITeamMemberRepository;
+  mailService: MailService;
   eventBus: IEventBus;
   config: Config;
 }
@@ -131,7 +139,7 @@ interface SessionRouteDependencies {
  * Create session routes using the SessionService.
  */
 export function createSessionRoutes(deps: SessionRouteDependencies) {
-  const { sessionService, projectRepo, taskRepo, teamMemberRepo, eventBus, config } = deps;
+  const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, mailService, eventBus, config } = deps;
   const router = express.Router();
 
   // Error handler helper
@@ -225,6 +233,44 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       await Promise.all(sessions.map(s => enrichSessionWithSnapshots(s)));
 
       res.json(sessions);
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
+  // Log digests — multi-session (coordinator reads all worker logs)
+  router.get('/sessions/log-digests', async (req: Request, res: Response) => {
+    try {
+      const parentSessionId = req.query.parentSessionId as string | undefined;
+      const sessionIds = req.query.sessionIds as string | undefined;
+      const last = parseInt(req.query.last as string || '5', 10);
+      const maxLength = req.query.maxLength !== undefined ? parseInt(req.query.maxLength as string, 10) : undefined;
+
+      if (parentSessionId) {
+        const digests = await logDigestService.getWorkerDigests(parentSessionId, { last, maxLength });
+        return res.json(digests);
+      }
+
+      if (sessionIds) {
+        const ids = sessionIds.split(',').map(s => s.trim()).filter(Boolean);
+        const digests = await logDigestService.getDigests(ids, { last, maxLength });
+        return res.json(digests);
+      }
+
+      return res.json([]);
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
+  // Log digest — single session
+  router.get('/sessions/:id/log-digest', async (req: Request, res: Response) => {
+    try {
+      const sessionId = req.params.id as string;
+      const last = parseInt(req.query.last as string || '5', 10);
+      const maxLength = req.query.maxLength !== undefined ? parseInt(req.query.maxLength as string, 10) : undefined;
+      const digest = await logDigestService.getDigest(sessionId, { last, maxLength });
+      res.json(digest);
     } catch (err: any) {
       handleError(err, res);
     }
@@ -426,7 +472,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       };
 
       await eventBus.emit('session:modal', modalEvent);
-      console.log(`📋 Modal ${modalId} sent to UI for session ${sessionId}`);
 
       res.json({
         success: true,
@@ -464,7 +509,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       };
 
       await eventBus.emit('session:modal_action', actionEvent);
-      console.log(`📋 Modal action "${action}" from ${modalId} → session ${sessionId}`);
 
       res.json({ success: true, modalId, action });
     } catch (err: any) {
@@ -483,10 +527,80 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         modalId,
         timestamp: Date.now(),
       });
-      console.log(`📋 Modal ${modalId} closed by user → session ${sessionId}`);
 
       res.json({ success: true, modalId });
     } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
+  // Send a prompt to a session's terminal (allowed for any existing session; UI-side gating handles terminal availability)
+  router.post('/sessions/:id/prompt', async (req: Request, res: Response) => {
+    try {
+      const { content, mode = 'send', senderSessionId } = req.body;
+
+      if (!content || typeof content !== 'string') {
+        return res.status(400).json({ error: 'content is required and must be a string' });
+      }
+      if (!['send', 'paste'].includes(mode)) {
+        return res.status(400).json({ error: 'mode must be "send" or "paste"' });
+      }
+
+      const sessionId = req.params.id as string;
+      const session = await sessionService.getSession(sessionId);
+
+      // Allow prompts to any existing session — the UI-side gating (!s.exited)
+      // determines whether the terminal is still open. A session can be "completed"
+      // in maestro status but still have its terminal running in the UI.
+
+      await eventBus.emit('session:prompt_send', {
+        sessionId,
+        content,
+        mode,
+        senderSessionId: senderSessionId || null,
+        timestamp: Date.now(),
+      });
+
+      await sessionService.addTimelineEvent(
+        sessionId,
+        'prompt_received',
+        `Received prompt from session ${senderSessionId || 'unknown'}: "${content.substring(0, 100)}${content.length > 100 ? '...' : ''}"`,
+        undefined,
+        { senderSessionId, mode }
+      );
+
+      res.json({ success: true });
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
+  // POST /api/sessions/:id/mail — notify a session (store mail + PTY inject)
+  router.post('/sessions/:id/mail', async (req: Request, res: Response) => {
+    try {
+      const toSessionId = req.params.id as string;
+      const { fromSessionId, fromName, message, detail } = req.body;
+      if (!fromSessionId || !fromName || !message) {
+        return res.status(400).json({ error: true, message: 'fromSessionId, fromName, and message are required' });
+      }
+      const mail = await mailService.notify({ fromSessionId, fromName, toSessionId, message, detail });
+      res.json({ success: true, mailId: mail.id });
+    } catch (err: any) {
+      if (err.code === 'NOT_FOUND') return res.status(404).json({ error: true, message: err.message });
+      handleError(err, res);
+    }
+  });
+
+  // GET /api/sessions/:id/mail — read unread mail for session :id
+  router.get('/sessions/:id/mail', async (req: Request, res: Response) => {
+    try {
+      const toSessionId = req.params.id as string;
+      const targetSession = await sessionService.getSession(toSessionId);
+      const parentSessionId = targetSession.parentSessionId || toSessionId;
+      const messages = await mailService.readMail(toSessionId, parentSessionId);
+      res.json(messages);
+    } catch (err: any) {
+      if (err.code === 'NOT_FOUND') return res.status(404).json({ error: true, message: err.message });
       handleError(err, res);
     }
   });
@@ -508,6 +622,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         teamMemberId,           // Single team member assigned to this task (backward compat)
         agentTool: requestedAgentTool,   // Override agent tool for this run
         model: requestedModel,           // Override model for this run
+        initialDirective,                // { subject, message, fromSessionId } for guaranteed delivery
       } = req.body;
 
       // Resolve effective team member IDs from request params
@@ -560,7 +675,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
               message: `Parent session ${sessionId} not found`
             });
           }
-          console.log(`   ✓ Parent session verified: ${sessionId}`);
         } catch (err: any) {
           return res.status(404).json({
             error: true,
@@ -601,13 +715,12 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         }
         if (taskTeamMemberIds.length > 0) {
           effectiveTeamMemberIds = taskTeamMemberIds;
-          console.log(`   ℹ Resolved team member IDs from tasks: [${taskTeamMemberIds.join(', ')}]`);
         }
       }
 
       // Fetch team member defaults from the effective members (after task-level fallback)
       const MODEL_POWER: Record<string, number> = { 'opus': 3, 'sonnet': 2, 'haiku': 1 };
-      let teamMemberDefaults: { mode?: AgentMode; model?: string; agentTool?: AgentTool } = {};
+      let teamMemberDefaults: { mode?: AgentMode; model?: string; agentTool?: AgentTool; permissionMode?: string } = {};
       const teamMemberSnapshots: TeamMemberSnapshot[] = [];
 
       if (effectiveTeamMemberIds.length > 0 && projectId) {
@@ -615,7 +728,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         for (const tmId of effectiveTeamMemberIds) {
           try {
             const teamMember = await teamMemberRepo.findById(projectId, tmId);
-            if (teamMember) {
+            if (teamMember && teamMember.status !== 'archived') {
               // Mode: use first member's mode (or most capable)
               if (!teamMemberDefaults.mode && teamMember.mode) {
                 teamMemberDefaults.mode = teamMember.mode as AgentMode;
@@ -630,6 +743,10 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
               if (!teamMemberDefaults.agentTool && teamMember.agentTool) {
                 teamMemberDefaults.agentTool = teamMember.agentTool;
               }
+              // PermissionMode: first non-null wins
+              if (!teamMemberDefaults.permissionMode && teamMember.permissionMode) {
+                teamMemberDefaults.permissionMode = teamMember.permissionMode;
+              }
               // Build snapshot for UI display
               teamMemberSnapshots.push({
                 name: teamMember.name,
@@ -637,11 +754,10 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
                 role: teamMember.role,
                 model: teamMember.model,
                 agentTool: teamMember.agentTool,
+                permissionMode: teamMember.permissionMode,
               });
-              console.log(`   ✓ Team member resolved: ${teamMember.name} (mode=${teamMember.mode})`);
             }
           } catch (err) {
-            console.warn(`   ⚠ Failed to fetch team member ${tmId}:`, err);
           }
         }
       }
@@ -660,14 +776,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       // Resolve model and agentTool: request overrides > team member defaults
       const resolvedModel = requestedModel || teamMemberDefaults.model;
       const resolvedAgentToolFromMember = requestedAgentTool || teamMemberDefaults.agentTool;
-
-      console.log('\n🚀 SESSION SPAWN EVENT RECEIVED');
-      console.log(`   • projectId: ${projectId}`);
-      console.log(`   • taskIds: [${taskIds?.join(', ') || 'NONE'}]`);
-      console.log(`   • mode: ${resolvedMode}`);
-      console.log(`   • model: ${resolvedModel || '(not set - will default to sonnet)'}`);
-      console.log(`   • agentTool: ${resolvedAgentToolFromMember || '(not set - will default to claude-code)'}`);
-      console.log(`   • teamMemberIds: [${effectiveTeamMemberIds.join(', ') || 'none'}]`);
 
       // Get project
       const project = await projectRepo.findById(projectId);
@@ -712,8 +820,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         }
       }
 
-      console.log(`   ✓ Session created: ${session.id}`);
-
       // Collect referenceTaskIds from all tasks being spawned
       const allReferenceTaskIds: string[] = [];
       for (const taskId of taskIds) {
@@ -747,12 +853,14 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : undefined,
           // Pass server URL so CLI subprocess can reach the API
           serverUrl: config.serverUrl,
+          // Pass initial directive for guaranteed delivery in manifest
+          initialDirective: initialDirective || undefined,
+          coordinatorSessionId: sessionId || undefined,
         });
         manifestPath = result.manifestPath;
         manifest = result.manifest;
 
       } catch (manifestError: any) {
-        console.error(`   ❌ Manifest generation failed: ${manifestError.message}`);
         return res.status(500).json({
           error: true,
           code: 'manifest_generation_failed',
@@ -817,14 +925,11 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       };
 
       await eventBus.emit('session:spawn', spawnEvent);
-      console.log(`   ✓ session:spawn event emitted (source: ${spawnSource}${sessionId ? `, parent: ${sessionId}` : ''})`);
 
       // Emit task:session_added events
       for (const taskId of taskIds) {
         await eventBus.emit('task:session_added', { taskId, sessionId: session.id });
       }
-
-      console.log('✅ SESSION SPAWN COMPLETED\n');
 
       res.status(201).json({
         success: true,
@@ -834,7 +939,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         session: { ...session, env: finalEnvVars }
       });
     } catch (err: any) {
-      console.error(`❌ SESSION SPAWN ERROR: ${err.message}`);
       res.status(500).json({
         error: true,
         code: 'spawn_error',

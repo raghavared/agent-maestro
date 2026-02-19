@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { invoke } from '@tauri-apps/api/core';
 import { maestroClient } from '../utils/MaestroClient';
 import type {
   MaestroTask,
@@ -99,7 +100,6 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
   const normalizeSession = (session: any): any => {
     if (!session) return session;
     if (!Array.isArray(session.taskIds)) {
-      console.warn('[useMaestroStore] Session missing taskIds, defaulting to []:', session.id);
       session.taskIds = [];
     }
     if (!Array.isArray(session.timeline)) {
@@ -109,7 +109,6 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       session.events = [];
     }
     if (!session.status) {
-      console.warn('[useMaestroStore] Session missing status, defaulting to "spawning":', session.id);
       session.status = 'spawning';
     }
     return session;
@@ -134,20 +133,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
   const handleMessage = (event: MessageEvent) => {
     try {
       const message = JSON.parse(event.data);
-      const timestamp = new Date().toISOString();
       const shouldLogDetails = !HIGH_FREQUENCY_EVENTS.has(message.event);
-
-      // Log incoming event with full details
-      if (shouldLogDetails) {
-        console.log('\n' + '━'.repeat(80));
-        console.log(`📥 CLIENT EVENT RECEIVED`);
-        console.log('━'.repeat(80));
-        console.log(`🕐 Timestamp: ${timestamp}`);
-        console.log(`📡 Event Type: ${message.event}`);
-        console.log('\n📦 Event Payload:');
-        console.log(JSON.stringify(message.data, null, 2));
-        console.log('━'.repeat(80) + '\n');
-      }
 
       switch (message.event) {
         case 'task:created':
@@ -176,9 +162,6 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         }
         case 'session:updated': {
           const updatedSession = normalizeSession(message.data);
-          if (updatedSession.needsInput) {
-            console.log('[useMaestroStore] session:updated has needsInput:', updatedSession.id, updatedSession.needsInput);
-          }
           set((prev) => ({ sessions: new Map(prev.sessions).set(updatedSession.id, updatedSession) }));
 
           // Trigger 2: If needsInput just became active and user is viewing this session, auto-clear
@@ -210,7 +193,6 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         case 'session:spawn': {
           const session = normalizeSession(message.data.session || message.data);
           if (!session?.id) {
-            console.error('session:spawn event missing session id', message.data);
             break;
           }
           set((prev) => ({ sessions: new Map(prev.sessions).set(session.id, session) }));
@@ -225,6 +207,34 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           });
           // Play sound for session creation
           playEventSound('session:created');
+          break;
+        }
+        case 'session:prompt_send': {
+          const { sessionId: maestroSessionId, content, mode: promptMode } = message.data;
+          const sessions = useSessionStore.getState().sessions;
+          const terminalSession = sessions.find(
+            (s) => s.maestroSessionId === maestroSessionId && !s.exited
+          );
+          if (!terminalSession) {
+            break;
+          }
+          // Write directly to PTY with 'system' source to distinguish programmatic input from user keyboard input
+          const ptyId = terminalSession.id;
+          const text = content.replace(/[\r\n]+$/, '');
+          (async () => {
+            try {
+              if (promptMode === 'paste') {
+                await invoke('write_to_session', { id: ptyId, data: text, source: 'system' });
+              } else {
+                if (text) {
+                  await invoke('write_to_session', { id: ptyId, data: text, source: 'system' });
+                  await new Promise(r => setTimeout(r, 200));
+                }
+                await invoke('write_to_session', { id: ptyId, data: '\r', source: 'system' });
+              }
+            } catch {
+            }
+          })();
           break;
         }
         case 'task:session_added':
@@ -249,13 +259,10 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         case 'notify:session_failed':
         case 'notify:needs_input':
         case 'notify:progress':
-          console.log(`[useMaestroStore] 🔔 NOTIFY EVENT RECEIVED: ${message.event}`, JSON.stringify(message.data));
-          console.log(`[useMaestroStore] 🔔 Playing sound for: ${message.event}`);
           playEventSound(message.event as any);
           break;
         case 'session:modal': {
           const modalData = message.data as AgentModal;
-          console.log(`[useMaestroStore] 📋 MODAL RECEIVED: ${modalData.modalId} (${modalData.title})`);
           get().showAgentModal(modalData);
           break;
         }
@@ -279,44 +286,22 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           break;
         }
       }
-    } catch (err) {
-      console.error('\n' + '⚠️'.repeat(40));
-      console.error('❌ CLIENT ERROR: Failed to handle WebSocket message');
-      console.error('⚠️'.repeat(40));
-      console.error('Error:', err);
-      console.error('Raw event data:', event.data);
-      console.error('⚠️'.repeat(40) + '\n');
+    } catch {
     }
   };
 
   const connectGlobal = () => {
-    console.log('[useMaestroStore.connectGlobal] Attempting to connect to WebSocket...');
-    console.log('[useMaestroStore.connectGlobal] WS_URL:', WS_URL);
-    console.log('[useMaestroStore.connectGlobal] globalConnecting:', globalConnecting);
-    console.log('[useMaestroStore.connectGlobal] globalWs state:', globalWs?.readyState);
-
     if (globalConnecting || (globalWs && globalWs.readyState === WebSocket.OPEN)) {
-      console.log('[useMaestroStore.connectGlobal] Skipping - already connecting or connected');
       return;
     }
     globalConnecting = true;
     if (globalWs) { globalWs.close(); globalWs = null; }
 
     try {
-      console.log('[useMaestroStore.connectGlobal] Creating new WebSocket connection...');
       const ws = new WebSocket(WS_URL);
       globalWs = ws;
-      console.log('[useMaestroStore.connectGlobal] WebSocket object created');
 
       ws.onopen = () => {
-        const timestamp = new Date().toISOString();
-        console.log('\n' + '✅'.repeat(40));
-        console.log(`🔌 CLIENT WEBSOCKET CONNECTED`);
-        console.log('✅'.repeat(40));
-        console.log(`🕐 Timestamp: ${timestamp}`);
-        console.log(`🌐 URL: ${WS_URL}`);
-        console.log(`🔄 Reconnect attempts: ${globalReconnectAttempts}`);
-        console.log('✅'.repeat(40) + '\n');
         set({ wsConnected: true });
         globalConnecting = false;
         globalReconnectAttempts = 0;
@@ -330,27 +315,19 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
 
       ws.onmessage = handleMessage;
 
-      ws.onerror = (err) => {
-        const timestamp = new Date().toISOString();
-        console.error('\n' + '❌'.repeat(40));
-        console.error(`🔌 CLIENT WEBSOCKET ERROR`);
-        console.error('❌'.repeat(40));
-        console.error(`🕐 Timestamp: ${timestamp}`);
-        console.error('Error:', err);
-        console.error('❌'.repeat(40) + '\n');
+      ws.onerror = () => {
       };
 
       ws.onclose = () => {
-        const timestamp = new Date().toISOString();
+        // Guard: if this WebSocket is no longer the active one (replaced by a newer
+        // connection or intentionally destroyed), ignore this close event entirely.
+        // Without this guard, React StrictMode's double-invoke of effects creates
+        // a stale ws1 whose onclose fires after ws2 is established, nulling globalWs
+        // and scheduling a spurious reconnect (ws3). This causes the server to
+        // broadcast session:prompt_send to ws1+ws2+ws3, tripling PTY injection.
+        if (globalWs !== ws) return;
+
         const delay = Math.min(1000 * Math.pow(2, globalReconnectAttempts), 30000);
-        console.log('\n' + '⚠️'.repeat(40));
-        console.log(`🔌 CLIENT WEBSOCKET DISCONNECTED`);
-        console.log('⚠️'.repeat(40));
-        console.log(`🕐 Timestamp: ${timestamp}`);
-        console.log(`🌐 URL: ${WS_URL}`);
-        console.log(`🔄 Reconnect attempts: ${globalReconnectAttempts}`);
-        console.log(`⏱️  Reconnecting in: ${delay}ms`);
-        console.log('⚠️'.repeat(40) + '\n');
         set({ wsConnected: false });
         globalConnecting = false;
         globalWs = null;
@@ -360,15 +337,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           connectGlobal();
         }, delay);
       };
-    } catch (err) {
-      const timestamp = new Date().toISOString();
-      console.error('\n' + '❌'.repeat(40));
-      console.error('🔌 FAILED TO CREATE WEBSOCKET CONNECTION');
-      console.error('❌'.repeat(40));
-      console.error(`🕐 Timestamp: ${timestamp}`);
-      console.error('🌐 URL:', WS_URL);
-      console.error('Error:', err);
-      console.error('❌'.repeat(40) + '\n');
+    } catch {
       globalConnecting = false;
     }
   };
@@ -473,9 +442,29 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       }
     },
 
-    createTask: async (data) => await maestroClient.createTask(data),
-    updateTask: async (taskId, updates) => await maestroClient.updateTask(taskId, updates),
-    deleteTask: async (taskId) => { await maestroClient.deleteTask(taskId); },
+    createTask: async (data) => {
+      const task = await maestroClient.createTask(data);
+      // Optimistic update — add task to store immediately instead of waiting for WebSocket event
+      if (!task.taskSessionStatuses || typeof task.taskSessionStatuses !== 'object') {
+        task.taskSessionStatuses = {};
+      }
+      set((prev) => ({ tasks: new Map(prev.tasks).set(task.id, task) }));
+      return task;
+    },
+    updateTask: async (taskId, updates) => {
+      const task = await maestroClient.updateTask(taskId, updates);
+      // Optimistic update — apply changes immediately instead of waiting for WebSocket event
+      if (!task.taskSessionStatuses || typeof task.taskSessionStatuses !== 'object') {
+        task.taskSessionStatuses = {};
+      }
+      set((prev) => ({ tasks: new Map(prev.tasks).set(task.id, task) }));
+      return task;
+    },
+    deleteTask: async (taskId) => {
+      await maestroClient.deleteTask(taskId);
+      // Optimistic update — remove from store immediately instead of waiting for WebSocket event
+      set((prev) => { const tasks = new Map(prev.tasks); tasks.delete(taskId); return { tasks }; });
+    },
     createMaestroSession: async (data) => await maestroClient.createSession(data),
     updateMaestroSession: async (sessionId, updates) => await maestroClient.updateSession(sessionId, updates),
     deleteMaestroSession: async (sessionId) => { await maestroClient.deleteSession(sessionId); },
@@ -495,9 +484,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         return { sessions };
       });
       // PATCH server
-      maestroClient.updateSession(maestroSessionId, { needsInput: { active: false } }).catch((err) => {
-        console.error('[useMaestroStore] Failed to clear needsInput:', err);
-      });
+      maestroClient.updateSession(maestroSessionId, { needsInput: { active: false } }).catch(() => {});
     },
 
     checkAndClearNeedsInputForActiveSession: () => {
@@ -547,8 +534,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           taskOrdering.set(projectId, ordering.orderedIds);
           return { taskOrdering };
         });
-      } catch (err) {
-        console.error('[useMaestroStore] Failed to fetch task ordering:', err);
+      } catch {
       }
     },
 
@@ -560,8 +546,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           sessionOrdering.set(projectId, ordering.orderedIds);
           return { sessionOrdering };
         });
-      } catch (err) {
-        console.error('[useMaestroStore] Failed to fetch session ordering:', err);
+      } catch {
       }
     },
 
@@ -574,8 +559,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       });
       try {
         await maestroClient.saveOrdering(projectId, 'task', orderedIds);
-      } catch (err) {
-        console.error('[useMaestroStore] Failed to save task ordering:', err);
+      } catch {
       }
     },
 
@@ -588,8 +572,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       });
       try {
         await maestroClient.saveOrdering(projectId, 'session', orderedIds);
-      } catch (err) {
-        console.error('[useMaestroStore] Failed to save session ordering:', err);
+      } catch {
       }
     },
 
@@ -663,8 +646,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         // Persist to localStorage
         try {
           localStorage.setItem('maestro:lastUsedTeamMember', JSON.stringify(lastUsedTeamMember));
-        } catch (err) {
-          console.error('[useMaestroStore] Failed to persist lastUsedTeamMember:', err);
+        } catch {
         }
         return { lastUsedTeamMember };
       });
@@ -685,7 +667,15 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     },
     destroyWebSocket: () => {
       if (globalReconnectTimeout) { clearTimeout(globalReconnectTimeout); globalReconnectTimeout = null; }
-      if (globalWs) { globalWs.close(); globalWs = null; }
+      if (globalWs) {
+        // Null out handlers before closing so the stale WebSocket cannot:
+        // 1. Process any in-flight messages (onmessage → write_to_session)
+        // 2. Schedule a spurious reconnect when its close handshake completes (onclose)
+        globalWs.onmessage = null;
+        globalWs.onclose = null;
+        globalWs.close();
+        globalWs = null;
+      }
       globalConnecting = false;
     },
   };

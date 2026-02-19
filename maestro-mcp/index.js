@@ -447,5 +447,3 @@ server.setRequestHandler("tools/call", async (request) => {
 // Start the server
 const transport = new StdioServerTransport();
 server.connect(transport);
-
-console.error("Maestro MCP Server running on stdio");

@@ -9,6 +9,7 @@ import { executeReport } from './report.js';
 import ora from 'ora';
 import { readFileSync } from 'fs';
 import WebSocket from 'ws';
+import chalk from 'chalk';
 
 /**
  * Build comprehensive session context for spawning
@@ -165,16 +166,74 @@ export function registerSessionCommands(program: Command) {
             }
         });
 
-    session.command('info')
-        .description('Get current session info')
+    session.command('siblings')
+        .description('List sibling sessions — other active sessions spawned by the same coordinator')
         .action(async () => {
+            await guardCommand('session:siblings');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+
+            const coordinatorId = config.coordinatorSessionId;
+            if (!coordinatorId) {
+                if (isJson) {
+                    outputJSON([]);
+                } else {
+                    console.log('No coordinator session found (not spawned by a coordinator). No siblings.');
+                }
+                return;
+            }
+
+            const myId = config.sessionId;
+            const projectId = globalOpts.project || config.projectId;
+
+            const spinner = !isJson ? ora('Fetching sibling sessions...').start() : null;
+            try {
+                const queryParts = [`parentSessionId=${coordinatorId}`, 'active=true'];
+                if (projectId) queryParts.push(`projectId=${projectId}`);
+
+                let sessions: any[] = await api.get(`/api/sessions?${queryParts.join('&')}`);
+
+                // Exclude this session from the list
+                if (myId) sessions = sessions.filter((s: any) => s.id !== myId);
+
+                spinner?.stop();
+
+                if (isJson) {
+                    outputJSON(sessions);
+                } else {
+                    if (sessions.length === 0) {
+                        console.log('No sibling sessions found.');
+                    } else {
+                        outputTable(
+                            ['ID', 'Name', 'Role', 'Status', 'Tasks'],
+                            sessions.map((s: any) => [
+                                s.id,
+                                s.name,
+                                s.teamMemberSnapshot?.name || s.teamMemberId || '-',
+                                s.status,
+                                (s.taskIds || []).join(', ') || '-',
+                            ])
+                        );
+                        console.log('\nTo message a sibling:');
+                        console.log('  maestro session prompt <ID> --message "<your message>"');
+                    }
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    session.command('info [sessionId]')
+        .description('Get session info (defaults to current session, or specify a session ID)')
+        .action(async (targetSessionId?: string) => {
             await guardCommand('session:info');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
-            const sessionId = config.sessionId;
+            const sessionId = targetSessionId || config.sessionId;
 
             if (!sessionId) {
-                const err = { message: 'No session context found (MAESTRO_SESSION_ID not set).' };
+                const err = { message: 'No session context found. Provide a session ID argument or set MAESTRO_SESSION_ID.' };
                 if (isJson) { outputErrorJSON(err); process.exit(1); }
                 else { console.error(err.message); process.exit(1); }
             }
@@ -481,7 +540,7 @@ export function registerSessionCommands(program: Command) {
         .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)')
         .option('--model <model>', 'Model to use (e.g. sonnet, opus, haiku, or native model names)')
         .option('--team-member-id <id>', 'Team member ID to run this session')
-        .option('--subject <subject>', 'Send initial directive mail with this subject (sent before worker starts)')
+        .option('--subject <subject>', 'Initial directive subject (embedded in manifest for guaranteed delivery)')
         .option('--message <message>', 'Initial directive message body (requires --subject)')
         .action(async (cmdOpts) => {
             await guardCommand('session:spawn');
@@ -536,6 +595,15 @@ export function registerSessionCommands(program: Command) {
                     }
                 };
 
+                // Include initial directive if --subject is set
+                if (cmdOpts.subject) {
+                    spawnRequest.initialDirective = {
+                        subject: cmdOpts.subject,
+                        message: cmdOpts.message || '',
+                        fromSessionId: config.sessionId || undefined,
+                    };
+                }
+
                 // Include team member ID if specified
                 if (cmdOpts.teamMemberId) {
                     spawnRequest.teamMemberId = cmdOpts.teamMemberId;
@@ -554,24 +622,6 @@ export function registerSessionCommands(program: Command) {
                 const spinner3 = !isJson ? ora('Requesting session spawn...').start() : null;
                 const result: any = await api.post('/api/sessions/spawn', spawnRequest);
                 spinner3?.succeed('Spawn request sent');
-
-                // Send initial directive mail if --subject/--message provided
-                if (cmdOpts.subject && result.sessionId) {
-                    const mailSpinner = !isJson ? ora('Sending initial directive mail...').start() : null;
-                    try {
-                        await api.post('/api/mail', {
-                            projectId,
-                            fromSessionId: config.sessionId || undefined,
-                            toSessionId: result.sessionId,
-                            type: 'directive',
-                            subject: cmdOpts.subject,
-                            body: { details: cmdOpts.message || '' },
-                        });
-                        mailSpinner?.succeed('Initial directive mail sent (before worker starts)');
-                    } catch (mailErr: any) {
-                        mailSpinner?.fail(`Failed to send initial mail: ${mailErr.message}`);
-                    }
-                }
 
                 if (isJson) {
                     outputJSON(result);
@@ -608,18 +658,7 @@ export function registerSessionCommands(program: Command) {
             const mode = process.env.MAESTRO_MODE || 'execute';
             const taskIds = config.taskIds;
 
-            if (!isJson) {
-                console.log(`[session:register] Hook fired (SessionStart)`);
-                console.log(`[session:register]    Session ID: ${sessionId || '(not set)'}`);
-                console.log(`[session:register]    Project ID: ${projectId || '(not set)'}`);
-                console.log(`[session:register]    Mode: ${mode}`);
-                console.log(`[session:register]    Task IDs: ${taskIds?.join(', ') || '(none)'}`);
-            }
-
             if (!sessionId) {
-                if (!isJson) {
-                    console.error('[session:register] ABORT: MAESTRO_SESSION_ID not set');
-                }
                 process.exit(1);
             }
 
@@ -627,12 +666,10 @@ export function registerSessionCommands(program: Command) {
                 // Check if session already exists (created by spawn endpoint)
                 let sessionExists = false;
                 try {
-                    if (!isJson) console.log(`[session:register]    GET /api/sessions/${sessionId} ...`);
                     await api.get(`/api/sessions/${sessionId}`);
                     sessionExists = true;
-                    if (!isJson) console.log(`[session:register]    Session exists on server`);
                 } catch {
-                    if (!isJson) console.log(`[session:register]    Session not found on server`);
+                    // session not found on server
                 }
 
                 if (sessionExists) {
@@ -792,4 +829,249 @@ export function registerSessionCommands(program: Command) {
                 process.exit(0);
             }
         });
+
+    session.command('logs [ids]')
+        .description('Read text output from session JSONL logs (for coordinator observation)')
+        .option('--my-workers', 'Read logs for all workers under this coordinator session')
+        .option('--last <n>', 'Number of text entries per session (default 5)', '5')
+        .option('--full', 'Return full untruncated text entries')
+        .option('--max-length <n>', 'Max character length per text entry (default 150)')
+        .action(async (ids: string | undefined, cmdOpts: any) => {
+            await guardCommand('session:logs');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const last = parseInt(cmdOpts.last || '5', 10);
+
+            // Build maxLength query param
+            let maxLengthParam = '';
+            if (cmdOpts.full) {
+                maxLengthParam = '&maxLength=0';
+            } else if (cmdOpts.maxLength) {
+                maxLengthParam = `&maxLength=${parseInt(cmdOpts.maxLength, 10)}`;
+            }
+
+            try {
+                let endpoint: string;
+                if (cmdOpts.myWorkers) {
+                    const myId = config.sessionId;
+                    if (!myId) {
+                        console.error('Error: MAESTRO_SESSION_ID not set.');
+                        process.exit(1);
+                    }
+                    endpoint = `/api/sessions/log-digests?parentSessionId=${myId}&last=${last}${maxLengthParam}`;
+                } else if (ids) {
+                    const sessionIds = ids.split(',').map(s => s.trim()).filter(Boolean);
+                    if (sessionIds.length === 1) {
+                        // Single session — use the single endpoint
+                        const digest: any = await api.get(`/api/sessions/${sessionIds[0]}/log-digest?last=${last}${maxLengthParam}`);
+                        if (isJson) {
+                            outputJSON([digest]);
+                        } else {
+                            printDigest(digest);
+                        }
+                        return;
+                    }
+                    endpoint = `/api/sessions/log-digests?sessionIds=${sessionIds.join(',')}&last=${last}${maxLengthParam}`;
+                } else {
+                    console.error('Error: provide session IDs or --my-workers');
+                    process.exit(1);
+                    return;
+                }
+
+                const digests: any[] = await api.get(endpoint);
+
+                if (isJson) {
+                    outputJSON(digests);
+                } else {
+                    if (digests.length === 0) {
+                        console.log('No active worker sessions found.');
+                    } else {
+                        for (const digest of digests) {
+                            printDigest(digest);
+                        }
+                    }
+                }
+            } catch (err) {
+                handleError(err, isJson);
+            }
+        });
+
+    session
+        .command('prompt <targetSessionId>')
+        .description('Send an input prompt to another active Maestro session')
+        .requiredOption('--message <message>', 'The prompt message to send')
+        .option('--mode <mode>', '"send" (type + Enter) or "paste" (type only)', 'send')
+        .action(async (targetSessionId: string, cmdOpts: any) => {
+            await guardCommand('session:prompt');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const { message, mode } = cmdOpts;
+
+            if (!['send', 'paste'].includes(mode)) {
+                console.error('Error: --mode must be "send" or "paste"');
+                process.exit(1);
+            }
+
+            const senderSessionId = config.sessionId;
+            if (!senderSessionId) {
+                console.error('Error: MAESTRO_SESSION_ID not set. Must be run from within a Maestro session.');
+                process.exit(1);
+            }
+
+            const spinner = !isJson ? ora(`Sending prompt to session ${targetSessionId}...`).start() : null;
+            try {
+                await api.post(`/api/sessions/${targetSessionId}/prompt`, {
+                    content: message,
+                    mode,
+                    senderSessionId,
+                });
+                spinner?.succeed(`✓ Prompt sent to session ${targetSessionId}`);
+                if (isJson) outputJSON({ success: true, targetSessionId });
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    session
+        .command('notify <ids...>')
+        .description('Notify one or more sessions — sends a PTY wakeup and stores a mail message')
+        .requiredOption('--message <brief>', 'Brief message (injected into PTY + stored as mail)')
+        .option('--detail <full>', 'Full detail text (stored in mail only, not injected into PTY)')
+        .action(async (ids: string[], cmdOpts: any) => {
+            await guardCommand('session:notify');
+            const mySessionId = config.sessionId;
+            const myName = (config as any).teamMemberName || (config as any).teamMemberSnapshot?.name || config.sessionId || 'Unknown';
+            if (!mySessionId) {
+                console.error('No session ID — not running inside a session');
+                process.exit(1);
+            }
+            for (const targetId of ids) {
+                await api.post(`/api/sessions/${targetId}/mail`, {
+                    fromSessionId: mySessionId,
+                    fromName: myName,
+                    message: cmdOpts.message,
+                    ...(cmdOpts.detail ? { detail: cmdOpts.detail } : {}),
+                });
+            }
+            console.log(`Notified ${ids.length} session(s).`);
+        });
+
+    const mail = session
+        .command('mail')
+        .description('Session mail (persistent messages)');
+
+    mail
+        .command('read')
+        .description('Read unread mail for the current session')
+        .action(async () => {
+            await guardCommand('session:mail:read');
+            const mySessionId = config.sessionId;
+            if (!mySessionId) {
+                console.error('No session ID — not running inside a session');
+                process.exit(1);
+            }
+            const messages: any[] = await api.get(`/api/sessions/${mySessionId}/mail`);
+            if (messages.length === 0) {
+                console.log('No unread messages.');
+                return;
+            }
+            console.log(`\n📬 ${messages.length} unread message(s):\n`);
+            for (const m of messages) {
+                const date = new Date(m.createdAt).toLocaleTimeString();
+                console.log(`  [${date}] From: ${m.fromName} (${m.fromSessionId})`);
+                console.log(`  ${m.message}`);
+                if (m.detail) {
+                    console.log(`  Detail: ${m.detail}`);
+                }
+                console.log();
+            }
+        });
+}
+
+/**
+ * Format milliseconds into a human-readable duration string (e.g. "2m 30s").
+ */
+function formatDuration(ms: number): string {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+}
+
+/**
+ * Print a single session log digest in human-readable format.
+ */
+function printDigest(digest: any): void {
+    // State icon and color
+    let stateIcon: string;
+    let stateLabel: string;
+    if (digest.state === 'active') {
+        stateIcon = chalk.green('●');
+        stateLabel = chalk.green('[active]');
+    } else if (digest.state === 'needs_input') {
+        stateIcon = chalk.yellow('⚡');
+        stateLabel = chalk.yellow.bold('[NEEDS INPUT]');
+    } else {
+        stateIcon = chalk.gray('○');
+        stateLabel = chalk.gray('[idle]');
+    }
+
+    // Stuck indicator
+    const stuckLabel = digest.stuck ? chalk.red.bold(' ⚠ STUCK') : '';
+
+    // Worker name
+    const workerPart = digest.workerName ? `  ${chalk.bold('Worker:')} ${digest.workerName}` : '';
+
+    // Task IDs
+    const taskPart = digest.taskIds?.length
+        ? `  ${chalk.bold('Tasks:')}  ${digest.taskIds.join(', ')}`
+        : '';
+
+    // Last activity
+    let lastActivityPart = '';
+    if (digest.lastActivityTimestamp) {
+        const agoMs = Date.now() - digest.lastActivityTimestamp;
+        lastActivityPart = `  ${chalk.bold('Last:')}   ${formatDuration(agoMs)} ago`;
+    }
+
+    // Header line
+    console.log(`\n${stateIcon} ${chalk.bold(`Session ${digest.sessionId}`)} ${stateLabel}${stuckLabel}`);
+    if (workerPart) console.log(workerPart);
+    if (taskPart) console.log(taskPart);
+    if (lastActivityPart) console.log(lastActivityPart);
+
+    // Stuck details (shown prominently before entries)
+    if (digest.stuck) {
+        const duration = digest.stuck.silentDurationMs > 0
+            ? ` (silent for ${formatDuration(digest.stuck.silentDurationMs)})`
+            : '';
+        console.log(chalk.red(`  ⚠  ${digest.stuck.warning}${duration}`));
+    }
+
+    // needs_input alert
+    if (digest.state === 'needs_input') {
+        console.log(chalk.yellow('  ⚡ This session is waiting for coordinator input!'));
+    }
+
+    // Separator
+    console.log(chalk.gray('  ' + '─'.repeat(60)));
+
+    // Entries
+    if (digest.entries && digest.entries.length > 0) {
+        for (const entry of digest.entries) {
+            const time = new Date(entry.timestamp).toLocaleTimeString('en-US', { hour12: false });
+            const timeStr = chalk.gray(`[${time}]`);
+            if (entry.source === 'assistant') {
+                const arrow = chalk.cyan('◀');
+                console.log(`  ${timeStr} ${arrow} ${entry.text}`);
+            } else {
+                const arrow = chalk.magenta('▶');
+                console.log(`  ${timeStr} ${arrow} ${chalk.italic(entry.text)}`);
+            }
+        }
+    } else {
+        console.log(chalk.gray('  (no text output yet)'));
+    }
 }

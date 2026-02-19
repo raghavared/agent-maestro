@@ -390,8 +390,7 @@ export function initApp(
               soundInstrument: localProj.soundInstrument ?? 'piano',
               soundConfig: localProj.soundConfig,
             });
-          } catch (err) {
-            console.error('[Startup] Failed to sync local project to server:', err);
+          } catch {
             mergedProjects.push(localProj);
           }
         }
@@ -400,8 +399,7 @@ export function initApp(
       if (mergedProjects.length > 0) {
         state.projects = mergedProjects;
       }
-    } catch (err) {
-      console.error('[Startup] Failed to sync projects with maestro-server:', err);
+    } catch {
     }
 
     // ──── SET STORE STATE ────

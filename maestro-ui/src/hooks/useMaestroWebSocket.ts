@@ -86,7 +86,6 @@ export function useMaestroWebSocket(callbacks: MaestroWebSocketCallbacks = {}) {
     const connectGlobal = useCallback(() => {
         // Prevent duplicate connections
         if (globalConnecting || (globalWs && globalWs.readyState === WebSocket.OPEN)) {
-            console.log('[Maestro WebSocket] Already connected or connecting (global), skipping');
             return;
         }
 
@@ -94,18 +93,15 @@ export function useMaestroWebSocket(callbacks: MaestroWebSocketCallbacks = {}) {
 
         // Clean up existing connection
         if (globalWs) {
-            console.log('[Maestro WebSocket] Closing existing global connection');
             globalWs.close();
             globalWs = null;
         }
 
         try {
-            console.log('[Maestro WebSocket] Creating global singleton connection to', WS_URL);
             const ws = new WebSocket(WS_URL);
             globalWs = ws;
 
             ws.onopen = () => {
-                console.log('[Maestro WebSocket] Global connection established');
                 setConnected(true);
                 globalConnecting = false;
                 globalReconnectAttempts = 0;
@@ -116,20 +112,16 @@ export function useMaestroWebSocket(callbacks: MaestroWebSocketCallbacks = {}) {
                 globalListeners.forEach(listener => listener(event));
             };
 
-            ws.onerror = (error) => {
-                console.error('[Maestro WebSocket] Error:', error);
+            ws.onerror = () => {
             };
 
             ws.onclose = () => {
-                console.log('[Maestro WebSocket] Global connection closed');
                 setConnected(false);
                 globalConnecting = false;
                 globalWs = null;
 
                 // Attempt to reconnect with exponential backoff
                 const delay = Math.min(1000 * Math.pow(2, globalReconnectAttempts), 30000);
-
-                console.log(`[Maestro WebSocket] Reconnecting in ${delay}ms (attempt ${globalReconnectAttempts + 1})`);
 
                 if (globalReconnectTimeout) {
                     clearTimeout(globalReconnectTimeout);
@@ -140,21 +132,17 @@ export function useMaestroWebSocket(callbacks: MaestroWebSocketCallbacks = {}) {
                     connectGlobal();
                 }, delay);
             };
-        } catch (error) {
-            console.error('[Maestro WebSocket] Failed to create WebSocket:', error);
+        } catch {
             globalConnecting = false;
         }
     }, []);
 
     // Register message listener and connect
     useEffect(() => {
-        console.log('[Maestro WebSocket] Hook instance mounting - registering listener');
-
         // Create listener for this hook instance
         const listener = (event: MessageEvent) => {
             try {
                 const message = JSON.parse(event.data) as WebSocketEvent;
-                console.log('[Maestro WebSocket] Received:', message.event, message.data);
 
                 const callbacks = callbacksRef.current;
                 switch (message.event) {
@@ -229,29 +217,24 @@ export function useMaestroWebSocket(callbacks: MaestroWebSocketCallbacks = {}) {
                         callbacks.onSessionModal?.(message.data);
                         break;
                 }
-            } catch (error) {
-                console.error('[Maestro WebSocket] Failed to parse message:', error);
+            } catch {
             }
         };
 
         listenerRef.current = listener;
         globalListeners.add(listener);
-        console.log('[Maestro WebSocket] Total listeners registered:', globalListeners.size);
 
         // Connect to global WebSocket if not already connected
         connectGlobal();
 
         // Cleanup on unmount
         return () => {
-            console.log('[Maestro WebSocket] Hook instance unmounting - unregistering listener');
             if (listenerRef.current) {
                 globalListeners.delete(listenerRef.current);
-                console.log('[Maestro WebSocket] Total listeners remaining:', globalListeners.size);
             }
 
             // Only close connection if no more listeners
             if (globalListeners.size === 0) {
-                console.log('[Maestro WebSocket] No more listeners - closing global connection');
                 if (globalReconnectTimeout) {
                     clearTimeout(globalReconnectTimeout);
                     globalReconnectTimeout = null;

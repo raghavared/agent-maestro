@@ -57,7 +57,6 @@ class MaestroClient {
 
             return await response.json();
         } catch (error) {
-            console.error('[MaestroClient] Request failed:', { endpoint, error });
             throw error;
         }
     }

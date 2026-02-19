@@ -196,35 +196,6 @@ export const updateTemplateSchema = z.object({
   content: longString.optional(),
 }).strict();
 
-// --- Mail schemas ---
-
-const mailMessageTypeSchema = z.enum(['assignment', 'status_update', 'query', 'response', 'directive', 'notification']);
-
-export const sendMailSchema = z.object({
-  projectId: safeId,
-  fromSessionId: safeId,
-  toSessionId: safeId.optional().nullable(),
-  toTeamMemberId: safeId.optional(),
-  replyToMailId: safeId.optional().nullable(),
-  type: mailMessageTypeSchema,
-  subject: shortString,
-  body: z.record(z.string(), z.unknown()).optional(),
-  priority: z.enum(['critical', 'high', 'normal', 'low']).optional(),
-  scope: z.enum(['all', 'my-workers', 'team']).optional(),
-}).strict();
-
-export const mailInboxQuerySchema = z.object({
-  type: mailMessageTypeSchema.optional(),
-  since: z.coerce.number().optional(),
-  projectId: safeId.optional(),
-}).strict();
-
-export const mailWaitQuerySchema = z.object({
-  timeout: z.coerce.number().min(1000).max(120000).optional(),
-  since: z.coerce.number().optional(),
-  projectId: safeId.optional(),
-}).strict();
-
 // --- Middleware factories ---
 
 /**

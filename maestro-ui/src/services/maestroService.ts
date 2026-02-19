@@ -25,10 +25,6 @@ export async function createMaestroSession(input: {
 
     const resolvedMode: AgentMode = mode || 'execute';
 
-    console.log('[App.createMaestroSession] Using server spawn flow');
-    console.log('[App.createMaestroSession] Tasks:', taskList.map(t => t.id).join(', '));
-    console.log('[App.createMaestroSession] Mode:', resolvedMode);
-
     // Use server spawn endpoint (Server-Generated Manifests architecture)
     const taskIds = taskList.map(t => t.id);
 
@@ -61,9 +57,6 @@ export async function createMaestroSession(input: {
         ...(model ? { model } : {}),
       });
 
-      console.log('[App.createMaestroSession] ✓ Server spawn request sent:', response.sessionId);
-      console.log('[App.createMaestroSession] Manifest:', response.manifestPath);
-
       // Return a placeholder session - the actual UI session will be created
       // by MaestroContext when it receives the spawn_request WebSocket event
       return {
@@ -73,7 +66,6 @@ export async function createMaestroSession(input: {
       } as TerminalSession;
 
     } catch (error: any) {
-      console.error('[App.createMaestroSession] ✗ Failed to spawn session:', error);
       throw new Error(`Failed to spawn session: ${error.message}`);
     }
   }

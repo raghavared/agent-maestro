@@ -10,12 +10,11 @@ A `TeamMemberData` has these fields:
 - `role` — role description (e.g., "frontend developer", "tester")
 - `identity` — persona/instruction prompt
 - `avatar` — emoji or icon
-- `mailId` — for the shared mailbox system
 - `skillIds?` — assigned skills
 - `model?` — preferred model
 - `agentTool?` — which CLI tool to use (claude-code, codex, gemini)
 
-Team members are **stored as tasks** with `taskType: 'team-member'` and a `teamMemberMetadata` sub-object containing `role`, `identity`, `avatar`, and `mailId`.
+Team members are **stored as tasks** with `taskType: 'team-member'` and a `teamMemberMetadata` sub-object containing `role`, `identity`, and `avatar`.
 
 ## 2. How the Coordinator Manages Team Members in the Prompt
 
@@ -31,7 +30,6 @@ The `buildTeamMembers` method (lines 365-384) renders as:
   <team_member id="..." name="..." role="...">
     <identity>persona prompt</identity>
     <avatar>emoji</avatar>
-    <mail_id>shared mailbox id</mail_id>
     <model>preferred model</model>
     <agent_tool>claude-code|codex|gemini</agent_tool>
   </team_member>
@@ -72,7 +70,7 @@ Server calls: `maestro manifest generate --team-member-ids <ids>`
 `ManifestGeneratorCLICommand.execute()` (`maestro-cli/src/commands/manifest-generator.ts`, lines 243-272):
 1. Receives `teamMemberIds`
 2. Fetches each task from local storage
-3. Reads `teamMemberMetadata` (role, identity, avatar, mailId)
+3. Reads `teamMemberMetadata` (role, identity, avatar)
 4. Reads `metadata.skillIds` and `metadata.agentTool`
 5. Constructs `TeamMemberData[]` → `manifest.teamMembers`
 

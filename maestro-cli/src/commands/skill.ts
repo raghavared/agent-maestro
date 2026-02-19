@@ -57,11 +57,6 @@ export function registerSkillCommands(program: Command): void {
       }
 
       if (skills.length === 0) {
-        console.log('\nNo skills found.');
-        if (!cmdOpts.projectPath) {
-          console.log(chalk.gray('  Tip: Use --project-path to include project-scoped skills'));
-        }
-        console.log('');
         return;
       }
 
@@ -69,16 +64,12 @@ export function registerSkillCommands(program: Command): void {
       const globalSkills = skills.filter(s => s.scope === 'global');
 
       if (projectSkills.length > 0) {
-        console.log(chalk.bold('\n  PROJECT SKILLS'));
         printSkillTable(projectSkills);
       }
 
       if (globalSkills.length > 0) {
-        console.log(chalk.bold('\n  GLOBAL SKILLS'));
         printSkillTable(globalSkills);
       }
-
-      console.log('');
     });
 
   // skill info <name>
@@ -93,26 +84,13 @@ export function registerSkillCommands(program: Command): void {
 
       if (!info) {
         if (globalOpts.json) {
-          console.log(JSON.stringify({ success: false, error: `Skill not found: ${name}` }, null, 2));
-        } else {
-          console.error(`Skill not found: ${name}`);
+          outputJSON({ success: false, error: `Skill not found: ${name}` });
         }
         return;
       }
 
       if (globalOpts.json) {
         outputJSON(info);
-      } else {
-        console.log('');
-        console.log(`  ${chalk.bold('Skill:')}   ${info.name}`);
-        console.log(`  ${chalk.bold('Path:')}    ${info.path}`);
-        console.log(`  ${chalk.bold('Valid:')}   ${info.valid ? 'Yes' : 'No'}`);
-        console.log(`  ${chalk.bold('Scope:')}   ${info.scope}`);
-        console.log(`  ${chalk.bold('Source:')}  ${info.source}`);
-        if (info.description) {
-          console.log(`  ${chalk.bold('Desc:')}    ${info.description}`);
-        }
-        console.log('');
       }
     });
 
@@ -134,38 +112,6 @@ export function registerSkillCommands(program: Command): void {
         outputJSON({ valid, invalid, summary: { valid: valid.length, invalid: invalid.length } });
         return;
       }
-
-      console.log(chalk.bold('\n  Validating skills...\n'));
-
-      const projectSkills = skills.filter(s => s.scope === 'project');
-      const globalSkills = skills.filter(s => s.scope === 'global');
-
-      if (projectSkills.length > 0) {
-        console.log(chalk.bold('  PROJECT SKILLS'));
-        for (const s of projectSkills) {
-          const icon = s.valid ? chalk.green('[OK]') : chalk.yellow('[!!]');
-          const note = s.valid ? '' : chalk.gray(' (missing SKILL.md)');
-          console.log(`    ${icon} ${s.name} ${chalk.gray(`[${s.source}]`)}${note}`);
-        }
-        console.log('');
-      }
-
-      if (globalSkills.length > 0) {
-        console.log(chalk.bold('  GLOBAL SKILLS'));
-        for (const s of globalSkills) {
-          const icon = s.valid ? chalk.green('[OK]') : chalk.yellow('[!!]');
-          const note = s.valid ? '' : chalk.gray(' (missing SKILL.md)');
-          console.log(`    ${icon} ${s.name} ${chalk.gray(`[${s.source}]`)}${note}`);
-        }
-        console.log('');
-      }
-
-      if (skills.length === 0) {
-        console.log('  No skills found.\n');
-        return;
-      }
-
-      console.log(`  Summary: ${chalk.green(String(valid.length) + ' valid')}, ${chalk.yellow(String(invalid.length) + ' warnings')}\n`);
     });
 
   // skill install <repo>
@@ -183,18 +129,14 @@ export function registerSkillCommands(program: Command): void {
       // Validate repo format
       if (!repo.match(/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/)) {
         if (globalOpts.json) {
-          console.log(JSON.stringify({ success: false, error: 'Invalid repo format. Use owner/repo.' }, null, 2));
-        } else {
-          console.error('Invalid repo format. Expected: owner/repo');
+          outputJSON({ success: false, error: 'Invalid repo format. Use owner/repo.' });
         }
         process.exit(1);
       }
 
       if (scope === 'project' && !cmdOpts.projectPath) {
         if (globalOpts.json) {
-          console.log(JSON.stringify({ success: false, error: 'Project scope requires --project-path' }, null, 2));
-        } else {
-          console.error('Project scope requires --project-path <path>');
+          outputJSON({ success: false, error: 'Project scope requires --project-path' });
         }
         process.exit(1);
       }
@@ -206,10 +148,7 @@ export function registerSkillCommands(program: Command): void {
 
       if (existsSync(skillDir)) {
         if (globalOpts.json) {
-          console.log(JSON.stringify({ success: false, error: `Skill directory already exists: ${skillDir}` }, null, 2));
-        } else {
-          console.error(`Skill directory already exists: ${skillDir}`);
-          console.log(chalk.gray('Remove it first if you want to reinstall.'));
+          outputJSON({ success: false, error: `Skill directory already exists: ${skillDir}` });
         }
         process.exit(1);
       }
@@ -217,10 +156,6 @@ export function registerSkillCommands(program: Command): void {
       // Ensure parent directory exists
       if (!existsSync(installDir)) {
         mkdirSync(installDir, { recursive: true });
-      }
-
-      if (!globalOpts.json) {
-        console.log(`\n  Installing ${chalk.bold(repo)} into ${chalk.gray(installDir)}...`);
       }
 
       // Try npx skillsadd first, fall back to git clone
@@ -244,9 +179,7 @@ export function registerSkillCommands(program: Command): void {
           installed = true;
         } catch (err: any) {
           if (globalOpts.json) {
-            console.log(JSON.stringify({ success: false, error: `Failed to install: ${err.message}` }, null, 2));
-          } else {
-            console.error(`\n  Failed to install skill: ${err.message}`);
+            outputJSON({ success: false, error: `Failed to install: ${err.message}` });
           }
           process.exit(1);
         }
@@ -255,9 +188,6 @@ export function registerSkillCommands(program: Command): void {
       if (installed) {
         if (globalOpts.json) {
           outputJSON({ repo, path: skillDir, scope, source: target });
-        } else {
-          console.log(`  ${chalk.green('Installed')} ${repo} -> ${skillDir}`);
-          console.log(`  Scope: ${scope}, Source: ${target}\n`);
         }
       }
     });
@@ -277,14 +207,6 @@ export function registerSkillCommands(program: Command): void {
         outputJSON({ url, query: query || null });
         return;
       }
-
-      console.log('');
-      console.log(chalk.bold('  Agent Skills Directory'));
-      console.log(`  ${chalk.cyan(url)}`);
-      console.log('');
-      console.log(chalk.gray('  Install a skill with:'));
-      console.log(chalk.gray('    maestro skill install <owner/repo>'));
-      console.log('');
 
       // Try to open in browser
       try {

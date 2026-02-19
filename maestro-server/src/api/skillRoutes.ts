@@ -73,13 +73,11 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
             });
           }
         } catch (err) {
-          console.warn(`[Skills API] Failed to load skill ${id}:`, err);
         }
       }
 
       res.json(skills);
     } catch (err) {
-      console.error('[Skills API] Failed to list skills:', err);
       res.json([]);
     }
   });
@@ -110,7 +108,6 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
         instructions: skill.instructions
       });
     } catch (err: any) {
-      console.error(`[Skills API] Failed to load skill:`, err);
       res.status(500).json({
         error: true,
         message: err.message,
@@ -147,7 +144,6 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
 
       res.json(result);
     } catch (err: any) {
-      console.error('[Skills API] Failed to load mode skills:', err);
       res.status(500).json({
         error: true,
         message: err.message,
@@ -191,7 +187,6 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
         reloaded: true
       });
     } catch (err: any) {
-      console.error(`[Skills API] Failed to reload skill:`, err);
       res.status(500).json({
         error: true,
         message: err.message,

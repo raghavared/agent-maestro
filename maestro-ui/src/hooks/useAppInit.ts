@@ -394,7 +394,6 @@ export function useAppInit({
                 assetsEnabled: localProj.assetsEnabled ?? true,
               });
             } catch (err) {
-              console.error('[Startup] Failed to sync local project to server:', err);
               // Keep the local project if server creation fails
               mergedProjects.push(localProj);
             }
@@ -406,7 +405,6 @@ export function useAppInit({
           state.projects = mergedProjects;
         }
       } catch (err) {
-        console.error('[Startup] Failed to sync projects with maestro-server:', err);
         // Continue with local projects if server sync fails
       }
 

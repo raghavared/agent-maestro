@@ -177,6 +177,53 @@ export function createTeamMemberRoutes(teamMemberService: TeamMemberService) {
   });
 
   /**
+   * POST /team-members/:id/memory
+   * Append entries to a team member's memory
+   */
+  router.post('/team-members/:id/memory', async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const { projectId, entries } = req.body;
+
+      if (!projectId) {
+        return res.status(400).json({
+          error: true,
+          message: 'projectId is required in request body',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      if (!entries || !Array.isArray(entries) || entries.length === 0) {
+        return res.status(400).json({
+          error: true,
+          message: 'entries (string array) is required in request body',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Filter out empty entries
+      const validEntries = entries.map((e: string) => (typeof e === 'string' ? e.trim() : '')).filter((e: string) => e.length > 0);
+      if (validEntries.length === 0) {
+        return res.status(400).json({
+          error: true,
+          message: 'All entries are empty after trimming',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Get current member, append to memory, then update
+      const current = await teamMemberService.getTeamMember(projectId, id);
+      const existingMemory = (current as any).memory || [];
+      const newMemory = [...existingMemory, ...validEntries];
+
+      const member = await teamMemberService.updateTeamMember(projectId, id, { memory: newMemory });
+      res.json(member);
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
+  /**
    * POST /team-members/:id/reset
    * Reset default team member to code values (404 if not default)
    */

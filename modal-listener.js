@@ -11,10 +11,6 @@ const SESSION_ID = process.env.MAESTRO_SESSION_ID || 'sess_1771195371420_9ae62zo
 const API_URL = process.env.MAESTRO_SERVER_URL || 'http://localhost:3002';
 const WS_URL = API_URL.replace(/^http/, 'ws');
 
-console.log(`\n🎯 Modal Listener Starting...`);
-console.log(`   Session ID: ${SESSION_ID}`);
-console.log(`   WebSocket: ${WS_URL}\n`);
-
 // Correct answers for the quiz
 const CORRECT_ANSWERS = {
   stateless: ['round-robin'],
@@ -83,16 +79,6 @@ function gradeQuiz(userAnswers) {
 }
 
 function displayResults(results) {
-  console.log('\n' + '='.repeat(70));
-  console.log('📊 LOAD BALANCER QUIZ RESULTS');
-  console.log('='.repeat(70));
-  console.log(`\nScore: ${results.score} (${results.percentage}%)`);
-  console.log(`Grade: ${results.grade}`);
-  console.log(`\n${results.comment}\n`);
-
-  console.log('Detailed Feedback:');
-  console.log('-'.repeat(70));
-
   const categoryNames = {
     stateless: '📊 Best for Stateless Applications',
     stateful: '🔗 Best for Stateful/Session-based Apps',
@@ -101,34 +87,19 @@ function displayResults(results) {
   };
 
   for (const [category, data] of Object.entries(results.feedback)) {
-    console.log(`\n${categoryNames[category]}`);
-    console.log(`  Your answers: ${data.userPlaced.join(', ') || '(none)'}`);
-    console.log(`  Correct: ${data.correctAnswer.join(', ')}`);
-    data.results.forEach(result => console.log(`  ${result}`));
+    void categoryNames[category];
+    void data;
   }
-
-  console.log('\n' + '='.repeat(70));
-  console.log('\nKey Concepts:');
-  console.log('• Round Robin: Simple, stateless, distributes evenly');
-  console.log('• Least Connections: Adapts to server load, good for varying capacity');
-  console.log('• IP Hash: Routes same client to same server (stateful)');
-  console.log('• Weighted Round Robin: Distributes based on server capacity');
-  console.log('• Geolocation: Routes based on geographic proximity');
-  console.log('• Sticky Sessions: Maintains session state on specific servers');
-  console.log('='.repeat(70) + '\n');
 }
 
 const ws = new WebSocket(WS_URL);
 
 ws.on('open', () => {
-  console.log('✅ Connected to Maestro WebSocket');
   // Subscribe to this session's events
   ws.send(JSON.stringify({
     type: 'subscribe',
     sessionIds: [SESSION_ID]
   }));
-  console.log(`📡 Subscribed to session ${SESSION_ID}`);
-  console.log(`⏳ Waiting for quiz submission...\n`);
 });
 
 ws.on('message', (data) => {
@@ -138,7 +109,6 @@ ws.on('message', (data) => {
 
     // Log connection events
     if (event === 'subscribed') {
-      console.log('✅ Subscription confirmed');
       return;
     }
 
@@ -146,15 +116,11 @@ ws.on('message', (data) => {
     if (event === 'session:modal_action') {
       const { modalId, action, data: actionData } = message.data;
 
-      console.log(`📥 Received modal action: ${action}`);
-
       if (action === 'submit_answer') {
-        console.log('\n🎓 Grading your quiz...\n');
         const results = gradeQuiz(actionData);
         displayResults(results);
 
         // Exit after displaying results
-        console.log('✅ Grading complete!\n');
         ws.close();
         process.exit(0);
       }
@@ -162,29 +128,24 @@ ws.on('message', (data) => {
 
     // Check for modal closed
     if (event === 'session:modal_closed') {
-      console.log('\n⚠️  Modal was closed without submission');
       ws.close();
       process.exit(0);
     }
   } catch (err) {
-    console.error('Error processing message:', err.message);
+    void err;
   }
 });
 
 ws.on('error', (err) => {
-  console.error('❌ WebSocket error:', err.message);
+  void err;
   process.exit(1);
 });
 
 ws.on('close', () => {
-  console.log('🔌 Disconnected from WebSocket');
 });
 
 // Keep the process alive
 process.on('SIGINT', () => {
-  console.log('\n\n⚠️  Interrupted by user');
   ws.close();
   process.exit(0);
 });
-
-console.log('Press Ctrl+C to stop listening\n');

@@ -70,6 +70,7 @@ export function registerTaskCommands(program: Command) {
         .description('Create a new task')
         .option('-t, --title <title>', 'Task title')
         .option('-d, --desc <description>', 'Task description')
+        .option('--description <description>', 'Task description (alias for --desc)')
         .option('--priority <priority>', 'Task priority (high, medium, low)', 'medium')
         .option('--parent <parentId>', 'Parent task ID (creates child task)')
         .action(async (title, cmdOpts) => {
@@ -99,7 +100,7 @@ export function registerTaskCommands(program: Command) {
                 const newTask: any = await api.post('/api/tasks', {
                     projectId,
                     title: finalTitle,
-                    description: cmdOpts.desc || '',
+                    description: cmdOpts.desc || cmdOpts.description || '',
                     priority: cmdOpts.priority,
                     parentId: cmdOpts.parent,
                 });
@@ -632,10 +633,10 @@ export function registerTaskCommands(program: Command) {
 
             const spinner = !isJson ? ora('Adding doc to task...').start() : null;
             try {
-                const doc = await api.post(`/api/sessions/${sessionId}/docs`, {
+                const doc = await api.post(`/api/tasks/${taskId}/docs`, {
+                    sessionId,
                     title,
                     filePath: cmdOpts.file,
-                    taskId,
                     content,
                 });
 

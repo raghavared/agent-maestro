@@ -402,8 +402,7 @@ class SoundManager {
           enabledCategories: new Set(parsed.enabledCategories || []),
         };
       }
-    } catch (error) {
-      console.error('[SoundManager] Failed to load config:', error);
+    } catch {
     }
   }
 
@@ -414,8 +413,7 @@ class SoundManager {
         enabledCategories: Array.from(this.config.enabledCategories),
       };
       localStorage.setItem('maestro-sound-config', JSON.stringify(toSave));
-    } catch (error) {
-      console.error('[SoundManager] Failed to save config:', error);
+    } catch {
     }
   }
 
@@ -426,8 +424,7 @@ class SoundManager {
         const parsed = JSON.parse(stored) as Record<string, ProjectSoundConfig>;
         this.projectConfigs = new Map(Object.entries(parsed));
       }
-    } catch (error) {
-      console.error('[SoundManager] Failed to load project configs:', error);
+    } catch {
     }
   }
 
@@ -436,8 +433,7 @@ class SoundManager {
       const obj: Record<string, ProjectSoundConfig> = {};
       this.projectConfigs.forEach((config, id) => { obj[id] = config; });
       localStorage.setItem('maestro-project-sound-configs', JSON.stringify(obj));
-    } catch (error) {
-      console.error('[SoundManager] Failed to save project configs:', error);
+    } catch {
     }
   }
 
@@ -526,7 +522,6 @@ class SoundManager {
       // Fallback to piano if instrument file doesn't exist
       audio.addEventListener('error', () => {
         if (instrument !== 'piano') {
-          console.warn(`[SoundManager] ${instrument} file not found (${src}), falling back to piano`);
           const fallback = new Audio(`/music/piano-mp3/${note}.mp3`);
           fallback.volume = this.config.volume;
           this.audioContext.set(key, fallback);
@@ -542,13 +537,11 @@ class SoundManager {
   private async playNote(note: string, instrument: InstrumentType): Promise<void> {
     if (!this.config.enabled) return;
     if (this.activeSounds.size >= this.config.maxConcurrentSounds) {
-      console.warn('[SoundManager] Max concurrent sounds reached, skipping');
       return;
     }
 
     try {
       const original = this.getAudioElement(note, instrument);
-      console.log(`[SoundManager] Playing note ${note} (${instrument}), src=${original.src}`);
       const audio = original.cloneNode(true) as HTMLAudioElement;
       audio.volume = this.config.volume;
 
@@ -558,14 +551,12 @@ class SoundManager {
         this.activeSounds.delete(audio);
       });
 
-      audio.addEventListener('error', (e) => {
-        console.error(`[SoundManager] Audio error for note ${note}:`, e);
+      audio.addEventListener('error', () => {
         this.activeSounds.delete(audio);
       });
 
       await audio.play();
-    } catch (error) {
-      console.error(`[SoundManager] Failed to play note ${note}:`, error);
+    } catch {
     }
   }
 
@@ -613,7 +604,6 @@ class SoundManager {
 
     const category = EVENT_SOUND_MAP[eventType];
     if (!category) {
-      console.warn(`[SoundManager] No sound category for event: ${eventType}`);
       return;
     }
 
@@ -624,11 +614,9 @@ class SoundManager {
     const instrument = this.getEffectiveInstrumentForCategory(category);
     const notes = this.getNotesForCategory(category, instrument);
     if (!notes.length) {
-      console.warn(`[SoundManager] No notes defined for category: ${category}`);
       return;
     }
 
-    console.log(`[SoundManager] Playing ${eventType} -> category="${category}", instrument=${instrument}`);
     await this.playNotes(notes, instrument);
   }
 
@@ -642,7 +630,6 @@ class SoundManager {
     const instrument = instrumentOverride || this.getEffectiveInstrumentForCategory(category);
     const notes = this.getNotesForCategory(category, instrument);
     if (!notes.length) {
-      console.warn(`[SoundManager] No notes defined for category: ${category}`);
       return;
     }
 
@@ -674,7 +661,6 @@ class SoundManager {
     this.activeProjectId = projectId;
     // Clear audio cache to force reload with potentially different instrument
     this.audioContext.clear();
-    console.log(`[SoundManager] Active project set to: ${projectId}`);
   }
 
   public getActiveProjectId(): string | null {
@@ -737,7 +723,6 @@ class SoundManager {
   public setInstrument(instrument: InstrumentType): void {
     if (this.config.currentInstrument === instrument) return;
 
-    console.log(`[SoundManager] Switching global instrument from ${this.config.currentInstrument} to ${instrument}`);
     this.config.currentInstrument = instrument;
 
     this.audioContext.clear();
@@ -772,8 +757,6 @@ class SoundManager {
     commonNotes.forEach(note => {
       this.getAudioElement(note, instrument);
     });
-
-    console.log(`[SoundManager] Preloaded ${commonNotes.size} sound files for ${instrument}`);
   }
 }
 
@@ -782,13 +765,9 @@ export const soundManager = SoundManager.getInstance();
 
 // Helper function for easy imports
 export function playEventSound(eventType: EventSoundType): void {
-  soundManager.playEventSound(eventType).catch(err => {
-    console.error('[SoundManager] Error playing event sound:', err);
-  });
+  soundManager.playEventSound(eventType).catch(() => {});
 }
 
 export function playCategorySound(category: SoundCategory): void {
-  soundManager.playCategorySound(category).catch(err => {
-    console.error('[SoundManager] Error playing category sound:', err);
-  });
+  soundManager.playCategorySound(category).catch(() => {});
 }

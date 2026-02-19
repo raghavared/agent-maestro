@@ -84,7 +84,7 @@ const EXECUTE_TREE: WorkflowTemplate = {
 const COORDINATE_DEFAULT: WorkflowTemplate = {
   id: 'coordinate-default',
   name: 'Coordinate Default',
-  description: 'Standard orchestration: decompose, spawn workers with directives, monitor via mail.',
+  description: 'Standard orchestration: decompose, spawn workers with directives, monitor progress.',
   mode: 'coordinate',
   strategy: 'default',
   builtIn: true,

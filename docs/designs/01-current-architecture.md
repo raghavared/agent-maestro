@@ -46,7 +46,6 @@ interface Container {
   taskRepo: ITaskRepository;
   sessionRepo: ISessionRepository;
   queueRepo: IQueueRepository;
-  mailRepo: IMailRepository;
   orderingRepo: IOrderingRepository;
 
   // Loaders
@@ -57,7 +56,6 @@ interface Container {
   taskService: TaskService;
   sessionService: SessionService;
   queueService: QueueService;
-  mailService: MailService;
   orderingService: OrderingService;
 }
 ```
@@ -82,7 +80,6 @@ interface Container {
   tasks/{projectId}/{taskId}.json
   sessions/{sessionId}.json
   queues/{sessionId}.json
-  mail/{mailId}.json
   ordering/task_{projectId}.json
   ordering/session_{projectId}.json
   modals/{modalId}.html
@@ -238,16 +235,7 @@ Task 1:N Task      (parent-child via task.parentId)
 | GET | `/sessions/:id/queue/items` | List all items |
 | POST | `/sessions/:id/queue/push` | Add task to queue |
 
-### 4.5 Mail (`/api/mail`)
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/mail` | Send mail message |
-| GET | `/mail/inbox/:id` | Get session inbox |
-| GET | `/mail/wait/:id` | Long-poll wait for mail (120s timeout) |
-| GET | `/mail/:id` | Get message |
-| DELETE | `/mail/:id` | Delete message |
-
-### 4.6 Skills (`/api/skills`)
+### 4.5 Skills (`/api/skills`)
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/skills` | List all skills |
@@ -283,7 +271,6 @@ notify:task_in_review
 notify:task_session_completed, notify:task_session_failed
 notify:session_completed, notify:session_failed
 notify:needs_input, notify:progress
-mail:received, mail:deleted
 queue:created, queue:item_started, queue:item_completed, queue:item_failed, queue:item_skipped
 ```
 
@@ -381,7 +368,6 @@ GEMINI_API_KEY, GOOGLE_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.
 | `maestro task report {progress,complete,blocked,error}` | Task status reporting |
 | `maestro session {info,report,docs,spawn,register,complete}` | Session operations |
 | `maestro queue {top,start,complete,fail,skip,list,status,push}` | Queue operations |
-| `maestro mail {send,inbox,reply,broadcast,wait}` | Inter-session messaging |
 | `maestro show modal` | Display HTML modal in UI |
 | `maestro whoami` | Print current session context |
 | `maestro status` | Show project status |

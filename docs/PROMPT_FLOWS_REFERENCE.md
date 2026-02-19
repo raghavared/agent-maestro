@@ -280,42 +280,36 @@ Create one at a time. Verify each before creating the next.</phase>
     <team_member id="tm_proj_1_simple_worker" name="Simple Worker" role="Default executor">
       <identity>You are a worker agent. You implement tasks directly — write code, run tests, fix bugs.</identity>
       <avatar>⚡</avatar>
-      <mail_id>sess_simple_worker</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_queue_worker" name="Queue Worker" role="Queue-based executor">
       <identity>You are a queue worker agent. You process tasks sequentially from a queue, implementing each one in order.</identity>
       <avatar>📋</avatar>
-      <mail_id>sess_queue_worker</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_coordinator" name="Coordinator" role="Task orchestrator">
       <identity>You are a coordinator agent. You break down complex tasks, assign work to team members, and track progress.</identity>
       <avatar>🎯</avatar>
-      <mail_id>sess_coordinator</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_batch_coordinator" name="Batch Coordinator" role="Intelligent batch orchestrator">
       <identity>You are a batch coordinator agent. You group related tasks into intelligent batches and coordinate their parallel execution.</identity>
       <avatar>📦</avatar>
-      <mail_id>sess_batch_coord</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_dag_coordinator" name="DAG Coordinator" role="DAG-based orchestrator">
       <identity>You are a DAG coordinator agent. You model task dependencies as a directed acyclic graph and execute them in optimal order.</identity>
       <avatar>🔀</avatar>
-      <mail_id>sess_dag_coord</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_recruiter" name="Recruiter" role="Team member recruiter">
       <identity>You are a recruiter agent. You analyze task requirements and create appropriately configured team members.</identity>
       <avatar>🔍</avatar>
-      <mail_id>sess_recruiter</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
@@ -345,7 +339,6 @@ If a worker is BLOCKED, investigate with `maestro task get <taskId>`.</phase>
     maestro session report {progress|complete|blocked|error} — Session report
     maestro session docs {add|list} — Session docs
     maestro project {list|get|create|delete} — Project management
-    maestro mail {send|inbox|reply|broadcast|wait} — Mailbox coordination
     maestro show {modal} — UI display
     maestro modal {events} — Modal interaction
     Run `maestro commands` for full syntax reference.
@@ -405,42 +398,36 @@ If a worker is BLOCKED, investigate with `maestro task get <taskId>`.</phase>
     <team_member id="tm_proj_1_simple_worker" name="Simple Worker" role="Default executor">
       <identity>You are a worker agent. You implement tasks directly — write code, run tests, fix bugs.</identity>
       <avatar>⚡</avatar>
-      <mail_id>sess_simple_worker</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_queue_worker" name="Queue Worker" role="Queue-based executor">
       <identity>You are a queue worker agent. You process tasks sequentially from a queue, implementing each one in order.</identity>
       <avatar>📋</avatar>
-      <mail_id>sess_queue_worker</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_coordinator" name="Coordinator" role="Task orchestrator">
       <identity>You are a coordinator agent. You break down complex tasks, assign work to team members, and track progress.</identity>
       <avatar>🎯</avatar>
-      <mail_id>sess_coordinator</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_batch_coordinator" name="Batch Coordinator" role="Intelligent batch orchestrator">
       <identity>You are a batch coordinator agent. You group related tasks into intelligent batches and coordinate their parallel execution.</identity>
       <avatar>📦</avatar>
-      <mail_id>sess_batch_coord</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_dag_coordinator" name="DAG Coordinator" role="DAG-based orchestrator">
       <identity>You are a DAG coordinator agent. You model task dependencies as a directed acyclic graph and execute them in optimal order.</identity>
       <avatar>🔀</avatar>
-      <mail_id>sess_dag_coord</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_recruiter" name="Recruiter" role="Team member recruiter">
       <identity>You are a recruiter agent. You analyze task requirements and create appropriately configured team members.</identity>
       <avatar>🔍</avatar>
-      <mail_id>sess_recruiter</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
@@ -468,7 +455,6 @@ If a worker is BLOCKED, investigate with `maestro task get <taskId>`.</phase>
     maestro session report {progress|complete|blocked|error} — Session report
     maestro session docs {add|list} — Session docs
     maestro project {list|get|create|delete} — Project management
-    maestro mail {send|inbox|reply|broadcast|wait} — Mailbox coordination
     maestro show {modal} — UI display
     maestro modal {events} — Modal interaction
     Run `maestro commands` for full syntax reference.
@@ -528,42 +514,36 @@ If a worker is BLOCKED, investigate with `maestro task get <taskId>`.</phase>
     <team_member id="tm_proj_1_simple_worker" name="Simple Worker" role="Default executor">
       <identity>You are a worker agent. You implement tasks directly — write code, run tests, fix bugs.</identity>
       <avatar>⚡</avatar>
-      <mail_id>sess_simple_worker</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_queue_worker" name="Queue Worker" role="Queue-based executor">
       <identity>You are a queue worker agent. You process tasks sequentially from a queue, implementing each one in order.</identity>
       <avatar>📋</avatar>
-      <mail_id>sess_queue_worker</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_coordinator" name="Coordinator" role="Task orchestrator">
       <identity>You are a coordinator agent. You break down complex tasks, assign work to team members, and track progress.</identity>
       <avatar>🎯</avatar>
-      <mail_id>sess_coordinator</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_batch_coordinator" name="Batch Coordinator" role="Intelligent batch orchestrator">
       <identity>You are a batch coordinator agent. You group related tasks into intelligent batches and coordinate their parallel execution.</identity>
       <avatar>📦</avatar>
-      <mail_id>sess_batch_coord</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_dag_coordinator" name="DAG Coordinator" role="DAG-based orchestrator">
       <identity>You are a DAG coordinator agent. You model task dependencies as a directed acyclic graph and execute them in optimal order.</identity>
       <avatar>🔀</avatar>
-      <mail_id>sess_dag_coord</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
     <team_member id="tm_proj_1_recruiter" name="Recruiter" role="Team member recruiter">
       <identity>You are a recruiter agent. You analyze task requirements and create appropriately configured team members.</identity>
       <avatar>🔍</avatar>
-      <mail_id>sess_recruiter</mail_id>
       <model>sonnet</model>
       <agent_tool>claude-code</agent_tool>
     </team_member>
@@ -592,7 +572,6 @@ A subtask is READY when all dependencies are completed.</phase>
     maestro session report {progress|complete|blocked|error} — Session report
     maestro session docs {add|list} — Session docs
     maestro project {list|get|create|delete} — Project management
-    maestro mail {send|inbox|reply|broadcast|wait} — Mailbox coordination
     maestro show {modal} — UI display
     maestro modal {events} — Modal interaction
     Run `maestro commands` for full syntax reference.

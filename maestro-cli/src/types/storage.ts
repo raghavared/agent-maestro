@@ -36,7 +36,6 @@ export interface StoredTask {
     role: string;
     identity: string;
     avatar: string;
-    mailId: string;
   };
 }
 

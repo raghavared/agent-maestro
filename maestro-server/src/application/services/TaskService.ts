@@ -148,20 +148,15 @@ export class TaskService {
    * Emit notification events for task-level status transitions.
    */
   private async emitTaskStatusNotifications(oldStatus: string, newTask: Task): Promise<void> {
-    console.log(`[TaskService] Task status check for ${newTask.id}: ${oldStatus} -> ${newTask.status}`);
     if (oldStatus === newTask.status) return;
 
     if (newTask.status === 'completed') {
-      console.log(`[TaskService] Emitting notify:task_completed for ${newTask.id} (${newTask.title})`);
       await this.eventBus.emit('notify:task_completed', { taskId: newTask.id, title: newTask.title });
     } else if (newTask.status === 'cancelled') {
-      console.log(`[TaskService] Emitting notify:task_failed for ${newTask.id} (${newTask.title})`);
       await this.eventBus.emit('notify:task_failed', { taskId: newTask.id, title: newTask.title });
     } else if (newTask.status === 'in_review') {
-      console.log(`[TaskService] Emitting notify:task_in_review for ${newTask.id} (${newTask.title})`);
       await this.eventBus.emit('notify:task_in_review', { taskId: newTask.id, title: newTask.title });
     } else if (newTask.status === 'blocked') {
-      console.log(`[TaskService] Emitting notify:task_blocked for ${newTask.id} (${newTask.title})`);
       await this.eventBus.emit('notify:task_blocked', { taskId: newTask.id, title: newTask.title });
     }
   }
@@ -179,12 +174,9 @@ export class TaskService {
 
       if (oldStatus === newStatus) continue;
 
-      console.log(`[TaskService] TaskSession status change for task=${newTask.id}, session=${sessionId}: ${oldStatus} -> ${newStatus}`);
       if (newStatus === 'completed') {
-        console.log(`[TaskService] Emitting notify:task_session_completed for task=${newTask.id}, session=${sessionId}`);
         await this.eventBus.emit('notify:task_session_completed', { taskId: newTask.id, sessionId, title: newTask.title });
       } else if (newStatus === 'failed') {
-        console.log(`[TaskService] Emitting notify:task_session_failed for task=${newTask.id}, session=${sessionId}`);
         await this.eventBus.emit('notify:task_session_failed', { taskId: newTask.id, sessionId, title: newTask.title });
       }
     }

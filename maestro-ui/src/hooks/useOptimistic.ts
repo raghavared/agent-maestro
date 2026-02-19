@@ -43,7 +43,6 @@ export function useOptimistic<A extends any[]>(
                 rollback();
                 const error = err instanceof Error ? err : new Error(String(err));
                 setError(error);
-                console.error('[useOptimistic] Action failed, rolled back:', error);
                 throw error; // Re-throw for caller to handle
             } finally {
                 setIsPending(false);

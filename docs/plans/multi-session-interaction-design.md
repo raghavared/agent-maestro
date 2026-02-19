@@ -273,18 +273,18 @@ Agents know other session IDs through several mechanisms:
 | `MAESTRO_COORDINATOR_SESSION_ID` env var | Worker knows its coordinator |
 | `maestro session list --my-workers` | Coordinator lists spawned workers |
 | `maestro session list --siblings` | Worker lists peer workers |
-| `maestro mail inbox` | Mail messages contain `fromSessionId` |
 | Task docs/metadata | Session IDs stored in task context |
 
-The `targetSessionId` parameter uses the **maestro server session ID** (e.g., `sess_abc123`), NOT the PTY integer ID. This is the same ID space used by `maestro mail send`, `maestro session watch`, etc.
+The `targetSessionId` parameter uses the **maestro server session ID** (e.g., `sess_abc123`), NOT the PTY integer ID. This is the same ID space used by `maestro session watch`, etc.
 
 ## Validation & Safety
 
 ### Server-Side Validation
 1. **Session must exist** — 404 if not found
-2. **Session must be active** — 409 if status is `completed`, `failed`, `stopped`, or `error`
-3. **Content must be non-empty string** — 400 if missing/invalid
-4. **Mode must be `send` or `paste`** — 400 if invalid
+2. **Content must be non-empty string** — 400 if missing/invalid
+3. **Mode must be `send` or `paste`** — 400 if invalid
+
+> **Note:** The server no longer rejects prompts based on session status. A session can be `completed` in maestro but still have its terminal open in the UI. The real availability check happens UI-side: the `session:prompt_send` handler only writes to terminals where `!s.exited` (the terminal process is still running). This aligns with the session section's visibility logic — if a session is visible in the UI, it can receive prompts.
 
 ### Client-Side Validation
 1. **Sender must be in a Maestro session** — requires `MAESTRO_SESSION_ID` env var
@@ -335,5 +335,5 @@ The `targetSessionId` parameter uses the **maestro server session ID** (e.g., `s
 - **Bidirectional confirmation:** The target session could ACK receipt via a response event
 - **Prompt queuing:** If the target session is busy (agent working), queue prompts and deliver when the agent is idle/waiting for input
 - **Permission model:** Allow sessions to opt-in/out of receiving external prompts
-- **Broadcast prompts:** Send the same prompt to all worker sessions (reuse `maestro mail broadcast` pattern)
+- **Broadcast prompts:** Send the same prompt to all worker sessions
 - **Interactive prompt selection:** Let the sending agent browse active sessions before choosing a target

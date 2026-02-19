@@ -25,23 +25,13 @@ export function useTerminalSession(
 
     // Prevent duplicate spawns - check and add atomically
     if (spawningSessionsRef.current.has(dedupKey)) {
-      console.log('[useTerminalSession] ⚠️  Session spawn already in progress, skipping:', sessionInfo.name);
       return;
     }
 
     // Add to set immediately to block duplicates
     spawningSessionsRef.current.add(dedupKey);
-    console.log('[useTerminalSession] Spawning terminal session:', sessionInfo.name);
 
     try {
-
-      console.log('[useTerminalSession] ℹ️  Passing env_vars to Tauri:', {
-        hasEnvVars: !!sessionInfo.envVars,
-        envVarKeys: sessionInfo.envVars ? Object.keys(sessionInfo.envVars) : [],
-        hasMaestroManifestPath: sessionInfo.envVars?.['MAESTRO_MANIFEST_PATH'] ? 'YES' : 'NO',
-        manifestPathValue: sessionInfo.envVars?.['MAESTRO_MANIFEST_PATH']?.substring(0, 80)
-      });
-
       const info = await invoke<TerminalSessionInfo>("create_session", {
         name: sessionInfo.name,
         command: sessionInfo.command,
@@ -68,8 +58,6 @@ export function useTerminalSession(
 
       setSessions((prev) => [...prev, newSession]);
       setActiveId(newSession.id);
-
-      console.log('[useTerminalSession] ✓ Terminal session spawned:', newSession.id);
 
       // Clean up dedup key after a short delay
       setTimeout(() => {

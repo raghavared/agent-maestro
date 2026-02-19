@@ -18,7 +18,6 @@ export function AgentModalViewer({ modal, onClose }: AgentModalViewerProps) {
         body: JSON.stringify({ action, data }),
       });
     } catch (err) {
-      console.error('[AgentModalViewer] Failed to send action to server:', err);
     }
   }, [modal.sessionId, modal.modalId]);
 
@@ -31,7 +30,6 @@ export function AgentModalViewer({ modal, onClose }: AgentModalViewerProps) {
         body: JSON.stringify({}),
       });
     } catch (err) {
-      console.error('[AgentModalViewer] Failed to notify modal close:', err);
     }
   }, [modal.sessionId, modal.modalId]);
 
@@ -57,7 +55,6 @@ export function AgentModalViewer({ modal, onClose }: AgentModalViewerProps) {
 
       // Modal action from bridge: maestro.sendAction(action, data)
       if (msg.type === 'maestro:modal_action' && msg.modalId === modal.modalId) {
-        console.log('[AgentModalViewer] Action received:', msg.action, msg.data);
         sendActionToServer(msg.action, msg.data || {});
       }
 

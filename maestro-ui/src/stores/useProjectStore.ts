@@ -64,13 +64,10 @@ interface ProjectState {
 function pickActiveSessionId(projectId: string): string | null {
   const { sessions } = useSessionStore.getState();
   const last = lastActiveByProject.get(projectId);
-  console.log('[pickActiveSessionId] projectId:', projectId, 'lastActive:', last, 'mapEntries:', Array.from(lastActiveByProject.entries()));
   if (last && sessions.some((s) => s.id === last)) {
-    console.log('[pickActiveSessionId] returning last active:', last);
     return last;
   }
   const first = sessions.find((s) => s.projectId === projectId);
-  console.log('[pickActiveSessionId] falling back to first session:', first?.id ?? null);
   return first ? first.id : null;
 }
 
@@ -499,22 +496,17 @@ type SessionLike = { id: string; projectId: string; persistId: string };
  */
 export function initActiveSessionSync(): () => void {
   let prevActiveId: string | null = useSessionStore.getState().activeId;
-  console.log('[activeSessionSync] initialized, prevActiveId:', prevActiveId);
 
   const unsub = useSessionStore.subscribe((state) => {
     const { activeId, sessions } = state;
     if (activeId === prevActiveId) return;
-    console.log('[activeSessionSync] activeId changed:', prevActiveId, '->', activeId);
     prevActiveId = activeId;
 
     if (!activeId) return;
     const session = sessions.find((s) => s.id === activeId);
     if (!session) {
-      console.log('[activeSessionSync] session not found for activeId:', activeId);
       return;
     }
-
-    console.log('[activeSessionSync] storing projectId:', session.projectId, '-> sessionId:', activeId, 'persistId:', session.persistId);
 
     // Update module-level map (used by pickActiveSessionId at runtime)
     lastActiveByProject.set(session.projectId, activeId);

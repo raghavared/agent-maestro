@@ -630,7 +630,6 @@ export function FileExplorerPanel({
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error("Download failed:", message);
       setDownloadError(message);
     } finally {
       setDownloadBusy(false);
@@ -757,7 +756,6 @@ export function FileExplorerPanel({
             });
           }
         } catch (err) {
-          console.error("File transfer failed:", err);
         }
       }
 
@@ -806,7 +804,6 @@ export function FileExplorerPanel({
         mode: "copy",
       });
     } catch (err) {
-      console.error("Native drag failed:", err);
       setDragPreparing(null);
     }
   }, [getDragIcon, provider, sshTargetValue, root]);
@@ -925,13 +922,11 @@ export function FileExplorerPanel({
       try {
         unlistenWebview = await getCurrentWebview().onDragDropEvent(handleEvent);
       } catch (err) {
-        console.error("Failed to register drag-drop listener (webview):", err);
       }
 
       try {
         unlistenWindow = await getCurrentWindow().onDragDropEvent(handleEvent);
       } catch (err) {
-        console.error("Failed to register drag-drop listener (window):", err);
       }
     };
 

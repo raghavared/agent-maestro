@@ -63,7 +63,7 @@ The system follows a **microservices-lite** architecture with clear component bo
 - **Architecture Pattern:** Clean/Hexagonal Architecture
 - **Layers:**
   - `api/`: REST route handlers (Express)
-  - `application/services/`: Business logic (TaskService, SessionService, QueueService, MailService)
+  - `application/services/`: Business logic (TaskService, SessionService, QueueService)
   - `domain/`: Core models, interfaces, events
   - `infrastructure/`: Repositories (FileSystem*), WebSocket, Config
 - **Dependencies:** express, ws, cors, yaml
@@ -324,9 +324,6 @@ maestro-ui/src/hooks/useMaestroSessions.ts - TODO marker present
 **maestro-server:**
 ```bash
 $ npm test
-PASS test/services/MailService.test.ts (10 tests passing)
-PASS test/repositories/FileSystemMailRepository.test.ts (10 tests passing)
-PASS test/mail.test.ts (6 tests passing)
 FAIL test/projects.test.ts - Cannot find module '../src/storage'
 FAIL test/sessions.test.ts - Cannot find module '../src/storage'
 FAIL test/tasks.test.ts - Cannot find module '../src/storage'
@@ -336,7 +333,6 @@ FAIL test/integration.test.ts - Cannot find module '../src/storage'
 
 **Test Infrastructure:**
 - **Framework:** Jest for server, Vitest for CLI
-- **Passing Tests:** 26 tests across MailService, FileSystemMailRepository, mail API
 - **Failing Tests:** 5 test files broken (import errors from refactoring)
 - **Coverage:** Unknown - cannot run successfully
 
@@ -360,7 +356,7 @@ FAIL test/integration.test.ts - Cannot find module '../src/storage'
    - `/api/queue` (queueRoutes.ts)
 
 2. **Business Logic Services:**
-   - TaskService (only MailService tested)
+   - TaskService
    - SessionService
    - QueueService
    - ProjectService

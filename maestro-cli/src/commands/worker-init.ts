@@ -164,11 +164,6 @@ export class WorkerInitCommand {
       });
 
     } catch (error: any) {
-      console.error(`\n[worker-init] FATAL: Failed to initialize worker session`);
-      console.error(`[worker-init] Error: ${error.message}`);
-      if (error.stack) {
-        console.error(`[worker-init] Stack: ${error.stack}`);
-      }
       process.exit(1);
     }
   }

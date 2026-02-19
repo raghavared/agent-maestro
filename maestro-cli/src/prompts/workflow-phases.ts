@@ -17,23 +17,40 @@ export const EXECUTE_INIT_PHASE =
   '  1. maestro task get <refTaskId>  — read the reference task details\n' +
   '  2. maestro task docs list <refTaskId>  — list and read all attached docs\n' +
   'Reference task docs contain critical context, examples, or prior work. Read them thoroughly.\n' +
-  'If a <coordinator_directive> is present, read it carefully — it contains your coordinator\'s specific instructions.\n' +
-  'Check `maestro mail inbox` for any initial messages from your coordinator.';
+  'If a <coordinator_directive> is present, read it carefully — it contains your coordinator\'s specific instructions.';
 
 export const EXECUTE_WORK_PHASE =
   'Work through each task directly — do not decompose or delegate.\n' +
-  'IMPORTANT: Before starting each task, check for new directives from your coordinator:\n' +
-  '  maestro mail inbox\n' +
-  'If you receive a directive that changes your priorities or approach, adjust accordingly.\n' +
-  'If blocked, notify your coordinator:\n' +
-  '  maestro mail send --to-coordinator --type query --subject "<what you need>" --message "<details>"\n' +
-  'Then wait for a response: maestro mail wait --timeout 30000\n' +
+  'IMPORTANT: Print clear status text throughout your work. Your coordinator observes ONLY your printed text.\n' +
+  '- Before major actions: "Running tests for auth module..."\n' +
+  '- After results: "Tests passed: 12/12"\n' +
+  '- If blocked: "BLOCKED: Cannot find database config."\n' +
+  'If blocked, report it:\n' +
+  '  maestro task report blocked <taskId> "<what you need>"\n' +
   'After completing each task, report it:\n' +
-  '  maestro task report complete <taskId> "<summary of what was done>"';
+  '  maestro task report complete <taskId> "<summary of what was done>"\n' +
+  'If your <session_context> contains a <coordinator_session_id>, notify your coordinator directly AFTER calling task report:\n' +
+  '  On task complete: maestro session prompt <coordinatorSessionId> --message "Task <taskId> complete: <summary>"\n' +
+  '  On blocked:       maestro session prompt <coordinatorSessionId> --message "BLOCKED on task <taskId>: <reason>"\n' +
+  '  On error:         maestro session prompt <coordinatorSessionId> --message "ERROR on task <taskId>: <description>"\n' +
+  'To communicate with a sibling worker (e.g. to share findings, ask about shared code, or avoid duplicate work):\n' +
+  '  1. Discover siblings: maestro session siblings\n' +
+  '     Returns: session ID, name, role, status for each active peer\n' +
+  '  2. Send a message:    maestro session prompt <siblingSessionId> --message "<your question or info>"\n' +
+  'Use peer messaging when another worker has context you need — they are all working on the same codebase.\n' +
+  'To send a persistent message (with PTY wakeup) to a sibling session:\n' +
+  '  maestro session notify <targetSessionId> --message "<brief>" [--detail "<longer context>"]\n' +
+  '  This sends a PTY wakeup AND stores a mail record for the recipient to read later.\n' +
+  'To read messages sent to you by siblings:\n' +
+  '  maestro session mail read\n' +
+  '  Call this at the start of your work to catch any sibling notifications.\n' +
+  '  Note: coordinator directives arrive via direct PTY injection — they do NOT create mail records.';
 
 export const EXECUTE_COMPLETE_PHASE =
   'When all tasks are done:\n' +
-  '  maestro session report complete "<summary of all work completed>"';
+  '  maestro session report complete "<summary of all work completed>"\n' +
+  'If <coordinator_session_id> is present in your <session_context>, also run:\n' +
+  '  maestro session prompt <coordinatorSessionId> --message "All tasks done. Session closing."';
 
 // ═══════════════════════════════════════════════════════════════
 // EXECUTE MODE — Tree Strategy
@@ -45,23 +62,20 @@ export const EXECUTE_TREE_ANALYZE_PHASE =
   '  2. maestro task docs list <refTaskId>  — list and read all attached docs\n' +
   'Reference task docs contain critical context, examples, or prior work. Read them thoroughly and apply their guidance to your tasks.\n' +
   'Run `maestro task children <taskId> --recursive` to see the full task tree. ' +
-  'Identify leaf tasks and check dependencies.\n' +
-  'Check `maestro mail inbox` for any initial messages or directives from your coordinator.';
+  'Identify leaf tasks and check dependencies.';
 
 export const EXECUTE_TREE_PLAN_PHASE =
   'Determine execution order: tasks with no unresolved dependencies go first. ' +
   'Group independent siblings for sequential execution.';
 
 export const EXECUTE_TREE_WORK_PHASE =
-  'Work through tasks in order. IMPORTANT: Before starting each task, check for new directives:\n' +
-  '  maestro mail inbox\n' +
-  'If you receive a directive that changes your priorities, adjust accordingly.\n' +
+  'Work through tasks in order.\n' +
   'For each task:\n' +
   '  1. maestro task report progress <taskId> "Starting"\n' +
   '  2. Complete it\n' +
   '  3. maestro task report complete <taskId> "<summary>"\n' +
-  'If blocked, notify your coordinator:\n' +
-  '  maestro mail send --to-coordinator --type query --subject "<what you need>" --message "<details>"';
+  'If blocked, report it:\n' +
+  '  maestro task report blocked <taskId> "<what you need>"';
 
 export const EXECUTE_TREE_COMPLETE_PHASE =
   'When ALL tasks in the tree are done:\n' +
@@ -108,25 +122,23 @@ export const COORDINATE_SPAWN_PHASE =
   'Collect all session IDs for monitoring.';
 
 export const COORDINATE_MONITOR_PHASE =
-  'Monitor workers using an event-driven loop (do NOT poll on a timer):\n' +
-  '  1. maestro mail wait --timeout 60000     — block until a worker message arrives\n' +
-  '  2. maestro mail inbox                    — read ALL pending messages\n' +
-  '  3. maestro task children <parentTaskId>  — check subtask statuses\n' +
-  '  4. React to each message:\n' +
-  '     - status_update → acknowledge, adjust plan if needed\n' +
-  '     - query → answer via maestro mail reply <mailId> --message "<answer>"\n' +
-  '     - blocked → investigate and send a directive to unblock\n' +
-  '  5. Repeat until all subtasks are completed\n' +
-  'If a worker goes silent for too long, send a status query:\n' +
-  '  maestro mail send <sessionId> --type query --subject "Status check" --message "Please report your current progress."';
+  'Monitor workers each turn using BOTH methods:\n' +
+  '  1. Read worker output: maestro session logs --my-workers --last 5\n' +
+  '     - Shows last 5 text lines each worker printed (tool calls are invisible)\n' +
+  '     - Look for progress, errors, stuck warnings\n' +
+  '  2. Check task statuses: maestro task children <parentTaskId>\n' +
+  '  3. React: progressing → wait; stuck → send directive; blocked → diagnose; completed → assign next\n' +
+  '  4. Intervene: maestro session prompt <sessionId> --message "<instructions>"\n' +
+  '  5. Repeat until all subtasks completed';
 
 export const COORDINATE_RECOVER_PHASE =
   'If a worker fails or reports blocked:\n' +
-  '  1. Diagnose: maestro task get <taskId> — read error details\n' +
-  '  2. Decide: Can the worker be unblocked with a directive, or does the task need re-spawning?\n' +
-  '  3. Unblock: maestro mail send <sessionId> --type directive --subject "<guidance>" --message "<specific fix instructions>"\n' +
-  '  4. Re-spawn if needed: maestro session spawn --task <taskId> --subject "<new approach>" --message "<revised instructions>" [--team-member-id <tmId>]\n' +
-  '  5. If the issue is systemic, adjust remaining subtasks before proceeding.';
+  '  1. Get deeper logs: maestro session logs <sessionId> --last 10\n' +
+  '  2. Diagnose from text output and task status: maestro task get <taskId>\n' +
+  '  3. Decide: Can the worker be unblocked with a directive, or does the task need re-spawning?\n' +
+  '  4. Unblock: maestro session prompt <sessionId> --message "<specific fix instructions>"\n' +
+  '  5. Re-spawn if needed: maestro session spawn --task <taskId> --subject "<new approach>" --message "<revised instructions>" [--team-member-id <tmId>]\n' +
+  '  6. If the issue is systemic, adjust remaining subtasks before proceeding.';
 
 export const COORDINATE_VERIFY_PHASE =
   'After workers finish, verify all subtask statuses:\n' +
@@ -155,12 +167,11 @@ export const COORDINATE_BATCH_EXECUTE_PHASE =
   'For each batch:\n' +
   '  1. Spawn all workers in the batch with initial directives (spawn them all, do not wait between spawns):\n' +
   '     maestro session spawn --task <subtaskId> --subject "<directive>" --message "<detailed instructions>" [--team-member-id <tmId>]\n' +
-  '  2. Monitor via event-driven loop:\n' +
-  '     a. maestro mail wait --timeout 60000  — block until worker message arrives\n' +
-  '     b. maestro mail inbox                 — read all pending messages\n' +
-  '     c. maestro task children <parentTaskId> — check subtask statuses\n' +
-  '     d. React: reply to queries, unblock workers, send directives as needed\n' +
-  '     e. Repeat until all batch tasks are completed\n' +
+  '  2. Monitor using BOTH methods:\n' +
+  '     a. maestro session logs --my-workers --last 5 — read worker text output\n' +
+  '     b. maestro task children <parentTaskId> — check subtask statuses\n' +
+  '     c. React: unblock workers via maestro session prompt <sessionId> --message "<instructions>"\n' +
+  '     d. Repeat until all batch tasks are completed\n' +
   '  3. If a worker fails, re-spawn or reassign before proceeding.\n' +
   '  4. Proceed to next batch only when current batch succeeds.';
 
@@ -186,12 +197,11 @@ export const COORDINATE_DAG_EXECUTE_PHASE =
   'Execute in waves:\n' +
   '  1. Find READY tasks → spawn all workers in parallel with initial directives (do not wait between spawns):\n' +
   '     maestro session spawn --task <subtaskId> --subject "<directive>" --message "<detailed instructions>"\n' +
-  '  2. Monitor via event-driven loop:\n' +
-  '     a. maestro mail wait --timeout 60000  — block until worker message arrives\n' +
-  '     b. maestro mail inbox                 — read all pending messages\n' +
-  '     c. maestro task children <parentTaskId> — check subtask statuses\n' +
-  '     d. React: reply to queries, unblock workers, send directives as needed\n' +
-  '     e. Repeat until current wave is completed\n' +
+  '  2. Monitor using BOTH methods:\n' +
+  '     a. maestro session logs --my-workers --last 5 — read worker text output\n' +
+  '     b. maestro task children <parentTaskId> — check subtask statuses\n' +
+  '     c. React: unblock workers via maestro session prompt <sessionId> --message "<instructions>"\n' +
+  '     d. Repeat until current wave is completed\n' +
   '  3. On completion, unlock downstream tasks\n' +
   '  4. If a worker fails, re-spawn or adjust the DAG before proceeding\n' +
   '  5. Repeat until no tasks remain.';

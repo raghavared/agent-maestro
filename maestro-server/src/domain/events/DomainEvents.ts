@@ -1,4 +1,4 @@
-import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, MailMessage, TeamMember } from '../../types';
+import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember } from '../../types';
 
 /**
  * Type-safe domain event definitions.
@@ -162,6 +162,17 @@ export interface SessionModalClosedEvent {
   };
 }
 
+export interface SessionPromptSendEvent {
+  type: 'session:prompt_send';
+  data: {
+    sessionId: string;
+    content: string;
+    mode: 'send' | 'paste';
+    senderSessionId: string | null;
+    timestamp: number;
+  };
+}
+
 // Team Member Events
 export interface TeamMemberCreatedEvent {
   type: 'team_member:created';
@@ -181,17 +192,6 @@ export interface TeamMemberDeletedEvent {
 export interface TeamMemberArchivedEvent {
   type: 'team_member:archived';
   data: TeamMember;
-}
-
-// Mail Events
-export interface MailReceivedEvent {
-  type: 'mail:received';
-  data: MailMessage;
-}
-
-export interface MailDeletedEvent {
-  type: 'mail:deleted';
-  data: { id: string };
 }
 
 /**
@@ -226,12 +226,11 @@ export type DomainEvent =
   | SessionModalEvent
   | SessionModalActionEvent
   | SessionModalClosedEvent
+  | SessionPromptSendEvent
   | TeamMemberCreatedEvent
   | TeamMemberUpdatedEvent
   | TeamMemberDeletedEvent
-  | TeamMemberArchivedEvent
-  | MailReceivedEvent
-  | MailDeletedEvent;
+  | TeamMemberArchivedEvent;
 
 /**
  * Type-safe event map for event bus.
@@ -282,14 +281,18 @@ export interface TypedEventMap {
     modalId: string;
     timestamp: number;
   };
+  'session:prompt_send': {
+    sessionId: string;
+    content: string;
+    mode: 'send' | 'paste';
+    senderSessionId: string | null;
+    timestamp: number;
+  };
   // Team member events
   'team_member:created': TeamMember;
   'team_member:updated': TeamMember;
   'team_member:deleted': { id: string };
   'team_member:archived': TeamMember;
-  // Mail events
-  'mail:received': MailMessage;
-  'mail:deleted': { id: string };
 }
 
 /**

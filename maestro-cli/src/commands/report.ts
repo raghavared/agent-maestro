@@ -38,11 +38,6 @@ export async function executeReport(
   }
 
   if (!sessionId) {
-    if (isJson) {
-      console.log(JSON.stringify({ success: false, error: 'no_session', message: 'No session context found. MAESTRO_SESSION_ID must be set.' }));
-    } else {
-      console.error('Error: No session context found. MAESTRO_SESSION_ID must be set.');
-    }
     process.exit(1);
   }
 
