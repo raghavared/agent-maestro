@@ -1151,27 +1151,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   handleSpawnTerminalSession: async (sessionInfo) => {
-    console.log('[handleSpawnTerminalSession] ========================================');
-    console.log('[handleSpawnTerminalSession] Called with:', sessionInfo);
-    console.log('[handleSpawnTerminalSession] maestroSessionId:', sessionInfo.maestroSessionId);
-    console.log('[handleSpawnTerminalSession] envVars:', sessionInfo.envVars);
-
     // Use maestroSessionId for deduplication (unique per spawn)
     const dedupKey = sessionInfo.maestroSessionId;
-    console.log('[handleSpawnTerminalSession] Dedup key:', dedupKey);
 
     if (spawningSessionsRef.has(dedupKey)) {
-      console.warn('[handleSpawnTerminalSession] ⚠️  Deduplication blocked - session already spawning:', dedupKey);
-      console.warn('[handleSpawnTerminalSession] Active spawning keys:', Array.from(spawningSessionsRef));
       return;
     }
 
     spawningSessionsRef.add(dedupKey);
-    console.log('[handleSpawnTerminalSession] ✓ Added to spawning set');
 
     try {
-      console.log('[handleSpawnTerminalSession] Invoking create_session with env_vars:', sessionInfo.envVars);
-
       // Build export prefix to inline env vars into the command string.
       // portable-pty's CommandBuilder::env() does not reliably pass env vars
       // to the child process on macOS, so we export them in the shell command.
@@ -1190,7 +1179,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         env_vars: sessionInfo.envVars,
         persistent: false,
       });
-      console.log('[handleSpawnTerminalSession] ✓ create_session returned:', info);
 
       const newSession: TerminalSession = {
         ...info,

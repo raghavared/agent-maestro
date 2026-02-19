@@ -152,35 +152,24 @@ export class SessionService {
       }
     }
 
-    if (session.needsInput) {
-      console.log(`[SessionService] Emitting session:updated with needsInput for ${id}:`, JSON.stringify(session.needsInput));
-    }
-
     await this.eventBus.emit('session:updated', session);
 
     // Emit notification events for session status transitions (using snapshot)
     if (oldSession && oldStatus !== session.status) {
-      console.log(`[SessionService] Status transition for ${id}: ${oldStatus} -> ${session.status}`);
       if (session.status === 'completed') {
-        console.log(`[SessionService] Emitting notify:session_completed for ${id}`);
         await this.eventBus.emit('notify:session_completed', { sessionId: session.id, name: session.name });
       } else if (session.status === 'failed') {
-        console.log(`[SessionService] Emitting notify:session_failed for ${id}`);
         await this.eventBus.emit('notify:session_failed', { sessionId: session.id, name: session.name });
       }
     }
 
     // Emit notify:needs_input when needsInput.active becomes true (using snapshot)
-    console.log(`[SessionService] needsInput check for ${id}: updates.needsInput?.active=${updates.needsInput?.active}, oldNeedsInputActive=${oldNeedsInputActive}`);
     if (oldSession && updates.needsInput?.active && !oldNeedsInputActive) {
-      console.log(`[SessionService] Emitting notify:needs_input for ${id} (name=${session.name})`);
       await this.eventBus.emit('notify:needs_input', {
         sessionId: session.id,
         name: session.name,
         message: updates.needsInput.message,
       });
-    } else if (updates.needsInput !== undefined) {
-      console.log(`[SessionService] NOT emitting notify:needs_input for ${id}: oldSession=${!!oldSession}, updates.needsInput?.active=${updates.needsInput?.active}, oldNeedsInputActive=${oldNeedsInputActive}`);
     }
 
     return session;
@@ -350,14 +339,12 @@ export class SessionService {
 
     // Emit notification events for specific timeline event types
     if (type === 'progress') {
-      console.log(`[SessionService] Timeline event 'progress' -> emitting notify:progress for ${sessionId}`);
       await this.eventBus.emit('notify:progress', {
         sessionId,
         taskId,
         message,
       });
     } else if (type === 'needs_input') {
-      console.log(`[SessionService] Timeline event 'needs_input' -> emitting notify:needs_input for ${sessionId}`);
       await this.eventBus.emit('notify:needs_input', {
         sessionId,
         name: updatedSession.name,

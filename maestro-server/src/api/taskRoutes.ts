@@ -163,6 +163,69 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
     }
   });
 
+  // Add doc to a task (validates task exists, stores in session, links session to task)
+  router.post('/tasks/:id/docs', async (req: Request, res: Response) => {
+    try {
+      const taskId = req.params.id as string;
+      const { title, filePath, content, sessionId } = req.body;
+
+      if (!title) {
+        return res.status(400).json({
+          error: true,
+          message: 'title is required',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      if (!filePath) {
+        return res.status(400).json({
+          error: true,
+          message: 'filePath is required',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      if (!sessionId) {
+        return res.status(400).json({
+          error: true,
+          message: 'sessionId is required',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Validate task exists first — returns 404 if taskId is invalid (fixes BUG-3)
+      await taskService.getTask(taskId);
+
+      if (!sessionService) {
+        return res.status(500).json({
+          error: true,
+          message: 'Session service unavailable',
+          code: 'INTERNAL_ERROR'
+        });
+      }
+
+      // Store doc in session tagged with taskId
+      await sessionService.addDoc(sessionId, title, filePath, content, taskId);
+
+      // Ensure session is linked to this task so GET /tasks/:id/docs can find the doc
+      const session = await sessionService.getSession(sessionId);
+      if (!session.taskIds.includes(taskId)) {
+        await sessionService.addTaskToSession(sessionId, taskId);
+      }
+
+      res.status(201).json({
+        success: true,
+        taskId,
+        sessionId,
+        title,
+        filePath,
+        addedAt: Date.now(),
+      });
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
   // Delete task
   router.delete('/tasks/:id', async (req: Request, res: Response) => {
     try {

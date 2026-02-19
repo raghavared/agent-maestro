@@ -317,7 +317,6 @@ export function TaskListItem({
         try {
             await removeTaskFromSession(sessionId, task.id);
         } catch (error) {
-            console.error("Failed to remove task from session:", error);
         }
     };
 
@@ -326,7 +325,6 @@ export function TaskListItem({
         try {
             await updateTask(task.id, { status: 'archived' });
         } catch (error) {
-            console.error("Failed to archive task:", error);
         } finally {
             setIsDeleting(false);
         }
@@ -342,7 +340,6 @@ export function TaskListItem({
             await deleteTask(task.id);
             setShowDeleteConfirm(false);
         } catch (error) {
-            console.error("Failed to delete task:", error);
         } finally {
             setIsDeleting(false);
         }
@@ -363,7 +360,6 @@ export function TaskListItem({
             });
             setShowStatusDropdown(false);
         } catch (error) {
-            console.error("Failed to update task status:", error);
         } finally {
             setIsUpdatingStatus(false);
         }
@@ -383,7 +379,6 @@ export function TaskListItem({
             await updateTask(task.id, { priority: newPriority });
             setShowPriorityDropdown(false);
         } catch (error) {
-            console.error("Failed to update task priority:", error);
         } finally {
             setIsUpdatingPriority(false);
         }
@@ -406,7 +401,6 @@ export function TaskListItem({
             // Reset launch override — team members changed
             setLaunchOverride(null);
         } catch (error) {
-            console.error("Failed to update team member:", error);
         } finally {
             setIsUpdatingTeamMember(false);
         }

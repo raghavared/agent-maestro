@@ -91,7 +91,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
         },
         permissionMode: {
           type: 'string',
-          enum: ['acceptEdits', 'interactive', 'readOnly'],
+          enum: ['acceptEdits', 'interactive', 'readOnly', 'bypassPermissions'],
         },
         thinkingMode: {
           type: 'string',
@@ -221,7 +221,6 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
           role: { type: 'string' },
           identity: { type: 'string' },
           avatar: { type: 'string' },
-          mailId: { type: 'string' },
           skillIds: {
             type: 'array',
             items: { type: 'string' },
@@ -259,8 +258,13 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
             },
             additionalProperties: false,
           },
+          memory: {
+            type: 'array',
+            items: { type: 'string' },
+            nullable: true,
+          },
         },
-        required: ['id', 'name', 'role', 'identity', 'avatar', 'mailId'],
+        required: ['id', 'name', 'role', 'identity', 'avatar'],
         additionalProperties: false,
       },
       description: 'Team members available for coordination (only in coordinate mode)',
@@ -323,6 +327,12 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       nullable: true,
       description: 'Team member custom workflow text',
     },
+    teamMemberMemory: {
+      type: 'array',
+      items: { type: 'string' },
+      nullable: true,
+      description: 'Team member persistent memory entries',
+    },
     coordinatorSessionId: {
       type: 'string',
       nullable: true,
@@ -382,6 +392,11 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
           agentTool: {
             type: 'string',
             enum: ['claude-code', 'codex', 'gemini'],
+            nullable: true,
+          },
+          memory: {
+            type: 'array',
+            items: { type: 'string' },
             nullable: true,
           },
         },

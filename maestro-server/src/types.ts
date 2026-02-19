@@ -10,41 +10,6 @@ export interface UpdateOrderingPayload {
   orderedIds: string[];
 }
 
-// Mail message types
-export type MailMessageType = 'assignment' | 'status_update' | 'query' | 'response' | 'directive' | 'notification';
-
-export interface MailMessage {
-  id: string;                    // "mail_<timestamp>_<random>"
-  projectId: string;
-  fromSessionId: string;
-  toSessionId: string | null;    // null = broadcast
-  replyToMailId: string | null;
-  type: MailMessageType;
-  subject: string;
-  body: Record<string, any>;     // Type-specific structured fields
-  createdAt: number;
-  priority?: 'critical' | 'high' | 'normal' | 'low';
-  threadId?: string;
-}
-
-export interface SendMailPayload {
-  projectId: string;
-  fromSessionId: string;
-  toSessionId?: string | null;
-  toTeamMemberId?: string;          // Resolve to session IDs for this team member
-  replyToMailId?: string | null;
-  type: MailMessageType;
-  subject: string;
-  body?: Record<string, any>;
-  priority?: 'critical' | 'high' | 'normal' | 'low';
-  scope?: 'all' | 'my-workers' | 'team';
-}
-
-export interface MailFilter {
-  type?: MailMessageType;
-  since?: number;
-}
-
 // Worker strategy types
 export type WorkerStrategy = 'simple' | 'tree';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
@@ -76,6 +41,7 @@ export interface TeamMember {
   model?: string;                      // "opus", "sonnet", "haiku"
   agentTool?: AgentTool;               // "claude-code", "codex", "gemini"
   mode?: AgentMode;                    // "execute" or "coordinate"
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   strategy?: string;                   // Deprecated: kept for backward compatibility
   skillIds?: string[];
   isDefault: boolean;                  // true for Worker & Coordinator
@@ -98,6 +64,9 @@ export interface TeamMember {
   workflowTemplateId?: string;         // Built-in template ID or 'custom'
   customWorkflow?: string;             // Freeform workflow text (when workflowTemplateId === 'custom')
 
+  // Self-awareness: persistent memory for the team member
+  memory?: string[];                   // Important details the agent remembers across sessions
+
   createdAt: string;                   // ISO 8601
   updatedAt: string;                   // ISO 8601
 }
@@ -108,6 +77,7 @@ export interface TeamMemberSnapshot {
   role: string;
   model?: string;
   agentTool?: AgentTool;
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
 }
 
 export interface CreateTeamMemberPayload {
@@ -119,6 +89,7 @@ export interface CreateTeamMemberPayload {
   model?: string;
   agentTool?: AgentTool;
   mode?: AgentMode;
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   strategy?: string;
   skillIds?: string[];
   capabilities?: TeamMember['capabilities'];
@@ -135,6 +106,7 @@ export interface UpdateTeamMemberPayload {
   model?: string;
   agentTool?: AgentTool;
   mode?: AgentMode;
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   strategy?: string;
   skillIds?: string[];
   status?: TeamMemberStatus;
@@ -142,6 +114,7 @@ export interface UpdateTeamMemberPayload {
   commandPermissions?: TeamMember['commandPermissions'];
   workflowTemplateId?: string;
   customWorkflow?: string;
+  memory?: string[];
 }
 
 export interface Task {
@@ -357,5 +330,25 @@ export interface SpawnRequestEvent {
   spawnSource: 'ui' | 'session';        // Who initiated the spawn
   parentSessionId?: string;              // Parent session ID if session-initiated
   _isSpawnCreated?: boolean;             // Backward compatibility flag
+}
+
+export interface Mail {
+  id: string;
+  parentSessionId: string;
+  fromSessionId: string;
+  fromName: string;
+  toSessionId: string;
+  message: string;
+  detail?: string;
+  createdAt: number;
+  readAt?: number;
+}
+
+export interface CreateMailPayload {
+  fromSessionId: string;
+  fromName: string;
+  toSessionId: string;
+  message: string;
+  detail?: string;
 }
 

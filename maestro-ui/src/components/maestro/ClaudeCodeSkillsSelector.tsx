@@ -28,7 +28,6 @@ export function ClaudeCodeSkillsSelector({ selectedSkills, onSelectionChange, pr
             const skillsList = await maestroClient.getSkills(projectPath);
             setSkills(skillsList);
         } catch (err) {
-            console.error("Failed to load skills:", err);
             setError(err instanceof Error ? err.message : "Failed to load skills");
         } finally {
             setLoading(false);

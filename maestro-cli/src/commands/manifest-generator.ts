@@ -27,7 +27,7 @@ export interface TaskInput {
  */
 export interface SessionOptions {
   model: string;
-  permissionMode: 'acceptEdits' | 'interactive' | 'readOnly';
+  permissionMode: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   thinkingMode?: 'auto' | 'interleaved' | 'disabled';
   maxTurns?: number;
   timeout?: number;
@@ -113,23 +113,15 @@ export class ManifestGeneratorCLICommand {
     teamMemberId?: string;
   }): Promise<void> {
     try {
-      console.error('Generating manifest...');
-      console.error(`  Mode: ${options.mode}`);
-      console.error(`  Mode: ${options.mode}`);
-      console.error(`  Task IDs: ${options.taskIds.join(', ')}`);
-      console.error(`  Project ID: ${options.projectId}`);
-
       // 1. Fetch ALL tasks
       const tasks: TaskInput[] = [];
       for (const taskId of options.taskIds) {
         const task = await this.fetchTask(taskId);
         tasks.push(task);
-        console.error(`  Task: ${task.title} (${taskId})`);
       }
 
       // 2. Fetch project
       const project = await this.fetchProject(options.projectId);
-      console.error(`  Working Directory: ${project.workingDir}`);
 
       // 3. Resolve model from CLI option (set by team member via server) or default to 'sonnet'
       const resolvedModel = options.model || 'sonnet';
@@ -160,6 +152,16 @@ export class ManifestGeneratorCLICommand {
         manifest.coordinatorSessionId = coordinatorSessionId;
       }
 
+      // Add initial directive from environment (passed via spawn flow)
+      const initialDirectiveEnv = process.env.MAESTRO_INITIAL_DIRECTIVE;
+      if (initialDirectiveEnv) {
+        try {
+          manifest.initialDirective = JSON.parse(initialDirectiveEnv);
+        } catch {
+          // ignore parse error
+        }
+      }
+
       // Add skills to manifest root
       manifest.skills = options.skills || ['maestro-worker'];
 
@@ -187,6 +189,9 @@ export class ManifestGeneratorCLICommand {
           manifest.teamMemberName = teamMember.name;
           manifest.teamMemberAvatar = teamMember.avatar;
           manifest.teamMemberIdentity = teamMember.identity;
+          if (teamMember.memory && teamMember.memory.length > 0) {
+            manifest.teamMemberMemory = teamMember.memory;
+          }
           if (teamMember.capabilities) {
             manifest.teamMemberCapabilities = teamMember.capabilities;
           }
@@ -199,9 +204,11 @@ export class ManifestGeneratorCLICommand {
           if (teamMember.customWorkflow) {
             manifest.teamMemberCustomWorkflow = teamMember.customWorkflow;
           }
-          console.error(`  Team Member: ${teamMember.name} (${teamMember.id})`);
-        } catch (err: any) {
-          console.error(`  Warning: Could not load team member ${effectiveTeamMemberIds[0]}: ${err.message}`);
+          if (teamMember.permissionMode) {
+            manifest.session.permissionMode = teamMember.permissionMode;
+          }
+        } catch {
+          // ignore team member load error
         }
       } else if (effectiveTeamMemberIds.length > 0) {
         // Multi-identity: fetch all and build profiles array
@@ -210,6 +217,7 @@ export class ManifestGeneratorCLICommand {
         let highestModelPower = 0;
         let resolvedModelFromProfiles: string | undefined;
         let resolvedAgentToolFromProfiles: AgentTool | undefined;
+        let resolvedPermissionModeFromProfiles: string | undefined;
 
         for (const memberId of effectiveTeamMemberIds) {
           try {
@@ -225,6 +233,7 @@ export class ManifestGeneratorCLICommand {
               customWorkflow: tm.customWorkflow,
               model: tm.model,
               agentTool: tm.agentTool,
+              memory: tm.memory,
             });
 
             // Resolve model: most powerful wins
@@ -239,9 +248,13 @@ export class ManifestGeneratorCLICommand {
               resolvedAgentToolFromProfiles = tm.agentTool;
             }
 
-            console.error(`  Team Member Profile: ${tm.name} (${memberId})`);
-          } catch (err: any) {
-            console.error(`  Warning: Could not load team member ${memberId}: ${err.message}`);
+            // Resolve permissionMode: first non-null wins
+            if (!resolvedPermissionModeFromProfiles && tm.permissionMode) {
+              resolvedPermissionModeFromProfiles = tm.permissionMode;
+            }
+
+          } catch {
+            // ignore team member load error
           }
         }
 
@@ -256,6 +269,11 @@ export class ManifestGeneratorCLICommand {
           // Override agentTool from profiles (if not already set)
           if (resolvedAgentToolFromProfiles && !options.agentTool) {
             manifest.agentTool = resolvedAgentToolFromProfiles;
+          }
+
+          // Override permissionMode from profiles (first member's setting wins)
+          if (resolvedPermissionModeFromProfiles) {
+            manifest.session.permissionMode = resolvedPermissionModeFromProfiles as any;
           }
 
           // Merge capabilities: union (if any member allows, it's allowed)
@@ -311,14 +329,12 @@ export class ManifestGeneratorCLICommand {
               role: teamMember.role,
               identity: teamMember.identity,
               avatar: teamMember.avatar,
-              mailId: `mail_${teamMember.id}`, // Generate mailId from team member ID
               skillIds: teamMember.skillIds,
               model: teamMember.model,
               agentTool: teamMember.agentTool,
             });
-            console.error(`  Team Member: ${teamMember.name} (${memberId})`);
-          } catch (err: any) {
-            console.error(`  Warning: Could not load team member ${memberId}: ${err.message}`);
+          } catch {
+            // ignore team member load error
           }
         }
         if (teamMembers.length > 0) {
@@ -342,10 +358,8 @@ export class ManifestGeneratorCLICommand {
       const json = this.generator.serializeManifest(manifest);
       await writeFile(options.output, json, 'utf-8');
 
-      console.error(`Manifest generated: ${options.output}`);
       process.exit(0);
-    } catch (error: any) {
-      console.error(`Failed to generate manifest: ${error.message}`);
+    } catch {
       process.exit(1);
     }
   }
@@ -496,14 +510,12 @@ export function registerManifestCommands(program: any): void {
 
       // Validate mode
       if (options.mode !== 'execute' && options.mode !== 'coordinate') {
-        console.error(MODE_VALIDATION_ERROR);
         process.exit(1);
       }
 
       // Validate agent tool
       const validTools = ['claude-code', 'codex', 'gemini'];
       if (options.agentTool && !validTools.includes(options.agentTool)) {
-        console.error(`${AGENT_TOOL_VALIDATION_PREFIX}${validTools.join(', ')}`);
         process.exit(1);
       }
 

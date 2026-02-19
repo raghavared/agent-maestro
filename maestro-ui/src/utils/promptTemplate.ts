@@ -38,9 +38,7 @@ export class PromptTemplateEngine {
         // Try to read file using Tauri fs API if available, or invoke a custom command
         // For this implementation, we'll assume we can't easily read from ~/.agents-ui from the browser context
         // without a specific allowlist. So we'll use a hardcoded default for MVP.
-        // console.log('Reading template from:', templatePath);
-      } catch (err) {
-        console.warn('Failed to read template file, using default:', err);
+      } catch {
       }
 
       // Parse environment variables
@@ -56,8 +54,7 @@ export class PromptTemplateEngine {
       if (envVars.MAESTRO_TASK_DATA) {
         try {
           context.MAESTRO_TASK_DATA = JSON.parse(envVars.MAESTRO_TASK_DATA);
-        } catch (err) {
-          console.error('Failed to parse MAESTRO_TASK_DATA:', err);
+        } catch {
         }
       }
 
@@ -77,7 +74,6 @@ export class PromptTemplateEngine {
 
       return this.simpleTemplateRender(templateContent, context);
     } catch (err) {
-      console.error('Template rendering error:', err);
       return `Error rendering template: ${err}`;
     }
   }

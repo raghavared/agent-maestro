@@ -34,7 +34,6 @@ export function registerTeamMemberCommands(program: Command) {
                     outputJSON(members);
                 } else {
                     if (members.length === 0) {
-                        console.log('No team members found.');
                     } else {
                         const activeMembers = members.filter((m: any) => m.status === 'active');
                         outputTable(
@@ -90,6 +89,13 @@ export function registerTeamMemberCommands(program: Command) {
                     if (member.identity) {
                         outputKeyValue('Identity', member.identity);
                     }
+                    const memoryList = member.memory || [];
+                    if (memoryList.length > 0) {
+                        outputKeyValue('Memory', `${memoryList.length} entries`);
+                        memoryList.forEach((entry: string, i: number) => {
+                            console.log(`  ${i + 1}. ${entry}`);
+                        });
+                    }
                 }
             } catch (err) {
                 spinner?.stop();
@@ -105,6 +111,7 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--mode <mode>', 'Update agent mode: execute or coordinate')
         .option('--model <model>', 'Update model (e.g. sonnet, opus, haiku)')
         .option('--agent-tool <tool>', 'Update agent tool (claude-code, codex, or gemini)')
+        .option('--permission-mode <mode>', 'Update permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Update identity/persona instructions')
         .option('--workflow-template <templateId>', 'Update workflow template ID')
         .option('--custom-workflow <workflow>', 'Update custom workflow text (use with --workflow-template custom)')
@@ -140,6 +147,16 @@ export function registerTeamMemberCommands(program: Command) {
                 }
             }
 
+            // Validate permission mode if provided
+            if (cmdOpts.permissionMode) {
+                const validPermissionModes = ['acceptEdits', 'interactive', 'readOnly', 'bypassPermissions'];
+                if (!validPermissionModes.includes(cmdOpts.permissionMode)) {
+                    const err = { message: `Invalid permission mode "${cmdOpts.permissionMode}". Must be one of: ${validPermissionModes.join(', ')}` };
+                    if (isJson) { outputErrorJSON(err); process.exit(1); }
+                    else { console.error(err.message); process.exit(1); }
+                }
+            }
+
             // Build update payload from provided options
             const updates: Record<string, any> = { projectId };
             if (cmdOpts.name) updates.name = cmdOpts.name.trim();
@@ -148,6 +165,7 @@ export function registerTeamMemberCommands(program: Command) {
             if (cmdOpts.mode) updates.mode = cmdOpts.mode;
             if (cmdOpts.model) updates.model = cmdOpts.model;
             if (cmdOpts.agentTool) updates.agentTool = cmdOpts.agentTool;
+            if (cmdOpts.permissionMode) updates.permissionMode = cmdOpts.permissionMode;
             if (cmdOpts.identity) updates.identity = cmdOpts.identity.trim();
             if (cmdOpts.workflowTemplate) updates.workflowTemplateId = cmdOpts.workflowTemplate;
             if (cmdOpts.customWorkflow) updates.customWorkflow = cmdOpts.customWorkflow.trim();
@@ -189,6 +207,173 @@ export function registerTeamMemberCommands(program: Command) {
             }
         });
 
+    // ── Self-update identity command ─────────────────────────────
+    teamMember.command('update-identity <teamMemberId>')
+        .description('Update own identity/persona instructions (self-awareness)')
+        .requiredOption('--identity <instructions>', 'New identity/persona instructions')
+        .action(async (teamMemberId: string, cmdOpts: any) => {
+            await guardCommand('team-member:update-identity');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const projectId = globalOpts.project || config.projectId;
+
+            if (!projectId) {
+                const err = { message: 'No project context found. Use --project <id> or set MAESTRO_PROJECT_ID.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Updating identity...').start() : null;
+
+            try {
+                const member: any = await api.patch(`/api/team-members/${teamMemberId}`, {
+                    projectId,
+                    identity: cmdOpts.identity.trim(),
+                });
+
+                spinner?.succeed('Identity updated');
+
+                if (isJson) {
+                    outputJSON(member);
+                } else {
+                    outputKeyValue('ID', member.id);
+                    outputKeyValue('Name', `${member.avatar} ${member.name}`);
+                    outputKeyValue('Identity', member.identity);
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    // ── Memory commands ────────────────────────────────────────
+    const memory = teamMember.command('memory').description('Manage team member memory (persistent notes)');
+
+    memory.command('append <teamMemberId>')
+        .description('Append an entry to team member memory')
+        .requiredOption('--entry <text>', 'Memory entry to store')
+        .action(async (teamMemberId: string, cmdOpts: any) => {
+            await guardCommand('team-member:memory:append');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const projectId = globalOpts.project || config.projectId;
+
+            if (!projectId) {
+                const err = { message: 'No project context found. Use --project <id> or set MAESTRO_PROJECT_ID.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Appending to memory...').start() : null;
+
+            try {
+                const member: any = await api.post(`/api/team-members/${teamMemberId}/memory`, {
+                    projectId,
+                    entries: [cmdOpts.entry.trim()],
+                });
+
+                spinner?.succeed('Memory entry added');
+
+                if (isJson) {
+                    outputJSON(member);
+                } else {
+                    const memoryList = member.memory || [];
+                    outputKeyValue('ID', member.id);
+                    outputKeyValue('Name', `${member.avatar} ${member.name}`);
+                    outputKeyValue('Memory entries', String(memoryList.length));
+                    if (memoryList.length > 0) {
+                        console.log('\nMemory:');
+                        memoryList.forEach((entry: string, i: number) => {
+                            console.log(`  ${i + 1}. ${entry}`);
+                        });
+                    }
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    memory.command('list <teamMemberId>')
+        .description('List all memory entries for a team member')
+        .action(async (teamMemberId: string) => {
+            await guardCommand('team-member:memory:list');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const projectId = globalOpts.project || config.projectId;
+
+            if (!projectId) {
+                const err = { message: 'No project context found. Use --project <id> or set MAESTRO_PROJECT_ID.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Fetching memory...').start() : null;
+
+            try {
+                const member: any = await api.get(`/api/team-members/${teamMemberId}?projectId=${projectId}`);
+
+                spinner?.stop();
+
+                if (isJson) {
+                    outputJSON({ id: member.id, name: member.name, memory: member.memory || [] });
+                } else {
+                    const memoryList = member.memory || [];
+                    outputKeyValue('ID', member.id);
+                    outputKeyValue('Name', `${member.avatar} ${member.name}`);
+                    outputKeyValue('Memory entries', String(memoryList.length));
+                    if (memoryList.length > 0) {
+                        console.log('\nMemory:');
+                        memoryList.forEach((entry: string, i: number) => {
+                            console.log(`  ${i + 1}. ${entry}`);
+                        });
+                    } else {
+                        console.log('\nNo memory entries.');
+                    }
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    memory.command('clear <teamMemberId>')
+        .description('Clear all memory entries for a team member')
+        .action(async (teamMemberId: string) => {
+            await guardCommand('team-member:memory:clear');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const projectId = globalOpts.project || config.projectId;
+
+            if (!projectId) {
+                const err = { message: 'No project context found. Use --project <id> or set MAESTRO_PROJECT_ID.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Clearing memory...').start() : null;
+
+            try {
+                const member: any = await api.patch(`/api/team-members/${teamMemberId}`, {
+                    projectId,
+                    memory: [],
+                });
+
+                spinner?.succeed('Memory cleared');
+
+                if (isJson) {
+                    outputJSON(member);
+                } else {
+                    outputKeyValue('ID', member.id);
+                    outputKeyValue('Name', `${member.avatar} ${member.name}`);
+                    console.log('Memory cleared.');
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
     teamMember.command('create <name>')
         .description('Create a new team member')
         .requiredOption('--role <role>', 'Role description for the team member')
@@ -196,6 +381,7 @@ export function registerTeamMemberCommands(program: Command) {
         .requiredOption('--mode <mode>', 'Agent mode: execute or coordinate')
         .option('--model <model>', 'Model to use (e.g. sonnet, opus, haiku, or native model names)')
         .option('--agent-tool <tool>', 'Agent tool (claude-code, codex, or gemini)', 'claude-code')
+        .option('--permission-mode <mode>', 'Permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Custom identity/persona instructions')
         .action(async (name: string, cmdOpts: any) => {
             await guardCommand('team-member:create');
@@ -225,6 +411,16 @@ export function registerTeamMemberCommands(program: Command) {
                 else { console.error(err.message); process.exit(1); }
             }
 
+            // Validate permission mode if provided
+            if (cmdOpts.permissionMode) {
+                const validPermissionModes = ['acceptEdits', 'interactive', 'readOnly', 'bypassPermissions'];
+                if (!validPermissionModes.includes(cmdOpts.permissionMode)) {
+                    const err = { message: `Invalid permission mode "${cmdOpts.permissionMode}". Must be one of: ${validPermissionModes.join(', ')}` };
+                    if (isJson) { outputErrorJSON(err); process.exit(1); }
+                    else { console.error(err.message); process.exit(1); }
+                }
+            }
+
             const spinner = !isJson ? ora('Creating team member...').start() : null;
 
             try {
@@ -240,6 +436,10 @@ export function registerTeamMemberCommands(program: Command) {
 
                 if (cmdOpts.model) {
                     payload.model = cmdOpts.model;
+                }
+
+                if (cmdOpts.permissionMode) {
+                    payload.permissionMode = cmdOpts.permissionMode;
                 }
 
                 const member: any = await api.post('/api/team-members', payload);

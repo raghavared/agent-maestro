@@ -202,7 +202,6 @@ export class FileSystemSessionRepository implements ISessionRepository {
     if (updates.events !== undefined) session.events = [...session.events, ...updates.events];
     if (updates.timeline !== undefined) session.timeline = [...session.timeline, ...updates.timeline];
     if (updates.needsInput !== undefined) {
-      console.log(`[SessionRepo] Setting needsInput for session ${id}:`, JSON.stringify(updates.needsInput));
       session.needsInput = updates.needsInput;
     }
 

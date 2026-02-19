@@ -27,7 +27,6 @@ export function useTaskSessions(taskId: string | null | undefined) {
         return Array.from(sessions.values()).filter(
             session => {
                 if (!session?.taskIds || !Array.isArray(session.taskIds)) {
-                    console.warn('[useTaskSessions] Session missing taskIds:', session?.id, session);
                     return false;
                 }
                 return session.taskIds.includes(taskId);

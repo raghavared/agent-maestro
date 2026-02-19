@@ -17,9 +17,8 @@ const CAPABILITY_DEFS = [
 const COMMAND_GROUPS = [
     { key: 'root', label: 'Root', commands: ['whoami', 'status', 'commands'] },
     { key: 'task', label: 'Task', commands: ['task:list', 'task:get', 'task:create', 'task:edit', 'task:delete', 'task:children', 'task:report:progress', 'task:report:complete', 'task:report:blocked', 'task:report:error', 'task:docs:add', 'task:docs:list'] },
-    { key: 'session', label: 'Session', commands: ['session:info', 'session:report:progress', 'session:report:complete', 'session:report:blocked', 'session:report:error', 'session:docs:add', 'session:docs:list'] },
+    { key: 'session', label: 'Session', commands: ['session:siblings', 'session:info', 'session:prompt', 'session:report:progress', 'session:report:complete', 'session:report:blocked', 'session:report:error', 'session:docs:add', 'session:docs:list'] },
     { key: 'team-member', label: 'Team Member', commands: ['team-member:create', 'team-member:list', 'team-member:get'] },
-    { key: 'mail', label: 'Mail', commands: ['mail:send', 'mail:inbox', 'mail:reply'] },
     { key: 'show', label: 'Show', commands: ['show:modal'] },
     { key: 'modal', label: 'Modal', commands: ['modal:events'] },
 ] as const;
@@ -132,6 +131,7 @@ export function CreateTeamMemberModal({ isOpen, onClose, projectId }: CreateTeam
     const [workflowTemplateId, setWorkflowTemplateId] = useState<string>('');
     const [useCustomWorkflow, setUseCustomWorkflow] = useState(false);
     const [customWorkflow, setCustomWorkflow] = useState('');
+    const [permissionMode, setPermissionMode] = useState<'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions'>('acceptEdits');
 
     // Agent tool dropdown state (themed dropdown instead of raw <select>)
     const [showAgentDropdown, setShowAgentDropdown] = useState(false);
@@ -212,6 +212,7 @@ export function CreateTeamMemberModal({ isOpen, onClose, projectId }: CreateTeam
         setWorkflowTemplateId('');
         setUseCustomWorkflow(false);
         setCustomWorkflow('');
+        setPermissionMode('acceptEdits');
         setShowAgentDropdown(false);
     };
 
@@ -250,6 +251,7 @@ export function CreateTeamMemberModal({ isOpen, onClose, projectId }: CreateTeam
                 agentTool,
                 model,
                 mode,
+                permissionMode,
                 capabilities,
                 ...(selectedSkills.length > 0 && { skillIds: selectedSkills }),
                 ...(cmdPerms && { commandPermissions: cmdPerms }),
@@ -260,7 +262,6 @@ export function CreateTeamMemberModal({ isOpen, onClose, projectId }: CreateTeam
             resetForm();
             onClose();
         } catch (err) {
-            console.error("Failed to create team member:", err);
             setError(err instanceof Error ? err.message : "Failed to create team member");
         } finally {
             setIsCreating(false);
@@ -434,6 +435,34 @@ export function CreateTeamMemberModal({ isOpen, onClose, projectId }: CreateTeam
                         {/* Capabilities & Permissions Tab */}
                         {activeTab === 'permissions' && (
                             <div style={{ overflowX: 'hidden' }}>
+                                {/* Permission Mode */}
+                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Permission Mode</div>
+                                <div style={{ marginBottom: '10px' }}>
+                                    <select
+                                        className="themedFormSelect"
+                                        style={{
+                                            margin: 0,
+                                            padding: '4px 8px',
+                                            fontSize: '11px',
+                                            width: '100%',
+                                            boxSizing: 'border-box' as const,
+                                        }}
+                                        value={permissionMode}
+                                        onChange={(e) => setPermissionMode(e.target.value as typeof permissionMode)}
+                                        disabled={isCreating}
+                                    >
+                                        <option value="acceptEdits">Accept Edits (default)</option>
+                                        <option value="interactive">Interactive</option>
+                                        <option value="readOnly">Read Only</option>
+                                        <option value="bypassPermissions">Bypass — auto-approves all tool calls</option>
+                                    </select>
+                                    {permissionMode === 'bypassPermissions' && (
+                                        <div style={{ fontSize: '10px', color: 'var(--theme-warning, #e8a030)', marginTop: '4px', fontFamily: '"JetBrains Mono", monospace' }}>
+                                            ⚠ All tool calls will be auto-approved. Use for trusted coordinator roles.
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* Workflow Template */}
                                 <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Workflow</div>
                                 <div style={{ marginBottom: '10px' }}>

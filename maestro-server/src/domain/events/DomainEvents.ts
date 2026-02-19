@@ -1,4 +1,4 @@
-import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, MailMessage, TeamMember } from '../../types';
+import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember } from '../../types';
 
 /**
  * Type-safe domain event definitions.
@@ -194,17 +194,6 @@ export interface TeamMemberArchivedEvent {
   data: TeamMember;
 }
 
-// Mail Events
-export interface MailReceivedEvent {
-  type: 'mail:received';
-  data: MailMessage;
-}
-
-export interface MailDeletedEvent {
-  type: 'mail:deleted';
-  data: { id: string };
-}
-
 /**
  * Union type of all domain events.
  * Use this for type-safe event handling.
@@ -241,9 +230,7 @@ export type DomainEvent =
   | TeamMemberCreatedEvent
   | TeamMemberUpdatedEvent
   | TeamMemberDeletedEvent
-  | TeamMemberArchivedEvent
-  | MailReceivedEvent
-  | MailDeletedEvent;
+  | TeamMemberArchivedEvent;
 
 /**
  * Type-safe event map for event bus.
@@ -306,9 +293,6 @@ export interface TypedEventMap {
   'team_member:updated': TeamMember;
   'team_member:deleted': { id: string };
   'team_member:archived': TeamMember;
-  // Mail events
-  'mail:received': MailMessage;
-  'mail:deleted': { id: string };
 }
 
 /**

@@ -27,21 +27,17 @@ export function outputKeyValue(key: string, value: string) {
     console.log(`${chalk.bold(key)}: ${value}`);
 }
 
-export function outputTaskTree(tasks: any[]) {
+export function outputTaskTree(tasks: any[], indent: string = '') {
     tasks.forEach((task, idx) => {
         const isLast = idx === tasks.length - 1;
         const prefix = isLast ? '└─' : '├─';
         const status = getStatusIcon(task.status);
-        console.log(`${prefix} ${chalk.bold(`[${task.id}]`)} ${status} ${task.title}`);
+        console.log(`${indent}${prefix} ${chalk.bold(`[${task.id}]`)} ${status} ${task.title}`);
 
-        if (task.subtasks && task.subtasks.length > 0) {
-            task.subtasks.forEach((subtask: any, stIdx: number) => {
-                const isLastSubtask = stIdx === task.subtasks.length - 1;
-                const subPrefix = isLast ? '   ' : '│  ';
-                const subConnector = isLastSubtask ? '└─' : '├─';
-                const subStatus = subtask.completed ? '✅' : '⬜';
-                console.log(`${subPrefix}${subConnector} ${chalk.gray(`[${subtask.id}]`)} ${subStatus} ${subtask.title}`);
-            });
+        const children = task.children || task.subtasks;
+        if (children && children.length > 0) {
+            const childIndent = indent + (isLast ? '   ' : '│  ');
+            outputTaskTree(children, childIndent);
         }
     });
 }

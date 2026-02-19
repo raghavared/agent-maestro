@@ -248,11 +248,9 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             // Task will be added via WebSocket event automatically
 
             if (taskData.startImmediately) {
-                console.log("Start working on task:", newTask.id);
                 await handleWorkOnTask(newTask);
             }
         } catch (err: any) {
-            console.error("[Maestro] Failed to create task:", err);
             setError("Failed to create task");
         }
     };
@@ -261,7 +259,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         try {
             await updateTask(taskId, updates);
         } catch (err: any) {
-            console.error("[Maestro] Failed to update task:", err);
             setError("Failed to update task");
         }
     };
@@ -270,7 +267,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         try {
             await deleteTask(taskId);
         } catch (err: any) {
-            console.error("[Maestro] Failed to delete task:", err);
             setError("Failed to delete task");
         }
     };
@@ -279,7 +275,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         try {
             await removeTaskFromSession(sessionId, taskId);
         } catch (err: any) {
-            console.error("[Maestro] Failed to remove task from session:", err);
             setError("Failed to remove task from session");
         }
     };
@@ -289,7 +284,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             // When assigning a single member via this handler, set both fields for backward compat
             await updateTask(taskId, { teamMemberId, teamMemberIds: [teamMemberId] });
         } catch (err: any) {
-            console.error("[Maestro] Failed to assign team member:", err);
             setError("Failed to assign team member");
         }
     };
@@ -305,15 +299,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
         const mode = member?.mode || 'execute';
 
-        console.log('[MaestroPanel.handleWorkOnTask] ========================================');
-        console.log('[MaestroPanel.handleWorkOnTask] Task ID:', task.id);
-        console.log('[MaestroPanel.handleWorkOnTask] Team Members:', effectiveIds.length > 0 ? effectiveIds.join(', ') : '(default)');
-        console.log('[MaestroPanel.handleWorkOnTask] Mode:', mode);
-        if (override) {
-            console.log('[MaestroPanel.handleWorkOnTask] Override:', override.agentTool, override.model);
-        }
-        console.log('[MaestroPanel.handleWorkOnTask] ========================================');
-
         try {
             await onCreateMaestroSession({
                 task,
@@ -324,9 +309,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
             });
 
-            console.log('[MaestroPanel.handleWorkOnTask] ✓ Session created successfully!');
         } catch (err: any) {
-            console.error('[MaestroPanel.handleWorkOnTask] ✗ CAUGHT ERROR:', err);
             setError(`Failed to open terminal: ${err.message}`);
         }
     };
@@ -353,7 +336,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             setActiveBarMode('none');
             setSelectedForExecution(new Set());
         } catch (err: any) {
-            console.error('[MaestroPanel] Failed to create batch session:', err);
             setError(`Failed to create session: ${err.message}`);
         }
     };
@@ -376,7 +358,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             setActiveBarMode('none');
             setSelectedForExecution(new Set());
         } catch (err: any) {
-            console.error('[MaestroPanel] Failed to create orchestrate session:', err);
             setError(`Failed to create orchestrator session: ${err.message}`);
         }
     };
@@ -420,7 +401,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 return next;
             });
         } catch (err: any) {
-            console.error("[Maestro] Failed to create subtask:", err);
             setError("Failed to create subtask");
             throw err;
         }
@@ -456,7 +436,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         try {
             await archiveTeamMember(memberId, projectId);
         } catch (err) {
-            console.error("Failed to archive team member:", err);
             setError("Failed to archive team member");
         }
     };
@@ -465,7 +444,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         try {
             await unarchiveTeamMember(memberId, projectId);
         } catch (err) {
-            console.error("Failed to unarchive team member:", err);
             setError("Failed to unarchive team member");
         }
     };
@@ -474,7 +452,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         try {
             await deleteTeamMember(memberId, projectId);
         } catch (err) {
-            console.error("Failed to delete team member:", err);
             setError("Failed to delete team member");
         }
     };
@@ -499,7 +476,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 teamMemberId: member.id,
             });
         } catch (err: any) {
-            console.error('[MaestroPanel] Failed to run team member:', err);
             setError(`Failed to start session: ${err.message}`);
         }
     };
@@ -511,7 +487,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             const newStatus = subtask.status === 'completed' ? 'todo' : 'completed';
             await updateTask(subtaskId, { status: newStatus });
         } catch (err: any) {
-            console.error("[Maestro] Failed to toggle subtask:", err);
             setError("Failed to toggle subtask");
         }
     };
@@ -520,7 +495,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         try {
             await deleteTask(subtaskId);
         } catch (err: any) {
-            console.error("[Maestro] Failed to delete subtask:", err);
             setError("Failed to delete subtask");
         }
     };
@@ -531,7 +505,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             if (!task) return;
             await updateTask(taskId, { pinned: !task.pinned });
         } catch (err: any) {
-            console.error("[Maestro] Failed to toggle pin:", err);
             setError("Failed to toggle pin");
         }
     };

@@ -114,13 +114,9 @@ export class OrchestratorInitCommand {
    * Execute the orchestrator init command
    */
   async execute(): Promise<void> {
-    console.log('Initializing Maestro Orchestrator Session\n');
-
     try {
       // Step 1: Get manifest path
-      console.log('Reading manifest...');
       const manifestPath = this.getManifestPath();
-      console.log(`   Manifest: ${manifestPath}`);
 
       // Step 2: Read and validate manifest
       const result = await readManifestFromEnv();
@@ -136,44 +132,19 @@ export class OrchestratorInitCommand {
         throw new Error(this.formatError('wrong_mode', manifest.mode));
       }
 
-      // Show task information
-      const primaryTask = manifest.tasks[0];
-      if (manifest.tasks.length === 1) {
-        console.log(`   Task: ${primaryTask.title} (${primaryTask.id})`);
-      } else {
-        console.log(`   Tasks: ${manifest.tasks.length} tasks`);
-        console.log(`   Primary: ${primaryTask.title} (${primaryTask.id})`);
-        manifest.tasks.slice(1).forEach((task, idx) => {
-          console.log(`   Task ${idx + 2}: ${task.title} (${task.id})`);
-        });
-      }
-      console.log(`   Project: ${primaryTask.projectId}`);
-      if (manifest.skills && manifest.skills.length > 0) {
-        console.log(`   Skills: ${manifest.skills.join(', ')}`);
-      }
-      console.log('');
-
       // Step 4: Get session ID
       const sessionId = this.getSessionId();
-      console.log(`   Session ID: ${sessionId}\n`);
 
       // Step 5: Auto-update session status to working
       await this.autoUpdateSessionStatus(manifest, sessionId);
 
       // Step 6: Spawn agent
-      const toolName = AgentSpawner.getToolDisplayName(manifest.agentTool);
-      console.log(`Spawning ${toolName} session...\n`);
-
       const spawnResult = await this.spawner.spawn(manifest, sessionId, {
         interactive: true,
       });
 
-      console.log(`Orchestrator session started successfully (${toolName})!\n`);
-
       // Wait for process to exit
       spawnResult.process.on('exit', async (code) => {
-        console.log(`\nOrchestrator session exited with code ${code}`);
-
         // Clean up manifest file (disabled for debugging)
         // try {
         //   const { unlink } = await import('fs/promises');
@@ -188,8 +159,6 @@ export class OrchestratorInitCommand {
       });
 
     } catch (error: any) {
-      console.error(`\nFailed to initialize orchestrator session:\n`);
-      console.error(error.message);
       process.exit(1);
     }
   }

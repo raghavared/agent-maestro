@@ -17,7 +17,6 @@ import { registerProjectCommands } from './commands/project.js';
 
 import { registerReportCommands } from './commands/report.js';
 import { registerModalCommands } from './commands/modal.js';
-import { registerMailCommands } from './commands/mail.js';
 import { registerTeamMemberCommands } from './commands/team-member.js';
 import {
   loadCommandPermissions,
@@ -74,7 +73,6 @@ program.command('whoami')
           if (opts.json) {
               outputJSON(renderer.renderJSON(manifest, permissions, sessionId));
           } else {
-              console.log(await renderer.render(manifest, permissions, sessionId));
           }
       } else {
           // Fallback: no manifest available, show basic env-var output
@@ -118,25 +116,18 @@ program.command('debug-prompt')
         const sessionId = cmdOpts.session;
         const session: any = await api.get(`/api/sessions/${sessionId}`);
         if (!session.manifest) {
-          console.error(`Error: Session ${sessionId} does not have a stored manifest.`);
-          console.error('Try using --manifest <path> with the manifest file path instead.');
           process.exit(1);
         }
         manifest = session.manifest;
       } else if (cmdOpts.manifest) {
         const result = await readManifest(cmdOpts.manifest);
         if (!result.success || !result.manifest) {
-          console.error(`Error: ${result.error}`);
           process.exit(1);
         }
         manifest = result.manifest;
       } else {
         const result = await readManifestFromEnv();
         if (!result.success || !result.manifest) {
-          console.error('Error: No manifest available.');
-          console.error('Use --manifest <path> to specify a manifest file,');
-          console.error('or --session <id> to fetch from a session,');
-          console.error('or set MAESTRO_MANIFEST_PATH environment variable.');
           process.exit(1);
         }
         manifest = result.manifest;
@@ -157,36 +148,18 @@ program.command('debug-prompt')
       } else {
         if (!cmdOpts.initialOnly) {
           if (!cmdOpts.raw) {
-            console.log('╔══════════════════════════════════════════════════════════════╗');
-            console.log('║                      SYSTEM PROMPT                          ║');
-            console.log('║  (sent via --append-system-prompt)                          ║');
-            console.log('╚══════════════════════════════════════════════════════════════╝');
-            console.log('');
           }
-          console.log(systemPrompt);
-        }
-
-        if (!cmdOpts.systemOnly && !cmdOpts.initialOnly) {
-          console.log('');
-          console.log('');
         }
 
         if (!cmdOpts.systemOnly) {
           if (!cmdOpts.raw) {
-            console.log('╔══════════════════════════════════════════════════════════════╗');
-            console.log('║                     INITIAL PROMPT                          ║');
-            console.log('║  (sent as user message / CLI argument)                      ║');
-            console.log('╚══════════════════════════════════════════════════════════════╝');
-            console.log('');
           }
-          console.log(initialPrompt);
         }
       }
     } catch (err: any) {
       if (isJson) {
-        console.log(JSON.stringify({ success: false, error: err.message }));
+        outputJSON({ success: false, error: err.message });
       } else {
-        console.error('Failed to generate debug prompt:', err.message);
       }
       process.exit(1);
     }
@@ -211,12 +184,6 @@ program.command('commands')
               if (isJson) {
                   outputJSON({ command: commandName, allowed, mode: permissions.mode });
               } else {
-                  if (allowed) {
-                      console.log(`Command '${commandName}' is ALLOWED for ${permissions.mode} mode`);
-                  } else {
-                      console.log(`Command '${commandName}' is NOT ALLOWED for ${permissions.mode} mode`);
-                      console.log('\nRun "maestro commands" to see available commands.');
-                  }
               }
           } else {
               // Show all available commands
@@ -229,16 +196,13 @@ program.command('commands')
                       grouped,
                   });
               } else {
-                  console.log(`\nSession Mode: ${permissions.mode}`);
-                  console.log(`Mode: ${permissions.mode}`);
                   printAvailableCommands(permissions);
               }
           }
       } catch (err: any) {
           if (isJson) {
-              console.log(JSON.stringify({ success: false, error: err.message }));
+              outputJSON({ success: false, error: err.message });
           } else {
-              console.error('Failed to load command permissions:', err.message);
           }
           process.exit(1);
       }
@@ -254,7 +218,6 @@ registerManifestCommands(program);
 
 registerReportCommands(program);
 registerModalCommands(program);
-registerMailCommands(program);
 registerTeamMemberCommands(program);
 program.command('status')
   .description('Show summary of current project state')
@@ -265,9 +228,8 @@ program.command('status')
 
     if (!projectId) {
       if (isJson) {
-        console.log(JSON.stringify({ success: false, error: 'no_context', message: 'No project context.' }));
+        outputJSON({ success: false, error: 'no_context', message: 'No project context.' });
       } else {
-        console.error('Error: No project context. Use --project <id> or set MAESTRO_PROJECT_ID');
       }
       process.exit(1);
     }
@@ -306,22 +268,11 @@ program.command('status')
       if (isJson) {
         outputJSON(summary);
       } else {
-        console.log('\nProject Status\n');
-        console.log(`Project ID: ${projectId}`);
-        console.log(`\nTasks: ${tasks.length} total`);
-        console.log(`  Todo: ${statusCounts.todo || 0}`);
-        console.log(`  In Progress: ${statusCounts.in_progress || 0}`);
-        console.log(`  Blocked: ${statusCounts.blocked || 0}`);
-        console.log(`  Completed: ${statusCounts.completed || 0}`);
-        console.log(`  Cancelled: ${statusCounts.cancelled || 0}`);
-        console.log(`\nActive Sessions: ${summary.sessions.active}`);
-        console.log('');
       }
     } catch (err) {
       if (isJson) {
-        console.log(JSON.stringify({ success: false, error: 'status_failed', message: String(err) }));
+        outputJSON({ success: false, error: 'status_failed', message: String(err) });
       } else {
-        console.error('Failed to get project status:', err);
       }
       process.exit(1);
     }

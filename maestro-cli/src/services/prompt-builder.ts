@@ -25,24 +25,6 @@ import {
   COORDINATE_RECOVER_PHASE,
   COORDINATE_VERIFY_PHASE,
   COORDINATE_COMPLETE_PHASE,
-  COMMANDS_REFERENCE_HEADER,
-  COMMANDS_REFERENCE_CORE,
-  COMMANDS_REFERENCE_TASK_MGMT,
-  COMMANDS_REFERENCE_TASK_REPORT,
-  COMMANDS_REFERENCE_TASK_DOCS,
-  COMMANDS_REFERENCE_SESSION_MGMT,
-  COMMANDS_REFERENCE_SESSION_REPORT,
-  COMMANDS_REFERENCE_SESSION_DOCS,
-  COMMANDS_REFERENCE_SHOW,
-  COMMANDS_REFERENCE_MODAL,
-  COMMANDS_REFERENCE_MAIL_SEND,
-  COMMANDS_REFERENCE_MAIL_INBOX,
-  COMMANDS_REFERENCE_MAIL_REPLY,
-  COMMANDS_REFERENCE_MAIL_WAIT,
-  COMMANDS_REFERENCE_SESSION_COORD,
-  COMMANDS_REFERENCE_SESSION_SPAWN,
-  COMMANDS_REFERENCE_MAIL_BROADCAST,
-  COMMANDS_REFERENCE_FOOTER,
   ACCEPTANCE_CRITERIA_PLACEHOLDER_PATTERNS,
 } from '../prompts/index.js';
 
@@ -90,7 +72,6 @@ export class PromptBuilder {
     parts.push(this.buildWorkflow(mode, manifest));
     // Note: commands_reference is injected by WhoamiRenderer.renderSystemPrompt()
     // using the dynamic compact command brief from command-permissions.ts.
-    // Do NOT add buildCommandsReference() here — it would create a duplicate block.
     parts.push('</maestro_system_prompt>');
     return parts.join('\n');
   }
@@ -226,6 +207,15 @@ export class PromptBuilder {
       for (const profile of profiles) {
         lines.push(`    <expertise source="${this.esc(profile.name)}">${this.raw(profile.identity)}</expertise>`);
       }
+      // Merge memory from all profiles
+      const allMemory = profiles.flatMap(p => p.memory || []);
+      if (allMemory.length > 0) {
+        lines.push('    <memory>');
+        for (const entry of allMemory) {
+          lines.push(`      <entry>${this.raw(entry)}</entry>`);
+        }
+        lines.push('    </memory>');
+      }
       lines.push('  </team_member_identity>');
       return lines.join('\n');
     }
@@ -238,6 +228,13 @@ export class PromptBuilder {
       lines.push(`    <name>${this.esc(profile.name)}</name>`);
       lines.push(`    <avatar>${this.esc(profile.avatar)}</avatar>`);
       lines.push(`    <instructions>${this.raw(profile.identity)}</instructions>`);
+      if (profile.memory && profile.memory.length > 0) {
+        lines.push('    <memory>');
+        for (const entry of profile.memory) {
+          lines.push(`      <entry>${this.raw(entry)}</entry>`);
+        }
+        lines.push('    </memory>');
+      }
       lines.push('  </team_member_identity>');
       return lines.join('\n');
     }
@@ -253,6 +250,13 @@ export class PromptBuilder {
     }
     if (manifest.teamMemberIdentity) {
       lines.push(`    <instructions>${this.raw(manifest.teamMemberIdentity)}</instructions>`);
+    }
+    if (manifest.teamMemberMemory && manifest.teamMemberMemory.length > 0) {
+      lines.push('    <memory>');
+      for (const entry of manifest.teamMemberMemory) {
+        lines.push(`      <entry>${this.raw(entry)}</entry>`);
+      }
+      lines.push('    </memory>');
     }
     lines.push('  </team_member_identity>');
     return lines.join('\n');
@@ -491,7 +495,6 @@ export class PromptBuilder {
         // Coordinators need full member details for spawning and delegation
         lines.push(`    <team_member id="${this.esc(member.id)}" name="${this.esc(member.name)}" role="${this.esc(member.role)}">`);
         lines.push(`      <avatar>${this.esc(member.avatar)}</avatar>`);
-        lines.push(`      <mail_id>${this.esc(member.mailId)}</mail_id>`);
         if (member.model) {
           lines.push(`      <model>${this.esc(member.model)}</model>`);
         }
@@ -500,8 +503,8 @@ export class PromptBuilder {
         }
         lines.push('    </team_member>');
       } else {
-        // Workers only need a slim roster for communication (name + mail_id)
-        lines.push(`    <team_member name="${this.esc(member.name)}" role="${this.esc(member.role)}" mail_id="${this.esc(member.mailId)}" />`);
+        // Workers only need a slim roster for peer awareness
+        lines.push(`    <team_member name="${this.esc(member.name)}" role="${this.esc(member.role)}" />`);
       }
     }
     lines.push('  </team_members>');
@@ -603,36 +606,6 @@ export class PromptBuilder {
       { name: 'verify', order: 6, description: COORDINATE_VERIFY_PHASE },
       { name: 'complete', order: 7, description: COORDINATE_COMPLETE_PHASE },
     ];
-  }
-
-  private buildCommandsReference(mode: AgentMode): string {
-    const lines = ['  <commands_reference>'];
-    lines.push(`    ${COMMANDS_REFERENCE_HEADER}`);
-    lines.push(`    ${COMMANDS_REFERENCE_CORE}`);
-    lines.push(`    ${COMMANDS_REFERENCE_TASK_MGMT}`);
-    lines.push(`    ${COMMANDS_REFERENCE_TASK_REPORT}`);
-    lines.push(`    ${COMMANDS_REFERENCE_TASK_DOCS}`);
-    lines.push(`    ${COMMANDS_REFERENCE_SESSION_MGMT}`);
-    lines.push(`    ${COMMANDS_REFERENCE_SESSION_REPORT}`);
-    lines.push(`    ${COMMANDS_REFERENCE_SESSION_DOCS}`);
-    lines.push(`    ${COMMANDS_REFERENCE_SHOW}`);
-    lines.push(`    ${COMMANDS_REFERENCE_MODAL}`);
-
-    // Mail commands - available for both modes
-    lines.push(`    ${COMMANDS_REFERENCE_MAIL_SEND}`);
-    lines.push(`    ${COMMANDS_REFERENCE_MAIL_INBOX}`);
-    lines.push(`    ${COMMANDS_REFERENCE_MAIL_REPLY}`);
-    lines.push(`    ${COMMANDS_REFERENCE_MAIL_WAIT}`);
-
-    if (mode === 'coordinate') {
-      lines.push(`    ${COMMANDS_REFERENCE_SESSION_COORD}`);
-      lines.push(`    ${COMMANDS_REFERENCE_SESSION_SPAWN}`);
-      lines.push(`    ${COMMANDS_REFERENCE_MAIL_BROADCAST}`);
-    }
-
-    lines.push(`    ${COMMANDS_REFERENCE_FOOTER}`);
-    lines.push('  </commands_reference>');
-    return lines.join('\n');
   }
 
   // ── Formatting helpers ───────────────────────────────────────

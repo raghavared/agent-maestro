@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useState } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -27,6 +27,8 @@ import { StrategyBadge } from "./maestro/StrategyBadge";
 import { SessionDetailModal } from "./maestro/SessionDetailModal";
 import { SessionLogModal } from "./session-log/SessionLogModal";
 import { ConfirmActionModal } from "./modals/ConfirmActionModal";
+import { buildTeamGroups, getGroupedSessionOrder } from "../utils/teamGrouping";
+import type { TeamColor } from "../app/constants/teamColors";
 
 function isSshCommand(commandLine: string | null | undefined): boolean {
   const trimmed = commandLine?.trim() ?? "";
@@ -181,6 +183,29 @@ export function SessionsSection({
   const fetchSession = useMaestroStore((s) => s.fetchSession);
   const hardRefresh = useMaestroStore((s) => s.hardRefresh);
 
+  // Team grouping state
+  const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(new Set());
+
+  const teamGroupData = useMemo(() => {
+    return buildTeamGroups(sessions, maestroSessions);
+  }, [sessions, maestroSessions]);
+
+  const { grouped: groupedSessions, ungrouped: ungroupedSessions } = useMemo(() => {
+    return getGroupedSessionOrder(sessions, teamGroupData.groups);
+  }, [sessions, teamGroupData.groups]);
+
+  const toggleGroupCollapse = useCallback((coordinatorMaestroSessionId: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(coordinatorMaestroSessionId)) {
+        next.delete(coordinatorMaestroSessionId);
+      } else {
+        next.add(coordinatorMaestroSessionId);
+      }
+      return next;
+    });
+  }, []);
+
   const [refreshing, setRefreshing] = React.useState(false);
 
   const handleRefresh = React.useCallback(async () => {
@@ -189,7 +214,6 @@ export function SessionsSection({
     try {
       await hardRefresh(activeProjectId);
     } catch (err) {
-      console.error('[SessionsSection] Hard refresh failed:', err);
     } finally {
       setRefreshing(false);
     }
@@ -239,15 +263,11 @@ export function SessionsSection({
 
   // Fetch Maestro data for a session (using global context)
   const fetchMaestroData = async (sessionId: string, maestroSessionId: string) => {
-    console.log('[SessionsSection] Fetching maestro data for session:', maestroSessionId);
-
     setLoadingTasks(prev => new Set(prev).add(sessionId));
     try {
       // Always fetch to get latest data
       await fetchSession(maestroSessionId);
-      console.log('[SessionsSection] ✓ Fetched session data');
     } catch (err) {
-      console.error("[SessionsSection] Failed to fetch maestro data for session", maestroSessionId, err);
     } finally {
       setLoadingTasks(prev => {
         const next = new Set(prev);
@@ -270,6 +290,185 @@ export function SessionsSection({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [settingsOpen]);
+
+  // Helper to render a single session item, optionally with a team color
+  const renderSessionItem = (s: Session, teamColor: TeamColor | null) => {
+    const isActive = s.id === activeSessionId;
+    const isExited = Boolean(s.exited);
+    const isClosing = Boolean(s.closing);
+    const effect = getProcessEffectById(s.effectId);
+    const chipLabel = effect?.label ?? s.processTag ?? null;
+    const hasAgentIcon = Boolean(effect?.iconSrc);
+    const isWorking = Boolean(effect && s.agentWorking && !isExited && !isClosing);
+    const isRecording = Boolean(s.recordingActive && !isExited && !isClosing);
+    const launchOrRestore =
+      s.launchCommand ??
+      (s.restoreCommand?.trim() ? s.restoreCommand.trim() : null) ??
+      null;
+    const isSsh = isSshCommand(launchOrRestore);
+    const isPersistent = Boolean(s.persistent);
+    const isSshType = isSsh && !isPersistent;
+    const isDefaultType = !isPersistent && !isSshType;
+    const chipClass = effect
+      ? `chip chip-${effect.id}`
+      : isSshType
+        ? "chip chip-ssh"
+        : "chip";
+    const showChipLabel =
+      Boolean(chipLabel) &&
+      !hasAgentIcon &&
+      !(isSshType && (chipLabel ?? "").trim().toLowerCase() === "ssh");
+
+    const maestroSession = s.maestroSessionId ? maestroSessions.get(s.maestroSessionId) : null;
+    const needsInput = maestroSession?.needsInput?.active;
+
+    // Team member badge styles (use team color if available, fallback to default purple)
+    const badgeStyle = teamColor
+      ? {
+          background: teamColor.dim,
+          borderColor: teamColor.border,
+          color: teamColor.text,
+        }
+      : undefined;
+
+    return (
+      <SortableSessionItem key={s.id} id={s.id}>
+      <div
+        className={`sessionItem ${isActive ? "sessionItemActive" : ""} ${isExited ? "sessionItemExited" : ""
+          } ${isClosing ? "sessionItemClosing" : ""} ${isSshType ? "sessionItemSsh" : ""
+          } ${isPersistent ? "sessionItemPersistent" : ""} ${isDefaultType ? "sessionItemDefault" : ""
+          } ${needsInput ? "sessionItemNeedsInput" : ""}`}
+        onClick={() => onSelectSession(s.id)}
+        style={{ flexDirection: 'column', alignItems: 'stretch' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '8px' }}>
+          {s.maestroSessionId && (
+            <button
+              className={`terminalExpandBtn ${expandedSessions.has(s.id) ? 'expanded' : ''}`}
+              style={{ marginRight: '6px', border: 'none', width: '16px', height: '16px' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleSession(s.id, s.maestroSessionId);
+              }}
+            >
+              {expandedSessions.has(s.id) ? '▾' : '▸'}
+            </button>
+          )}
+          <button
+            className="logBtn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLogModalSessionId(s.id);
+            }}
+            title="View session log"
+          >
+            <Icon name="log" size={12} />
+          </button>
+          <div className="sessionMeta">
+            <div className="sessionName">
+              {hasAgentIcon && chipLabel && effect?.iconSrc && (
+                <span className={`agentBadge chip-${effect.id}`} title={chipLabel}>
+                  <img className="agentIcon" src={effect.iconSrc} alt={chipLabel} />
+                  {isWorking && (
+                    <span className="chipActivity agentBadgeDot" aria-label="Working" />
+                  )}
+                </span>
+              )}
+              <span className="sessionNameText">{s.name}</span>
+              {showChipLabel && chipLabel && (
+                <span className={chipClass} title={chipLabel}>
+                  <span className="chipLabel">{chipLabel}</span>
+                  {isWorking && <span className="chipActivity" aria-label="Working" />}
+                </span>
+              )}
+              {isRecording && <span className="recordingDot" title="Recording" />}
+              {isClosing ? (
+                <span className="sessionStatus">closing…</span>
+              ) : isExited ? (
+                <span className="sessionStatus">
+                  exited{s.exitCode != null ? ` ${s.exitCode}` : ""}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <button
+            className="closeBtn"
+            disabled={isClosing}
+            onClick={(e) => {
+              e.stopPropagation();
+              const isActiveSession = !isExited && !isClosing;
+              if (isActiveSession) {
+                setSessionToClose(s);
+              } else {
+                onCloseSession(s.id);
+              }
+            }}
+            title="Close session"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Session status indicator at bottom */}
+        {maestroSession && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingTop: '4px', paddingLeft: '24px', flexWrap: 'wrap' }}>
+            <span className={`sessionStatusBadge sessionStatusBadge--${maestroSession.status} sessionStatusBadge--clickable`}
+              style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '2px' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSessionModalId(maestroSession.id);
+              }}>
+              {maestroSession.status === 'spawning' ? 'SPAWN' : maestroSession.status === 'stopped' ? 'STOP' : maestroSession.status.toUpperCase()}
+            </span>
+            {/* Team member badges - colored by team */}
+            {(() => {
+              const snapshots = maestroSession.teamMemberSnapshots?.length
+                ? maestroSession.teamMemberSnapshots
+                : maestroSession.teamMemberSnapshot
+                  ? [maestroSession.teamMemberSnapshot]
+                  : [];
+              return snapshots.map((member, idx) => (
+                <span
+                  key={idx}
+                  className="sessionTeamMemberBadge"
+                  title={`${member.name} (${member.role})`}
+                  style={badgeStyle}
+                >
+                  <span className="sessionTeamMemberBadge__avatar">{member.avatar}</span>
+                  <span className="sessionTeamMemberBadge__name">{member.name}</span>
+                </span>
+              ));
+            })()}
+            {maestroSession.needsInput?.active && (
+              <span className="sessionStatusBadge sessionStatusBadge--needsInput"
+                style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '2px' }}>
+                NEEDS INPUT
+              </span>
+            )}
+            <StrategyBadge strategy={maestroSession.strategy} orchestratorStrategy={maestroSession.orchestratorStrategy} compact />
+          </div>
+        )}
+
+        {/* Maestro Session Content - Enhanced */}
+        {expandedSessions.has(s.id) && maestroSession && (
+          <MaestroSessionContent
+            session={maestroSession}
+            tasks={sessionTasks.get(s.id) || []}
+            allTasks={maestroTasks}
+            loading={loadingTasks.has(s.id)}
+          />
+        )}
+        {expandedSessions.has(s.id) && !maestroSession && loadingTasks.has(s.id) && (
+          <div className="terminalSubtasks" style={{ padding: '8px 24px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic' }}>
+              Loading session data...
+            </div>
+          </div>
+        )}
+      </div>
+      </SortableSessionItem>
+    );
+  };
 
   return (
     <>
@@ -416,178 +615,50 @@ export function SessionsSection({
             items={sessions.map((s) => s.id)}
             strategy={verticalListSortingStrategy}
           >
-          {sessions.map((s) => {
-            const isActive = s.id === activeSessionId;
-            const isExited = Boolean(s.exited);
-            const isClosing = Boolean(s.closing);
-            const effect = getProcessEffectById(s.effectId);
-            const chipLabel = effect?.label ?? s.processTag ?? null;
-            const hasAgentIcon = Boolean(effect?.iconSrc);
-            const isWorking = Boolean(effect && s.agentWorking && !isExited && !isClosing);
-            const isRecording = Boolean(s.recordingActive && !isExited && !isClosing);
-            const launchOrRestore =
-              s.launchCommand ??
-              (s.restoreCommand?.trim() ? s.restoreCommand.trim() : null) ??
-              null;
-            const isSsh = isSshCommand(launchOrRestore);
-            const isPersistent = Boolean(s.persistent);
-            const isSshType = isSsh && !isPersistent;
-            const isDefaultType = !isPersistent && !isSshType;
-            const chipClass = effect
-              ? `chip chip-${effect.id}`
-              : isSshType
-                ? "chip chip-ssh"
-                : "chip";
-            const showChipLabel =
-              Boolean(chipLabel) &&
-              !hasAgentIcon &&
-              !(isSshType && (chipLabel ?? "").trim().toLowerCase() === "ssh");
-
-            const maestroSession = s.maestroSessionId ? maestroSessions.get(s.maestroSessionId) : null;
-            if (maestroSession?.needsInput) {
-              console.log('[SessionsSection] Session needsInput:', s.maestroSessionId, maestroSession.needsInput);
-            }
-            const needsInput = maestroSession?.needsInput?.active;
+          {/* Grouped sessions (coordinator teams) */}
+          {groupedSessions.map(({ group, sessions: groupSess }) => {
+            const isCollapsed = collapsedGroups.has(group.coordinatorMaestroSessionId);
+            const coordSession = groupSess[0]; // coordinator is always first
+            const coordMaestroSession = coordSession?.maestroSessionId
+              ? maestroSessions.get(coordSession.maestroSessionId)
+              : null;
+            const groupLabel = coordMaestroSession?.name || coordSession?.name || 'Team';
 
             return (
-              <SortableSessionItem key={s.id} id={s.id}>
               <div
-                className={`sessionItem ${isActive ? "sessionItemActive" : ""} ${isExited ? "sessionItemExited" : ""
-                  } ${isClosing ? "sessionItemClosing" : ""} ${isSshType ? "sessionItemSsh" : ""
-                  } ${isPersistent ? "sessionItemPersistent" : ""} ${isDefaultType ? "sessionItemDefault" : ""
-                  } ${needsInput ? "sessionItemNeedsInput" : ""}`}
-                onClick={() => onSelectSession(s.id)}
-                style={{ flexDirection: 'column', alignItems: 'stretch' }}
+                key={group.coordinatorMaestroSessionId}
+                className="teamGroup"
+                style={{
+                  '--team-color': group.color.primary,
+                  '--team-color-dim': group.color.dim,
+                } as React.CSSProperties}
               >
-                <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '8px' }}>
-                  {s.maestroSessionId && (
-                    <button
-                      className={`terminalExpandBtn ${expandedSessions.has(s.id) ? 'expanded' : ''}`}
-                      style={{ marginRight: '6px', border: 'none', width: '16px', height: '16px' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleSession(s.id, s.maestroSessionId);
-                      }}
-                    >
-                      {expandedSessions.has(s.id) ? '▾' : '▸'}
-                    </button>
-                  )}
-                  <button
-                    className="logBtn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLogModalSessionId(s.id);
-                    }}
-                    title="View session log"
-                  >
-                    <Icon name="log" size={12} />
-                  </button>
-                  <div className="sessionMeta">
-                    <div className="sessionName">
-                      {hasAgentIcon && chipLabel && effect?.iconSrc && (
-                        <span className={`agentBadge chip-${effect.id}`} title={chipLabel}>
-                          <img className="agentIcon" src={effect.iconSrc} alt={chipLabel} />
-                          {isWorking && (
-                            <span className="chipActivity agentBadgeDot" aria-label="Working" />
-                          )}
-                        </span>
-                      )}
-                      <span className="sessionNameText">{s.name}</span>
-                      {showChipLabel && chipLabel && (
-                        <span className={chipClass} title={chipLabel}>
-                          <span className="chipLabel">{chipLabel}</span>
-                          {isWorking && <span className="chipActivity" aria-label="Working" />}
-                        </span>
-                      )}
-                      {isRecording && <span className="recordingDot" title="Recording" />}
-                      {isClosing ? (
-                        <span className="sessionStatus">closing…</span>
-                      ) : isExited ? (
-                        <span className="sessionStatus">
-                          exited{s.exitCode != null ? ` ${s.exitCode}` : ""}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                  <button
-                    className="closeBtn"
-                    disabled={isClosing}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Show confirmation for active sessions
-                      const isActiveSession = !isExited && !isClosing;
-                      if (isActiveSession) {
-                        setSessionToClose(s);
-                      } else {
-                        onCloseSession(s.id);
-                      }
-                    }}
-                    title="Close session"
-                  >
-                    ×
-                  </button>
+                <div
+                  className="teamGroupHeader"
+                  onClick={() => toggleGroupCollapse(group.coordinatorMaestroSessionId)}
+                >
+                  <span className="teamGroupHeader__dot" />
+                  <span className={`teamGroupHeader__arrow ${isCollapsed ? 'teamGroupHeader__arrow--collapsed' : ''}`}>
+                    ▾
+                  </span>
+                  <span>{groupLabel} ({groupSess.length})</span>
                 </div>
-
-                {/* Session status indicator at bottom */}
-                {maestroSession && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingTop: '4px', paddingLeft: '24px', flexWrap: 'wrap' }}>
-                    <span className={`sessionStatusBadge sessionStatusBadge--${maestroSession.status} sessionStatusBadge--clickable`}
-                      style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '2px' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSessionModalId(maestroSession.id);
-                      }}>
-                      {maestroSession.status === 'spawning' ? 'SPAWN' : maestroSession.status === 'stopped' ? 'STOP' : maestroSession.status.toUpperCase()}
-                    </span>
-                    {/* Team member badges */}
-                    {(() => {
-                      const snapshots = maestroSession.teamMemberSnapshots?.length
-                        ? maestroSession.teamMemberSnapshots
-                        : maestroSession.teamMemberSnapshot
-                          ? [maestroSession.teamMemberSnapshot]
-                          : [];
-                      return snapshots.map((member, idx) => (
-                        <span
-                          key={idx}
-                          className="sessionTeamMemberBadge"
-                          title={`${member.name} (${member.role})`}
-                        >
-                          <span className="sessionTeamMemberBadge__avatar">{member.avatar}</span>
-                          <span className="sessionTeamMemberBadge__name">{member.name}</span>
-                        </span>
-                      ));
-                    })()}
-                    {maestroSession.needsInput?.active && (
-                      <span className="sessionStatusBadge sessionStatusBadge--needsInput"
-                        style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '2px' }}>
-                        NEEDS INPUT
-                      </span>
-                    )}
-                    <StrategyBadge strategy={maestroSession.strategy} orchestratorStrategy={maestroSession.orchestratorStrategy} compact />
+                {!isCollapsed && (
+                  <div className="teamGroupSessions">
+                    {groupSess.map((s) => renderSessionItem(s, group.color))}
                   </div>
                 )}
-
-                {/* Maestro Session Content - Enhanced */}
-                {expandedSessions.has(s.id) && maestroSession && (
-                  <MaestroSessionContent
-                    session={maestroSession}
-                    tasks={sessionTasks.get(s.id) || []}
-                    allTasks={maestroTasks}
-                    loading={loadingTasks.has(s.id)}
-                  />
-                )}
-                {expandedSessions.has(s.id) && !maestroSession && loadingTasks.has(s.id) && (
-                  <div className="terminalSubtasks" style={{ padding: '8px 24px' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic' }}>
-                      Loading session data...
-                    </div>
+                {isCollapsed && coordSession && (
+                  <div className="teamGroupSessions">
+                    {renderSessionItem(coordSession, group.color)}
                   </div>
                 )}
               </div>
-              </SortableSessionItem>
             );
-          })
-          }
+          })}
+
+          {/* Ungrouped sessions (plain terminals, no coordinator) */}
+          {ungroupedSessions.map((s) => renderSessionItem(s, null))}
           </SortableContext>
           </DndContext>
         )}

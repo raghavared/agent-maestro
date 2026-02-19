@@ -77,6 +77,9 @@ export interface MaestroManifest {
   /** Team member identity/instructions */
   teamMemberIdentity?: string;
 
+  /** Team member persistent memory entries */
+  teamMemberMemory?: string[];
+
   /** Team member capability overrides (Phase 2) */
   teamMemberCapabilities?: Record<string, boolean>;
 
@@ -124,6 +127,7 @@ export interface TeamMemberProfile {
   customWorkflow?: string;
   model?: string;
   agentTool?: AgentTool;
+  memory?: string[];
 }
 
 /**
@@ -140,8 +144,6 @@ export interface TeamMemberData {
   identity: string;
   /** Emoji or icon identifier */
   avatar: string;
-  /** Mail ID for shared mailbox */
-  mailId: string;
   /** Skill IDs assigned to this member */
   skillIds?: string[];
   /** Preferred model */
@@ -155,6 +157,8 @@ export interface TeamMemberData {
     groups?: Record<string, boolean>;
     commands?: Record<string, boolean>;
   };
+  /** Persistent memory entries */
+  memory?: string[];
 }
 
 /**
@@ -242,7 +246,7 @@ export interface SessionConfig {
   model: string;
 
   /** Permission mode for the session */
-  permissionMode: 'acceptEdits' | 'interactive' | 'readOnly';
+  permissionMode: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
 
   /** Thinking mode configuration */
   thinkingMode?: 'auto' | 'interleaved' | 'disabled';

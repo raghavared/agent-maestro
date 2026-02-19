@@ -37,7 +37,6 @@ export function AddSubtaskInput({ parentTaskId, onAddSubtask, depth = 0 }: AddSu
             setTitle(""); // Clear input after successful creation
             inputRef.current?.focus(); // Keep focus for adding more
         } catch (error) {
-            console.error("Failed to add subtask:", error);
         } finally {
             setIsAdding(false);
         }

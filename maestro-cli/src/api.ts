@@ -60,9 +60,6 @@ export class APIClient {
           lastError = error;
           if (attempt < maxRetries) {
             const delay = retryDelay * Math.pow(2, attempt);
-            if (config.debug) {
-              console.error(`Request failed (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
-            }
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
           }
@@ -80,9 +77,6 @@ export class APIClient {
         // Retry on network errors
         if (attempt < maxRetries && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND' || !error.response)) {
           const delay = retryDelay * Math.pow(2, attempt);
-          if (config.debug) {
-            console.error(`Request failed (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
-          }
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }

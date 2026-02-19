@@ -21,18 +21,14 @@ import { maestroClient } from './MaestroClient';
 export async function deleteSession(sessionId: string): Promise<void> {
     try {
         await maestroClient.deleteSession(sessionId);
-        console.log('[Maestro] Session deleted:', sessionId);
-    } catch (err) {
-        console.error('[Maestro] Failed to delete session:', err);
+    } catch {
         // Fallback: try to mark as completed if delete fails
         try {
             await maestroClient.updateSession(sessionId, {
                 status: 'completed',
                 completedAt: Date.now(),
             });
-            console.log('[Maestro] Fallback: Session marked as completed:', sessionId);
-        } catch (fallbackErr) {
-            console.error('[Maestro] Fallback update also failed:', fallbackErr);
+        } catch {
         }
     }
 }

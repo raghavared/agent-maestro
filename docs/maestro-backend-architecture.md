@@ -56,7 +56,6 @@ graph TB
         TR["taskRoutes.ts"]
         SR["sessionRoutes.ts<br/>+ generateManifestViaCLI()"]
         TMR["teamMemberRoutes.ts"]
-        MR["mailRoutes.ts"]
         SkR["skillRoutes.ts"]
         OR["orderingRoutes.ts"]
         WTR["workflowTemplateRoutes.ts"]
@@ -68,13 +67,12 @@ graph TB
         TS["TaskService"]
         SS["SessionService"]
         TMS["TeamMemberService"]
-        MS["MailService"]
         OS["OrderingService"]
     end
 
     subgraph Domain["Domain Layer — Interfaces"]
         TypesTS["types.ts<br/>Project, Task, Session, TeamMember"]
-        IRepos["IProjectRepository<br/>ITaskRepository<br/>ISessionRepository<br/>ITeamMemberRepository<br/>IMailRepository"]
+        IRepos["IProjectRepository<br/>ITaskRepository<br/>ISessionRepository<br/>ITeamMemberRepository"]
         IEvents["IEventBus + DomainEvents"]
         ICommon["ILogger, IIdGenerator, Errors"]
     end
@@ -218,7 +216,6 @@ graph TB
         TS["TaskService"] -->|"task:created/updated/deleted<br/>task:session_added/removed"| EB
         SS["SessionService"] -->|"session:created/updated/deleted<br/>session:task_added/removed"| EB
         TMS["TeamMemberService"] -->|"team_member:created/updated<br/>team_member:deleted/archived"| EB
-        MS["MailService"] -->|"mail:received/deleted"| EB
     end
 
     subgraph Notifications["Notification Events — high-impact"]
@@ -237,7 +234,7 @@ graph TB
     WSB --> Filter{"Client has subscription?"}
     Filter -->|"Yes: filter by sessionIds"| FilteredSend["Send matching events"]
     Filter -->|"No subscription"| BroadcastAll["Broadcast ALL events"]
-    Filter -->|"Project/team/mail"| BypassFilter["Always broadcast"]
+    Filter -->|"Project/team"| BypassFilter["Always broadcast"]
 
     FilteredSend --> Client1["UI Client"]
     BroadcastAll --> Client1
@@ -249,8 +246,8 @@ graph TB
 | Layer | Files | Purpose |
 |-------|-------|---------|
 | **Server Entry** | `server.ts`, `container.ts`, `types.ts` | App init, DI, type defs |
-| **API Routes** | `projectRoutes.ts`, `taskRoutes.ts`, `sessionRoutes.ts`, `teamMemberRoutes.ts`, `mailRoutes.ts`, `skillRoutes.ts`, `orderingRoutes.ts`, `workflowTemplateRoutes.ts`, `validation.ts` | HTTP endpoints, Zod validation |
-| **Services** | `ProjectService.ts`, `TaskService.ts`, `SessionService.ts`, `TeamMemberService.ts`, `MailService.ts`, `OrderingService.ts` | Business logic, event emission |
+| **API Routes** | `projectRoutes.ts`, `taskRoutes.ts`, `sessionRoutes.ts`, `teamMemberRoutes.ts`, `skillRoutes.ts`, `orderingRoutes.ts`, `workflowTemplateRoutes.ts`, `validation.ts` | HTTP endpoints, Zod validation |
+| **Services** | `ProjectService.ts`, `TaskService.ts`, `SessionService.ts`, `TeamMemberService.ts`, `OrderingService.ts` | Business logic, event emission |
 | **Domain** | `I*Repository.ts`, `DomainEvents.ts`, `IEventBus.ts`, `ILogger.ts`, `IIdGenerator.ts`, `Errors.ts` | Interfaces & contracts |
 | **Infrastructure** | `FileSystem*Repository.ts`, `WebSocketBridge.ts`, `Config.ts`, `InMemoryEventBus.ts`, `ConsoleLogger.ts`, `TimestampIdGenerator.ts`, `ClaudeCodeSkillLoader.ts` | Persistence, WS, config |
 | **CLI Entry** | `bin/maestro.js`, `index.ts`, `config.ts` | CLI bootstrap |
@@ -307,13 +304,6 @@ graph TB
 | DELETE | `/api/team-members/:id` | Delete (must archive first) |
 | POST | `/api/team-members/:id/archive` | Archive |
 | POST | `/api/team-members/:id/unarchive` | Unarchive |
-
-### Mail
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| POST | `/api/mail` | Send mail |
-| GET | `/api/mail/inbox/:id` | Get inbox |
-| GET | `/api/mail/wait/:id` | Long-poll wait |
 
 ### Skills & Workflows
 | Method | Endpoint | Purpose |

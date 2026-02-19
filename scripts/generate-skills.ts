@@ -87,10 +87,4 @@ for (const [name, data] of Object.entries(skillsData)) {
 
   const manifestPath = join(skillDir, 'manifest.json');
   writeFileSync(manifestPath, JSON.stringify(data.manifest, null, 2));
-
-  console.log(`✅ Generated ${name} manifest`);
 }
-
-console.log(`\n🎉 All skill manifests generated at ${SKILLS_DIR}`);
-console.log('\nNote: Skill instructions (skill.md files) should be created separately.');
-console.log('You can find the template content in Production-Phase-1-Implementation/01-SKILL-SYSTEM-IMPLEMENTATION.md');

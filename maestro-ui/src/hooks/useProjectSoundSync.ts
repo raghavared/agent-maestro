@@ -38,11 +38,5 @@ export function useProjectSoundSync() {
       soundManager.setInstrument(activeProject.soundInstrument as InstrumentType);
     }
 
-    console.log(
-      `[useProjectSoundSync] Switched to project "${activeProject.name}"`,
-      activeProject.soundConfig
-        ? `with soundConfig (instrument: ${activeProject.soundConfig.instrument})`
-        : `with instrument: ${activeProject.soundInstrument || 'piano (default)'}`,
-    );
   }, [activeProjectId, projects]);
 }

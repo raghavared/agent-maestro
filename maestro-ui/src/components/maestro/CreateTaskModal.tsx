@@ -333,7 +333,7 @@ export function CreateTaskModal({
                     const formattedFiles = fileList.map(f => ({ id: f, display: f }));
                     setFiles(formattedFiles);
                 })
-                .catch(err => console.error("Failed to list project files:", err));
+                .catch(() => {});
         }
     }, [isOpen, project?.basePath]);
 
@@ -364,7 +364,6 @@ export function CreateTaskModal({
             //     role: tmRole.trim() || 'agent',
             //     identity: prompt,
             //     avatar: tmAvatar.trim() || '?',
-            //     mailId: `tm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
             // };
         }
 

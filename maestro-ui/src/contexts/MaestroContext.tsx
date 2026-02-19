@@ -44,7 +44,6 @@ async function buildSessionConfig(
     try {
         project = await maestroClient.getProject(projectId);
     } catch (err) {
-        console.warn('[buildSessionConfig] Project not found, using defaults:', projectId);
         project = {
             id: projectId,
             name: 'Unknown Project',
@@ -59,9 +58,7 @@ async function buildSessionConfig(
         try {
             const task = await maestroClient.getTask(taskId);
             tasks.push(task);
-            console.log('[buildSessionConfig] Fetched task:', task.id);
         } catch (err) {
-            console.error('[buildSessionConfig] Failed to fetch task:', taskId, err);
             throw new Error(`Cannot spawn session: Task ${taskId} not found`);
         }
     }
@@ -205,7 +202,6 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
 
     const websocketCallbacks = React.useMemo(() => ({
         onTaskCreated: (task: MaestroTask) => {
-            console.log('[MaestroContext] WebSocket: Task created', task.id);
             setState(prev => ({
                 ...prev,
                 tasks: new Map(prev.tasks).set(task.id, task),
@@ -213,7 +209,6 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
         },
 
         onTaskUpdated: (task: MaestroTask) => {
-            console.log('[MaestroContext] WebSocket: Task updated', task.id);
             setState(prev => ({
                 ...prev,
                 tasks: new Map(prev.tasks).set(task.id, task),
@@ -221,7 +216,6 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
         },
 
         onTaskDeleted: (data: { id: string }) => {
-            console.log('[MaestroContext] WebSocket: Task deleted', data.id);
             setState(prev => {
                 const tasks = new Map(prev.tasks);
                 tasks.delete(data.id);
@@ -230,32 +224,19 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
         },
 
         onSessionCreated: async (data: any) => {
-            console.log('[MaestroContext] WebSocket: Session created', data.session?.id || data.id);
-
             // Check if this is a spawn-created session with spawn data
             const isSpawnCreated = data._isSpawnCreated || (data.command && data.envVars);
 
             if (isSpawnCreated) {
-                console.log('[MaestroContext] Maestro spawn session detected - spawning terminal');
-                console.log('[MaestroContext] Spawn source:', data.spawnSource || 'unknown');
-                if (data.parentSessionId) {
-                    console.log('[MaestroContext] Parent session:', data.parentSessionId);
-                }
-
                 // Extract session object - could be nested or top level
                 const session = data.session || data;
                 const callback = onSpawnTerminalSessionRef.current;
 
                 if (!callback) {
-                    console.error('[MaestroContext] onSpawnTerminalSession callback not provided');
                     return;
                 }
 
                 try {
-                    console.log('[MaestroContext] Calling onSpawnTerminalSession callback...');
-                    console.log('[MaestroContext] Command:', data.command);
-                    console.log('[MaestroContext] Env vars:', Object.keys(data.envVars || {}));
-
                     // Spawn terminal with data from the event
                     await callback({
                         name: session.name,
@@ -266,9 +247,7 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
                         projectId: data.projectId,
                     });
 
-                    console.log('[MaestroContext] Session spawned successfully');
                 } catch (err) {
-                    console.error('[MaestroContext] Failed to spawn session:', err);
                 }
             }
 
@@ -281,7 +260,6 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
         },
 
         onSessionUpdated: (session: MaestroSession) => {
-            console.log('[MaestroContext] WebSocket: Session updated', session.id);
             setState(prev => ({
                 ...prev,
                 sessions: new Map(prev.sessions).set(session.id, session),
@@ -289,17 +267,14 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
         },
 
         onSessionDeleted: (data: { id: string }) => {
-            console.log('[MaestroContext] WebSocket: Session deleted', data.id);
             setState(prev => {
                 const sessions = new Map(prev.sessions);
-                const deleted = sessions.delete(data.id);
-                console.log('[MaestroContext] Session deleted from cache?', deleted);
+                sessions.delete(data.id);
                 return { ...prev, sessions };
             });
         },
 
         onConnected: () => {
-            console.log('[MaestroContext] WebSocket reconnected - refreshing data');
             // Refetch active project tasks
             if (activeProjectIdRef.current) {
                 fetchTasks(activeProjectIdRef.current);
@@ -307,7 +282,6 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
         },
 
         onDisconnected: () => {
-            console.warn('[MaestroContext] WebSocket disconnected');
         },
     }), []); // Empty deps - callbacks use refs and setState which are stable
 
@@ -317,7 +291,6 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
 
     const fetchTasks = useCallback(async (projectId: string) => {
         const key = `tasks:${projectId}`;
-        console.log('[MaestroContext] Fetching tasks for project:', projectId);
 
         activeProjectIdRef.current = projectId;
         setLoading(key, true);
@@ -325,7 +298,6 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
 
         try {
             const tasks = await maestroClient.getTasks(projectId);
-            console.log('[MaestroContext] ✓ Fetched', tasks.length, 'tasks');
 
             setState(prev => {
                 const taskMap = new Map(prev.tasks);
@@ -334,7 +306,6 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
             });
         } catch (err) {
             const errorMsg = err instanceof Error ? err.message : String(err);
-            console.error('[MaestroContext] ✗ Failed to fetch tasks:', errorMsg);
             setError(key, errorMsg);
         } finally {
             setLoading(key, false);
@@ -362,14 +333,12 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
 
     const fetchSessions = useCallback(async (taskId?: string) => {
         const key = taskId ? `sessions:task:${taskId}` : 'sessions';
-        console.log('[MaestroContext] Fetching sessions', taskId ? `for task ${taskId}` : '');
 
         setLoading(key, true);
         setError(key, null);
 
         try {
             const sessions = await maestroClient.getSessions(taskId);
-            console.log('[MaestroContext] ✓ Fetched', sessions.length, 'sessions');
 
             setState(prev => {
                 const sessionMap = new Map(prev.sessions);
@@ -378,7 +347,6 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
             });
         } catch (err) {
             const errorMsg = err instanceof Error ? err.message : String(err);
-            console.error('[MaestroContext] ✗ Failed to fetch sessions:', errorMsg);
             setError(key, errorMsg);
         } finally {
             setLoading(key, false);
@@ -414,53 +382,45 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
     // ==================== MUTATION METHODS ====================
 
     const createTask = useCallback(async (data: CreateTaskPayload): Promise<MaestroTask> => {
-        console.log('[MaestroContext] Creating task:', data.title);
         const task = await maestroClient.createTask(data);
         // Task will be added via WebSocket event
         return task;
     }, []);
 
     const updateTask = useCallback(async (taskId: string, updates: UpdateTaskPayload): Promise<MaestroTask> => {
-        console.log('[MaestroContext] Updating task:', taskId);
         const task = await maestroClient.updateTask(taskId, updates);
         // Task will be updated via WebSocket event
         return task;
     }, []);
 
     const deleteTask = useCallback(async (taskId: string): Promise<void> => {
-        console.log('[MaestroContext] Deleting task:', taskId);
         await maestroClient.deleteTask(taskId);
         // Task will be removed via WebSocket event
     }, []);
 
     const createSession = useCallback(async (data: CreateSessionPayload): Promise<MaestroSession> => {
-        console.log('[MaestroContext] Creating session:', data.name);
         const session = await maestroClient.createSession(data);
         // Session will be added via WebSocket event
         return session;
     }, []);
 
     const updateSession = useCallback(async (sessionId: string, updates: UpdateSessionPayload): Promise<MaestroSession> => {
-        console.log('[MaestroContext] Updating session:', sessionId);
         const session = await maestroClient.updateSession(sessionId, updates);
         // Session will be updated via WebSocket event
         return session;
     }, []);
 
     const deleteSession = useCallback(async (sessionId: string): Promise<void> => {
-        console.log('[MaestroContext] Deleting session:', sessionId);
         await maestroClient.deleteSession(sessionId);
         // Session will be removed via WebSocket event
     }, []);
 
     const addTaskToSession = useCallback(async (sessionId: string, taskId: string): Promise<void> => {
-        console.log('[MaestroContext] Adding task', taskId, 'to session', sessionId);
         await maestroClient.addTaskToSession(sessionId, taskId);
         // Relationship will be updated via WebSocket events
     }, []);
 
     const removeTaskFromSession = useCallback(async (sessionId: string, taskId: string): Promise<void> => {
-        console.log('[MaestroContext] Removing task', taskId, 'from session', sessionId);
         await maestroClient.removeTaskFromSession(sessionId, taskId);
         // Relationship will be updated via WebSocket events
     }, []);
@@ -468,7 +428,6 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
     // ==================== CACHE MANAGEMENT ====================
 
     const clearCache = useCallback(() => {
-        console.log('[MaestroContext] 🗑️  Clearing all cache');
         setState({
             tasks: new Map(),
             sessions: new Map(),
@@ -478,15 +437,12 @@ export function MaestroProvider({ children, onSpawnTerminalSession }: MaestroPro
     }, []);
 
     const hardRefresh = useCallback(async (projectId: string) => {
-        console.log('[MaestroContext] 🔄 Hard refresh - clearing cache and refetching');
-
         // Clear all cache first
         clearCache();
 
         // Refetch tasks for the project
         if (projectId) {
             await fetchTasks(projectId);
-            console.log('[MaestroContext] ✓ Hard refresh complete');
         }
     }, [clearCache, fetchTasks]);
 

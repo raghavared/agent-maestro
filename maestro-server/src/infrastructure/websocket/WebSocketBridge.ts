@@ -28,13 +28,8 @@ export class WebSocketBridge {
 
   private setupConnectionHandlers(): void {
     this.wss.on('connection', (ws: WebSocket, req) => {
-      const origin = req.headers.origin || 'unknown';
-      const remoteAddr = req.socket.remoteAddress || 'unknown';
-      console.log(`🔌 WebSocket client connected (origin=${origin}, addr=${remoteAddr}, total=${this.wss.clients.size})`);
-
       ws.on('close', (code, reason) => {
         this.subscriptions.delete(ws);
-        console.log(`🔌 WebSocket client disconnected (origin=${origin}, code=${code}, total=${this.wss.clients.size})`);
       });
 
       ws.on('error', (error) => {
@@ -63,7 +58,6 @@ export class WebSocketBridge {
     if (message.type === 'subscribe' && Array.isArray(message.sessionIds)) {
       const ids = new Set<string>(message.sessionIds.filter((id: any) => typeof id === 'string'));
       this.subscriptions.set(ws, ids);
-      console.log(`🔌 WebSocket client subscribed to ${ids.size} session(s): ${[...ids].join(', ')}`);
       ws.send(JSON.stringify({ type: 'subscribed', sessionIds: [...ids], timestamp: Date.now() }));
       return;
     }
@@ -118,9 +112,6 @@ export class WebSocketBridge {
       'team_member:updated',
       'team_member:deleted',
       'team_member:archived',
-      // Mail events
-      'mail:received',
-      'mail:deleted'
     ];
 
     // Subscribe to each event
@@ -139,8 +130,8 @@ export class WebSocketBridge {
   private extractSessionId(event: string, data: any): string | undefined {
     if (!data) return undefined;
 
-    // Team member events, mail events, and project events are not session-scoped
-    if (event.startsWith('team_member:') || event.startsWith('mail:') || event.startsWith('project:')) {
+    // Task events, team member events, and project events are not session-scoped
+    if (event.startsWith('task:') || event.startsWith('team_member:') || event.startsWith('project:') || event.startsWith('notify:')) {
       return undefined;
     }
 
@@ -181,15 +172,6 @@ export class WebSocketBridge {
       sent++;
     });
 
-    // Only log non-high-frequency events in detail
-    const isHighFrequency = ['heartbeat', 'keepalive'].includes(event);
-    if (!isHighFrequency) {
-      console.log(`📡 Broadcast ${event} → ${sent}/${this.wss.clients.size} clients`);
-    }
-    // Extra logging for notify events
-    if (event.startsWith('notify:')) {
-      console.log(`🔔 [WebSocketBridge] NOTIFY broadcast: ${event} → ${sent}/${this.wss.clients.size} clients, data=${JSON.stringify(data)}`);
-    }
   }
 
   /**

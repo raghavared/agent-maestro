@@ -33,6 +33,7 @@ export interface TeamMember {
   model?: ModelType;
   agentTool?: AgentTool;
   mode?: AgentMode;
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   strategy?: WorkerStrategy | OrchestratorStrategy;
   skillIds?: string[];
   isDefault: boolean;
@@ -54,6 +55,9 @@ export interface TeamMember {
   // Phase 3: Workflow customization
   workflowTemplateId?: string;
   customWorkflow?: string;
+
+  // Self-awareness: persistent memory
+  memory?: string[];
 
   createdAt: string;
   updatedAt: string;
@@ -91,6 +95,7 @@ export interface CreateTeamMemberPayload {
   model?: ModelType;
   agentTool?: AgentTool;
   mode?: AgentMode;
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   skillIds?: string[];
   capabilities?: TeamMember['capabilities'];
   commandPermissions?: TeamMember['commandPermissions'];
@@ -106,12 +111,14 @@ export interface UpdateTeamMemberPayload {
   model?: ModelType;
   agentTool?: AgentTool;
   mode?: AgentMode;
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   skillIds?: string[];
   status?: TeamMemberStatus;
   capabilities?: TeamMember['capabilities'];
   commandPermissions?: TeamMember['commandPermissions'];
   workflowTemplateId?: string;
   customWorkflow?: string;
+  memory?: string[];
 }
 
 // Session timeline event types

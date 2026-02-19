@@ -166,8 +166,7 @@ export class ClaudeCliBuilder {
       try {
         const agentConfig = JSON.parse(envVars.MAESTRO_AGENT_CONFIG);
         config.model = agentConfig.model;
-      } catch (err) {
-        console.error('Failed to parse MAESTRO_AGENT_CONFIG:', err);
+      } catch {
       }
     }
 

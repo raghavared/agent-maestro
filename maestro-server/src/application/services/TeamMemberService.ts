@@ -89,7 +89,8 @@ export class TeamMemberService {
       throw new ValidationError('Project ID is required');
     }
 
-    return this.teamMemberRepo.findByProjectId(projectId);
+    const members = await this.teamMemberRepo.findByProjectId(projectId);
+    return members.filter(m => m.status !== 'archived');
   }
 
   /**
@@ -197,6 +198,7 @@ export class TeamMemberService {
     const updated = await this.teamMemberRepo.update(id, {
       status: 'archived',
       updatedAt: new Date().toISOString(),
+      projectId,
     });
 
     await this.eventBus.emit('team_member:archived', updated);
@@ -228,6 +230,7 @@ export class TeamMemberService {
     const updated = await this.teamMemberRepo.update(id, {
       status: 'active',
       updatedAt: new Date().toISOString(),
+      projectId,
     });
 
     await this.eventBus.emit('team_member:updated', updated);
