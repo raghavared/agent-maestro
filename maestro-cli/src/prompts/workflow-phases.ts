@@ -29,6 +29,9 @@ export const EXECUTE_WORK_PHASE =
   '  maestro task report blocked <taskId> "<what you need>"\n' +
   'After completing each task, report it:\n' +
   '  maestro task report complete <taskId> "<summary of what was done>"\n' +
+  'After completing each task, add any files you created or modified as task docs:\n' +
+  '  maestro task docs add <taskId> "<descriptive title>" --file <filePath>\n' +
+  'This preserves your work artifacts for the coordinator and future reference.\n' +
   'If your <session_context> contains a <coordinator_session_id>, notify your coordinator directly AFTER calling task report:\n' +
   '  On task complete: maestro session prompt <coordinatorSessionId> --message "Task <taskId> complete: <summary>"\n' +
   '  On blocked:       maestro session prompt <coordinatorSessionId> --message "BLOCKED on task <taskId>: <reason>"\n' +
@@ -48,6 +51,8 @@ export const EXECUTE_WORK_PHASE =
 
 export const EXECUTE_COMPLETE_PHASE =
   'When all tasks are done:\n' +
+  'Before closing, ensure you have added all important work artifacts as task docs:\n' +
+  '  maestro task docs add <taskId> "<title>" --file <filePath>\n' +
   '  maestro session report complete "<summary of all work completed>"\n' +
   'If <coordinator_session_id> is present in your <session_context>, also run:\n' +
   '  maestro session prompt <coordinatorSessionId> --message "All tasks done. Session closing."';
@@ -74,11 +79,14 @@ export const EXECUTE_TREE_WORK_PHASE =
   '  1. maestro task report progress <taskId> "Starting"\n' +
   '  2. Complete it\n' +
   '  3. maestro task report complete <taskId> "<summary>"\n' +
+  '  4. Add files created or modified as task docs: maestro task docs add <taskId> "<title>" --file <filePath>\n' +
   'If blocked, report it:\n' +
   '  maestro task report blocked <taskId> "<what you need>"';
 
 export const EXECUTE_TREE_COMPLETE_PHASE =
   'When ALL tasks in the tree are done:\n' +
+  'Before closing, ensure you have added all important work artifacts as task docs:\n' +
+  '  maestro task docs add <taskId> "<title>" --file <filePath>\n' +
   '  maestro session report complete "<summary>"';
 
 // ═══════════════════════════════════════════════════════════════
@@ -96,6 +104,8 @@ export const EXECUTE_RECRUIT_WORK_PHASE =
 
 export const EXECUTE_RECRUIT_COMPLETE_PHASE =
   'When all team members are created:\n' +
+  'Before closing, ensure you have added all important work artifacts as task docs:\n' +
+  '  maestro task docs add <taskId> "<title>" --file <filePath>\n' +
   '  maestro session report complete "<summary with IDs, roles, and configurations>"';
 
 // ═══════════════════════════════════════════════════════════════
@@ -119,7 +129,8 @@ export const COORDINATE_SPAWN_PHASE =
   'This ensures workers receive instructions BEFORE they start working:\n' +
   '  maestro session spawn --task <subtaskId> --subject "<clear directive>" --message "<detailed instructions, context, and guidance>" [--team-member-id <tmId>] [--agent-tool <claude-code|codex|gemini>] [--model <model>]\n' +
   'You can spawn multiple workers in parallel — do NOT wait for each to finish before spawning the next.\n' +
-  'Collect all session IDs for monitoring.';
+  'Collect all session IDs for monitoring.\n' +
+  'IMPORTANT: In your --message directive, remind workers to add task docs for any files they create or modify using: maestro task docs add <taskId> "<title>" --file <filePath>';
 
 export const COORDINATE_MONITOR_PHASE =
   'Monitor workers each turn using BOTH methods:\n' +
@@ -143,7 +154,9 @@ export const COORDINATE_RECOVER_PHASE =
 export const COORDINATE_VERIFY_PHASE =
   'After workers finish, verify all subtask statuses:\n' +
   '  maestro task children <parentTaskId>\n' +
-  'Ensure all are completed. Retry any failures or report blocked if unresolvable.';
+  'Ensure all are completed. Retry any failures or report blocked if unresolvable.\n' +
+  'Also verify that workers added task docs for their output:\n' +
+  '  maestro task docs list <subtaskId>';
 
 export const COORDINATE_COMPLETE_PHASE =
   'When all subtasks are done:\n' +
