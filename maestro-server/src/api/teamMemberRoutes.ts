@@ -211,12 +211,7 @@ export function createTeamMemberRoutes(teamMemberService: TeamMemberService) {
         });
       }
 
-      // Get current member, append to memory, then update
-      const current = await teamMemberService.getTeamMember(projectId, id);
-      const existingMemory = (current as any).memory || [];
-      const newMemory = [...existingMemory, ...validEntries];
-
-      const member = await teamMemberService.updateTeamMember(projectId, id, { memory: newMemory });
+      const member = await teamMemberService.appendMemory(projectId, id, validEntries);
       res.json(member);
     } catch (err: any) {
       handleError(err, res);

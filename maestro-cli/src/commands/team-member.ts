@@ -11,7 +11,10 @@ export function registerTeamMemberCommands(program: Command) {
 
     teamMember.command('list')
         .description('List team members for the current project')
-        .action(async () => {
+        .option('--all', 'Include archived members')
+        .option('--status <status>', 'Filter by status: active or archived')
+        .option('--mode <mode>', 'Filter by mode: execute or coordinate')
+        .action(async (cmdOpts: any) => {
             await guardCommand('team-member:list');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -23,6 +26,20 @@ export function registerTeamMemberCommands(program: Command) {
                 else { console.error(err.message); process.exit(1); }
             }
 
+            // Validate status filter
+            if (cmdOpts.status && !['active', 'archived'].includes(cmdOpts.status)) {
+                const err = { message: `Invalid status "${cmdOpts.status}". Must be: active or archived` };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            // Validate mode filter
+            if (cmdOpts.mode && !['execute', 'coordinate'].includes(cmdOpts.mode)) {
+                const err = { message: `Invalid mode "${cmdOpts.mode}". Must be: execute or coordinate` };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
             const spinner = !isJson ? ora('Fetching team members...').start() : null;
 
             try {
@@ -30,19 +47,34 @@ export function registerTeamMemberCommands(program: Command) {
 
                 spinner?.stop();
 
-                if (isJson) {
-                    outputJSON(members);
+                // Apply filters
+                let filtered = members;
+                if (cmdOpts.all) {
+                    // include all statuses
+                } else if (cmdOpts.status) {
+                    filtered = members.filter((m: any) => m.status === cmdOpts.status);
                 } else {
-                    if (members.length === 0) {
+                    filtered = members.filter((m: any) => m.status === 'active');
+                }
+
+                if (cmdOpts.mode) {
+                    filtered = filtered.filter((m: any) => (m.mode || 'execute') === cmdOpts.mode);
+                }
+
+                if (isJson) {
+                    outputJSON(filtered);
+                } else {
+                    if (filtered.length === 0) {
+                        console.log('No team members found.');
                     } else {
-                        const activeMembers = members.filter((m: any) => m.status === 'active');
                         outputTable(
-                            ['ID', 'Name', 'Role', 'Mode', 'Default'],
-                            activeMembers.map((m: any) => [
+                            ['ID', 'Name', 'Role', 'Mode', 'Status', 'Default'],
+                            filtered.map((m: any) => [
                                 m.id,
                                 `${m.avatar} ${m.name}`,
                                 m.role,
                                 m.mode || 'execute',
+                                m.status,
                                 m.isDefault ? 'yes' : 'no',
                             ])
                         );
@@ -84,10 +116,42 @@ export function registerTeamMemberCommands(program: Command) {
                     outputKeyValue('Mode', member.mode || 'execute');
                     outputKeyValue('Model', member.model || 'sonnet');
                     outputKeyValue('Agent Tool', member.agentTool || 'claude-code');
+                    outputKeyValue('Permission Mode', member.permissionMode || 'default');
                     outputKeyValue('Default', member.isDefault ? 'yes' : 'no');
                     outputKeyValue('Status', member.status);
+                    if (member.workflowTemplateId) {
+                        outputKeyValue('Workflow Template', member.workflowTemplateId);
+                    }
+                    if (member.customWorkflow) {
+                        outputKeyValue('Custom Workflow', member.customWorkflow);
+                    }
                     if (member.identity) {
                         outputKeyValue('Identity', member.identity);
+                    }
+                    if (member.skillIds && member.skillIds.length > 0) {
+                        outputKeyValue('Skill IDs', member.skillIds.join(', '));
+                    }
+                    if (member.capabilities && Object.keys(member.capabilities).length > 0) {
+                        console.log('Capabilities:');
+                        Object.entries(member.capabilities).forEach(([k, v]) => {
+                            console.log(`  ${k}: ${v}`);
+                        });
+                    }
+                    if (member.commandPermissions && (
+                        Object.keys(member.commandPermissions.groups || {}).length > 0 ||
+                        Object.keys(member.commandPermissions.commands || {}).length > 0
+                    )) {
+                        console.log('Command Permissions:');
+                        const groups = member.commandPermissions.groups || {};
+                        const cmds = member.commandPermissions.commands || {};
+                        if (Object.keys(groups).length > 0) {
+                            console.log('  Groups:');
+                            Object.entries(groups).forEach(([g, v]) => console.log(`    ${g}: ${v}`));
+                        }
+                        if (Object.keys(cmds).length > 0) {
+                            console.log('  Commands:');
+                            Object.entries(cmds).forEach(([c, v]) => console.log(`    ${c}: ${v}`));
+                        }
                     }
                     const memoryList = member.memory || [];
                     if (memoryList.length > 0) {
@@ -200,6 +264,147 @@ export function registerTeamMemberCommands(program: Command) {
                     if (member.workflowTemplateId) {
                         outputKeyValue('Workflow Template', member.workflowTemplateId);
                     }
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    // ── Lifecycle commands ─────────────────────────────────────
+    teamMember.command('archive <teamMemberId>')
+        .description('Archive a team member')
+        .action(async (teamMemberId: string) => {
+            await guardCommand('team-member:archive');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const projectId = globalOpts.project || config.projectId;
+
+            if (!projectId) {
+                const err = { message: 'No project context found. Use --project <id> or set MAESTRO_PROJECT_ID.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Archiving team member...').start() : null;
+
+            try {
+                const member: any = await api.post(`/api/team-members/${teamMemberId}/archive`, { projectId });
+
+                spinner?.succeed('Team member archived');
+
+                if (isJson) {
+                    outputJSON(member);
+                } else {
+                    outputKeyValue('ID', member.id);
+                    outputKeyValue('Name', `${member.avatar} ${member.name}`);
+                    outputKeyValue('Status', member.status);
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    teamMember.command('unarchive <teamMemberId>')
+        .description('Unarchive a team member')
+        .action(async (teamMemberId: string) => {
+            await guardCommand('team-member:unarchive');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const projectId = globalOpts.project || config.projectId;
+
+            if (!projectId) {
+                const err = { message: 'No project context found. Use --project <id> or set MAESTRO_PROJECT_ID.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Unarchiving team member...').start() : null;
+
+            try {
+                const member: any = await api.post(`/api/team-members/${teamMemberId}/unarchive`, { projectId });
+
+                spinner?.succeed('Team member unarchived');
+
+                if (isJson) {
+                    outputJSON(member);
+                } else {
+                    outputKeyValue('ID', member.id);
+                    outputKeyValue('Name', `${member.avatar} ${member.name}`);
+                    outputKeyValue('Status', member.status);
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    teamMember.command('delete <teamMemberId>')
+        .description('Delete a team member (member must be archived first)')
+        .action(async (teamMemberId: string) => {
+            await guardCommand('team-member:delete');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const projectId = globalOpts.project || config.projectId;
+
+            if (!projectId) {
+                const err = { message: 'No project context found. Use --project <id> or set MAESTRO_PROJECT_ID.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            if (!isJson) {
+                console.log('Warning: Team members must be archived before deletion. Use "team-member archive <id>" first.');
+            }
+
+            const spinner = !isJson ? ora('Deleting team member...').start() : null;
+
+            try {
+                const result: any = await api.delete(`/api/team-members/${teamMemberId}?projectId=${projectId}`);
+
+                spinner?.succeed('Team member deleted');
+
+                if (isJson) {
+                    outputJSON(result);
+                } else {
+                    console.log(`Team member ${teamMemberId} deleted.`);
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    teamMember.command('reset <teamMemberId>')
+        .description('Reset a default team member to its original settings')
+        .action(async (teamMemberId: string) => {
+            await guardCommand('team-member:reset');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const projectId = globalOpts.project || config.projectId;
+
+            if (!projectId) {
+                const err = { message: 'No project context found. Use --project <id> or set MAESTRO_PROJECT_ID.' };
+                if (isJson) { outputErrorJSON(err); process.exit(1); }
+                else { console.error(err.message); process.exit(1); }
+            }
+
+            const spinner = !isJson ? ora('Resetting team member...').start() : null;
+
+            try {
+                const member: any = await api.post(`/api/team-members/${teamMemberId}/reset`, { projectId });
+
+                spinner?.succeed('Team member reset to defaults');
+
+                if (isJson) {
+                    outputJSON(member);
+                } else {
+                    outputKeyValue('ID', member.id);
+                    outputKeyValue('Name', `${member.avatar} ${member.name}`);
+                    outputKeyValue('Role', member.role);
+                    outputKeyValue('Mode', member.mode || 'execute');
+                    outputKeyValue('Status', member.status);
                 }
             } catch (err) {
                 spinner?.stop();
@@ -390,6 +595,8 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--agent-tool <tool>', 'Agent tool (claude-code, codex, or gemini)', 'claude-code')
         .option('--permission-mode <mode>', 'Permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Custom identity/persona instructions')
+        .option('--workflow-template <templateId>', 'Workflow template ID (e.g. execute-simple, coordinate-default)')
+        .option('--custom-workflow <text>', 'Custom workflow instructions (use with --workflow-template custom)')
         .action(async (name: string, cmdOpts: any) => {
             await guardCommand('team-member:create');
             const globalOpts = program.opts();
@@ -447,6 +654,14 @@ export function registerTeamMemberCommands(program: Command) {
 
                 if (cmdOpts.permissionMode) {
                     payload.permissionMode = cmdOpts.permissionMode;
+                }
+
+                if (cmdOpts.workflowTemplate) {
+                    payload.workflowTemplateId = cmdOpts.workflowTemplate;
+                }
+
+                if (cmdOpts.customWorkflow) {
+                    payload.customWorkflow = cmdOpts.customWorkflow.trim();
                 }
 
                 const member: any = await api.post('/api/team-members', payload);

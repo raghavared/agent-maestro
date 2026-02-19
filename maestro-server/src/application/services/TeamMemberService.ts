@@ -43,7 +43,7 @@ export class TeamMemberService {
       projectId: data.projectId,
       name: data.name.trim(),
       role: data.role.trim(),
-      identity: data.identity ? data.identity.trim() : '',
+      identity: data.identity ? data.identity.trim() : undefined,
       avatar: data.avatar.trim(),
       model: data.model,
       agentTool: data.agentTool,
@@ -145,6 +145,7 @@ export class TeamMemberService {
     if (updates.workflowTemplateId !== undefined) cleanUpdates.workflowTemplateId = updates.workflowTemplateId;
     if (updates.customWorkflow !== undefined) cleanUpdates.customWorkflow = updates.customWorkflow;
     if (updates.memory !== undefined) cleanUpdates.memory = updates.memory;
+    if (updates.permissionMode !== undefined) cleanUpdates.permissionMode = updates.permissionMode;
 
     // Update through repository (handles both defaults via override and custom via file)
     const updated = await this.teamMemberRepo.update(id, { ...cleanUpdates, projectId });
@@ -269,6 +270,18 @@ export class TeamMemberService {
     await this.eventBus.emit('team_member:updated', reset);
 
     return reset;
+  }
+
+  /**
+   * Atomically append entries to a team member's memory.
+   * Performs the read-modify-write in one place to reduce (but not eliminate) the
+   * race window compared to callers doing it themselves.
+   */
+  async appendMemory(projectId: string, id: string, entries: string[]): Promise<TeamMember> {
+    const current = await this.getTeamMember(projectId, id);
+    const existingMemory = current.memory ?? [];
+    const newMemory = [...existingMemory, ...entries];
+    return this.updateTeamMember(projectId, id, { memory: newMemory });
   }
 
   /**
