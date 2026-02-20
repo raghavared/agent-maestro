@@ -131,12 +131,13 @@ export class MultiScopeSkillLoader implements ISkillLoader {
     return null;
   }
 
-  async loadForMode(mode: 'execute' | 'coordinate'): Promise<Skill[]> {
+  async loadForMode(mode: string): Promise<Skill[]> {
+    const isCoord = mode === 'coordinator' || mode === 'coordinated-coordinator' || mode === 'coordinate';
     const allSkills = await this.loadAllWithScope();
     return allSkills.filter(skill => {
       const skillRole = skill.manifest.config?.role;
-      if (mode === 'coordinate' && skillRole === 'orchestrator') return true;
-      if (mode === 'execute' && skillRole !== 'orchestrator') return true;
+      if (isCoord && skillRole === 'orchestrator') return true;
+      if (!isCoord && skillRole !== 'orchestrator') return true;
       return false;
     });
   }

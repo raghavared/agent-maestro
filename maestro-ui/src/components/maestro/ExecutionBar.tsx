@@ -294,8 +294,8 @@ export function ExecutionBar({
     const activeMembers = teamMembers.filter(m => m.status === 'active' && (!projectId || m.projectId === projectId));
 
     // For orchestrate: coordinators have mode=coordinate, workers have mode=execute
-    const coordinatorMembers = activeMembers.filter(m => m.mode === 'coordinate');
-    const workerMembers = activeMembers.filter(m => m.mode === 'execute' || !m.mode);
+    const coordinatorMembers = activeMembers.filter(m => m.mode === 'coordinator' || m.mode === 'coordinated-coordinator' || (m.mode as string) === 'coordinate');
+    const workerMembers = activeMembers.filter(m => m.mode === 'worker' || m.mode === 'coordinated-worker' || (m.mode as string) === 'execute' || !m.mode);
 
     // Derive strategy from selected team member for WhoamiPreview
     const selectedExecuteMember = activeMembers.find(m => m.id === selectedExecuteMemberId);

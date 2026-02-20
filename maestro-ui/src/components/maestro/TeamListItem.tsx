@@ -251,7 +251,7 @@ export function TeamListItem({
                                                             {member.role}
                                                         </span>
                                                         {member.mode && (
-                                                            <span className={`terminalMetaBadge terminalMetaBadge--status-${member.mode === 'coordinate' ? 'in_review' : 'in_progress'}`} style={{ fontSize: '9px' }}>
+                                                            <span className={`terminalMetaBadge terminalMetaBadge--status-${member.mode === 'coordinator' || member.mode === 'coordinated-coordinator' || (member.mode as string) === 'coordinate' ? 'in_review' : 'in_progress'}`} style={{ fontSize: '9px' }}>
                                                                 {member.mode}
                                                             </span>
                                                         )}

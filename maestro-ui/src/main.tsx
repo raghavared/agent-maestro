@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./styles.css";
+import "./task-lists.css";
 import "./styles-startup.css";
 import "xterm/css/xterm.css";
 

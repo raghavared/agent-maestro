@@ -6,8 +6,11 @@ export type TaskPriority = 'low' | 'medium' | 'high';
 export type MaestroSessionStatus = 'spawning' | 'idle' | 'working' | 'completed' | 'failed' | 'stopped';
 export type SpawnSource = 'ui' | 'session';
 export type TaskSessionStatus = 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'skipped';
-// Three-axis model
-export type AgentMode = 'execute' | 'coordinate';
+// Four-mode model
+export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coordinated-coordinator';
+/** Legacy mode aliases for backward compatibility */
+export type LegacyAgentMode = 'execute' | 'coordinate';
+export type AgentModeInput = AgentMode | LegacyAgentMode;
 // Claude models
 export type ClaudeModel = 'haiku' | 'sonnet' | 'opus';
 // Codex models
@@ -231,6 +234,7 @@ export interface MaestroProject {
   name: string;
   workingDir: string;
   description?: string;
+  isMaster?: boolean;
   createdAt: number;
   updatedAt: number;
   // UI specific fields that might come from API or be computed
@@ -388,6 +392,29 @@ export interface UpdateTaskPayload {
   completedAt?: number | null;
 }
 
+export interface TaskList {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string;
+  orderedTaskIds: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CreateTaskListPayload {
+  projectId: string;
+  name: string;
+  description?: string;
+  orderedTaskIds?: string[];
+}
+
+export interface UpdateTaskListPayload {
+  name?: string;
+  description?: string;
+  orderedTaskIds?: string[];
+}
+
 export interface CreateSessionPayload {
   id?: string;
   projectId: string;
@@ -487,3 +514,8 @@ export interface Ordering {
   updatedAt: number;
 }
 
+export interface TaskListOrdering {
+  projectId: string;
+  orderedIds: string[];
+  updatedAt: number;
+}

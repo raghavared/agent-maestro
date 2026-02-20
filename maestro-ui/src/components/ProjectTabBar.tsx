@@ -153,6 +153,7 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
 function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete, onCloseProject }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = useState<ProjectSettingsTab>('info');
   const setProjects = useProjectStore((s) => s.setProjects);
+  const toggleMasterProject = useProjectStore((s) => s.toggleMasterProject);
 
   const handleSoundConfigChange = (config: ProjectSoundConfig | undefined) => {
     setProjects((prev) =>
@@ -225,6 +226,27 @@ function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete, onClo
                     <span className="projectSettingsValue">
                       {new Date(project.createdAt).toLocaleDateString()}
                     </span>
+                  </div>
+
+                  <div className="projectSettingsRow projectSettingsMasterRow">
+                    <span className="projectSettingsLabel">MASTER PROJECT:</span>
+                    <label
+                      className="projectSettingsMasterToggle"
+                      title="Sessions in this project can access all other projects"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={project.isMaster ?? false}
+                        onChange={() => void toggleMasterProject(project.id)}
+                      />
+                      <span className="projectSettingsMasterSwitch" />
+                      <span className="projectSettingsMasterLabel">
+                        {project.isMaster ? '★ Enabled' : 'Disabled'}
+                      </span>
+                    </label>
+                    <div className="projectSettingsMasterHint">
+                      Sessions in this project can access all other projects
+                    </div>
                   </div>
                 </div>
 
@@ -545,6 +567,7 @@ export function ProjectTabBar({
                   onClick={() => onSelectProject(p.id)}
                   title={p.basePath || p.name}
                 >
+                  {p.isMaster && <span className="projectTabMasterIcon" title="Master Project">★</span>}
                   <span className="projectTabName">{p.name}</span>
                   {workingCount > 0 && (
                     <span className="projectTabWorking">

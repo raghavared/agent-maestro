@@ -5,6 +5,7 @@ import { InMemoryEventBus } from './infrastructure/events/InMemoryEventBus';
 import { FileSystemProjectRepository } from './infrastructure/repositories/FileSystemProjectRepository';
 import { FileSystemTaskRepository } from './infrastructure/repositories/FileSystemTaskRepository';
 import { FileSystemSessionRepository } from './infrastructure/repositories/FileSystemSessionRepository';
+import { FileSystemTaskListRepository } from './infrastructure/repositories/FileSystemTaskListRepository';
 
 import { FileSystemOrderingRepository } from './infrastructure/repositories/FileSystemOrderingRepository';
 import { FileSystemTeamMemberRepository } from './infrastructure/repositories/FileSystemTeamMemberRepository';
@@ -14,6 +15,7 @@ import { MultiScopeSkillLoader } from './infrastructure/skills/MultiScopeSkillLo
 import { ProjectService } from './application/services/ProjectService';
 import { TaskService } from './application/services/TaskService';
 import { SessionService } from './application/services/SessionService';
+import { TaskListService } from './application/services/TaskListService';
 import { LogDigestService } from './application/services/LogDigestService';
 import { MailService } from './application/services/MailService';
 
@@ -25,6 +27,7 @@ import { IIdGenerator } from './domain/common/IIdGenerator';
 import { IEventBus } from './domain/events/IEventBus';
 import { IProjectRepository } from './domain/repositories/IProjectRepository';
 import { ITaskRepository } from './domain/repositories/ITaskRepository';
+import { ITaskListRepository } from './domain/repositories/ITaskListRepository';
 import { ISessionRepository } from './domain/repositories/ISessionRepository';
 
 import { IOrderingRepository } from './domain/repositories/IOrderingRepository';
@@ -83,6 +86,7 @@ export interface Container {
   // Repositories
   projectRepo: IProjectRepository;
   taskRepo: ITaskRepository;
+  taskListRepo: ITaskListRepository;
   sessionRepo: ISessionRepository;
   orderingRepo: IOrderingRepository;
   teamMemberRepo: ITeamMemberRepository;
@@ -95,6 +99,7 @@ export interface Container {
   // Services
   projectService: ProjectService;
   taskService: TaskService;
+  taskListService: TaskListService;
   sessionService: SessionService;
   logDigestService: LogDigestService;
   orderingService: OrderingService;
@@ -122,6 +127,7 @@ export async function createContainer(): Promise<Container> {
   // 3. Repositories
   const taskRepo = new FileSystemTaskRepository(config.dataDir, idGenerator, logger);
   const sessionRepo = new FileSystemSessionRepository(config.dataDir, idGenerator, logger);
+  const taskListRepo = new FileSystemTaskListRepository(config.dataDir, idGenerator, logger);
   const projectRepo = new FileSystemProjectRepository(
     config.dataDir,
     idGenerator,
@@ -139,7 +145,8 @@ export async function createContainer(): Promise<Container> {
 
   // 5. Services
   const projectService = new ProjectService(projectRepo, eventBus);
-  const taskService = new TaskService(taskRepo, projectRepo, eventBus, idGenerator);
+  const taskService = new TaskService(taskRepo, projectRepo, eventBus, idGenerator, taskListRepo);
+  const taskListService = new TaskListService(taskListRepo, projectRepo, taskRepo, eventBus);
   const sessionService = new SessionService(sessionRepo, taskRepo, projectRepo, eventBus, idGenerator);
   const logDigestService = new LogDigestService(sessionService, projectRepo);
   const orderingService = new OrderingService(orderingRepo);
@@ -155,6 +162,7 @@ export async function createContainer(): Promise<Container> {
     eventBus,
     projectRepo,
     taskRepo,
+    taskListRepo,
     sessionRepo,
     orderingRepo,
     teamMemberRepo,
@@ -163,6 +171,7 @@ export async function createContainer(): Promise<Container> {
     skillLoader,
     projectService,
     taskService,
+    taskListService,
     sessionService,
     logDigestService,
     orderingService,
@@ -176,6 +185,7 @@ export async function createContainer(): Promise<Container> {
       // Initialize repositories
       await projectRepo.initialize();
       await taskRepo.initialize();
+      await taskListRepo.initialize();
       await sessionRepo.initialize();
       await orderingRepo.initialize();
       await teamMemberRepo.initialize();

@@ -34,8 +34,8 @@ export function registerTeamMemberCommands(program: Command) {
             }
 
             // Validate mode filter
-            if (cmdOpts.mode && !['execute', 'coordinate'].includes(cmdOpts.mode)) {
-                const err = { message: `Invalid mode "${cmdOpts.mode}". Must be: execute or coordinate` };
+            if (cmdOpts.mode && !['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'].includes(cmdOpts.mode)) {
+                const err = { message: `Invalid mode "${cmdOpts.mode}". Must be: worker, coordinator, coordinated-worker, coordinated-coordinator (or legacy execute, coordinate)` };
                 if (isJson) { outputErrorJSON(err); process.exit(1); }
                 else { console.error(err.message); process.exit(1); }
             }
@@ -58,7 +58,7 @@ export function registerTeamMemberCommands(program: Command) {
                 }
 
                 if (cmdOpts.mode) {
-                    filtered = filtered.filter((m: any) => (m.mode || 'execute') === cmdOpts.mode);
+                    filtered = filtered.filter((m: any) => (m.mode || 'worker') === cmdOpts.mode);
                 }
 
                 if (isJson) {
@@ -73,7 +73,7 @@ export function registerTeamMemberCommands(program: Command) {
                                 m.id,
                                 `${m.avatar} ${m.name}`,
                                 m.role,
-                                m.mode || 'execute',
+                                m.mode || 'worker',
                                 m.status,
                                 m.isDefault ? 'yes' : 'no',
                             ])
@@ -113,7 +113,7 @@ export function registerTeamMemberCommands(program: Command) {
                     outputKeyValue('ID', member.id);
                     outputKeyValue('Name', `${member.avatar} ${member.name}`);
                     outputKeyValue('Role', member.role);
-                    outputKeyValue('Mode', member.mode || 'execute');
+                    outputKeyValue('Mode', member.mode || 'worker');
                     outputKeyValue('Model', member.model || 'sonnet');
                     outputKeyValue('Agent Tool', member.agentTool || 'claude-code');
                     outputKeyValue('Permission Mode', member.permissionMode || 'default');
@@ -257,7 +257,7 @@ export function registerTeamMemberCommands(program: Command) {
                     outputKeyValue('ID', member.id);
                     outputKeyValue('Name', `${member.avatar} ${member.name}`);
                     outputKeyValue('Role', member.role);
-                    outputKeyValue('Mode', member.mode || 'execute');
+                    outputKeyValue('Mode', member.mode || 'worker');
                     outputKeyValue('Model', member.model || 'sonnet');
                     outputKeyValue('Agent Tool', member.agentTool || 'claude-code');
                     if (member.identity) {
@@ -405,7 +405,7 @@ export function registerTeamMemberCommands(program: Command) {
                     outputKeyValue('ID', member.id);
                     outputKeyValue('Name', `${member.avatar} ${member.name}`);
                     outputKeyValue('Role', member.role);
-                    outputKeyValue('Mode', member.mode || 'execute');
+                    outputKeyValue('Mode', member.mode || 'worker');
                     outputKeyValue('Status', member.status);
                 }
             } catch (err) {
@@ -681,7 +681,7 @@ export function registerTeamMemberCommands(program: Command) {
                     outputKeyValue('ID', member.id);
                     outputKeyValue('Name', `${member.avatar} ${member.name}`);
                     outputKeyValue('Role', member.role);
-                    outputKeyValue('Mode', member.mode || 'execute');
+                    outputKeyValue('Mode', member.mode || 'worker');
                     outputKeyValue('Model', member.model || 'sonnet');
                     outputKeyValue('Agent Tool', member.agentTool || 'claude-code');
                 }

@@ -59,8 +59,8 @@ export class WhoamiRenderer {
   /**
    * Render available commands section
    */
-  private renderCommandsSection(permissions: CommandPermissions): string {
-    return '\n---\n\n' + generateCommandBrief(permissions) + '\n';
+  private renderCommandsSection(manifest: MaestroManifest, permissions: CommandPermissions): string {
+    return '\n---\n\n' + generateCommandBrief(manifest, permissions) + '\n';
   }
 
   /**
@@ -113,7 +113,7 @@ export class WhoamiRenderer {
     const systemXml = this.promptBuilder.buildSystemXml(manifest);
 
     // Inject compact command brief inside the system prompt XML
-    const compactCommands = generateCompactCommandBrief(permissions);
+    const compactCommands = generateCompactCommandBrief(manifest, permissions);
     const commandsBlock = `  <commands_reference>\n${compactCommands.split('\n').map(l => `    ${l}`).join('\n')}\n  </commands_reference>`;
     parts.push(systemXml.replace('</maestro_system_prompt>', `${commandsBlock}\n</maestro_system_prompt>`));
 
@@ -176,7 +176,7 @@ export class WhoamiRenderer {
     }
 
     // 4. Available commands
-    parts.push(this.renderCommandsSection(permissions));
+    parts.push(this.renderCommandsSection(manifest, permissions));
 
     return parts.join('\n');
   }
@@ -207,7 +207,6 @@ export class WhoamiRenderer {
         allowedCommands: permissions.allowedCommands,
         hiddenCommands: permissions.hiddenCommands,
       },
-      capabilities: permissions.capabilities,
       context: manifest.context || null,
     };
 

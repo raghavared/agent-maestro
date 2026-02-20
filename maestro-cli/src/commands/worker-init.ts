@@ -62,7 +62,7 @@ export class WorkerInitCommand {
    * Validate that manifest is for execute mode
    */
   validateWorkerManifest(manifest: MaestroManifest): boolean {
-    return manifest.mode === 'execute';
+    return manifest.mode === 'worker' || manifest.mode === 'coordinated-worker' || (manifest.mode as string) === 'execute';
   }
 
   /**

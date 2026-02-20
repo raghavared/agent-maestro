@@ -20,20 +20,23 @@ export class FileSystemOrderingRepository implements IOrderingRepository {
     this.cache = new Map();
   }
 
-  private cacheKey(projectId: string, entityType: 'task' | 'session'): string {
+  private readonly KNOWN_ENTITY_TYPES = ['task', 'session', 'task-list'];
+
+  private cacheKey(projectId: string, entityType: string): string {
     return `${entityType}:${projectId}`;
   }
 
-  private filePath(projectId: string, entityType: 'task' | 'session'): string {
+  private filePath(projectId: string, entityType: string): string {
     return path.join(this.orderingDir, entityType, `${projectId}.json`);
   }
 
   async initialize(): Promise<void> {
-    await fs.mkdir(path.join(this.orderingDir, 'task'), { recursive: true });
-    await fs.mkdir(path.join(this.orderingDir, 'session'), { recursive: true });
+    for (const entityType of this.KNOWN_ENTITY_TYPES) {
+      await fs.mkdir(path.join(this.orderingDir, entityType), { recursive: true });
+    }
 
     // Load all existing orderings into cache
-    for (const entityType of ['task', 'session'] as const) {
+    for (const entityType of this.KNOWN_ENTITY_TYPES) {
       const dir = path.join(this.orderingDir, entityType);
       try {
         const files = await fs.readdir(dir);
@@ -54,11 +57,11 @@ export class FileSystemOrderingRepository implements IOrderingRepository {
     this.logger.info(`Loaded ${this.cache.size} orderings`);
   }
 
-  async findByProjectAndType(projectId: string, entityType: 'task' | 'session'): Promise<Ordering | null> {
+  async findByProjectAndType(projectId: string, entityType: string): Promise<Ordering | null> {
     return this.cache.get(this.cacheKey(projectId, entityType)) ?? null;
   }
 
-  async save(projectId: string, entityType: 'task' | 'session', orderedIds: string[]): Promise<Ordering> {
+  async save(projectId: string, entityType: string, orderedIds: string[]): Promise<Ordering> {
     const ordering: Ordering = {
       projectId,
       entityType,
@@ -75,7 +78,7 @@ export class FileSystemOrderingRepository implements IOrderingRepository {
   }
 
   async deleteByProject(projectId: string): Promise<void> {
-    for (const entityType of ['task', 'session'] as const) {
+    for (const entityType of this.KNOWN_ENTITY_TYPES) {
       const fp = this.filePath(projectId, entityType);
       try {
         await fs.unlink(fp);

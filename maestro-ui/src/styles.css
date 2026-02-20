@@ -13472,6 +13472,12 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   background: rgba(var(--theme-primary-rgb), 0.08);
 }
 
+.maestroPanelSubTab--stat {
+  cursor: default;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
 .maestroPanelSubTabPlus {
   font-size: 13px;
   font-weight: 700;
@@ -20481,4 +20487,94 @@ html[data-style="minimal"] * {
 .executionBarConfigBtn--orchestrate:hover {
   border-color: var(--terminal-amber, #ffab00);
   color: var(--terminal-amber, #ffab00);
+}
+
+/* ================================================================== */
+/*  Master Project Indicators                                           */
+/* ================================================================== */
+
+.projectTabMasterIcon {
+  font-size: 11px;
+  color: #ffd700;
+  margin-right: 3px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.projectTabActive .projectTabMasterIcon {
+  color: #ffd700;
+  text-shadow: 0 0 6px rgba(255, 215, 0, 0.6);
+}
+
+.mpbProjectMasterIcon {
+  font-size: 11px;
+  color: #ffd700;
+  margin-right: 4px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* Master toggle row in project settings */
+.projectSettingsMasterRow {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.projectSettingsMasterToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.projectSettingsMasterToggle input[type="checkbox"] {
+  display: none;
+}
+
+.projectSettingsMasterSwitch {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 16px;
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+  border-radius: 8px;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.projectSettingsMasterSwitch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(var(--theme-primary-rgb), 0.4);
+  transition: transform 0.15s, background 0.15s;
+}
+
+.projectSettingsMasterToggle input:checked ~ .projectSettingsMasterSwitch {
+  background: rgba(255, 215, 0, 0.2);
+  border-color: #ffd700;
+}
+
+.projectSettingsMasterToggle input:checked ~ .projectSettingsMasterSwitch::after {
+  transform: translateX(16px);
+  background: #ffd700;
+}
+
+.projectSettingsMasterLabel {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  color: var(--theme-primary);
+}
+
+.projectSettingsMasterHint {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  padding-left: 0;
 }

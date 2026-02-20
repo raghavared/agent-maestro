@@ -55,6 +55,7 @@ interface ProjectState {
   closeProject: (projectId: string) => Promise<void>;
   fetchSavedProjects: () => Promise<MaestroProject[]>;
   reopenProject: (projectId: string) => Promise<void>;
+  toggleMasterProject: (projectId: string) => Promise<void>;
 }
 
 /**
@@ -476,6 +477,35 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         setActiveId(null);
       } catch (err) {
         reportError('Failed to reopen project', err);
+      }
+    },
+
+    toggleMasterProject: async (projectId) => {
+      const { projects } = get();
+      const project = projects.find((p) => p.id === projectId);
+      if (!project) return;
+      const newIsMaster = !project.isMaster;
+      // Optimistic update
+      set((s) => ({
+        projects: s.projects.map((p) =>
+          p.id === projectId ? { ...p, isMaster: newIsMaster } : p,
+        ),
+      }));
+      try {
+        const updated = await maestroClient.setProjectMaster(projectId, newIsMaster);
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === projectId ? { ...p, isMaster: updated.isMaster } : p,
+          ),
+        }));
+      } catch (err) {
+        // Revert on error
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === projectId ? { ...p, isMaster: project.isMaster } : p,
+          ),
+        }));
+        useUIStore.getState().reportError('Failed to update master project status', err);
       }
     },
   };

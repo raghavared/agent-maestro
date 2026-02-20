@@ -6,25 +6,39 @@ import type {
   TaskData,
   AgentMode,
   TeamMemberData,
+  MasterProjectInfo,
 } from '../types/manifest.js';
-import type { CapabilityOverrides } from '../types/manifest.js';
+import { isWorkerMode, isCoordinatorMode } from '../types/manifest.js';
 import { getWorkflowTemplate } from './workflow-templates.js';
 import {
   WORKER_PROFILE,
   COORDINATOR_PROFILE,
+  COORDINATED_WORKER_PROFILE,
+  COORDINATED_COORDINATOR_PROFILE,
   WORKER_IDENTITY_INSTRUCTION,
   COORDINATOR_IDENTITY_INSTRUCTION,
+  COORDINATED_WORKER_IDENTITY_INSTRUCTION,
+  COORDINATED_COORDINATOR_IDENTITY_INSTRUCTION,
   buildMultiIdentityInstruction,
-  EXECUTE_INIT_PHASE,
-  EXECUTE_WORK_PHASE,
-  EXECUTE_COMPLETE_PHASE,
-  COORDINATE_ANALYZE_PHASE,
-  COORDINATE_DECOMPOSE_PHASE,
-  COORDINATE_SPAWN_PHASE,
-  COORDINATE_MONITOR_PHASE,
-  COORDINATE_RECOVER_PHASE,
-  COORDINATE_VERIFY_PHASE,
-  COORDINATE_COMPLETE_PHASE,
+  // Worker mode phases
+  WORKER_INIT_PHASE,
+  WORKER_EXECUTE_PHASE,
+  WORKER_COMPLETE_PHASE,
+  // Coordinated-worker mode phases
+  COORDINATED_WORKER_INIT_PHASE,
+  COORDINATED_WORKER_EXECUTE_PHASE,
+  COORDINATED_WORKER_COMPLETE_PHASE,
+  // Coordinator mode phases
+  COORDINATOR_ANALYZE_PHASE,
+  COORDINATOR_DECOMPOSE_PHASE,
+  COORDINATOR_SPAWN_PHASE,
+  COORDINATOR_MONITOR_PHASE,
+  COORDINATOR_RECOVER_PHASE,
+  COORDINATOR_VERIFY_PHASE,
+  COORDINATOR_COMPLETE_PHASE,
+  // Coordinated-coordinator mode phases
+  COORDINATED_COORDINATOR_ANALYZE_PHASE,
+  COORDINATED_COORDINATOR_COMPLETE_PHASE,
   ACCEPTANCE_CRITERIA_PLACEHOLDER_PATTERNS,
 } from '../prompts/index.js';
 
@@ -70,6 +84,9 @@ export class PromptBuilder {
     const teamMembers = this.buildTeamMembers(manifest.teamMembers, mode, manifest);
     if (teamMembers) parts.push(teamMembers);
     parts.push(this.buildWorkflow(mode, manifest));
+    // Master project context (if this is a master session)
+    const masterContext = this.buildMasterProjectContext(manifest);
+    if (masterContext) parts.push(masterContext);
     // Note: commands_reference is injected by WhoamiRenderer.renderSystemPrompt()
     // using the dynamic compact command brief from command-permissions.ts.
     parts.push('</maestro_system_prompt>');
@@ -167,6 +184,10 @@ export class PromptBuilder {
     // Workflow
     parts.push(this.buildWorkflow(mode, manifest));
 
+    // Master project context (if this is a master session)
+    const xmlMasterContext = this.buildMasterProjectContext(manifest);
+    if (xmlMasterContext) parts.push(xmlMasterContext);
+
     parts.push('</maestro_prompt>');
 
     return parts.join('\n');
@@ -176,13 +197,27 @@ export class PromptBuilder {
 
   private buildIdentity(mode: AgentMode, manifest?: MaestroManifest): string {
     const lines = ['  <identity>'];
-    // Use role-specific profile names for clearer identity signal
-    lines.push(`    <profile>${mode === 'execute' ? WORKER_PROFILE : COORDINATOR_PROFILE}</profile>`);
-    if (mode === 'execute') {
-      lines.push(`    <instruction>${WORKER_IDENTITY_INSTRUCTION}</instruction>`);
-    } else {
-      lines.push(`    <instruction>${COORDINATOR_IDENTITY_INSTRUCTION}</instruction>`);
-    }
+
+    // Four-mode profile and identity selection
+    const profileMap: Record<string, string> = {
+      'worker': WORKER_PROFILE,
+      'coordinator': COORDINATOR_PROFILE,
+      'coordinated-worker': COORDINATED_WORKER_PROFILE,
+      'coordinated-coordinator': COORDINATED_COORDINATOR_PROFILE,
+    };
+    const identityMap: Record<string, string> = {
+      'worker': WORKER_IDENTITY_INSTRUCTION,
+      'coordinator': COORDINATOR_IDENTITY_INSTRUCTION,
+      'coordinated-worker': COORDINATED_WORKER_IDENTITY_INSTRUCTION,
+      'coordinated-coordinator': COORDINATED_COORDINATOR_IDENTITY_INSTRUCTION,
+    };
+
+    const profile = profileMap[mode] || (isWorkerMode(mode) ? WORKER_PROFILE : COORDINATOR_PROFILE);
+    const instruction = identityMap[mode] || (isWorkerMode(mode) ? WORKER_IDENTITY_INSTRUCTION : COORDINATOR_IDENTITY_INSTRUCTION);
+
+    lines.push(`    <profile>${profile}</profile>`);
+    lines.push(`    <instruction>${instruction}</instruction>`);
+
     if (manifest) {
       const projectId = manifest.tasks[0]?.projectId;
       if (projectId) {
@@ -214,7 +249,7 @@ export class PromptBuilder {
         lines.push(`    <expertise source="${this.esc(profile.name)}">${this.raw(profile.identity)}</expertise>`);
       }
       // Add team member expertise blocks if this is a coordinator
-      if (manifest.mode === 'coordinate' && manifest.teamMembers) {
+      if (isCoordinatorMode(manifest.mode) && manifest.teamMembers) {
         const selfIds = new Set<string>();
         if (manifest.teamMemberId) {
           selfIds.add(manifest.teamMemberId);
@@ -256,7 +291,7 @@ export class PromptBuilder {
       }
       lines.push(`    <instructions>${this.raw(profile.identity)}</instructions>`);
       // Add team member expertise blocks if this is a coordinator
-      if (manifest.mode === 'coordinate' && manifest.teamMembers) {
+      if (isCoordinatorMode(manifest.mode) && manifest.teamMembers) {
         const selfIds = new Set<string>();
         if (manifest.teamMemberId) {
           selfIds.add(manifest.teamMemberId);
@@ -300,7 +335,7 @@ export class PromptBuilder {
       lines.push(`    <instructions>${this.raw(manifest.teamMemberIdentity)}</instructions>`);
     }
     // Add team member expertise blocks if this is a coordinator
-    if (manifest.mode === 'coordinate' && manifest.teamMembers) {
+    if (isCoordinatorMode(manifest.mode) && manifest.teamMembers) {
       const selfIds = new Set<string>();
       if (manifest.teamMemberId) {
         selfIds.add(manifest.teamMemberId);
@@ -558,7 +593,7 @@ export class PromptBuilder {
     const lines: string[] = [`  <available_team_members count="${visibleMembers.length}">`];
     lines.push(`    <instruction>These are the team members available to you for spawning and delegation. Use their id with --team-member-id when spawning sessions.</instruction>`);
     for (const member of visibleMembers) {
-      if (mode === 'coordinate') {
+      if (mode && isCoordinatorMode(mode)) {
         // Coordinators need full member details for spawning and delegation (P3.2: enriched)
         lines.push(`    <available_team_member id="${this.esc(member.id)}" name="${this.esc(member.name)}" role="${this.esc(member.role)}">`);
         lines.push(`      <avatar>${this.esc(member.avatar)}</avatar>`);
@@ -669,24 +704,98 @@ export class PromptBuilder {
    * Custom workflows are handled via team member workflow templates.
    */
   private getWorkflowPhases(mode: AgentMode): { name: string; description: string; order: number }[] {
-    if (mode === 'execute') {
-      return [
-        { name: 'init', order: 1, description: EXECUTE_INIT_PHASE },
-        { name: 'execute', order: 2, description: EXECUTE_WORK_PHASE },
-        { name: 'complete', order: 3, description: EXECUTE_COMPLETE_PHASE },
-      ];
+    switch (mode) {
+      case 'worker':
+        return [
+          { name: 'init', order: 1, description: WORKER_INIT_PHASE },
+          { name: 'execute', order: 2, description: WORKER_EXECUTE_PHASE },
+          { name: 'complete', order: 3, description: WORKER_COMPLETE_PHASE },
+        ];
+
+      case 'coordinated-worker':
+        return [
+          { name: 'init', order: 1, description: COORDINATED_WORKER_INIT_PHASE },
+          { name: 'execute', order: 2, description: COORDINATED_WORKER_EXECUTE_PHASE },
+          { name: 'complete', order: 3, description: COORDINATED_WORKER_COMPLETE_PHASE },
+        ];
+
+      case 'coordinator':
+        return [
+          { name: 'analyze', order: 1, description: COORDINATOR_ANALYZE_PHASE },
+          { name: 'decompose', order: 2, description: COORDINATOR_DECOMPOSE_PHASE },
+          { name: 'spawn', order: 3, description: COORDINATOR_SPAWN_PHASE },
+          { name: 'monitor', order: 4, description: COORDINATOR_MONITOR_PHASE },
+          { name: 'recover', order: 5, description: COORDINATOR_RECOVER_PHASE },
+          { name: 'verify', order: 6, description: COORDINATOR_VERIFY_PHASE },
+          { name: 'complete', order: 7, description: COORDINATOR_COMPLETE_PHASE },
+        ];
+
+      case 'coordinated-coordinator':
+        return [
+          { name: 'analyze', order: 1, description: COORDINATED_COORDINATOR_ANALYZE_PHASE },
+          { name: 'decompose', order: 2, description: COORDINATOR_DECOMPOSE_PHASE },
+          { name: 'spawn', order: 3, description: COORDINATOR_SPAWN_PHASE },
+          { name: 'monitor', order: 4, description: COORDINATOR_MONITOR_PHASE },
+          { name: 'recover', order: 5, description: COORDINATOR_RECOVER_PHASE },
+          { name: 'verify', order: 6, description: COORDINATOR_VERIFY_PHASE },
+          { name: 'complete', order: 7, description: COORDINATED_COORDINATOR_COMPLETE_PHASE },
+        ];
+
+      default:
+        // Fallback for any unrecognized mode (backward compat)
+        if (isWorkerMode(mode)) {
+          return [
+            { name: 'init', order: 1, description: WORKER_INIT_PHASE },
+            { name: 'execute', order: 2, description: WORKER_EXECUTE_PHASE },
+            { name: 'complete', order: 3, description: WORKER_COMPLETE_PHASE },
+          ];
+        }
+        return [
+          { name: 'analyze', order: 1, description: COORDINATOR_ANALYZE_PHASE },
+          { name: 'decompose', order: 2, description: COORDINATOR_DECOMPOSE_PHASE },
+          { name: 'spawn', order: 3, description: COORDINATOR_SPAWN_PHASE },
+          { name: 'monitor', order: 4, description: COORDINATOR_MONITOR_PHASE },
+          { name: 'recover', order: 5, description: COORDINATOR_RECOVER_PHASE },
+          { name: 'verify', order: 6, description: COORDINATOR_VERIFY_PHASE },
+          { name: 'complete', order: 7, description: COORDINATOR_COMPLETE_PHASE },
+        ];
+    }
+  }
+
+  private buildMasterProjectContext(manifest: MaestroManifest): string | null {
+    if (!manifest.isMaster) return null;
+
+    const lines: string[] = ['  <master_project_context>'];
+    lines.push('    <description>You are operating in a Master Project session. You have access to ALL projects in the workspace.</description>');
+
+    if (manifest.masterProjects && manifest.masterProjects.length > 0) {
+      lines.push('    <projects>');
+      for (const p of manifest.masterProjects) {
+        const attrs = [
+          `id="${this.esc(p.id)}"`,
+          `name="${this.esc(p.name)}"`,
+          `workingDir="${this.esc(p.workingDir)}"`,
+          ...(p.isMaster ? ['isMaster="true"'] : []),
+        ].join(' ');
+        if (p.description) {
+          lines.push(`      <project ${attrs}>`);
+          lines.push(`        <description>${this.esc(p.description)}</description>`);
+          lines.push('      </project>');
+        } else {
+          lines.push(`      <project ${attrs} />`);
+        }
+      }
+      lines.push('    </projects>');
     }
 
-    // coordinate mode
-    return [
-      { name: 'analyze', order: 1, description: COORDINATE_ANALYZE_PHASE },
-      { name: 'decompose', order: 2, description: COORDINATE_DECOMPOSE_PHASE },
-      { name: 'spawn', order: 3, description: COORDINATE_SPAWN_PHASE },
-      { name: 'monitor', order: 4, description: COORDINATE_MONITOR_PHASE },
-      { name: 'recover', order: 5, description: COORDINATE_RECOVER_PHASE },
-      { name: 'verify', order: 6, description: COORDINATE_VERIFY_PHASE },
-      { name: 'complete', order: 7, description: COORDINATE_COMPLETE_PHASE },
-    ];
+    lines.push('    <commands>');
+    lines.push('      Use `maestro master projects` to list all projects.');
+    lines.push('      Use `maestro master tasks --project &lt;id&gt;` to view tasks in any project.');
+    lines.push('      Use `maestro master sessions --project &lt;id&gt;` to view sessions in any project.');
+    lines.push('      Use `maestro master context` for a full workspace overview.');
+    lines.push('    </commands>');
+    lines.push('  </master_project_context>');
+    return lines.join('\n');
   }
 
   // ── Formatting helpers ───────────────────────────────────────

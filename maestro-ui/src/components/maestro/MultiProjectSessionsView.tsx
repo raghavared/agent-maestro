@@ -432,7 +432,7 @@ const ResizableSessionColumn = React.memo(function ResizableSessionColumn({
                 {maestroSession && (
                     <div className="sessionColumnHeaderBottom">
                         <span className="sessionColumnMeta">
-                            {maestroSession.mode ?? "execute"} | {maestroSession.strategy ?? "simple"}
+                            {maestroSession.mode ?? "worker"} | {maestroSession.strategy ?? "simple"}
                         </span>
                     </div>
                 )}

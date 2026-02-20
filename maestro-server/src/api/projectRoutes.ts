@@ -40,6 +40,18 @@ export function createProjectRoutes(projectService: ProjectService) {
     }
   });
 
+  // Set master status (must be before /projects/:id to avoid route shadowing)
+  router.put('/projects/:id/master', async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const { isMaster } = req.body;
+      const project = await projectService.setMasterStatus(id, isMaster);
+      res.json(project);
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
   // Get project by ID
   router.get('/projects/:id', async (req: Request, res: Response) => {
     try {

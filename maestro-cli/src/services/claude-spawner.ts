@@ -83,15 +83,16 @@ export class ClaudeSpawner {
    * @param mode - The agent mode (execute or coordinate)
    * @returns Path to plugin directory, or null if not found
    */
-  getPluginDir(mode: 'execute' | 'coordinate'): string | null {
+  getPluginDir(mode: string): string | null {
     try {
       // Get the maestro-cli root directory
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = dirname(__filename);
       const cliRoot = join(__dirname, '../..');
 
-      // Construct plugin directory path
-      const pluginName = mode === 'execute' ? 'maestro-worker' : 'maestro-orchestrator';
+      // Construct plugin directory path — worker-type modes use worker plugin, coordinator-type use orchestrator
+      const isCoord = mode === 'coordinate' || mode === 'coordinator' || mode === 'coordinated-coordinator';
+      const pluginName = isCoord ? 'maestro-orchestrator' : 'maestro-worker';
       const pluginDir = join(cliRoot, 'plugins', pluginName);
 
       // Check if plugin directory exists

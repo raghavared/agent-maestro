@@ -6,26 +6,40 @@
  * The manifest is used to configure agent sessions with task context and settings.
  */
 
-/** Worker strategy type */
-export type WorkerStrategy = 'simple' | 'tree' | 'recruit';
 
-/** Orchestrator strategy type */
-export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
+/** Agent mode — four-mode model covering all session scenarios */
+export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coordinated-coordinator';
 
-/** Agent mode (three-axis model) — replaces role as the primary axis */
-export type AgentMode = 'execute' | 'coordinate';
+/** Legacy mode aliases for backward compatibility */
+export type LegacyAgentMode = 'execute' | 'coordinate';
 
-/** Capability flags derived from mode */
-export type CapabilityName =
-  | 'can_spawn_sessions'
-  | 'can_edit_tasks'
-  | 'can_report_task_level'
-  | 'can_report_session_level';
+/** All accepted mode values (includes legacy aliases) */
+export type AgentModeInput = AgentMode | LegacyAgentMode;
 
-/** Capability entry for prompt rendering */
-export interface Capability {
-  name: CapabilityName;
-  enabled: boolean;
+/** Helper: is this a worker-type mode? */
+export function isWorkerMode(mode: AgentModeInput): boolean {
+  return mode === 'worker' || mode === 'coordinated-worker' || mode === 'execute';
+}
+
+/** Helper: is this a coordinator-type mode? */
+export function isCoordinatorMode(mode: AgentModeInput): boolean {
+  return mode === 'coordinator' || mode === 'coordinated-coordinator' || mode === 'coordinate';
+}
+
+/** Helper: is this a coordinated (has parent coordinator) mode? */
+export function isCoordinatedMode(mode: AgentModeInput): boolean {
+  return mode === 'coordinated-worker' || mode === 'coordinated-coordinator';
+}
+
+/** Normalize legacy mode values to the four-mode model */
+export function normalizeMode(mode: AgentModeInput, hasCoordinator?: boolean): AgentMode {
+  if (mode === 'execute') {
+    return hasCoordinator ? 'coordinated-worker' : 'worker';
+  }
+  if (mode === 'coordinate') {
+    return hasCoordinator ? 'coordinated-coordinator' : 'coordinator';
+  }
+  return mode as AgentMode;
 }
 
 /** Supported agent tools */
@@ -42,8 +56,6 @@ export interface MaestroManifest {
   mode: AgentMode;
 
   /** Strategy for this session — execute modes use WorkerStrategy, coordinate modes use OrchestratorStrategy */
-  strategy?: WorkerStrategy | OrchestratorStrategy;
-
   /** Tasks information and context (array to support multi-task sessions) */
   tasks: TaskData[];
 
@@ -110,6 +122,21 @@ export interface MaestroManifest {
 
   /** Multiple team member profiles for multi-identity sessions */
   teamMemberProfiles?: TeamMemberProfile[];
+
+  /** Whether this is a master session with cross-project access */
+  isMaster?: boolean;
+
+  /** All projects in the workspace (populated for master sessions) */
+  masterProjects?: MasterProjectInfo[];
+}
+
+/** Project info included in master session manifests */
+export interface MasterProjectInfo {
+  id: string;
+  name: string;
+  workingDir: string;
+  description?: string;
+  isMaster?: boolean;
 }
 
 /**
@@ -168,11 +195,6 @@ export interface TeamMemberData {
   /** Persistent memory entries */
   memory?: string[];
 }
-
-/**
- * Capability overrides type (used when team member has custom capabilities)
- */
-export type CapabilityOverrides = Partial<Record<CapabilityName, boolean>>;
 
 /**
  * Unified task status (single source of truth)
@@ -360,42 +382,12 @@ export interface ProjectStandards {
  * Type guard to check if a manifest is for an execute-mode agent
  */
 export function isExecuteManifest(manifest: MaestroManifest): boolean {
-  return manifest.mode === 'execute';
+  return isWorkerMode(manifest.mode);
 }
 
 /**
  * Type guard to check if a manifest is for a coordinate-mode agent
  */
 export function isCoordinateManifest(manifest: MaestroManifest): boolean {
-  return manifest.mode === 'coordinate';
-}
-
-/**
- * Compute capabilities from mode, with optional overrides from team member.
- * If overrides are provided, they take precedence over the computed defaults.
- */
-export function computeCapabilities(
-  mode: AgentMode,
-  overrides?: CapabilityOverrides
-): Capability[] {
-  const caps: Record<CapabilityName, boolean> = {
-    can_spawn_sessions: mode === 'coordinate',
-    can_edit_tasks: true,
-    can_report_task_level: true,
-    can_report_session_level: true,
-  };
-
-  // Apply overrides if provided
-  if (overrides) {
-    for (const [key, value] of Object.entries(overrides)) {
-      if (key in caps && typeof value === 'boolean') {
-        caps[key as CapabilityName] = value;
-      }
-    }
-  }
-
-  return Object.entries(caps).map(([name, enabled]) => ({
-    name: name as CapabilityName,
-    enabled,
-  }));
+  return isCoordinatorMode(manifest.mode);
 }

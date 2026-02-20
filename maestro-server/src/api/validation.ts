@@ -18,8 +18,8 @@ const taskPrioritySchema = z.enum(['low', 'medium', 'high']);
 const sessionStatusSchema = z.enum(['spawning', 'idle', 'working', 'completed', 'failed', 'stopped']);
 const workerStrategySchema = z.enum(['simple', 'tree']);
 const orchestratorStrategySchema = z.enum(['default', 'intelligent-batching', 'dag']);
-const agentModeSchema = z.enum(['execute', 'coordinate']);
-const templateModeSchema = z.enum(['execute', 'coordinate']);
+const agentModeSchema = z.enum(['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate']);
+const templateModeSchema = z.enum(['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate']);
 const modelSchema = z.enum(['haiku', 'sonnet', 'opus']);
 const updateSourceSchema = z.enum(['user', 'session']);
 
@@ -50,12 +50,18 @@ export const createProjectSchema = z.object({
   name: shortString,
   workingDir: z.string().min(1).max(1000),
   description: shortString.optional(),
+  isMaster: z.boolean().optional(),
 }).strict();
 
 export const updateProjectSchema = z.object({
   name: shortString.optional(),
   workingDir: z.string().min(1).max(1000).optional(),
   description: shortString.optional(),
+  isMaster: z.boolean().optional(),
+}).strict();
+
+export const masterToggleSchema = z.object({
+  isMaster: z.boolean(),
 }).strict();
 
 // --- Task schemas ---
@@ -100,6 +106,29 @@ export const listTasksQuerySchema = z.object({
   projectId: safeId.optional(),
   status: taskStatusSchema.optional(),
   parentId: z.union([safeId, z.literal('null')]).optional(),
+}).strict();
+
+// --- Task List schemas ---
+
+export const createTaskListSchema = z.object({
+  projectId: safeId,
+  name: shortString,
+  description: longString.optional(),
+  orderedTaskIds: z.array(safeId).optional(),
+}).strict();
+
+export const updateTaskListSchema = z.object({
+  name: shortString.optional(),
+  description: longString.optional(),
+  orderedTaskIds: z.array(safeId).optional(),
+}).strict();
+
+export const listTaskListsQuerySchema = z.object({
+  projectId: safeId.optional(),
+}).strict();
+
+export const reorderTaskListSchema = z.object({
+  orderedTaskIds: z.array(safeId),
 }).strict();
 
 // --- Session schemas ---
@@ -175,7 +204,7 @@ export const spawnSessionSchema = z.object({
   skills: z.array(z.string().max(200)).optional(),
   sessionId: safeId.optional(),
   spawnSource: z.enum(['ui', 'session']).optional().default('ui'),
-  mode: agentModeSchema.optional().default('execute'),
+  mode: agentModeSchema.optional().default('worker'),
   strategy: allStrategySchema.optional().default('simple'),
   context: z.record(z.string(), z.unknown()).optional(),
   model: modelSchema.optional(),

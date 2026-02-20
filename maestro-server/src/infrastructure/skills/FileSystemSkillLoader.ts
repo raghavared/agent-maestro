@@ -73,7 +73,7 @@ export class FileSystemSkillLoader implements ISkillLoader {
   /**
    * Load all skills appropriate for a mode.
    */
-  async loadForMode(mode: 'execute' | 'coordinate'): Promise<Skill[]> {
+  async loadForMode(mode: string): Promise<Skill[]> {
     const skills: Skill[] = [];
 
     // All sessions get maestro-cli

@@ -1,4 +1,4 @@
-import type { MaestroManifest, AdditionalContext, AgentTool, AgentMode, TeamMemberData, TeamMemberProfile } from '../types/manifest.js';
+import type { MaestroManifest, AdditionalContext, AgentTool, AgentMode, TeamMemberData, TeamMemberProfile, MasterProjectInfo } from '../types/manifest.js';
 import { DEFAULT_ACCEPTANCE_CRITERIA, MODE_VALIDATION_ERROR, AGENT_TOOL_VALIDATION_PREFIX } from '../prompts/index.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
@@ -146,10 +146,13 @@ export class ManifestGeneratorCLICommand {
         sessionOptions
       );
 
-      // Add coordinator session ID from environment
+      // Add coordinator session ID from environment and normalize mode
       const coordinatorSessionId = process.env.MAESTRO_COORDINATOR_SESSION_ID;
       if (coordinatorSessionId) {
         manifest.coordinatorSessionId = coordinatorSessionId;
+        // Auto-derive coordinated mode when spawned by a coordinator
+        const { normalizeMode: normMode } = await import('../types/manifest.js');
+        manifest.mode = normMode(manifest.mode, true);
       }
 
       // Add initial directive from environment (passed via spawn flow)
@@ -159,6 +162,28 @@ export class ManifestGeneratorCLICommand {
           manifest.initialDirective = JSON.parse(initialDirectiveEnv);
         } catch {
           // ignore parse error
+        }
+      }
+
+      // If this is a master session, fetch all projects and embed in manifest
+      if (process.env.MAESTRO_IS_MASTER === 'true') {
+        manifest.isMaster = true;
+        try {
+          const projectsData: any = await api.get('/api/master/projects');
+          const projects: MasterProjectInfo[] = Array.isArray(projectsData)
+            ? projectsData.map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                workingDir: p.workingDir,
+                ...(p.description ? { description: p.description } : {}),
+                ...(p.isMaster ? { isMaster: p.isMaster } : {}),
+              }))
+            : [];
+          if (projects.length > 0) {
+            manifest.masterProjects = projects;
+          }
+        } catch {
+          // non-fatal: master context will be partial
         }
       }
 
@@ -493,7 +518,7 @@ export function registerManifestCommands(program: any): void {
   manifest
     .command('generate')
     .description('Generate a manifest file from task and project data')
-    .requiredOption('--mode <mode>', 'Agent mode (execute or coordinate)')
+    .requiredOption('--mode <mode>', 'Agent mode (worker, coordinator, coordinated-worker, coordinated-coordinator, or legacy execute/coordinate)')
     .requiredOption('--project-id <id>', 'Project ID')
     .requiredOption('--task-ids <ids>', 'Comma-separated task IDs')
     .option('--skills <skills>', 'Comma-separated skills', 'maestro-worker')
@@ -508,8 +533,10 @@ export function registerManifestCommands(program: any): void {
       const taskIds = options.taskIds.split(',').map((id: string) => id.trim());
       const skills = options.skills.split(',').map((skill: string) => skill.trim());
 
-      // Validate mode
-      if (options.mode !== 'execute' && options.mode !== 'coordinate') {
+      // Validate mode (accept both new and legacy values)
+      const validModes = ['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'];
+      if (!validModes.includes(options.mode)) {
+        console.error(`Invalid mode: ${options.mode}. Must be one of: ${validModes.join(', ')}`);
         process.exit(1);
       }
 

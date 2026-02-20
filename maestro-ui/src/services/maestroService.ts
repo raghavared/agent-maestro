@@ -1,14 +1,28 @@
 import { maestroClient } from "../utils/MaestroClient";
 
 import { TerminalSession } from "../app/types/session";
-import { MaestroProject, MaestroTask, AgentMode, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType, MemberLaunchOverride } from "../app/types/maestro";
+import {
+    MaestroProject,
+    MaestroTask,
+    AgentMode,
+    AgentModeInput,
+    WorkerStrategy,
+    OrchestratorStrategy,
+    AgentTool,
+    ModelType,
+    MemberLaunchOverride,
+    TaskList,
+    CreateTaskListPayload,
+    UpdateTaskListPayload,
+    TaskListOrdering,
+} from "../app/types/maestro";
 
 export async function createMaestroSession(input: {
     task?: MaestroTask;              // Single task (backward compatible)
     tasks?: MaestroTask[];           // Multiple tasks (PHASE IV-A)
     project: MaestroProject;
     skillIds?: string[];      // Skill IDs to load
-    mode?: AgentMode;                // 'execute' or 'coordinate'
+    mode?: AgentModeInput;            // 'worker', 'coordinator', etc. (accepts legacy 'execute'/'coordinate')
     strategy?: WorkerStrategy | OrchestratorStrategy;  // Strategy for this session
     teamMemberIds?: string[];        // Team member task IDs for coordinate mode
     teamMemberId?: string;           // Single team member assigned to this task
@@ -24,13 +38,16 @@ export async function createMaestroSession(input: {
       throw new Error('At least one task is required');
     }
 
-    const resolvedMode: AgentMode = mode || 'execute';
+    // Normalize legacy mode values
+    const normalizedMode = mode === 'execute' ? 'worker' : mode === 'coordinate' ? 'coordinator' : mode;
+    const resolvedMode: AgentMode = normalizedMode || 'worker';
 
     // Use server spawn endpoint (Server-Generated Manifests architecture)
     const taskIds = taskList.map(t => t.id);
 
     // Determine skill based on mode
-    const defaultSkill = resolvedMode === 'coordinate' ? 'maestro-orchestrator' : 'maestro-worker';
+    const isCoord = resolvedMode === 'coordinator' || resolvedMode === 'coordinated-coordinator' || resolvedMode === 'coordinate' as any;
+    const defaultSkill = isCoord ? 'maestro-orchestrator' : 'maestro-worker';
 
     // Resolve team member identities:
     // 1. Explicit teamMemberIds from input (multi-identity)
@@ -71,3 +88,51 @@ export async function createMaestroSession(input: {
       throw new Error(`Failed to spawn session: ${error.message}`);
     }
   }
+
+// ==================== TASK LISTS API ====================
+
+export async function fetchTaskLists(projectId: string): Promise<TaskList[]> {
+  return maestroClient.getTaskLists(projectId);
+}
+
+export async function fetchTaskList(id: string): Promise<TaskList> {
+  return maestroClient.getTaskList(id);
+}
+
+export async function createTaskList(payload: CreateTaskListPayload): Promise<TaskList> {
+  return maestroClient.createTaskList(payload);
+}
+
+export async function updateTaskList(id: string, updates: UpdateTaskListPayload): Promise<TaskList> {
+  return maestroClient.updateTaskList(id, updates);
+}
+
+export async function deleteTaskList(id: string): Promise<{ success: boolean }> {
+  return maestroClient.deleteTaskList(id);
+}
+
+export async function addTaskToList(listId: string, taskId: string): Promise<TaskList> {
+  return maestroClient.addTaskToList(listId, taskId);
+}
+
+export async function removeTaskFromList(listId: string, taskId: string): Promise<TaskList> {
+  return maestroClient.removeTaskFromList(listId, taskId);
+}
+
+export async function reorderTaskListTasks(listId: string, orderedTaskIds: string[]): Promise<TaskList> {
+  return maestroClient.reorderTaskListTasks(listId, orderedTaskIds);
+}
+
+export async function fetchTaskListOrdering(projectId: string): Promise<TaskListOrdering> {
+  return maestroClient.getTaskListOrdering(projectId);
+}
+
+export async function saveTaskListOrdering(projectId: string, orderedIds: string[]): Promise<TaskListOrdering> {
+  return maestroClient.saveTaskListOrdering(projectId, orderedIds);
+}
+
+// ==================== MASTER PROJECT ====================
+
+export async function setProjectMaster(projectId: string, isMaster: boolean): Promise<MaestroProject> {
+  return maestroClient.setProjectMaster(projectId, isMaster);
+}

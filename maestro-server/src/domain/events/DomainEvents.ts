@@ -1,4 +1,4 @@
-import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember, Team } from '../../types';
+import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember, Team, TaskList } from '../../types';
 
 /**
  * Type-safe domain event definitions.
@@ -45,6 +45,27 @@ export interface TaskSessionAddedEvent {
 export interface TaskSessionRemovedEvent {
   type: 'task:session_removed';
   data: { taskId: string; sessionId: string };
+}
+
+// Task List Events
+export interface TaskListCreatedEvent {
+  type: 'task_list:created';
+  data: TaskList;
+}
+
+export interface TaskListUpdatedEvent {
+  type: 'task_list:updated';
+  data: TaskList;
+}
+
+export interface TaskListDeletedEvent {
+  type: 'task_list:deleted';
+  data: { id: string };
+}
+
+export interface TaskListReorderedEvent {
+  type: 'task_list:reordered';
+  data: TaskList;
 }
 
 // Session Events
@@ -228,6 +249,10 @@ export type DomainEvent =
   | TaskDeletedEvent
   | TaskSessionAddedEvent
   | TaskSessionRemovedEvent
+  | TaskListCreatedEvent
+  | TaskListUpdatedEvent
+  | TaskListDeletedEvent
+  | TaskListReorderedEvent
   | SessionCreatedEvent
   | SessionSpawnEvent
   | SessionUpdatedEvent
@@ -270,6 +295,10 @@ export interface TypedEventMap {
   'task:deleted': { id: string };
   'task:session_added': { taskId: string; sessionId: string };
   'task:session_removed': { taskId: string; sessionId: string };
+  'task_list:created': TaskList;
+  'task_list:updated': TaskList;
+  'task_list:deleted': { id: string };
+  'task_list:reordered': TaskList;
   'session:created': Session;
   'session:spawn': SpawnRequestEvent;
   'session:updated': Session;

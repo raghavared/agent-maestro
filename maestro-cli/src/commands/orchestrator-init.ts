@@ -57,7 +57,7 @@ export class OrchestratorInitCommand {
    * Validate that manifest is for coordinate mode
    */
   validateOrchestratorManifest(manifest: MaestroManifest): boolean {
-    return manifest.mode === 'coordinate';
+    return manifest.mode === 'coordinator' || manifest.mode === 'coordinated-coordinator' || (manifest.mode as string) === 'coordinate';
   }
 
   /**

@@ -59,6 +59,9 @@ export const config = {
   get coordinatorSessionId() {
     return process.env.MAESTRO_COORDINATOR_SESSION_ID;
   },
+  get isMaster() {
+    return process.env.MAESTRO_IS_MASTER === 'true';
+  },
   get debug() {
     return process.env.MAESTRO_DEBUG === 'true';
   },

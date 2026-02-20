@@ -14,6 +14,7 @@ import { registerOrchestratorCommands } from './commands/orchestrator.js';
 import { registerSkillCommands } from './commands/skill.js';
 import { registerManifestCommands } from './commands/manifest-generator.js';
 import { registerProjectCommands } from './commands/project.js';
+import { registerMasterCommands } from './commands/master.js';
 
 import { registerReportCommands } from './commands/report.js';
 import { registerModalCommands } from './commands/modal.js';
@@ -183,6 +184,11 @@ program.command('commands')
       const isJson = opts.json;
 
       try {
+        const manifestResult = await readManifestFromEnv();
+        if (!manifestResult.success || !manifestResult.manifest) {
+          process.exit(1);
+        }
+        const manifest = manifestResult.manifest;
           const permissions = getCachedPermissions() || await loadCommandPermissions();
 
           if (cmdOpts.check) {
@@ -197,15 +203,15 @@ program.command('commands')
           } else {
               // Show all available commands
               if (isJson) {
-                  const grouped = getAvailableCommandsGrouped(permissions);
-                  outputJSON({
-                      mode: permissions.mode,
+                  const grouped = getAvailableCommandsGrouped(manifest, permissions);
+                  outputJSON({  
+                      mode: manifest.mode,
                       allowedCommands: permissions.allowedCommands,
                       hiddenCommands: permissions.hiddenCommands,
                       grouped,
                   });
               } else {
-                  printAvailableCommands(permissions);
+                  printAvailableCommands(manifest, permissions);
               }
           }
       } catch (err: any) {
@@ -218,6 +224,7 @@ program.command('commands')
   });
 
 registerProjectCommands(program);
+registerMasterCommands(program);
 registerTaskCommands(program);
 registerSessionCommands(program);
 registerWorkerCommands(program);

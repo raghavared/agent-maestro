@@ -718,11 +718,20 @@ export function SessionsSection({
 
       {logModalSessionId && (() => {
         const logSession = sessions.find(s => s.id === logModalSessionId);
+        const logMaestroSession = logSession?.maestroSessionId ? maestroSessions.get(logSession.maestroSessionId) : null;
+        const logSnapshots = logMaestroSession?.teamMemberSnapshots?.length
+          ? logMaestroSession.teamMemberSnapshots
+          : logMaestroSession?.teamMemberSnapshot
+            ? [logMaestroSession.teamMemberSnapshot]
+            : [];
+        const logAgentTool = logSnapshots[0]?.agentTool
+          ?? (logSession?.effectId === 'codex' ? 'codex' : null);
         return logSession?.cwd ? createPortal(
           <SessionLogModal
             sessionName={logSession.name}
             cwd={logSession.cwd}
             maestroSessionId={logSession.maestroSessionId}
+            agentTool={logAgentTool}
             onClose={() => setLogModalSessionId(null)}
           />,
           document.body

@@ -10,7 +10,7 @@ import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
 import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
-import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot } from '../types';
+import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, isCoordinatorMode, normalizeMode } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
 import { MailService } from '../application/services/MailService';
 
@@ -31,6 +31,7 @@ async function generateManifestViaCLI(options: {
   serverUrl?: string;
   initialDirective?: { subject: string; message: string; fromSessionId?: string };
   coordinatorSessionId?: string;
+  isMaster?: boolean;
 }): Promise<{ manifestPath: string; manifest: any }> {
   const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective } = options;
 
@@ -86,6 +87,10 @@ async function generateManifestViaCLI(options: {
 
   if (options.coordinatorSessionId) {
     spawnEnv.MAESTRO_COORDINATOR_SESSION_ID = options.coordinatorSessionId;
+  }
+
+  if (options.isMaster) {
+    spawnEnv.MAESTRO_IS_MASTER = 'true';
   }
 
   return new Promise((resolve, reject) => {
@@ -618,7 +623,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         skills,
         sessionId,              // Parent session ID when spawnSource === 'session'
         spawnSource = 'ui',     // 'ui' or 'session'
-        mode: requestedMode,    // Three-axis model: 'execute' or 'coordinate'
+        mode: requestedMode,    // Four-mode model: worker, coordinator, coordinated-worker, coordinated-coordinator
         context,
         teamMemberIds,          // Multiple team member identities for this session
         delegateTeamMemberIds,  // Team member IDs for coordination delegation pool
@@ -776,16 +781,19 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         }
       }
 
-      // Resolve mode (defaults to team member's mode, then 'execute')
-      const resolvedMode: AgentMode = (requestedMode as AgentMode) || teamMemberDefaults.mode || 'execute';
-
-      if (resolvedMode !== 'execute' && resolvedMode !== 'coordinate') {
+      // Resolve mode with four-mode normalization
+      const rawMode = (requestedMode as string) || teamMemberDefaults.mode || 'worker';
+      const validModes = ['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'];
+      if (!validModes.includes(rawMode)) {
         return res.status(400).json({
           error: true,
           code: 'invalid_mode',
-          message: 'mode must be "execute" or "coordinate"'
+          message: `mode must be one of: ${validModes.join(', ')}`
         });
       }
+      // Auto-derive coordinated modes when spawned by a session
+      const hasCoordinator = spawnSource === 'session' && !!sessionId;
+      const resolvedMode: AgentMode = normalizeMode(rawMode, hasCoordinator);
 
       // Resolve model and agentTool: request overrides > team member defaults
       const resolvedModel = requestedModel || teamMemberDefaults.model;
@@ -804,7 +812,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const skillsToUse = skills && Array.isArray(skills) ? skills : [];
 
       // Create session with suppressed created event
-      const modeLabel = resolvedMode === 'coordinate' ? 'Coordinate' : 'Execute';
+      const modeLabel = isCoordinatorMode(resolvedMode) ? 'Coordinate' : 'Execute';
 
       // Determine teamSessionId:
       // Workers inherit the coordinator's session ID as teamSessionId.
@@ -888,6 +896,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           // Pass initial directive for guaranteed delivery in manifest
           initialDirective: initialDirective || undefined,
           coordinatorSessionId: sessionId || undefined,
+          // Pass master flag so CLI includes cross-project data in manifest
+          isMaster: project.isMaster === true,
         });
         manifestPath = result.manifestPath;
         manifest = result.manifest;
@@ -902,7 +912,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       // Prepare spawn data
       const resolvedAgentTool = resolvedAgentToolFromMember || 'claude-code';
-      const initCommand = resolvedMode === 'coordinate' ? 'orchestrator' : 'worker';
+      const initCommand = isCoordinatorMode(resolvedMode) ? 'orchestrator' : 'worker';
       const command = `maestro ${initCommand} init`;
       const cwd = project.workingDir;
 
@@ -926,7 +936,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         authEnvVars['GOOGLE_GENAI_USE_GCA'] = 'true';
       }
 
-      const finalEnvVars = {
+      const finalEnvVars: Record<string, string> = {
         MAESTRO_SESSION_ID: session.id,
         MAESTRO_MANIFEST_PATH: manifestPath,
         MAESTRO_SERVER_URL: config.serverUrl,
@@ -938,6 +948,11 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         // Pass through auth API keys so spawned agents can authenticate
         ...authEnvVars,
       };
+
+      // Propagate master session flag to spawned agent environment
+      if (project.isMaster === true) {
+        finalEnvVars.MAESTRO_IS_MASTER = 'true';
+      }
 
       // Update session env
       await sessionService.updateSession(session.id, { env: finalEnvVars });

@@ -5,11 +5,12 @@
  * Each template defines the phases an agent follows for a given mode+strategy.
  */
 
-import type { AgentMode } from '../types/manifest.js';
+import type { AgentMode, AgentModeInput } from '../types/manifest.js';
+import { isWorkerMode } from '../types/manifest.js';
 import {
-  EXECUTE_INIT_PHASE,
-  EXECUTE_WORK_PHASE,
-  EXECUTE_COMPLETE_PHASE,
+  WORKER_INIT_PHASE,
+  WORKER_EXECUTE_PHASE,
+  WORKER_COMPLETE_PHASE,
   EXECUTE_TREE_ANALYZE_PHASE,
   EXECUTE_TREE_PLAN_PHASE,
   EXECUTE_TREE_WORK_PHASE,
@@ -19,13 +20,13 @@ import {
   EXECUTE_RECRUIT_PLAN_PHASE,
   EXECUTE_RECRUIT_WORK_PHASE,
   EXECUTE_RECRUIT_COMPLETE_PHASE,
-  COORDINATE_ANALYZE_PHASE,
-  COORDINATE_DECOMPOSE_PHASE,
-  COORDINATE_SPAWN_PHASE,
-  COORDINATE_MONITOR_PHASE,
-  COORDINATE_RECOVER_PHASE,
-  COORDINATE_VERIFY_PHASE,
-  COORDINATE_COMPLETE_PHASE,
+  COORDINATOR_ANALYZE_PHASE,
+  COORDINATOR_DECOMPOSE_PHASE,
+  COORDINATOR_SPAWN_PHASE,
+  COORDINATOR_MONITOR_PHASE,
+  COORDINATOR_RECOVER_PHASE,
+  COORDINATOR_VERIFY_PHASE,
+  COORDINATOR_COMPLETE_PHASE,
   COORDINATE_BATCH_ANALYZE_PHASE,
   COORDINATE_BATCH_DECOMPOSE_PHASE,
   COORDINATE_BATCH_EXECUTE_PHASE,
@@ -58,13 +59,13 @@ const EXECUTE_SIMPLE: WorkflowTemplate = {
   id: 'execute-simple',
   name: 'Execute Simple',
   description: 'Direct task execution: complete tasks, report progress, done.',
-  mode: 'execute',
+  mode: 'worker',
   strategy: 'simple',
   builtIn: true,
   phases: [
-    { name: 'init', order: 1, instruction: EXECUTE_INIT_PHASE },
-    { name: 'execute', order: 2, instruction: EXECUTE_WORK_PHASE },
-    { name: 'complete', order: 3, instruction: EXECUTE_COMPLETE_PHASE },
+    { name: 'init', order: 1, instruction: WORKER_INIT_PHASE },
+    { name: 'execute', order: 2, instruction: WORKER_EXECUTE_PHASE },
+    { name: 'complete', order: 3, instruction: WORKER_COMPLETE_PHASE },
   ],
 };
 
@@ -72,7 +73,7 @@ const EXECUTE_TREE: WorkflowTemplate = {
   id: 'execute-tree',
   name: 'Execute Tree',
   description: 'Tree-based execution: analyze task tree, plan order, execute leaf tasks.',
-  mode: 'execute',
+  mode: 'worker',
   strategy: 'tree',
   builtIn: true,
   phases: [
@@ -87,17 +88,17 @@ const COORDINATE_DEFAULT: WorkflowTemplate = {
   id: 'coordinate-default',
   name: 'Coordinate Default',
   description: 'Standard orchestration: decompose, spawn workers with directives, monitor progress.',
-  mode: 'coordinate',
+  mode: 'coordinator',
   strategy: 'default',
   builtIn: true,
   phases: [
-    { name: 'analyze', order: 1, instruction: COORDINATE_ANALYZE_PHASE },
-    { name: 'decompose', order: 2, instruction: COORDINATE_DECOMPOSE_PHASE },
-    { name: 'spawn', order: 3, instruction: COORDINATE_SPAWN_PHASE },
-    { name: 'monitor', order: 4, instruction: COORDINATE_MONITOR_PHASE },
-    { name: 'recover', order: 5, instruction: COORDINATE_RECOVER_PHASE },
-    { name: 'verify', order: 6, instruction: COORDINATE_VERIFY_PHASE },
-    { name: 'complete', order: 7, instruction: COORDINATE_COMPLETE_PHASE },
+    { name: 'analyze', order: 1, instruction: COORDINATOR_ANALYZE_PHASE },
+    { name: 'decompose', order: 2, instruction: COORDINATOR_DECOMPOSE_PHASE },
+    { name: 'spawn', order: 3, instruction: COORDINATOR_SPAWN_PHASE },
+    { name: 'monitor', order: 4, instruction: COORDINATOR_MONITOR_PHASE },
+    { name: 'recover', order: 5, instruction: COORDINATOR_RECOVER_PHASE },
+    { name: 'verify', order: 6, instruction: COORDINATOR_VERIFY_PHASE },
+    { name: 'complete', order: 7, instruction: COORDINATOR_COMPLETE_PHASE },
   ],
 };
 
@@ -105,7 +106,7 @@ const COORDINATE_BATCHING: WorkflowTemplate = {
   id: 'coordinate-batching',
   name: 'Coordinate Intelligent Batching',
   description: 'Batch orchestration: group independent tasks, execute batches in parallel.',
-  mode: 'coordinate',
+  mode: 'coordinator',
   strategy: 'intelligent-batching',
   builtIn: true,
   phases: [
@@ -120,7 +121,7 @@ const COORDINATE_DAG: WorkflowTemplate = {
   id: 'coordinate-dag',
   name: 'Coordinate DAG',
   description: 'DAG orchestration: model dependencies as a graph, execute in topological waves.',
-  mode: 'coordinate',
+  mode: 'coordinator',
   strategy: 'dag',
   builtIn: true,
   phases: [
@@ -135,7 +136,7 @@ const EXECUTE_RECRUIT: WorkflowTemplate = {
   id: 'execute-recruit',
   name: 'Execute Recruit',
   description: 'Recruiter workflow: analyze requirements, discover and install skills (with approval), present recruitment plan (with approval), create team members with skills.',
-  mode: 'execute',
+  mode: 'worker',
   strategy: 'recruit',
   builtIn: true,
   phases: [
@@ -178,17 +179,23 @@ export function getAllWorkflowTemplates(): WorkflowTemplate[] {
 
 /**
  * Get workflow templates filtered by mode.
+ * Supports both new modes and legacy mode names.
  */
-export function getTemplatesForMode(mode: AgentMode): WorkflowTemplate[] {
-  return TEMPLATE_REGISTRY.filter(t => t.mode === mode);
+export function getTemplatesForMode(mode: AgentModeInput): WorkflowTemplate[] {
+  return TEMPLATE_REGISTRY.filter(t => {
+    if (isWorkerMode(mode)) return isWorkerMode(t.mode);
+    return !isWorkerMode(t.mode);
+  });
 }
 
 /**
  * Get the default template ID for a given mode+strategy combination.
  */
-export function getDefaultTemplateId(mode: AgentMode, strategy: string): string {
+export function getDefaultTemplateId(mode: AgentModeInput, strategy: string): string {
+  // Normalize legacy mode names for matching
+  const isWorker = isWorkerMode(mode);
   const template = TEMPLATE_REGISTRY.find(
-    t => t.mode === mode && t.strategy === strategy
+    t => isWorkerMode(t.mode) === isWorker && t.strategy === strategy
   );
-  return template?.id ?? (mode === 'execute' ? 'execute-simple' : 'coordinate-default');
+  return template?.id ?? (isWorker ? 'execute-simple' : 'coordinate-default');
 }

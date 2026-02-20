@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useRef, useCallback } from "react";
-import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType, MemberLaunchOverride, CreateTeamPayload } from "../../app/types/maestro";
+import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType, MemberLaunchOverride, CreateTeamPayload, AgentMode, AgentModeInput } from "../../app/types/maestro";
 import { TaskListItem } from "./TaskListItem";
 import { TaskFilters, SortByOption } from "./TaskFilters";
 import { SortableTaskList } from "./SortableTaskList";
@@ -19,6 +19,8 @@ import { useTaskTree } from "../../hooks/useTaskTree";
 import { useUIStore } from "../../stores/useUIStore";
 import { Board } from "./MultiProjectBoard";
 import { SkillsPanel } from "./SkillsPanel";
+import { TaskListsPanel } from "./TaskListsPanel";
+import { useTaskLists } from "../../hooks/useTaskLists";
 
 // Tab types are imported from PanelIconBar
 
@@ -27,7 +29,7 @@ type MaestroPanelProps = {
     onClose: () => void;
     projectId: string;
     project: MaestroProject;
-    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy | OrchestratorStrategy; mode?: 'execute' | 'coordinate'; teamMemberIds?: string[]; teamMemberId?: string; agentTool?: AgentTool; model?: ModelType; memberOverrides?: Record<string, MemberLaunchOverride> }) => Promise<any>;
+    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy | OrchestratorStrategy; mode?: AgentModeInput; teamMemberIds?: string[]; teamMemberId?: string; agentTool?: AgentTool; model?: ModelType; memberOverrides?: Record<string, MemberLaunchOverride> }) => Promise<any>;
     onJumpToSession?: (maestroSessionId: string) => void;
     onAddTaskToSession?: (taskId: string) => void;
 };
@@ -55,6 +57,9 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const fetchTaskOrdering = useMaestroStore(s => s.fetchTaskOrdering);
     const saveTaskOrdering = useMaestroStore(s => s.saveTaskOrdering);
 
+    // Task lists
+    const { taskLists: taskListArray } = useTaskLists(projectId);
+
     // ==================== UI STATE ====================
 
     const [primaryTab, setPrimaryTab] = React.useState<PrimaryTab>("tasks");
@@ -78,6 +83,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [addingSubtaskTo, setAddingSubtaskTo] = React.useState<string | null>(null);
     const [slidingOutTasks, setSlidingOutTasks] = React.useState<Set<string>>(new Set());
     const [showBoard, setShowBoard] = React.useState(false);
+    const [taskListCreateSignal, setTaskListCreateSignal] = React.useState(0);
     const [showTeamMemberModal, setShowTeamMemberModal] = React.useState(false);
     const [editingTeamMember, setEditingTeamMember] = React.useState<any | null>(null);
     const [showTeamModal, setShowTeamModal] = React.useState(false);
@@ -322,7 +328,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         const teamMemberIds = effectiveIds.length > 1 ? effectiveIds : undefined;
         const member = teamMemberId ? teamMembersMap.get(teamMemberId) : null;
 
-        const mode = member?.mode || 'execute';
+        const mode = member?.mode || 'worker';
 
         try {
             await onCreateMaestroSession({
@@ -374,7 +380,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             await onCreateMaestroSession({
                 tasks: selectedTasks,
                 project,
-                mode: 'coordinate',
+                mode: 'coordinator',
                 skillIds: ['maestro-orchestrator'],
                 teamMemberId: coordinatorId,
                 teamMemberIds: workerIds && workerIds.length > 0 ? workerIds : undefined,
@@ -508,7 +514,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 teamMemberId: member.id,
             });
 
-            const mode = member.mode || 'execute';
+            const mode = member.mode || 'worker';
 
             await onCreateMaestroSession({
                 task,
@@ -539,7 +545,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             await onCreateMaestroSession({
                 task,
                 project,
-                mode: 'coordinate',
+                mode: 'coordinator',
                 teamMemberId: leader.id,
                 teamMemberIds: delegateIds.length > 0 ? delegateIds : undefined,
             });
@@ -731,9 +737,11 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     loading={loading}
                     projectId={projectId}
                     onNewTask={() => setShowCreateModal(true)}
+                    onNewTaskList={() => setTaskListCreateSignal((prev) => prev + 1)}
                     onNewTeamMember={() => { setEditingTeamMember(null); setShowTeamMemberModal(true); }}
                     onNewTeam={() => { setEditingTeam(null); setShowTeamModal(true); }}
                     teamCount={activeTeams.length}
+                    taskListCount={taskListArray.length}
                 />
 
                 {primaryTab === "tasks" && (
@@ -883,6 +891,11 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 {/* ==================== SKILLS PRIMARY TAB ==================== */}
                 {primaryTab === "skills" && (
                     <SkillsPanel project={project} />
+                )}
+
+                {/* ==================== LISTS PRIMARY TAB ==================== */}
+                {primaryTab === "lists" && (
+                    <TaskListsPanel projectId={projectId} createListSignal={taskListCreateSignal} />
                 )}
 
                 {/* ==================== TEAM PRIMARY TAB ==================== */}
