@@ -7,8 +7,9 @@ import { CreateTaskModal } from "./CreateTaskModal";
 import { ExecutionBar } from "./ExecutionBar";
 import { AddSubtaskInput } from "./AddSubtaskInput";
 import { TeamMemberList } from "./TeamMemberList";
-import { CreateTeamMemberModal } from "./CreateTeamMemberModal";
-import { EditTeamMemberModal } from "./EditTeamMemberModal";
+import { TeamMemberModal } from "./TeamMemberModal";
+import { TeamModal } from "./TeamModal";
+import { TeamListItem } from "./TeamListItem";
 import { PanelIconBar, PrimaryTab, TaskSubTab, SkillSubTab, TeamSubTab } from "./PanelIconBar";
 import { TaskTabContent } from "./TaskTabContent";
 import { PanelErrorState, NoProjectState } from "./PanelErrorState";
@@ -77,9 +78,10 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [addingSubtaskTo, setAddingSubtaskTo] = React.useState<string | null>(null);
     const [slidingOutTasks, setSlidingOutTasks] = React.useState<Set<string>>(new Set());
     const [showBoard, setShowBoard] = React.useState(false);
-    const [showCreateTeamMemberModal, setShowCreateTeamMemberModal] = React.useState(false);
-    const [showEditTeamMemberModal, setShowEditTeamMemberModal] = React.useState(false);
+    const [showTeamMemberModal, setShowTeamMemberModal] = React.useState(false);
     const [editingTeamMember, setEditingTeamMember] = React.useState<any | null>(null);
+    const [showTeamModal, setShowTeamModal] = React.useState(false);
+    const [editingTeam, setEditingTeam] = React.useState<any | null>(null);
     const [searchQuery, setSearchQuery] = React.useState("");
     // Team member selection is now handled inside ExecutionBar via dropdowns
 
@@ -128,19 +130,41 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const unarchiveTeamMember = useMaestroStore(s => s.unarchiveTeamMember);
     const deleteTeamMember = useMaestroStore(s => s.deleteTeamMember);
 
-    // Fetch team members when projectId changes or WebSocket reconnects
+    // Teams
+    const teamsMap = useMaestroStore(s => s.teams);
+    const fetchTeams = useMaestroStore(s => s.fetchTeams);
+    const deleteTeam = useMaestroStore(s => s.deleteTeam);
+    const archiveTeam = useMaestroStore(s => s.archiveTeam);
+    const unarchiveTeam = useMaestroStore(s => s.unarchiveTeam);
+
+    // Fetch team members and teams when projectId changes or WebSocket reconnects
     const wsConnected = useMaestroStore(s => s.wsConnected);
     useEffect(() => {
         if (projectId) {
             fetchTeamMembers(projectId);
+            fetchTeams(projectId);
         }
-    }, [projectId, fetchTeamMembers, wsConnected]);
+    }, [projectId, fetchTeamMembers, fetchTeams, wsConnected]);
 
     const teamMembersLoading = useMaestroStore(s => s.loading.has(`teamMembers:${projectId}`));
 
     const teamMembers = useMemo(() => {
         return Array.from(teamMembersMap.values()).filter(tm => tm.projectId === projectId);
     }, [teamMembersMap, projectId]);
+
+    const teams = useMemo(() => {
+        return Array.from(teamsMap.values()).filter(t => t.projectId === projectId);
+    }, [teamsMap, projectId]);
+
+    const activeTeams = useMemo(() => {
+        return teams.filter(t => t.status === 'active');
+    }, [teams]);
+
+    // Top-level teams = teams without a parentTeamId (or whose parent is not in the current set)
+    const topLevelTeams = useMemo(() => {
+        const teamIdSet = new Set(teams.map(t => t.id));
+        return teams.filter(t => !t.parentTeamId || !teamIdSet.has(t.parentTeamId));
+    }, [teams]);
 
     const regularTasks = useMemo(() => {
         return normalizedTasks;
@@ -429,7 +453,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     // Team member handlers
     const handleEditTeamMember = (member: any) => {
         setEditingTeamMember(member);
-        setShowEditTeamMemberModal(true);
+        setShowTeamMemberModal(true);
     };
 
     const handleArchiveTeamMember = async (memberId: string) => {
@@ -478,6 +502,38 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         } catch (err: any) {
             setError(`Failed to start session: ${err.message}`);
         }
+    };
+
+    const handleRunTeam = async (team: any) => {
+        try {
+            const leader = teamMembersMap.get(team.leaderId);
+            if (!leader) { setError("Team has no valid leader"); return; }
+
+            const task = await createTask({
+                projectId,
+                title: `Team: ${team.name}`,
+                description: `Coordinator session for team: ${team.name}`,
+                priority: 'medium',
+                teamMemberId: leader.id,
+            });
+
+            const delegateIds = team.memberIds.filter((id: string) => id !== team.leaderId);
+
+            await onCreateMaestroSession({
+                task,
+                project,
+                mode: 'coordinate',
+                teamMemberId: leader.id,
+                teamMemberIds: delegateIds.length > 0 ? delegateIds : undefined,
+            });
+        } catch (err: any) {
+            setError(`Failed to start team session: ${err.message}`);
+        }
+    };
+
+    const handleEditTeam = (team: any) => {
+        setEditingTeam(team);
+        setShowTeamModal(true);
     };
 
     const handleToggleSubtask = async (_taskId: string, subtaskId: string) => {
@@ -584,7 +640,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     onWorkOn={() => handleWorkOnTask(node)}
                     onWorkOnWithOverride={(agentTool: AgentTool, model: ModelType) => handleWorkOnTask(node, { agentTool, model })}
                     onAssignTeamMember={(teamMemberId: string) => handleAssignTeamMember(node.id, teamMemberId)}
-                    onOpenCreateTeamMember={() => setShowCreateTeamMemberModal(true)}
+                    onOpenCreateTeamMember={() => { setEditingTeamMember(null); setShowTeamMemberModal(true); }}
                     onJumpToSession={(sid) => onJumpToSession?.(sid)}
                     onNavigateToTask={(taskId: string) => {
                         setSelectedTaskId(taskId);
@@ -658,7 +714,9 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     loading={loading}
                     projectId={projectId}
                     onNewTask={() => setShowCreateModal(true)}
-                    onNewTeamMember={() => setShowCreateTeamMemberModal(true)}
+                    onNewTeamMember={() => { setEditingTeamMember(null); setShowTeamMemberModal(true); }}
+                    onNewTeam={() => { setEditingTeam(null); setShowTeamModal(true); }}
+                    teamCount={activeTeams.length}
                 />
 
                 {primaryTab === "tasks" && (
@@ -834,12 +892,63 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                                             onArchive={handleArchiveTeamMember}
                                             onUnarchive={handleUnarchiveTeamMember}
                                             onDelete={handleDeleteTeamMember}
-                                            onNewMember={() => setShowCreateTeamMemberModal(true)}
+                                            onNewMember={() => { setEditingTeamMember(null); setShowTeamMemberModal(true); }}
                                             onRun={handleRunTeamMember}
                                         />
                                     )}
                                 </div>
                             </>
+                        )}
+
+                        {/* Teams sub-tab */}
+                        {teamSubTab === "teams" && (
+                            <div className="terminalContent">
+                                {topLevelTeams.length === 0 ? (
+                                    <div className="terminalEmptyState">
+                                        <pre className="terminalAsciiArt">{`
+    ╔═══════════════════════════════════════╗
+    ║                                       ║
+    ║       NO TEAMS YET                    ║
+    ║                                       ║
+    ║    Create teams to group your         ║
+    ║    team members together              ║
+    ║                                       ║
+    ╚═══════════════════════════════════════╝
+                                        `}</pre>
+                                        <button
+                                            className="themedBtn themedBtnPrimary"
+                                            style={{ marginTop: '8px' }}
+                                            onClick={() => { setEditingTeam(null); setShowTeamModal(true); }}
+                                        >
+                                            + Create Team
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div style={{ padding: '6px 12px 2px', display: 'flex', justifyContent: 'flex-end' }}>
+                                            <button
+                                                className="themedBtn themedBtnPrimary"
+                                                style={{ padding: '3px 10px', fontSize: '10px' }}
+                                                onClick={() => { setEditingTeam(null); setShowTeamModal(true); }}
+                                            >
+                                                + Create Team
+                                            </button>
+                                        </div>
+                                        <div className="terminalTaskList">
+                                            {topLevelTeams.map(team => (
+                                                <TeamListItem
+                                                    key={team.id}
+                                                    team={team}
+                                                    depth={0}
+                                                    onEdit={handleEditTeam}
+                                                    onRun={handleRunTeam}
+                                                    allTeams={teams}
+                                                />
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         )}
 
                         {/* Pinned team sub-tab - TODO: implement pinned feature */}
@@ -893,19 +1002,23 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 parentTitle={subtaskParentTitle}
             />
 
-            <CreateTeamMemberModal
-                isOpen={showCreateTeamMemberModal}
-                onClose={() => setShowCreateTeamMemberModal(false)}
-                projectId={projectId}
-            />
-
-            <EditTeamMemberModal
-                isOpen={showEditTeamMemberModal}
+            <TeamMemberModal
+                isOpen={showTeamMemberModal}
                 onClose={() => {
-                    setShowEditTeamMemberModal(false);
+                    setShowTeamMemberModal(false);
                     setEditingTeamMember(null);
                 }}
                 teamMember={editingTeamMember}
+                projectId={projectId}
+            />
+
+            <TeamModal
+                isOpen={showTeamModal}
+                onClose={() => {
+                    setShowTeamModal(false);
+                    setEditingTeam(null);
+                }}
+                team={editingTeam}
                 projectId={projectId}
             />
 

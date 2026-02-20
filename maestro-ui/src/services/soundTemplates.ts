@@ -2,6 +2,7 @@
  * Sound Templates Service
  *
  * Built-in and custom sound templates for per-project sound configuration.
+ * Also provides auto-instrument assignment for new team members.
  */
 
 import type { InstrumentType, SoundTemplate, SoundCategoryType } from '../app/types/maestro';
@@ -53,6 +54,77 @@ export const BUILT_IN_TEMPLATES: SoundTemplate[] = [
     enabledCategories: [...ALL_CATEGORIES],
   },
 ];
+
+// ── Auto-assignment pool ──
+//
+// When a team member is created without an explicit instrument,
+// assign one from the pool to diversify the ensemble.
+// The pool cycles through all 5 instruments to maximize musical variety.
+
+const INSTRUMENT_POOL: InstrumentType[] = ['piano', 'guitar', 'violin', 'trumpet', 'drums'];
+
+/**
+ * Return a random instrument that isn't already over-represented
+ * in the existing team members' instruments.
+ *
+ * Preference order: least-used instruments first.
+ * If all are equally represented, pick randomly.
+ */
+export function assignRandomInstrument(existingInstruments: InstrumentType[] = []): InstrumentType {
+  // Count how many team members already use each instrument
+  const counts: Record<InstrumentType, number> = {
+    piano: 0, guitar: 0, violin: 0, trumpet: 0, drums: 0,
+  };
+  for (const inst of existingInstruments) {
+    counts[inst] = (counts[inst] || 0) + 1;
+  }
+
+  // Find the minimum count
+  const minCount = Math.min(...Object.values(counts));
+
+  // Collect instruments with the minimum count
+  const leastUsed = INSTRUMENT_POOL.filter(inst => counts[inst] === minCount);
+
+  // Pick randomly from the least-used instruments
+  return leastUsed[Math.floor(Math.random() * leastUsed.length)];
+}
+
+/**
+ * Get all 5 instruments in a suggested order for a team.
+ * Returns instruments sorted so the ensemble sounds balanced:
+ * bass (piano) first, then tenor/alto/soprano, rhythm last.
+ */
+export function getSuggestedEnsembleOrder(): InstrumentType[] {
+  return ['piano', 'guitar', 'violin', 'trumpet', 'drums'];
+}
+
+/**
+ * Get a human-readable description of an instrument's role in the ensemble.
+ */
+export function getInstrumentRole(instrument: InstrumentType): string {
+  const roles: Record<InstrumentType, string> = {
+    piano:   'Bass — plays root notes and full arpeggios',
+    guitar:  'Tenor — plays inner chord harmonies',
+    violin:  'Alto — plays upper melodic voices',
+    trumpet: 'Soprano — plays top notes and melody',
+    drums:   'Rhythm — provides percussive accents',
+  };
+  return roles[instrument];
+}
+
+/**
+ * Get an emoji icon for an instrument.
+ */
+export function getInstrumentEmoji(instrument: InstrumentType): string {
+  const emojis: Record<InstrumentType, string> = {
+    piano:   '🎹',
+    guitar:  '🎸',
+    violin:  '🎻',
+    trumpet: '🎺',
+    drums:   '🥁',
+  };
+  return emojis[instrument];
+}
 
 const STORAGE_KEY = 'maestro-sound-templates';
 

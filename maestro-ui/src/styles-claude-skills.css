@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .claudeCodeSkillsLoading,
@@ -43,7 +43,7 @@
   border: 1px solid var(--theme-border);
   color: var(--theme-primary);
   cursor: pointer;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   transition: all 0.2s;
 }
@@ -82,7 +82,7 @@
   background: rgba(var(--theme-primary-rgb), 0.03);
   border: 1px solid var(--theme-border);
   color: var(--theme-primary);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -199,7 +199,7 @@
 /* Themed checkbox — terminal bracket style */
 .claudeCodeSkillCheckbox {
   cursor: pointer;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.4);
   flex-shrink: 0;

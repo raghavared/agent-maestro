@@ -18,6 +18,7 @@ import { registerProjectCommands } from './commands/project.js';
 import { registerReportCommands } from './commands/report.js';
 import { registerModalCommands } from './commands/modal.js';
 import { registerTeamMemberCommands } from './commands/team-member.js';
+import { registerTeamCommands } from './commands/team.js';
 import {
   loadCommandPermissions,
   printAvailableCommands,
@@ -227,6 +228,7 @@ registerManifestCommands(program);
 registerReportCommands(program);
 registerModalCommands(program);
 registerTeamMemberCommands(program);
+registerTeamCommands(program);
 program.command('status')
   .description('Show summary of current project state')
   .action(async () => {

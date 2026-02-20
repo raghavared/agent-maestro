@@ -25,6 +25,44 @@ export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 // Team Member types
 export type TeamMemberStatus = 'active' | 'archived';
 
+// Team types
+export type TeamStatus = 'active' | 'archived';
+
+export interface Team {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string;
+  avatar?: string;
+  leaderId: string;
+  memberIds: string[];
+  subTeamIds: string[];
+  parentTeamId?: string;
+  status: TeamStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTeamPayload {
+  projectId: string;
+  name: string;
+  description?: string;
+  avatar?: string;
+  leaderId: string;
+  memberIds?: string[];
+  subTeamIds?: string[];
+}
+
+export interface UpdateTeamPayload {
+  name?: string;
+  description?: string;
+  avatar?: string;
+  leaderId?: string;
+  memberIds?: string[];
+  subTeamIds?: string[];
+  status?: TeamStatus;
+}
+
 export interface TeamMember {
   id: string;
   projectId: string;
@@ -40,6 +78,7 @@ export interface TeamMember {
   skillIds?: string[];
   isDefault: boolean;
   status: TeamMemberStatus;
+  soundInstrument?: InstrumentType;  // The instrument this team member "plays" in the ensemble
 
   capabilities?: {
     can_spawn_sessions?: boolean;
@@ -104,6 +143,7 @@ export interface CreateTeamMemberPayload {
   commandPermissions?: TeamMember['commandPermissions'];
   workflowTemplateId?: string;
   customWorkflow?: string;
+  soundInstrument?: InstrumentType;
 }
 
 export interface UpdateTeamMemberPayload {
@@ -122,6 +162,7 @@ export interface UpdateTeamMemberPayload {
   workflowTemplateId?: string;
   customWorkflow?: string;
   memory?: string[];
+  soundInstrument?: InstrumentType;
 }
 
 // Session timeline event types

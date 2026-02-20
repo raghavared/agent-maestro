@@ -67,6 +67,9 @@ export interface TeamMember {
   // Self-awareness: persistent memory for the team member
   memory?: string[];                   // Important details the agent remembers across sessions
 
+  // Sound identity — the instrument this team member "plays" in the session ensemble
+  soundInstrument?: string;            // 'piano' | 'guitar' | 'violin' | 'trumpet' | 'drums'
+
   createdAt: string;                   // ISO 8601
   updatedAt: string;                   // ISO 8601
 }
@@ -96,6 +99,7 @@ export interface CreateTeamMemberPayload {
   commandPermissions?: TeamMember['commandPermissions'];
   workflowTemplateId?: string;
   customWorkflow?: string;
+  soundInstrument?: string;
 }
 
 export interface UpdateTeamMemberPayload {
@@ -115,6 +119,57 @@ export interface UpdateTeamMemberPayload {
   workflowTemplateId?: string;
   customWorkflow?: string;
   memory?: string[];
+  soundInstrument?: string;
+}
+
+// Team entity (groups TeamMembers together for coordination)
+export type TeamStatus = 'active' | 'archived';
+
+export interface Team {
+  id: string;                          // 'team_<timestamp>_<random>'
+  projectId: string;
+  name: string;
+  description?: string;
+  avatar?: string;                     // Emoji
+  leaderId: string;                    // Team member ID — the coordinator/leader
+  memberIds: string[];                 // Team member IDs in this team
+  subTeamIds: string[];                // Other Team IDs for team-of-teams hierarchy
+  parentTeamId?: string | null;        // Reverse lookup — which team contains this one
+  status: TeamStatus;
+  metadata?: Record<string, any>;
+  createdAt: string;                   // ISO 8601
+  updatedAt: string;                   // ISO 8601
+}
+
+export interface TeamSnapshot {
+  id: string;
+  name: string;
+  avatar?: string;
+  leaderId: string;
+  memberCount: number;
+}
+
+export interface CreateTeamPayload {
+  projectId: string;
+  name: string;
+  description?: string;
+  avatar?: string;
+  leaderId: string;
+  memberIds: string[];
+  subTeamIds?: string[];
+  parentTeamId?: string | null;
+}
+
+export interface UpdateTeamPayload {
+  name?: string;
+  description?: string;
+  avatar?: string;
+  leaderId?: string;
+  memberIds?: string[];
+  subTeamIds?: string[];
+  parentTeamId?: string | null;
+  status?: TeamStatus;
+  metadata?: Record<string, any>;
 }
 
 export interface Task {

@@ -1,9 +1,9 @@
 /**
  * ProjectSoundSettings Component
  *
- * Embedded in the project create/edit dialog.
- * Provides template picker, instrument selector, per-category overrides,
- * save-as-template, and reset-to-global.
+ * Simplified project sound settings — template picker and instrument selector.
+ * Per-category overrides are available as an advanced option but hidden by default
+ * to keep the main UX simple and musical.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -16,15 +16,11 @@ import {
   saveTemplate,
   deleteTemplate,
   templateToProjectConfig,
+  getInstrumentEmoji,
+  getInstrumentRole,
 } from '../../services/soundTemplates';
 
-const INSTRUMENTS: { value: InstrumentType; label: string }[] = [
-  { value: 'piano', label: 'Piano' },
-  { value: 'guitar', label: 'Guitar' },
-  { value: 'violin', label: 'Violin' },
-  { value: 'trumpet', label: 'Trumpet' },
-  { value: 'drums', label: 'Drums' },
-];
+const INSTRUMENTS: InstrumentType[] = ['piano', 'guitar', 'violin', 'trumpet', 'drums'];
 
 const CATEGORY_LABELS: Record<SoundCategory, string> = {
   success: 'Success',
@@ -42,15 +38,15 @@ const CATEGORY_LABELS: Record<SoundCategory, string> = {
   link: 'Link Events',
   unlink: 'Unlink Events',
   loading: 'Loading',
-  notify_task_completed: 'Task Completed (notify)',
-  notify_task_failed: 'Task Failed (notify)',
-  notify_task_blocked: 'Task Blocked (notify)',
-  notify_task_session_completed: 'Session Task Completed (notify)',
-  notify_task_session_failed: 'Session Task Failed (notify)',
-  notify_session_completed: 'Session Completed (notify)',
-  notify_session_failed: 'Session Failed (notify)',
-  notify_needs_input: 'Needs Input (notify)',
-  notify_progress: 'Progress (notify)',
+  notify_task_completed: 'Task Completed',
+  notify_task_failed: 'Task Failed',
+  notify_task_blocked: 'Task Blocked',
+  notify_task_session_completed: 'Session Task Completed',
+  notify_task_session_failed: 'Session Task Failed',
+  notify_session_completed: 'Session Completed',
+  notify_session_failed: 'Session Failed',
+  notify_needs_input: 'Needs Input',
+  notify_progress: 'Progress Update',
 };
 
 const ALL_CATEGORIES = Object.keys(CATEGORY_LABELS) as SoundCategoryType[];
@@ -60,6 +56,7 @@ const CATEGORY_GROUPS: { name: string; categories: SoundCategoryType[] }[] = [
   { name: 'Activity', categories: ['action', 'progress', 'loading'] },
   { name: 'Changes', categories: ['creation', 'deletion', 'update'] },
   { name: 'Relationships', categories: ['link', 'unlink'] },
+  { name: 'Neutral', categories: ['neutral'] },
   { name: 'Notifications', categories: [
     'notify_task_completed', 'notify_task_failed', 'notify_task_blocked',
     'notify_task_session_completed', 'notify_task_session_failed',
@@ -74,7 +71,7 @@ interface ProjectSoundSettingsProps {
 }
 
 export function ProjectSoundSettings({ config, onChange }: ProjectSoundSettingsProps) {
-  const [showOverrides, setShowOverrides] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [saveTemplateName, setSaveTemplateName] = useState('');
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
 
@@ -104,6 +101,8 @@ export function ProjectSoundSettings({ config, onChange }: ProjectSoundSettingsP
 
   const handleInstrumentChange = (instrument: InstrumentType) => {
     updateConfig({ instrument, templateId: undefined });
+    // Preview the new instrument sound
+    soundManager.playCategorySound('success', instrument);
   };
 
   const handleCategoryToggle = (category: SoundCategoryType) => {
@@ -119,7 +118,6 @@ export function ProjectSoundSettings({ config, onChange }: ProjectSoundSettingsP
   const handleCategoryInstrumentOverride = (category: SoundCategoryType, instrument: InstrumentType | '') => {
     const newOverrides = { ...categoryOverrides };
     if (instrument === '' || instrument === currentInstrument) {
-      // Remove the override
       if (newOverrides[category]) {
         const { instrument: _, ...rest } = newOverrides[category];
         if (Object.keys(rest).length === 0) {
@@ -186,80 +184,38 @@ export function ProjectSoundSettings({ config, onChange }: ProjectSoundSettingsP
         </select>
       </div>
 
-      {/* Instrument Selector */}
+      {/* Instrument Selector — visual button picker */}
       <div className="projectSoundRow">
         <label className="projectSoundLabel">Instrument</label>
-        <div className="projectSoundInstruments">
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           {INSTRUMENTS.map((inst) => (
-            <label key={inst.value} className="projectSoundInstrumentOption">
-              <input
-                type="radio"
-                name="projectInstrument"
-                value={inst.value}
-                checked={currentInstrument === inst.value}
-                onChange={() => handleInstrumentChange(inst.value)}
-              />
-              <span>{inst.label}</span>
-            </label>
+            <button
+              key={inst}
+              type="button"
+              title={getInstrumentRole(inst)}
+              onClick={() => handleInstrumentChange(inst)}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                gap: '3px', padding: '6px 10px', cursor: 'pointer',
+                border: `1px solid ${currentInstrument === inst ? 'var(--theme-primary)' : 'var(--theme-border)'}`,
+                borderRadius: '4px', fontSize: '10px',
+                background: currentInstrument === inst
+                  ? 'rgba(var(--theme-primary-rgb), 0.12)'
+                  : 'transparent',
+                color: currentInstrument === inst ? 'var(--theme-primary)' : 'var(--theme-text)',
+                fontFamily: 'var(--style-font-ui)',
+                transition: 'all 0.15s',
+                minWidth: '56px',
+              }}
+            >
+              <span style={{ fontSize: '16px' }}>{getInstrumentEmoji(inst)}</span>
+              <span style={{ textTransform: 'capitalize', fontWeight: currentInstrument === inst ? 600 : 400 }}>
+                {inst}
+              </span>
+            </button>
           ))}
         </div>
       </div>
-
-      {/* Per-Category Overrides */}
-      <div className="projectSoundRow">
-        <button
-          type="button"
-          className="themedBrowseToggle"
-          onClick={() => setShowOverrides((v) => !v)}
-        >
-          <span className={`themedBrowseToggleArrow${showOverrides ? " themedBrowseToggleArrow--open" : ""}`}>
-            &#9654;
-          </span>
-          Per-Category Overrides
-        </button>
-      </div>
-
-      {showOverrides && (
-        <div className="projectSoundOverrides">
-          {CATEGORY_GROUPS.map((group) => (
-            <div key={group.name} className="projectSoundGroup">
-              <div className="projectSoundGroupTitle">{group.name}</div>
-              {group.categories.map((category) => (
-                <div key={category} className="projectSoundCategoryRow">
-                  <label className="projectSoundCategoryToggle">
-                    <input
-                      type="checkbox"
-                      checked={enabledCategories.has(category)}
-                      onChange={() => handleCategoryToggle(category)}
-                    />
-                    <span>{CATEGORY_LABELS[category]}</span>
-                  </label>
-                  <select
-                    className="projectSoundCategoryInstrument"
-                    value={categoryOverrides[category]?.instrument ?? ''}
-                    onChange={(e) => handleCategoryInstrumentOverride(category, e.target.value as InstrumentType | '')}
-                    title="Override instrument for this category"
-                  >
-                    <option value="">Default ({currentInstrument})</option>
-                    {INSTRUMENTS.filter((i) => i.value !== currentInstrument).map((inst) => (
-                      <option key={inst.value} value={inst.value}>{inst.label}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    className="soundTestBtn"
-                    onClick={() => handleTestSound(category)}
-                    title="Preview sound"
-                    disabled={!enabledCategories.has(category)}
-                  >
-                    &#9654;
-                  </button>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Actions */}
       <div className="projectSoundActions">
@@ -310,13 +266,70 @@ export function ProjectSoundSettings({ config, onChange }: ProjectSoundSettingsP
         </div>
       )}
 
+      {/* Advanced: Per-Category Overrides (collapsed by default) */}
+      <div className="projectSoundRow" style={{ marginTop: '4px' }}>
+        <button
+          type="button"
+          className="themedBrowseToggle"
+          onClick={() => setShowAdvanced((v) => !v)}
+          style={{ fontSize: '10px', opacity: 0.7 }}
+        >
+          <span className={`themedBrowseToggleArrow${showAdvanced ? " themedBrowseToggleArrow--open" : ""}`}>
+            &#9654;
+          </span>
+          Advanced: Per-Category Overrides
+        </button>
+      </div>
+
+      {showAdvanced && (
+        <div className="projectSoundOverrides">
+          {CATEGORY_GROUPS.map((group) => (
+            <div key={group.name} className="projectSoundGroup">
+              <div className="projectSoundGroupTitle">{group.name}</div>
+              {group.categories.map((category) => (
+                <div key={category} className="projectSoundCategoryRow">
+                  <label className="projectSoundCategoryToggle">
+                    <input
+                      type="checkbox"
+                      checked={enabledCategories.has(category)}
+                      onChange={() => handleCategoryToggle(category)}
+                    />
+                    <span>{CATEGORY_LABELS[category]}</span>
+                  </label>
+                  <select
+                    className="projectSoundCategoryInstrument"
+                    value={categoryOverrides[category]?.instrument ?? ''}
+                    onChange={(e) => handleCategoryInstrumentOverride(category, e.target.value as InstrumentType | '')}
+                    title="Override instrument for this category"
+                  >
+                    <option value="">Default ({currentInstrument})</option>
+                    {INSTRUMENTS.filter((i) => i !== currentInstrument).map((inst) => (
+                      <option key={inst} value={inst}>{getInstrumentEmoji(inst)} {inst}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="soundTestBtn"
+                    onClick={() => handleTestSound(category)}
+                    title="Preview sound"
+                    disabled={!enabledCategories.has(category)}
+                  >
+                    &#9654;
+                  </button>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Custom Template Management */}
       {templates.filter((t) => !t.builtIn).length > 0 && (
         <div className="projectSoundCustomTemplates">
           <div className="projectSoundLabel">Custom Templates</div>
           {templates.filter((t) => !t.builtIn).map((t) => (
             <div key={t.id} className="projectSoundCustomTemplateRow">
-              <span>{t.name} ({t.instrument})</span>
+              <span>{getInstrumentEmoji(t.instrument)} {t.name}</span>
               <button
                 type="button"
                 className="themedBtn projectSoundDeleteBtn"

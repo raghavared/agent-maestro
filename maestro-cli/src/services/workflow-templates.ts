@@ -15,6 +15,8 @@ import {
   EXECUTE_TREE_WORK_PHASE,
   EXECUTE_TREE_COMPLETE_PHASE,
   EXECUTE_RECRUIT_ANALYZE_PHASE,
+  EXECUTE_RECRUIT_SKILL_DISCOVERY_PHASE,
+  EXECUTE_RECRUIT_PLAN_PHASE,
   EXECUTE_RECRUIT_WORK_PHASE,
   EXECUTE_RECRUIT_COMPLETE_PHASE,
   COORDINATE_ANALYZE_PHASE,
@@ -132,14 +134,16 @@ const COORDINATE_DAG: WorkflowTemplate = {
 const EXECUTE_RECRUIT: WorkflowTemplate = {
   id: 'execute-recruit',
   name: 'Execute Recruit',
-  description: 'Recruiter workflow: analyze requirements, create team members.',
+  description: 'Recruiter workflow: analyze requirements, discover and install skills (with approval), present recruitment plan (with approval), create team members with skills.',
   mode: 'execute',
   strategy: 'recruit',
   builtIn: true,
   phases: [
     { name: 'analyze', order: 1, instruction: EXECUTE_RECRUIT_ANALYZE_PHASE },
-    { name: 'recruit', order: 2, instruction: EXECUTE_RECRUIT_WORK_PHASE },
-    { name: 'complete', order: 3, instruction: EXECUTE_RECRUIT_COMPLETE_PHASE },
+    { name: 'skill_discovery', order: 2, instruction: EXECUTE_RECRUIT_SKILL_DISCOVERY_PHASE },
+    { name: 'plan', order: 3, instruction: EXECUTE_RECRUIT_PLAN_PHASE },
+    { name: 'recruit', order: 4, instruction: EXECUTE_RECRUIT_WORK_PHASE },
+    { name: 'complete', order: 5, instruction: EXECUTE_RECRUIT_COMPLETE_PHASE },
   ],
 };
 

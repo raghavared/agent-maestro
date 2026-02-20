@@ -213,6 +213,23 @@ export class PromptBuilder {
       for (const profile of profiles) {
         lines.push(`    <expertise source="${this.esc(profile.name)}">${this.raw(profile.identity)}</expertise>`);
       }
+      // Add team member expertise blocks if this is a coordinator
+      if (manifest.mode === 'coordinate' && manifest.teamMembers) {
+        const selfIds = new Set<string>();
+        if (manifest.teamMemberId) {
+          selfIds.add(manifest.teamMemberId);
+        }
+        if (manifest.teamMemberProfiles) {
+          for (const p of manifest.teamMemberProfiles) {
+            if (p.id) selfIds.add(p.id);
+          }
+        }
+        for (const member of manifest.teamMembers) {
+          if (selfIds.has(member.id)) continue;
+          if (!member.identity) continue;
+          lines.push(`    <expertise source="${this.esc(member.name)}">${this.raw(member.identity)}</expertise>`);
+        }
+      }
       // Merge memory from all profiles with source attribution (P1.6)
       const allMemory = profiles.flatMap(p => (p.memory || []).map(m => ({ source: p.name, text: m })));
       if (allMemory.length > 0) {
@@ -238,6 +255,23 @@ export class PromptBuilder {
         lines.push(`    <role>${this.esc(profile.role)}</role>`);
       }
       lines.push(`    <instructions>${this.raw(profile.identity)}</instructions>`);
+      // Add team member expertise blocks if this is a coordinator
+      if (manifest.mode === 'coordinate' && manifest.teamMembers) {
+        const selfIds = new Set<string>();
+        if (manifest.teamMemberId) {
+          selfIds.add(manifest.teamMemberId);
+        }
+        if (manifest.teamMemberProfiles) {
+          for (const p of manifest.teamMemberProfiles) {
+            if (p.id) selfIds.add(p.id);
+          }
+        }
+        for (const member of manifest.teamMembers) {
+          if (selfIds.has(member.id)) continue;
+          if (!member.identity) continue;
+          lines.push(`    <expertise source="${this.esc(member.name)}">${this.raw(member.identity)}</expertise>`);
+        }
+      }
       if (profile.memory && profile.memory.length > 0) {
         lines.push('    <memory>');
         for (const entry of profile.memory) {
@@ -264,6 +298,18 @@ export class PromptBuilder {
     }
     if (manifest.teamMemberIdentity) {
       lines.push(`    <instructions>${this.raw(manifest.teamMemberIdentity)}</instructions>`);
+    }
+    // Add team member expertise blocks if this is a coordinator
+    if (manifest.mode === 'coordinate' && manifest.teamMembers) {
+      const selfIds = new Set<string>();
+      if (manifest.teamMemberId) {
+        selfIds.add(manifest.teamMemberId);
+      }
+      for (const member of manifest.teamMembers) {
+        if (selfIds.has(member.id)) continue;
+        if (!member.identity) continue;
+        lines.push(`    <expertise source="${this.esc(member.name)}">${this.raw(member.identity)}</expertise>`);
+      }
     }
     if (manifest.teamMemberMemory && manifest.teamMemberMemory.length > 0) {
       lines.push('    <memory>');
@@ -509,11 +555,12 @@ export class PromptBuilder {
 
     if (visibleMembers.length === 0) return null;
 
-    const lines: string[] = [`  <team_members count="${visibleMembers.length}">`];
+    const lines: string[] = [`  <available_team_members count="${visibleMembers.length}">`];
+    lines.push(`    <instruction>These are the team members available to you for spawning and delegation. Use their id with --team-member-id when spawning sessions.</instruction>`);
     for (const member of visibleMembers) {
       if (mode === 'coordinate') {
         // Coordinators need full member details for spawning and delegation (P3.2: enriched)
-        lines.push(`    <team_member id="${this.esc(member.id)}" name="${this.esc(member.name)}" role="${this.esc(member.role)}">`);
+        lines.push(`    <available_team_member id="${this.esc(member.id)}" name="${this.esc(member.name)}" role="${this.esc(member.role)}">`);
         lines.push(`      <avatar>${this.esc(member.avatar)}</avatar>`);
         if (member.mode) {
           lines.push(`      <mode>${this.esc(member.mode)}</mode>`);
@@ -534,13 +581,13 @@ export class PromptBuilder {
           }
           lines.push('      </capabilities>');
         }
-        lines.push('    </team_member>');
+        lines.push('    </available_team_member>');
       } else {
         // Workers need slim roster with ID for peer discovery (P3.3: added id)
-        lines.push(`    <team_member id="${this.esc(member.id)}" name="${this.esc(member.name)}" role="${this.esc(member.role)}" />`);
+        lines.push(`    <available_team_member id="${this.esc(member.id)}" name="${this.esc(member.name)}" role="${this.esc(member.role)}" />`);
       }
     }
-    lines.push('  </team_members>');
+    lines.push('  </available_team_members>');
     return lines.join('\n');
   }
 

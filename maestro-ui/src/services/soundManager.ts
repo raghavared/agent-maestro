@@ -2,7 +2,12 @@
  * Sound Manager Service
  *
  * Centralized service for playing event-based sounds in the Maestro UI.
- * Supports multiple instruments with per-project configuration.
+ *
+ * Musical Architecture:
+ * - Each instrument maps to a harmonic "voice" in a chord ensemble
+ * - Piano = bass voice, Guitar = tenor, Violin = alto, Trumpet = soprano, Drums = rhythm
+ * - When a session has multiple team members, their voices combine into a chord
+ * - Each event category has distinct, emotionally appropriate note patterns per voice
  */
 
 import type { InstrumentType, ProjectSoundConfig, SoundCategoryType } from '../app/types/maestro';
@@ -125,110 +130,257 @@ const EVENT_SOUND_MAP: Record<EventSoundType, SoundCategory> = {
   'status:blocked': 'warning',
 };
 
-// Map sound categories to piano notes (used for note-based instruments)
-const CATEGORY_NOTES: Record<SoundCategory, SoundNote[]> = {
-  success: [
-    { note: 'C5' },
-    { note: 'E5', delay: 80 },
-    { note: 'G5', delay: 160 },
-  ],
-  error: [
-    { note: 'C2' },
-    { note: 'Eb2', delay: 100 },
-    { note: 'Gb2', delay: 200 },
-  ],
-  critical_error: [
-    { note: 'C2' },
-    { note: 'C2', delay: 150 },
-    { note: 'C2', delay: 300 },
-  ],
-  warning: [
-    { note: 'F3' },
-    { note: 'F3', delay: 150 },
-  ],
-  attention: [
-    { note: 'A4' },
-  ],
-  action: [
-    { note: 'G4' },
-  ],
-  creation: [
-    { note: 'C4' },
-    { note: 'E4', delay: 100 },
-  ],
-  deletion: [
-    { note: 'E4' },
-    { note: 'C4', delay: 100 },
-  ],
-  update: [
-    { note: 'D4' },
-  ],
-  progress: [
-    { note: 'C4' },
-    { note: 'D4', delay: 60 },
-    { note: 'E4', delay: 120 },
-  ],
-  achievement: [
-    { note: 'C5' },
-    { note: 'E5', delay: 80 },
-    { note: 'G5', delay: 160 },
-    { note: 'C6', delay: 240 },
-  ],
-  neutral: [
-    { note: 'A3' },
-  ],
-  link: [
-    { note: 'C4' },
-    { note: 'G4', delay: 50 },
-  ],
-  unlink: [
-    { note: 'G4' },
-    { note: 'C4', delay: 100 },
-  ],
-  loading: [
-    { note: 'C4' },
-    { note: 'G4', delay: 100 },
-  ],
-  // Notify-specific categories
-  notify_task_completed: [
-    { note: 'C5' },
-    { note: 'E5', delay: 80 },
-    { note: 'G5', delay: 160 },
-  ],
-  notify_task_failed: [
-    { note: 'C2' },
-    { note: 'Eb2', delay: 100 },
-  ],
-  notify_task_blocked: [
-    { note: 'F3' },
-    { note: 'Ab3', delay: 100 },
-  ],
-  notify_task_session_completed: [
-    { note: 'G4' },
-    { note: 'B4', delay: 80 },
-  ],
-  notify_task_session_failed: [
-    { note: 'Eb2' },
-    { note: 'Gb2', delay: 100 },
-  ],
-  notify_session_completed: [
-    { note: 'C5' },
-    { note: 'E5', delay: 80 },
-    { note: 'G5', delay: 160 },
-    { note: 'C6', delay: 240 },
-  ],
-  notify_session_failed: [
-    { note: 'C2' },
-    { note: 'Eb2', delay: 100 },
-    { note: 'Gb2', delay: 200 },
-  ],
-  notify_needs_input: [
-    { note: 'A4' },
-    { note: 'A5', delay: 100 },
-  ],
-  notify_progress: [
-    { note: 'D4' },
-  ],
+// ── Harmonic Voice System ──
+//
+// Each instrument maps to a harmonic voice in the ensemble.
+// When multiple team members are in a session, their voices combine to form a chord.
+//
+// Voice roles:
+//   piano   = bass    — plays root notes and full chord arpeggios (low/mid register)
+//   guitar  = tenor   — plays inner chord tones (mid register)
+//   violin  = alto    — plays upper inner voices (mid-high register)
+//   trumpet = soprano — plays top notes and melody (high register)
+//   drums   = rhythm  — provides rhythmic punctuation
+
+// ── Per-Instrument Note Tables ──
+//
+// For piano: full chromatic range (C4, E4, G4, etc.)
+// For guitar/violin/trumpet: letter-only (A-G), maps to {instrument}_{letter}.wav
+// For drums: percussion stem names (drums_crash, drums_hihat, etc.)
+//
+// Each category has DISTINCT, emotionally appropriate notes per instrument:
+//   success        → C major ascending (joyful)
+//   error          → A minor descending (tense/sad)
+//   critical_error → Repeated low notes (urgent alarm)
+//   warning        → Tritone pair F-B (dissonant, attention-getting)
+//   achievement    → Full major arpeggio with octave jump (triumphant)
+//   task_completed → G major arpeggio (distinct from success)
+//   session_completed → High C major full chord (grand finale)
+
+interface InstrumentNotes {
+  piano:   SoundNote[];
+  guitar:  SoundNote[];
+  violin:  SoundNote[];
+  trumpet: SoundNote[];
+  drums:   SoundNote[];
+}
+
+const CATEGORY_VOICE_NOTES: Record<SoundCategory, InstrumentNotes> = {
+  // ── Positive / Success ──
+  success: {
+    piano:   [{ note: 'C4' }, { note: 'E4', delay: 80 }, { note: 'G4', delay: 160 }],
+    guitar:  [{ note: 'E' }, { note: 'G', delay: 100 }],
+    violin:  [{ note: 'G' }, { note: 'C', delay: 80 }],
+    trumpet: [{ note: 'C' }, { note: 'E', delay: 60 }],
+    drums:   [{ note: 'drums_crash' }],
+  },
+
+  // ── Error / Negative ──
+  error: {
+    piano:   [{ note: 'A2' }, { note: 'C3', delay: 100 }, { note: 'E3', delay: 200 }],
+    guitar:  [{ note: 'A' }, { note: 'C', delay: 120 }],
+    violin:  [{ note: 'E' }, { note: 'A', delay: 100 }],
+    trumpet: [{ note: 'A' }, { note: 'C', delay: 100 }],
+    drums:   [{ note: 'drums_tom' }],
+  },
+
+  // ── Critical Error ── (urgent repeated alarm)
+  critical_error: {
+    piano:   [{ note: 'C2' }, { note: 'C2', delay: 160 }, { note: 'C2', delay: 320 }],
+    guitar:  [{ note: 'A' }, { note: 'A', delay: 160 }],
+    violin:  [{ note: 'E' }, { note: 'E', delay: 160 }],
+    trumpet: [{ note: 'C' }, { note: 'C', delay: 160 }, { note: 'C', delay: 320 }],
+    drums:   [{ note: 'drums_kick' }, { note: 'drums_kick', delay: 160 }, { note: 'drums_kick', delay: 320 }],
+  },
+
+  // ── Warning ── (tritone F-B = maximum tension interval)
+  warning: {
+    piano:   [{ note: 'F3' }, { note: 'B3', delay: 120 }],
+    guitar:  [{ note: 'F' }, { note: 'B', delay: 150 }],
+    violin:  [{ note: 'B' }, { note: 'F', delay: 120 }],
+    trumpet: [{ note: 'F' }],
+    drums:   [{ note: 'drums_snare' }],
+  },
+
+  // ── Attention ── (clear single note, questioning octave)
+  attention: {
+    piano:   [{ note: 'A4' }, { note: 'A5', delay: 150 }],
+    guitar:  [{ note: 'A' }],
+    violin:  [{ note: 'E' }, { note: 'A', delay: 150 }],
+    trumpet: [{ note: 'A' }],
+    drums:   [{ note: 'drums_ride' }],
+  },
+
+  // ── Action ── (quick decisive single note)
+  action: {
+    piano:   [{ note: 'G4' }],
+    guitar:  [{ note: 'G' }],
+    violin:  [{ note: 'B' }],
+    trumpet: [{ note: 'D' }],
+    drums:   [{ note: 'drums_hihat' }],
+  },
+
+  // ── Creation ── (upward two-note, building)
+  creation: {
+    piano:   [{ note: 'C4' }, { note: 'E4', delay: 100 }],
+    guitar:  [{ note: 'C' }, { note: 'E', delay: 120 }],
+    violin:  [{ note: 'E' }, { note: 'G', delay: 100 }],
+    trumpet: [{ note: 'G' }, { note: 'C', delay: 80 }],
+    drums:   [{ note: 'drums_snare' }],
+  },
+
+  // ── Deletion ── (downward two-note, concluding)
+  deletion: {
+    piano:   [{ note: 'E4' }, { note: 'C4', delay: 100 }],
+    guitar:  [{ note: 'G' }, { note: 'E', delay: 120 }],
+    violin:  [{ note: 'C' }, { note: 'A', delay: 100 }],
+    trumpet: [{ note: 'E' }, { note: 'C', delay: 100 }],
+    drums:   [{ note: 'drums_tom' }],
+  },
+
+  // ── Update ── (gentle soft single note)
+  update: {
+    piano:   [{ note: 'D4' }],
+    guitar:  [{ note: 'D' }],
+    violin:  [{ note: 'F' }],
+    trumpet: [{ note: 'A' }],
+    drums:   [{ note: 'drums_hihat' }],
+  },
+
+  // ── Progress ── (ascending three-note run, optimistic)
+  progress: {
+    piano:   [{ note: 'C4' }, { note: 'D4', delay: 70 }, { note: 'E4', delay: 140 }],
+    guitar:  [{ note: 'C' }, { note: 'D', delay: 80 }, { note: 'E', delay: 160 }],
+    violin:  [{ note: 'E' }, { note: 'F', delay: 80 }, { note: 'G', delay: 160 }],
+    trumpet: [{ note: 'G' }, { note: 'A', delay: 80 }, { note: 'B', delay: 160 }],
+    drums:   [{ note: 'drums_hihat' }, { note: 'drums_hihat', delay: 120 }, { note: 'drums_hihat', delay: 240 }],
+  },
+
+  // ── Achievement ── (full major arpeggio + octave, triumphant)
+  achievement: {
+    piano:   [{ note: 'C4' }, { note: 'E4', delay: 80 }, { note: 'G4', delay: 160 }, { note: 'C5', delay: 240 }],
+    guitar:  [{ note: 'E' }, { note: 'G', delay: 100 }, { note: 'C', delay: 200 }],
+    violin:  [{ note: 'G' }, { note: 'C', delay: 100 }, { note: 'E', delay: 200 }],
+    trumpet: [{ note: 'C' }, { note: 'E', delay: 80 }, { note: 'G', delay: 160 }],
+    drums:   [{ note: 'drums_crash' }, { note: 'drums_crash', delay: 350 }],
+  },
+
+  // ── Neutral ── (single resting tone)
+  neutral: {
+    piano:   [{ note: 'A3' }],
+    guitar:  [{ note: 'A' }],
+    violin:  [{ note: 'A' }],
+    trumpet: [{ note: 'A' }],
+    drums:   [{ note: 'drums_ride' }],
+  },
+
+  // ── Link ── (perfect fifth = connection interval)
+  link: {
+    piano:   [{ note: 'C4' }, { note: 'G4', delay: 60 }],
+    guitar:  [{ note: 'C' }, { note: 'G', delay: 80 }],
+    violin:  [{ note: 'G' }, { note: 'D', delay: 80 }],
+    trumpet: [{ note: 'D' }],
+    drums:   [{ note: 'drums_hihat' }],
+  },
+
+  // ── Unlink ── (descending fifth = separation)
+  unlink: {
+    piano:   [{ note: 'G4' }, { note: 'C4', delay: 100 }],
+    guitar:  [{ note: 'G' }, { note: 'C', delay: 120 }],
+    violin:  [{ note: 'D' }, { note: 'G', delay: 100 }],
+    trumpet: [{ note: 'C' }],
+    drums:   [{ note: 'drums_snare' }],
+  },
+
+  // ── Loading ── (rising anticipatory pair)
+  loading: {
+    piano:   [{ note: 'C4' }, { note: 'G4', delay: 100 }],
+    guitar:  [{ note: 'C' }, { note: 'E', delay: 100 }],
+    violin:  [{ note: 'E' }, { note: 'G', delay: 100 }],
+    trumpet: [{ note: 'G' }],
+    drums:   [{ note: 'drums_ride' }],
+  },
+
+  // ── Notify: Task Completed ── (G major — distinct from C major success)
+  notify_task_completed: {
+    piano:   [{ note: 'G4' }, { note: 'B4', delay: 80 }, { note: 'D5', delay: 160 }],
+    guitar:  [{ note: 'G' }, { note: 'B', delay: 100 }],
+    violin:  [{ note: 'B' }, { note: 'D', delay: 100 }],
+    trumpet: [{ note: 'D' }, { note: 'G', delay: 80 }],
+    drums:   [{ note: 'drums_crash' }],
+  },
+
+  // ── Notify: Task Failed ── (A minor two-note, descending)
+  notify_task_failed: {
+    piano:   [{ note: 'A2' }, { note: 'C3', delay: 120 }],
+    guitar:  [{ note: 'A' }, { note: 'C', delay: 150 }],
+    violin:  [{ note: 'E' }, { note: 'A', delay: 120 }],
+    trumpet: [{ note: 'A' }],
+    drums:   [{ note: 'drums_tom' }, { note: 'drums_tom', delay: 200 }],
+  },
+
+  // ── Notify: Task Blocked ── (F minor, tense suspension)
+  notify_task_blocked: {
+    piano:   [{ note: 'F3' }, { note: 'Ab3', delay: 120 }],
+    guitar:  [{ note: 'F' }, { note: 'A', delay: 150 }],
+    violin:  [{ note: 'A' }, { note: 'F', delay: 120 }],
+    trumpet: [{ note: 'F' }],
+    drums:   [{ note: 'drums_snare' }],
+  },
+
+  // ── Notify: Task Session Completed ── (E minor, gentle resolution)
+  notify_task_session_completed: {
+    piano:   [{ note: 'E4' }, { note: 'G4', delay: 80 }, { note: 'B4', delay: 160 }],
+    guitar:  [{ note: 'E' }, { note: 'G', delay: 100 }],
+    violin:  [{ note: 'G' }, { note: 'B', delay: 100 }],
+    trumpet: [{ note: 'B' }, { note: 'E', delay: 80 }],
+    drums:   [{ note: 'drums_crash' }],
+  },
+
+  // ── Notify: Task Session Failed ── (D minor, somber)
+  notify_task_session_failed: {
+    piano:   [{ note: 'D3' }, { note: 'F3', delay: 120 }],
+    guitar:  [{ note: 'D' }, { note: 'F', delay: 150 }],
+    violin:  [{ note: 'A' }, { note: 'D', delay: 120 }],
+    trumpet: [{ note: 'D' }],
+    drums:   [{ note: 'drums_tom' }],
+  },
+
+  // ── Notify: Session Completed ── (Full C major, grand, highest register)
+  notify_session_completed: {
+    piano:   [{ note: 'C5' }, { note: 'E5', delay: 80 }, { note: 'G5', delay: 160 }, { note: 'C6', delay: 240 }],
+    guitar:  [{ note: 'E' }, { note: 'G', delay: 100 }, { note: 'C', delay: 200 }],
+    violin:  [{ note: 'G' }, { note: 'C', delay: 100 }, { note: 'E', delay: 200 }],
+    trumpet: [{ note: 'C' }, { note: 'E', delay: 80 }, { note: 'G', delay: 160 }],
+    drums:   [{ note: 'drums_crash' }, { note: 'drums_crash', delay: 400 }],
+  },
+
+  // ── Notify: Session Failed ── (A minor full descending)
+  notify_session_failed: {
+    piano:   [{ note: 'A2' }, { note: 'C3', delay: 100 }, { note: 'E3', delay: 200 }],
+    guitar:  [{ note: 'A' }, { note: 'C', delay: 120 }, { note: 'E', delay: 240 }],
+    violin:  [{ note: 'E' }, { note: 'A', delay: 120 }, { note: 'C', delay: 240 }],
+    trumpet: [{ note: 'A' }, { note: 'C', delay: 120 }],
+    drums:   [{ note: 'drums_tom' }, { note: 'drums_tom', delay: 200 }, { note: 'drums_kick', delay: 400 }],
+  },
+
+  // ── Notify: Needs Input ── (questioning octave jump A4→A5)
+  notify_needs_input: {
+    piano:   [{ note: 'A4' }, { note: 'A5', delay: 150 }],
+    guitar:  [{ note: 'A' }],
+    violin:  [{ note: 'E' }, { note: 'A', delay: 150 }],
+    trumpet: [{ note: 'A' }],
+    drums:   [{ note: 'drums_ride' }],
+  },
+
+  // ── Notify: Progress ── (two-note rising, D→E)
+  notify_progress: {
+    piano:   [{ note: 'D4' }, { note: 'E4', delay: 80 }],
+    guitar:  [{ note: 'D' }, { note: 'E', delay: 100 }],
+    violin:  [{ note: 'F' }, { note: 'G', delay: 80 }],
+    trumpet: [{ note: 'A' }],
+    drums:   [{ note: 'drums_hihat' }],
+  },
 };
 
 // ── Instrument Configuration Registry ──
@@ -236,9 +388,7 @@ const CATEGORY_NOTES: Record<SoundCategory, SoundNote[]> = {
 interface InstrumentConfig {
   basePath: string;
   format: 'mp3' | 'wav';
-  /** Available note names for this instrument (files on disk) */
   availableNotes: string[];
-  /** For percussion-type instruments, map categories directly to file stems */
   percussionMap?: Record<string, string>;
 }
 
@@ -246,7 +396,6 @@ const INSTRUMENT_CONFIGS: Record<InstrumentType, InstrumentConfig> = {
   piano: {
     basePath: '/music/piano-mp3',
     format: 'mp3',
-    // Full chromatic range — original piano-mp3 files
     availableNotes: [
       'A0','Bb0','B0',
       'C1','Db1','D1','Eb1','E1','F1','Gb1','G1','Ab1','A1','Bb1','B1',
@@ -311,28 +460,8 @@ const INSTRUMENT_CONFIGS: Record<InstrumentType, InstrumentConfig> = {
  * for instruments that only have A-G WAV files.
  */
 function chromaticToSimpleNote(note: string): string {
-  // Strip octave and accidentals: "Eb2" -> "E", "C5" -> "C", "Gb2" -> "G"
   const match = note.match(/^([A-G])/);
   return match ? match[1] : 'C';
-}
-
-/**
- * Drums category note sequences — percussion maps categories to drum sounds
- */
-function getDrumNotesForCategory(category: SoundCategory): SoundNote[] {
-  const percMap = INSTRUMENT_CONFIGS.drums.percussionMap!;
-  const baseStem = percMap[category] || 'drums_kick';
-
-  // Use the same timing pattern as the original category notes
-  const originalNotes = CATEGORY_NOTES[category];
-  if (!originalNotes) return [{ note: baseStem }];
-
-  // Map each note in the sequence to a drum sound, alternating between sounds
-  const drumSounds = Object.values(percMap);
-  return originalNotes.map((sn, i) => ({
-    note: i === 0 ? baseStem : (drumSounds[(drumSounds.indexOf(baseStem) + i) % drumSounds.length] || baseStem),
-    delay: sn.delay,
-  }));
 }
 
 interface SoundManagerConfig {
@@ -375,9 +504,12 @@ class SoundManager {
   private projectConfigs: Map<string, ProjectSoundConfig> = new Map();
   private activeProjectId: string | null = null;
 
+  // Team member instrument registry — maps teamMemberId → InstrumentType
+  private teamMemberInstruments: Map<string, InstrumentType> = new Map();
+
   // Debounce map to prevent sound spam
   private lastPlayedTime: Map<string, number> = new Map();
-  private debounceMs = 100;
+  private debounceMs = 150;
 
   private constructor() {
     this.loadConfig();
@@ -505,13 +637,12 @@ class SoundManager {
       let src: string;
 
       if (instrument === 'piano') {
-        // Piano has full chromatic MP3 files
         src = `${config.basePath}/${note}.${config.format}`;
       } else if (instrument === 'drums') {
-        // Drums: note IS the file stem (e.g. "drums_crash")
         src = `${config.basePath}/${note}.${config.format}`;
       } else {
         // Guitar, violin, trumpet: WAV files named {instrument}_{letter}.wav
+        // Note may already be a simple letter (e.g., 'E') or chromatic (e.g., 'E4')
         const simpleLetter = chromaticToSimpleNote(note);
         src = `${config.basePath}/${instrument}_${simpleLetter}.${config.format}`;
       }
@@ -519,7 +650,6 @@ class SoundManager {
       const audio = new Audio(src);
       audio.volume = this.config.volume;
 
-      // Fallback to piano if instrument file doesn't exist
       audio.addEventListener('error', () => {
         if (instrument !== 'piano') {
           const fallback = new Audio(`/music/piano-mp3/${note}.mp3`);
@@ -582,17 +712,44 @@ class SoundManager {
   }
 
   /**
-   * Get the note sequence for a category, adapted for the given instrument.
+   * Get the note sequence for a category for a given instrument.
+   * Uses the per-instrument voice notes table for rich, distinct sounds.
    */
   private getNotesForCategory(category: SoundCategory, instrument: InstrumentType): SoundNote[] {
-    if (instrument === 'drums') {
-      return getDrumNotesForCategory(category);
+    const voiceChord = CATEGORY_VOICE_NOTES[category];
+    if (voiceChord) {
+      return voiceChord[instrument] || [];
     }
-    return CATEGORY_NOTES[category] || [];
+    return [];
+  }
+
+  // ── Team Member Instrument Registry ──
+
+  /**
+   * Register a team member's instrument so it can be used for session-level sound combination.
+   */
+  public registerTeamMember(id: string, instrument: InstrumentType): void {
+    this.teamMemberInstruments.set(id, instrument);
   }
 
   /**
-   * Play sound for a specific event type
+   * Unregister a team member from the sound system.
+   */
+  public unregisterTeamMember(id: string): void {
+    this.teamMemberInstruments.delete(id);
+  }
+
+  /**
+   * Get the instrument for a team member (defaults to the project/global instrument if not set).
+   */
+  public getTeamMemberInstrument(id: string): InstrumentType | undefined {
+    return this.teamMemberInstruments.get(id);
+  }
+
+  // ── Sound Playback ──
+
+  /**
+   * Play sound for a specific event type (uses project/global instrument).
    */
   public async playEventSound(eventType: EventSoundType): Promise<void> {
     if (!this.config.enabled) {
@@ -621,7 +778,66 @@ class SoundManager {
   }
 
   /**
-   * Play sound for a specific category directly
+   * Play sound for a session event, combining notes from all team members in the session.
+   *
+   * Each team member contributes their instrument's voice for the given event category.
+   * Multiple voices are staggered by 20ms to create a natural ensemble sound:
+   *   - piano (bass) plays first
+   *   - guitar (tenor) 20ms later
+   *   - violin (alto) 40ms later
+   *   - etc.
+   *
+   * If no team members are registered, falls back to the project/global instrument.
+   */
+  public async playSessionEventSound(eventType: EventSoundType, teamMemberIds: string[]): Promise<void> {
+    if (!this.config.enabled) return;
+    if (this.shouldDebounce(eventType)) return;
+
+    const category = EVENT_SOUND_MAP[eventType];
+    if (!category || !this.isCategoryEffectivelyEnabled(category)) return;
+
+    // Collect unique instruments from registered team members
+    const instruments: InstrumentType[] = [];
+    for (const id of teamMemberIds) {
+      const instrument = this.teamMemberInstruments.get(id);
+      if (instrument && !instruments.includes(instrument)) {
+        instruments.push(instrument);
+      }
+    }
+
+    if (instruments.length === 0) {
+      // No registered team members — fall back to project/global instrument
+      const instrument = this.getEffectiveInstrumentForCategory(category);
+      const notes = this.getNotesForCategory(category, instrument);
+      if (notes.length) await this.playNotes(notes, instrument);
+      return;
+    }
+
+    // Play each instrument's voice with a 20ms stagger for natural ensemble effect
+    // Cap at 4 instruments to avoid sound overload
+    const VOICE_STAGGER_MS = 20;
+    const activeInstruments = instruments.slice(0, 4);
+
+    for (let i = 0; i < activeInstruments.length; i++) {
+      const instrument = activeInstruments[i];
+      const notes = this.getNotesForCategory(category, instrument);
+      if (!notes.length) continue;
+
+      if (i === 0) {
+        // First instrument plays immediately (don't await — let others play concurrently)
+        this.playNotes(notes, instrument).catch(() => {});
+      } else {
+        // Stagger subsequent instruments
+        const staggerDelay = i * VOICE_STAGGER_MS;
+        setTimeout(() => {
+          this.playNotes(notes, instrument).catch(() => {});
+        }, staggerDelay);
+      }
+    }
+  }
+
+  /**
+   * Play sound for a specific category directly (e.g., for UI test buttons).
    */
   public async playCategorySound(category: SoundCategory, instrumentOverride?: InstrumentType): Promise<void> {
     if (!this.config.enabled) return;
@@ -641,7 +857,6 @@ class SoundManager {
   public setProjectConfig(projectId: string, config: ProjectSoundConfig): void {
     this.projectConfigs.set(projectId, config);
     this.saveProjectConfigs();
-    // Clear audio cache if this is the active project (instrument may have changed)
     if (this.activeProjectId === projectId) {
       this.audioContext.clear();
     }
@@ -659,7 +874,6 @@ class SoundManager {
   public setActiveProject(projectId: string | null): void {
     if (this.activeProjectId === projectId) return;
     this.activeProjectId = projectId;
-    // Clear audio cache to force reload with potentially different instrument
     this.audioContext.clear();
   }
 
@@ -743,27 +957,25 @@ class SoundManager {
 
   public preloadSounds(): void {
     const { instrument } = this.getEffectiveConfig();
-    const commonNotes = new Set<string>();
 
     if (instrument === 'drums') {
       const percMap = INSTRUMENT_CONFIGS.drums.percussionMap!;
-      Object.values(percMap).forEach(stem => commonNotes.add(stem));
+      Object.values(percMap).forEach(stem => this.getAudioElement(stem, 'drums'));
     } else {
-      Object.values(CATEGORY_NOTES).forEach(notes => {
-        notes.forEach(({ note }) => commonNotes.add(note));
+      // Preload only the notes used by this instrument across all categories
+      const noteSet = new Set<string>();
+      Object.values(CATEGORY_VOICE_NOTES).forEach(voiceChord => {
+        (voiceChord[instrument] || []).forEach(({ note }) => noteSet.add(note));
       });
+      noteSet.forEach(note => this.getAudioElement(note, instrument));
     }
-
-    commonNotes.forEach(note => {
-      this.getAudioElement(note, instrument);
-    });
   }
 }
 
 // Export singleton instance
 export const soundManager = SoundManager.getInstance();
 
-// Helper function for easy imports
+// Helper functions for easy imports
 export function playEventSound(eventType: EventSoundType): void {
   soundManager.playEventSound(eventType).catch(() => {});
 }
@@ -771,3 +983,30 @@ export function playEventSound(eventType: EventSoundType): void {
 export function playCategorySound(category: SoundCategory): void {
   soundManager.playCategorySound(category).catch(() => {});
 }
+
+/**
+ * Get the note names for a category + instrument, formatted for display.
+ *
+ * Examples:
+ *   piano,  notify_task_completed  → "G4 · B4 · D5"
+ *   guitar, success                → "E · G"
+ *   drums,  error                  → "tom"
+ */
+export function getNotesForDisplay(category: SoundCategory, instrument: InstrumentType): string {
+  const voiceChord = CATEGORY_VOICE_NOTES[category];
+  if (!voiceChord) return '—';
+  const notes = voiceChord[instrument];
+  if (!notes || notes.length === 0) return '—';
+
+  if (instrument === 'drums') {
+    // Show just the first drum hit name (strip "drums_" prefix)
+    return notes[0].note.replace('drums_', '');
+  }
+  // Join note names with dots
+  return notes.map(n => n.note).join(' · ');
+}
+
+/**
+ * Export the full note table so UI components can display all sounds.
+ */
+export { CATEGORY_VOICE_NOTES };

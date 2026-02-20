@@ -12,11 +12,14 @@ import type {
   TeamMember,
   CreateTeamMemberPayload,
   UpdateTeamMemberPayload,
+  Team,
+  CreateTeamPayload,
+  UpdateTeamPayload,
   WorkflowTemplate,
 } from '../app/types/maestro';
 import { useSessionStore } from './useSessionStore';
 import { WS_URL } from '../utils/serverConfig';
-import { playEventSound } from '../services/soundManager';
+import { playEventSound, soundManager } from '../services/soundManager';
 
 // Global WebSocket singleton
 let globalWs: WebSocket | null = null;
@@ -37,6 +40,7 @@ interface MaestroState {
   tasks: Map<string, MaestroTask>;
   sessions: Map<string, MaestroSession>;
   teamMembers: Map<string, TeamMember>;
+  teams: Map<string, Team>;
   activeModals: AgentModal[];
   loading: Set<string>;
   errors: Map<string, string>;
@@ -84,6 +88,13 @@ interface MaestroState {
   resetDefaultTeamMember: (id: string, projectId: string) => Promise<void>;
   setLastUsedTeamMember: (taskId: string, teamMemberId: string) => void;
   fetchWorkflowTemplates: () => Promise<void>;
+  // Team actions
+  fetchTeams: (projectId: string) => Promise<void>;
+  createTeam: (data: CreateTeamPayload) => Promise<Team>;
+  updateTeam: (id: string, projectId: string, updates: UpdateTeamPayload) => Promise<Team>;
+  deleteTeam: (id: string, projectId: string) => Promise<void>;
+  archiveTeam: (id: string, projectId: string) => Promise<void>;
+  unarchiveTeam: (id: string, projectId: string) => Promise<void>;
 }
 
 export const useMaestroStore = create<MaestroState>((set, get) => {
@@ -163,22 +174,6 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         case 'session:updated': {
           const updatedSession = normalizeSession(message.data);
           set((prev) => ({ sessions: new Map(prev.sessions).set(updatedSession.id, updatedSession) }));
-
-          // Trigger 2: If needsInput just became active and user is viewing this session, auto-clear
-          if (updatedSession.needsInput?.active) {
-            const activeLocalSession = useSessionStore.getState().sessions.find(
-              (s) => s.maestroSessionId === updatedSession.id
-            );
-            const activeId = useSessionStore.getState().activeId;
-            const { activeProjectIdRef } = get();
-            if (
-              activeLocalSession &&
-              activeLocalSession.id === activeId &&
-              activeProjectIdRef === updatedSession.projectId
-            ) {
-              get().clearNeedsInput(updatedSession.id);
-            }
-          }
           // Play sound for event (only if not a high-frequency update)
           if (shouldLogDetails) {
             playEventSound(message.event as any);
@@ -249,7 +244,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           // Play sound for event
           playEventSound(message.event as any);
           break;
-        // Notification events — play dedicated sounds
+        // Notification events — play dedicated sounds using team member ensemble if available
         case 'notify:task_completed':
         case 'notify:task_failed':
         case 'notify:task_blocked':
@@ -258,9 +253,25 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         case 'notify:session_completed':
         case 'notify:session_failed':
         case 'notify:needs_input':
-        case 'notify:progress':
-          playEventSound(message.event as any);
+        case 'notify:progress': {
+          // Try to get team member IDs from the associated session for ensemble sound
+          const sessionId = message.data?.sessionId;
+          let teamMemberIds: string[] = [];
+          if (sessionId) {
+            const session = get().sessions.get(sessionId);
+            if (session?.teamMemberIds?.length) {
+              teamMemberIds = session.teamMemberIds;
+            } else if (session?.teamMemberId) {
+              teamMemberIds = [session.teamMemberId];
+            }
+          }
+          if (teamMemberIds.length > 0) {
+            soundManager.playSessionEventSound(message.event as any, teamMemberIds).catch(() => {});
+          } else {
+            playEventSound(message.event as any);
+          }
           break;
+        }
         case 'session:modal': {
           const modalData = message.data as AgentModal;
           get().showAgentModal(modalData);
@@ -271,6 +282,10 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         case 'team_member:archived': {
           const teamMember = message.data;
           set((prev) => ({ teamMembers: new Map(prev.teamMembers).set(teamMember.id, teamMember) }));
+          // Sync instrument with sound manager
+          if (teamMember.soundInstrument) {
+            soundManager.registerTeamMember(teamMember.id, teamMember.soundInstrument);
+          }
           // Play sound for event
           playEventSound(message.event as any);
           break;
@@ -281,7 +296,26 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
             teamMembers.delete(message.data.id);
             return { teamMembers };
           });
+          // Unregister from sound manager
+          soundManager.unregisterTeamMember(message.data.id);
           // Play sound for event
+          playEventSound(message.event as any);
+          break;
+        }
+        case 'team:created':
+        case 'team:updated':
+        case 'team:archived': {
+          const team = message.data;
+          set((prev) => ({ teams: new Map(prev.teams).set(team.id, team) }));
+          playEventSound(message.event as any);
+          break;
+        }
+        case 'team:deleted': {
+          set((prev) => {
+            const teams = new Map(prev.teams);
+            teams.delete(message.data.id);
+            return { teams };
+          });
           playEventSound(message.event as any);
           break;
         }
@@ -310,6 +344,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           get().fetchTasks(activeProjectIdRef);
           get().fetchSessions();
           get().fetchTeamMembers(activeProjectIdRef);
+          get().fetchTeams(activeProjectIdRef);
         }
       };
 
@@ -356,6 +391,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     tasks: new Map(),
     sessions: new Map(),
     teamMembers: new Map(),
+    teams: new Map(),
     activeModals: [],
     loading: new Set(),
     errors: new Map(),
@@ -513,7 +549,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       }));
     },
 
-    clearCache: () => set({ tasks: new Map(), sessions: new Map(), teamMembers: new Map(), activeModals: [], loading: new Set(), errors: new Map(), taskOrdering: new Map(), sessionOrdering: new Map(), workflowTemplates: [] }),
+    clearCache: () => set({ tasks: new Map(), sessions: new Map(), teamMembers: new Map(), teams: new Map(), activeModals: [], loading: new Set(), errors: new Map(), taskOrdering: new Map(), sessionOrdering: new Map(), workflowTemplates: [] }),
 
     hardRefresh: async (projectId) => {
       get().clearCache();
@@ -522,6 +558,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           get().fetchTasks(projectId),
           get().fetchSessions(),
           get().fetchTeamMembers(projectId),
+          get().fetchTeams(projectId),
         ]);
       }
     },
@@ -650,6 +687,61 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         }
         return { lastUsedTeamMember };
       });
+    },
+
+    // ==================== TEAMS ====================
+
+    fetchTeams: async (projectId) => {
+      const key = `teams:${projectId}`;
+      setLoading(key, true);
+      setError(key, null);
+      try {
+        const teams = await maestroClient.getTeams(projectId);
+        set((prev) => {
+          const teamMap = new Map(prev.teams);
+          // Remove old entries for this project, then add fresh data
+          for (const [id, t] of teamMap) {
+            if (t.projectId === projectId) {
+              teamMap.delete(id);
+            }
+          }
+          teams.forEach((t) => teamMap.set(t.id, t));
+          return { teams: teamMap };
+        });
+      } catch (err) {
+        setError(key, err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(key, false);
+      }
+    },
+
+    createTeam: async (data) => {
+      const team = await maestroClient.createTeam(data);
+      set((prev) => ({ teams: new Map(prev.teams).set(team.id, team) }));
+      return team;
+    },
+
+    updateTeam: async (id, projectId, updates) => {
+      const team = await maestroClient.updateTeam(id, projectId, updates);
+      set((prev) => ({ teams: new Map(prev.teams).set(team.id, team) }));
+      return team;
+    },
+
+    deleteTeam: async (id, projectId) => {
+      await maestroClient.deleteTeam(id, projectId);
+      set((prev) => {
+        const teams = new Map(prev.teams);
+        teams.delete(id);
+        return { teams };
+      });
+    },
+
+    archiveTeam: async (id, projectId) => {
+      await maestroClient.archiveTeam(id, projectId);
+    },
+
+    unarchiveTeam: async (id, projectId) => {
+      await maestroClient.unarchiveTeam(id, projectId);
     },
 
     fetchWorkflowTemplates: async () => {

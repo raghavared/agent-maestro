@@ -28,7 +28,7 @@
   background: transparent;
   border: none;
   color: rgba(var(--theme-primary-rgb), 0.5);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   cursor: pointer;
   transition: all 0.2s;
@@ -82,7 +82,7 @@
   background: rgba(var(--theme-primary-rgb), 0.03);
   border: 1px solid var(--theme-border);
   color: var(--theme-primary);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   outline: none;
   transition: border-color 0.2s;
@@ -148,7 +148,7 @@
   padding: 40px 16px;
   color: rgba(var(--theme-primary-rgb), 0.5);
   font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .skillsPanelSpinner {
@@ -217,7 +217,7 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--theme-primary);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .skillsPanelSectionCount {
@@ -269,7 +269,7 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--theme-primary);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .skillsPanelCardBadges {
@@ -283,7 +283,7 @@
   padding: 1px 5px;
   border: 1px solid var(--theme-border);
   color: rgba(var(--theme-primary-rgb), 0.5);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .skillsPanelBadge[data-type="source"] {
@@ -331,7 +331,7 @@
   color: rgba(var(--theme-primary-rgb), 0.4);
   flex-shrink: 0;
   min-width: 70px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .skillsPanelTags {
@@ -373,7 +373,7 @@
   max-height: 200px;
   overflow-y: auto;
   margin: 0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   line-height: 1.4;
 }
 
@@ -394,7 +394,7 @@
 .skillsPanelMarketplaceSubtitle {
   font-size: 10px;
   color: rgba(var(--theme-primary-rgb), 0.4);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .skillsPanelMarketplaceInfo {
@@ -427,7 +427,7 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--theme-primary);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .skillsPanelInstallRow {
@@ -442,7 +442,7 @@
   background: rgba(0, 0, 0, 0.3);
   padding: 4px 8px;
   border: 1px solid var(--theme-border);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   flex-shrink: 0;
 }
 
@@ -452,7 +452,7 @@
   background: rgba(var(--theme-primary-rgb), 0.03);
   border: 1px solid var(--theme-border);
   color: var(--theme-primary);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   outline: none;
 }
@@ -503,7 +503,7 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--theme-primary);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .skillsPanelPopularDesc {
@@ -515,7 +515,7 @@
 .skillsPanelPopularRepo {
   font-size: 9px;
   color: rgba(var(--theme-primary-rgb), 0.3);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 /* Marketplace footer */

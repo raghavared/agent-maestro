@@ -1,4 +1,4 @@
-import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember } from '../../types';
+import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember, Team } from '../../types';
 
 /**
  * Type-safe domain event definitions.
@@ -194,6 +194,27 @@ export interface TeamMemberArchivedEvent {
   data: TeamMember;
 }
 
+// Team Events
+export interface TeamCreatedEvent {
+  type: 'team:created';
+  data: Team;
+}
+
+export interface TeamUpdatedEvent {
+  type: 'team:updated';
+  data: Team;
+}
+
+export interface TeamDeletedEvent {
+  type: 'team:deleted';
+  data: { id: string };
+}
+
+export interface TeamArchivedEvent {
+  type: 'team:archived';
+  data: Team;
+}
+
 /**
  * Union type of all domain events.
  * Use this for type-safe event handling.
@@ -230,7 +251,11 @@ export type DomainEvent =
   | TeamMemberCreatedEvent
   | TeamMemberUpdatedEvent
   | TeamMemberDeletedEvent
-  | TeamMemberArchivedEvent;
+  | TeamMemberArchivedEvent
+  | TeamCreatedEvent
+  | TeamUpdatedEvent
+  | TeamDeletedEvent
+  | TeamArchivedEvent;
 
 /**
  * Type-safe event map for event bus.
@@ -293,6 +318,11 @@ export interface TypedEventMap {
   'team_member:updated': TeamMember;
   'team_member:deleted': { id: string };
   'team_member:archived': TeamMember;
+  // Team events
+  'team:created': Team;
+  'team:updated': Team;
+  'team:deleted': { id: string };
+  'team:archived': Team;
 }
 
 /**

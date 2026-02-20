@@ -26,6 +26,7 @@ import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useAppLayoutResizing } from "./hooks/useAppLayoutResizing";
 import { useWorkspaceResizeEffect } from "./hooks/useWorkspaceResizeEffect";
 import { useProjectSoundSync } from "./hooks/useProjectSoundSync";
+import { useTeamMemberSoundSync } from "./hooks/useTeamMemberSoundSync";
 
 // Components
 import { CommandPalette } from "./CommandPalette";
@@ -129,6 +130,8 @@ export default function App() {
 
   // ---------- project sound sync ----------
   useProjectSoundSync();
+  // ---------- team member instrument sync ----------
+  useTeamMemberSoundSync();
 
   // ---------- responsive mode ----------
   const responsiveMode = useUIStore((s) => s.responsiveMode);
