@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { MaestroTask, TeamMember, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType, ClaudeModel, CodexModel } from "../../app/types/maestro";
+import { MaestroTask, TeamMember, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType, ClaudeModel, CodexModel, MemberLaunchOverride } from "../../app/types/maestro";
 import { WhoamiPreview } from "./WhoamiPreview";
+import { TeamLaunchConfigModal } from "./TeamLaunchConfigModal";
 
 type ExecutionMode = 'none' | 'execute' | 'orchestrate';
 
@@ -33,14 +34,15 @@ type ExecutionBarProps = {
     isActive: boolean;
     onActivate: () => void;
     onCancel: () => void;
-    onExecute: (teamMemberId?: string, override?: LaunchOverride) => void;
-    onOrchestrate: (coordinatorId?: string, workerIds?: string[], override?: LaunchOverride) => void;
+    onExecute: (teamMemberId?: string, override?: LaunchOverride, memberOverrides?: Record<string, MemberLaunchOverride>) => void;
+    onOrchestrate: (coordinatorId?: string, workerIds?: string[], override?: LaunchOverride, memberOverrides?: Record<string, MemberLaunchOverride>) => void;
     selectedCount: number;
     activeMode?: ExecutionMode;
     onActivateOrchestrate: () => void;
     selectedTasks?: MaestroTask[];
     projectId?: string;
     teamMembers?: TeamMember[];
+    onSaveAsTeam?: (teamName: string, coordinatorId: string | null, workerIds: string[], overrides: Record<string, MemberLaunchOverride>) => void;
 };
 
 // Hook to compute portal menu position from a trigger button ref
@@ -249,6 +251,7 @@ export function ExecutionBar({
     selectedTasks = [],
     projectId = '',
     teamMembers = [],
+    onSaveAsTeam,
 }: ExecutionBarProps) {
     // Execute mode: single team member selection
     const [selectedExecuteMemberId, setSelectedExecuteMemberId] = useState<string | null>(null);
@@ -263,6 +266,10 @@ export function ExecutionBar({
     const [expandedTool, setExpandedTool] = useState<AgentTool | null>(null);
     const launchBtnRef = useRef<HTMLButtonElement>(null);
     const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; right: number; openDirection: 'down' | 'up' } | null>(null);
+
+    // Launch config modal state
+    const [showConfigModal, setShowConfigModal] = useState(false);
+    const [pendingMemberOverrides, setPendingMemberOverrides] = useState<Record<string, MemberLaunchOverride> | null>(null);
 
     const computeLaunchPos = useCallback(() => {
         const btn = launchBtnRef.current;
@@ -400,6 +407,24 @@ export function ExecutionBar({
     if (activeMode === 'orchestrate') {
         const totalWorkerCount = selectedWorkerIds.size;
 
+        const handleConfigLaunch = (overrides: Record<string, MemberLaunchOverride>) => {
+            setPendingMemberOverrides(Object.keys(overrides).length > 0 ? overrides : null);
+            onOrchestrate(
+                selectedCoordinatorId || undefined,
+                selectedWorkerIds.size > 0 ? Array.from(selectedWorkerIds) : undefined,
+                launchOverride || undefined,
+                Object.keys(overrides).length > 0 ? overrides : undefined,
+            );
+        };
+
+        const handleConfigSaveAsTeam = (teamName: string, overrides: Record<string, MemberLaunchOverride>) => {
+            if (onSaveAsTeam) {
+                onSaveAsTeam(teamName, selectedCoordinatorId, Array.from(selectedWorkerIds), overrides);
+            }
+            // Also launch after saving
+            handleConfigLaunch(overrides);
+        };
+
         return (
             <>
                 <div className="executionBar executionBar--active executionBar--orchestrate executionBar--column">
@@ -436,34 +461,28 @@ export function ExecutionBar({
                         )}
                         <div className="executionBarActions">
                             <button className="terminalCmd" onClick={onCancel}>cancel</button>
-                            <div className="executionBarSplitBtn">
-                                <button
-                                    className="terminalCmd terminalCmdOrchestrate executionBarSplitBtn__main"
-                                    onClick={() => onOrchestrate(
-                                        selectedCoordinatorId || undefined,
-                                        selectedWorkerIds.size > 0 ? Array.from(selectedWorkerIds) : undefined,
-                                        launchOverride || undefined,
-                                    )}
-                                    disabled={selectedCount === 0}
-                                >
-                                    <span className="terminalPrompt">$</span> orchestrate ({selectedCount} task{selectedCount !== 1 ? "s" : ""}{totalWorkerCount > 0 ? `, ${totalWorkerCount} worker${totalWorkerCount !== 1 ? 's' : ''}` : ''})
-                                </button>
-                                <button
-                                    ref={launchBtnRef}
-                                    className={`terminalCmd terminalCmdOrchestrate executionBarSplitBtn__caret ${showLaunchDropdown ? 'executionBarSplitBtn__caret--open' : ''}`}
-                                    onClick={() => {
-                                        setShowLaunchDropdown(!showLaunchDropdown);
-                                        setExpandedTool(null);
-                                    }}
-                                    title="Launch options"
-                                >
-                                    ▾
-                                </button>
-                            </div>
+                            <button
+                                className="executionBarConfigBtn executionBarConfigBtn--orchestrate"
+                                onClick={() => setShowConfigModal(true)}
+                                title="Configure launch options per team member"
+                            >
+                                {'\u2699'} configure
+                            </button>
+                            <button
+                                className="terminalCmd terminalCmdOrchestrate"
+                                onClick={() => onOrchestrate(
+                                    selectedCoordinatorId || undefined,
+                                    selectedWorkerIds.size > 0 ? Array.from(selectedWorkerIds) : undefined,
+                                    launchOverride || undefined,
+                                    pendingMemberOverrides || undefined,
+                                )}
+                                disabled={selectedCount === 0}
+                            >
+                                <span className="terminalPrompt">$</span> orchestrate ({selectedCount} task{selectedCount !== 1 ? "s" : ""}{totalWorkerCount > 0 ? `, ${totalWorkerCount} worker${totalWorkerCount !== 1 ? 's' : ''}` : ''})
+                            </button>
                         </div>
                     </div>
                 </div>
-                {launchDropdownPortal}
                 {selectedTasks.length > 0 && projectId && (
                     <WhoamiPreview
                         mode="orchestrate"
@@ -472,11 +491,37 @@ export function ExecutionBar({
                         projectId={projectId}
                     />
                 )}
+                <TeamLaunchConfigModal
+                    isOpen={showConfigModal}
+                    onClose={() => setShowConfigModal(false)}
+                    coordinatorId={selectedCoordinatorId}
+                    workerIds={Array.from(selectedWorkerIds)}
+                    teamMembers={teamMembers}
+                    projectId={projectId}
+                    onLaunch={handleConfigLaunch}
+                    onSaveAsTeam={handleConfigSaveAsTeam}
+                />
             </>
         );
     }
 
     // Default: execute mode
+    const handleExecuteConfigLaunch = (overrides: Record<string, MemberLaunchOverride>) => {
+        setPendingMemberOverrides(Object.keys(overrides).length > 0 ? overrides : null);
+        onExecute(
+            selectedExecuteMemberId || undefined,
+            launchOverride || undefined,
+            Object.keys(overrides).length > 0 ? overrides : undefined,
+        );
+    };
+
+    const handleExecuteConfigSaveAsTeam = (teamName: string, overrides: Record<string, MemberLaunchOverride>) => {
+        if (onSaveAsTeam && selectedExecuteMemberId) {
+            onSaveAsTeam(teamName, selectedExecuteMemberId, [], overrides);
+        }
+        handleExecuteConfigLaunch(overrides);
+    };
+
     return (
         <>
             <div className="executionBar executionBar--active executionBar--column">
@@ -496,30 +541,27 @@ export function ExecutionBar({
                     )}
                     <div className="executionBarActions">
                         <button className="terminalCmd" onClick={onCancel}>cancel</button>
-                        <div className="executionBarSplitBtn">
-                            <button
-                                className="terminalCmd terminalCmdPrimary executionBarSplitBtn__main"
-                                onClick={() => onExecute(selectedExecuteMemberId || undefined, launchOverride || undefined)}
-                                disabled={selectedCount === 0}
-                            >
-                                <span className="terminalPrompt">$</span> execute ({selectedCount} task{selectedCount !== 1 ? "s" : ""})
-                            </button>
-                            <button
-                                ref={launchBtnRef}
-                                className={`terminalCmd terminalCmdPrimary executionBarSplitBtn__caret ${showLaunchDropdown ? 'executionBarSplitBtn__caret--open' : ''}`}
-                                onClick={() => {
-                                    setShowLaunchDropdown(!showLaunchDropdown);
-                                    setExpandedTool(null);
-                                }}
-                                title="Launch options"
-                            >
-                                ▾
-                            </button>
-                        </div>
+                        <button
+                            className="executionBarConfigBtn"
+                            onClick={() => setShowConfigModal(true)}
+                            title="Configure launch options"
+                        >
+                            {'\u2699'} configure
+                        </button>
+                        <button
+                            className="terminalCmd terminalCmdPrimary"
+                            onClick={() => onExecute(
+                                selectedExecuteMemberId || undefined,
+                                launchOverride || undefined,
+                                pendingMemberOverrides || undefined,
+                            )}
+                            disabled={selectedCount === 0}
+                        >
+                            <span className="terminalPrompt">$</span> execute ({selectedCount} task{selectedCount !== 1 ? "s" : ""})
+                        </button>
                     </div>
                 </div>
             </div>
-            {launchDropdownPortal}
             {selectedTasks.length > 0 && projectId && (
                 <WhoamiPreview
                     mode="execute"
@@ -528,6 +570,16 @@ export function ExecutionBar({
                     projectId={projectId}
                 />
             )}
+            <TeamLaunchConfigModal
+                isOpen={showConfigModal}
+                onClose={() => setShowConfigModal(false)}
+                coordinatorId={selectedExecuteMemberId}
+                workerIds={[]}
+                teamMembers={teamMembers}
+                projectId={projectId}
+                onLaunch={handleExecuteConfigLaunch}
+                onSaveAsTeam={handleExecuteConfigSaveAsTeam}
+            />
         </>
     );
 }

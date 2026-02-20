@@ -41,6 +41,7 @@ import { ConfirmActionModal } from "./components/modals/ConfirmActionModal";
 import { StartupSettingsOverlay } from "./components/StartupSettingsOverlay";
 import { Board } from "./components/maestro/MultiProjectBoard";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { PromptSendAnimationLayer } from "./components/PromptSendAnimation";
 import { createMaestroSession } from "./services/maestroService";
 import { STORAGE_SETUP_COMPLETE_KEY } from "./app/constants/defaults";
 
@@ -406,6 +407,9 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* -------- Prompt Send Animation Overlay -------- */}
+      <PromptSendAnimationLayer />
+
       {/* -------- Project Tab Bar -------- */}
       {!isEmpty && (
         <ProjectTabBar

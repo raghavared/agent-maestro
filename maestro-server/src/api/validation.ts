@@ -161,6 +161,7 @@ export const listSessionsQuerySchema = z.object({
   status: sessionStatusSchema.optional(),
   active: z.enum(['true', 'false']).optional(),
   parentSessionId: safeId.optional(),
+  teamSessionId: safeId.optional(),
 }).strict();
 
 // --- Spawn session schema ---

@@ -224,6 +224,7 @@ const UnifiedSessionsView = React.memo(function UnifiedSessionsView({
                         <div
                             key={session.id}
                             className={`mpbUnifiedSessionWrapper ${isDragOver ? "mpbUnifiedSessionWrapper--dragOver" : ""} ${dragSessionId === session.id ? "mpbUnifiedSessionWrapper--dragging" : ""}`}
+                            {...(session.maestroSessionId ? { 'data-maestro-session-id': session.maestroSessionId } : {})}
                             draggable
                             onDragStart={(e) => handleDragStart(e, session.id)}
                             onDragOver={(e) => handleDragOver(e, session.id)}
@@ -390,6 +391,7 @@ const ResizableSessionColumn = React.memo(function ResizableSessionColumn({
         <div
             className={`sessionBoardColumn sessionBoardColumn--terminal ${isWorking ? "sessionBoardColumn--working" : ""}`}
             style={{ minWidth: `${MIN_COL_WIDTH}px`, flex: '1 1 0' }}
+            {...(session.maestroSessionId ? { 'data-maestro-session-id': session.maestroSessionId } : {})}
         >
             {/* Header — click to collapse */}
             <div

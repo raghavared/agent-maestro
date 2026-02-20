@@ -1,7 +1,7 @@
 import { maestroClient } from "../utils/MaestroClient";
 
 import { TerminalSession } from "../app/types/session";
-import { MaestroProject, MaestroTask, AgentMode, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType } from "../app/types/maestro";
+import { MaestroProject, MaestroTask, AgentMode, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType, MemberLaunchOverride } from "../app/types/maestro";
 
 export async function createMaestroSession(input: {
     task?: MaestroTask;              // Single task (backward compatible)
@@ -14,8 +14,9 @@ export async function createMaestroSession(input: {
     teamMemberId?: string;           // Single team member assigned to this task
     agentTool?: AgentTool;           // Override agent tool for this run
     model?: ModelType;               // Override model for this run
+    memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member launch overrides
   }): Promise<TerminalSession> {
-    const { task, tasks, skillIds, project, mode, teamMemberIds, teamMemberId, agentTool, model } = input;
+    const { task, tasks, skillIds, project, mode, teamMemberIds, teamMemberId, agentTool, model, memberOverrides } = input;
 
     // Normalize to array (support both single and multi-task)
     const taskList = tasks || (task ? [task] : []);
@@ -55,6 +56,7 @@ export async function createMaestroSession(input: {
         ...(resolvedTeamMemberId ? { teamMemberId: resolvedTeamMemberId } : {}),
         ...(agentTool ? { agentTool } : {}),
         ...(model ? { model } : {}),
+        ...(memberOverrides && Object.keys(memberOverrides).length > 0 ? { memberOverrides } : {}),
       });
 
       // Return a placeholder session - the actual UI session will be created

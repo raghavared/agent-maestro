@@ -130,6 +130,8 @@ export class FileSystemSessionRepository implements ISessionRepository {
       docs: [],
       metadata: input.metadata,
       parentSessionId: input.parentSessionId || null,
+      teamSessionId: input.teamSessionId || null,
+      teamId: input.teamId || null,
     };
 
     this.sessions.set(session.id, session);
@@ -176,9 +178,17 @@ export class FileSystemSessionRepository implements ISessionRepository {
       if (filter.parentSessionId) {
         sessions = sessions.filter(s => (s as any).parentSessionId === filter.parentSessionId);
       }
+      if (filter.teamSessionId) {
+        sessions = sessions.filter(s => s.teamSessionId === filter.teamSessionId);
+      }
     }
 
     return sessions;
+  }
+
+  async findByTeamSessionId(teamSessionId: string): Promise<Session[]> {
+    await this.ensureInitialized();
+    return Array.from(this.sessions.values()).filter(s => s.teamSessionId === teamSessionId);
   }
 
   async update(id: string, updates: UpdateSessionPayload): Promise<Session> {
@@ -203,6 +213,12 @@ export class FileSystemSessionRepository implements ISessionRepository {
     if (updates.timeline !== undefined) session.timeline = [...session.timeline, ...updates.timeline];
     if (updates.needsInput !== undefined) {
       session.needsInput = updates.needsInput;
+    }
+    if (updates.teamSessionId !== undefined) {
+      session.teamSessionId = updates.teamSessionId;
+    }
+    if (updates.teamId !== undefined) {
+      session.teamId = updates.teamId;
     }
 
     session.lastActivity = Date.now();

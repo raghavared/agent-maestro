@@ -348,6 +348,11 @@ export interface MaestroSession {
   // Multiple team member identities
   teamMemberIds?: string[];
   teamMemberSnapshots?: TeamMemberSnapshot[];
+
+  // Team session grouping
+  teamSessionId?: string;   // Shared ID linking coordinator + workers (= coordinator's session ID)
+  teamId?: string;           // Optional saved Team reference
+  parentSessionId?: string;
 }
 
 // Payloads
@@ -436,6 +441,18 @@ export interface ClaudeCodeSkill {
   skillPath?: string;
 }
 
+// Per-member launch override for team launch configuration
+export interface MemberLaunchOverride {
+  agentTool?: AgentTool;
+  model?: ModelType;
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
+  skillIds?: string[];
+  commandPermissions?: {
+    groups?: Record<string, boolean>;
+    commands?: Record<string, boolean>;
+  };
+}
+
 export interface SpawnSessionPayload {
   projectId: string;
   taskIds: string[];
@@ -450,6 +467,7 @@ export interface SpawnSessionPayload {
   delegateTeamMemberIds?: string[];   // Team member IDs for coordination delegation pool
   agentTool?: AgentTool;              // Override agent tool for this run
   model?: ModelType;                  // Override model for this run
+  memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member overrides keyed by teamMemberId
 }
 
 export interface SpawnSessionResponse {

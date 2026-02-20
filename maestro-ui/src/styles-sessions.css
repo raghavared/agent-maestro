@@ -260,6 +260,189 @@
     flex-direction: column;
 }
 
+/* ==================== TEAM SESSION GROUP (V2) ==================== */
+
+.tsGroup {
+    border-left: 3px solid var(--team-color, rgba(139, 92, 246, 0.4));
+    border-radius: 4px;
+    margin-bottom: 4px;
+    background: var(--team-color-dim, transparent);
+    padding: 2px 0;
+}
+
+.tsGroupHeader {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 9px;
+    padding: 3px 8px;
+    color: var(--team-color, var(--muted));
+    cursor: pointer;
+    user-select: none;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.85;
+    transition: opacity 0.15s ease;
+}
+
+.tsGroupHeader:hover {
+    opacity: 1;
+}
+
+.tsGroupHeader__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--team-color, rgba(139, 92, 246, 0.6));
+    flex-shrink: 0;
+}
+
+.tsGroupHeader__arrow {
+    font-size: 8px;
+    transition: transform 0.15s ease;
+}
+
+.tsGroupHeader__arrow--collapsed {
+    transform: rotate(-90deg);
+}
+
+.tsGroupHeader__label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tsGroupHeader__statusBadge {
+    font-size: 8px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+}
+
+.tsGroupHeader__statusBadge--active {
+    background: rgba(34, 211, 238, 0.15);
+    color: #22d3ee;
+}
+
+.tsGroupHeader__statusBadge--idle {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--muted);
+}
+
+.tsGroupHeader__statusBadge--done {
+    background: rgba(52, 211, 153, 0.15);
+    color: #34d399;
+}
+
+.tsGroupHeader__workerCount {
+    font-size: 8px;
+    color: var(--muted);
+    opacity: 0.7;
+    flex-shrink: 0;
+}
+
+/* Member chips strip */
+.tsGroupMemberChips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    padding: 2px 10px 3px;
+    overflow-x: auto;
+}
+
+.tsGroupMemberChips__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--muted);
+    cursor: default;
+    white-space: nowrap;
+}
+
+.tsGroupMemberChips__avatar {
+    font-size: 10px;
+    line-height: 1;
+}
+
+.tsGroupMemberChips__name {
+    max-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tsGroupMemberChips__statusDot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.tsGroupMemberChips__statusDot--working,
+.tsGroupMemberChips__statusDot--spawning {
+    background: #22d3ee;
+    box-shadow: 0 0 4px rgba(34, 211, 238, 0.5);
+}
+
+.tsGroupMemberChips__statusDot--completed {
+    background: #34d399;
+}
+
+.tsGroupMemberChips__statusDot--failed,
+.tsGroupMemberChips__statusDot--stopped {
+    background: #f87171;
+}
+
+.tsGroupMemberChips__statusDot--idle {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Progress line */
+.tsGroupProgress {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 10px 4px;
+    font-size: 9px;
+    color: var(--muted);
+}
+
+.tsGroupProgress__bar {
+    flex: 1;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    overflow: hidden;
+    max-width: 80px;
+}
+
+.tsGroupProgress__fill {
+    height: 100%;
+    background: var(--team-color, #34d399);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.tsGroupProgress__text {
+    white-space: nowrap;
+    opacity: 0.7;
+}
+
+/* Body */
+.tsGroupBody {
+    display: flex;
+    flex-direction: column;
+}
+
 /* ==================== REDESIGNED SESSION ITEM LAYOUT ==================== */
 
 .sessionItemRow {
@@ -461,4 +644,135 @@
     color: var(--muted);
     padding: 1px 5px;
     opacity: 0.6;
+}
+
+/* ── Prompt Send Animation ── */
+
+.promptAnimLayer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+/* Flying dot: animates from sender to target along a curved path */
+.promptFlyingDot {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--theme-primary, #00ff41);
+    box-shadow:
+        0 0 6px var(--theme-primary, #00ff41),
+        0 0 14px var(--theme-primary, #00ff41),
+        0 0 24px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.4);
+    left: var(--start-x);
+    top: var(--start-y);
+    transform: translate(-50%, -50%);
+    animation: promptFly 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    pointer-events: none;
+    z-index: 10000;
+}
+
+/* Trail behind the dot */
+.promptFlyingDot::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(
+        to left,
+        var(--theme-primary, #00ff41),
+        transparent
+    );
+    top: 50%;
+    right: 100%;
+    transform: translateY(-50%);
+    opacity: 0.6;
+}
+
+@keyframes promptFly {
+    0% {
+        left: var(--start-x);
+        top: var(--start-y);
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    40% {
+        left: var(--mid-x);
+        top: var(--mid-y);
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.3);
+    }
+    100% {
+        left: var(--end-x);
+        top: var(--end-y);
+        opacity: 0.8;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+/* Pulse ring at target on arrival */
+.promptTargetPulse {
+    position: fixed;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: transparent;
+    border: 2px solid var(--theme-primary, #00ff41);
+    box-shadow: 0 0 8px var(--theme-primary, #00ff41);
+    animation: promptPulseRing 0.7s ease-out forwards;
+    pointer-events: none;
+    z-index: 10000;
+}
+
+@keyframes promptPulseRing {
+    0% {
+        width: 8px;
+        height: 8px;
+        opacity: 1;
+        border-width: 2px;
+    }
+    100% {
+        width: 40px;
+        height: 40px;
+        opacity: 0;
+        border-width: 1px;
+    }
+}
+
+/* Highlight on the target session item when receiving */
+.promptTarget--receiving {
+    animation: promptReceiveGlow 1.2s ease-out !important;
+}
+
+@keyframes promptReceiveGlow {
+    0% {
+        box-shadow: 0 0 0 0 rgba(var(--theme-primary-rgb, 0, 255, 65), 0.5);
+    }
+    30% {
+        box-shadow: 0 0 8px 3px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.4);
+    }
+    100% {
+        box-shadow: none;
+    }
+}
+
+/* Brief flash on the sender session item */
+.promptSender--sending {
+    animation: promptSendFlash 0.6s ease-out !important;
+}
+
+@keyframes promptSendFlash {
+    0% {
+        box-shadow: 0 0 0 0 rgba(var(--theme-primary-rgb, 0, 255, 65), 0.4);
+    }
+    30% {
+        box-shadow: 0 0 6px 2px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.3);
+    }
+    100% {
+        box-shadow: none;
+    }
 }

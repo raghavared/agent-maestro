@@ -20128,7 +20128,7 @@ html[data-style="minimal"] * {
 }
 
 .tmModal__memoryList {
-  max-height: 140px;
+  max-height: 200px;
   overflow-y: auto;
   padding: 0;
 }
@@ -20284,4 +20284,201 @@ html[data-style="minimal"] * {
     flex-wrap: wrap;
     gap: 6px;
   }
+}
+
+/* ─── Team Launch Configuration Modal ──────────────────────────────────────── */
+
+.launchConfigModal {
+  max-width: 780px;
+  min-height: 400px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.launchConfigMembers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.launchConfigCard {
+  border: 1px solid var(--theme-border);
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.launchConfigCard--coordinator {
+  border-color: rgba(255, 171, 0, 0.3);
+  background: rgba(255, 171, 0, 0.03);
+}
+
+.launchConfigCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.launchConfigCardIdentity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.launchConfigCardAvatar {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.launchConfigCardName {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--theme-text);
+  margin-right: 6px;
+}
+
+.launchConfigCardRole {
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  display: block;
+  margin-top: 1px;
+}
+
+.launchConfigBadge {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.launchConfigBadge--coordinator {
+  background: rgba(255, 171, 0, 0.15);
+  color: #ffab00;
+  border: 1px solid rgba(255, 171, 0, 0.3);
+}
+
+.launchConfigCardControls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.launchConfigSelect {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  border: 1px solid var(--theme-border);
+  color: var(--theme-text);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  padding: 4px 6px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.launchConfigSelect:hover,
+.launchConfigSelect:focus {
+  border-color: var(--theme-primary);
+}
+
+.launchConfigToggle {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  border: 1px solid var(--theme-border);
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.launchConfigToggle:hover {
+  border-color: var(--theme-primary);
+  color: var(--theme-primary);
+}
+
+.launchConfigToggle--active {
+  border-color: var(--theme-primary);
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.launchConfigToggle--danger {
+  border-color: rgba(255, 59, 59, 0.5);
+  color: #ff3b3b;
+  background: rgba(255, 59, 59, 0.1);
+}
+
+.launchConfigToggle--danger:hover {
+  border-color: #ff3b3b;
+  color: #ff3b3b;
+}
+
+.launchConfigExpandBtn {
+  background: none;
+  border: 1px solid var(--theme-border);
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  font-size: 9px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.launchConfigExpandBtn:hover {
+  border-color: var(--theme-primary);
+  color: var(--theme-primary);
+}
+
+.launchConfigCardDetails {
+  border-top: 1px solid var(--theme-border);
+  padding: 10px 12px;
+  animation: themedTabSlideDown 0.15s ease;
+}
+
+.launchConfigSection {
+  margin-bottom: 8px;
+}
+
+.launchConfigSection:last-child {
+  margin-bottom: 0;
+}
+
+/* Configure button in execution bar */
+.executionBarConfigBtn {
+  background: none;
+  border: 1px solid var(--theme-border);
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.executionBarConfigBtn:hover {
+  border-color: var(--terminal-amber, #ffab00);
+  color: var(--terminal-amber, #ffab00);
+}
+
+.executionBarConfigBtn--orchestrate:hover {
+  border-color: var(--terminal-amber, #ffab00);
+  color: var(--terminal-amber, #ffab00);
 }
