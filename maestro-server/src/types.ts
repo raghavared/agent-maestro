@@ -18,6 +18,18 @@ export type AgentTool = 'claude-code' | 'codex' | 'gemini';
 // Three-axis model types
 export type AgentMode = 'execute' | 'coordinate';
 
+// Per-member launch override for team launch configuration
+export interface MemberLaunchOverride {
+  agentTool?: AgentTool;
+  model?: string;
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
+  skillIds?: string[];
+  commandPermissions?: {
+    groups?: Record<string, boolean>;
+    commands?: Record<string, boolean>;
+  };
+}
+
 // Base types
 export interface Project {
   id: string;

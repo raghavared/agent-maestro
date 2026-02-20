@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useRef, useCallback } from "react";
-import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType } from "../../app/types/maestro";
+import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType, MemberLaunchOverride, CreateTeamPayload } from "../../app/types/maestro";
 import { TaskListItem } from "./TaskListItem";
 import { TaskFilters, SortByOption } from "./TaskFilters";
 import { SortableTaskList } from "./SortableTaskList";
@@ -27,7 +27,7 @@ type MaestroPanelProps = {
     onClose: () => void;
     projectId: string;
     project: MaestroProject;
-    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy | OrchestratorStrategy; mode?: 'execute' | 'coordinate'; teamMemberIds?: string[]; teamMemberId?: string; agentTool?: AgentTool; model?: ModelType }) => Promise<any>;
+    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy | OrchestratorStrategy; mode?: 'execute' | 'coordinate'; teamMemberIds?: string[]; teamMemberId?: string; agentTool?: AgentTool; model?: ModelType; memberOverrides?: Record<string, MemberLaunchOverride> }) => Promise<any>;
     onJumpToSession?: (maestroSessionId: string) => void;
     onAddTaskToSession?: (taskId: string) => void;
 };
@@ -133,6 +133,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     // Teams
     const teamsMap = useMaestroStore(s => s.teams);
     const fetchTeams = useMaestroStore(s => s.fetchTeams);
+    const createTeam = useMaestroStore(s => s.createTeam);
     const deleteTeam = useMaestroStore(s => s.deleteTeam);
     const archiveTeam = useMaestroStore(s => s.archiveTeam);
     const unarchiveTeam = useMaestroStore(s => s.unarchiveTeam);
@@ -345,7 +346,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }));
     };
 
-    const handleBatchExecute = async (teamMemberId?: string, override?: { agentTool: AgentTool; model: ModelType }) => {
+    const handleBatchExecute = async (teamMemberId?: string, override?: { agentTool: AgentTool; model: ModelType }, memberOverrides?: Record<string, MemberLaunchOverride>) => {
         const selectedTasks = normalizedTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
 
@@ -355,6 +356,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 project,
                 teamMemberId,
                 ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
+                ...(memberOverrides && Object.keys(memberOverrides).length > 0 ? { memberOverrides } : {}),
             });
             setExecutionMode(false);
             setActiveBarMode('none');
@@ -364,7 +366,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }
     };
 
-    const handleBatchOrchestrate = async (coordinatorId?: string, workerIds?: string[], override?: { agentTool: AgentTool; model: ModelType }) => {
+    const handleBatchOrchestrate = async (coordinatorId?: string, workerIds?: string[], override?: { agentTool: AgentTool; model: ModelType }, memberOverrides?: Record<string, MemberLaunchOverride>) => {
         const selectedTasks = regularTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
 
@@ -377,12 +379,27 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 teamMemberId: coordinatorId,
                 teamMemberIds: workerIds && workerIds.length > 0 ? workerIds : undefined,
                 ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
+                ...(memberOverrides && Object.keys(memberOverrides).length > 0 ? { memberOverrides } : {}),
             });
             setExecutionMode(false);
             setActiveBarMode('none');
             setSelectedForExecution(new Set());
         } catch (err: any) {
             setError(`Failed to create orchestrator session: ${err.message}`);
+        }
+    };
+
+    const handleSaveAsTeam = async (teamName: string, coordinatorId: string | null, workerIds: string[], overrides: Record<string, MemberLaunchOverride>) => {
+        try {
+            const allMemberIds = [coordinatorId, ...workerIds].filter(Boolean) as string[];
+            await createTeam({
+                projectId,
+                name: teamName,
+                leaderId: coordinatorId || allMemberIds[0] || '',
+                memberIds: allMemberIds,
+            });
+        } catch (err: any) {
+            setError(`Failed to save team: ${err.message}`);
         }
     };
 
@@ -775,6 +792,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                                     selectedTasks={regularTasks.filter(t => selectedForExecution.has(t.id))}
                                     projectId={projectId}
                                     teamMembers={teamMembers}
+                                    onSaveAsTeam={handleSaveAsTeam}
                                 />
 
                                 {sortBy === "custom" ? (

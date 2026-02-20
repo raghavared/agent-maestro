@@ -626,6 +626,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         agentTool: requestedAgentTool,   // Override agent tool for this run
         model: requestedModel,           // Override model for this run
         initialDirective,                // { subject, message, fromSessionId } for guaranteed delivery
+        memberOverrides,                 // Per-member launch overrides: Record<string, MemberLaunchOverride>
       } = req.body;
 
       // Resolve effective team member IDs from request params
@@ -732,32 +733,42 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           try {
             const teamMember = await teamMemberRepo.findById(projectId, tmId);
             if (teamMember && teamMember.status !== 'archived') {
+              // Apply per-member overrides if provided
+              const override = memberOverrides && memberOverrides[tmId];
+              const effectiveModel = override?.model || teamMember.model;
+              const effectiveAgentTool = override?.agentTool || teamMember.agentTool;
+              const effectivePermissionMode = override?.permissionMode || teamMember.permissionMode;
+              const effectiveSkillIds = override?.skillIds || teamMember.skillIds;
+              const effectiveCommandPermissions = override?.commandPermissions
+                ? { ...teamMember.commandPermissions, ...override.commandPermissions }
+                : teamMember.commandPermissions;
+
               // Mode: use first member's mode (or most capable)
               if (!teamMemberDefaults.mode && teamMember.mode) {
                 teamMemberDefaults.mode = teamMember.mode as AgentMode;
               }
-              // Model: most powerful wins
-              const power = MODEL_POWER[teamMember.model || ''] || 0;
+              // Model: most powerful wins (using overridden model)
+              const power = MODEL_POWER[effectiveModel || ''] || 0;
               if (power > highestModelPower) {
                 highestModelPower = power;
-                teamMemberDefaults.model = teamMember.model;
+                teamMemberDefaults.model = effectiveModel;
               }
-              // AgentTool: first non-default wins
-              if (!teamMemberDefaults.agentTool && teamMember.agentTool) {
-                teamMemberDefaults.agentTool = teamMember.agentTool;
+              // AgentTool: first non-default wins (using overridden tool)
+              if (!teamMemberDefaults.agentTool && effectiveAgentTool) {
+                teamMemberDefaults.agentTool = effectiveAgentTool;
               }
-              // PermissionMode: first non-null wins
-              if (!teamMemberDefaults.permissionMode && teamMember.permissionMode) {
-                teamMemberDefaults.permissionMode = teamMember.permissionMode;
+              // PermissionMode: first non-null wins (using overridden permission)
+              if (!teamMemberDefaults.permissionMode && effectivePermissionMode) {
+                teamMemberDefaults.permissionMode = effectivePermissionMode;
               }
-              // Build snapshot for UI display
+              // Build snapshot for UI display (with overrides applied)
               teamMemberSnapshots.push({
                 name: teamMember.name,
                 avatar: teamMember.avatar,
                 role: teamMember.role,
-                model: teamMember.model,
-                agentTool: teamMember.agentTool,
-                permissionMode: teamMember.permissionMode,
+                model: effectiveModel,
+                agentTool: effectiveAgentTool,
+                permissionMode: effectivePermissionMode,
               });
             }
           } catch (err) {
@@ -813,7 +824,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           mode: resolvedMode,
           teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : null,
           teamMemberIds: effectiveTeamMemberIds.length > 0 ? effectiveTeamMemberIds : null,
-          context: context || {}
+          context: context || {},
+          ...(memberOverrides && Object.keys(memberOverrides).length > 0 ? { memberOverrides } : {}),
         },
         parentSessionId: sessionId || null,
         teamSessionId: isSessionSpawned ? sessionId! : null,
