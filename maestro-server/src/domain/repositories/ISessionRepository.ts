@@ -8,6 +8,7 @@ export interface SessionFilter {
   taskId?: string;
   status?: SessionStatus;
   parentSessionId?: string;
+  teamSessionId?: string;
 }
 
 /**

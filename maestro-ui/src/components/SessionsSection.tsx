@@ -28,6 +28,7 @@ import { SessionDetailModal } from "./maestro/SessionDetailModal";
 import { SessionLogModal } from "./session-log/SessionLogModal";
 import { ConfirmActionModal } from "./modals/ConfirmActionModal";
 import { buildTeamGroups, getGroupedSessionOrder } from "../utils/teamGrouping";
+import { TeamSessionGroup } from "./maestro/TeamSessionGroup";
 import type { TeamColor } from "../app/constants/teamColors";
 
 function isSshCommand(commandLine: string | null | undefined): boolean {
@@ -187,28 +188,13 @@ export function SessionsSection({
   const teamsMap = useMaestroStore((s) => s.teams);
   const teamMembersMap = useMaestroStore((s) => s.teamMembers);
 
-  // Team grouping state
-  const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(new Set());
-
   const teamGroupData = useMemo(() => {
-    return buildTeamGroups(sessions, maestroSessions);
-  }, [sessions, maestroSessions]);
+    return buildTeamGroups(sessions, maestroSessions, teamsMap);
+  }, [sessions, maestroSessions, teamsMap]);
 
   const { grouped: groupedSessions, ungrouped: ungroupedSessions } = useMemo(() => {
     return getGroupedSessionOrder(sessions, teamGroupData.groups);
   }, [sessions, teamGroupData.groups]);
-
-  const toggleGroupCollapse = useCallback((coordinatorMaestroSessionId: string) => {
-    setCollapsedGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(coordinatorMaestroSessionId)) {
-        next.delete(coordinatorMaestroSessionId);
-      } else {
-        next.add(coordinatorMaestroSessionId);
-      }
-      return next;
-    });
-  }, []);
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -376,6 +362,7 @@ export function SessionsSection({
           } ${needsInput ? "sessionItemNeedsInput" : ""}`}
         onClick={() => onSelectSession(s.id)}
         style={{ flexDirection: 'column', alignItems: 'stretch' }}
+        {...(s.maestroSessionId ? { 'data-maestro-session-id': s.maestroSessionId } : {})}
       >
         {/* Main row: agent icon + title + status + actions */}
         <div className="sessionItemRow">
@@ -689,51 +676,27 @@ export function SessionsSection({
           >
           {/* Grouped sessions (coordinator teams) */}
           {groupedSessions.map(({ group, sessions: groupSess }) => {
-            const isCollapsed = collapsedGroups.has(group.coordinatorMaestroSessionId);
             const coordSession = groupSess[0]; // coordinator is always first
-            const coordMaestroSession = coordSession?.maestroSessionId
-              ? maestroSessions.get(coordSession.maestroSessionId)
-              : null;
-
-            // Check if coordinator's team member is a leader of a saved Team
-            const coordTeamMemberId = coordMaestroSession?.teamMemberId;
-            const leaderTeam = coordTeamMemberId
-              ? Array.from(teamsMap.values()).find(t => t.leaderId === coordTeamMemberId && t.status === 'active')
-              : null;
-            const groupLabel = leaderTeam
-              ? `${leaderTeam.avatar || '\u{1F46A}'} ${leaderTeam.name}`
-              : coordMaestroSession?.name || coordSession?.name || 'Team';
 
             return (
-              <div
-                key={group.coordinatorMaestroSessionId}
-                className="teamGroup"
-                style={{
-                  '--team-color': group.color.primary,
-                  '--team-color-dim': group.color.dim,
-                } as React.CSSProperties}
-              >
-                <div
-                  className="teamGroupHeader"
-                  onClick={() => toggleGroupCollapse(group.coordinatorMaestroSessionId)}
-                >
-                  <span className="teamGroupHeader__dot" />
-                  <span className={`teamGroupHeader__arrow ${isCollapsed ? 'teamGroupHeader__arrow--collapsed' : ''}`}>
-                    ▾
-                  </span>
-                  <span>{groupLabel} ({groupSess.length})</span>
-                </div>
-                {!isCollapsed && (
+              <TeamSessionGroup
+                key={group.teamSessionId}
+                group={group}
+                maestroSessions={maestroSessions}
+                maestroTasks={maestroTasks}
+                teamsMap={teamsMap}
+                renderSessionItem={() => null}
+                renderAllSessionItems={() => (
                   <div className="teamGroupSessions">
                     {groupSess.map((s) => renderSessionItem(s, group.color))}
                   </div>
                 )}
-                {isCollapsed && coordSession && (
+                renderCoordinatorOnly={() => (
                   <div className="teamGroupSessions">
-                    {renderSessionItem(coordSession, group.color)}
+                    {coordSession && renderSessionItem(coordSession, group.color)}
                   </div>
                 )}
-              </div>
+              />
             );
           })}
 

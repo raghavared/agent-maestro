@@ -348,6 +348,11 @@ export interface MaestroSession {
   // Multiple team member identities
   teamMemberIds?: string[];
   teamMemberSnapshots?: TeamMemberSnapshot[];
+
+  // Team session grouping
+  teamSessionId?: string;   // Shared ID linking coordinator + workers (= coordinator's session ID)
+  teamId?: string;           // Optional saved Team reference
+  parentSessionId?: string;
 }
 
 // Payloads

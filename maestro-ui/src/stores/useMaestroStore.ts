@@ -20,6 +20,7 @@ import type {
 import { useSessionStore } from './useSessionStore';
 import { WS_URL } from '../utils/serverConfig';
 import { playEventSound, soundManager } from '../services/soundManager';
+import { usePromptAnimationStore } from './usePromptAnimationStore';
 
 // Global WebSocket singleton
 let globalWs: WebSocket | null = null;
@@ -205,7 +206,15 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           break;
         }
         case 'session:prompt_send': {
-          const { sessionId: maestroSessionId, content, mode: promptMode } = message.data;
+          const { sessionId: maestroSessionId, content, mode: promptMode, senderSessionId } = message.data;
+
+          // Trigger flying dot animation
+          usePromptAnimationStore.getState().addAnimation({
+            senderMaestroSessionId: senderSessionId || null,
+            targetMaestroSessionId: maestroSessionId,
+            content: content || '',
+          });
+
           const sessions = useSessionStore.getState().sessions;
           const terminalSession = sessions.find(
             (s) => s.maestroSessionId === maestroSessionId && !s.exited

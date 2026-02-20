@@ -20128,7 +20128,7 @@ html[data-style="minimal"] * {
 }
 
 .tmModal__memoryList {
-  max-height: 140px;
+  max-height: 200px;
   overflow-y: auto;
   padding: 0;
 }

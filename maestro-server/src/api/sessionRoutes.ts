@@ -222,6 +222,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       if (req.query.parentSessionId) {
         filter.parentSessionId = req.query.parentSessionId as string;
       }
+      if (req.query.teamSessionId) {
+        filter.teamSessionId = req.query.teamSessionId as string;
+      }
 
       let sessions = await sessionService.listSessions(filter);
 
@@ -791,6 +794,12 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       // Create session with suppressed created event
       const modeLabel = resolvedMode === 'coordinate' ? 'Coordinate' : 'Execute';
+
+      // Determine teamSessionId:
+      // Workers inherit the coordinator's session ID as teamSessionId.
+      // Coordinator gets teamSessionId = its own ID (set after creation).
+      const isSessionSpawned = spawnSource === 'session' && sessionId;
+
       const session = await sessionService.createSession({
         projectId,
         taskIds,
@@ -807,8 +816,19 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           context: context || {}
         },
         parentSessionId: sessionId || null,
+        teamSessionId: isSessionSpawned ? sessionId! : null,
         _suppressCreatedEvent: true
       });
+
+      // Ensure coordinator session has teamSessionId = its own ID on first spawn
+      if (isSessionSpawned) {
+        try {
+          const coordinatorSession = await sessionService.getSession(sessionId!);
+          if (coordinatorSession && !coordinatorSession.teamSessionId) {
+            await sessionService.updateSession(coordinatorSession.id, { teamSessionId: coordinatorSession.id });
+          }
+        } catch { /* coordinator update failed, non-critical */ }
+      }
 
       // Set team member fields directly on session for UI display
       if (effectiveTeamMemberIds.length > 0) {

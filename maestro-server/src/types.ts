@@ -242,6 +242,8 @@ export interface Session {
   teamMemberIds?: string[];
   teamMemberSnapshots?: TeamMemberSnapshot[];
   parentSessionId?: string | null;
+  teamSessionId?: string | null;   // Shared ID linking coordinator + workers (= coordinator's session ID)
+  teamId?: string | null;          // Optional saved Team reference
 }
 
 // Supporting types
@@ -340,6 +342,8 @@ export interface CreateSessionPayload {
   env?: Record<string, string>;
   metadata?: Record<string, any>;
   parentSessionId?: string | null;
+  teamSessionId?: string | null;
+  teamId?: string | null;
   _suppressCreatedEvent?: boolean;  // Internal: suppress session:created event
 }
 
@@ -355,6 +359,8 @@ export interface UpdateSessionPayload {
     message?: string;
     since?: number;
   };
+  teamSessionId?: string | null;
+  teamId?: string | null;
 }
 
 // Spawn session payload (Server-Generated Manifests)

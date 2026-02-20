@@ -100,14 +100,14 @@ const mentionsStyle = {
         fontSize: '12px',
         fontWeight: 'normal' as const,
         lineHeight: '1.5',
-        minHeight: '100px',
-        maxHeight: '250px',
+        minHeight: '140px',
+        maxHeight: '350px',
     },
     '&multiLine': {
         control: {
             fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-            minHeight: '100px',
-            maxHeight: '250px',
+            minHeight: '140px',
+            maxHeight: '350px',
         },
         highlighter: {
             padding: '8px 10px',
@@ -126,7 +126,7 @@ const mentionsStyle = {
             fontFamily: '"JetBrains Mono", "Fira Code", monospace',
             fontSize: '12px',
             lineHeight: '1.5',
-            maxHeight: '250px',
+            maxHeight: '350px',
             overflow: 'auto' as const,
         },
     },
@@ -532,10 +532,9 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                         </div>
                     )}
 
-                    {/* Section: Basic Info */}
+                    {/* Section: Basic Info + Mode (compact row) */}
                     <div className="tmModal__section">
-                        <div className="tmModal__sectionLabel">Basic Info</div>
-                        <div className="tmModal__row">
+                        <div className="tmModal__row" style={{ alignItems: 'flex-end' }}>
                             <div className="tmModal__field">
                                 <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Role *</div>
                                 <input
@@ -562,94 +561,50 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                                     disabled={isSaving}
                                 />
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Section: Mode */}
-                    <div className="tmModal__section">
-                        <div className="tmModal__sectionLabel">Mode</div>
-                        {isEditMode && isDefault ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span className={`splitPlayDropdown__modeBadge splitPlayDropdown__modeBadge--${mode}`} style={{ fontSize: '11px' }}>
-                                    {mode === 'execute' ? 'Worker' : 'Orchestrator'}
-                                </span>
-                                <span style={{ fontSize: '10px', opacity: 0.5, fontFamily: 'var(--style-font-ui)' }}>(read-only for defaults)</span>
-                            </div>
-                        ) : (
-                            <div className="themedSegmentedControl" style={{ margin: 0 }}>
-                                <button
-                                    type="button"
-                                    className={`themedSegmentedBtn ${mode === 'execute' ? 'active' : ''}`}
-                                    onClick={() => {
-                                        setMode('execute');
-                                        setCapabilities(getDefaultCapabilities('execute'));
-                                        setWorkflowTemplateId('');
-                                    }}
-                                    style={{ padding: '5px 16px', fontSize: '11px' }}
-                                    disabled={isSaving}
-                                >
-                                    Worker
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`themedSegmentedBtn ${mode === 'coordinate' ? 'active' : ''}`}
-                                    onClick={() => {
-                                        setMode('coordinate');
-                                        setCapabilities(getDefaultCapabilities('coordinate'));
-                                        setWorkflowTemplateId('');
-                                    }}
-                                    style={{ padding: '5px 16px', fontSize: '11px' }}
-                                    disabled={isSaving}
-                                >
-                                    Orchestrator
-                                </button>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Section: Sound Instrument */}
-                    <div className="tmModal__section">
-                        <div className="tmModal__sectionLabel">Sound</div>
-
-                        {/* Instrument picker */}
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                            {(['piano', 'guitar', 'violin', 'trumpet', 'drums'] as InstrumentType[]).map((inst) => (
-                                <button
-                                    key={inst}
-                                    type="button"
-                                    title={getInstrumentRole(inst)}
-                                    onClick={() => setSoundInstrument(inst)}
-                                    style={{
-                                        display: 'flex', flexDirection: 'column', alignItems: 'center',
-                                        gap: '3px', padding: '6px 10px', cursor: 'pointer',
-                                        border: `1px solid ${soundInstrument === inst ? 'var(--theme-primary)' : 'var(--theme-border)'}`,
-                                        borderRadius: '4px', fontSize: '10px',
-                                        background: soundInstrument === inst
-                                            ? 'rgba(var(--theme-primary-rgb), 0.12)'
-                                            : 'transparent',
-                                        color: soundInstrument === inst ? 'var(--theme-primary)' : 'var(--theme-text)',
-                                        fontFamily: 'var(--style-font-ui)',
-                                        transition: 'all 0.15s',
-                                        minWidth: '56px',
-                                    }}
-                                    disabled={isSaving}
-                                >
-                                    <span style={{ fontSize: '16px' }}>{getInstrumentEmoji(soundInstrument === inst ? inst : inst)}</span>
-                                    <span style={{ textTransform: 'capitalize', fontWeight: soundInstrument === inst ? 600 : 400 }}>
-                                        {inst}
+                            <div style={{ flexShrink: 0 }}>
+                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Mode</div>
+                                {isEditMode && isDefault ? (
+                                    <span className={`splitPlayDropdown__modeBadge splitPlayDropdown__modeBadge--${mode}`} style={{ fontSize: '11px' }}>
+                                        {mode === 'execute' ? 'Worker' : 'Orchestrator'}
                                     </span>
-                                </button>
-                            ))}
+                                ) : (
+                                    <div className="themedSegmentedControl" style={{ margin: 0 }}>
+                                        <button
+                                            type="button"
+                                            className={`themedSegmentedBtn ${mode === 'execute' ? 'active' : ''}`}
+                                            onClick={() => {
+                                                setMode('execute');
+                                                setCapabilities(getDefaultCapabilities('execute'));
+                                                setWorkflowTemplateId('');
+                                            }}
+                                            style={{ padding: '5px 12px', fontSize: '10px' }}
+                                            disabled={isSaving}
+                                        >
+                                            Worker
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`themedSegmentedBtn ${mode === 'coordinate' ? 'active' : ''}`}
+                                            onClick={() => {
+                                                setMode('coordinate');
+                                                setCapabilities(getDefaultCapabilities('coordinate'));
+                                                setWorkflowTemplateId('');
+                                            }}
+                                            style={{ padding: '5px 12px', fontSize: '10px' }}
+                                            disabled={isSaving}
+                                        >
+                                            Orchestrator
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-
-                        {/* Sound signature — per-notification-type preview */}
-                        <SoundSignatureGrid instrument={soundInstrument} />
                     </div>
 
                     {/* Section: Identity */}
-                    <div className="tmModal__section">
+                    <div className="tmModal__section" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                         <div className="tmModal__sectionLabel">Identity</div>
-                        <div className="mentionsWrapper" style={{ minHeight: 0 }}>
+                        <div className="mentionsWrapper" style={{ minHeight: 0, flex: 1 }}>
                             <MentionsInput
                                 value={identity}
                                 onChange={(e) => setIdentity(e.target.value)}
@@ -716,6 +671,44 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                 {/* ── Tab Content ───────────────────────────────────── */}
                 {activeTab && (
                     <div className="themedModalTabContent" style={{ maxHeight: '250px', overflowY: 'auto', borderTop: '1px solid var(--theme-border)' }}>
+                        {activeTab === 'sound' && (
+                            <div style={{ overflowX: 'hidden' }}>
+                                {/* Instrument picker */}
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                                    {(['piano', 'guitar', 'violin', 'trumpet', 'drums'] as InstrumentType[]).map((inst) => (
+                                        <button
+                                            key={inst}
+                                            type="button"
+                                            title={getInstrumentRole(inst)}
+                                            onClick={() => setSoundInstrument(inst)}
+                                            style={{
+                                                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                                                gap: '3px', padding: '6px 10px', cursor: 'pointer',
+                                                border: `1px solid ${soundInstrument === inst ? 'var(--theme-primary)' : 'var(--theme-border)'}`,
+                                                borderRadius: '4px', fontSize: '10px',
+                                                background: soundInstrument === inst
+                                                    ? 'rgba(var(--theme-primary-rgb), 0.12)'
+                                                    : 'transparent',
+                                                color: soundInstrument === inst ? 'var(--theme-primary)' : 'var(--theme-text)',
+                                                fontFamily: 'var(--style-font-ui)',
+                                                transition: 'all 0.15s',
+                                                minWidth: '56px',
+                                            }}
+                                            disabled={isSaving}
+                                        >
+                                            <span style={{ fontSize: '16px' }}>{getInstrumentEmoji(inst)}</span>
+                                            <span style={{ textTransform: 'capitalize', fontWeight: soundInstrument === inst ? 600 : 400 }}>
+                                                {inst}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Sound signature — per-notification-type preview */}
+                                <SoundSignatureGrid instrument={soundInstrument} />
+                            </div>
+                        )}
+
                         {activeTab === 'skills' && (
                             <ClaudeCodeSkillsSelector selectedSkills={selectedSkills} onSelectionChange={setSelectedSkills} />
                         )}
@@ -894,6 +887,14 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
 
                 {/* ── Tab Bar ───────────────────────────────────────── */}
                 <div className="themedModalTabBar" style={{ borderTop: '1px solid var(--theme-border)', marginTop: 'auto' }}>
+                    <button
+                        type="button"
+                        className={`themedModalTab ${activeTab === 'sound' ? 'themedModalTab--active' : ''}`}
+                        onClick={() => toggleTab('sound')}
+                    >
+                        Sound
+                        <span style={{ fontSize: '11px' }}>{getInstrumentEmoji(soundInstrument)}</span>
+                    </button>
                     <button
                         type="button"
                         className={`themedModalTab ${activeTab === 'skills' ? 'themedModalTab--active' : ''}`}
