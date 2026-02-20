@@ -11,6 +11,7 @@ import { createSessionRoutes } from './api/sessionRoutes';
 import { createSkillRoutes } from './api/skillRoutes';
 import { createOrderingRoutes } from './api/orderingRoutes';
 import { createTeamMemberRoutes } from './api/teamMemberRoutes';
+import { createTeamRoutes } from './api/teamRoutes';
 import { createWorkflowTemplateRoutes } from './api/workflowTemplateRoutes';
 import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
 import { AppError } from './domain/common/Errors';
@@ -20,7 +21,7 @@ async function startServer() {
   const container = await createContainer();
   await container.initialize();
 
-  const { config, logger, eventBus, projectService, taskService, sessionService, logDigestService, orderingService, teamMemberService, mailService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
+  const { config, logger, eventBus, projectService, taskService, sessionService, logDigestService, orderingService, teamMemberService, teamService, mailService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
 
   // Create Express app
   const app = express();
@@ -96,6 +97,9 @@ async function startServer() {
   // Team member routes
   const teamMemberRoutes = createTeamMemberRoutes(teamMemberService);
 
+  // Team routes
+  const teamRoutes = createTeamRoutes(teamService);
+
   // Skills route using async FileSystemSkillLoader
   const skillRoutes = createSkillRoutes(skillLoader);
 
@@ -105,6 +109,7 @@ async function startServer() {
   app.use('/api', skillRoutes);
   app.use('/api', orderingRoutes);
   app.use('/api', teamMemberRoutes);
+  app.use('/api', teamRoutes);
   app.use('/api/workflow-templates', createWorkflowTemplateRoutes());
 
   // Global error handling middleware

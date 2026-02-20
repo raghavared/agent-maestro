@@ -1,7 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import { useThemeStore } from '../stores/useThemeStore';
 import { useZoomStore, ZOOM_LEVELS, ZOOM_CONFIG, ZoomLevel } from '../stores/useZoomStore';
-import { THEMES, THEME_IDS, ThemeId } from '../app/constants/themes';
+import {
+  STYLES,
+  STYLE_IDS,
+  STYLE_THEMES,
+  StyleId,
+} from '../app/constants/themes';
 import { STORAGE_SETUP_COMPLETE_KEY } from '../app/constants/defaults';
 import { soundManager } from '../services/soundManager';
 
@@ -11,8 +16,10 @@ interface StartupSettingsOverlayProps {
 
 export function StartupSettingsOverlay({ onComplete }: StartupSettingsOverlayProps) {
   const [step, setStep] = useState<'theme' | 'sound'>('theme');
-  const themeId = useThemeStore((s) => s.themeId);
-  const setThemeId = useThemeStore((s) => s.setThemeId);
+  const styleId = useThemeStore((s) => s.styleId);
+  const colorKey = useThemeStore((s) => s.colorKey);
+  const setStyle = useThemeStore((s) => s.setStyle);
+  const setColor = useThemeStore((s) => s.setColor);
   const zoomLevel = useZoomStore((s) => s.zoomLevel);
   const setZoomLevel = useZoomStore((s) => s.setZoomLevel);
   const [soundEnabled, setSoundEnabled] = useState(soundManager.isEnabled());
@@ -38,6 +45,8 @@ export function StartupSettingsOverlay({ onComplete }: StartupSettingsOverlayPro
     onComplete();
   }, [onComplete]);
 
+  const currentStyleThemes = STYLE_THEMES[styleId];
+
   return (
     <div className="startupOverlay">
       <div className="startupOverlayBackdrop" />
@@ -46,7 +55,7 @@ export function StartupSettingsOverlay({ onComplete }: StartupSettingsOverlayPro
           <h1 className="startupOverlayTitle">Welcome to Maestro</h1>
           <p className="startupOverlaySubtitle">
             {step === 'theme'
-              ? 'Choose your theme and display settings'
+              ? 'Choose your style and color theme'
               : 'Configure sound preferences'}
           </p>
           <div className="startupOverlaySteps">
@@ -58,24 +67,52 @@ export function StartupSettingsOverlay({ onComplete }: StartupSettingsOverlayPro
 
         {step === 'theme' && (
           <div className="startupOverlayBody">
+            {/* App Style Picker */}
+            <div className="startupSection">
+              <h2 className="startupSectionTitle">App Style</h2>
+              <div className="startupThemeGrid">
+                {STYLE_IDS.map((sid) => {
+                  const style = STYLES[sid];
+                  const isActive = sid === styleId;
+                  return (
+                    <button
+                      key={sid}
+                      className={`startupThemeOption ${isActive ? 'startupThemeOptionActive' : ''}`}
+                      onClick={() => setStyle(sid)}
+                      style={{
+                        '--swatch-color': 'var(--theme-primary)',
+                        '--swatch-rgb': 'var(--theme-primary-rgb)',
+                      } as React.CSSProperties}
+                    >
+                      <span className="startupThemeSwatch" style={{
+                        background: isActive ? 'var(--theme-primary)' : 'rgba(255,255,255,0.15)',
+                        boxShadow: isActive ? '0 0 8px var(--theme-primary)' : 'none',
+                      }} />
+                      <span className="startupThemeName">{style.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Color Theme Picker */}
             <div className="startupSection">
               <h2 className="startupSectionTitle">Color Theme</h2>
               <div className="startupThemeGrid">
-                {THEME_IDS.map((id) => {
-                  const theme = THEMES[id];
-                  const isActive = id === themeId;
+                {currentStyleThemes.variants.map((variant) => {
+                  const isActive = variant.key === colorKey;
                   return (
                     <button
-                      key={id}
+                      key={variant.key}
                       className={`startupThemeOption ${isActive ? 'startupThemeOptionActive' : ''}`}
-                      onClick={() => setThemeId(id)}
+                      onClick={() => setColor(variant.key)}
                       style={{
-                        '--swatch-color': theme.colors.primary,
-                        '--swatch-rgb': theme.colors.primaryRgb,
+                        '--swatch-color': variant.colors.primary,
+                        '--swatch-rgb': variant.colors.primaryRgb,
                       } as React.CSSProperties}
                     >
                       <span className="startupThemeSwatch" />
-                      <span className="startupThemeName">{theme.name}</span>
+                      <span className="startupThemeName">{variant.name}</span>
                     </button>
                   );
                 })}

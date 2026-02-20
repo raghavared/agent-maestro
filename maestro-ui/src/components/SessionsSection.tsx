@@ -19,7 +19,7 @@ import { createPortal } from "react-dom";
 import { getProcessEffectById, type ProcessEffect } from "../processEffects";
 import { shortenPathSmart, normalizeSeparators } from "../pathDisplay";
 import { Icon } from "./Icon";
-import { type MaestroTask, type MaestroSession as MaestroSession } from "../app/types/maestro";
+import { type MaestroTask, type MaestroSession as MaestroSession, type Team } from "../app/types/maestro";
 import { useMaestroStore } from "../stores/useMaestroStore";
 import { useUIStore } from "../stores/useUIStore";
 import { MaestroSessionContent } from "./maestro/MaestroSessionContent";
@@ -183,6 +183,10 @@ export function SessionsSection({
   const fetchSession = useMaestroStore((s) => s.fetchSession);
   const hardRefresh = useMaestroStore((s) => s.hardRefresh);
 
+  // Teams from store
+  const teamsMap = useMaestroStore((s) => s.teams);
+  const teamMembersMap = useMaestroStore((s) => s.teamMembers);
+
   // Team grouping state
   const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(new Set());
 
@@ -291,6 +295,13 @@ export function SessionsSection({
     };
   }, [settingsOpen]);
 
+  // Map agentTool to icon paths
+  const AGENT_TOOL_ICONS: Record<string, string> = {
+    'claude-code': '/agent-icons/claude-code-icon.png',
+    'codex': '/agent-icons/openai-codex-icon.png',
+    'gemini': '/agent-icons/gemini-logo.png',
+  };
+
   // Helper to render a single session item, optionally with a team color
   const renderSessionItem = (s: Session, teamColor: TeamColor | null) => {
     const isActive = s.id === activeSessionId;
@@ -322,14 +333,39 @@ export function SessionsSection({
     const maestroSession = s.maestroSessionId ? maestroSessions.get(s.maestroSessionId) : null;
     const needsInput = maestroSession?.needsInput?.active;
 
-    // Team member badge styles (use team color if available, fallback to default purple)
-    const badgeStyle = teamColor
-      ? {
-          background: teamColor.dim,
-          borderColor: teamColor.border,
-          color: teamColor.text,
-        }
-      : undefined;
+    // Resolve team member snapshots
+    const teamSnapshots = maestroSession?.teamMemberSnapshots?.length
+      ? maestroSession.teamMemberSnapshots
+      : maestroSession?.teamMemberSnapshot
+        ? [maestroSession.teamMemberSnapshot]
+        : [];
+
+    // Determine if this is a maestro-managed session with team members
+    const hasMaestroTeam = teamSnapshots.length > 0;
+
+    // Resolve agent tool icon from snapshot or effect
+    const agentTool = teamSnapshots[0]?.agentTool;
+    const agentToolIcon = agentTool ? AGENT_TOOL_ICONS[agentTool] : null;
+
+    // Build the display title: team member names if available, otherwise session name
+    const displayTitle = hasMaestroTeam
+      ? teamSnapshots.map(m => m.name).join(', ')
+      : s.name;
+
+    // Build avatar string from team members
+    const displayAvatar = hasMaestroTeam
+      ? teamSnapshots.map(m => m.avatar).join('')
+      : null;
+
+    // Determine live status
+    const isLive = isWorking || (maestroSession?.status === 'working' && !isExited && !isClosing);
+
+    // Get tasks for this session (from maestro data)
+    const sessionTaskList = maestroSession
+      ? maestroSession.taskIds
+          .map(tid => maestroTasks.get(tid))
+          .filter((t): t is MaestroTask => t !== undefined)
+      : [];
 
     return (
       <SortableSessionItem key={s.id} id={s.id}>
@@ -341,40 +377,44 @@ export function SessionsSection({
         onClick={() => onSelectSession(s.id)}
         style={{ flexDirection: 'column', alignItems: 'stretch' }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '8px' }}>
-          {s.maestroSessionId && (
-            <button
-              className={`terminalExpandBtn ${expandedSessions.has(s.id) ? 'expanded' : ''}`}
-              style={{ marginRight: '6px', border: 'none', width: '16px', height: '16px' }}
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleSession(s.id, s.maestroSessionId);
-              }}
-            >
-              {expandedSessions.has(s.id) ? '▾' : '▸'}
-            </button>
-          )}
-          <button
-            className="logBtn"
-            onClick={(e) => {
-              e.stopPropagation();
-              setLogModalSessionId(s.id);
-            }}
-            title="View session log"
-          >
-            <Icon name="log" size={12} />
-          </button>
+        {/* Main row: agent icon + title + status + actions */}
+        <div className="sessionItemRow">
+          {/* Agent tool icon with live indicator */}
+          <div className="sessionAgentIcon">
+            {agentToolIcon ? (
+              <div className={`sessionAgentIcon__wrapper ${isLive ? 'sessionAgentIcon__wrapper--live' : ''}`}>
+                <img
+                  className="sessionAgentIcon__img"
+                  src={agentToolIcon}
+                  alt={agentTool || 'agent'}
+                />
+                {isLive && <span className="sessionAgentIcon__liveDot" />}
+              </div>
+            ) : hasAgentIcon && effect?.iconSrc ? (
+              <div className={`sessionAgentIcon__wrapper ${isLive ? 'sessionAgentIcon__wrapper--live' : ''}`}>
+                <img
+                  className="sessionAgentIcon__img"
+                  src={effect.iconSrc}
+                  alt={chipLabel || 'agent'}
+                />
+                {isLive && <span className="sessionAgentIcon__liveDot" />}
+              </div>
+            ) : (
+              <div className="sessionAgentIcon__placeholder">
+                {isSshType ? '⊕' : '>_'}
+              </div>
+            )}
+          </div>
+
+          {/* Title and metadata */}
           <div className="sessionMeta">
             <div className="sessionName">
-              {hasAgentIcon && chipLabel && effect?.iconSrc && (
-                <span className={`agentBadge chip-${effect.id}`} title={chipLabel}>
-                  <img className="agentIcon" src={effect.iconSrc} alt={chipLabel} />
-                  {isWorking && (
-                    <span className="chipActivity agentBadgeDot" aria-label="Working" />
-                  )}
+              {displayAvatar && (
+                <span className="sessionItemAvatar" title={teamSnapshots.map(m => `${m.name} (${m.role})`).join(', ')}>
+                  {displayAvatar}
                 </span>
               )}
-              <span className="sessionNameText">{s.name}</span>
+              <span className="sessionNameText">{displayTitle}</span>
               {showChipLabel && chipLabel && (
                 <span className={chipClass} title={chipLabel}>
                   <span className="chipLabel">{chipLabel}</span>
@@ -390,58 +430,69 @@ export function SessionsSection({
                 </span>
               ) : null}
             </div>
+            {/* Secondary info: session name if different from title */}
+            {hasMaestroTeam && (
+              <div className="sessionItemSecondary">
+                {s.name}
+              </div>
+            )}
           </div>
-          <button
-            className="closeBtn"
-            disabled={isClosing}
-            onClick={(e) => {
-              e.stopPropagation();
-              const isActiveSession = !isExited && !isClosing;
-              if (isActiveSession) {
-                setSessionToClose(s);
-              } else {
-                onCloseSession(s.id);
-              }
-            }}
-            title="Close session"
-          >
-            ×
-          </button>
+
+          {/* Right actions */}
+          <div className="sessionItemActions">
+            {s.maestroSessionId && (
+              <button
+                className={`terminalExpandBtn ${expandedSessions.has(s.id) ? 'expanded' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleSession(s.id, s.maestroSessionId);
+                }}
+                title="Expand session details"
+              >
+                {expandedSessions.has(s.id) ? '▾' : '▸'}
+              </button>
+            )}
+            <button
+              className="logBtn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLogModalSessionId(s.id);
+              }}
+              title="View session log"
+            >
+              <Icon name="log" size={12} />
+            </button>
+            <button
+              className="closeBtn"
+              disabled={isClosing}
+              onClick={(e) => {
+                e.stopPropagation();
+                const isActiveSession = !isExited && !isClosing;
+                if (isActiveSession) {
+                  setSessionToClose(s);
+                } else {
+                  onCloseSession(s.id);
+                }
+              }}
+              title="Close session"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
-        {/* Session status indicator at bottom */}
+        {/* Status row: badges + strategy */}
         {maestroSession && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingTop: '4px', paddingLeft: '24px', flexWrap: 'wrap' }}>
+          <div className="sessionItemStatusRow">
             <span className={`sessionStatusBadge sessionStatusBadge--${maestroSession.status} sessionStatusBadge--clickable`}
-              style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '2px' }}
               onClick={(e) => {
                 e.stopPropagation();
                 setSessionModalId(maestroSession.id);
               }}>
               {maestroSession.status === 'spawning' ? 'SPAWN' : maestroSession.status === 'stopped' ? 'STOP' : maestroSession.status.toUpperCase()}
             </span>
-            {/* Team member badges - colored by team */}
-            {(() => {
-              const snapshots = maestroSession.teamMemberSnapshots?.length
-                ? maestroSession.teamMemberSnapshots
-                : maestroSession.teamMemberSnapshot
-                  ? [maestroSession.teamMemberSnapshot]
-                  : [];
-              return snapshots.map((member, idx) => (
-                <span
-                  key={idx}
-                  className="sessionTeamMemberBadge"
-                  title={`${member.name} (${member.role})`}
-                  style={badgeStyle}
-                >
-                  <span className="sessionTeamMemberBadge__avatar">{member.avatar}</span>
-                  <span className="sessionTeamMemberBadge__name">{member.name}</span>
-                </span>
-              ));
-            })()}
-            {maestroSession.needsInput?.active && (
-              <span className="sessionStatusBadge sessionStatusBadge--needsInput"
-                style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '2px' }}>
+            {needsInput && (
+              <span className="sessionStatusBadge sessionStatusBadge--needsInput">
                 NEEDS INPUT
               </span>
             )}
@@ -449,7 +500,28 @@ export function SessionsSection({
           </div>
         )}
 
-        {/* Maestro Session Content - Enhanced */}
+        {/* Task chips row */}
+        {sessionTaskList.length > 0 && (
+          <div className="sessionItemTaskChips">
+            {sessionTaskList.slice(0, 4).map(task => (
+              <span
+                key={task.id}
+                className={`sessionTaskChip sessionTaskChip--${task.status}`}
+                title={`${task.title} (${task.status})`}
+              >
+                <span className="sessionTaskChip__dot" />
+                <span className="sessionTaskChip__label">{task.title}</span>
+              </span>
+            ))}
+            {sessionTaskList.length > 4 && (
+              <span className="sessionTaskChip sessionTaskChip--more">
+                +{sessionTaskList.length - 4}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Maestro Session Content - Enhanced (expanded view) */}
         {expandedSessions.has(s.id) && maestroSession && (
           <MaestroSessionContent
             session={maestroSession}
@@ -622,7 +694,15 @@ export function SessionsSection({
             const coordMaestroSession = coordSession?.maestroSessionId
               ? maestroSessions.get(coordSession.maestroSessionId)
               : null;
-            const groupLabel = coordMaestroSession?.name || coordSession?.name || 'Team';
+
+            // Check if coordinator's team member is a leader of a saved Team
+            const coordTeamMemberId = coordMaestroSession?.teamMemberId;
+            const leaderTeam = coordTeamMemberId
+              ? Array.from(teamsMap.values()).find(t => t.leaderId === coordTeamMemberId && t.status === 'active')
+              : null;
+            const groupLabel = leaderTeam
+              ? `${leaderTeam.avatar || '\u{1F46A}'} ${leaderTeam.name}`
+              : coordMaestroSession?.name || coordSession?.name || 'Team';
 
             return (
               <div

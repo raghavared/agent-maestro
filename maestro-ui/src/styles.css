@@ -4,6 +4,7 @@
 @import './styles-skills-panel.css';
 @import './styles-session-log.css';
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
   color-scheme: dark;
@@ -20,13 +21,8 @@
   --accent-persistent: #f472b6;
   --radius-control: 6px;
   --app-zoom-scale: 1.0;
-}
 
-/* ------------------------------------------------------------------ */
-/*  Dynamic Theme Variables                                            */
-/* ------------------------------------------------------------------ */
-
-html[data-theme="green"] {
+  /* Color theme vars — set programmatically by JS, defaults for fallback */
   --theme-primary: #00ff41;
   --theme-primary-dim: #00cc33;
   --theme-primary-rgb: 0, 255, 65;
@@ -35,59 +31,131 @@ html[data-theme="green"] {
   --theme-text-dim: #00aa2b;
 }
 
-html[data-theme="blue"] {
-  --theme-primary: #00d9ff;
-  --theme-primary-dim: #00a8cc;
-  --theme-primary-rgb: 0, 217, 255;
-  --theme-border: #002233;
-  --theme-text: #00d9ff;
-  --theme-text-dim: #0099bb;
+/* ================================================================== */
+/*  STYLE PERSONALITY TOKENS                                           */
+/*  These define the "feel" of each style — fonts, radii, shadows.     */
+/*  Color tokens (--theme-*) are set by JS. Style tokens by CSS.       */
+/* ================================================================== */
+
+/* ---- Terminal (default) ---- */
+html, html[data-style="terminal"] {
+  --style-font-ui:         'JetBrains Mono', monospace;
+  --style-font-code:       'JetBrains Mono', monospace;
+  --style-radius-sm:       4px;
+  --style-radius-md:       6px;
+  --style-radius-lg:       8px;
+  --style-radius-xl:       10px;
+  --style-shadow-glow:     0 0 8px rgba(var(--theme-primary-rgb), 0.3);
+  --style-shadow-hover:    0 0 12px rgba(var(--theme-primary-rgb), 0.4);
+  --style-shadow-card:     0 0 6px rgba(var(--theme-primary-rgb), 0.15);
+  --style-shadow-modal:    0 0 30px rgba(var(--theme-primary-rgb), 0.3), inset 0 0 60px rgba(var(--theme-primary-rgb), 0.03);
+  --style-border-accent:   1px solid var(--theme-border);
+  --style-surface-1:       #0a0e16;
+  --style-surface-2:       #10151e;
+  --style-surface-3:       #111820;
+  --style-surface-hover:   rgba(var(--theme-primary-rgb), 0.06);
+  --style-surface-active:  rgba(var(--theme-primary-rgb), 0.1);
+  --style-letter-spacing:  0.5px;
+  --style-text-transform:  uppercase;
+  --style-transition:      0.15s ease;
+  --style-backdrop:        none;
+  --style-input-bg:        rgba(0, 0, 0, 0.3);
 }
 
-html[data-theme="purple"] {
-  --theme-primary: #a855f7;
-  --theme-primary-dim: #8b44cc;
-  --theme-primary-rgb: 168, 85, 247;
-  --theme-border: #1a0033;
-  --theme-text: #a855f7;
-  --theme-text-dim: #7c3aed;
+/* ---- Material ---- */
+html[data-style="material"] {
+  --style-font-ui:         'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --style-font-code:       'JetBrains Mono', monospace;
+  --style-radius-sm:       8px;
+  --style-radius-md:       12px;
+  --style-radius-lg:       16px;
+  --style-radius-xl:       20px;
+  --style-shadow-glow:     0 2px 8px rgba(0, 0, 0, 0.2);
+  --style-shadow-hover:    0 4px 16px rgba(0, 0, 0, 0.25);
+  --style-shadow-card:     0 1px 4px rgba(0, 0, 0, 0.15);
+  --style-shadow-modal:    0 8px 32px rgba(0, 0, 0, 0.4);
+  --style-border-accent:   1px solid rgba(255, 255, 255, 0.06);
+  --style-surface-1:       #121218;
+  --style-surface-2:       #1a1a24;
+  --style-surface-3:       #22222e;
+  --style-surface-hover:   rgba(255, 255, 255, 0.04);
+  --style-surface-active:  rgba(255, 255, 255, 0.08);
+  --style-letter-spacing:  0;
+  --style-text-transform:  none;
+  --style-transition:      0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --style-backdrop:        none;
+  --style-input-bg:        rgba(255, 255, 255, 0.04);
+
+  --bg: #121218;
+  --panel: #1a1a24;
+  --panel-2: #22222e;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-subtle: rgba(255, 255, 255, 0.03);
+  --radius-control: 12px;
 }
 
-html[data-theme="amber"] {
-  --theme-primary: #ffb000;
-  --theme-primary-dim: #cc8c00;
-  --theme-primary-rgb: 255, 176, 0;
-  --theme-border: #332200;
-  --theme-text: #ffb000;
-  --theme-text-dim: #cc8c00;
+/* ---- Glass ---- */
+html[data-style="glass"] {
+  --style-font-ui:         'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --style-font-code:       'JetBrains Mono', monospace;
+  --style-radius-sm:       10px;
+  --style-radius-md:       14px;
+  --style-radius-lg:       18px;
+  --style-radius-xl:       24px;
+  --style-shadow-glow:     0 4px 16px rgba(0, 0, 0, 0.15);
+  --style-shadow-hover:    0 8px 24px rgba(0, 0, 0, 0.2);
+  --style-shadow-card:     0 2px 12px rgba(0, 0, 0, 0.1);
+  --style-shadow-modal:    0 12px 40px rgba(0, 0, 0, 0.35);
+  --style-border-accent:   1px solid rgba(255, 255, 255, 0.1);
+  --style-surface-1:       rgba(15, 15, 25, 0.85);
+  --style-surface-2:       rgba(25, 25, 40, 0.7);
+  --style-surface-3:       rgba(35, 35, 55, 0.6);
+  --style-surface-hover:   rgba(255, 255, 255, 0.06);
+  --style-surface-active:  rgba(255, 255, 255, 0.1);
+  --style-letter-spacing:  0.2px;
+  --style-text-transform:  none;
+  --style-transition:      0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --style-backdrop:        blur(16px) saturate(180%);
+  --style-input-bg:        rgba(255, 255, 255, 0.06);
+
+  --bg: rgba(10, 10, 20, 0.9);
+  --panel: rgba(20, 20, 35, 0.75);
+  --panel-2: rgba(25, 25, 45, 0.65);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --radius-control: 14px;
 }
 
-html[data-theme="cyan"] {
-  --theme-primary: #22d3ee;
-  --theme-primary-dim: #1aa8bc;
-  --theme-primary-rgb: 34, 211, 238;
-  --theme-border: #002233;
-  --theme-text: #22d3ee;
-  --theme-text-dim: #0ea5c7;
-}
+/* ---- Minimal ---- */
+html[data-style="minimal"] {
+  --style-font-ui:         ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --style-font-code:       'JetBrains Mono', monospace;
+  --style-radius-sm:       4px;
+  --style-radius-md:       6px;
+  --style-radius-lg:       8px;
+  --style-radius-xl:       10px;
+  --style-shadow-glow:     none;
+  --style-shadow-hover:    none;
+  --style-shadow-card:     none;
+  --style-shadow-modal:    0 4px 20px rgba(0, 0, 0, 0.3);
+  --style-border-accent:   1px solid rgba(255, 255, 255, 0.08);
+  --style-surface-1:       #111111;
+  --style-surface-2:       #181818;
+  --style-surface-3:       #1f1f1f;
+  --style-surface-hover:   rgba(255, 255, 255, 0.04);
+  --style-surface-active:  rgba(255, 255, 255, 0.07);
+  --style-letter-spacing:  0;
+  --style-text-transform:  none;
+  --style-transition:      0.12s ease;
+  --style-backdrop:        none;
+  --style-input-bg:        rgba(255, 255, 255, 0.04);
 
-html[data-theme="rose"] {
-  --theme-primary: #f472b6;
-  --theme-primary-dim: #c25a92;
-  --theme-primary-rgb: 244, 114, 182;
-  --theme-border: #330022;
-  --theme-text: #f472b6;
-  --theme-text-dim: #db2777;
-}
-
-/* Default theme fallback (green) */
-html:not([data-theme]) {
-  --theme-primary: #00ff41;
-  --theme-primary-dim: #00cc33;
-  --theme-primary-rgb: 0, 255, 65;
-  --theme-border: #003300;
-  --theme-text: #00ff41;
-  --theme-text-dim: #00aa2b;
+  --bg: #111111;
+  --panel: #181818;
+  --panel-2: #1f1f1f;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --radius-control: 6px;
 }
 
 * {
@@ -175,7 +243,7 @@ body {
   border: 1px solid var(--theme-border);
   background: rgba(var(--theme-primary-rgb), 0.03);
   color: rgba(var(--theme-primary-rgb), 0.6);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
@@ -253,7 +321,7 @@ body {
 }
 
 .projectTabCount {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   color: rgba(var(--theme-primary-rgb), 0.5);
   background: rgba(var(--theme-primary-rgb), 0.1);
@@ -273,7 +341,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   color: #00ffff;
   background: rgba(0, 255, 255, 0.1);
@@ -349,7 +417,7 @@ body {
   border: none;
   background: transparent;
   color: rgba(var(--theme-primary-rgb), 0.7);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
@@ -389,14 +457,14 @@ body {
 }
 
 .savedProjectName {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   font-weight: 600;
   color: var(--theme-primary);
 }
 
 .savedProjectPath {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   color: rgba(var(--theme-primary-rgb), 0.5);
   overflow: hidden;
@@ -442,7 +510,7 @@ body {
   min-width: 360px;
   max-width: 500px;
   box-shadow: 0 0 30px rgba(var(--theme-primary-rgb), 0.3), inset 0 0 60px rgba(var(--theme-primary-rgb), 0.03);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .projectSettingsHeader {
@@ -528,7 +596,7 @@ body {
   border: none;
   background: rgba(var(--theme-primary-rgb), 0.05);
   color: rgba(var(--theme-primary-rgb), 0.8);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -551,7 +619,7 @@ body {
   border: none;
   background: rgba(255, 50, 50, 0.05);
   color: rgba(255, 100, 100, 0.8);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -589,7 +657,7 @@ body {
   border: 1px solid var(--theme-border);
   background: transparent;
   color: rgba(var(--theme-primary-rgb), 0.7);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -607,7 +675,7 @@ body {
   border: 1px solid rgba(255, 100, 100, 0.5);
   background: rgba(255, 50, 50, 0.15);
   color: #ff6464;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -626,7 +694,7 @@ body {
   min-width: 520px;
   max-width: 600px;
   box-shadow: 0 0 30px rgba(var(--theme-primary-rgb), 0.3), inset 0 0 60px rgba(var(--theme-primary-rgb), 0.03);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .appSettingsBody {
@@ -649,7 +717,7 @@ body {
   border: none;
   border-left: 2px solid transparent;
   color: rgba(var(--theme-primary-rgb), 0.5);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   letter-spacing: 1px;
   text-align: left;
@@ -735,7 +803,7 @@ body {
 
 .displaySettingsLabel {
   color: rgba(var(--theme-primary-rgb), 0.7);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -743,7 +811,7 @@ body {
 
 .displaySettingsHint {
   color: rgba(var(--theme-primary-rgb), 0.4);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   margin-bottom: 4px;
 }
@@ -763,7 +831,7 @@ body {
   border: 1px solid var(--theme-border);
   background: rgba(var(--theme-primary-rgb), 0.03);
   color: rgba(var(--theme-primary-rgb), 0.6);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -799,7 +867,7 @@ body {
 
 .displaySettingsPreviewLabel {
   color: rgba(var(--theme-primary-rgb), 0.7);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -812,7 +880,7 @@ body {
   padding: 12px;
   border: 1px solid var(--theme-border);
   background: rgba(var(--theme-primary-rgb), 0.02);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   color: var(--theme-primary);
 }
 
@@ -822,7 +890,7 @@ body {
   border: 1px solid var(--theme-border);
   background: transparent;
   color: rgba(var(--theme-primary-rgb), 0.6);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -919,13 +987,13 @@ body {
 .soundSettingTitle {
   color: var(--theme-primary);
   font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .soundSettingDescription {
   color: rgba(var(--theme-primary-rgb), 0.45);
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   line-height: 1.3;
 }
 
@@ -955,7 +1023,7 @@ body {
 .soundVolumeValue {
   color: rgba(var(--theme-primary-rgb), 0.6);
   font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   min-width: 36px;
 }
 
@@ -972,7 +1040,7 @@ body {
   background: none;
   border: 1px solid var(--theme-border);
   color: rgba(var(--theme-primary-rgb), 0.7);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   padding: 4px 10px;
   cursor: pointer;
@@ -1040,14 +1108,14 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
   color: rgba(var(--theme-primary-rgb), 0.7);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .projectSoundSettings select {
   background: #000;
   border: 1px solid var(--theme-border);
   color: var(--theme-primary);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   padding: 5px 8px;
   cursor: pointer;
@@ -1072,7 +1140,7 @@ body {
   cursor: pointer;
   font-size: 12px;
   color: rgba(var(--theme-primary-rgb), 0.7);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   transition: color 0.15s;
 }
 
@@ -1112,7 +1180,7 @@ body {
   padding-bottom: 4px;
   border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.15);
   font-weight: normal;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .projectSoundCategoryRow {
@@ -1131,7 +1199,7 @@ body {
   cursor: pointer;
   min-width: 0;
   color: var(--theme-primary);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .projectSoundCategoryToggle input[type="checkbox"] {
@@ -1154,7 +1222,7 @@ body {
   border: 1px solid var(--theme-border);
   background: #000;
   color: rgba(var(--theme-primary-rgb), 0.7);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   max-width: 130px;
   cursor: pointer;
 }
@@ -1198,7 +1266,7 @@ body {
   align-items: center;
   justify-content: space-between;
   font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   color: rgba(var(--theme-primary-rgb), 0.7);
   padding: 3px 0;
 }
@@ -1207,7 +1275,7 @@ body {
   background: none;
   border: 1px solid var(--theme-border);
   color: rgba(var(--theme-primary-rgb), 0.5);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   padding: 2px 8px;
   cursor: pointer;
@@ -2379,7 +2447,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 20px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   user-select: none;
 }
 
@@ -2470,7 +2538,7 @@ body {
 
 .fileExplorerPath {
   color: var(--muted);
-  font-family: ui-monospace, monospace;
+  font-family: var(--style-font-code);
   font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
@@ -2813,7 +2881,7 @@ body {
   padding: 3px 10px;
   font-size: 10px;
   color: var(--muted);
-  font-family: ui-monospace, monospace;
+  font-family: var(--style-font-code);
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -3839,6 +3907,91 @@ select.input {
   color: var(--swatch-color);
 }
 
+/* ---- Style Switcher (App Style Picker) ---- */
+
+.styleSwitcherGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.styleSwitcherOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: all var(--style-transition, 0.15s ease);
+  font-family: var(--style-font-ui);
+}
+
+.styleSwitcherOption:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.styleSwitcherOptionActive {
+  border-color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  box-shadow: var(--style-shadow-glow);
+}
+
+.styleSwitcherIcon {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 22px;
+  text-align: center;
+  font-family: var(--style-font-code);
+}
+
+.styleSwitcherOptionActive .styleSwitcherIcon {
+  color: var(--theme-primary);
+}
+
+.styleSwitcherName {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.styleSwitcherOptionActive .styleSwitcherName {
+  color: var(--theme-primary);
+}
+
+/* ---- Style-specific overrides for theme switcher ---- */
+
+html[data-style="material"] .themeSwitcherSwatch {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+html[data-style="material"] .themeSwitcherOptionActive {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+html[data-style="glass"] .themeSwitcher {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: var(--style-backdrop);
+  -webkit-backdrop-filter: var(--style-backdrop);
+}
+
+html[data-style="glass"] .themeSwitcherSwatch {
+  box-shadow: 0 0 12px var(--swatch-color), inset 0 0 4px rgba(255, 255, 255, 0.2);
+}
+
+html[data-style="minimal"] .themeSwitcherSwatch {
+  box-shadow: none;
+  border: 2px solid var(--swatch-color);
+}
+
+html[data-style="minimal"] .themeSwitcherOptionActive {
+  box-shadow: none;
+}
+
 /* Command Palette */
 .commandPaletteBackdrop {
   position: fixed;
@@ -3895,7 +4048,7 @@ select.input {
 .commandPaletteSearchIcon {
   color: var(--accent);
   font-size: 14px;
-  font-family: ui-monospace, monospace;
+  font-family: var(--style-font-code);
 }
 
 .commandPaletteInput {
@@ -4007,7 +4160,7 @@ select.input {
   background: rgba(255, 255, 255, 0.06);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: ui-monospace, monospace;
+  font-family: var(--style-font-code);
 }
 
 .commandPaletteFooter {
@@ -4028,7 +4181,7 @@ select.input {
   background: rgba(255, 255, 255, 0.08);
   padding: 2px 5px;
   border-radius: 3px;
-  font-family: ui-monospace, monospace;
+  font-family: var(--style-font-code);
   font-size: 10px;
   margin-right: 4px;
 }
@@ -4071,7 +4224,7 @@ select.input {
 .quickPromptShortcut {
   font-size: 10px;
   color: var(--muted);
-  font-family: ui-monospace, monospace;
+  font-family: var(--style-font-code);
 }
 
 /* Icon Buttons for Topbar */
@@ -4151,7 +4304,7 @@ select.input {
   background: rgba(255, 255, 255, 0.06);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: ui-monospace, monospace;
+  font-family: var(--style-font-code);
 }
 
 /* SSH Modal */
@@ -5176,7 +5329,7 @@ select.input {
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: rgba(240, 244, 248, 0.6);
-  font-family: ui-monospace, monospace;
+  font-family: var(--style-font-code);
   font-weight: 500;
   letter-spacing: 0.02em;
 }
@@ -5964,7 +6117,7 @@ select.input {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 6px;
-  font-family: ui-monospace, monospace;
+  font-family: var(--style-font-code);
   letter-spacing: 0.02em;
 }
 
@@ -7048,7 +7201,7 @@ select.input {
   flex-direction: column;
   animation: terminalModalSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 @keyframes terminalModalSlide {
@@ -7231,7 +7384,7 @@ select.input {
   color: var(--terminal-text-dim);
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .terminalModalPromptBoxEditable {
@@ -7267,7 +7420,7 @@ select.input {
   font-size: 16px;
   font-weight: 600;
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   outline: none;
   width: 100%;
   box-sizing: border-box;
@@ -7292,7 +7445,7 @@ select.input {
   font-size: 12px;
   line-height: 1.6;
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   outline: none;
   width: 100%;
   box-sizing: border-box;
@@ -7318,7 +7471,7 @@ select.input {
   padding: 4px 12px;
   font-size: 11px;
   font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -7349,7 +7502,7 @@ select.input {
   cursor: pointer;
   font-size: 10px;
   font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   transition: all 0.2s ease;
   white-space: nowrap;
   letter-spacing: 0.02em;
@@ -7380,7 +7533,7 @@ select.input {
   padding: 8px 12px;
   border-radius: 3px;
   font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   transition: all 0.2s ease;
 }
 
@@ -7412,7 +7565,7 @@ select.input {
   border: 1px solid var(--terminal-border);
   border-radius: 3px;
   transition: all 0.2s ease;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .terminalModalSubtaskItem:hover {
@@ -7555,7 +7708,7 @@ select.input {
   cursor: pointer;
   font-size: 11px;
   font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -7635,7 +7788,7 @@ select.input {
   --terminal-border: var(--theme-border);
   --terminal-text: var(--theme-text);
   --terminal-text-dim: var(--theme-text-dim);
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-family: var(--style-font-ui);
 }
 
 /* Main terminal panel with scanline effects */
@@ -7906,7 +8059,7 @@ select.input {
   color: var(--terminal-text);
   padding: 8px 14px;
   font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-weight: 500;
   cursor: pointer;
   display: flex;
@@ -8133,7 +8286,7 @@ select.input {
   font-size: 10px;
   line-height: 1.4;
   text-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.4);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   margin: 0;
 }
 
@@ -8153,7 +8306,7 @@ select.input {
   font-size: 11px;
   line-height: 1.4;
   text-shadow: 0 0 8px rgba(255, 59, 59, 0.5);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   margin: 0;
 }
 
@@ -8180,7 +8333,7 @@ select.input {
   font-size: 11px;
   line-height: 1.6;
   margin: 0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .terminalErrorHint {
@@ -8939,7 +9092,7 @@ select.input {
   background: transparent;
   border: none;
   color: rgba(var(--theme-primary-rgb), 0.6);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
   transition: all 0.1s ease;
@@ -9060,7 +9213,7 @@ select.input {
   background: transparent;
   border: none;
   color: var(--terminal-text-dim);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
   transition: all 0.1s ease;
@@ -9285,7 +9438,7 @@ select.input {
 
 .terminalAgentDropdownHeader {
   padding: 6px 12px 4px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   font-weight: 600;
   color: var(--terminal-text-dim);
@@ -9304,7 +9457,7 @@ select.input {
   border: none;
   border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.15);
   color: var(--terminal-text-dim);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   cursor: pointer;
   transition: all 0.1s ease;
@@ -9325,7 +9478,7 @@ select.input {
   background: transparent;
   border: none;
   color: var(--terminal-text-dim);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
   transition: all 0.1s ease;
@@ -9651,7 +9804,7 @@ select.input {
 
 .maestroAgentSelector {
   position: relative;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .maestroAgentSelectorTrigger {
@@ -10241,7 +10394,7 @@ select.input {
   padding: 10px 12px;
   cursor: pointer;
   font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-weight: 500;
   text-align: left;
   transition: all 0.2s ease;
@@ -10281,7 +10434,7 @@ select.input {
   line-height: 1;
   margin-bottom: 4px;
   padding-left: 2px;
-  font-family: monospace;
+  font-family: var(--style-font-code);
 }
 
 .terminalSubtaskRow {
@@ -10349,7 +10502,7 @@ select.input {
   color: var(--terminal-text-dim);
   padding: 4px 8px;
   font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -10454,7 +10607,7 @@ select.input {
   border-radius: 3px;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -10538,7 +10691,7 @@ select.input {
   border-radius: 3px;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -10611,7 +10764,7 @@ select.input {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   transition: all 0.2s ease;
 }
 
@@ -10669,7 +10822,7 @@ select.input {
   border-radius: 2px;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .terminalSessionBtn:hover {
@@ -10709,7 +10862,7 @@ select.input {
   padding: 8px;
   background: rgba(0, 0, 0, 0.4);
   border-left: 2px solid var(--terminal-green);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 /* Details Section */
@@ -10754,7 +10907,7 @@ select.input {
 /* Status values in details section */
 .terminalStatusValue {
   font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .terminalStatusValue--todo {
@@ -10783,7 +10936,7 @@ select.input {
 
 .terminalSessionStatusValue {
   font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .terminalSessionStatusValue--queued {
@@ -10834,7 +10987,7 @@ select.input {
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid var(--terminal-border);
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -10953,7 +11106,7 @@ select.input {
   border: none;
   border-bottom: 1px solid var(--terminal-border);
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -10992,7 +11145,7 @@ select.input {
   background: rgba(255, 59, 59, 0.1);
   border: 1px solid var(--terminal-red);
   color: var(--terminal-red);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   z-index: 999;
   animation: errorShake 0.3s ease;
@@ -11027,7 +11180,7 @@ select.input {
   padding: 6px 12px;
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid var(--terminal-border);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   font-weight: 600;
   border-radius: 2px;
@@ -11479,7 +11632,7 @@ select.input {
   border-radius: 4px;
   padding: 5px 10px;
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   outline: none;
   transition: border-color 0.15s ease, background 0.15s ease;
@@ -11543,7 +11696,7 @@ select.input {
   border: none;
   color: var(--terminal-text-dim);
   font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   cursor: pointer;
   transition: color 0.15s ease;
   flex-shrink: 0;
@@ -11616,7 +11769,7 @@ select.input {
 
 .filterGroup__label {
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-weight: 600;
   color: var(--terminal-text-dim);
   text-transform: uppercase;
@@ -11642,7 +11795,7 @@ select.input {
   background: transparent;
   color: var(--terminal-text-dim);
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -11792,7 +11945,7 @@ select.input {
   border-right: 1px solid var(--terminal-border);
   color: var(--terminal-text-dim);
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -11819,7 +11972,7 @@ select.input {
   border: none;
   color: var(--terminal-text-dim);
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   cursor: pointer;
   padding: 2px 6px;
   transition: color 0.15s ease;
@@ -11874,7 +12027,7 @@ select.input {
 
 .maestroModal.terminalModal .maestroModalTitle {
   color: var(--terminal-green);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-weight: 700;
   text-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.5);
 }
@@ -11890,7 +12043,7 @@ select.input {
 
 .maestroModal.terminalModal .maestroFormLabel {
   color: var(--terminal-amber);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   font-weight: 600;
   text-transform: lowercase;
@@ -11908,7 +12061,7 @@ select.input {
   background: rgba(var(--theme-primary-rgb), 0.05);
   border: 1px solid var(--terminal-border);
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
 }
 
@@ -11922,7 +12075,7 @@ select.input {
 }
 
 .maestroModal.terminalModal .maestroButton {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-weight: 600;
   text-transform: lowercase;
   letter-spacing: 0.03em;
@@ -12030,7 +12183,7 @@ select.input {
 
 .createTaskModal.terminalTheme .createTaskModalTitle {
   color: var(--terminal-green);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-weight: 700;
   text-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.4);
 }
@@ -12043,7 +12196,7 @@ select.input {
 
 .createTaskModal.terminalTheme .createTaskModalSubtitle {
   color: var(--terminal-text-dim);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
 }
 
@@ -12055,7 +12208,7 @@ select.input {
 
 .createTaskModal.terminalTheme .createTaskLabel {
   color: var(--terminal-amber);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-weight: 600;
   font-size: 11px;
   text-transform: lowercase;
@@ -12072,7 +12225,7 @@ select.input {
   background: rgba(var(--theme-primary-rgb), 0.05);
   border: 1px solid var(--terminal-border);
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 14px;
   font-weight: 500;
 }
@@ -12093,7 +12246,7 @@ select.input {
   background: rgba(var(--theme-primary-rgb), 0.05);
   border: 1px solid var(--terminal-border);
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -12112,13 +12265,13 @@ select.input {
 
 .createTaskModal.terminalTheme .createTaskPromptHint {
   color: var(--terminal-cyan);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
 }
 
 .createTaskModal.terminalTheme .createTaskOptionLabel {
   color: var(--terminal-amber);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-weight: 600;
   font-size: 11px;
 }
@@ -12127,7 +12280,7 @@ select.input {
   background: transparent;
   border: 1px solid var(--terminal-border);
   color: var(--terminal-text-dim);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-weight: 500;
   font-size: 11px;
   text-transform: lowercase;
@@ -12149,7 +12302,7 @@ select.input {
 
 .createTaskModal.terminalTheme .createTaskAdvancedToggle {
   color: var(--terminal-cyan);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
 }
 
@@ -12166,7 +12319,7 @@ select.input {
 
 .createTaskModal.terminalTheme .createTaskModalKeyboardHint {
   color: var(--terminal-text-dim);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   padding: 4px 8px;
   border: 1px solid var(--terminal-border);
@@ -12174,7 +12327,7 @@ select.input {
 }
 
 .createTaskModal.terminalTheme .createTaskBtn {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-weight: 600;
   text-transform: lowercase;
   letter-spacing: 0.03em;
@@ -12272,7 +12425,7 @@ select.input {
   background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
   border-bottom: 1px solid var(--terminal-border);
   color: var(--terminal-amber);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-weight: 600;
   font-size: 14px;
 }
@@ -12285,7 +12438,7 @@ select.input {
 .confirmDialogBody {
   padding: 20px;
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -12380,7 +12533,7 @@ select.input {
   /* Base Sidebar Styles */
   background: var(--terminal-bg) !important;
   border-right: 1px solid var(--terminal-border) !important;
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-family: var(--style-font-ui);
   position: relative;
   overflow: hidden; /* For scanlines */
 }
@@ -12435,7 +12588,7 @@ select.input {
 }
 
 .sidebarHeader .title {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   color: var(--terminal-green) !important;
   text-transform: uppercase;
   font-size: 11px;
@@ -12476,7 +12629,7 @@ select.input {
   background: transparent;
   color: var(--terminal-text-dim);
   border-radius: 2px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
 }
 
@@ -12528,7 +12681,7 @@ select.input {
   border-radius: 2px;
   border: 1px solid transparent;
   background: transparent;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   color: var(--terminal-text-dim);
 }
 
@@ -12552,7 +12705,7 @@ select.input {
 
 .sessionCmd {
   color: #008f11; /* Darker green for dim text */
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   opacity: 0.8;
 }
 
@@ -12583,7 +12736,7 @@ select.input {
   background: rgba(0, 0, 0, 0.3);
   color: var(--terminal-text-dim);
   border-radius: 2px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .agentShortcutBtn:hover {
@@ -12605,10 +12758,10 @@ select.input {
 
 /* Dropdowns in Sidebar */
 .sidebarActionMenuDropdown {
-  background: var(--terminal-bg);
-  border: 1px solid var(--terminal-green);
+  background: var(--terminal-bg, var(--panel, #10151e));
+  border: 1px solid var(--terminal-green, var(--theme-primary, #6b8afd));
   border-radius: 2px;
-  box-shadow: 0 4px 20px rgba(var(--theme-primary-rgb), 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 4px 20px rgba(var(--theme-primary-rgb, 107, 138, 253), 0.15);
 }
 
 .sidebarActionMenuDropdown--fixed {
@@ -12617,14 +12770,14 @@ select.input {
 }
 
 .sidebarActionMenuItem {
-  color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  color: var(--terminal-text, var(--text, #f0f4f8));
+  font-family: var(--style-font-ui);
   border-radius: 2px;
 }
 
 .sidebarActionMenuItem:hover {
-  background: rgba(var(--theme-primary-rgb), 0.1);
-  border-color: var(--terminal-green-dim);
+  background: rgba(var(--theme-primary-rgb, 107, 138, 253), 0.1);
+  border-color: var(--terminal-green-dim, var(--theme-primary-dim, #4a6afd));
 }
 
 /* Scrollbars */
@@ -12658,7 +12811,7 @@ select.input {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .createTaskSkillsLoading,
@@ -12666,7 +12819,7 @@ select.input {
 .createTaskSkillsEmpty {
   padding: 12px;
   border-radius: 2px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -12707,7 +12860,7 @@ select.input {
   color: var(--terminal-green);
   padding: 2px 6px;
   border-radius: 2px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .createTaskSkillsGrid {
@@ -12726,7 +12879,7 @@ select.input {
   background: rgba(var(--theme-primary-rgb), 0.02);
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .createTaskSkillCheckbox:hover {
@@ -13029,7 +13182,7 @@ select.input {
   border: 1px solid var(--terminal-border);
   border-radius: 6px;
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -13048,7 +13201,7 @@ select.input {
   border: 1px solid var(--terminal-border);
   border-radius: 6px;
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
   line-height: 1.6;
   outline: none;
@@ -13109,7 +13262,7 @@ select.input {
 }
 
 .templateVariableName {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   color: var(--terminal-cyan);
 }
@@ -13210,7 +13363,7 @@ select.input {
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--terminal-text-dim);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
@@ -13239,7 +13392,7 @@ select.input {
 }
 
 .maestroPanelTabBadge {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   line-height: 1;
   padding: 2px 5px;
@@ -13271,7 +13424,7 @@ select.input {
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--terminal-text-dim);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   font-weight: 400;
   cursor: pointer;
@@ -13342,7 +13495,7 @@ select.input {
 }
 
 .maestroPanelIconCount {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   line-height: 1;
   color: var(--terminal-text-dim);
@@ -13537,7 +13690,7 @@ select.input {
   font-size: 16px;
   font-weight: 600;
   color: var(--terminal-green);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   text-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.5);
 }
 
@@ -13593,7 +13746,7 @@ select.input {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .workOnModalTaskLabel::before {
@@ -13612,7 +13765,7 @@ select.input {
 .workOnModalTaskId {
   font-size: 11px;
   color: var(--terminal-text-dim);
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--style-font-ui);
 }
 
 .workOnModalHint {
@@ -13637,7 +13790,7 @@ select.input {
   font-size: 11px;
   font-weight: 700;
   flex-shrink: 0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .workOnModalHintText {
@@ -13651,7 +13804,7 @@ select.input {
   border: 1px solid var(--terminal-border);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   color: var(--terminal-green);
 }
@@ -13672,7 +13825,7 @@ select.input {
   border-radius: 6px;
   font-size: 13px;
   font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   text-transform: lowercase;
   letter-spacing: 0.03em;
   cursor: pointer;
@@ -13714,7 +13867,7 @@ select.input {
 
 .workOnModal .strategySelectorTitle {
   color: var(--terminal-amber);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -13744,7 +13897,7 @@ select.input {
 
 .workOnModal .strategySelectorOptionTitle {
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .workOnModal .strategySelectorOptionIcon {
@@ -13767,7 +13920,7 @@ select.input {
   align-items: flex-start;
   gap: 8px;
   padding: 4px 0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
 }
 
@@ -13859,7 +14012,7 @@ select.input {
   background: none;
   border: none;
   color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
   width: 100%;
@@ -13896,7 +14049,7 @@ select.input {
 
 .sessionTimelineFilterBtn {
   padding: 2px 8px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -13932,7 +14085,7 @@ select.input {
 .sessionTimelineShowMore {
   margin-top: 8px;
   padding: 4px 8px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   background: rgba(var(--theme-primary-rgb), 0.1);
   border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
@@ -13958,7 +14111,7 @@ select.input {
   background: none;
   border: none;
   color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
   width: 100%;
@@ -13995,7 +14148,7 @@ select.input {
 
 .aggregatedTimelineFilterBtn {
   padding: 2px 8px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -14051,7 +14204,7 @@ select.input {
   display: inline-flex;
   align-items: center;
   padding: 2px 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   font-weight: 500;
   border-radius: 2px;
@@ -14081,7 +14234,7 @@ select.input {
   align-items: center;
   gap: 4px;
   padding: 2px 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   font-weight: 500;
   border-radius: 2px;
@@ -14126,7 +14279,7 @@ select.input {
   display: inline-flex;
   align-items: center;
   padding: 2px 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   font-weight: 500;
   border-radius: 2px;
@@ -14170,7 +14323,7 @@ select.input {
   background: none;
   border: none;
   color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
   width: 100%;
@@ -14215,7 +14368,7 @@ select.input {
 }
 
 .sessionDetailsValue--mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .sessionDetailsValue--strategy-simple {
@@ -14260,7 +14413,7 @@ select.input {
 
 .sessionDetailsShowBtn {
   padding: 2px 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -14279,7 +14432,7 @@ select.input {
   flex-direction: column;
   gap: 4px;
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .sessionDetailsEnvRow {
@@ -14303,7 +14456,7 @@ select.input {
   gap: 4px;
   font-size: 10px;
   color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .sessionDetailsSummarySep {
@@ -14328,7 +14481,7 @@ select.input {
   background: none;
   border: none;
   color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
   width: 100%;
@@ -14473,7 +14626,7 @@ select.input {
 /* Queue Indicator (compact) */
 .queueIndicator {
   padding: 1px 4px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 8px;
   font-weight: 500;
   background: rgba(34, 211, 238, 0.15);
@@ -14526,7 +14679,7 @@ select.input {
   align-items: center;
   gap: 4px;
   padding: 2px 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   font-weight: 500;
   border-radius: 2px;
@@ -14567,7 +14720,7 @@ select.input {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   font-weight: 500;
   color: var(--text);
@@ -14585,7 +14738,7 @@ select.input {
 
 .sessionInTaskViewJumpBtn {
   padding: 2px 8px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   background: rgba(var(--theme-primary-rgb), 0.1);
   border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
@@ -14600,7 +14753,7 @@ select.input {
 
 .sessionInTaskViewRemoveBtn {
   padding: 2px 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.2);
@@ -14668,7 +14821,7 @@ select.input {
   width: 100%;
   margin-top: 8px;
   padding: 8px 16px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .maestroSessionContent--loading {
@@ -14718,7 +14871,7 @@ select.input {
   color: var(--muted);
   padding: 4px 8px;
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -14769,7 +14922,7 @@ select.input {
   background: none;
   border: none;
   color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
   width: 100%;
@@ -15045,7 +15198,7 @@ select.input {
   color: var(--terminal-dim);
   padding: 4px 12px;
   font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   cursor: pointer;
   transition: all 0.15s ease;
   letter-spacing: 0.03em;
@@ -15146,7 +15299,7 @@ select.input {
   border: 1px solid var(--terminal-border);
   border-radius: 3px;
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
@@ -15211,7 +15364,7 @@ select.input {
   text-align: center;
   color: var(--terminal-dim);
   font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   background: var(--panel, #10151e);
 }
 
@@ -15227,7 +15380,7 @@ select.input {
   background: none;
   border: none;
   color: var(--terminal-dim);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   cursor: pointer;
   padding: 2px 6px;
@@ -15247,7 +15400,7 @@ select.input {
   border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   color: var(--terminal-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
   text-align: left;
@@ -15311,7 +15464,7 @@ select.input {
 
 /* ExecutionBar Model Badge */
 .executionBarModelBadge {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   font-weight: 600;
   padding: 3px 7px;
@@ -15370,7 +15523,7 @@ select.input {
 .teamMemberListHint {
   font-size: 11px;
   color: var(--terminal-dim);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .teamMemberListHeader {
@@ -15382,7 +15535,7 @@ select.input {
 
 .teamMemberListLabel {
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   color: var(--terminal-amber, #ffab00);
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -15402,7 +15555,7 @@ select.input {
   cursor: pointer;
   border: 1px solid transparent;
   transition: all 0.15s ease;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
 }
 
@@ -15614,7 +15767,7 @@ select.input {
   font-size: 10px;
   color: var(--terminal-green);
   transition: all 0.15s ease;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .terminalTaskCheckmark--checked {
@@ -15649,7 +15802,7 @@ select.input {
   width: 100%;
   box-shadow: 0 0 30px rgba(var(--theme-primary-rgb), 0.3),
     inset 0 0 60px rgba(var(--theme-primary-rgb), 0.03);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .themedModalHeader {
@@ -15712,7 +15865,7 @@ select.input {
   background: rgba(var(--theme-primary-rgb), 0.03);
   color: var(--theme-primary);
   padding: 8px 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -15732,7 +15885,7 @@ select.input {
   background: #000000;
   color: var(--theme-primary);
   padding: 8px 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   outline: none;
   cursor: pointer;
@@ -15762,7 +15915,7 @@ select.input {
   background: transparent;
   color: rgba(var(--theme-primary-rgb), 0.7);
   padding: 6px 14px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -15832,7 +15985,7 @@ select.input {
   background: transparent;
   color: rgba(var(--theme-primary-rgb), 0.5);
   padding: 5px 14px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -15870,7 +16023,7 @@ select.input {
   background: transparent;
   color: rgba(var(--theme-primary-rgb), 0.7);
   padding: 2px 8px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -15914,7 +16067,7 @@ select.input {
   box-shadow: 0 0 20px rgba(var(--theme-primary-rgb), 0.3);
   min-width: 160px;
   z-index: 9999;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .themedDropdownOption {
@@ -15926,7 +16079,7 @@ select.input {
   border: none;
   background: transparent;
   color: rgba(var(--theme-primary-rgb), 0.7);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   text-align: left;
   cursor: pointer;
@@ -15962,7 +16115,7 @@ select.input {
 /* ------------------------------------------------------------------ */
 
 .themedTaskStatusBadge {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -16011,7 +16164,7 @@ select.input {
   align-items: center;
   gap: 8px;
   padding: 4px 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.7);
   border: 1px solid transparent;
@@ -16128,7 +16281,7 @@ select.input {
   display: flex;
   flex-direction: column;
   max-height: 300px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .themedBreadcrumb {
@@ -16146,7 +16299,7 @@ select.input {
   background: none;
   border: none;
   color: rgba(var(--theme-primary-rgb), 0.7);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
   padding: 2px 4px;
@@ -16202,7 +16355,7 @@ select.input {
   border: none;
   border-bottom: 1px solid var(--theme-border);
   color: rgba(var(--theme-primary-rgb), 0.7);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   padding: 6px 12px;
   cursor: pointer;
@@ -16241,7 +16394,7 @@ select.input {
   background: none;
   border: 1px solid var(--theme-border);
   color: rgba(var(--theme-primary-rgb), 0.6);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   padding: 4px 10px;
   cursor: pointer;
@@ -16284,7 +16437,7 @@ select.input {
   background: transparent;
   color: rgba(var(--theme-primary-rgb), 0.4);
   padding: 5px 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -16365,7 +16518,7 @@ select.input {
   justify-content: center;
   height: 100%;
   gap: 16px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .emptyStateTitle {
@@ -16386,7 +16539,7 @@ select.input {
   background: rgba(var(--theme-primary-rgb), 0.08);
   color: var(--theme-primary);
   padding: 10px 24px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 1px;
@@ -16424,7 +16577,7 @@ select.input {
   border: 1px solid rgba(255, 180, 0, 0.4);
   background: rgba(255, 180, 0, 0.06);
   color: rgba(255, 200, 60, 0.9);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   line-height: 1.5;
   margin: 0 16px 12px;
@@ -16643,7 +16796,7 @@ select.input {
   color: var(--theme-primary, #00ff41);
   font-size: 9px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   letter-spacing: -0.5px;
 }
 
@@ -16670,7 +16823,7 @@ select.input {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .docsListCardExt {
@@ -16702,7 +16855,7 @@ select.input {
   font-size: 9px;
   color: var(--muted);
   opacity: 0.6;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 /* ------------------------------------------------------------------ */
@@ -16740,7 +16893,7 @@ select.input {
     inset 0 1px 0 rgba(var(--theme-primary-rgb), 0.1);
   overflow: hidden;
   animation: docViewerSlideUp 0.2s ease;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 @keyframes docViewerSlideUp {
@@ -16778,7 +16931,7 @@ select.input {
   color: var(--theme-primary, #00ff41);
   font-size: 11px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .docViewerHeaderInfo {
@@ -16807,7 +16960,7 @@ select.input {
 .docViewerFileName {
   font-size: 11px;
   color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .docViewerExtBadge {
@@ -16818,7 +16971,7 @@ select.input {
   background: rgba(var(--theme-primary-rgb), 0.1);
   border: 1px solid rgba(var(--theme-primary-rgb), 0.15);
   color: var(--theme-primary, #00ff41);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   text-transform: uppercase;
 }
 
@@ -16872,7 +17025,7 @@ select.input {
 .docViewerMetaValue {
   font-size: 11px;
   color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   max-width: 300px;
   white-space: nowrap;
   overflow: hidden;
@@ -16922,7 +17075,7 @@ select.input {
   background: rgba(var(--theme-primary-rgb), 0.03);
   border: 1px solid rgba(var(--theme-primary-rgb), 0.1);
   border-radius: 0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   line-height: 1.6;
   color: var(--text);
@@ -16951,7 +17104,7 @@ select.input {
 
 .docViewerEmptyPath {
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   opacity: 0.6;
 }
 
@@ -17028,7 +17181,7 @@ select.input {
 
 /* Inline code */
 .docViewerMarkdown code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 0.88em;
   padding: 2px 6px;
   background: rgba(var(--theme-primary-rgb), 0.08);
@@ -17240,7 +17393,7 @@ select.input {
   border-radius: 6px;
   color: var(--muted);
   font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .mermaidDiagramSpinner {
@@ -17273,7 +17426,7 @@ select.input {
   font-size: 11px;
   font-weight: 600;
   color: #ff6b6b;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .mermaidDiagramErrorIcon {
@@ -17293,7 +17446,7 @@ select.input {
   margin: 0;
   padding: 8px 14px;
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   color: var(--muted);
   opacity: 0.7;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
@@ -17306,7 +17459,7 @@ select.input {
   margin: 0;
   padding: 12px 14px;
   font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   line-height: 1.5;
   color: var(--text);
   background: rgba(var(--theme-primary-rgb), 0.02);
@@ -17564,7 +17717,7 @@ select.input {
 }
 
 .taskBoardTitle {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -17578,7 +17731,7 @@ select.input {
 }
 
 .taskBoardProjectName {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
   color: rgba(var(--theme-primary-rgb), 0.4);
   padding: 3px 10px;
@@ -17589,7 +17742,7 @@ select.input {
 .taskBoardHeaderStats {
   display: flex;
   gap: 14px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
 }
 
@@ -17616,7 +17769,7 @@ select.input {
   justify-content: center;
   cursor: pointer;
   font-size: 16px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   transition: all 0.15s ease;
   border-radius: 4px;
   flex-shrink: 0;
@@ -17684,7 +17837,7 @@ select.input {
 }
 
 .taskBoardColumnCollapsedLabel {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 16px;
   color: rgba(var(--theme-primary-rgb), 0.4);
   writing-mode: vertical-rl;
@@ -17692,7 +17845,7 @@ select.input {
 }
 
 .taskBoardColumnCollapsedCount {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   color: var(--theme-primary);
   background: rgba(var(--theme-primary-rgb), 0.15);
@@ -17721,7 +17874,7 @@ select.input {
 
 .taskBoardColumnDot {
   font-size: 14px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .taskBoardColumnDot--todo { color: rgba(var(--theme-primary-rgb), 0.4); }
@@ -17739,7 +17892,7 @@ select.input {
 }
 
 .taskBoardColumnLabel {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -17749,7 +17902,7 @@ select.input {
 }
 
 .taskBoardColumnCount {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   color: var(--theme-primary);
   background: rgba(var(--theme-primary-rgb), 0.1);
@@ -17782,7 +17935,7 @@ select.input {
 }
 
 .taskBoardColumnEmptyText {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   color: rgba(var(--theme-primary-rgb), 0.2);
   text-transform: lowercase;
@@ -17885,7 +18038,7 @@ body.dragging-active * {
 }
 
 .taskBoardCardTitle {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
   font-weight: 500;
   color: var(--theme-text, #f0f4f8);
@@ -17908,7 +18061,7 @@ body.dragging-active * {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
 }
 
@@ -17937,7 +18090,7 @@ body.dragging-active * {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.4);
 }
@@ -17966,7 +18119,7 @@ body.dragging-active * {
   border: 1px solid var(--theme-border, rgba(255,255,255,0.08));
   color: rgba(var(--theme-primary-rgb), 0.5);
   padding: 4px 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -18000,7 +18153,7 @@ body.dragging-active * {
   background: transparent;
   border: none;
   color: rgba(var(--theme-primary-rgb), 0.4);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -18039,7 +18192,7 @@ body.dragging-active * {
 }
 
 .sessionBoardEmptyText {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
   color: rgba(var(--theme-primary-rgb), 0.2);
   text-transform: lowercase;
@@ -18100,7 +18253,7 @@ body.dragging-active * {
 
 .sessionColumnStatusDot {
   font-size: 14px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   flex-shrink: 0;
 }
 
@@ -18109,7 +18262,7 @@ body.dragging-active * {
 }
 
 .sessionColumnName {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
   font-weight: 600;
   color: var(--theme-text, #f0f4f8);
@@ -18120,7 +18273,7 @@ body.dragging-active * {
 }
 
 .sessionColumnTaskCount {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   color: var(--theme-primary);
   background: rgba(var(--theme-primary-rgb), 0.1);
@@ -18137,13 +18290,13 @@ body.dragging-active * {
 }
 
 .sessionColumnMeta {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.35);
 }
 
 .sessionColumnDuration {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.35);
 }
@@ -18174,7 +18327,7 @@ body.dragging-active * {
 }
 
 .sessionColumnToggleBtn {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   padding: 3px 8px;
   border: 1px solid var(--theme-border, rgba(255,255,255,0.08));
@@ -18241,7 +18394,7 @@ body.dragging-active * {
 }
 
 .sessionColumnSectionLabel {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -18251,7 +18404,7 @@ body.dragging-active * {
 }
 
 .sessionColumnTasksEmpty {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   color: rgba(var(--theme-primary-rgb), 0.2);
   padding: 8px 4px;
@@ -18278,13 +18431,13 @@ body.dragging-active * {
 }
 
 .sessionTaskCardSymbol {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
   flex-shrink: 0;
 }
 
 .sessionTaskCardTitle {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   color: var(--theme-text, #f0f4f8);
   flex: 1;
@@ -18294,7 +18447,7 @@ body.dragging-active * {
 }
 
 .sessionTaskCardStatus {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -18348,7 +18501,7 @@ body.dragging-active * {
 }
 
 .mpbProjectCount {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   color: rgba(var(--theme-primary-rgb), 0.4);
   padding: 3px 10px;
@@ -18368,7 +18521,7 @@ body.dragging-active * {
   background: transparent;
   border: none;
   color: rgba(var(--theme-primary-rgb), 0.4);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 14px;
   padding: 4px 10px;
   cursor: pointer;
@@ -18429,7 +18582,7 @@ body.dragging-active * {
 }
 
 .mpbSidebarTitle {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -18495,7 +18648,7 @@ body.dragging-active * {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   color: rgba(var(--theme-primary-rgb), 0.5);
 }
@@ -18557,7 +18710,7 @@ body.dragging-active * {
 }
 
 .mpbProjectName {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
   color: var(--theme-text, #f0f4f8);
   flex: 1;
@@ -18573,7 +18726,7 @@ body.dragging-active * {
 }
 
 .mpbProjectStatItem {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.35);
 }
@@ -18613,7 +18766,7 @@ body.dragging-active * {
 }
 
 .mpbProjectRowName {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 14px;
   font-weight: 600;
   color: var(--theme-text, #f0f4f8);
@@ -18621,7 +18774,7 @@ body.dragging-active * {
 }
 
 .mpbProjectRowCount {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   color: rgba(var(--theme-primary-rgb), 0.4);
 }
@@ -18678,7 +18831,7 @@ body.dragging-active * {
 }
 
 .mpbKanbanColumnLabel {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -18688,7 +18841,7 @@ body.dragging-active * {
 }
 
 .mpbKanbanColumnCount {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.5);
 }
@@ -18705,7 +18858,7 @@ body.dragging-active * {
 }
 
 .mpbKanbanColumnEmpty {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.15);
   text-align: center;
@@ -18715,7 +18868,7 @@ body.dragging-active * {
 /* ── Project Badge ── */
 
 .mpbProjectBadge {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -18741,7 +18894,7 @@ body.dragging-active * {
 }
 
 .mpbEmptyText {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 13px;
   color: rgba(var(--theme-primary-rgb), 0.2);
   text-transform: lowercase;
@@ -18783,7 +18936,7 @@ body.dragging-active * {
 }
 
 .mpbSessionProjectName {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 14px;
   font-weight: 600;
   color: var(--theme-text, #f0f4f8);
@@ -18791,7 +18944,7 @@ body.dragging-active * {
 }
 
 .mpbSessionProjectCount {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   color: rgba(var(--theme-primary-rgb), 0.4);
 }
@@ -18834,13 +18987,13 @@ body.dragging-active * {
 }
 
 .mpbKanbanColumnCollapsedSymbol {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 14px;
   color: rgba(var(--theme-primary-rgb), 0.4);
 }
 
 .mpbKanbanColumnCollapsedCount {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   color: var(--theme-primary);
   background: rgba(var(--theme-primary-rgb), 0.15);
@@ -18902,11 +19055,11 @@ body.dragging-active * {
 
 .mpbSessionColumnCollapsedDot {
   font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
 }
 
 .mpbSessionColumnCollapsedName {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   color: rgba(var(--theme-primary-rgb), 0.5);
   writing-mode: vertical-rl;
@@ -18966,7 +19119,7 @@ body.dragging-active * {
 }
 
 .mpbUnifiedSessionBadgeName {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   font-weight: 600;
   color: var(--theme-text, #f0f4f8);
@@ -18977,7 +19130,7 @@ body.dragging-active * {
 }
 
 .mpbUnifiedSessionDragHandle {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   color: rgba(var(--theme-primary-rgb), 0.25);
   letter-spacing: -2px;
@@ -19122,7 +19275,7 @@ body.dragging-active * {
 
 .splitPlayDropdown__header {
   padding: 8px 10px 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 10px;
   font-weight: 600;
   color: var(--theme-primary);
@@ -19134,7 +19287,7 @@ body.dragging-active * {
 
 .splitPlayDropdown__empty {
   padding: 16px 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   color: rgba(240, 244, 248, 0.4);
   text-align: center;
@@ -19153,7 +19306,7 @@ body.dragging-active * {
   border: none;
   border-radius: 3px;
   color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.1s ease;
@@ -19212,7 +19365,7 @@ body.dragging-active * {
 }
 
 .splitPlayDropdown__defaultTag {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   color: rgba(var(--theme-primary-rgb), 0.6);
   border: 1px solid rgba(var(--theme-primary-rgb), 0.2);
@@ -19238,7 +19391,7 @@ body.dragging-active * {
   border: none;
   border-radius: 3px;
   color: rgba(var(--theme-primary-rgb), 0.7);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
   transition: all 0.1s ease;
@@ -19267,7 +19420,7 @@ body.dragging-active * {
 
 /* Mode badges in dropdown */
 .splitPlayDropdown__modeBadge {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--style-font-ui);
   font-size: 9px;
   padding: 1px 5px;
   border-radius: 3px;
@@ -19724,4 +19877,411 @@ body.dragging-active * {
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid var(--border);
+}
+
+/* ================================================================== */
+/*  MATERIAL STYLE — Global Component Overrides                        */
+/* ================================================================== */
+
+html[data-style="material"] .terminalTaskModal,
+html[data-style="material"] .terminalTaskModal__content {
+  border-radius: var(--style-radius-xl);
+  box-shadow: var(--style-shadow-modal);
+}
+
+html[data-style="material"] .terminalBtn,
+html[data-style="material"] .terminalBtn--primary {
+  border-radius: var(--style-radius-md);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  box-shadow: var(--style-shadow-card);
+  transition: all var(--style-transition);
+}
+
+html[data-style="material"] .terminalBtn:hover,
+html[data-style="material"] .terminalBtn--primary:hover {
+  box-shadow: var(--style-shadow-hover);
+  text-shadow: none;
+}
+
+html[data-style="material"] .terminalBtn--secondary {
+  border-radius: var(--style-radius-md);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+html[data-style="material"] .terminalSubsectionHeader {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+html[data-style="material"] .terminalSessionItem {
+  border-radius: var(--style-radius-md);
+  transition: all var(--style-transition);
+}
+
+html[data-style="material"] .terminalSessionItem:hover {
+  text-shadow: none;
+}
+
+html[data-style="material"] .terminalStatusLabel--pending,
+html[data-style="material"] .terminalStatusLabel--in_progress,
+html[data-style="material"] .terminalStatusLabel--completed,
+html[data-style="material"] .terminalStatusLabel--failed {
+  border-radius: var(--style-radius-sm);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+html[data-style="material"] input,
+html[data-style="material"] textarea,
+html[data-style="material"] select {
+  border-radius: var(--style-radius-md);
+  transition: all var(--style-transition);
+}
+
+/* Remove neon text-shadow across material */
+html[data-style="material"] * {
+  text-shadow: none !important;
+}
+
+/* ================================================================== */
+/*  GLASS STYLE — Global Component Overrides                           */
+/* ================================================================== */
+
+html[data-style="glass"] .terminalTaskModal,
+html[data-style="glass"] .terminalTaskModal__content {
+  border-radius: var(--style-radius-xl);
+  background: var(--style-surface-2);
+  backdrop-filter: var(--style-backdrop);
+  -webkit-backdrop-filter: var(--style-backdrop);
+  box-shadow: var(--style-shadow-modal);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+html[data-style="glass"] .terminalBtn,
+html[data-style="glass"] .terminalBtn--primary {
+  border-radius: var(--style-radius-md);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+html[data-style="glass"] .terminalSessionItem {
+  border-radius: var(--style-radius-md);
+  background: var(--style-surface-3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+html[data-style="glass"] .terminalSubsectionHeader {
+  text-transform: none;
+  letter-spacing: 0.2px;
+}
+
+html[data-style="glass"] .terminalStatusLabel--pending,
+html[data-style="glass"] .terminalStatusLabel--in_progress,
+html[data-style="glass"] .terminalStatusLabel--completed,
+html[data-style="glass"] .terminalStatusLabel--failed {
+  border-radius: var(--style-radius-sm);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+html[data-style="glass"] input,
+html[data-style="glass"] textarea,
+html[data-style="glass"] select {
+  border-radius: var(--style-radius-md);
+  background: var(--style-input-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ================================================================== */
+/*  MINIMAL STYLE — Global Component Overrides                         */
+/* ================================================================== */
+
+html[data-style="minimal"] .terminalTaskModal,
+html[data-style="minimal"] .terminalTaskModal__content {
+  box-shadow: var(--style-shadow-modal);
+  border: 1px solid var(--border);
+}
+
+html[data-style="minimal"] .terminalBtn,
+html[data-style="minimal"] .terminalBtn--primary {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  box-shadow: none;
+  transition: all var(--style-transition);
+}
+
+html[data-style="minimal"] .terminalBtn:hover,
+html[data-style="minimal"] .terminalBtn--primary:hover {
+  box-shadow: none;
+  text-shadow: none;
+}
+
+html[data-style="minimal"] .terminalSubsectionHeader {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+html[data-style="minimal"] .terminalSessionItem:hover {
+  text-shadow: none;
+  box-shadow: none;
+}
+
+html[data-style="minimal"] .terminalStatusLabel--pending,
+html[data-style="minimal"] .terminalStatusLabel--in_progress,
+html[data-style="minimal"] .terminalStatusLabel--completed,
+html[data-style="minimal"] .terminalStatusLabel--failed {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+/* Remove all neon text-shadow and box-shadow glow in minimal */
+html[data-style="minimal"] * {
+  text-shadow: none !important;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Team Member Modal — Sections & Responsive                          */
+/* ------------------------------------------------------------------ */
+
+.tmModal__section {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.08);
+}
+
+.tmModal__section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.tmModal__sectionLabel {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(var(--theme-primary-rgb), 0.35);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.tmModal__row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.tmModal__field {
+  flex: 1;
+  min-width: 0;
+}
+
+.tmModal__fieldSmall {
+  width: 72px;
+  flex-shrink: 0;
+}
+
+/* Memory Card */
+.tmModal__memoryCard {
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.12);
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.tmModal__memoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.08);
+  background: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.tmModal__memoryHeaderLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-family: var(--style-font-ui);
+}
+
+.tmModal__memoryCount {
+  font-size: 9px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  padding: 1px 6px;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  border-radius: 2px;
+  font-family: var(--style-font-ui);
+}
+
+.tmModal__memoryList {
+  max-height: 140px;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.tmModal__memoryList::-webkit-scrollbar {
+  width: 4px;
+}
+
+.tmModal__memoryList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tmModal__memoryList::-webkit-scrollbar-thumb {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  border-radius: 2px;
+}
+
+.tmModal__memoryEntry {
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.05);
+  font-size: 11px;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  line-height: 1.4;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+}
+
+.tmModal__memoryEntry:last-child {
+  border-bottom: none;
+}
+
+.tmModal__memoryIndex {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.12);
+  border-radius: 2px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  margin-top: 1px;
+}
+
+.tmModal__memoryText {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.tmModal__memoryEmpty {
+  padding: 16px 10px;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.3);
+  font-family: var(--style-font-ui);
+}
+
+.tmModal__memoryHint {
+  font-size: 9px;
+  color: rgba(var(--theme-primary-rgb), 0.3);
+  padding: 4px 10px 6px;
+  border-top: 1px solid rgba(var(--theme-primary-rgb), 0.05);
+  font-family: var(--style-font-ui);
+}
+
+/* Permissions Card */
+.tmModal__permCard {
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.1);
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  border-radius: 3px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.tmModal__permCard:last-child {
+  margin-bottom: 0;
+}
+
+.tmModal__permCardLabel {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+/* Footer responsive */
+.tmModal__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--theme-border);
+  flex-wrap: wrap;
+}
+
+.tmModal__footerLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tmModal__footerRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .themedModal--wide {
+    max-width: 100%;
+    min-width: unset;
+    min-height: unset;
+    max-height: 95vh;
+    margin: 8px;
+  }
+
+  .tmModal__row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tmModal__fieldSmall {
+    width: 100%;
+  }
+
+  .tmModal__footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tmModal__footerLeft {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .tmModal__footerRight {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .themedModalHeader {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
 }

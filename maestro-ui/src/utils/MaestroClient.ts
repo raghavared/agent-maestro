@@ -18,6 +18,9 @@ import type {
     TeamMember,
     CreateTeamMemberPayload,
     UpdateTeamMemberPayload,
+    Team,
+    CreateTeamPayload,
+    UpdateTeamPayload,
     WorkflowTemplate,
 } from '../app/types/maestro';
 
@@ -347,6 +350,46 @@ class MaestroClient {
      */
     async resetDefaultTeamMember(id: string, projectId: string): Promise<void> {
         await this.fetch<TeamMember>(`/team-members/${id}/reset`, {
+            method: 'POST',
+            body: JSON.stringify({ projectId }),
+        });
+    }
+
+    // ==================== TEAMS ====================
+
+    async getTeams(projectId: string): Promise<Team[]> {
+        return this.fetch<Team[]>(`/teams?projectId=${encodeURIComponent(projectId)}`);
+    }
+
+    async createTeam(data: CreateTeamPayload): Promise<Team> {
+        return this.fetch<Team>('/teams', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async updateTeam(id: string, projectId: string, updates: UpdateTeamPayload): Promise<Team> {
+        return this.fetch<Team>(`/teams/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ ...updates, projectId }),
+        });
+    }
+
+    async deleteTeam(id: string, projectId: string): Promise<void> {
+        await this.fetch<{ success: boolean }>(`/teams/${id}?projectId=${encodeURIComponent(projectId)}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async archiveTeam(id: string, projectId: string): Promise<void> {
+        await this.fetch<Team>(`/teams/${id}/archive`, {
+            method: 'POST',
+            body: JSON.stringify({ projectId }),
+        });
+    }
+
+    async unarchiveTeam(id: string, projectId: string): Promise<void> {
+        await this.fetch<Team>(`/teams/${id}/unarchive`, {
             method: 'POST',
             body: JSON.stringify({ projectId }),
         });

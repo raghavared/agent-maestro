@@ -117,6 +117,20 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { name: 'team-member:memory:list', description: CMD_DESC['team-member:memory:list'], allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
   { name: 'team-member:memory:clear', description: CMD_DESC['team-member:memory:clear'], allowedModes: ['execute', 'coordinate'], parent: 'team-member' },
 
+  // Team commands
+  { name: 'team:list', description: CMD_DESC['team:list'], allowedModes: ['execute', 'coordinate'], parent: 'team' },
+  { name: 'team:get', description: CMD_DESC['team:get'], allowedModes: ['execute', 'coordinate'], parent: 'team' },
+  { name: 'team:create', description: CMD_DESC['team:create'], allowedModes: ['execute', 'coordinate'], parent: 'team' },
+  { name: 'team:edit', description: CMD_DESC['team:edit'], allowedModes: ['execute', 'coordinate'], parent: 'team' },
+  { name: 'team:delete', description: CMD_DESC['team:delete'], allowedModes: ['execute', 'coordinate'], parent: 'team' },
+  { name: 'team:archive', description: CMD_DESC['team:archive'], allowedModes: ['execute', 'coordinate'], parent: 'team' },
+  { name: 'team:unarchive', description: CMD_DESC['team:unarchive'], allowedModes: ['execute', 'coordinate'], parent: 'team' },
+  { name: 'team:add-member', description: CMD_DESC['team:add-member'], allowedModes: ['execute', 'coordinate'], parent: 'team' },
+  { name: 'team:remove-member', description: CMD_DESC['team:remove-member'], allowedModes: ['execute', 'coordinate'], parent: 'team' },
+  { name: 'team:add-sub-team', description: CMD_DESC['team:add-sub-team'], allowedModes: ['execute', 'coordinate'], parent: 'team' },
+  { name: 'team:remove-sub-team', description: CMD_DESC['team:remove-sub-team'], allowedModes: ['execute', 'coordinate'], parent: 'team' },
+  { name: 'team:tree', description: CMD_DESC['team:tree'], allowedModes: ['execute', 'coordinate'], parent: 'team' },
+
   // Show commands (display content in UI)
   { name: 'show:modal', description: CMD_DESC['show:modal'], allowedModes: ['execute', 'coordinate'], parent: 'show' },
 
@@ -179,6 +193,19 @@ export const DEFAULT_COMMANDS_BY_MODE: Record<string, string[]> = {
     'team-member:memory:append',
     'team-member:memory:list',
     'team-member:memory:clear',
+    // Team commands
+    'team:list',
+    'team:get',
+    'team:create',
+    'team:edit',
+    'team:delete',
+    'team:archive',
+    'team:unarchive',
+    'team:add-member',
+    'team:remove-member',
+    'team:add-sub-team',
+    'team:remove-sub-team',
+    'team:tree',
     // Show commands
     'show:modal',
     'modal:events',
@@ -243,6 +270,19 @@ export const DEFAULT_COMMANDS_BY_MODE: Record<string, string[]> = {
     'team-member:memory:append',
     'team-member:memory:list',
     'team-member:memory:clear',
+    // Team commands
+    'team:list',
+    'team:get',
+    'team:create',
+    'team:edit',
+    'team:delete',
+    'team:archive',
+    'team:unarchive',
+    'team:add-member',
+    'team:remove-member',
+    'team:add-sub-team',
+    'team:remove-sub-team',
+    'team:tree',
     // Show commands
     'show:modal',
     'modal:events',

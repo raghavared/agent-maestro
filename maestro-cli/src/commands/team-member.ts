@@ -177,6 +177,7 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--agent-tool <tool>', 'Update agent tool (claude-code, codex, or gemini)')
         .option('--permission-mode <mode>', 'Update permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Update identity/persona instructions')
+        .option('--skills <skills>', 'Update assigned skill IDs (comma-separated, e.g. react-expert,frontend-design)')
         .option('--workflow-template <templateId>', 'Update workflow template ID')
         .option('--custom-workflow <workflow>', 'Update custom workflow text (use with --workflow-template custom)')
         .action(async (teamMemberId: string, cmdOpts: any) => {
@@ -231,6 +232,7 @@ export function registerTeamMemberCommands(program: Command) {
             if (cmdOpts.agentTool) updates.agentTool = cmdOpts.agentTool;
             if (cmdOpts.permissionMode) updates.permissionMode = cmdOpts.permissionMode;
             if (cmdOpts.identity) updates.identity = cmdOpts.identity.trim();
+            if (cmdOpts.skills) updates.skillIds = cmdOpts.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
             if (cmdOpts.workflowTemplate) updates.workflowTemplateId = cmdOpts.workflowTemplate;
             if (cmdOpts.customWorkflow) updates.customWorkflow = cmdOpts.customWorkflow.trim();
 
@@ -595,6 +597,7 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--agent-tool <tool>', 'Agent tool (claude-code, codex, or gemini)', 'claude-code')
         .option('--permission-mode <mode>', 'Permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Custom identity/persona instructions')
+        .option('--skills <skills>', 'Comma-separated skill IDs to assign (e.g. react-expert,frontend-design)')
         .option('--workflow-template <templateId>', 'Workflow template ID (e.g. execute-simple, coordinate-default)')
         .option('--custom-workflow <text>', 'Custom workflow instructions (use with --workflow-template custom)')
         .action(async (name: string, cmdOpts: any) => {
@@ -654,6 +657,10 @@ export function registerTeamMemberCommands(program: Command) {
 
                 if (cmdOpts.permissionMode) {
                     payload.permissionMode = cmdOpts.permissionMode;
+                }
+
+                if (cmdOpts.skills) {
+                    payload.skillIds = cmdOpts.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
                 }
 
                 if (cmdOpts.workflowTemplate) {

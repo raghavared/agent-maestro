@@ -84,6 +84,18 @@
           }
         ]
       }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "maestro session needs-input",
+            "timeout": 3
+          }
+        ]
+      }
     ]
   }
 }

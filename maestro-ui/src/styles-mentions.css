@@ -10,7 +10,7 @@
     width: 100%;
     min-height: 250px;
     max-height: 400px;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-family: var(--style-font-ui);
     font-size: 14px;
     line-height: 1.5;
     background-color: transparent;
@@ -41,7 +41,7 @@
     caret-color: var(--theme-primary, #00ff41) !important;
     outline: none !important;
     border-radius: 4px;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+    font-family: var(--style-font-ui) !important;
     font-size: 14px !important;
     line-height: 1.5 !important;
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
@@ -64,7 +64,7 @@
 
 /* Highlighter - overlay layer BEHIND textarea - only mentions are visible */
 .mentionsInput div[class*="highlighter"] {
-    font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+    font-family: var(--style-font-ui) !important;
     font-size: 14px !important;
     line-height: 1.5 !important;
     pointer-events: none !important;
@@ -166,7 +166,7 @@
     border-radius: 2px;
     color: var(--theme-text, #f0f4f8);
     cursor: pointer;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-family: var(--style-font-ui);
     font-size: 12px;
     transition: all 0.2s ease;
     white-space: nowrap;

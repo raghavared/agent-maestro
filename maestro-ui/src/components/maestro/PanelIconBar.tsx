@@ -4,7 +4,7 @@ import { TaskTreeNode, MaestroTask, TeamMember } from "../../app/types/maestro";
 export type PrimaryTab = "tasks" | "team" | "skills";
 export type TaskSubTab = "current" | "pinned" | "completed" | "archived";
 export type SkillSubTab = "browse" | "installed" | "marketplace";
-export type TeamSubTab = "members" | "pinned" | "archived";
+export type TeamSubTab = "members" | "teams" | "pinned" | "archived";
 
 type PanelIconBarProps = {
     primaryTab: PrimaryTab;
@@ -21,6 +21,8 @@ type PanelIconBarProps = {
     projectId: string;
     onNewTask: () => void;
     onNewTeamMember: () => void;
+    onNewTeam?: () => void;
+    teamCount?: number;
 };
 
 export const PanelIconBar: React.FC<PanelIconBarProps> = ({
@@ -38,6 +40,8 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
     projectId,
     onNewTask,
     onNewTeamMember,
+    onNewTeam,
+    teamCount = 0,
 }) => {
     const activeCount = roots.filter(t => t.status !== 'completed' && t.status !== 'archived').length;
     const pinnedCount = roots.filter(t => t.pinned).length;
@@ -146,6 +150,13 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                         >
                             Members
                             <span className="maestroPanelSubTabCount">{activeTeamCount}</span>
+                        </button>
+                        <button
+                            className={`maestroPanelSubTab ${teamSubTab === "teams" ? "maestroPanelSubTabActive" : ""}`}
+                            onClick={() => onTeamSubTabChange("teams")}
+                        >
+                            Teams
+                            <span className="maestroPanelSubTabCount">{teamCount}</span>
                         </button>
                         <button
                             className={`maestroPanelSubTab ${teamSubTab === "pinned" ? "maestroPanelSubTabActive" : ""}`}

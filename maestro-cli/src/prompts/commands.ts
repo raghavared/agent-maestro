@@ -13,6 +13,7 @@ export const COMMAND_GROUP_META: Record<string, { prefix: string; description: s
   session: { prefix: 'maestro session', description: 'Session management' },
   project: { prefix: 'maestro project', description: 'Project management' },
   'team-member': { prefix: 'maestro team-member', description: 'Team member management' },
+  'team': { prefix: 'maestro team', description: 'Team management' },
   worker: { prefix: 'maestro worker', description: 'Worker initialization' },
   orchestrator: { prefix: 'maestro orchestrator', description: 'Orchestrator initialization' },
   show: { prefix: 'maestro show', description: 'UI display' },
@@ -122,6 +123,20 @@ export const CMD_DESC = {
   'team-member:memory:list': 'List team member memory entries',
   'team-member:memory:clear': 'Clear team member memory',
 
+  // Team
+  'team:list': 'List teams',
+  'team:get': 'Get team details',
+  'team:create': 'Create a new team',
+  'team:edit': 'Edit a team',
+  'team:delete': 'Delete a team (must be archived first)',
+  'team:archive': 'Archive a team',
+  'team:unarchive': 'Unarchive a team',
+  'team:add-member': 'Add members to a team',
+  'team:remove-member': 'Remove members from a team',
+  'team:add-sub-team': 'Add a sub-team',
+  'team:remove-sub-team': 'Remove a sub-team',
+  'team:tree': 'Show team hierarchy tree',
+
   // Show/Modal
   'show:modal': 'Show HTML modal in UI',
   'modal:events': 'Listen for modal user actions',
@@ -196,6 +211,19 @@ export const CMD_SYNTAX: Record<string, string> = {
   'team-member:memory:append': 'maestro team-member memory append <teamMemberId> --entry "<text to remember>"',
   'team-member:memory:list': 'maestro team-member memory list <teamMemberId>',
   'team-member:memory:clear': 'maestro team-member memory clear <teamMemberId>',
+  // Team commands
+  'team:list': 'maestro team list [--all] [--status <active|archived>]',
+  'team:get': 'maestro team get <teamId>',
+  'team:create': 'maestro team create "<name>" --leader <teamMemberId> [--members <id1,id2,...>] [--description "<text>"] [--avatar "<emoji>"]',
+  'team:edit': 'maestro team edit <teamId> [--name "<name>"] [--leader <teamMemberId>] [--description "<text>"] [--avatar "<emoji>"]',
+  'team:delete': 'maestro team delete <teamId>',
+  'team:archive': 'maestro team archive <teamId>',
+  'team:unarchive': 'maestro team unarchive <teamId>',
+  'team:add-member': 'maestro team add-member <teamId> <memberIds...>',
+  'team:remove-member': 'maestro team remove-member <teamId> <memberIds...>',
+  'team:add-sub-team': 'maestro team add-sub-team <teamId> <subTeamId>',
+  'team:remove-sub-team': 'maestro team remove-sub-team <teamId> <subTeamId>',
+  'team:tree': 'maestro team tree <teamId>',
   'worker:init': 'maestro worker init',
   'orchestrator:init': 'maestro orchestrator init',
 };

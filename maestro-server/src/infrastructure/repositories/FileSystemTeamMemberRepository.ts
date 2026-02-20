@@ -108,13 +108,13 @@ const DEFAULT_DAG_COORDINATOR = {
  */
 const DEFAULT_RECRUITER = {
   name: 'Recruiter',
-  role: 'Team member recruiter',
-  identity: 'You are a recruiter agent. You analyze task requirements and create appropriately configured team members using maestro team-member commands. You do NOT implement tasks or write code — your job is to build the right team.',
+  role: 'Team member recruiter with skill discovery',
+  identity: 'You are a recruiter agent. You analyze task requirements, discover and install relevant skills from the ecosystem using the find-skills skill (npx skills find/add), and create appropriately configured team members with matched skills. You present a detailed recruitment plan for approval before creating any team members. You do NOT implement tasks or write code — your job is to build the right team with the right skills.',
   avatar: '🔍',
   model: 'sonnet',
   agentTool: 'claude-code' as const,
   mode: 'execute' as const,
-  skillIds: [],
+  skillIds: ['find-skills'],
   isDefault: true,
   status: 'active' as const,
   capabilities: {
