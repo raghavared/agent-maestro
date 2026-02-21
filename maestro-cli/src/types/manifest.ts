@@ -52,10 +52,9 @@ export interface MaestroManifest {
   /** Manifest format version (currently "1.0") */
   manifestVersion: string;
 
-  /** Agent mode: execute (runs tasks) or coordinate (manages agents) */
+  /** Agent mode: worker/coordinator in canonical four-mode model */
   mode: AgentMode;
 
-  /** Strategy for this session — execute modes use WorkerStrategy, coordinate modes use OrchestratorStrategy */
   /** Tasks information and context (array to support multi-task sessions) */
   tasks: TaskData[];
 
@@ -104,10 +103,10 @@ export interface MaestroManifest {
     commands?: Record<string, boolean>;
   };
 
-  /** Team member workflow template ID (Phase 3) */
+  /** @deprecated Compatibility only: ignored by prompt composition */
   teamMemberWorkflowTemplateId?: string;
 
-  /** Team member custom workflow text (Phase 3, when templateId === 'custom') */
+  /** @deprecated Compatibility only: ignored by prompt composition */
   teamMemberCustomWorkflow?: string;
 
   /** Coordinator session ID (the session that spawned this worker) */
@@ -154,7 +153,9 @@ export interface TeamMemberProfile {
     groups?: Record<string, boolean>;
     commands?: Record<string, boolean>;
   };
+  /** @deprecated Compatibility only: ignored by prompt composition */
   workflowTemplateId?: string;
+  /** @deprecated Compatibility only: ignored by prompt composition */
   customWorkflow?: string;
   model?: string;
   agentTool?: AgentTool;
@@ -175,7 +176,7 @@ export interface TeamMemberData {
   identity: string;
   /** Emoji or icon identifier */
   avatar: string;
-  /** Agent mode (execute or coordinate) */
+  /** Agent mode (canonical four-mode model) */
   mode?: AgentMode;
   /** Permission mode for spawning */
   permissionMode?: string;
@@ -379,14 +380,14 @@ export interface ProjectStandards {
 }
 
 /**
- * Type guard to check if a manifest is for an execute-mode agent
+ * Type guard to check if a manifest is for a worker-mode agent
  */
 export function isExecuteManifest(manifest: MaestroManifest): boolean {
   return isWorkerMode(manifest.mode);
 }
 
 /**
- * Type guard to check if a manifest is for a coordinate-mode agent
+ * Type guard to check if a manifest is for a coordinator-mode agent
  */
 export function isCoordinateManifest(manifest: MaestroManifest): boolean {
   return isCoordinatorMode(manifest.mode);

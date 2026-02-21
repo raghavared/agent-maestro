@@ -1,4 +1,5 @@
 import type { MaestroManifest } from '../types/manifest.js';
+import { isWorkerMode } from '../types/manifest.js';
 import { readManifestFromEnv } from '../services/manifest-reader.js';
 import { AgentSpawner } from '../services/agent-spawner.js';
 import { api } from '../api.js';
@@ -59,10 +60,10 @@ export class WorkerInitCommand {
   }
 
   /**
-   * Validate that manifest is for execute mode
+   * Validate that manifest is for worker mode
    */
   validateWorkerManifest(manifest: MaestroManifest): boolean {
-    return manifest.mode === 'worker' || manifest.mode === 'coordinated-worker' || (manifest.mode as string) === 'execute';
+    return isWorkerMode(manifest.mode);
   }
 
   /**

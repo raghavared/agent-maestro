@@ -148,7 +148,7 @@ describe('WorkerInitCommand', () => {
     it('should provide helpful error for wrong mode', () => {
       const error = command.formatError('wrong_mode', 'coordinate');
 
-      expect(error).toContain('execute');
+      expect(error).toContain('worker');
       expect(error.toLowerCase()).toContain('coordinate');
     });
   });

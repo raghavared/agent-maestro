@@ -7,6 +7,7 @@ import { api } from './api.js';
 import { outputJSON, outputKeyValue } from './utils/formatter.js';
 import { readManifest, readManifestFromEnv } from './services/manifest-reader.js';
 import { WhoamiRenderer } from './services/whoami-renderer.js';
+import { PromptComposer } from './prompting/prompt-composer.js';
 import { registerTaskCommands } from './commands/task.js';
 import { registerSessionCommands } from './commands/session.js';
 import { registerWorkerCommands } from './commands/worker.js';
@@ -83,7 +84,7 @@ program.command('whoami')
               projectId: project,
               sessionId,
               taskIds: config.taskIds,
-              mode: 'execute',
+              mode: 'worker',
           };
 
           if (opts.json) {
@@ -93,7 +94,7 @@ program.command('whoami')
               outputKeyValue('Project ID', data.projectId || 'N/A');
               outputKeyValue('Session ID', data.sessionId || 'N/A');
               outputKeyValue('Task IDs', data.taskIds.join(', ') || 'N/A');
-              outputKeyValue('Mode', 'execute');
+              outputKeyValue('Mode', 'worker');
           }
       }
   });
@@ -135,12 +136,21 @@ program.command('debug-prompt')
         manifest = result.manifest;
       }
 
-      const renderer = new WhoamiRenderer();
-      const permissions = getPermissionsFromManifest(manifest);
       const sessionId = cmdOpts.session || config.sessionId || 'debug';
+      let systemPrompt: string;
+      let initialPrompt: string;
 
-      const systemPrompt = renderer.renderSystemPrompt(manifest, permissions);
-      const initialPrompt = await renderer.renderTaskContext(manifest, sessionId);
+      if (config.promptV2Enabled) {
+        const composer = new PromptComposer();
+        const envelope = composer.compose(manifest, { sessionId });
+        systemPrompt = envelope.system;
+        initialPrompt = envelope.task;
+      } else {
+        const renderer = new WhoamiRenderer();
+        const permissions = getPermissionsFromManifest(manifest);
+        systemPrompt = renderer.renderSystemPrompt(manifest, permissions);
+        initialPrompt = await renderer.renderTaskContext(manifest, sessionId);
+      }
 
       if (isJson) {
         const output: any = {};

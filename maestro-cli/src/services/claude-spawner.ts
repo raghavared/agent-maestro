@@ -8,6 +8,8 @@ import { SkillLoader } from './skill-loader.js';
 import { WhoamiRenderer } from './whoami-renderer.js';
 import { getPermissionsFromManifest } from './command-permissions.js';
 import { prepareSpawnerEnvironment } from './spawner-env.js';
+import { PromptComposer, type PromptEnvelope } from '../prompting/prompt-composer.js';
+import { config } from '../config.js';
 import { STDIN_UNAVAILABLE_WARNING } from '../prompts/index.js';
 
 /**
@@ -45,9 +47,11 @@ export interface SpawnOptions {
  */
 export class ClaudeSpawner {
   private skillLoader: SkillLoader;
+  private promptComposer: PromptComposer;
 
   constructor(skillLoader?: SkillLoader) {
     this.skillLoader = skillLoader || new SkillLoader();
+    this.promptComposer = new PromptComposer();
   }
 
   /**
@@ -152,6 +156,13 @@ export class ClaudeSpawner {
     return args;
   }
 
+  buildPromptEnvelope(
+    manifest: MaestroManifest,
+    sessionId: string,
+  ): PromptEnvelope {
+    return this.promptComposer.compose(manifest, { sessionId });
+  }
+
 
   /**
    * Spawn Claude Code session with manifest
@@ -166,11 +177,20 @@ export class ClaudeSpawner {
     sessionId: string,
     options: SpawnOptions = {}
   ): Promise<SpawnResult> {
-    // Split prompt into system (static) and task (dynamic) layers
-    const renderer = new WhoamiRenderer();
-    const permissions = getPermissionsFromManifest(manifest);
-    const systemPrompt = renderer.renderSystemPrompt(manifest, permissions);
-    const taskContext = await renderer.renderTaskContext(manifest, sessionId);
+    let systemPrompt: string;
+    let taskContext: string;
+
+    if (config.promptV2Enabled) {
+      const envelope = this.buildPromptEnvelope(manifest, sessionId);
+      systemPrompt = envelope.system;
+      taskContext = envelope.task;
+    } else {
+      // Legacy prompt path retained for compatibility when prompt v2 is disabled.
+      const renderer = new WhoamiRenderer();
+      const permissions = getPermissionsFromManifest(manifest);
+      systemPrompt = renderer.renderSystemPrompt(manifest, permissions);
+      taskContext = await renderer.renderTaskContext(manifest, sessionId);
+    }
 
     // Prepare environment
     const env = {

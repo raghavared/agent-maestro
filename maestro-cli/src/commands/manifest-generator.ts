@@ -1,4 +1,5 @@
-import type { MaestroManifest, AdditionalContext, AgentTool, AgentMode, TeamMemberData, TeamMemberProfile, MasterProjectInfo } from '../types/manifest.js';
+import type { MaestroManifest, AdditionalContext, AgentTool, AgentModeInput, TeamMemberData, TeamMemberProfile, MasterProjectInfo } from '../types/manifest.js';
+import { normalizeMode } from '../types/manifest.js';
 import { DEFAULT_ACCEPTANCE_CRITERIA, MODE_VALIDATION_ERROR, AGENT_TOOL_VALIDATION_PREFIX } from '../prompts/index.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
@@ -101,7 +102,7 @@ export class ManifestGeneratorCLICommand {
    * Execute the CLI command
    */
   async execute(options: {
-    mode: AgentMode;
+    mode: AgentModeInput;
     projectId: string;
     taskIds: string[];
     skills?: string[];
@@ -150,9 +151,8 @@ export class ManifestGeneratorCLICommand {
       const coordinatorSessionId = process.env.MAESTRO_COORDINATOR_SESSION_ID;
       if (coordinatorSessionId) {
         manifest.coordinatorSessionId = coordinatorSessionId;
-        // Auto-derive coordinated mode when spawned by a coordinator
-        const { normalizeMode: normMode } = await import('../types/manifest.js');
-        manifest.mode = normMode(manifest.mode, true);
+        // Auto-derive coordinated mode when spawned by a coordinator.
+        manifest.mode = normalizeMode(manifest.mode as AgentModeInput, true);
       }
 
       // Add initial directive from environment (passed via spawn flow)
@@ -223,12 +223,6 @@ export class ManifestGeneratorCLICommand {
           if (teamMember.commandPermissions) {
             manifest.teamMemberCommandPermissions = teamMember.commandPermissions;
           }
-          if (teamMember.workflowTemplateId) {
-            manifest.teamMemberWorkflowTemplateId = teamMember.workflowTemplateId;
-          }
-          if (teamMember.customWorkflow) {
-            manifest.teamMemberCustomWorkflow = teamMember.customWorkflow;
-          }
           if (teamMember.permissionMode) {
             manifest.session.permissionMode = teamMember.permissionMode;
           }
@@ -254,8 +248,6 @@ export class ManifestGeneratorCLICommand {
               identity: tm.identity,
               capabilities: tm.capabilities,
               commandPermissions: tm.commandPermissions,
-              workflowTemplateId: tm.workflowTemplateId,
-              customWorkflow: tm.customWorkflow,
               model: tm.model,
               agentTool: tm.agentTool,
               memory: tm.memory,
@@ -399,13 +391,13 @@ export class ManifestGenerator {
   /**
    * Generate a manifest from task data
    *
-   * @param mode - Agent mode (execute or coordinate)
+   * @param mode - Agent mode (canonical modes plus legacy aliases accepted)
    * @param tasksData - Array of task information (supports multi-task sessions)
    * @param options - Session configuration
    * @returns Generated manifest
    */
   generateManifest(
-    mode: AgentMode,
+    mode: AgentModeInput,
     tasksData: TaskInput | TaskInput[],
     options: SessionOptions
   ): MaestroManifest {
@@ -428,7 +420,7 @@ export class ManifestGenerator {
 
     const manifest: MaestroManifest = {
       manifestVersion: '1.0',
-      mode,
+      mode: normalizeMode(mode, false),
       tasks: taskDataArray,
       session: {
         model: options.model,
@@ -490,7 +482,7 @@ export class ManifestGenerator {
    * @param outputPath - File path to save manifest
    */
   async generateAndSave(
-    mode: AgentMode,
+    mode: AgentModeInput,
     taskData: TaskInput,
     options: SessionOptions,
     outputPath: string

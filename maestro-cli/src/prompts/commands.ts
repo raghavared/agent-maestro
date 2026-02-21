@@ -117,8 +117,8 @@ export const CMD_DESC = {
   'master:context': 'Full workspace overview',
 
   // Init
-  'worker:init': 'Initialize execute-mode session',
-  'orchestrator:init': 'Initialize coordinate-mode session',
+  'worker:init': 'Initialize worker-mode session',
+  'orchestrator:init': 'Initialize coordinator-mode session',
 
   // Team member
   'team-member:create': 'Create a new team member',
@@ -217,10 +217,10 @@ export const CMD_SYNTAX: Record<string, string> = {
   'master:sessions': 'maestro master sessions [--project <id>]',
   'master:context': 'maestro master context',
   // Team member commands
-  'team-member:create': 'maestro team-member create "<name>" --role "<role>" --avatar "<emoji>" --mode <execute|coordinate> [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"] [--workflow-template <templateId>] [--custom-workflow "<workflow>"]',
-  'team-member:list': 'maestro team-member list [--all] [--status <active|archived>] [--mode <execute|coordinate>]',
+  'team-member:create': 'maestro team-member create "<name>" --role "<role>" --avatar "<emoji>" --mode <worker|coordinator|coordinated-worker|coordinated-coordinator> [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"]',
+  'team-member:list': 'maestro team-member list [--all] [--status <active|archived>] [--mode <worker|coordinator|coordinated-worker|coordinated-coordinator>]',
   'team-member:get': 'maestro team-member get <teamMemberId>',
-  'team-member:edit': 'maestro team-member edit <teamMemberId> [--name "<name>"] [--role "<role>"] [--avatar "<emoji>"] [--mode <execute|coordinate>] [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"] [--workflow-template <templateId>] [--custom-workflow "<workflow>"]',
+  'team-member:edit': 'maestro team-member edit <teamMemberId> [--name "<name>"] [--role "<role>"] [--avatar "<emoji>"] [--mode <worker|coordinator|coordinated-worker|coordinated-coordinator>] [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"]',
   'team-member:archive': 'maestro team-member archive <teamMemberId>',
   'team-member:unarchive': 'maestro team-member unarchive <teamMemberId>',
   'team-member:delete': 'maestro team-member delete <teamMemberId>',

@@ -3,6 +3,7 @@ import { constants } from 'fs';
 import { promisify } from 'util';
 import type { MaestroManifest } from '../types/manifest.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
+import { normalizeManifest, logManifestNormalizationWarnings } from '../prompting/manifest-normalizer.js';
 
 const readFileAsync = promisify(readFile);
 const accessAsync = promisify(access);
@@ -75,10 +76,14 @@ export async function readManifest(filePath: string): Promise<ManifestReadResult
       };
     }
 
-    // Return successfully validated manifest
+    // Normalize legacy compatibility fields immediately after read/validate.
+    const normalized = normalizeManifest(manifestData as MaestroManifest);
+    logManifestNormalizationWarnings(normalized);
+
+    // Return successfully validated and normalized manifest
     return {
       success: true,
-      manifest: manifestData as MaestroManifest,
+      manifest: normalized.manifest,
     };
   } catch (err: any) {
     return {
@@ -148,10 +153,14 @@ export function readManifestSync(filePath: string): ManifestReadResult {
       };
     }
 
-    // Return successfully validated manifest
+    // Normalize legacy compatibility fields immediately after read/validate.
+    const normalized = normalizeManifest(manifestData as MaestroManifest);
+    logManifestNormalizationWarnings(normalized);
+
+    // Return successfully validated and normalized manifest
     return {
       success: true,
-      manifest: manifestData as MaestroManifest,
+      manifest: normalized.manifest,
     };
   } catch (err: any) {
     return {
@@ -195,8 +204,11 @@ export function validateManifestObject(manifest: any): ManifestReadResult {
     };
   }
 
+  const normalized = normalizeManifest(manifest as MaestroManifest);
+  logManifestNormalizationWarnings(normalized);
+
   return {
     success: true,
-    manifest: manifest as MaestroManifest,
+    manifest: normalized.manifest,
   };
 }

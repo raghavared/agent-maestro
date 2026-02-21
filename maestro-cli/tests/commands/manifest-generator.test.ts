@@ -22,13 +22,13 @@ describe('ManifestGenerator', () => {
         complexity: 'medium' as const,
       };
 
-      const manifest = generator.generateManifest('execute', taskData, {
+      const manifest = generator.generateManifest('worker', taskData, {
         model: 'sonnet',
         permissionMode: 'acceptEdits',
       });
 
       expect(manifest.manifestVersion).toBe('1.0');
-      expect(manifest.mode).toBe('execute');
+      expect(manifest.mode).toBe('worker');
       expect(manifest.tasks[0].id).toBe('task-123');
       expect(manifest.tasks[0].title).toBe('Implement feature');
       expect(manifest.session.model).toBe('sonnet');
@@ -45,12 +45,12 @@ describe('ManifestGenerator', () => {
         createdAt: '2026-02-02T00:00:00Z',
       };
 
-      const manifest = generator.generateManifest('coordinate', taskData, {
+      const manifest = generator.generateManifest('coordinator', taskData, {
         model: 'opus',
         permissionMode: 'interactive',
       });
 
-      expect(manifest.mode).toBe('coordinate');
+      expect(manifest.mode).toBe('coordinator');
       expect(manifest.session.model).toBe('opus');
       expect(manifest.session.permissionMode).toBe('interactive');
     });
@@ -67,7 +67,7 @@ describe('ManifestGenerator', () => {
         priority: 'high' as const,
       };
 
-      const manifest = generator.generateManifest('execute', taskData, {
+      const manifest = generator.generateManifest('worker', taskData, {
         model: 'haiku',
         permissionMode: 'readOnly',
       });
@@ -93,7 +93,7 @@ describe('ManifestGenerator', () => {
         },
       };
 
-      const manifest = generator.generateManifest('execute', taskData, {
+      const manifest = generator.generateManifest('worker', taskData, {
         model: 'sonnet',
         permissionMode: 'acceptEdits',
         context,
@@ -101,6 +101,24 @@ describe('ManifestGenerator', () => {
 
       expect(manifest.context).toBeDefined();
       expect(manifest.context?.codebaseContext?.recentChanges).toEqual(['Added auth']);
+    });
+
+    it('should normalize legacy mode aliases to canonical modes', () => {
+      const taskData = {
+        id: 'task-legacy',
+        title: 'Legacy mode task',
+        description: 'Test legacy mode normalization',
+        acceptanceCriteria: ['Done'],
+        projectId: 'proj-1',
+        createdAt: '2026-02-02T00:00:00Z',
+      };
+
+      const manifest = generator.generateManifest('execute' as any, taskData, {
+        model: 'sonnet',
+        permissionMode: 'acceptEdits',
+      });
+
+      expect(manifest.mode).toBe('worker');
     });
   });
 
@@ -119,7 +137,7 @@ describe('ManifestGenerator', () => {
     it('should serialize manifest to JSON', () => {
       const manifest: MaestroManifest = {
         manifestVersion: '1.0',
-        mode: 'execute',
+        mode: 'worker',
         tasks: [{
           id: 'task-1',
           title: 'Test',
@@ -140,14 +158,14 @@ describe('ManifestGenerator', () => {
       expect(typeof json).toBe('string');
 
       const parsed = JSON.parse(json);
-      expect(parsed.mode).toBe('execute');
+      expect(parsed.mode).toBe('worker');
       expect(parsed.tasks[0].id).toBe('task-1');
     });
 
     it('should format JSON prettily', () => {
       const manifest: MaestroManifest = {
         manifestVersion: '1.0',
-        mode: 'execute',
+        mode: 'worker',
         tasks: [{
           id: 'task-1',
           title: 'Test',
@@ -181,7 +199,7 @@ describe('ManifestGenerator', () => {
         createdAt: '2026-02-02T00:00:00Z',
       };
 
-      const manifest = generator.generateManifest('execute', taskData, {
+      const manifest = generator.generateManifest('worker', taskData, {
         model: 'sonnet',
         permissionMode: 'acceptEdits',
       });

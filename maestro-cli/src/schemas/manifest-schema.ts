@@ -23,7 +23,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
     mode: {
       type: 'string',
       enum: ['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'] as any,
-      description: 'Agent mode: worker, coordinator, coordinated-worker, or coordinated-coordinator',
+      description: 'Agent mode (canonical modes plus legacy execute/coordinate aliases during migration)',
     },
     strategy: {
       type: 'string',
@@ -331,12 +331,12 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
     teamMemberWorkflowTemplateId: {
       type: 'string',
       nullable: true,
-      description: 'Team member workflow template ID',
+      description: 'Deprecated compatibility field (ignored by prompt composition)',
     },
     teamMemberCustomWorkflow: {
       type: 'string',
       nullable: true,
-      description: 'Team member custom workflow text',
+      description: 'Deprecated compatibility field (ignored by prompt composition)',
     },
     teamMemberMemory: {
       type: 'array',

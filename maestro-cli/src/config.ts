@@ -65,4 +65,16 @@ export const config = {
   get debug() {
     return process.env.MAESTRO_DEBUG === 'true';
   },
+  get promptV2Enabled() {
+    const raw = process.env.MAESTRO_PROMPT_V2;
+    if (!raw) return true;
+    return raw !== '0' && raw.toLowerCase() !== 'false';
+  },
+  get manifestPermissionFailurePolicy(): 'permissive' | 'safe-degraded' {
+    const raw = process.env.MAESTRO_MANIFEST_FAILURE_POLICY;
+    if (raw === 'permissive' || raw === 'safe-degraded') {
+      return raw;
+    }
+    return 'safe-degraded';
+  },
 };

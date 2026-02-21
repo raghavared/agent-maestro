@@ -4,6 +4,7 @@ import { config } from '../config.js';
 import { outputJSON, outputTable, outputKeyValue, outputErrorJSON } from '../utils/formatter.js';
 import { handleError } from '../utils/errors.js';
 import { guardCommand } from '../services/command-permissions.js';
+import { normalizeMode, type AgentModeInput } from '../types/manifest.js';
 import ora from 'ora';
 
 export function registerTeamMemberCommands(program: Command) {
@@ -13,7 +14,7 @@ export function registerTeamMemberCommands(program: Command) {
         .description('List team members for the current project')
         .option('--all', 'Include archived members')
         .option('--status <status>', 'Filter by status: active or archived')
-        .option('--mode <mode>', 'Filter by mode: execute or coordinate')
+        .option('--mode <mode>', 'Filter by mode: worker, coordinator, coordinated-worker, coordinated-coordinator')
         .action(async (cmdOpts: any) => {
             await guardCommand('team-member:list');
             const globalOpts = program.opts();
@@ -34,8 +35,12 @@ export function registerTeamMemberCommands(program: Command) {
             }
 
             // Validate mode filter
+            const normalizedFilterMode = cmdOpts.mode
+                ? normalizeMode(cmdOpts.mode as AgentModeInput, false)
+                : null;
+
             if (cmdOpts.mode && !['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'].includes(cmdOpts.mode)) {
-                const err = { message: `Invalid mode "${cmdOpts.mode}". Must be: worker, coordinator, coordinated-worker, coordinated-coordinator (or legacy execute, coordinate)` };
+                const err = { message: `Invalid mode "${cmdOpts.mode}". Must be: worker, coordinator, coordinated-worker, coordinated-coordinator (legacy execute/coordinate are accepted)` };
                 if (isJson) { outputErrorJSON(err); process.exit(1); }
                 else { console.error(err.message); process.exit(1); }
             }
@@ -57,8 +62,11 @@ export function registerTeamMemberCommands(program: Command) {
                     filtered = members.filter((m: any) => m.status === 'active');
                 }
 
-                if (cmdOpts.mode) {
-                    filtered = filtered.filter((m: any) => (m.mode || 'worker') === cmdOpts.mode);
+                if (normalizedFilterMode) {
+                    filtered = filtered.filter((m: any) => {
+                        const mode = normalizeMode((m.mode || 'worker') as AgentModeInput, false);
+                        return mode === normalizedFilterMode;
+                    });
                 }
 
                 if (isJson) {
@@ -119,12 +127,6 @@ export function registerTeamMemberCommands(program: Command) {
                     outputKeyValue('Permission Mode', member.permissionMode || 'default');
                     outputKeyValue('Default', member.isDefault ? 'yes' : 'no');
                     outputKeyValue('Status', member.status);
-                    if (member.workflowTemplateId) {
-                        outputKeyValue('Workflow Template', member.workflowTemplateId);
-                    }
-                    if (member.customWorkflow) {
-                        outputKeyValue('Custom Workflow', member.customWorkflow);
-                    }
                     if (member.identity) {
                         outputKeyValue('Identity', member.identity);
                     }
@@ -172,14 +174,12 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--name <name>', 'Update team member name')
         .option('--role <role>', 'Update role description')
         .option('--avatar <emoji>', 'Update avatar emoji')
-        .option('--mode <mode>', 'Update agent mode: execute or coordinate')
+        .option('--mode <mode>', 'Update agent mode: worker, coordinator, coordinated-worker, coordinated-coordinator')
         .option('--model <model>', 'Update model (e.g. sonnet, opus, haiku)')
         .option('--agent-tool <tool>', 'Update agent tool (claude-code, codex, or gemini)')
         .option('--permission-mode <mode>', 'Update permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Update identity/persona instructions')
         .option('--skills <skills>', 'Update assigned skill IDs (comma-separated, e.g. react-expert,frontend-design)')
-        .option('--workflow-template <templateId>', 'Update workflow template ID')
-        .option('--custom-workflow <workflow>', 'Update custom workflow text (use with --workflow-template custom)')
         .action(async (teamMemberId: string, cmdOpts: any) => {
             await guardCommand('team-member:edit');
             const globalOpts = program.opts();
@@ -194,7 +194,7 @@ export function registerTeamMemberCommands(program: Command) {
 
             // Validate mode if provided
             if (cmdOpts.mode) {
-                const validModes = ['execute', 'coordinate'];
+                const validModes = ['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'];
                 if (!validModes.includes(cmdOpts.mode)) {
                     const err = { message: `Invalid mode "${cmdOpts.mode}". Must be one of: ${validModes.join(', ')}` };
                     if (isJson) { outputErrorJSON(err); process.exit(1); }
@@ -227,14 +227,12 @@ export function registerTeamMemberCommands(program: Command) {
             if (cmdOpts.name) updates.name = cmdOpts.name.trim();
             if (cmdOpts.role) updates.role = cmdOpts.role.trim();
             if (cmdOpts.avatar) updates.avatar = cmdOpts.avatar.trim();
-            if (cmdOpts.mode) updates.mode = cmdOpts.mode;
+            if (cmdOpts.mode) updates.mode = normalizeMode(cmdOpts.mode as AgentModeInput, false);
             if (cmdOpts.model) updates.model = cmdOpts.model;
             if (cmdOpts.agentTool) updates.agentTool = cmdOpts.agentTool;
             if (cmdOpts.permissionMode) updates.permissionMode = cmdOpts.permissionMode;
             if (cmdOpts.identity) updates.identity = cmdOpts.identity.trim();
             if (cmdOpts.skills) updates.skillIds = cmdOpts.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
-            if (cmdOpts.workflowTemplate) updates.workflowTemplateId = cmdOpts.workflowTemplate;
-            if (cmdOpts.customWorkflow) updates.customWorkflow = cmdOpts.customWorkflow.trim();
 
             // Check that at least one field is being updated
             const fieldCount = Object.keys(updates).length - 1; // exclude projectId
@@ -262,9 +260,6 @@ export function registerTeamMemberCommands(program: Command) {
                     outputKeyValue('Agent Tool', member.agentTool || 'claude-code');
                     if (member.identity) {
                         outputKeyValue('Identity', member.identity);
-                    }
-                    if (member.workflowTemplateId) {
-                        outputKeyValue('Workflow Template', member.workflowTemplateId);
                     }
                 }
             } catch (err) {
@@ -592,14 +587,12 @@ export function registerTeamMemberCommands(program: Command) {
         .description('Create a new team member')
         .requiredOption('--role <role>', 'Role description for the team member')
         .requiredOption('--avatar <emoji>', 'Avatar emoji for the team member')
-        .requiredOption('--mode <mode>', 'Agent mode: execute or coordinate')
+        .requiredOption('--mode <mode>', 'Agent mode: worker, coordinator, coordinated-worker, coordinated-coordinator')
         .option('--model <model>', 'Model to use (e.g. sonnet, opus, haiku, or native model names)')
         .option('--agent-tool <tool>', 'Agent tool (claude-code, codex, or gemini)', 'claude-code')
         .option('--permission-mode <mode>', 'Permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Custom identity/persona instructions')
         .option('--skills <skills>', 'Comma-separated skill IDs to assign (e.g. react-expert,frontend-design)')
-        .option('--workflow-template <templateId>', 'Workflow template ID (e.g. execute-simple, coordinate-default)')
-        .option('--custom-workflow <text>', 'Custom workflow instructions (use with --workflow-template custom)')
         .action(async (name: string, cmdOpts: any) => {
             await guardCommand('team-member:create');
             const globalOpts = program.opts();
@@ -613,7 +606,7 @@ export function registerTeamMemberCommands(program: Command) {
             }
 
             // Validate mode
-            const validModes = ['execute', 'coordinate'];
+            const validModes = ['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'];
             if (!validModes.includes(cmdOpts.mode)) {
                 const err = { message: `Invalid mode "${cmdOpts.mode}". Must be one of: ${validModes.join(', ')}` };
                 if (isJson) { outputErrorJSON(err); process.exit(1); }
@@ -646,7 +639,7 @@ export function registerTeamMemberCommands(program: Command) {
                     name: name.trim(),
                     role: cmdOpts.role.trim(),
                     avatar: cmdOpts.avatar.trim(),
-                    mode: cmdOpts.mode,
+                    mode: normalizeMode(cmdOpts.mode as AgentModeInput, false),
                     agentTool: cmdOpts.agentTool || 'claude-code',
                     identity: cmdOpts.identity?.trim() || '',
                 };
@@ -661,14 +654,6 @@ export function registerTeamMemberCommands(program: Command) {
 
                 if (cmdOpts.skills) {
                     payload.skillIds = cmdOpts.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
-                }
-
-                if (cmdOpts.workflowTemplate) {
-                    payload.workflowTemplateId = cmdOpts.workflowTemplate;
-                }
-
-                if (cmdOpts.customWorkflow) {
-                    payload.customWorkflow = cmdOpts.customWorkflow.trim();
                 }
 
                 const member: any = await api.post('/api/team-members', payload);

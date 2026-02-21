@@ -1,4 +1,5 @@
 import type { MaestroManifest } from '../types/manifest.js';
+import { isCoordinatorMode } from '../types/manifest.js';
 import { readManifestFromEnv } from '../services/manifest-reader.js';
 import { AgentSpawner } from '../services/agent-spawner.js';
 import { api } from '../api.js';
@@ -54,10 +55,10 @@ export class OrchestratorInitCommand {
   }
 
   /**
-   * Validate that manifest is for coordinate mode
+   * Validate that manifest is for coordinator mode
    */
   validateOrchestratorManifest(manifest: MaestroManifest): boolean {
-    return manifest.mode === 'coordinator' || manifest.mode === 'coordinated-coordinator' || (manifest.mode as string) === 'coordinate';
+    return isCoordinatorMode(manifest.mode);
   }
 
   /**
