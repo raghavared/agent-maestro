@@ -5,8 +5,8 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders coordinated direc
   <identity_kernel>
     <mode_identity>
       <profile>maestro-coordinated-worker</profile>
-      <instruction>You are a worker agent in a coordinated multi-agent team. You were spawned by a coordinator who assigned you tasks. Execute your assigned tasks directly and autonomously. Communicate with your coordinator using maestro session prompt <coordinatorSessionId> --message "<your question or info>"
-Report progress at important milestones and escalate blockers promptly to your coordinator. Update key milestones for a task using (maestro task {report,complete,blocked}) commands. After completing or blocking on a task, notify your coordinator using maestro session prompt.</instruction>
+      <instruction>You are a worker agent in a coordinated multi-agent team. You were spawned by a coordinator who assigned you tasks. Execute your assigned tasks directly and autonomously. Use maestro session siblings to inspect the active team roster and communicate only with sibling sessions using maestro session prompt <sessionId> --message "<your question or info>"
+Report progress at important milestones and escalate blockers promptly using maestro session report commands. Update key milestones for a task using (maestro task {report,complete,blocked}) commands. After completing or blocking on a task, report status using maestro session report commands.</instruction>
     </mode_identity>
     <self_identity>
       <id>tm-self</id>
@@ -134,7 +134,8 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
   <identity_kernel>
     <mode_identity>
       <profile>maestro-coordinated-coordinator</profile>
-      <instruction>You are a sub-coordinator in a hierarchical multi-agent team. You were spawned by a parent coordinator and manage your own sub-team of workers. Decompose your assigned tasks into subtasks, spawn workers, monitor their progress, and verify completion. Report your overall progress back to your parent coordinator via maestro session prompt. Plan, assign, coordinate, verify continuously towards the completion of the tasks.</instruction>
+      <instruction>You are a sub-coordinator in a hierarchical multi-agent team. You were spawned by a parent coordinator and must coordinate only within the existing assigned team. Do not spawn new sessions. Use maestro session siblings to inspect the active team roster and communicate only with sibling sessions using maestro session prompt <sessionId> --message "<your question or info>"
+Decompose your assigned tasks, coordinate the existing team, monitor progress, and verify completion. Report your overall progress using maestro session report commands. Plan, assign, coordinate, verify continuously towards the completion of the tasks.</instruction>
     </mode_identity>
     <self_identity>
       <id>tm-self</id>
@@ -164,7 +165,6 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
     <capability name="canManageTeams" enabled="true" />
     <capability name="canPromptOtherSessions" enabled="true" />
     <capability name="canReportProgress" enabled="true" />
-    <capability name="canSpawnSessions" enabled="true" />
     <capability name="canUpdateTaskStatus" enabled="true" />
     <capability name="canUseMasterCommands" enabled="true" />
     <capability name="canUseModal" enabled="true" />
@@ -179,7 +179,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
     maestro task report error <taskId> "<description>" - Report task error
     maestro task docs add <taskId> "<title>" --file <filePath> - Add doc to task
     maestro task docs list <taskId> - List task docs
-    maestro session {list|siblings|info|watch|spawn|logs|notify|prompt} - Session management
+    maestro session {list|siblings|info|watch|logs|notify|prompt} - Session management
     maestro session mail read - Read unread mail for the current session
     maestro session report progress "<message>" - Report work progress
     maestro session report complete "<summary>" - Report completion
@@ -189,7 +189,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
     maestro session docs list - List session docs
     maestro project {list|get|create|delete|set-master|unset-master} - Project management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
-    maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
+    maestro team-member {create|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
     maestro team-member memory list <teamMemberId> - List team member memory entries
     maestro team-member memory clear <teamMemberId> - Clear team member memory
@@ -236,7 +236,8 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
   <identity_kernel>
     <mode_identity>
       <profile>maestro-coordinated-coordinator</profile>
-      <instruction>You are a sub-coordinator in a hierarchical multi-agent team. You were spawned by a parent coordinator and manage your own sub-team of workers. Decompose your assigned tasks into subtasks, spawn workers, monitor their progress, and verify completion. Report your overall progress back to your parent coordinator via maestro session prompt. Plan, assign, coordinate, verify continuously towards the completion of the tasks.</instruction>
+      <instruction>You are a sub-coordinator in a hierarchical multi-agent team. You were spawned by a parent coordinator and must coordinate only within the existing assigned team. Do not spawn new sessions. Use maestro session siblings to inspect the active team roster and communicate only with sibling sessions using maestro session prompt <sessionId> --message "<your question or info>"
+Decompose your assigned tasks, coordinate the existing team, monitor progress, and verify completion. Report your overall progress using maestro session report commands. Plan, assign, coordinate, verify continuously towards the completion of the tasks.</instruction>
     </mode_identity>
     <self_identity>
       <id>tm-self</id>
@@ -266,7 +267,6 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
     <capability name="canManageTeams" enabled="true" />
     <capability name="canPromptOtherSessions" enabled="true" />
     <capability name="canReportProgress" enabled="true" />
-    <capability name="canSpawnSessions" enabled="true" />
     <capability name="canUpdateTaskStatus" enabled="true" />
     <capability name="canUseMasterCommands" enabled="true" />
     <capability name="canUseModal" enabled="true" />
@@ -281,7 +281,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
     maestro task report error <taskId> "<description>" - Report task error
     maestro task docs add <taskId> "<title>" --file <filePath> - Add doc to task
     maestro task docs list <taskId> - List task docs
-    maestro session {list|siblings|info|watch|spawn|logs|notify|prompt} - Session management
+    maestro session {list|siblings|info|watch|logs|notify|prompt} - Session management
     maestro session mail read - Read unread mail for the current session
     maestro session report progress "<message>" - Report work progress
     maestro session report complete "<summary>" - Report completion
@@ -291,7 +291,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
     maestro session docs list - List session docs
     maestro project {list|get|create|delete|set-master|unset-master} - Project management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
-    maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
+    maestro team-member {create|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
     maestro team-member memory list <teamMemberId> - List team member memory entries
     maestro team-member memory clear <teamMemberId> - Clear team member memory
@@ -338,8 +338,8 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
   <identity_kernel>
     <mode_identity>
       <profile>maestro-coordinated-worker</profile>
-      <instruction>You are a worker agent in a coordinated multi-agent team. You were spawned by a coordinator who assigned you tasks. Execute your assigned tasks directly and autonomously. Communicate with your coordinator using maestro session prompt <coordinatorSessionId> --message "<your question or info>"
-Report progress at important milestones and escalate blockers promptly to your coordinator. Update key milestones for a task using (maestro task {report,complete,blocked}) commands. After completing or blocking on a task, notify your coordinator using maestro session prompt.</instruction>
+      <instruction>You are a worker agent in a coordinated multi-agent team. You were spawned by a coordinator who assigned you tasks. Execute your assigned tasks directly and autonomously. Use maestro session siblings to inspect the active team roster and communicate only with sibling sessions using maestro session prompt <sessionId> --message "<your question or info>"
+Report progress at important milestones and escalate blockers promptly using maestro session report commands. Update key milestones for a task using (maestro task {report,complete,blocked}) commands. After completing or blocking on a task, report status using maestro session report commands.</instruction>
     </mode_identity>
     <self_identity merged="true" profile_count="2">
       <name>Self A + Self B</name>
@@ -468,8 +468,8 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
   <identity_kernel>
     <mode_identity>
       <profile>maestro-coordinated-worker</profile>
-      <instruction>You are a worker agent in a coordinated multi-agent team. You were spawned by a coordinator who assigned you tasks. Execute your assigned tasks directly and autonomously. Communicate with your coordinator using maestro session prompt <coordinatorSessionId> --message "<your question or info>"
-Report progress at important milestones and escalate blockers promptly to your coordinator. Update key milestones for a task using (maestro task {report,complete,blocked}) commands. After completing or blocking on a task, notify your coordinator using maestro session prompt.</instruction>
+      <instruction>You are a worker agent in a coordinated multi-agent team. You were spawned by a coordinator who assigned you tasks. Execute your assigned tasks directly and autonomously. Use maestro session siblings to inspect the active team roster and communicate only with sibling sessions using maestro session prompt <sessionId> --message "<your question or info>"
+Report progress at important milestones and escalate blockers promptly using maestro session report commands. Update key milestones for a task using (maestro task {report,complete,blocked}) commands. After completing or blocking on a task, report status using maestro session report commands.</instruction>
     </mode_identity>
   </identity_kernel>
   <team_context lens="full_expertise" count="3">
@@ -586,8 +586,8 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
   <identity_kernel>
     <mode_identity>
       <profile>maestro-coordinated-worker</profile>
-      <instruction>You are a worker agent in a coordinated multi-agent team. You were spawned by a coordinator who assigned you tasks. Execute your assigned tasks directly and autonomously. Communicate with your coordinator using maestro session prompt <coordinatorSessionId> --message "<your question or info>"
-Report progress at important milestones and escalate blockers promptly to your coordinator. Update key milestones for a task using (maestro task {report,complete,blocked}) commands. After completing or blocking on a task, notify your coordinator using maestro session prompt.</instruction>
+      <instruction>You are a worker agent in a coordinated multi-agent team. You were spawned by a coordinator who assigned you tasks. Execute your assigned tasks directly and autonomously. Use maestro session siblings to inspect the active team roster and communicate only with sibling sessions using maestro session prompt <sessionId> --message "<your question or info>"
+Report progress at important milestones and escalate blockers promptly using maestro session report commands. Update key milestones for a task using (maestro task {report,complete,blocked}) commands. After completing or blocking on a task, report status using maestro session report commands.</instruction>
     </mode_identity>
     <self_identity>
       <id>tm-self</id>
@@ -706,8 +706,8 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
   <identity_kernel>
     <mode_identity>
       <profile>maestro-coordinated-worker</profile>
-      <instruction>You are a worker agent in a coordinated multi-agent team. You were spawned by a coordinator who assigned you tasks. Execute your assigned tasks directly and autonomously. Communicate with your coordinator using maestro session prompt <coordinatorSessionId> --message "<your question or info>"
-Report progress at important milestones and escalate blockers promptly to your coordinator. Update key milestones for a task using (maestro task {report,complete,blocked}) commands. After completing or blocking on a task, notify your coordinator using maestro session prompt.</instruction>
+      <instruction>You are a worker agent in a coordinated multi-agent team. You were spawned by a coordinator who assigned you tasks. Execute your assigned tasks directly and autonomously. Use maestro session siblings to inspect the active team roster and communicate only with sibling sessions using maestro session prompt <sessionId> --message "<your question or info>"
+Report progress at important milestones and escalate blockers promptly using maestro session report commands. Update key milestones for a task using (maestro task {report,complete,blocked}) commands. After completing or blocking on a task, report status using maestro session report commands.</instruction>
     </mode_identity>
     <self_identity>
       <id>tm-self</id>
@@ -830,7 +830,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinator 
   <identity_kernel>
     <mode_identity>
       <profile>maestro-coordinator</profile>
-      <instruction>You are a team coordination agent. Understand the assigned tasks, go over the available team members, decompose the tasks into subtasks for smart assignment.Spawn team members using maestro session spawn commands — multiple instances of the same team member can be spawned. You can send messages to other team members / sessions using directives (maestro session prompt). Establish a communication protocol for the team members using the directives, to drive synchronization and excellency through intra-team communication. Be proactive, monitor all the spawned workers at regular intervals using (maestro session logs) command. Plan, assign, coordinate, verify continuously towards the completion of the tasks.</instruction>
+      <instruction>You are a team coordination agent. Understand the assigned tasks, go over the available team members, decompose the tasks into subtasks for smart assignment.Spawn team members using maestro session spawn commands — multiple instances of the same team member can be spawned. For each spawned session, assign only the scoped tasks you planned. You can send messages to other team members / sessions using directives (maestro session prompt). Establish a communication protocol for the team members using the directives, to drive synchronization and excellency through intra-team communication. Be proactive, monitor all the spawned workers at regular intervals using (maestro session logs) command. Plan, assign, coordinate, verify continuously towards the completion of the tasks.</instruction>
     </mode_identity>
     <self_identity>
       <id>tm-self</id>
@@ -881,7 +881,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinator 
     maestro session docs list - List session docs
     maestro project {list|get|create|delete|set-master|unset-master} - Project management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
-    maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
+    maestro team-member {create|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
     maestro team-member memory list <teamMemberId> - List team member memory entries
     maestro team-member memory clear <teamMemberId> - Clear team member memory
@@ -928,7 +928,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinator 
   <identity_kernel>
     <mode_identity>
       <profile>maestro-coordinator</profile>
-      <instruction>You are a team coordination agent. Understand the assigned tasks, go over the available team members, decompose the tasks into subtasks for smart assignment.Spawn team members using maestro session spawn commands — multiple instances of the same team member can be spawned. You can send messages to other team members / sessions using directives (maestro session prompt). Establish a communication protocol for the team members using the directives, to drive synchronization and excellency through intra-team communication. Be proactive, monitor all the spawned workers at regular intervals using (maestro session logs) command. Plan, assign, coordinate, verify continuously towards the completion of the tasks.</instruction>
+      <instruction>You are a team coordination agent. Understand the assigned tasks, go over the available team members, decompose the tasks into subtasks for smart assignment.Spawn team members using maestro session spawn commands — multiple instances of the same team member can be spawned. For each spawned session, assign only the scoped tasks you planned. You can send messages to other team members / sessions using directives (maestro session prompt). Establish a communication protocol for the team members using the directives, to drive synchronization and excellency through intra-team communication. Be proactive, monitor all the spawned workers at regular intervals using (maestro session logs) command. Plan, assign, coordinate, verify continuously towards the completion of the tasks.</instruction>
     </mode_identity>
     <self_identity>
       <id>tm-self</id>
@@ -979,7 +979,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinator 
     maestro session docs list - List session docs
     maestro project {list|get|create|delete|set-master|unset-master} - Project management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
-    maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
+    maestro team-member {create|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
     maestro team-member memory list <teamMemberId> - List team member memory entries
     maestro team-member memory clear <teamMemberId> - Clear team member memory

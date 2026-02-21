@@ -56,8 +56,8 @@ export function isCoordinatorMode(mode: string): boolean {
 }
 /** Normalize legacy mode values to the four-mode model */
 export function normalizeMode(mode: string, hasCoordinator?: boolean): AgentMode {
-  if (mode === 'execute') return hasCoordinator ? 'coordinated-worker' : 'worker';
-  if (mode === 'coordinate') return hasCoordinator ? 'coordinated-coordinator' : 'coordinator';
+  if (mode === 'execute' || mode === 'worker') return hasCoordinator ? 'coordinated-worker' : 'worker';
+  if (mode === 'coordinate' || mode === 'coordinator') return hasCoordinator ? 'coordinated-coordinator' : 'coordinator';
   return mode as AgentMode;
 }
 
@@ -298,6 +298,7 @@ export interface Session {
   teamMemberIds?: string[];
   teamMemberSnapshots?: TeamMemberSnapshot[];
   parentSessionId?: string | null;
+  rootSessionId?: string | null;   // Top-most session in a spawn chain
   teamSessionId?: string | null;   // Shared ID linking coordinator + workers (= coordinator's session ID)
   teamId?: string | null;          // Optional saved Team reference
   isMasterSession?: boolean;       // Derived from project.isMaster at spawn time
@@ -399,6 +400,7 @@ export interface CreateSessionPayload {
   env?: Record<string, string>;
   metadata?: Record<string, any>;
   parentSessionId?: string | null;
+  rootSessionId?: string | null;
   teamSessionId?: string | null;
   teamId?: string | null;
   isMasterSession?: boolean;       // Set when spawned in a master project
@@ -417,6 +419,7 @@ export interface UpdateSessionPayload {
     message?: string;
     since?: number;
   };
+  rootSessionId?: string | null;
   teamSessionId?: string | null;
   teamId?: string | null;
 }
@@ -425,7 +428,7 @@ export interface UpdateSessionPayload {
 export interface SpawnSessionPayload {
   projectId: string;
   taskIds: string[];
-  mode?: AgentMode;                     // Three-axis model: 'execute' or 'coordinate'
+  mode?: AgentMode;                     // Four-mode model: worker/coordinator/coordinated-worker/coordinated-coordinator
   strategy?: string;                    // Deprecated: kept for backward compatibility
   spawnSource?: 'ui' | 'session';      // Who is calling (ui or session)
   sessionId?: string;                   // Required when spawnSource === 'session' (parent session ID)
@@ -448,6 +451,7 @@ export interface SpawnRequestEvent {
   manifest?: any;
   spawnSource: 'ui' | 'session';        // Who initiated the spawn
   parentSessionId?: string;              // Parent session ID if session-initiated
+  rootSessionId?: string;                // Top-most session ID in the spawn chain
   _isSpawnCreated?: boolean;             // Backward compatibility flag
 }
 
