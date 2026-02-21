@@ -9,12 +9,12 @@ export interface IOrderingRepository {
    * Get the ordering for a project and entity type.
    * @returns The ordering if found, null if no custom order set
    */
-  findByProjectAndType(projectId: string, entityType: 'task' | 'session'): Promise<Ordering | null>;
+  findByProjectAndType(projectId: string, entityType: string): Promise<Ordering | null>;
 
   /**
    * Save or update the ordering for a project and entity type.
    */
-  save(projectId: string, entityType: 'task' | 'session', orderedIds: string[]): Promise<Ordering>;
+  save(projectId: string, entityType: string, orderedIds: string[]): Promise<Ordering>;
 
   /**
    * Delete ordering for a project (e.g., when project is deleted).

@@ -1,7 +1,7 @@
 // Ordering types (separate from task/session models - UI ordering only)
 export interface Ordering {
   projectId: string;
-  entityType: 'task' | 'session';
+  entityType: string;
   orderedIds: string[];  // Ordered array of entity IDs
   updatedAt: number;
 }
@@ -10,13 +10,56 @@ export interface UpdateOrderingPayload {
   orderedIds: string[];
 }
 
+// Task list types (first-class entity)
+export interface TaskList {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string;
+  orderedTaskIds: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CreateTaskListPayload {
+  projectId: string;
+  name: string;
+  description?: string;
+  orderedTaskIds?: string[];
+}
+
+export interface UpdateTaskListPayload {
+  name?: string;
+  description?: string;
+  orderedTaskIds?: string[];
+}
+
 // Worker strategy types
 export type WorkerStrategy = 'simple' | 'tree';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 export type AgentTool = 'claude-code' | 'codex' | 'gemini';
 
-// Three-axis model types
-export type AgentMode = 'execute' | 'coordinate';
+// Four-mode model types
+export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coordinated-coordinator';
+/** Legacy mode aliases for backward compatibility */
+export type LegacyAgentMode = 'execute' | 'coordinate';
+/** All accepted mode values (includes legacy aliases) */
+export type AgentModeInput = AgentMode | LegacyAgentMode;
+
+/** Helper: is this a worker-type mode? */
+export function isWorkerMode(mode: string): boolean {
+  return mode === 'worker' || mode === 'coordinated-worker' || mode === 'execute';
+}
+/** Helper: is this a coordinator-type mode? */
+export function isCoordinatorMode(mode: string): boolean {
+  return mode === 'coordinator' || mode === 'coordinated-coordinator' || mode === 'coordinate';
+}
+/** Normalize legacy mode values to the four-mode model */
+export function normalizeMode(mode: string, hasCoordinator?: boolean): AgentMode {
+  if (mode === 'execute') return hasCoordinator ? 'coordinated-worker' : 'worker';
+  if (mode === 'coordinate') return hasCoordinator ? 'coordinated-coordinator' : 'coordinator';
+  return mode as AgentMode;
+}
 
 // Per-member launch override for team launch configuration
 export interface MemberLaunchOverride {
@@ -36,6 +79,7 @@ export interface Project {
   name: string;
   workingDir: string;
   description?: string;
+  isMaster?: boolean;        // Marks this as a master project with cross-project access
   createdAt: number;
   updatedAt: number;
 }
@@ -256,6 +300,7 @@ export interface Session {
   parentSessionId?: string | null;
   teamSessionId?: string | null;   // Shared ID linking coordinator + workers (= coordinator's session ID)
   teamId?: string | null;          // Optional saved Team reference
+  isMasterSession?: boolean;       // Derived from project.isMaster at spawn time
 }
 
 // Supporting types
@@ -356,6 +401,7 @@ export interface CreateSessionPayload {
   parentSessionId?: string | null;
   teamSessionId?: string | null;
   teamId?: string | null;
+  isMasterSession?: boolean;       // Set when spawned in a master project
   _suppressCreatedEvent?: boolean;  // Internal: suppress session:created event
 }
 
@@ -424,4 +470,3 @@ export interface CreateMailPayload {
   message: string;
   detail?: string;
 }
-

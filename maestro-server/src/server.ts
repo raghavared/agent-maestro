@@ -6,6 +6,7 @@ import { dirname } from 'path';
 import { createContainer, Container } from './container';
 import { createProjectRoutes } from './api/projectRoutes';
 import { createTaskRoutes } from './api/taskRoutes';
+import { createTaskListRoutes } from './api/taskListRoutes';
 import { createSessionRoutes } from './api/sessionRoutes';
 
 import { createSkillRoutes } from './api/skillRoutes';
@@ -13,6 +14,7 @@ import { createOrderingRoutes } from './api/orderingRoutes';
 import { createTeamMemberRoutes } from './api/teamMemberRoutes';
 import { createTeamRoutes } from './api/teamRoutes';
 import { createWorkflowTemplateRoutes } from './api/workflowTemplateRoutes';
+import { createMasterRoutes } from './api/masterRoutes';
 import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
 import { AppError } from './domain/common/Errors';
 
@@ -21,7 +23,7 @@ async function startServer() {
   const container = await createContainer();
   await container.initialize();
 
-  const { config, logger, eventBus, projectService, taskService, sessionService, logDigestService, orderingService, teamMemberService, teamService, mailService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
+  const { config, logger, eventBus, projectService, taskService, taskListService, sessionService, logDigestService, orderingService, teamMemberService, teamService, mailService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
 
   // Create Express app
   const app = express();
@@ -49,7 +51,7 @@ async function startServer() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Session-Id'],
     exposedHeaders: ['Content-Length', 'X-Request-Id']
   }));
   app.use(express.json());
@@ -80,6 +82,7 @@ async function startServer() {
   // API routes using services
   const projectRoutes = createProjectRoutes(projectService);
   const taskRoutes = createTaskRoutes(taskService, sessionService);
+  const taskListRoutes = createTaskListRoutes(taskListService);
   const sessionRoutes = createSessionRoutes({
     sessionService,
     logDigestService,
@@ -105,12 +108,17 @@ async function startServer() {
 
   app.use('/api', projectRoutes);
   app.use('/api', taskRoutes);
+  app.use('/api', taskListRoutes);
   app.use('/api', sessionRoutes);
   app.use('/api', skillRoutes);
   app.use('/api', orderingRoutes);
   app.use('/api', teamMemberRoutes);
   app.use('/api', teamRoutes);
   app.use('/api/workflow-templates', createWorkflowTemplateRoutes());
+
+  // Master project cross-project routes
+  const masterRoutes = createMasterRoutes(projectService, taskService, sessionService);
+  app.use('/api', masterRoutes);
 
   // Global error handling middleware
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

@@ -28,6 +28,33 @@ This separation allows for:
 - Clear separation of concerns (role vs. task)
 - Flexible template customization
 
+## Current Prompt Contract (Plan 2 / Identity V2)
+
+When `MAESTRO_PROMPT_IDENTITY_V2=true`, prompt composition follows the Identity Kernel + Context Lens architecture:
+
+- System prompt:
+  - `<identity_kernel>`
+    - `<mode_identity>`: role profile + instruction
+    - `<self_identity>`: resolved session persona (optional in worker modes; strict single profile in coordinator modes)
+  - `<team_context lens="full_expertise|slim_roster">`: mode-selected member view
+  - `<coordination_context>`: coordinated modes only
+  - `<capability_summary>` and `<commands_reference>`
+- Task prompt:
+  - `<tasks>`, optional `<task_tree>`, `<context>`, optional `<skills>`
+  - `<session_context>` contains only session/project/mode (no coordinator linkage)
+  - optional `<reference_tasks>`
+
+Mode matrix:
+
+| Mode | Self Identity | Team Lens | Coordination Context |
+|---|---|---|---|
+| `worker` | optional | `full_expertise` | no |
+| `coordinator` | required (exactly one, strict by policy) | `slim_roster` | no |
+| `coordinated-worker` | optional | `full_expertise` | yes |
+| `coordinated-coordinator` | required (exactly one, strict by policy) | `slim_roster` | yes |
+
+The detailed legacy sections below still contain useful historical context, but many snippets predate this contract and are stale for exact block names.
+
 ---
 
 ## Prompt Generation Code Flow

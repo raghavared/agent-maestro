@@ -6,6 +6,7 @@ import { LogMessageGroup } from './LogMessageGroup';
 
 interface ClaudeLogFile {
   filename: string;
+  relativePath?: string;
   modifiedAt: number;
   size: number;
   maestroSessionId?: string | null;
@@ -20,9 +21,15 @@ interface LogTailResult {
 interface SessionLogStripProps {
   cwd: string;
   maestroSessionId: string;
+  agentTool?: string | null;
 }
 
 const POLL_INTERVAL = 2000;
+type LogProvider = 'claude' | 'codex';
+
+function resolveLogProvider(agentTool?: string | null): LogProvider {
+  return agentTool === 'codex' ? 'codex' : 'claude';
+}
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -108,7 +115,9 @@ function computeStripStats(messages: ParsedMessage[]): StripStats {
   };
 }
 
-export function SessionLogStrip({ cwd, maestroSessionId }: SessionLogStripProps) {
+export function SessionLogStrip({ cwd, maestroSessionId, agentTool }: SessionLogStripProps) {
+  const provider = resolveLogProvider(agentTool);
+  const [resolvedProvider, setResolvedProvider] = useState<LogProvider>(provider);
   const [allMessages, setAllMessages] = useState<ParsedMessage[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -116,6 +125,7 @@ export function SessionLogStrip({ cwd, maestroSessionId }: SessionLogStripProps)
   const offsetRef = useRef(0);
   const bodyRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
+  const getLogFilePath = useCallback((f: ClaudeLogFile) => f.relativePath ?? f.filename, []);
 
   const autoScroll = useCallback(() => {
     const el = bodyRef.current;
@@ -134,27 +144,41 @@ export function SessionLogStrip({ cwd, maestroSessionId }: SessionLogStripProps)
   useEffect(() => {
     let cancelled = false;
 
-    const search = () => {
-      invoke<ClaudeLogFile[]>('list_claude_session_logs', { cwd })
-        .then((files) => {
+    // Reset discovery state when source inputs change.
+    setReady(false);
+    setSelectedFile(null);
+    setResolvedProvider(provider);
+
+    const providerOrder: LogProvider[] = provider === 'codex'
+      ? ['codex', 'claude']
+      : ['claude', 'codex'];
+
+    const search = async () => {
+      for (const candidate of providerOrder) {
+        try {
+          const listCommand = candidate === 'codex' ? 'list_codex_session_logs' : 'list_claude_session_logs';
+          const files = await invoke<ClaudeLogFile[]>(listCommand, { cwd });
           if (cancelled) return;
           const match = files.find((f) => f.maestroSessionId === maestroSessionId);
           if (match) {
-            setSelectedFile(match.filename);
+            setSelectedFile(getLogFilePath(match));
+            setResolvedProvider(candidate);
             setReady(true);
-          } else {
-            // File not created yet — retry
-            setTimeout(search, POLL_INTERVAL);
+            return;
           }
-        })
-        .catch(() => {
-          if (!cancelled) setTimeout(search, POLL_INTERVAL);
-        });
+        } catch {
+          // Try the next provider.
+        }
+      }
+
+      if (!cancelled) {
+        setTimeout(search, POLL_INTERVAL);
+      }
     };
 
     search();
     return () => { cancelled = true; };
-  }, [cwd, maestroSessionId]);
+  }, [cwd, maestroSessionId, provider, getLogFilePath]);
 
   // Initial full load
   useEffect(() => {
@@ -162,7 +186,8 @@ export function SessionLogStrip({ cwd, maestroSessionId }: SessionLogStripProps)
     setAllMessages([]);
     offsetRef.current = 0;
 
-    invoke<string>('read_claude_session_log', { cwd, filename: selectedFile })
+    const readCommand = resolvedProvider === 'codex' ? 'read_codex_session_log' : 'read_claude_session_log';
+    invoke<string>(readCommand, { cwd, filename: selectedFile })
       .then((content) => {
         const messages = parseJsonlText(content);
         setAllMessages(messages);
@@ -170,7 +195,7 @@ export function SessionLogStrip({ cwd, maestroSessionId }: SessionLogStripProps)
         setTimeout(autoScroll, 50);
       })
       .catch(() => {});
-  }, [cwd, selectedFile, autoScroll]);
+  }, [cwd, selectedFile, autoScroll, resolvedProvider]);
 
   // Live polling
   useEffect(() => {
@@ -178,7 +203,8 @@ export function SessionLogStrip({ cwd, maestroSessionId }: SessionLogStripProps)
 
     const poll = async () => {
       try {
-        const result = await invoke<LogTailResult>('tail_claude_session_log', {
+        const tailCommand = resolvedProvider === 'codex' ? 'tail_codex_session_log' : 'tail_claude_session_log';
+        const result = await invoke<LogTailResult>(tailCommand, {
           cwd,
           filename: selectedFile,
           offset: offsetRef.current,
@@ -198,7 +224,7 @@ export function SessionLogStrip({ cwd, maestroSessionId }: SessionLogStripProps)
 
     const interval = setInterval(poll, POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [selectedFile, cwd, autoScroll]);
+  }, [selectedFile, cwd, autoScroll, resolvedProvider]);
 
   const { groups, isOngoing, stats } = useMemo(() => {
     if (allMessages.length === 0) {

@@ -11,7 +11,11 @@ type SplitPlayButtonProps = {
     disabled?: boolean;
 };
 
-const MODE_LABELS: Record<AgentMode, string> = {
+const MODE_LABELS: Record<string, string> = {
+    worker: 'worker',
+    coordinator: 'coord',
+    'coordinated-worker': 'c-worker',
+    'coordinated-coordinator': 'c-coord',
     execute: 'exec',
     coordinate: 'coord',
 };
@@ -32,7 +36,7 @@ function getMemberBadgeLabel(member: TeamMember): string {
 }
 
 function getMemberBadgeClass(member: TeamMember): string {
-    return member.mode || 'execute';
+    return member.mode || 'worker';
 }
 
 function getMemberSubline(member: TeamMember): string {

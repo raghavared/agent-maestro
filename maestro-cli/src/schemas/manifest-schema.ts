@@ -22,8 +22,8 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
     },
     mode: {
       type: 'string',
-      enum: ['execute', 'coordinate'],
-      description: 'Agent mode: execute (runs tasks) or coordinate (manages agents)',
+      enum: ['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'] as any,
+      description: 'Agent mode (canonical modes plus legacy execute/coordinate aliases during migration)',
     },
     strategy: {
       type: 'string',
@@ -210,7 +210,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       nullable: true,
       description: 'Reference task IDs for context (docs from these tasks are provided to the agent)',
     },
-    teamMembers: {
+    availableTeamMembers: {
       type: 'array',
       nullable: true,
       items: {
@@ -223,7 +223,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
           avatar: { type: 'string' },
           mode: {
             type: 'string',
-            enum: ['execute', 'coordinate'],
+            enum: ['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'] as any,
             nullable: true,
           },
           permissionMode: { type: 'string', nullable: true },
@@ -331,12 +331,12 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
     teamMemberWorkflowTemplateId: {
       type: 'string',
       nullable: true,
-      description: 'Team member workflow template ID',
+      description: 'Deprecated compatibility field (ignored by prompt composition)',
     },
     teamMemberCustomWorkflow: {
       type: 'string',
       nullable: true,
-      description: 'Team member custom workflow text',
+      description: 'Deprecated compatibility field (ignored by prompt composition)',
     },
     teamMemberMemory: {
       type: 'array',
@@ -416,6 +416,28 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
         additionalProperties: false,
       },
       description: 'Multiple team member profiles for multi-identity sessions',
+    },
+    isMaster: {
+      type: 'boolean',
+      nullable: true,
+      description: 'Whether this is a master session with cross-project access',
+    },
+    masterProjects: {
+      type: 'array',
+      nullable: true,
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          workingDir: { type: 'string' },
+          description: { type: 'string', nullable: true },
+          isMaster: { type: 'boolean', nullable: true },
+        },
+        required: ['id', 'name', 'workingDir'] as const,
+        additionalProperties: false,
+      },
+      description: 'All projects in the workspace (populated for master sessions)',
     },
   },
   required: ['manifestVersion', 'mode', 'tasks', 'session'],

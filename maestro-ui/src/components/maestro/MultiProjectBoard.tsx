@@ -7,6 +7,7 @@ import {
     TaskPriority,
     WorkerStrategy,
     OrchestratorStrategy,
+    AgentModeInput,
 } from "../../app/types/maestro";
 import { useProjectStore } from "../../stores/useProjectStore";
 import { useMaestroStore } from "../../stores/useMaestroStore";
@@ -38,7 +39,7 @@ export type BoardProps = {
         tasks?: MaestroTask[];
         project: MaestroProject;
         strategy?: WorkerStrategy | OrchestratorStrategy;
-        mode?: "execute" | "coordinate";
+        mode?: AgentModeInput;
     }) => Promise<any>;
     focusProjectId?: string;
 };

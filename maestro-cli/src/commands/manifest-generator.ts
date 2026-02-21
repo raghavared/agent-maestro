@@ -1,4 +1,14 @@
-import type { MaestroManifest, AdditionalContext, AgentTool, AgentMode, TeamMemberData, TeamMemberProfile } from '../types/manifest.js';
+import type {
+  MaestroManifest,
+  AdditionalContext,
+  AgentTool,
+  AgentModeInput,
+  TeamMemberData,
+  TeamMemberProfile,
+  MasterProjectInfo,
+  AgentMode,
+} from '../types/manifest.js';
+import { normalizeMode, isCoordinatorMode } from '../types/manifest.js';
 import { DEFAULT_ACCEPTANCE_CRITERIA, MODE_VALIDATION_ERROR, AGENT_TOOL_VALIDATION_PREFIX } from '../prompts/index.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
@@ -33,6 +43,27 @@ export interface SessionOptions {
   timeout?: number;
   workingDirectory?: string;
   context?: AdditionalContext;
+}
+
+export function resolveSelfIdentityMemberIds(
+  mode: AgentMode,
+  teamMemberId?: string,
+  teamMemberIds?: string[],
+): string[] {
+  if (teamMemberId) {
+    return [teamMemberId];
+  }
+
+  const ids = (teamMemberIds || []).filter(Boolean);
+  if (ids.length === 0) {
+    return [];
+  }
+
+  if (isCoordinatorMode(mode)) {
+    return [ids[0]];
+  }
+
+  return ids;
 }
 
 /**
@@ -101,7 +132,7 @@ export class ManifestGeneratorCLICommand {
    * Execute the CLI command
    */
   async execute(options: {
-    mode: AgentMode;
+    mode: AgentModeInput;
     projectId: string;
     taskIds: string[];
     skills?: string[];
@@ -146,10 +177,12 @@ export class ManifestGeneratorCLICommand {
         sessionOptions
       );
 
-      // Add coordinator session ID from environment
+      // Add coordinator session ID from environment and normalize mode
       const coordinatorSessionId = process.env.MAESTRO_COORDINATOR_SESSION_ID;
       if (coordinatorSessionId) {
         manifest.coordinatorSessionId = coordinatorSessionId;
+        // Auto-derive coordinated mode when spawned by a coordinator.
+        manifest.mode = normalizeMode(manifest.mode as AgentModeInput, true);
       }
 
       // Add initial directive from environment (passed via spawn flow)
@@ -159,6 +192,28 @@ export class ManifestGeneratorCLICommand {
           manifest.initialDirective = JSON.parse(initialDirectiveEnv);
         } catch {
           // ignore parse error
+        }
+      }
+
+      // If this is a master session, fetch all projects and embed in manifest
+      if (process.env.MAESTRO_IS_MASTER === 'true') {
+        manifest.isMaster = true;
+        try {
+          const projectsData: any = await api.get('/api/master/projects');
+          const projects: MasterProjectInfo[] = Array.isArray(projectsData)
+            ? projectsData.map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                workingDir: p.workingDir,
+                ...(p.description ? { description: p.description } : {}),
+                ...(p.isMaster ? { isMaster: p.isMaster } : {}),
+              }))
+            : [];
+          if (projects.length > 0) {
+            manifest.masterProjects = projects;
+          }
+        } catch {
+          // non-fatal: master context will be partial
         }
       }
 
@@ -177,9 +232,11 @@ export class ManifestGeneratorCLICommand {
 
       // Add team member identity for this session
       // Multi-identity: if teamMemberIds (array) is provided, build profiles array
-      const effectiveTeamMemberIds = options.teamMemberIds && options.teamMemberIds.length > 0
-        ? options.teamMemberIds
-        : (options.teamMemberId ? [options.teamMemberId] : []);
+      const effectiveTeamMemberIds = resolveSelfIdentityMemberIds(
+        manifest.mode,
+        options.teamMemberId,
+        options.teamMemberIds,
+      );
 
       if (effectiveTeamMemberIds.length === 1 && !options.teamMemberIds?.length) {
         // Single team member — backward compat: use singular fields
@@ -197,12 +254,6 @@ export class ManifestGeneratorCLICommand {
           }
           if (teamMember.commandPermissions) {
             manifest.teamMemberCommandPermissions = teamMember.commandPermissions;
-          }
-          if (teamMember.workflowTemplateId) {
-            manifest.teamMemberWorkflowTemplateId = teamMember.workflowTemplateId;
-          }
-          if (teamMember.customWorkflow) {
-            manifest.teamMemberCustomWorkflow = teamMember.customWorkflow;
           }
           if (teamMember.permissionMode) {
             manifest.session.permissionMode = teamMember.permissionMode;
@@ -229,8 +280,6 @@ export class ManifestGeneratorCLICommand {
               identity: tm.identity,
               capabilities: tm.capabilities,
               commandPermissions: tm.commandPermissions,
-              workflowTemplateId: tm.workflowTemplateId,
-              customWorkflow: tm.customWorkflow,
               model: tm.model,
               agentTool: tm.agentTool,
               memory: tm.memory,
@@ -338,7 +387,7 @@ export class ManifestGeneratorCLICommand {
           }
         }
         if (teamMembers.length > 0) {
-          manifest.teamMembers = teamMembers;
+          manifest.availableTeamMembers = teamMembers;
         }
       }
 
@@ -359,7 +408,14 @@ export class ManifestGeneratorCLICommand {
       await writeFile(options.output, json, 'utf-8');
 
       process.exit(0);
-    } catch {
+    } catch (error: any) {
+      const message = error instanceof Error ? error.message : String(error || 'Manifest generation failed');
+      if (message) {
+        console.error(message);
+      }
+      if (process.env.MAESTRO_DEBUG === 'true' && error instanceof Error && error.stack) {
+        console.error(error.stack);
+      }
       process.exit(1);
     }
   }
@@ -374,13 +430,13 @@ export class ManifestGenerator {
   /**
    * Generate a manifest from task data
    *
-   * @param mode - Agent mode (execute or coordinate)
+   * @param mode - Agent mode (canonical modes plus legacy aliases accepted)
    * @param tasksData - Array of task information (supports multi-task sessions)
    * @param options - Session configuration
    * @returns Generated manifest
    */
   generateManifest(
-    mode: AgentMode,
+    mode: AgentModeInput,
     tasksData: TaskInput | TaskInput[],
     options: SessionOptions
   ): MaestroManifest {
@@ -403,7 +459,7 @@ export class ManifestGenerator {
 
     const manifest: MaestroManifest = {
       manifestVersion: '1.0',
-      mode,
+      mode: normalizeMode(mode, false),
       tasks: taskDataArray,
       session: {
         model: options.model,
@@ -465,7 +521,7 @@ export class ManifestGenerator {
    * @param outputPath - File path to save manifest
    */
   async generateAndSave(
-    mode: AgentMode,
+    mode: AgentModeInput,
     taskData: TaskInput,
     options: SessionOptions,
     outputPath: string
@@ -493,7 +549,7 @@ export function registerManifestCommands(program: any): void {
   manifest
     .command('generate')
     .description('Generate a manifest file from task and project data')
-    .requiredOption('--mode <mode>', 'Agent mode (execute or coordinate)')
+    .requiredOption('--mode <mode>', 'Agent mode (worker, coordinator, coordinated-worker, coordinated-coordinator, or legacy execute/coordinate)')
     .requiredOption('--project-id <id>', 'Project ID')
     .requiredOption('--task-ids <ids>', 'Comma-separated task IDs')
     .option('--skills <skills>', 'Comma-separated skills', 'maestro-worker')
@@ -508,8 +564,10 @@ export function registerManifestCommands(program: any): void {
       const taskIds = options.taskIds.split(',').map((id: string) => id.trim());
       const skills = options.skills.split(',').map((skill: string) => skill.trim());
 
-      // Validate mode
-      if (options.mode !== 'execute' && options.mode !== 'coordinate') {
+      // Validate mode (accept both new and legacy values)
+      const validModes = ['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'];
+      if (!validModes.includes(options.mode)) {
+        console.error(`Invalid mode: ${options.mode}. Must be one of: ${validModes.join(', ')}`);
         process.exit(1);
       }
 

@@ -5,9 +5,8 @@ import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import type { MaestroManifest } from '../types/manifest.js';
 import { SkillLoader } from './skill-loader.js';
-import { WhoamiRenderer } from './whoami-renderer.js';
-import { getPermissionsFromManifest } from './command-permissions.js';
 import { prepareSpawnerEnvironment } from './spawner-env.js';
+import { PromptComposer, type PromptEnvelope } from '../prompting/prompt-composer.js';
 import { STDIN_UNAVAILABLE_WARNING } from '../prompts/index.js';
 
 /**
@@ -45,9 +44,11 @@ export interface SpawnOptions {
  */
 export class ClaudeSpawner {
   private skillLoader: SkillLoader;
+  private promptComposer: PromptComposer;
 
   constructor(skillLoader?: SkillLoader) {
     this.skillLoader = skillLoader || new SkillLoader();
+    this.promptComposer = new PromptComposer();
   }
 
   /**
@@ -83,15 +84,16 @@ export class ClaudeSpawner {
    * @param mode - The agent mode (execute or coordinate)
    * @returns Path to plugin directory, or null if not found
    */
-  getPluginDir(mode: 'execute' | 'coordinate'): string | null {
+  getPluginDir(mode: string): string | null {
     try {
       // Get the maestro-cli root directory
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = dirname(__filename);
       const cliRoot = join(__dirname, '../..');
 
-      // Construct plugin directory path
-      const pluginName = mode === 'execute' ? 'maestro-worker' : 'maestro-orchestrator';
+      // Construct plugin directory path — worker-type modes use worker plugin, coordinator-type use orchestrator
+      const isCoord = mode === 'coordinate' || mode === 'coordinator' || mode === 'coordinated-coordinator';
+      const pluginName = isCoord ? 'maestro-orchestrator' : 'maestro-worker';
       const pluginDir = join(cliRoot, 'plugins', pluginName);
 
       // Check if plugin directory exists
@@ -151,6 +153,13 @@ export class ClaudeSpawner {
     return args;
   }
 
+  buildPromptEnvelope(
+    manifest: MaestroManifest,
+    sessionId: string,
+  ): PromptEnvelope {
+    return this.promptComposer.compose(manifest, { sessionId });
+  }
+
 
   /**
    * Spawn Claude Code session with manifest
@@ -165,11 +174,9 @@ export class ClaudeSpawner {
     sessionId: string,
     options: SpawnOptions = {}
   ): Promise<SpawnResult> {
-    // Split prompt into system (static) and task (dynamic) layers
-    const renderer = new WhoamiRenderer();
-    const permissions = getPermissionsFromManifest(manifest);
-    const systemPrompt = renderer.renderSystemPrompt(manifest, permissions);
-    const taskContext = await renderer.renderTaskContext(manifest, sessionId);
+    const envelope = this.buildPromptEnvelope(manifest, sessionId);
+    const systemPrompt = envelope.system;
+    const taskContext = envelope.task;
 
     // Prepare environment
     const env = {

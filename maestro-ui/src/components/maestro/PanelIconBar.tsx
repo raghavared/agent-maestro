@@ -1,7 +1,7 @@
 import React from "react";
 import { TaskTreeNode, MaestroTask, TeamMember } from "../../app/types/maestro";
 
-export type PrimaryTab = "tasks" | "team" | "skills";
+export type PrimaryTab = "tasks" | "lists" | "team" | "skills";
 export type TaskSubTab = "current" | "pinned" | "completed" | "archived";
 export type SkillSubTab = "browse" | "installed" | "marketplace";
 export type TeamSubTab = "members" | "teams" | "pinned" | "archived";
@@ -20,9 +20,11 @@ type PanelIconBarProps = {
     loading: boolean;
     projectId: string;
     onNewTask: () => void;
+    onNewTaskList: () => void;
     onNewTeamMember: () => void;
     onNewTeam?: () => void;
     teamCount?: number;
+    taskListCount?: number;
 };
 
 export const PanelIconBar: React.FC<PanelIconBarProps> = ({
@@ -39,9 +41,11 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
     loading,
     projectId,
     onNewTask,
+    onNewTaskList,
     onNewTeamMember,
     onNewTeam,
     teamCount = 0,
+    taskListCount = 0,
 }) => {
     const activeCount = roots.filter(t => t.status !== 'completed' && t.status !== 'archived').length;
     const pinnedCount = roots.filter(t => t.pinned).length;
@@ -91,6 +95,18 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                     </svg>
                     Skills
                 </button>
+                <button
+                    className={`maestroPanelPrimaryTab ${primaryTab === "lists" ? "maestroPanelPrimaryTabActive" : ""}`}
+                    onClick={() => onPrimaryTabChange("lists")}
+                >
+                    <svg className="maestroPanelTabIcon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M4 5h12M4 10h12M4 15h12" strokeLinecap="round" />
+                        <circle cx="6" cy="5" r="1" fill="currentColor" />
+                        <circle cx="6" cy="10" r="1" fill="currentColor" />
+                        <circle cx="6" cy="15" r="1" fill="currentColor" />
+                    </svg>
+                    Lists
+                </button>
             </div>
 
             {/* Secondary sub-tab bar - contextual */}
@@ -132,6 +148,22 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                             Archived
                             <span className="maestroPanelSubTabCount">{archivedCount}</span>
                         </button>
+                    </>
+                )}
+
+                {primaryTab === "lists" && (
+                    <>
+                        <button
+                            className="maestroPanelSubTab maestroPanelSubTab--action"
+                            onClick={onNewTaskList}
+                        >
+                            <span className="maestroPanelSubTabPlus">+</span>
+                            New List
+                        </button>
+                        <div className="maestroPanelSubTab maestroPanelSubTab--stat">
+                            Lists
+                            <span className="maestroPanelSubTabCount">{taskListCount}</span>
+                        </div>
                     </>
                 )}
 

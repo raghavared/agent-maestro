@@ -9,6 +9,7 @@ import { useMaestroStore } from '../../stores/useMaestroStore';
 
 interface ClaudeLogFile {
   filename: string;
+  relativePath?: string;
   modifiedAt: number;
   size: number;
   maestroSessionId?: string | null;
@@ -25,6 +26,7 @@ interface SessionLogModalProps {
   cwd: string;
   onClose: () => void;
   maestroSessionId?: string | null;
+  agentTool?: string | null;
 }
 
 const POLL_INTERVAL = 2000;
@@ -48,8 +50,14 @@ function formatFileSize(bytes: number): string {
 }
 
 type ViewMode = 'conversation' | 'context';
+type LogProvider = 'claude' | 'codex';
 
-export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId }: SessionLogModalProps) {
+function resolveLogProvider(agentTool?: string | null): LogProvider {
+  return agentTool === 'codex' ? 'codex' : 'claude';
+}
+
+export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId, agentTool }: SessionLogModalProps) {
+  const provider = resolveLogProvider(agentTool);
   const [logFiles, setLogFiles] = useState<ClaudeLogFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [allMessages, setAllMessages] = useState<ParsedMessage[]>([]);
@@ -63,6 +71,7 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId }:
 
   // Look up Maestro session names for log files that have a maestroSessionId
   const maestroSessions = useMaestroStore((s) => s.sessions);
+  const getLogFilePath = useCallback((f: ClaudeLogFile) => f.relativePath ?? f.filename, []);
   const getFileDisplayName = useCallback((f: ClaudeLogFile) => {
     if (f.maestroSessionId) {
       const session = maestroSessions.get(f.maestroSessionId);
@@ -101,7 +110,8 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId }:
   useEffect(() => {
     setLoading(true);
     setError(null);
-    invoke<ClaudeLogFile[]>('list_claude_session_logs', { cwd })
+    const listCommand = provider === 'codex' ? 'list_codex_session_logs' : 'list_claude_session_logs';
+    invoke<ClaudeLogFile[]>(listCommand, { cwd })
       .then((files) => {
         setLogFiles(files);
         if (files.length > 0) {
@@ -109,7 +119,7 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId }:
           const match = maestroSessionId
             ? files.find((f) => f.maestroSessionId === maestroSessionId)
             : null;
-          setSelectedFile((match ?? files[0]).filename);
+          setSelectedFile(getLogFilePath(match ?? files[0]));
         }
         setLoading(false);
       })
@@ -117,7 +127,7 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId }:
         setError(String(err));
         setLoading(false);
       });
-  }, [cwd]);
+  }, [cwd, maestroSessionId, provider, getLogFilePath]);
 
   // Initial full load when file is selected
   useEffect(() => {
@@ -125,7 +135,8 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId }:
     setAllMessages([]);
     offsetRef.current = 0;
 
-    invoke<string>('read_claude_session_log', { cwd, filename: selectedFile })
+    const readCommand = provider === 'codex' ? 'read_codex_session_log' : 'read_claude_session_log';
+    invoke<string>(readCommand, { cwd, filename: selectedFile })
       .then((content) => {
         const messages = parseJsonlText(content);
         setAllMessages(messages);
@@ -133,7 +144,7 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId }:
         setTimeout(autoScroll, 50);
       })
       .catch((err) => setError(String(err)));
-  }, [cwd, selectedFile, autoScroll]);
+  }, [cwd, selectedFile, autoScroll, provider]);
 
   // Polling for new content
   useEffect(() => {
@@ -141,7 +152,8 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId }:
 
     const poll = async () => {
       try {
-        const result = await invoke<LogTailResult>('tail_claude_session_log', {
+        const tailCommand = provider === 'codex' ? 'tail_codex_session_log' : 'tail_claude_session_log';
+        const result = await invoke<LogTailResult>(tailCommand, {
           cwd,
           filename: selectedFile,
           offset: offsetRef.current,
@@ -162,7 +174,7 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId }:
 
     const interval = setInterval(poll, POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [live, selectedFile, cwd, autoScroll]);
+  }, [live, selectedFile, cwd, autoScroll, provider]);
 
   // Compute groups, metrics, state, and context from accumulated messages
   const { groups, metrics, isOngoing, contextCategories, totalContextTokens } = useMemo(() => {
@@ -200,7 +212,7 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId }:
                   onChange={(e) => setSelectedFile(e.target.value)}
                 >
                   {logFiles.map((f) => (
-                    <option key={f.filename} value={f.filename}>
+                    <option key={getLogFilePath(f)} value={getLogFilePath(f)}>
                       {getFileDisplayName(f)}
                     </option>
                   ))}
@@ -271,7 +283,9 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId }:
           )}
           {!loading && !error && logFiles.length === 0 && (
             <div className="terminalEmptyState">
-              No Claude Code session logs found for this project.
+              {provider === 'codex'
+                ? 'No Codex session logs found for this project.'
+                : 'No Claude Code session logs found for this project.'}
             </div>
           )}
           {!loading && allMessages.length > 0 && viewMode === 'conversation' && (
@@ -288,7 +302,9 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId }:
         {/* Footer */}
         <div className="terminalModalFooter">
           <div className="terminalModalFooterLeft">
-            <span className="terminalModalFooterLabel">Claude Code Log</span>
+            <span className="terminalModalFooterLabel">
+              {provider === 'codex' ? 'Codex Log' : 'Claude Code Log'}
+            </span>
             {live && <span className="sessionLogLiveIndicator" />}
             {isOngoing && <span className="sessionLogOngoingIndicator" />}
           </div>

@@ -105,4 +105,26 @@ export class ProjectService {
   async getProjectCount(): Promise<number> {
     return this.projectRepo.count();
   }
+
+  /**
+   * Set master status on a project.
+   */
+  async setMasterStatus(projectId: string, isMaster: boolean): Promise<Project> {
+    const project = await this.projectRepo.findById(projectId);
+    if (!project) {
+      throw new NotFoundError('Project', projectId);
+    }
+
+    const updated = await this.projectRepo.update(projectId, { isMaster });
+    await this.eventBus.emit('project:updated', updated);
+    return updated;
+  }
+
+  /**
+   * List all projects marked as master.
+   */
+  async listMasterProjects(): Promise<Project[]> {
+    const all = await this.projectRepo.findAll();
+    return all.filter(p => p.isMaster === true);
+  }
 }

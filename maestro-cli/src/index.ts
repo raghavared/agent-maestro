@@ -6,7 +6,7 @@ import { config } from './config.js';
 import { api } from './api.js';
 import { outputJSON, outputKeyValue } from './utils/formatter.js';
 import { readManifest, readManifestFromEnv } from './services/manifest-reader.js';
-import { WhoamiRenderer } from './services/whoami-renderer.js';
+import { PromptComposer } from './prompting/prompt-composer.js';
 import { registerTaskCommands } from './commands/task.js';
 import { registerSessionCommands } from './commands/session.js';
 import { registerWorkerCommands } from './commands/worker.js';
@@ -14,6 +14,7 @@ import { registerOrchestratorCommands } from './commands/orchestrator.js';
 import { registerSkillCommands } from './commands/skill.js';
 import { registerManifestCommands } from './commands/manifest-generator.js';
 import { registerProjectCommands } from './commands/project.js';
+import { registerMasterCommands } from './commands/master.js';
 
 import { registerReportCommands } from './commands/report.js';
 import { registerModalCommands } from './commands/modal.js';
@@ -27,6 +28,113 @@ import {
   getAvailableCommandsGrouped,
   getPermissionsFromManifest,
 } from './services/command-permissions.js';
+import type { MaestroManifest } from './types/manifest.js';
+import type { CommandPermissions } from './services/command-permissions.js';
+
+interface DebugPromptCommandOptions {
+  manifest?: string;
+  session?: string;
+  systemOnly?: boolean;
+  taskOnly?: boolean;
+  initialOnly?: boolean;
+  raw?: boolean;
+}
+
+async function readManifestOrThrow(manifestPath: string): Promise<MaestroManifest> {
+  const result = await readManifest(manifestPath);
+  if (!result.success || !result.manifest) {
+    throw new Error(result.error || `Failed to read manifest: ${manifestPath}`);
+  }
+  return result.manifest;
+}
+
+async function resolveDebugPromptManifest(cmdOpts: DebugPromptCommandOptions): Promise<{
+  manifest: MaestroManifest;
+  sessionId: string;
+  source: string;
+}> {
+  if (cmdOpts.session) {
+    const sessionId = cmdOpts.session;
+    const session: any = await api.get(`/api/sessions/${sessionId}`);
+
+    if (session?.manifest) {
+      return {
+        manifest: session.manifest as MaestroManifest,
+        sessionId,
+        source: `session:${sessionId} (embedded manifest)`,
+      };
+    }
+
+    const manifestPath = session?.env?.MAESTRO_MANIFEST_PATH as string | undefined;
+    if (!manifestPath) {
+      throw new Error(
+        `Session ${sessionId} does not include an embedded manifest or MAESTRO_MANIFEST_PATH in session env.`,
+      );
+    }
+
+    const manifest = await readManifestOrThrow(manifestPath);
+    return {
+      manifest,
+      sessionId,
+      source: `session:${sessionId} (${manifestPath})`,
+    };
+  }
+
+  if (cmdOpts.manifest) {
+    const manifest = await readManifestOrThrow(cmdOpts.manifest);
+    return {
+      manifest,
+      sessionId: config.sessionId || 'debug',
+      source: cmdOpts.manifest,
+    };
+  }
+
+  const envManifestResult = await readManifestFromEnv();
+  if (!envManifestResult.success || !envManifestResult.manifest) {
+    throw new Error(
+      envManifestResult.error
+      || 'No manifest found. Set MAESTRO_MANIFEST_PATH or pass --manifest/--session.',
+    );
+  }
+
+  return {
+    manifest: envManifestResult.manifest,
+    sessionId: config.sessionId || 'debug',
+    source: process.env.MAESTRO_MANIFEST_PATH || 'MAESTRO_MANIFEST_PATH',
+  };
+}
+
+function buildWhoamiJson(
+  manifest: MaestroManifest,
+  permissions: CommandPermissions,
+  sessionId: string | undefined,
+): object {
+  const primaryTask = manifest.tasks[0];
+  const result: any = {
+    mode: manifest.mode,
+    sessionId: sessionId || null,
+    projectId: primaryTask.projectId,
+    tasks: manifest.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      priority: task.priority || 'medium',
+      acceptanceCriteria: task.acceptanceCriteria,
+      status: task.status,
+    })),
+    permissions: {
+      allowedCommands: permissions.allowedCommands,
+      hiddenCommands: permissions.hiddenCommands,
+    },
+    context: manifest.context || null,
+  };
+
+  if (manifest.agentTool) {
+    result.agentTool = manifest.agentTool;
+  }
+
+  return result;
+}
 
 // Load version - use MAESTRO_CLI_VERSION env var (injected at bundle time for binary builds)
 // or fall back to reading package.json for development
@@ -69,11 +177,15 @@ program.command('whoami')
       if (manifestResult.success && manifestResult.manifest) {
           const manifest = manifestResult.manifest;
           const permissions = getPermissionsFromManifest(manifest);
-          const renderer = new WhoamiRenderer();
+          const whoamiData = buildWhoamiJson(manifest, permissions, sessionId);
 
           if (opts.json) {
-              outputJSON(renderer.renderJSON(manifest, permissions, sessionId));
+              outputJSON(whoamiData);
           } else {
+              outputKeyValue('Mode', manifest.mode);
+              outputKeyValue('Session ID', sessionId || 'N/A');
+              outputKeyValue('Project ID', manifest.tasks[0]?.projectId || 'N/A');
+              outputKeyValue('Tasks', manifest.tasks.map((task) => task.id).join(', '));
           }
       } else {
           // Fallback: no manifest available, show basic env-var output
@@ -82,7 +194,7 @@ program.command('whoami')
               projectId: project,
               sessionId,
               taskIds: config.taskIds,
-              mode: 'execute',
+              mode: 'worker',
           };
 
           if (opts.json) {
@@ -92,62 +204,59 @@ program.command('whoami')
               outputKeyValue('Project ID', data.projectId || 'N/A');
               outputKeyValue('Session ID', data.sessionId || 'N/A');
               outputKeyValue('Task IDs', data.taskIds.join(', ') || 'N/A');
-              outputKeyValue('Mode', 'execute');
+              outputKeyValue('Mode', 'worker');
           }
       }
   });
 
 // Debug prompt - show the exact system prompt and initial prompt sent to agent
 program.command('debug-prompt')
-  .description('Show the system prompt and initial prompt that would be sent to an agent session')
+  .description('Show the exact system prompt and task prompt that will be sent to the agent')
   .option('--manifest <path>', 'Path to manifest file (defaults to MAESTRO_MANIFEST_PATH)')
-  .option('--session <id>', 'Fetch manifest for a specific session from server')
+  .option('--session <id>', 'Load manifest for a specific session from server')
   .option('--system-only', 'Show only the system prompt')
-  .option('--initial-only', 'Show only the initial prompt (task context)')
+  .option('--task-only', 'Show only the task prompt')
+  .option('--initial-only', 'Deprecated alias for --task-only')
   .option('--raw', 'Output raw text without formatting headers')
-  .action(async (cmdOpts) => {
+  .action(async (cmdOpts: DebugPromptCommandOptions) => {
     const opts = program.opts();
     const isJson = opts.json;
 
     try {
-      let manifest;
-
-      if (cmdOpts.session) {
-        // Fetch session from server, which should have the manifest
-        const sessionId = cmdOpts.session;
-        const session: any = await api.get(`/api/sessions/${sessionId}`);
-        if (!session.manifest) {
-          process.exit(1);
-        }
-        manifest = session.manifest;
-      } else if (cmdOpts.manifest) {
-        const result = await readManifest(cmdOpts.manifest);
-        if (!result.success || !result.manifest) {
-          process.exit(1);
-        }
-        manifest = result.manifest;
-      } else {
-        const result = await readManifestFromEnv();
-        if (!result.success || !result.manifest) {
-          process.exit(1);
-        }
-        manifest = result.manifest;
+      const taskOnly = Boolean(cmdOpts.taskOnly || cmdOpts.initialOnly);
+      if (cmdOpts.systemOnly && taskOnly) {
+        throw new Error('Cannot use --system-only with --task-only/--initial-only.');
       }
 
-      const renderer = new WhoamiRenderer();
-      const permissions = getPermissionsFromManifest(manifest);
-      const sessionId = cmdOpts.session || config.sessionId || 'debug';
-
-      const systemPrompt = renderer.renderSystemPrompt(manifest, permissions);
-      const initialPrompt = await renderer.renderTaskContext(manifest, sessionId);
-
+      const { manifest, sessionId, source } = await resolveDebugPromptManifest(cmdOpts);
+      const composer = new PromptComposer();
+      const envelope = composer.compose(manifest, { sessionId });
+      const systemPrompt = envelope.system;
+      const taskPrompt = envelope.task;
+      const identityContractVersion = config.promptIdentityV2
+        ? 'identity-kernel-context-lens-v2'
+        : 'legacy';
+ 
       if (isJson) {
         const output: any = {};
-        if (!cmdOpts.initialOnly) output.systemPrompt = systemPrompt;
-        if (!cmdOpts.systemOnly) output.initialPrompt = initialPrompt;
+        output.sessionId = sessionId;
+        output.manifestSource = source;
+        output.identityContractVersion = identityContractVersion;
+        if (!taskOnly) output.systemPrompt = systemPrompt;
+        if (!cmdOpts.systemOnly) {
+          output.taskPrompt = taskPrompt;
+          // Backward-compatible key for existing scripts
+          output.initialPrompt = taskPrompt;
+        }
         outputJSON(output);
       } else {
-        if (!cmdOpts.initialOnly) {
+        if (!cmdOpts.raw) {
+          outputKeyValue('Session ID', sessionId);
+          outputKeyValue('Manifest Source', source);
+          outputKeyValue('Identity Contract', identityContractVersion);
+        }
+
+        if (!taskOnly) {
           if (!cmdOpts.raw) {
             console.log('=== SYSTEM PROMPT ===');
           }
@@ -159,9 +268,9 @@ program.command('debug-prompt')
 
         if (!cmdOpts.systemOnly) {
           if (!cmdOpts.raw) {
-            console.log('=== INITIAL PROMPT ===');
+            console.log('=== TASK PROMPT ===');
           }
-          console.log(initialPrompt);
+          console.log(taskPrompt);
         }
       }
     } catch (err: any) {
@@ -183,6 +292,11 @@ program.command('commands')
       const isJson = opts.json;
 
       try {
+        const manifestResult = await readManifestFromEnv();
+        if (!manifestResult.success || !manifestResult.manifest) {
+          process.exit(1);
+        }
+        const manifest = manifestResult.manifest;
           const permissions = getCachedPermissions() || await loadCommandPermissions();
 
           if (cmdOpts.check) {
@@ -197,15 +311,15 @@ program.command('commands')
           } else {
               // Show all available commands
               if (isJson) {
-                  const grouped = getAvailableCommandsGrouped(permissions);
-                  outputJSON({
-                      mode: permissions.mode,
+                  const grouped = getAvailableCommandsGrouped(manifest, permissions);
+                  outputJSON({  
+                      mode: manifest.mode,
                       allowedCommands: permissions.allowedCommands,
                       hiddenCommands: permissions.hiddenCommands,
                       grouped,
                   });
               } else {
-                  printAvailableCommands(permissions);
+                  printAvailableCommands(manifest, permissions);
               }
           }
       } catch (err: any) {
@@ -218,6 +332,7 @@ program.command('commands')
   });
 
 registerProjectCommands(program);
+registerMasterCommands(program);
 registerTaskCommands(program);
 registerSessionCommands(program);
 registerWorkerCommands(program);

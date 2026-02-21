@@ -28,7 +28,7 @@ const TEMPLATES: WorkflowTemplate[] = [
     id: 'execute-simple',
     name: 'Execute Simple',
     description: 'Single task execution: implement directly, report progress, complete.',
-    mode: 'execute',
+    mode: 'worker',
     builtIn: true,
     phases: [
       { name: 'execute', instruction: 'You have ONE task. Read it carefully, then implement it directly. Work through the requirements methodically — write code, run tests, fix issues. Do not decompose or delegate. You are the executor.' },
@@ -40,7 +40,7 @@ const TEMPLATES: WorkflowTemplate[] = [
     id: 'execute-tree',
     name: 'Execute Tree',
     description: 'Tree-based execution: analyze task tree, plan order, execute leaf tasks.',
-    mode: 'execute',
+    mode: 'worker',
     builtIn: true,
     phases: [
       { name: 'analyze', instruction: 'Run `maestro task children <taskId> --recursive` to see the full task tree. Identify leaf tasks (no children) and check dependencies between them.' },
@@ -54,7 +54,7 @@ const TEMPLATES: WorkflowTemplate[] = [
     id: 'coordinate-default',
     name: 'Coordinate Default',
     description: 'Standard orchestration: decompose, spawn workers, monitor, verify.',
-    mode: 'coordinate',
+    mode: 'coordinator',
     builtIn: true,
     phases: [
       { name: 'analyze', instruction: 'Your assigned task is in the <task> block above. Read the title, description, and acceptance criteria carefully. This is the task you must decompose and delegate — do NOT implement it yourself.' },
@@ -69,7 +69,7 @@ const TEMPLATES: WorkflowTemplate[] = [
     id: 'coordinate-batching',
     name: 'Coordinate Intelligent Batching',
     description: 'Batch orchestration: group independent tasks, execute batches in parallel.',
-    mode: 'coordinate',
+    mode: 'coordinator',
     builtIn: true,
     phases: [
       { name: 'analyze', instruction: 'Your assigned task is in the <task> block above. Read it carefully. Identify the scope and figure out which pieces of work are independent vs dependent on each other.' },
@@ -83,7 +83,7 @@ const TEMPLATES: WorkflowTemplate[] = [
     id: 'coordinate-dag',
     name: 'Coordinate DAG',
     description: 'DAG orchestration: model dependencies as a graph, execute in topological waves.',
-    mode: 'coordinate',
+    mode: 'coordinator',
     builtIn: true,
     phases: [
       { name: 'analyze', instruction: 'Your assigned task is in the <task> block above. Read it carefully. Map out the work and identify dependency relationships between the pieces.' },
@@ -110,8 +110,10 @@ export function createWorkflowTemplateRoutes(): Router {
     const { mode } = req.query;
 
     let templates = TEMPLATES;
-    if (mode && (mode === 'execute' || mode === 'coordinate')) {
-      templates = templates.filter(t => t.mode === mode);
+    if (mode && typeof mode === 'string') {
+      // Support legacy mode names for filtering
+      const normalizedMode = mode === 'execute' ? 'worker' : mode === 'coordinate' ? 'coordinator' : mode;
+      templates = templates.filter(t => t.mode === normalizedMode);
     }
 
     res.json(templates);

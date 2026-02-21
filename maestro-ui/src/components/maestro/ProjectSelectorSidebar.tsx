@@ -105,6 +105,9 @@ export const ProjectSelectorSidebar = React.memo(function ProjectSelectorSidebar
                                 style={{ background: color }}
                             />
                             <span className="mpbProjectName" title={project.name}>
+                                {project.isMaster && (
+                                    <span className="mpbProjectMasterIcon" title="Master Project">★</span>
+                                )}
                                 {project.name}
                             </span>
                             <span className="mpbProjectStats">

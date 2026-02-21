@@ -1,74 +1,73 @@
-# System Prompt Templates
+# System Prompt Contract
 
-## Overview
+## Status
 
-System prompts are markdown templates that define the behavior and capabilities of Maestro Worker and Orchestrator agents.
+As of February 21, 2026, Maestro supports two identity contracts:
 
-**The actual templates are the source of truth.** Refer to the template files directly for the latest content:
+- `MAESTRO_PROMPT_IDENTITY_V2=true`: Identity Kernel + Context Lens (Plan 2, current target contract)
+- `MAESTRO_PROMPT_IDENTITY_V2` unset/false: legacy identity rendering (compatibility mode)
 
-- **Worker (Simple)**: [`maestro-cli/templates/worker-simple-prompt.md`](../../templates/worker-simple-prompt.md)
-- **Worker (Queue)**: [`maestro-cli/templates/worker-queue-prompt.md`](../../templates/worker-queue-prompt.md)
-- **Orchestrator**: [`maestro-cli/templates/orchestrator-prompt.md`](../../templates/orchestrator-prompt.md)
-- **Worker (Tree)**: [`maestro-cli/templates/worker-tree-prompt.md`](../../templates/worker-tree-prompt.md)
+## V2 System Prompt Structure
 
-## Key Facts
+```xml
+<maestro_system_prompt mode="worker|coordinator|coordinated-worker|coordinated-coordinator" version="3.0">
+  <identity_kernel>
+    <mode_identity>
+      <profile>...</profile>
+      <instruction>...</instruction>
+    </mode_identity>
+    <self_identity>...</self_identity>
+  </identity_kernel>
 
-- Stored in `maestro-cli/templates/`
-- Version-controlled with the CLI
-- Use `${VARIABLE_NAME}` syntax for template variable substitution
-- Injected into Claude's system prompt via `--append-system-prompt`
+  <team_context lens="full_expertise|slim_roster">...</team_context>
+  <coordination_context>...</coordination_context> <!-- coordinated modes only -->
 
-## Template Variables
-
-Variables are replaced with actual values from the manifest during prompt generation:
-
-```typescript
-${TASK_ID}                      // task.id (primary task)
-${TASK_TITLE}                   // task.title
-${TASK_DESCRIPTION}             // task.description
-${TASK_PRIORITY}                // task.priority || 'medium'
-${ACCEPTANCE_CRITERIA}          // Formatted acceptance criteria list
-${CODEBASE_CONTEXT}             // Codebase context from manifest
-${RELATED_TASKS}                // Related tasks information
-${PROJECT_STANDARDS}            // Project coding standards
-${ALL_TASKS}                    // Formatted list of all tasks (multi-task sessions)
-${TASK_COUNT}                   // Number of tasks in session
-${STRATEGY}                     // Worker strategy ('simple', 'queue')
-${STRATEGY_INSTRUCTIONS}        // Strategy-specific instructions
+  <capability_summary>...</capability_summary>
+  <commands_reference>...</commands_reference>
+</maestro_system_prompt>
 ```
 
-## Template Selection
+## V2 Task Prompt Structure
 
-The CLI selects the template based on manifest role and strategy:
-
-| Role | Strategy | Template |
-|------|----------|----------|
-| `worker` | `simple` (default) | `worker-simple-prompt.md` |
-| `worker` | `queue` | `worker-queue-prompt.md` |
-| `orchestrator` | any | `orchestrator-prompt.md` |
-| `worker` | `tree` | `worker-tree-prompt.md` |
-
-## Template Loading
-
-Templates are loaded with a fallback chain:
-
-1. **Server fetch by templateId** — If `manifest.templateId` is specified, fetches from `GET /api/templates/{templateId}`
-2. **Server fetch by role** — Falls back to `GET /api/templates/role/{role}`
-3. **Bundled templates** — Falls back to local templates in `maestro-cli/templates/`
-
-This is handled by `PromptGenerator.generatePromptAsync()` with methods `fetchTemplateById()` and `fetchTemplateByRole()`.
-
-**Note**: The spawn flow uses a minimal prompt (`"Run \`maestro whoami\` to understand your assignment and begin working."`) rather than injecting the full template. The full template content is rendered by `WhoamiRenderer` when the agent runs `maestro whoami`.
-
-## Custom Templates
-
-For advanced users, templates can be overridden:
-
-```bash
-# Custom template location (optional)
-export MAESTRO_WORKER_TEMPLATE=~/.maestro/custom-worker-prompt.md
-
-maestro worker init  # Uses custom template
+```xml
+<maestro_task_prompt mode="..." version="3.0">
+  <tasks>...</tasks>
+  <task_tree>...</task_tree> <!-- optional -->
+  <context>...</context> <!-- optional -->
+  <skills>...</skills> <!-- optional -->
+  <session_context>
+    <session_id>...</session_id>
+    <project_id>...</project_id>
+    <mode>...</mode>
+  </session_context>
+  <reference_tasks>...</reference_tasks> <!-- optional -->
+</maestro_task_prompt>
 ```
 
-Next: [04-STANDARD-SKILLS.md](./04-STANDARD-SKILLS.md) - Standard skills integration
+`<session_context>` intentionally excludes coordinator linkage in V2. Parent linkage is represented only in `<coordination_context>`.
+
+## Mode Matrix
+
+| Mode | Self Identity | Team Lens | Coordination Context |
+|---|---|---|---|
+| `worker` | optional (0..N profiles merged when N>1) | `full_expertise` | no |
+| `coordinator` | required, exactly 1 profile (strict policy) | `slim_roster` | no |
+| `coordinated-worker` | optional (0..N profiles merged when N>1) | `full_expertise` | yes |
+| `coordinated-coordinator` | required, exactly 1 profile (strict policy) | `slim_roster` | yes |
+
+## Normalization Rules
+
+- Legacy mode aliases (`execute`, `coordinate`) normalize to canonical four-mode values.
+- `teamMemberProfiles` are preferred for self identity resolution.
+- Legacy single self fields (`teamMemberId`, `teamMemberName`, etc.) are normalized into one profile when needed.
+- `availableTeamMembers` are deduped deterministically by `id`.
+- Self members are filtered from `availableTeamMembers` by default.
+- Coordinator single-self policy:
+  - strict (default for V2): invalid cardinality is an error
+  - permissive: deterministic-first profile with warning
+
+## Legacy Notes (Stale Sections)
+
+Older references to `<identity>`, `<available_team_members>`, and template-only orchestrator/worker role split are legacy compatibility paths. Keep them only for migration context; do not use them as the authoritative contract for new work.
+
+Next: [04-STANDARD-SKILLS.md](./04-STANDARD-SKILLS.md)

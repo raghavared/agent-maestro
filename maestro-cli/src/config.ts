@@ -59,7 +59,28 @@ export const config = {
   get coordinatorSessionId() {
     return process.env.MAESTRO_COORDINATOR_SESSION_ID;
   },
+  get isMaster() {
+    return process.env.MAESTRO_IS_MASTER === 'true';
+  },
   get debug() {
     return process.env.MAESTRO_DEBUG === 'true';
+  },
+  get promptIdentityV2() {
+    if (process.env.MAESTRO_PROMPT_IDENTITY_V2 === 'false') {
+      return false;
+    }
+    return true;
+  },
+  get promptIdentityCardinalityPolicy(): 'strict' | 'permissive' {
+    return process.env.MAESTRO_PROMPT_IDENTITY_COORDINATOR_POLICY === 'permissive'
+      ? 'permissive'
+      : 'strict';
+  },
+  get manifestPermissionFailurePolicy(): 'permissive' | 'safe-degraded' {
+    const raw = process.env.MAESTRO_MANIFEST_FAILURE_POLICY;
+    if (raw === 'permissive' || raw === 'safe-degraded') {
+      return raw;
+    }
+    return 'safe-degraded';
   },
 };

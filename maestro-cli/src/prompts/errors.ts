@@ -22,13 +22,13 @@ export const INVALID_MANIFEST_HINT =
 
 export const WRONG_MODE_WORKER_PREFIX = 'Wrong mode for worker init: ';
 export const WRONG_MODE_WORKER_HINT =
-  'This command requires a manifest with mode="execute". ' +
-  'For coordinate sessions, use the orchestrator init command.';
+  'This command requires a worker manifest mode ("worker" or "coordinated-worker"). ' +
+  'For coordinator sessions, use the orchestrator init command.';
 
 export const WRONG_MODE_ORCHESTRATOR_PREFIX = 'Wrong mode for orchestrator init: ';
 export const WRONG_MODE_ORCHESTRATOR_HINT =
-  'This command requires a manifest with mode="coordinate". ' +
-  'For execute sessions, use the worker init command.';
+  'This command requires a coordinator manifest mode ("coordinator" or "coordinated-coordinator"). ' +
+  'For worker sessions, use the worker init command.';
 
 // ── API / Network errors ────────────────────────────────────
 
@@ -63,5 +63,5 @@ export const HOOK_EXECUTION_FAILED = 'Command execution failed';
 
 // ── Validation errors ───────────────────────────────────────
 
-export const MODE_VALIDATION_ERROR = 'Error: mode must be "execute" or "coordinate"';
+export const MODE_VALIDATION_ERROR = 'Error: mode must be one of "worker", "coordinator", "coordinated-worker", or "coordinated-coordinator"';
 export const AGENT_TOOL_VALIDATION_PREFIX = 'Error: agent-tool must be one of: ';

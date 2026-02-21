@@ -1,0 +1,54 @@
+{
+  "manifestVersion": "1.0",
+  "mode": "coordinator",
+  "tasks": [
+    {
+      "id": "task-v2-coordinator",
+      "title": "Coordinate implementation",
+      "description": "Use identity kernel and slim roster context lens.",
+      "acceptanceCriteria": [
+        "Prompt renders identity kernel",
+        "Prompt renders slim roster lens"
+      ],
+      "projectId": "proj-v2",
+      "createdAt": "2026-02-21T00:00:00Z"
+    }
+  ],
+  "session": {
+    "model": "sonnet",
+    "permissionMode": "acceptEdits"
+  },
+  "teamMemberProfiles": [
+    {
+      "id": "tm-self",
+      "name": "Self Coordinator",
+      "role": "Coordinator",
+      "avatar": "C",
+      "identity": "Plan, delegate, monitor, verify"
+    }
+  ],
+  "availableTeamMembers": [
+    {
+      "id": "tm-worker-a",
+      "name": "Worker A",
+      "role": "Frontend Engineer",
+      "identity": "Build frontend implementation",
+      "avatar": "A",
+      "mode": "worker",
+      "permissionMode": "acceptEdits",
+      "model": "sonnet",
+      "agentTool": "claude-code"
+    },
+    {
+      "id": "tm-worker-b",
+      "name": "Worker B",
+      "role": "Backend Engineer",
+      "identity": "Build backend implementation",
+      "avatar": "B",
+      "mode": "worker",
+      "permissionMode": "acceptEdits",
+      "model": "sonnet",
+      "agentTool": "codex"
+    }
+  ]
+}

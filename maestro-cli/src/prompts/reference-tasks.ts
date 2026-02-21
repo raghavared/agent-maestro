@@ -5,7 +5,7 @@
  * how to fetch and use reference task context before starting their work.
  */
 
-// ── Reference task instruction (XML block in whoami-renderer) ──
+// ── Reference task instruction (XML block in prompt composer) ──
 
 export const REFERENCE_TASKS_INSTRUCTION =
   'IMPORTANT: Before starting your assigned tasks, you MUST read each reference task and its docs. Reference tasks provide critical context, examples, or prior work that directly informs your current work. For each reference task ID below, run BOTH commands:';

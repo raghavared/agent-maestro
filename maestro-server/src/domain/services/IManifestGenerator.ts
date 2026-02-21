@@ -3,7 +3,7 @@
  */
 export interface ManifestGenerationOptions {
   /** Agent mode: execute or coordinate */
-  mode: 'execute' | 'coordinate';
+  mode: string;
   /** Project ID to include in manifest */
   projectId: string;
   /** Array of task IDs to include in manifest */
@@ -25,7 +25,7 @@ export interface GeneratedManifest {
   /** The manifest object */
   manifest: {
     manifestVersion: string;
-    mode: 'execute' | 'coordinate';
+    mode: string;
     session: {
       id: string;
       model: string;

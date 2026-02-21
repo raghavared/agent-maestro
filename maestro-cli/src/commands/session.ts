@@ -580,7 +580,7 @@ export function registerSessionCommands(program: Command) {
                 }
 
                 // Prepare spawn request with spawnSource and mode
-                const mode = skill === 'maestro-orchestrator' ? 'coordinate' : 'execute';
+                const mode = skill === 'maestro-orchestrator' ? 'coordinator' : 'worker';
                 const spawnRequest: any = {
                     projectId,
                     taskIds: [taskId],
@@ -655,7 +655,7 @@ export function registerSessionCommands(program: Command) {
             const isJson = globalOpts.json;
             const sessionId = config.sessionId;
             const projectId = config.projectId;
-            const mode = process.env.MAESTRO_MODE || 'execute';
+            const mode = process.env.MAESTRO_MODE || 'worker';
             const taskIds = config.taskIds;
 
             if (!sessionId) {

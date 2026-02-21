@@ -5,6 +5,7 @@ import { FileExplorerPanel } from "../FileExplorerPanel";
 import { Icon } from "../Icon";
 import { useSessionStore } from "../../stores/useSessionStore";
 import { useProjectStore } from "../../stores/useProjectStore";
+import { useMaestroStore } from "../../stores/useMaestroStore";
 import {
   useWorkspaceStore,
   getActiveWorkspaceKey,
@@ -33,6 +34,19 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
   const handleOpenTerminalAtPath = useSessionStore((s) => s.handleOpenTerminalAtPath);
   const sendPromptToActive = useSessionStore((s) => s.sendPromptToActive);
   const active = sessions.find((s) => s.id === activeId) ?? null;
+  const maestroSessions = useMaestroStore((s) => s.sessions);
+
+  const activeLogAgentTool = (() => {
+    if (!active?.maestroSessionId) return active?.effectId ?? null;
+    const maestroSession = maestroSessions.get(active.maestroSessionId);
+    const snapshots = maestroSession?.teamMemberSnapshots?.length
+      ? maestroSession.teamMemberSnapshots
+      : maestroSession?.teamMemberSnapshot
+        ? [maestroSession.teamMemberSnapshot]
+        : [];
+    const metadataAgentTool = (maestroSession?.metadata as { agentTool?: string } | undefined)?.agentTool ?? null;
+    return snapshots[0]?.agentTool ?? metadataAgentTool ?? active.effectId ?? null;
+  })();
 
   // --- Project store ---
   const projects = useProjectStore((s) => s.projects);
@@ -135,6 +149,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
             key={active.id}
             cwd={active.cwd}
             maestroSessionId={active.maestroSessionId}
+            agentTool={activeLogAgentTool}
           />
         )}
         {sessions.length === 0 && (

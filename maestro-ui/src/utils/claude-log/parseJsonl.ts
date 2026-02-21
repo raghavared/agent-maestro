@@ -94,14 +94,182 @@ export function parseJsonlLine(line: string): ParsedMessage | null {
   return parseChatHistoryEntry(entry);
 }
 
+interface CodexParseState {
+  cwd?: string;
+  model?: string;
+}
+
+function createCodexMessage(
+  id: string,
+  timestamp: string | undefined,
+  type: MessageType,
+  content: string | ContentBlock[],
+  extras?: Partial<ParsedMessage>,
+): ParsedMessage {
+  const toolCalls = extractToolCalls(content);
+  const toolResults = extractToolResults(content);
+
+  return {
+    uuid: id,
+    parentUuid: null,
+    type,
+    timestamp: timestamp ? new Date(timestamp) : new Date(),
+    content,
+    isSidechain: false,
+    isMeta: false,
+    toolCalls,
+    toolResults,
+    ...extras,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseCodexEntry(entry: any, idx: number, state: CodexParseState): ParsedMessage[] {
+  if (!entry || typeof entry !== 'object') return [];
+
+  if (entry.type === 'session_meta') {
+    state.cwd = entry.payload?.cwd;
+    return [];
+  }
+
+  if (entry.type === 'turn_context') {
+    state.model = entry.payload?.model;
+    return [];
+  }
+
+  if (entry.type !== 'response_item') return [];
+
+  const payload = entry.payload ?? {};
+  const ts = entry.timestamp;
+  const msgIdBase = `codex-${idx}`;
+
+  if (payload.type === 'message') {
+    const role = payload.role;
+    const parts = Array.isArray(payload.content) ? payload.content : [];
+    const text = parts
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((p: any) => p?.type === 'input_text' || p?.type === 'output_text')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((p: any) => String(p?.text ?? ''))
+      .filter(Boolean)
+      .join('\n');
+
+    if (!text.trim()) return [];
+
+    if (role === 'assistant') {
+      const content: ContentBlock[] = [{ type: 'text', text }];
+      return [
+        createCodexMessage(msgIdBase, ts, 'assistant', content, {
+          role,
+          cwd: state.cwd,
+          model: state.model,
+        }),
+      ];
+    }
+
+    if (role === 'user') {
+      return [
+        createCodexMessage(msgIdBase, ts, 'user', text, {
+          role,
+          cwd: state.cwd,
+        }),
+      ];
+    }
+
+    return [
+      createCodexMessage(msgIdBase, ts, 'system', text, {
+        role,
+        cwd: state.cwd,
+      }),
+    ];
+  }
+
+  if (payload.type === 'reasoning') {
+    const summaryParts = Array.isArray(payload.summary) ? payload.summary : [];
+    const thinking = summaryParts
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((p: any) => p?.type === 'summary_text')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((p: any) => String(p?.text ?? ''))
+      .filter(Boolean)
+      .join('\n');
+
+    if (!thinking.trim()) return [];
+
+    const content: ContentBlock[] = [{ type: 'thinking', thinking, signature: 'codex-reasoning' }];
+    return [
+      createCodexMessage(msgIdBase, ts, 'assistant', content, {
+        role: 'assistant',
+        cwd: state.cwd,
+        model: state.model,
+      }),
+    ];
+  }
+
+  if (payload.type === 'function_call') {
+    const callId = String(payload.call_id ?? `${msgIdBase}-call`);
+    const name = String(payload.name ?? 'tool');
+    let input: Record<string, unknown> = {};
+    const rawArgs = payload.arguments;
+    if (typeof rawArgs === 'string') {
+      try {
+        const parsed = JSON.parse(rawArgs);
+        if (parsed && typeof parsed === 'object') {
+          input = parsed as Record<string, unknown>;
+        }
+      } catch {
+        input = { raw: rawArgs };
+      }
+    } else if (rawArgs && typeof rawArgs === 'object') {
+      input = rawArgs as Record<string, unknown>;
+    }
+
+    const content: ContentBlock[] = [{ type: 'tool_use', id: callId, name, input }];
+    return [
+      createCodexMessage(msgIdBase, ts, 'assistant', content, {
+        role: 'assistant',
+        cwd: state.cwd,
+        model: state.model,
+      }),
+    ];
+  }
+
+  if (payload.type === 'function_call_output') {
+    const callId = String(payload.call_id ?? `${msgIdBase}-call`);
+    const output = String(payload.output ?? '');
+    const content: ContentBlock[] = [{ type: 'tool_result', tool_use_id: callId, content: output }];
+    return [
+      createCodexMessage(msgIdBase, ts, 'user', content, {
+        role: 'user',
+        isMeta: true,
+        cwd: state.cwd,
+      }),
+    ];
+  }
+
+  return [];
+}
+
 export function parseJsonlText(text: string): ParsedMessage[] {
   const messages: ParsedMessage[] = [];
+  const codexState: CodexParseState = {};
   const lines = text.split('\n');
-  for (const line of lines) {
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx];
     if (!line.trim()) continue;
     try {
-      const parsed = parseJsonlLine(line);
-      if (parsed) messages.push(parsed);
+      const entry = JSON.parse(line);
+
+      const parsedClaude = parseChatHistoryEntry(entry);
+      if (parsedClaude) {
+        messages.push(parsedClaude);
+        continue;
+      }
+
+      const parsedCodex = parseCodexEntry(entry, idx, codexState);
+      if (parsedCodex.length > 0) {
+        messages.push(...parsedCodex);
+      }
     } catch {
       // skip invalid lines
     }

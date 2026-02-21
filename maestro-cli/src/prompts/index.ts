@@ -5,7 +5,6 @@
  * sent to AI agents or displayed to users. Organized by module:
  *
  * - identity:        Agent role/identity instructions
- * - workflow-phases:  Workflow phase instructions for all modes/strategies
  * - commands:         Command descriptions, syntax, and reference text
  * - reference-tasks:  Reference task fetch instructions
  * - errors:           Error messages and suggestions
@@ -14,7 +13,6 @@
  */
 
 export * from './identity.js';
-export * from './workflow-phases.js';
 export * from './commands.js';
 export * from './reference-tasks.js';
 export * from './errors.js';

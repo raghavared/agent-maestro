@@ -2,33 +2,38 @@
 
 All 6 default flows with 3 example tasks, showing both the **system prompt** (`--append-system-prompt`) and the **initial prompt** (user message).
 
+## Status
+
+As of February 21, 2026, prompt identity rendering has a V2 contract behind `MAESTRO_PROMPT_IDENTITY_V2=true`.
+
+- V2 (current contract when flag is enabled): `identity_kernel + team_context lens + coordination_context`
+- Legacy examples below still exist for reference, but they are stale for identity/team blocks.
+
 ## Architecture
 
-```
-┌─────────────────────────────────┐
-│  System Prompt                  │  --append-system-prompt
-│  (static per mode/strategy)     │
-│                                 │
-│  <maestro_system_prompt>        │
-│    <identity/>                  │
-│    <team_member_identity/>      │  (optional, custom team members)
-│    <team_members/>              │  (coordinate mode only)
-│    <workflow/>                  │
-│    <commands_reference/>        │
-│  </maestro_system_prompt>       │
-└─────────────────────────────────┘
+```xml
+<maestro_system_prompt mode="worker|coordinator|coordinated-worker|coordinated-coordinator" version="3.0">
+  <identity_kernel>
+    <mode_identity>...</mode_identity>
+    <self_identity>...</self_identity> <!-- optional in worker modes -->
+  </identity_kernel>
+  <team_context lens="full_expertise|slim_roster">...</team_context>
+  <coordination_context>...</coordination_context> <!-- coordinated modes only -->
+  <capability_summary>...</capability_summary>
+  <commands_reference>...</commands_reference>
+</maestro_system_prompt>
 
-┌─────────────────────────────────┐
-│  Initial Prompt                 │  user message argument
-│  (dynamic per session)          │
-│                                 │
-│  <maestro_task_prompt>          │
-│    <tasks/>                     │
-│    <skills/>                    │
-│    <session_context/>           │
-│    <reference_tasks/>           │  (optional, IDs only)
-│  </maestro_task_prompt>         │
-└─────────────────────────────────┘
+<maestro_task_prompt mode="..." version="3.0">
+  <tasks>...</tasks>
+  <context>...</context>
+  <skills>...</skills>
+  <session_context>
+    <session_id>...</session_id>
+    <project_id>...</project_id>
+    <mode>...</mode>
+  </session_context>
+  <reference_tasks>...</reference_tasks>
+</maestro_task_prompt>
 ```
 
 ## Differences by Flow
@@ -41,6 +46,10 @@ All 6 default flows with 3 example tasks, showing both the **system prompt** (`-
 | **4. Coordinator** | Coordinator | 6 defaults | analyze, decompose, spawn, monitor, verify, complete | task, session, project, mail |
 | **5. Batch Coordinator** | Coordinator | 6 defaults | analyze, decompose, execute_batch, complete | task, session, project, mail |
 | **6. DAG Coordinator** | Coordinator | 6 defaults | analyze, build_dag, execute_wave, complete | task, session, project, mail |
+
+## Legacy Examples
+
+The flow examples below predate the V2 identity contract and still use older block names (for example, `<identity>` and `<available_team_members>`). Use them for historical context only.
 
 ---
 

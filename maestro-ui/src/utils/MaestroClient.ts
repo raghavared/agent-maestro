@@ -9,6 +9,10 @@ import type {
     ClaudeCodeSkill,
     CreateTaskPayload,
     UpdateTaskPayload,
+    TaskList,
+    CreateTaskListPayload,
+    UpdateTaskListPayload,
+    TaskListOrdering,
     CreateSessionPayload,
     UpdateSessionPayload,
     SpawnSessionPayload,
@@ -109,6 +113,16 @@ class MaestroClient {
         });
     }
 
+    /**
+     * Set or unset master status for a project
+     */
+    async setProjectMaster(projectId: string, isMaster: boolean): Promise<MaestroProject> {
+        return this.fetch<MaestroProject>(`/projects/${projectId}/master`, {
+            method: 'PUT',
+            body: JSON.stringify({ isMaster }),
+        });
+    }
+
     // ==================== TASKS ====================
 
     /**
@@ -152,6 +166,96 @@ class MaestroClient {
     async deleteTask(id: string): Promise<{ success: boolean }> {
         return this.fetch<{ success: boolean }>(`/tasks/${id}`, {
             method: 'DELETE',
+        });
+    }
+
+    // ==================== TASK LISTS ====================
+
+    /**
+     * Get all task lists for a project
+     */
+    async getTaskLists(projectId: string): Promise<TaskList[]> {
+        return this.fetch<TaskList[]>(`/task-lists?projectId=${encodeURIComponent(projectId)}`);
+    }
+
+    /**
+     * Get a single task list by ID
+     */
+    async getTaskList(id: string): Promise<TaskList> {
+        return this.fetch<TaskList>(`/task-lists/${id}`);
+    }
+
+    /**
+     * Create a new task list
+     */
+    async createTaskList(data: CreateTaskListPayload): Promise<TaskList> {
+        return this.fetch<TaskList>('/task-lists', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    /**
+     * Update an existing task list
+     */
+    async updateTaskList(id: string, updates: UpdateTaskListPayload): Promise<TaskList> {
+        return this.fetch<TaskList>(`/task-lists/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(updates),
+        });
+    }
+
+    /**
+     * Delete a task list
+     */
+    async deleteTaskList(id: string): Promise<{ success: boolean }> {
+        return this.fetch<{ success: boolean }>(`/task-lists/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+    /**
+     * Add a task to a list
+     */
+    async addTaskToList(listId: string, taskId: string): Promise<TaskList> {
+        return this.fetch<TaskList>(`/task-lists/${listId}/tasks/${taskId}`, {
+            method: 'POST',
+        });
+    }
+
+    /**
+     * Remove a task from a list
+     */
+    async removeTaskFromList(listId: string, taskId: string): Promise<TaskList> {
+        return this.fetch<TaskList>(`/task-lists/${listId}/tasks/${taskId}`, {
+            method: 'DELETE',
+        });
+    }
+
+    /**
+     * Reorder tasks within a list
+     */
+    async reorderTaskListTasks(listId: string, orderedTaskIds: string[]): Promise<TaskList> {
+        return this.fetch<TaskList>(`/task-lists/${listId}/reorder`, {
+            method: 'PUT',
+            body: JSON.stringify({ orderedTaskIds }),
+        });
+    }
+
+    /**
+     * Get task list ordering for a project
+     */
+    async getTaskListOrdering(projectId: string): Promise<TaskListOrdering> {
+        return this.fetch<TaskListOrdering>(`/ordering/task-list/${encodeURIComponent(projectId)}`);
+    }
+
+    /**
+     * Save task list ordering for a project
+     */
+    async saveTaskListOrdering(projectId: string, orderedIds: string[]): Promise<TaskListOrdering> {
+        return this.fetch<TaskListOrdering>(`/ordering/task-list/${encodeURIComponent(projectId)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ orderedIds }),
         });
     }
 
