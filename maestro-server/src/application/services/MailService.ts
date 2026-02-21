@@ -33,7 +33,7 @@ export class MailService {
     }, parentSessionId);
 
     const trimmedMsg = payload.message.trim();
-    const ptyContent = `[From: ${payload.fromName}] ${trimmedMsg} — mail stored, run: maestro session mail read`;
+    const ptyContent = `[From: ${payload.fromName} (${payload.fromSessionId})] ${trimmedMsg} — mail stored, run: maestro session mail read`;
     await this.eventBus.emit('session:prompt_send', {
       sessionId: payload.toSessionId,
       content: ptyContent,

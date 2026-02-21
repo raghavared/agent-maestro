@@ -72,6 +72,28 @@ describe('capability-policy', () => {
     expect(result.allowedCommands).not.toContain('session:spawn');
   });
 
+  it('excludes team-member:list from coordinator defaults', () => {
+    const result = resolveCapabilitySet(buildManifest({ mode: 'coordinator' }));
+    expect(result.allowedCommands).not.toContain('team-member:list');
+  });
+
+  it('hard-blocks coordinated-coordinator spawn even with explicit allowlist', () => {
+    const manifest = buildManifest({
+      mode: 'coordinated-coordinator',
+      coordinatorSessionId: 'sess-parent',
+      session: {
+        model: 'sonnet',
+        permissionMode: 'acceptEdits',
+        allowedCommands: ['session:spawn', 'session:siblings', 'session:prompt'],
+      } as any,
+    });
+
+    const result = resolveCapabilitySet(manifest);
+    expect(result.allowedCommands).toContain('session:siblings');
+    expect(result.allowedCommands).toContain('session:prompt');
+    expect(result.allowedCommands).not.toContain('session:spawn');
+  });
+
   it('returns safe degraded fallback when manifest load fails', () => {
     const result = resolveManifestFailureCapabilities('worker', 'safe-degraded');
 

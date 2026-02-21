@@ -59,6 +59,10 @@ const SAFE_DEGRADED_COMMANDS = [
   'session:docs:list',
 ];
 
+const HARD_BLOCKED_COMMANDS_BY_MODE: Partial<Record<AgentMode, string[]>> = {
+  'coordinated-coordinator': ['session:spawn'],
+};
+
 function sortByCatalogOrder(commandIds: Set<string>): string[] {
   const allowed = commandIds;
   return getAllCommandIds().filter((id) => allowed.has(id));
@@ -67,6 +71,14 @@ function sortByCatalogOrder(commandIds: Set<string>): string[] {
 function ensureCoreCommands(commandIds: Set<string>): void {
   for (const core of getCoreCommandIds()) {
     commandIds.add(core);
+  }
+}
+
+function applyHardBlockedCommands(mode: AgentMode, commandIds: Set<string>): void {
+  const blocked = HARD_BLOCKED_COMMANDS_BY_MODE[mode];
+  if (!blocked || blocked.length === 0) return;
+  for (const commandId of blocked) {
+    commandIds.delete(commandId);
   }
 }
 
@@ -191,6 +203,7 @@ export function resolveCapabilitySet(
   const allowlist = applyExplicitAllowlist(manifest, mode);
   const finalCommands = allowlist || commands;
 
+  applyHardBlockedCommands(mode, finalCommands);
   ensureCoreCommands(finalCommands);
 
   const allowedCommands = sortByCatalogOrder(finalCommands);

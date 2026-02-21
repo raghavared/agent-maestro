@@ -14,6 +14,11 @@ const ALL_MODES: AgentMode[] = ['worker', 'coordinator', 'coordinated-worker', '
 const COORDINATOR_MODES: AgentMode[] = ['coordinator', 'coordinated-coordinator'];
 const WORKER_MODES: AgentMode[] = ['worker', 'coordinated-worker'];
 
+const DEFAULT_EXCLUDED_COMMANDS_BY_MODE: Partial<Record<AgentMode, string[]>> = {
+  coordinator: ['team-member:list'],
+  'coordinated-coordinator': ['team-member:list', 'session:spawn'],
+};
+
 const COMMAND_DEFINITIONS: Array<Omit<CommandCatalogEntry, 'syntax'>> = [
   // Core commands
   { id: 'whoami', description: 'Print current context', group: 'root', allowedModes: ALL_MODES, isCore: true },
@@ -298,5 +303,9 @@ export function getAllCommandIds(): string[] {
 }
 
 export function getDefaultCommandsForMode(mode: AgentMode): string[] {
-  return COMMAND_CATALOG.filter((entry) => entry.allowedModes.includes(mode)).map((entry) => entry.id);
+  const excluded = new Set(DEFAULT_EXCLUDED_COMMANDS_BY_MODE[mode] || []);
+  return COMMAND_CATALOG
+    .filter((entry) => entry.allowedModes.includes(mode))
+    .map((entry) => entry.id)
+    .filter((commandId) => !excluded.has(commandId));
 }
