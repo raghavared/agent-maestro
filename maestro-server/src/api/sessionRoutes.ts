@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { spawn as spawnProcess } from 'child_process';
 import { readFile, mkdir, writeFile } from 'fs/promises';
-import { join, resolve as resolvePath } from 'path';
+import { join, resolve as resolvePath, delimiter as pathDelimiter } from 'path';
 import { homedir } from 'os';
 import { SessionService } from '../application/services/SessionService';
 import { LogDigestService } from '../application/services/LogDigestService';
@@ -13,6 +13,29 @@ import { AppError } from '../domain/common/Errors';
 import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, isCoordinatorMode, normalizeMode } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
 import { MailService } from '../application/services/MailService';
+
+function resolveMaestroCliRuntime(): { maestroBin: string; monorepoRoot: string | null } {
+  const isPkg = __dirname.startsWith('/snapshot');
+  if (process.env.MAESTRO_CLI_PATH) {
+    return { maestroBin: process.env.MAESTRO_CLI_PATH, monorepoRoot: null };
+  }
+  if (!isPkg) {
+    const monorepoRoot = resolvePath(__dirname, '..', '..', '..');
+    return {
+      maestroBin: join(monorepoRoot, 'node_modules', '.bin', 'maestro'),
+      monorepoRoot,
+    };
+  }
+  return { maestroBin: 'maestro', monorepoRoot: null };
+}
+
+function prependNodeModulesBin(pathValue: string | undefined, monorepoRoot: string | null): string | undefined {
+  if (!monorepoRoot) {
+    return pathValue;
+  }
+  const nodeModulesBin = join(monorepoRoot, 'node_modules', '.bin');
+  return `${nodeModulesBin}${pathDelimiter}${pathValue || ''}`;
+}
 
 /**
  * Generate manifest via CLI command
@@ -57,27 +80,16 @@ async function generateManifestViaCLI(options: {
     ...(teamMemberId ? ['--team-member-id', teamMemberId] : []),
   ];
 
-  // Resolve maestro binary: use env var, monorepo path, or fall back to PATH
-  let maestroBin: string;
-  const isPkg = __dirname.startsWith('/snapshot');
-  if (process.env.MAESTRO_CLI_PATH) {
-    maestroBin = process.env.MAESTRO_CLI_PATH;
-  } else if (!isPkg) {
-    const monorepoRoot = resolvePath(__dirname, '..', '..', '..');
-    maestroBin = join(monorepoRoot, 'node_modules', '.bin', 'maestro');
-  } else {
-    maestroBin = 'maestro';
-  }
+  const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime();
 
   const spawnEnv: Record<string, string | undefined> = { ...process.env };
   // Ensure CLI subprocess can reach the server API (CLI reads MAESTRO_SERVER_URL, not SERVER_URL)
   if (serverUrl) {
     spawnEnv.MAESTRO_SERVER_URL = serverUrl;
   }
-  if (!isPkg) {
-    const monorepoRoot = resolvePath(__dirname, '..', '..', '..');
-    const nodeModulesBin = join(monorepoRoot, 'node_modules', '.bin');
-    spawnEnv.PATH = `${nodeModulesBin}:${spawnEnv.PATH || ''}`;
+  const runtimePath = prependNodeModulesBin(spawnEnv.PATH, monorepoRoot);
+  if (runtimePath) {
+    spawnEnv.PATH = runtimePath;
   }
 
   // Pass initial directive as env var for manifest generation
@@ -634,10 +646,37 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         memberOverrides,                 // Per-member launch overrides: Record<string, MemberLaunchOverride>
       } = req.body;
 
-      // Resolve effective team member IDs from request params
-      let effectiveTeamMemberIds: string[] = teamMemberIds && teamMemberIds.length > 0
-        ? teamMemberIds
-        : (teamMemberId ? [teamMemberId] : []);
+      const requestedModeInput = String(requestedMode || 'worker');
+      const requestedCoordinatorMode =
+        requestedModeInput === 'coordinator' ||
+        requestedModeInput === 'coordinated-coordinator' ||
+        requestedModeInput === 'coordinate';
+
+      // Resolve identity/self + delegation as separate concepts for coordinator modes.
+      let effectiveTeamMemberIds: string[] = [];
+      let effectiveDelegateTeamMemberIds: string[] = [];
+
+      if (requestedCoordinatorMode) {
+        if (teamMemberId) {
+          effectiveTeamMemberIds = [teamMemberId];
+        } else if (teamMemberIds && teamMemberIds.length > 0) {
+          // Backward compat: old payloads overloaded teamMemberIds; deterministic first is self.
+          effectiveTeamMemberIds = [teamMemberIds[0]];
+        }
+
+        if (delegateTeamMemberIds && delegateTeamMemberIds.length > 0) {
+          effectiveDelegateTeamMemberIds = delegateTeamMemberIds;
+        } else if (teamMemberIds && teamMemberIds.length > 0) {
+          // Backward compat:
+          // - if explicit self exists, treat teamMemberIds as delegate roster
+          // - otherwise, consume remainder after deterministic self
+          effectiveDelegateTeamMemberIds = teamMemberId ? teamMemberIds : teamMemberIds.slice(1);
+        }
+      } else {
+        effectiveTeamMemberIds = teamMemberIds && teamMemberIds.length > 0
+          ? teamMemberIds
+          : (teamMemberId ? [teamMemberId] : []);
+      }
 
       // Validation
       if (!projectId) {
@@ -723,8 +762,20 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           }
         }
         if (taskTeamMemberIds.length > 0) {
-          effectiveTeamMemberIds = taskTeamMemberIds;
+          if (requestedCoordinatorMode) {
+            effectiveTeamMemberIds = [taskTeamMemberIds[0]];
+            if (effectiveDelegateTeamMemberIds.length === 0 && taskTeamMemberIds.length > 1) {
+              effectiveDelegateTeamMemberIds = taskTeamMemberIds.slice(1);
+            }
+          } else {
+            effectiveTeamMemberIds = taskTeamMemberIds;
+          }
         }
+      }
+
+      if (requestedCoordinatorMode && effectiveTeamMemberIds.length > 0 && effectiveDelegateTeamMemberIds.length > 0) {
+        const selfId = effectiveTeamMemberIds[0];
+        effectiveDelegateTeamMemberIds = effectiveDelegateTeamMemberIds.filter((id) => id !== selfId);
       }
 
       // Fetch team member defaults from the effective members (after task-level fallback)
@@ -830,6 +881,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           spawnedBy: sessionId || null,
           spawnSource,
           mode: resolvedMode,
+          agentTool: resolvedAgentToolFromMember || 'claude-code',
+          model: resolvedModel || null,
           teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : null,
           teamMemberIds: effectiveTeamMemberIds.length > 0 ? effectiveTeamMemberIds : null,
           context: context || {},
@@ -888,7 +941,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           agentTool: resolvedAgentToolFromMember,
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
           // Multi-identity: pass teamMemberIds for multi-member sessions
-          teamMemberIds: effectiveTeamMemberIds.length > 1 ? effectiveTeamMemberIds : (delegateTeamMemberIds && delegateTeamMemberIds.length > 0 ? delegateTeamMemberIds : undefined),
+          teamMemberIds: effectiveTeamMemberIds.length > 1
+            ? effectiveTeamMemberIds
+            : (effectiveDelegateTeamMemberIds.length > 0 ? effectiveDelegateTeamMemberIds : undefined),
           // Single identity: backward compat
           teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : undefined,
           // Pass server URL so CLI subprocess can reach the API
@@ -915,6 +970,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const initCommand = isCoordinatorMode(resolvedMode) ? 'orchestrator' : 'worker';
       const command = `maestro ${initCommand} init`;
       const cwd = project.workingDir;
+      const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime();
 
       // Pass through auth-related API keys from server environment
       const authEnvKeys = [
@@ -948,6 +1004,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         // Pass through auth API keys so spawned agents can authenticate
         ...authEnvVars,
       };
+
+      // Ensure the init command resolves to the same CLI runtime used for manifest generation.
+      const runtimePathForInit = prependNodeModulesBin(process.env.PATH, monorepoRoot);
+      if (runtimePathForInit) {
+        finalEnvVars.PATH = runtimePathForInit;
+      }
+      finalEnvVars.MAESTRO_CLI_PATH = maestroBin;
 
       // Propagate master session flag to spawned agent environment
       if (project.isMaster === true) {

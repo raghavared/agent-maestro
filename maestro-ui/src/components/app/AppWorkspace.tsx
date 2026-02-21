@@ -44,7 +44,8 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
       : maestroSession?.teamMemberSnapshot
         ? [maestroSession.teamMemberSnapshot]
         : [];
-    return snapshots[0]?.agentTool ?? active.effectId ?? null;
+    const metadataAgentTool = (maestroSession?.metadata as { agentTool?: string } | undefined)?.agentTool ?? null;
+    return snapshots[0]?.agentTool ?? metadataAgentTool ?? active.effectId ?? null;
   })();
 
   // --- Project store ---

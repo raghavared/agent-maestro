@@ -80,4 +80,16 @@ describe('capability-policy', () => {
     expect(result.allowedCommands).not.toContain('task:create');
     expect(result.resolution).toBe('fallback');
   });
+
+  it('enables canPromptOtherSessions only for coordinated modes', () => {
+    const worker = resolveCapabilitySet(buildManifest({ mode: 'worker' }));
+    const coordinator = resolveCapabilitySet(buildManifest({ mode: 'coordinator' }));
+    const coordinatedWorker = resolveCapabilitySet(buildManifest({ mode: 'coordinated-worker' }));
+    const coordinatedCoordinator = resolveCapabilitySet(buildManifest({ mode: 'coordinated-coordinator' }));
+
+    expect(worker.capabilities.canPromptOtherSessions).toBe(false);
+    expect(coordinator.capabilities.canPromptOtherSessions).toBe(false);
+    expect(coordinatedWorker.capabilities.canPromptOtherSessions).toBe(true);
+    expect(coordinatedCoordinator.capabilities.canPromptOtherSessions).toBe(true);
+  });
 });

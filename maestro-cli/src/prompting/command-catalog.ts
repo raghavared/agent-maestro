@@ -82,32 +82,32 @@ const COMMAND_DEFINITIONS: Array<Omit<CommandCatalogEntry, 'syntax'>> = [
   { id: 'orchestrator:init', description: 'Initialize coordinator-mode session', group: 'orchestrator', allowedModes: COORDINATOR_MODES, hiddenFromPrompt: true },
 
   // Team member commands
-  { id: 'team-member:create', description: 'Create a new team member', group: 'team-member', allowedModes: ALL_MODES },
-  { id: 'team-member:list', description: 'List team members', group: 'team-member', allowedModes: ALL_MODES },
-  { id: 'team-member:get', description: 'Get team member details', group: 'team-member', allowedModes: ALL_MODES },
-  { id: 'team-member:edit', description: 'Edit a team member', group: 'team-member', allowedModes: ALL_MODES },
-  { id: 'team-member:archive', description: 'Archive a team member', group: 'team-member', allowedModes: ALL_MODES },
-  { id: 'team-member:unarchive', description: 'Unarchive a team member', group: 'team-member', allowedModes: ALL_MODES },
-  { id: 'team-member:delete', description: 'Delete a team member (must be archived first)', group: 'team-member', allowedModes: ALL_MODES },
-  { id: 'team-member:reset', description: 'Reset a default team member to original settings', group: 'team-member', allowedModes: ALL_MODES },
-  { id: 'team-member:update-identity', description: 'Update own identity/persona (self-awareness)', group: 'team-member', allowedModes: ALL_MODES },
-  { id: 'team-member:memory:append', description: 'Append an entry to team member memory', group: 'team-member', allowedModes: ALL_MODES },
-  { id: 'team-member:memory:list', description: 'List team member memory entries', group: 'team-member', allowedModes: ALL_MODES },
-  { id: 'team-member:memory:clear', description: 'Clear team member memory', group: 'team-member', allowedModes: ALL_MODES },
+  { id: 'team-member:create', description: 'Create a new team member', group: 'team-member', allowedModes: COORDINATOR_MODES },
+  { id: 'team-member:list', description: 'List team members', group: 'team-member', allowedModes: COORDINATOR_MODES },
+  { id: 'team-member:get', description: 'Get team member details', group: 'team-member', allowedModes: COORDINATOR_MODES },
+  { id: 'team-member:edit', description: 'Edit a team member', group: 'team-member', allowedModes: COORDINATOR_MODES },
+  { id: 'team-member:archive', description: 'Archive a team member', group: 'team-member', allowedModes: COORDINATOR_MODES },
+  { id: 'team-member:unarchive', description: 'Unarchive a team member', group: 'team-member', allowedModes: COORDINATOR_MODES },
+  { id: 'team-member:delete', description: 'Delete a team member (must be archived first)', group: 'team-member', allowedModes: COORDINATOR_MODES },
+  { id: 'team-member:reset', description: 'Reset a default team member to original settings', group: 'team-member', allowedModes: COORDINATOR_MODES },
+  { id: 'team-member:update-identity', description: 'Update own identity/persona (self-awareness)', group: 'team-member', allowedModes: COORDINATOR_MODES },
+  { id: 'team-member:memory:append', description: 'Append an entry to team member memory', group: 'team-member', allowedModes: COORDINATOR_MODES },
+  { id: 'team-member:memory:list', description: 'List team member memory entries', group: 'team-member', allowedModes: COORDINATOR_MODES },
+  { id: 'team-member:memory:clear', description: 'Clear team member memory', group: 'team-member', allowedModes: COORDINATOR_MODES },
 
   // Team commands
-  { id: 'team:list', description: 'List teams', group: 'team', allowedModes: ALL_MODES },
-  { id: 'team:get', description: 'Get team details', group: 'team', allowedModes: ALL_MODES },
-  { id: 'team:create', description: 'Create a new team', group: 'team', allowedModes: ALL_MODES },
-  { id: 'team:edit', description: 'Edit a team', group: 'team', allowedModes: ALL_MODES },
-  { id: 'team:delete', description: 'Delete a team (must be archived first)', group: 'team', allowedModes: ALL_MODES },
-  { id: 'team:archive', description: 'Archive a team', group: 'team', allowedModes: ALL_MODES },
-  { id: 'team:unarchive', description: 'Unarchive a team', group: 'team', allowedModes: ALL_MODES },
-  { id: 'team:add-member', description: 'Add members to a team', group: 'team', allowedModes: ALL_MODES },
-  { id: 'team:remove-member', description: 'Remove members from a team', group: 'team', allowedModes: ALL_MODES },
-  { id: 'team:add-sub-team', description: 'Add a sub-team', group: 'team', allowedModes: ALL_MODES },
-  { id: 'team:remove-sub-team', description: 'Remove a sub-team', group: 'team', allowedModes: ALL_MODES },
-  { id: 'team:tree', description: 'Show team hierarchy tree', group: 'team', allowedModes: ALL_MODES },
+  { id: 'team:list', description: 'List teams', group: 'team', allowedModes: COORDINATOR_MODES },
+  { id: 'team:get', description: 'Get team details', group: 'team', allowedModes: COORDINATOR_MODES },
+  { id: 'team:create', description: 'Create a new team', group: 'team', allowedModes: COORDINATOR_MODES },
+  { id: 'team:edit', description: 'Edit a team', group: 'team', allowedModes: COORDINATOR_MODES },
+  { id: 'team:delete', description: 'Delete a team (must be archived first)', group: 'team', allowedModes: COORDINATOR_MODES },
+  { id: 'team:archive', description: 'Archive a team', group: 'team', allowedModes: COORDINATOR_MODES },
+  { id: 'team:unarchive', description: 'Unarchive a team', group: 'team', allowedModes: COORDINATOR_MODES },
+  { id: 'team:add-member', description: 'Add members to a team', group: 'team', allowedModes: COORDINATOR_MODES },
+  { id: 'team:remove-member', description: 'Remove members from a team', group: 'team', allowedModes: COORDINATOR_MODES },
+  { id: 'team:add-sub-team', description: 'Add a sub-team', group: 'team', allowedModes: COORDINATOR_MODES },
+  { id: 'team:remove-sub-team', description: 'Remove a sub-team', group: 'team', allowedModes: COORDINATOR_MODES },
+  { id: 'team:tree', description: 'Show team hierarchy tree', group: 'team', allowedModes: COORDINATOR_MODES },
 
   // UI commands
   { id: 'show:modal', description: 'Show HTML modal in UI', group: 'show', allowedModes: ALL_MODES },
@@ -115,7 +115,7 @@ const COMMAND_DEFINITIONS: Array<Omit<CommandCatalogEntry, 'syntax'>> = [
 
   // Internal commands
   { id: 'track-file', description: 'Track file modification', group: 'root', allowedModes: ALL_MODES, isCore: true, hiddenFromPrompt: true },
-  { id: 'debug-prompt', description: 'Show system and initial prompts sent to agent', group: 'root', allowedModes: ALL_MODES, isCore: true, hiddenFromPrompt: true },
+  { id: 'debug-prompt', description: 'Show system and task prompts sent to agent', group: 'root', allowedModes: ALL_MODES, isCore: true, hiddenFromPrompt: true },
 ];
 
 const COMMAND_SYNTAX_MAP: Record<string, string> = {
@@ -123,7 +123,7 @@ const COMMAND_SYNTAX_MAP: Record<string, string> = {
   'status': 'maestro status',
   'commands': 'maestro commands',
   'track-file': 'maestro track-file <filePath>',
-  'debug-prompt': 'maestro debug-prompt [--manifest <path>] [--session <id>] [--system-only] [--initial-only] [--raw]',
+  'debug-prompt': 'maestro debug-prompt [--manifest <path>] [--session <id>] [--system-only] [--task-only|--initial-only] [--raw]',
 
   // Legacy report aliases
   'report:progress': 'maestro report progress "<message>"',

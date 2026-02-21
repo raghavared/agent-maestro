@@ -1,0 +1,55 @@
+{
+  "manifestVersion": "1.0",
+  "mode": "coordinated-coordinator",
+  "tasks": [
+    {
+      "id": "task-v2-coordinated-coordinator",
+      "title": "Coordinate delegated stream",
+      "description": "Use slim roster lens with explicit parent coordination context.",
+      "acceptanceCriteria": [
+        "Prompt includes slim roster team context",
+        "Prompt includes parent coordinator linkage"
+      ],
+      "projectId": "proj-v2",
+      "createdAt": "2026-02-21T00:00:00Z"
+    }
+  ],
+  "session": {
+    "model": "sonnet",
+    "permissionMode": "acceptEdits"
+  },
+  "coordinatorSessionId": "sess-parent",
+  "teamMemberProfiles": [
+    {
+      "id": "tm-self",
+      "name": "Self Sub-Coordinator",
+      "role": "Coordinator",
+      "avatar": "C",
+      "identity": "Decompose delegated tasks and manage worker sessions"
+    }
+  ],
+  "availableTeamMembers": [
+    {
+      "id": "tm-worker-a",
+      "name": "Worker A",
+      "role": "Frontend Engineer",
+      "identity": "Build UI implementation",
+      "avatar": "A",
+      "mode": "worker",
+      "permissionMode": "acceptEdits",
+      "model": "sonnet",
+      "agentTool": "claude-code"
+    },
+    {
+      "id": "tm-worker-b",
+      "name": "Worker B",
+      "role": "Backend Engineer",
+      "identity": "Build API implementation",
+      "avatar": "B",
+      "mode": "worker",
+      "permissionMode": "acceptEdits",
+      "model": "sonnet",
+      "agentTool": "codex"
+    }
+  ]
+}

@@ -17,5 +17,14 @@
   "session": {
     "model": "opus",
     "permissionMode": "interactive"
-  }
+  },
+  "teamMemberProfiles": [
+    {
+      "id": "tm-orchestrator",
+      "name": "Orchestrator Self",
+      "role": "Coordinator",
+      "avatar": "🎯",
+      "identity": "Coordinate execution and delegate tasks."
+    }
+  ]
 }

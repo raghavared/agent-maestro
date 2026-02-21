@@ -26,11 +26,12 @@ export async function createMaestroSession(input: {
     strategy?: WorkerStrategy | OrchestratorStrategy;  // Strategy for this session
     teamMemberIds?: string[];        // Team member task IDs for coordinate mode
     teamMemberId?: string;           // Single team member assigned to this task
+    delegateTeamMemberIds?: string[]; // Team member roster for coordinator delegation
     agentTool?: AgentTool;           // Override agent tool for this run
     model?: ModelType;               // Override model for this run
     memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member launch overrides
   }): Promise<TerminalSession> {
-    const { task, tasks, skillIds, project, mode, teamMemberIds, teamMemberId, agentTool, model, memberOverrides } = input;
+    const { task, tasks, skillIds, project, mode, teamMemberIds, teamMemberId, delegateTeamMemberIds, agentTool, model, memberOverrides } = input;
 
     // Normalize to array (support both single and multi-task)
     const taskList = tasks || (task ? [task] : []);
@@ -49,15 +50,20 @@ export async function createMaestroSession(input: {
     const isCoord = resolvedMode === 'coordinator' || resolvedMode === 'coordinated-coordinator' || resolvedMode === 'coordinate' as any;
     const defaultSkill = isCoord ? 'maestro-orchestrator' : 'maestro-worker';
 
-    // Resolve team member identities:
-    // 1. Explicit teamMemberIds from input (multi-identity)
-    // 2. Task's teamMemberIds (multi-identity from task)
-    // 3. Explicit teamMemberId from input (single)
-    // 4. Task's teamMemberId (single, backward compat)
-    const resolvedTeamMemberIds = teamMemberIds && teamMemberIds.length > 0
+    const isCoordinatorMode = resolvedMode === 'coordinator' || resolvedMode === 'coordinated-coordinator' || (resolvedMode as string) === 'coordinate';
+
+    // Resolve identities:
+    // - Worker modes: teamMemberIds remains multi-self identity.
+    // - Coordinator modes: teamMemberId is self, delegateTeamMemberIds is roster.
+    const resolvedTeamMemberIds = !isCoordinatorMode && teamMemberIds && teamMemberIds.length > 0
       ? teamMemberIds
-      : (taskList[0].teamMemberIds && taskList[0].teamMemberIds.length > 0 ? taskList[0].teamMemberIds : undefined);
-    const resolvedTeamMemberId = !resolvedTeamMemberIds ? (teamMemberId || taskList[0].teamMemberId) : undefined;
+      : (!isCoordinatorMode && taskList[0].teamMemberIds && taskList[0].teamMemberIds.length > 0 ? taskList[0].teamMemberIds : undefined);
+    const resolvedTeamMemberId = teamMemberId || taskList[0].teamMemberId;
+    const resolvedDelegateTeamMemberIds = isCoordinatorMode
+      ? (delegateTeamMemberIds && delegateTeamMemberIds.length > 0
+          ? delegateTeamMemberIds
+          : (teamMemberIds && teamMemberIds.length > 0 ? teamMemberIds : undefined))
+      : undefined;
 
     try {
       const response = await maestroClient.spawnSession({
@@ -71,6 +77,7 @@ export async function createMaestroSession(input: {
         skills: skillIds || [defaultSkill],
         ...(resolvedTeamMemberIds && resolvedTeamMemberIds.length > 0 ? { teamMemberIds: resolvedTeamMemberIds } : {}),
         ...(resolvedTeamMemberId ? { teamMemberId: resolvedTeamMemberId } : {}),
+        ...(resolvedDelegateTeamMemberIds && resolvedDelegateTeamMemberIds.length > 0 ? { delegateTeamMemberIds: resolvedDelegateTeamMemberIds } : {}),
         ...(agentTool ? { agentTool } : {}),
         ...(model ? { model } : {}),
         ...(memberOverrides && Object.keys(memberOverrides).length > 0 ? { memberOverrides } : {}),

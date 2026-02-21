@@ -1,5 +1,14 @@
-import type { MaestroManifest, AdditionalContext, AgentTool, AgentModeInput, TeamMemberData, TeamMemberProfile, MasterProjectInfo } from '../types/manifest.js';
-import { normalizeMode } from '../types/manifest.js';
+import type {
+  MaestroManifest,
+  AdditionalContext,
+  AgentTool,
+  AgentModeInput,
+  TeamMemberData,
+  TeamMemberProfile,
+  MasterProjectInfo,
+  AgentMode,
+} from '../types/manifest.js';
+import { normalizeMode, isCoordinatorMode } from '../types/manifest.js';
 import { DEFAULT_ACCEPTANCE_CRITERIA, MODE_VALIDATION_ERROR, AGENT_TOOL_VALIDATION_PREFIX } from '../prompts/index.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
@@ -34,6 +43,27 @@ export interface SessionOptions {
   timeout?: number;
   workingDirectory?: string;
   context?: AdditionalContext;
+}
+
+export function resolveSelfIdentityMemberIds(
+  mode: AgentMode,
+  teamMemberId?: string,
+  teamMemberIds?: string[],
+): string[] {
+  if (teamMemberId) {
+    return [teamMemberId];
+  }
+
+  const ids = (teamMemberIds || []).filter(Boolean);
+  if (ids.length === 0) {
+    return [];
+  }
+
+  if (isCoordinatorMode(mode)) {
+    return [ids[0]];
+  }
+
+  return ids;
 }
 
 /**
@@ -202,9 +232,11 @@ export class ManifestGeneratorCLICommand {
 
       // Add team member identity for this session
       // Multi-identity: if teamMemberIds (array) is provided, build profiles array
-      const effectiveTeamMemberIds = options.teamMemberIds && options.teamMemberIds.length > 0
-        ? options.teamMemberIds
-        : (options.teamMemberId ? [options.teamMemberId] : []);
+      const effectiveTeamMemberIds = resolveSelfIdentityMemberIds(
+        manifest.mode,
+        options.teamMemberId,
+        options.teamMemberIds,
+      );
 
       if (effectiveTeamMemberIds.length === 1 && !options.teamMemberIds?.length) {
         // Single team member — backward compat: use singular fields
@@ -355,7 +387,7 @@ export class ManifestGeneratorCLICommand {
           }
         }
         if (teamMembers.length > 0) {
-          manifest.teamMembers = teamMembers;
+          manifest.availableTeamMembers = teamMembers;
         }
       }
 
@@ -376,7 +408,14 @@ export class ManifestGeneratorCLICommand {
       await writeFile(options.output, json, 'utf-8');
 
       process.exit(0);
-    } catch {
+    } catch (error: any) {
+      const message = error instanceof Error ? error.message : String(error || 'Manifest generation failed');
+      if (message) {
+        console.error(message);
+      }
+      if (process.env.MAESTRO_DEBUG === 'true' && error instanceof Error && error.stack) {
+        console.error(error.stack);
+      }
       process.exit(1);
     }
   }

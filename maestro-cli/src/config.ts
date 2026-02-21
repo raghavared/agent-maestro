@@ -65,10 +65,16 @@ export const config = {
   get debug() {
     return process.env.MAESTRO_DEBUG === 'true';
   },
-  get promptV2Enabled() {
-    const raw = process.env.MAESTRO_PROMPT_V2;
-    if (!raw) return true;
-    return raw !== '0' && raw.toLowerCase() !== 'false';
+  get promptIdentityV2() {
+    if (process.env.MAESTRO_PROMPT_IDENTITY_V2 === 'false') {
+      return false;
+    }
+    return true;
+  },
+  get promptIdentityCardinalityPolicy(): 'strict' | 'permissive' {
+    return process.env.MAESTRO_PROMPT_IDENTITY_COORDINATOR_POLICY === 'permissive'
+      ? 'permissive'
+      : 'strict';
   },
   get manifestPermissionFailurePolicy(): 'permissive' | 'safe-degraded' {
     const raw = process.env.MAESTRO_MANIFEST_FAILURE_POLICY;

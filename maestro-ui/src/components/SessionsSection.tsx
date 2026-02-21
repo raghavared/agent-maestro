@@ -329,9 +329,14 @@ export function SessionsSection({
     // Determine if this is a maestro-managed session with team members
     const hasMaestroTeam = teamSnapshots.length > 0;
 
-    // Resolve agent tool icon from snapshot or effect
-    const agentTool = teamSnapshots[0]?.agentTool;
-    const agentToolIcon = agentTool ? AGENT_TOOL_ICONS[agentTool] : null;
+    // Resolve agent tool icon from snapshot, metadata, or live effect fallback.
+    const metadataAgentTool = (maestroSession?.metadata as { agentTool?: string } | undefined)?.agentTool ?? null;
+    const agentTool = teamSnapshots[0]?.agentTool
+      ?? metadataAgentTool
+      ?? (s.effectId === 'codex' ? 'codex' : null);
+    const agentToolIcon = agentTool && agentTool in AGENT_TOOL_ICONS
+      ? AGENT_TOOL_ICONS[agentTool as keyof typeof AGENT_TOOL_ICONS]
+      : null;
 
     // Build the display title: team member names if available, otherwise session name
     const displayTitle = hasMaestroTeam
@@ -724,7 +729,9 @@ export function SessionsSection({
           : logMaestroSession?.teamMemberSnapshot
             ? [logMaestroSession.teamMemberSnapshot]
             : [];
+        const logMetadataAgentTool = (logMaestroSession?.metadata as { agentTool?: string } | undefined)?.agentTool ?? null;
         const logAgentTool = logSnapshots[0]?.agentTool
+          ?? logMetadataAgentTool
           ?? (logSession?.effectId === 'codex' ? 'codex' : null);
         return logSession?.cwd ? createPortal(
           <SessionLogModal

@@ -210,7 +210,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
       nullable: true,
       description: 'Reference task IDs for context (docs from these tasks are provided to the agent)',
     },
-    teamMembers: {
+    availableTeamMembers: {
       type: 'array',
       nullable: true,
       items: {

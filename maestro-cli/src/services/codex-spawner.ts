@@ -2,11 +2,8 @@ import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
 import type { MaestroManifest } from '../types/manifest.js';
 import type { SpawnResult, SpawnOptions } from './claude-spawner.js';
-import { WhoamiRenderer } from './whoami-renderer.js';
-import { getPermissionsFromManifest } from './command-permissions.js';
 import { prepareSpawnerEnvironment } from './spawner-env.js';
 import { PromptComposer, type PromptEnvelope } from '../prompting/prompt-composer.js';
-import { config } from '../config.js';
 
 /**
  * CodexSpawner - Spawns OpenAI Codex CLI sessions with manifests
@@ -143,20 +140,9 @@ export class CodexSpawner {
     sessionId: string,
     options: SpawnOptions = {}
   ): Promise<SpawnResult> {
-    let systemPrompt: string;
-    let taskContext: string;
-
-    if (config.promptV2Enabled) {
-      const envelope = this.buildPromptEnvelope(manifest, sessionId);
-      systemPrompt = envelope.system;
-      taskContext = envelope.task;
-    } else {
-      // Legacy prompt path retained for compatibility when prompt v2 is disabled.
-      const renderer = new WhoamiRenderer();
-      const permissions = getPermissionsFromManifest(manifest);
-      systemPrompt = renderer.renderSystemPrompt(manifest, permissions);
-      taskContext = await renderer.renderTaskContext(manifest, sessionId);
-    }
+    const envelope = this.buildPromptEnvelope(manifest, sessionId);
+    const systemPrompt = envelope.system;
+    const taskContext = envelope.task;
 
     const env = {
       ...this.prepareEnvironment(manifest, sessionId),

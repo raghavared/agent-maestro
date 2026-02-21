@@ -85,6 +85,23 @@ export class WorkerInitCommand {
     }
   }
 
+  private resolveManifestReadErrorType(errorMessage?: string): 'manifest_not_found' | 'invalid_manifest' {
+    if (!errorMessage) {
+      return 'manifest_not_found';
+    }
+
+    const lower = errorMessage.toLowerCase();
+    if (lower.includes('not found or not readable') || lower.includes('environment variable not set')) {
+      return 'manifest_not_found';
+    }
+
+    if (lower.includes('validation failed') || lower.includes('parse') || lower.includes('normalization failed')) {
+      return 'invalid_manifest';
+    }
+
+    return 'invalid_manifest';
+  }
+
   /**
    * Auto-update session status to working (does NOT touch user status)
    */
@@ -133,7 +150,9 @@ export class WorkerInitCommand {
       const result = await readManifestFromEnv();
 
       if (!result.success || !result.manifest) {
-        throw new Error(this.formatError('manifest_not_found', manifestPath));
+        const details = result.error || manifestPath;
+        const errorType = this.resolveManifestReadErrorType(result.error);
+        throw new Error(this.formatError(errorType, details));
       }
 
       const manifest = result.manifest;
@@ -165,6 +184,13 @@ export class WorkerInitCommand {
       });
 
     } catch (error: any) {
+      const message = error instanceof Error ? error.message : String(error || 'Unknown worker init error');
+      if (message) {
+        console.error(message);
+      }
+      if (process.env.MAESTRO_DEBUG === 'true' && error instanceof Error && error.stack) {
+        console.error(error.stack);
+      }
       process.exit(1);
     }
   }

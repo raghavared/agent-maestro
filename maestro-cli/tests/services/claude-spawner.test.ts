@@ -3,7 +3,7 @@ import { ClaudeSpawner, type SpawnResult } from '../../src/services/claude-spawn
 import { SkillLoader } from '../../src/services/skill-loader.js';
 import type { MaestroManifest } from '../../src/types/manifest.js';
 import { existsSync, unlinkSync } from 'fs';
-import { mkdir, writeFile, rmdir } from 'fs/promises';
+import { mkdir, writeFile, rm } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
@@ -192,20 +192,23 @@ describe('ClaudeSpawner', () => {
     });
 
     it('should include skill plugin directories when skills specified', async () => {
-      let testSkillsDir: string = '';
+      let testProjectDir = '';
 
       try {
-        // Create test skills directory
-        testSkillsDir = join(tmpdir(), `maestro-skills-test-${randomBytes(4).toString('hex')}`);
-        await mkdir(testSkillsDir, { recursive: true });
+        // Create isolated project-scoped skills directory tree
+        testProjectDir = join(tmpdir(), `maestro-skills-test-${randomBytes(4).toString('hex')}`);
+        const skillsDir = join(testProjectDir, '.claude', 'skills');
+        await mkdir(skillsDir, { recursive: true });
 
         // Create a test skill
-        const skillDir = join(testSkillsDir, 'test-skill');
+        const skillDir = join(skillsDir, 'test-skill');
         await mkdir(skillDir, { recursive: true });
         await writeFile(join(skillDir, 'skill.md'), '# Test Skill\n');
 
         // Create spawner with custom skill loader
-        const customSpawner = new ClaudeSpawner(new SkillLoader(testSkillsDir));
+        const customSpawner = new ClaudeSpawner(
+          new SkillLoader(testProjectDir, { includeGlobal: false }),
+        );
 
         // Create manifest with skills
         const manifestWithSkills: MaestroManifest = {
@@ -219,28 +222,7 @@ describe('ClaudeSpawner', () => {
         expect(args).toContain('--plugin-dir');
         expect(args).toContain(skillDir);
       } finally {
-        // Clean up
-        if (testSkillsDir && existsSync(testSkillsDir)) {
-          try {
-            const fs = await import('fs/promises');
-            const entries = await fs.readdir(testSkillsDir, { withFileTypes: true });
-            for (const entry of entries) {
-              const fullPath = join(testSkillsDir, entry.name);
-              if (entry.isDirectory()) {
-                const subEntries = await fs.readdir(fullPath);
-                for (const subEntry of subEntries) {
-                  await fs.unlink(join(fullPath, subEntry));
-                }
-                await fs.rmdir(fullPath);
-              } else {
-                await fs.unlink(fullPath);
-              }
-            }
-            await rmdir(testSkillsDir);
-          } catch (error) {
-            // Ignore cleanup errors
-          }
-        }
+        await rm(testProjectDir, { recursive: true, force: true });
       }
     });
 

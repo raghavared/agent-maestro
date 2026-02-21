@@ -7,8 +7,16 @@ import type {
   AgentMode,
   TeamMemberData,
   MasterProjectInfo,
+  TeamMemberProfile,
+  TeamContextLens,
 } from '../types/manifest.js';
-import { isWorkerMode, isCoordinatorMode } from '../types/manifest.js';
+import {
+  isWorkerMode,
+  isCoordinatorMode,
+  isCoordinatedMode,
+  resolveTeamContextLensForMode,
+} from '../types/manifest.js';
+import { config } from '../config.js';
 import {
   WORKER_PROFILE,
   COORDINATOR_PROFILE,
@@ -22,61 +30,47 @@ import {
   ACCEPTANCE_CRITERIA_PLACEHOLDER_PATTERNS,
 } from '../prompts/index.js';
 
-export type PromptMode = 'normal' | 'xml';
-
 /**
  * PromptBuilder - Programmatically constructs prompts from manifest data.
  *
- * Replaces the old template-file + variable-substitution system with
- * a single class that builds XML (or plain text) directly from manifest fields.
+ * Builds deterministic XML blocks from manifest fields.
  */
 export class PromptBuilder {
-  private mode: PromptMode;
-
-  constructor(mode: PromptMode = 'xml') {
-    this.mode = mode;
-  }
-
   /**
-   * Build prompt from manifest using the configured mode.
-   */
-  build(manifest: MaestroManifest): string {
-    if (this.mode === 'normal') {
-      return this.buildNormal(manifest);
-    }
-    return this.buildXml(manifest);
-  }
-
-  /**
-   * System XML mode — identity + workflow + capabilities + commands only.
+   * System XML mode — identity + capabilities + commands only.
    * Task-specific data is intentionally excluded.
    */
   buildSystemXml(manifest: MaestroManifest): string {
+    if (!this.isIdentityContractV2Enabled()) {
+      return this.buildLegacySystemXml(manifest);
+    }
+
     const mode = manifest.mode;
 
     const parts: string[] = [];
     parts.push(`<maestro_system_prompt mode="${mode}" version="3.0">`);
-    parts.push(this.buildIdentity(mode, manifest));
-    // Team member identity (if this session is for a custom team member)
-    const teamMemberIdentity = this.buildTeamMemberIdentity(manifest);
-    if (teamMemberIdentity) parts.push(teamMemberIdentity);
-    // Team members roster
-    const teamMembers = this.buildTeamMembers(manifest.teamMembers, mode, manifest);
-    if (teamMembers) parts.push(teamMembers);
+    parts.push(this.buildIdentityKernel(mode, manifest));
+    const teamContext = this.buildTeamContext(manifest);
+    if (teamContext) parts.push(teamContext);
+    const coordinationContext = this.buildCoordinationContext(manifest);
+    if (coordinationContext) parts.push(coordinationContext);
     // Master project context (if this is a master session)
     const masterContext = this.buildMasterProjectContext(manifest);
     if (masterContext) parts.push(masterContext);
-    // Note: commands_reference is injected by WhoamiRenderer.renderSystemPrompt()
-    // using the dynamic compact command brief from command-permissions.ts.
+    // Note: commands_reference is injected by PromptComposer.
     parts.push('</maestro_system_prompt>');
     return parts.join('\n');
   }
 
   /**
    * Task XML mode — task/context payload only.
-   * Identity/workflow is intentionally excluded.
+   * Identity is intentionally excluded.
    */
   buildTaskXml(manifest: MaestroManifest): string {
+    if (!this.isIdentityContractV2Enabled()) {
+      return this.buildLegacyTaskXml(manifest);
+    }
+
     const mode = manifest.mode;
 
     const parts: string[] = [];
@@ -88,14 +82,6 @@ export class PromptBuilder {
       const tree = this.buildTaskTree(manifest.tasks);
       if (tree) parts.push(tree);
     }
-
-    // Session context (session ID, coordinator, project, mode)
-    const taskSessionContext = this.buildSessionContext(manifest);
-    if (taskSessionContext) parts.push(taskSessionContext);
-
-    // Coordinator directive (if present in manifest)
-    const taskDirective = this.buildCoordinatorDirective(manifest);
-    if (taskDirective) parts.push(taskDirective);
 
     const context = this.buildContext(manifest);
     if (context) parts.push(context);
@@ -110,73 +96,59 @@ export class PromptBuilder {
     return parts.join('\n');
   }
 
-  /**
-   * Plain text mode — just task title + description.
-   */
-  buildNormal(manifest: MaestroManifest): string {
-    return manifest.tasks.map(t => `${t.title}\n\n${t.description}`).join('\n\n---\n\n');
-  }
-
-  /**
-   * XML mode — structured XML with all manifest fields, workflow, and commands.
-   */
-  buildXml(manifest: MaestroManifest): string {
+  private buildLegacySystemXml(manifest: MaestroManifest): string {
     const mode = manifest.mode;
 
     const parts: string[] = [];
-
-    parts.push(`<maestro_prompt mode="${mode}" version="3.0">`);
-
-    // Identity
+    parts.push(`<maestro_system_prompt mode="${mode}" version="3.0">`);
     parts.push(this.buildIdentity(mode, manifest));
+    const teamMemberIdentity = this.buildTeamMemberIdentity(manifest);
+    if (teamMemberIdentity) parts.push(teamMemberIdentity);
+    const teamMembers = this.buildTeamMembers(manifest.availableTeamMembers, mode, manifest);
+    if (teamMembers) parts.push(teamMembers);
+    const masterContext = this.buildMasterProjectContext(manifest);
+    if (masterContext) parts.push(masterContext);
+    parts.push('</maestro_system_prompt>');
+    return parts.join('\n');
+  }
 
-    // Tasks
+  private buildLegacyTaskXml(manifest: MaestroManifest): string {
+    const mode = manifest.mode;
+
+    const parts: string[] = [];
+    parts.push(`<maestro_task_prompt mode="${mode}" version="3.0">`);
     parts.push(this.buildTasks(manifest));
 
-    // Task tree (if tasks have parent-child relationships)
     if (manifest.tasks.length > 1) {
       const tree = this.buildTaskTree(manifest.tasks);
       if (tree) parts.push(tree);
     }
 
-    // Session context
-    const sessionContext = this.buildSessionContext(manifest);
-    if (sessionContext) parts.push(sessionContext);
+    const taskSessionContext = this.buildSessionContext(manifest);
+    if (taskSessionContext) parts.push(taskSessionContext);
 
-    // Coordinator directive
-    const directive = this.buildCoordinatorDirective(manifest);
-    if (directive) parts.push(directive);
+    const taskDirective = this.buildCoordinatorDirective(manifest);
+    if (taskDirective) parts.push(taskDirective);
 
-    // Context
     const context = this.buildContext(manifest);
     if (context) parts.push(context);
 
-    // Skills
-    if (manifest.skills && manifest.skills.length > 0) {
+    const agentTool = manifest.agentTool || 'claude-code';
+    if (manifest.skills && manifest.skills.length > 0 && agentTool === 'claude-code') {
       parts.push(this.buildSkills(manifest.skills));
     }
 
-    // Team members roster
-    const xmlTeamMembers = this.buildTeamMembers(manifest.teamMembers, mode, manifest);
-    if (xmlTeamMembers) parts.push(xmlTeamMembers);
-
-    // Workflow
-
-    // Master project context (if this is a master session)
-    const xmlMasterContext = this.buildMasterProjectContext(manifest);
-    if (xmlMasterContext) parts.push(xmlMasterContext);
-
-    parts.push('</maestro_prompt>');
-
+    parts.push('</maestro_task_prompt>');
     return parts.join('\n');
   }
 
   // ── Internal builders ────────────────────────────────────────
 
-  private buildIdentity(mode: AgentMode, manifest?: MaestroManifest): string {
-    const lines = ['  <identity>'];
+  private isIdentityContractV2Enabled(): boolean {
+    return config.promptIdentityV2;
+  }
 
-    // Four-mode profile and identity selection
+  private resolveModeIdentity(mode: AgentMode): { profile: string; instruction: string } {
     const profileMap: Record<string, string> = {
       'worker': WORKER_PROFILE,
       'coordinator': COORDINATOR_PROFILE,
@@ -190,8 +162,272 @@ export class PromptBuilder {
       'coordinated-coordinator': COORDINATED_COORDINATOR_IDENTITY_INSTRUCTION,
     };
 
-    const profile = profileMap[mode] || (isWorkerMode(mode) ? WORKER_PROFILE : COORDINATOR_PROFILE);
-    const instruction = identityMap[mode] || (isWorkerMode(mode) ? WORKER_IDENTITY_INSTRUCTION : COORDINATOR_IDENTITY_INSTRUCTION);
+    return {
+      profile: profileMap[mode] || (isWorkerMode(mode) ? WORKER_PROFILE : COORDINATOR_PROFILE),
+      instruction: identityMap[mode] || (isWorkerMode(mode) ? WORKER_IDENTITY_INSTRUCTION : COORDINATOR_IDENTITY_INSTRUCTION),
+    };
+  }
+
+  private buildIdentityKernel(mode: AgentMode, manifest: MaestroManifest): string {
+    const modeIdentity = this.resolveModeIdentity(mode);
+    const lines: string[] = ['  <identity_kernel>'];
+    lines.push('    <mode_identity>');
+    lines.push(`      <profile>${this.esc(modeIdentity.profile)}</profile>`);
+    lines.push(`      <instruction>${this.raw(modeIdentity.instruction)}</instruction>`);
+    lines.push('    </mode_identity>');
+
+    const selfIdentity = this.buildSelfIdentity(manifest);
+    if (selfIdentity) {
+      lines.push(selfIdentity);
+    }
+
+    lines.push('  </identity_kernel>');
+    return lines.join('\n');
+  }
+
+  private buildSelfIdentity(manifest: MaestroManifest): string | null {
+    const profiles = this.resolveSelfProfiles(manifest);
+    if (profiles.length === 0) return null;
+
+    if (profiles.length === 1) {
+      return this.buildSingleSelfIdentity(profiles[0]);
+    }
+
+    return this.buildMergedSelfIdentity(profiles);
+  }
+
+  private resolveSelfProfiles(manifest: MaestroManifest): TeamMemberProfile[] {
+    if (manifest.teamMemberProfiles && manifest.teamMemberProfiles.length > 0) {
+      return manifest.teamMemberProfiles.filter((profile) => Boolean(profile.identity));
+    }
+
+    if (!manifest.teamMemberId || !manifest.teamMemberName || !manifest.teamMemberAvatar) {
+      return [];
+    }
+
+    if (manifest.teamMemberIdentity === undefined || manifest.teamMemberIdentity === null) {
+      return [];
+    }
+
+    return [{
+      id: manifest.teamMemberId,
+      name: manifest.teamMemberName,
+      role: manifest.teamMemberRole,
+      avatar: manifest.teamMemberAvatar,
+      identity: manifest.teamMemberIdentity,
+      capabilities: manifest.teamMemberCapabilities,
+      commandPermissions: manifest.teamMemberCommandPermissions,
+      memory: manifest.teamMemberMemory,
+    }];
+  }
+
+  private buildSingleSelfIdentity(profile: TeamMemberProfile): string {
+    const lines: string[] = ['    <self_identity>'];
+    lines.push(`      <id>${this.esc(profile.id)}</id>`);
+    lines.push(`      <name>${this.esc(profile.name)}</name>`);
+    if (profile.role) {
+      lines.push(`      <role>${this.esc(profile.role)}</role>`);
+    }
+    lines.push(`      <avatar>${this.esc(profile.avatar)}</avatar>`);
+    lines.push(`      <identity>${this.raw(profile.identity)}</identity>`);
+
+    if (profile.model) {
+      lines.push(`      <model>${this.esc(profile.model)}</model>`);
+    }
+    if (profile.agentTool) {
+      lines.push(`      <agent_tool>${this.esc(profile.agentTool)}</agent_tool>`);
+    }
+    if (profile.capabilities && Object.keys(profile.capabilities).length > 0) {
+      lines.push('      <capabilities>');
+      for (const [capability, enabled] of Object.entries(profile.capabilities).sort(([a], [b]) => a.localeCompare(b))) {
+        lines.push(`        <capability name="${this.esc(capability)}" enabled="${enabled}" />`);
+      }
+      lines.push('      </capabilities>');
+    }
+    const commandPermissions = this.buildCommandPermissions(profile.commandPermissions, '      ');
+    if (commandPermissions) {
+      lines.push(commandPermissions);
+    }
+
+    if (profile.memory && profile.memory.length > 0) {
+      lines.push('      <memory>');
+      for (const memory of profile.memory) {
+        lines.push(`        <entry>${this.raw(memory)}</entry>`);
+      }
+      lines.push('      </memory>');
+    }
+
+    lines.push('    </self_identity>');
+    return lines.join('\n');
+  }
+
+  private buildMergedSelfIdentity(profiles: TeamMemberProfile[]): string {
+    const combinedName = profiles.map((profile) => profile.name).join(' + ');
+    const roleList = profiles.map((profile) => profile.role || profile.name).join(', ');
+
+    const lines: string[] = [`    <self_identity merged="true" profile_count="${profiles.length}">`];
+    lines.push(`      <name>${this.esc(combinedName)}</name>`);
+    lines.push(`      <avatar>${this.esc(profiles[0].avatar)}</avatar>`);
+    lines.push(`      <role>${this.esc(roleList)}</role>`);
+    lines.push(`      <instruction>${buildMultiIdentityInstruction(roleList)}</instruction>`);
+    for (const profile of profiles) {
+      lines.push(`      <expertise source="${this.esc(profile.name)}" id="${this.esc(profile.id)}">${this.raw(profile.identity)}</expertise>`);
+    }
+
+    const mergedMemory = profiles.flatMap((profile) => (profile.memory || []).map((entry) => ({
+      source: profile.name,
+      text: entry,
+    })));
+    if (mergedMemory.length > 0) {
+      lines.push('      <memory>');
+      for (const entry of mergedMemory) {
+        lines.push(`        <entry source="${this.esc(entry.source)}">${this.raw(entry.text)}</entry>`);
+      }
+      lines.push('      </memory>');
+    }
+
+    lines.push('    </self_identity>');
+    return lines.join('\n');
+  }
+
+  private buildTeamContext(manifest: MaestroManifest): string | null {
+    const teamMembers = manifest.availableTeamMembers;
+    if (!teamMembers || teamMembers.length === 0) return null;
+
+    const selfIds = this.resolveSelfIds(manifest);
+    const visibleMembers = selfIds.size > 0
+      ? teamMembers.filter((member) => !selfIds.has(member.id))
+      : teamMembers;
+
+    if (visibleMembers.length === 0) return null;
+
+    const lens = resolveTeamContextLensForMode(manifest.mode);
+    const lines: string[] = [`  <team_context lens="${lens}" count="${visibleMembers.length}">`];
+    lines.push(`    <instruction>${this.teamContextInstruction(lens)}</instruction>`);
+
+    for (const member of visibleMembers) {
+      if (lens === 'full_expertise') {
+        lines.push(`    <team_member id="${this.esc(member.id)}" name="${this.esc(member.name)}" role="${this.esc(member.role)}">`);
+        lines.push(`      <avatar>${this.esc(member.avatar)}</avatar>`);
+        lines.push(`      <identity>${this.raw(member.identity)}</identity>`);
+        if (member.memory && member.memory.length > 0) {
+          lines.push('      <memory>');
+          for (const entry of member.memory) {
+            lines.push(`        <entry>${this.raw(entry)}</entry>`);
+          }
+          lines.push('      </memory>');
+        }
+        if (member.mode) {
+          lines.push(`      <mode>${this.esc(member.mode)}</mode>`);
+        }
+        if (member.permissionMode) {
+          lines.push(`      <permission_mode>${this.esc(member.permissionMode)}</permission_mode>`);
+        }
+        if (member.model) {
+          lines.push(`      <model>${this.esc(member.model)}</model>`);
+        }
+        if (member.agentTool) {
+          lines.push(`      <agent_tool>${this.esc(member.agentTool)}</agent_tool>`);
+        }
+        if (member.capabilities && Object.keys(member.capabilities).length > 0) {
+          lines.push('      <capabilities>');
+          for (const [capability, enabled] of Object.entries(member.capabilities).sort(([a], [b]) => a.localeCompare(b))) {
+            lines.push(`        <capability name="${this.esc(capability)}" enabled="${enabled}" />`);
+          }
+          lines.push('      </capabilities>');
+        }
+        const commandPermissions = this.buildCommandPermissions(member.commandPermissions, '      ');
+        if (commandPermissions) {
+          lines.push(commandPermissions);
+        }
+        lines.push('    </team_member>');
+        continue;
+      }
+
+      lines.push(`    <team_member id="${this.esc(member.id)}" name="${this.esc(member.name)}" role="${this.esc(member.role)}" />`);
+    }
+
+    lines.push('  </team_context>');
+    return lines.join('\n');
+  }
+
+  private buildCoordinationContext(manifest: MaestroManifest): string | null {
+    if (!isCoordinatedMode(manifest.mode) || !manifest.coordinatorSessionId) {
+      return null;
+    }
+
+    const lines: string[] = ['  <coordination_context>'];
+    lines.push(`    <coordinator_session_id>${this.esc(manifest.coordinatorSessionId)}</coordinator_session_id>`);
+
+    if (manifest.initialDirective) {
+      lines.push('    <directive>');
+      lines.push(`      <subject>${this.raw(manifest.initialDirective.subject)}</subject>`);
+      lines.push(`      <message>${this.raw(manifest.initialDirective.message)}</message>`);
+      lines.push(`      <from_session_id>${this.esc(manifest.initialDirective.fromSessionId)}</from_session_id>`);
+      lines.push('    </directive>');
+    }
+
+    lines.push('  </coordination_context>');
+    return lines.join('\n');
+  }
+
+  private resolveSelfIds(manifest: MaestroManifest): Set<string> {
+    const selfIds = new Set<string>();
+    if (manifest.teamMemberId) {
+      selfIds.add(manifest.teamMemberId);
+    }
+    if (manifest.teamMemberProfiles) {
+      for (const profile of manifest.teamMemberProfiles) {
+        if (profile.id) {
+          selfIds.add(profile.id);
+        }
+      }
+    }
+    return selfIds;
+  }
+
+  private teamContextInstruction(lens: TeamContextLens): string {
+    if (lens === 'full_expertise') {
+      return 'Full team expertise context. Use it to coordinate with member strengths, model/tool fit, and execution constraints.';
+    }
+    return 'Slim team roster for delegation and discovery. Use id, name, and role to assign work.';
+  }
+
+  private buildCommandPermissions(
+    commandPermissions: TeamMemberProfile['commandPermissions'] | TeamMemberData['commandPermissions'] | undefined,
+    indent: string,
+  ): string | null {
+    if (!commandPermissions) return null;
+
+    const lines: string[] = [`${indent}<command_permissions>`];
+    let hasEntries = false;
+
+    if (commandPermissions.groups && Object.keys(commandPermissions.groups).length > 0) {
+      hasEntries = true;
+      lines.push(`${indent}  <groups>`);
+      for (const [group, enabled] of Object.entries(commandPermissions.groups).sort(([a], [b]) => a.localeCompare(b))) {
+        lines.push(`${indent}    <permission name="${this.esc(group)}" enabled="${enabled}" />`);
+      }
+      lines.push(`${indent}  </groups>`);
+    }
+
+    if (commandPermissions.commands && Object.keys(commandPermissions.commands).length > 0) {
+      hasEntries = true;
+      lines.push(`${indent}  <commands>`);
+      for (const [command, enabled] of Object.entries(commandPermissions.commands).sort(([a], [b]) => a.localeCompare(b))) {
+        lines.push(`${indent}    <permission name="${this.esc(command)}" enabled="${enabled}" />`);
+      }
+      lines.push(`${indent}  </commands>`);
+    }
+
+    lines.push(`${indent}</command_permissions>`);
+    if (!hasEntries) return null;
+    return lines.join('\n');
+  }
+
+  private buildIdentity(mode: AgentMode, manifest?: MaestroManifest): string {
+    const lines = ['  <identity>'];
+    const { profile, instruction } = this.resolveModeIdentity(mode);
 
     lines.push(`    <profile>${profile}</profile>`);
     lines.push(`    <instruction>${instruction}</instruction>`);
@@ -217,7 +453,7 @@ export class PromptBuilder {
       // P1.5: Use roles (not names) for the expertise instruction
       const roleList = profiles.map(p => p.role || p.name).join(', ');
 
-      const lines = ['  <team_member_identity>'];
+      const lines = ['  <available_team_members>'];
       lines.push(`    <name>${this.esc(combinedName)}</name>`);
       lines.push(`    <avatar>${this.esc(profiles[0].avatar)}</avatar>`);
       // P3.1: Combined role element
@@ -227,7 +463,7 @@ export class PromptBuilder {
         lines.push(`    <expertise source="${this.esc(profile.name)}">${this.raw(profile.identity)}</expertise>`);
       }
       // Add team member expertise blocks if this is a coordinator
-      if (isCoordinatorMode(manifest.mode) && manifest.teamMembers) {
+      if (isCoordinatorMode(manifest.mode) && manifest.availableTeamMembers) {
         const selfIds = new Set<string>();
         if (manifest.teamMemberId) {
           selfIds.add(manifest.teamMemberId);
@@ -237,7 +473,7 @@ export class PromptBuilder {
             if (p.id) selfIds.add(p.id);
           }
         }
-        for (const member of manifest.teamMembers) {
+        for (const member of manifest.availableTeamMembers) {
           if (selfIds.has(member.id)) continue;
           if (!member.identity) continue;
           lines.push(`    <expertise source="${this.esc(member.name)}">${this.raw(member.identity)}</expertise>`);
@@ -252,7 +488,7 @@ export class PromptBuilder {
         }
         lines.push('    </memory>');
       }
-      lines.push('  </team_member_identity>');
+      lines.push('  </available_team_members>');
       return lines.join('\n');
     }
 
@@ -260,7 +496,7 @@ export class PromptBuilder {
     if (manifest.teamMemberProfiles && manifest.teamMemberProfiles.length === 1) {
       const profile = manifest.teamMemberProfiles[0];
       if (!profile.identity) return null;
-      const lines = ['  <team_member_identity>'];
+      const lines = ['  <available_team_members>'];
       lines.push(`    <name>${this.esc(profile.name)}</name>`);
       lines.push(`    <avatar>${this.esc(profile.avatar)}</avatar>`);
       // P3.1: Add role element
@@ -269,7 +505,7 @@ export class PromptBuilder {
       }
       lines.push(`    <instructions>${this.raw(profile.identity)}</instructions>`);
       // Add team member expertise blocks if this is a coordinator
-      if (isCoordinatorMode(manifest.mode) && manifest.teamMembers) {
+      if (isCoordinatorMode(manifest.mode) && manifest.availableTeamMembers) {
         const selfIds = new Set<string>();
         if (manifest.teamMemberId) {
           selfIds.add(manifest.teamMemberId);
@@ -279,7 +515,7 @@ export class PromptBuilder {
             if (p.id) selfIds.add(p.id);
           }
         }
-        for (const member of manifest.teamMembers) {
+        for (const member of manifest.availableTeamMembers) {
           if (selfIds.has(member.id)) continue;
           if (!member.identity) continue;
           lines.push(`    <expertise source="${this.esc(member.name)}">${this.raw(member.identity)}</expertise>`);
@@ -292,7 +528,7 @@ export class PromptBuilder {
         }
         lines.push('    </memory>');
       }
-      lines.push('  </team_member_identity>');
+      lines.push('  </available_team_members>');
       return lines.join('\n');
     }
 
@@ -300,7 +536,7 @@ export class PromptBuilder {
     if (!manifest.teamMemberId || !manifest.teamMemberName) return null;
     if (manifest.teamMemberIdentity === undefined || manifest.teamMemberIdentity === null) return null;
 
-    const lines = ['  <team_member_identity>'];
+    const lines = ['  <available_team_members>'];
     lines.push(`    <name>${this.esc(manifest.teamMemberName)}</name>`);
     if (manifest.teamMemberAvatar) {
       lines.push(`    <avatar>${this.esc(manifest.teamMemberAvatar)}</avatar>`);
@@ -313,12 +549,12 @@ export class PromptBuilder {
       lines.push(`    <instructions>${this.raw(manifest.teamMemberIdentity)}</instructions>`);
     }
     // Add team member expertise blocks if this is a coordinator
-    if (isCoordinatorMode(manifest.mode) && manifest.teamMembers) {
+    if (isCoordinatorMode(manifest.mode) && manifest.availableTeamMembers) {
       const selfIds = new Set<string>();
       if (manifest.teamMemberId) {
         selfIds.add(manifest.teamMemberId);
       }
-      for (const member of manifest.teamMembers) {
+      for (const member of manifest.availableTeamMembers) {
         if (selfIds.has(member.id)) continue;
         if (!member.identity) continue;
         lines.push(`    <expertise source="${this.esc(member.name)}">${this.raw(member.identity)}</expertise>`);
@@ -331,7 +567,7 @@ export class PromptBuilder {
       }
       lines.push('    </memory>');
     }
-    lines.push('  </team_member_identity>');
+    lines.push('  </available_team_members>');
     return lines.join('\n');
   }
 
@@ -345,7 +581,7 @@ export class PromptBuilder {
       lines.push(`      <title>${this.esc(t.title)}</title>`);
       lines.push(`      <description>${this.raw(t.description)}</description>`);
       if (t.parentId) {
-        lines.push(`      <parent_id>${this.esc(t.parentId)}</parent_id>`);
+        lines.push(`      <parent_task_id>${this.esc(t.parentId)}</parent_task_id>`);
       }
       if (t.status) {
         lines.push(`      <status>${this.esc(t.status)}</status>`);

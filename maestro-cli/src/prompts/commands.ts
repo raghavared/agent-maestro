@@ -23,7 +23,7 @@ export const COMMAND_GROUP_META: Record<string, { prefix: string; description: s
   modal: { prefix: 'maestro modal', description: 'Modal interaction' },
 };
 
-// ── Static commands reference (used in WhoamiRenderer via generateCompactCommandBrief) ──
+// ── Static commands reference ──
 
 export const COMMANDS_REFERENCE_HEADER = (mode: AgentMode) => `## Maestro ${mode} Commands`;
 
@@ -154,7 +154,7 @@ export const CMD_DESC = {
 
   // Utility
   'track-file': 'Track file modification',
-  'debug-prompt': 'Show system and initial prompts sent to agent',
+  'debug-prompt': 'Show system and task prompts sent to agent',
 } as const;
 
 // ── Command syntax (used for help and prompt generation) ────
@@ -242,6 +242,7 @@ export const CMD_SYNTAX: Record<string, string> = {
   'team:add-sub-team': 'maestro team add-sub-team <teamId> <subTeamId>',
   'team:remove-sub-team': 'maestro team remove-sub-team <teamId> <subTeamId>',
   'team:tree': 'maestro team tree <teamId>',
+  'debug-prompt': 'maestro debug-prompt [--manifest <path>] [--session <id>] [--system-only] [--task-only|--initial-only] [--raw]',
   'worker:init': 'maestro worker init',
   'orchestrator:init': 'maestro orchestrator init',
 };

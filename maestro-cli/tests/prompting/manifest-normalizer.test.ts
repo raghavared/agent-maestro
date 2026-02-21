@@ -31,6 +31,7 @@ describe('manifest-normalizer', () => {
 
     expect(result.manifest.mode).toBe('worker');
     expect(result.legacyModeNormalized).toBe(true);
+    expect(result.errors).toEqual([]);
   });
 
   it('normalizes legacy coordinate mode to coordinated-coordinator when coordinator session exists', () => {
@@ -42,6 +43,7 @@ describe('manifest-normalizer', () => {
     const result = normalizeManifest(manifest);
 
     expect(result.manifest.mode).toBe('coordinated-coordinator');
+    expect(result.errors[0]).toContain('requires exactly one self profile');
   });
 
   it('builds teamMemberProfiles from legacy singular team member fields', () => {
@@ -71,5 +73,92 @@ describe('manifest-normalizer', () => {
 
     expect(result.deprecatedWorkflowFieldsPresent).toBe(true);
     expect(result.warnings.some((message) => message.includes('Deprecated workflow fields'))).toBe(true);
+  });
+
+  it('dedupes team members and filters self from availableTeamMembers', () => {
+    const manifest = buildManifest({
+      teamMemberProfiles: [
+        {
+          id: 'tm-self',
+          name: 'Self',
+          avatar: 'S',
+          identity: 'Self profile',
+        },
+      ],
+      availableTeamMembers: [
+        {
+          id: 'tm-self',
+          name: 'Self',
+          role: 'Engineer',
+          identity: 'Self identity',
+          avatar: 'S',
+        },
+        {
+          id: 'tm-a',
+          name: 'Alice',
+          role: 'Engineer',
+          identity: 'A identity',
+          avatar: 'A',
+        },
+        {
+          id: 'tm-a',
+          name: 'Alice duplicate',
+          role: 'Engineer',
+          identity: 'A identity duplicate',
+          avatar: 'A',
+        },
+      ],
+    });
+
+    const result = normalizeManifest(manifest);
+    expect(result.errors).toEqual([]);
+    expect(result.manifest.availableTeamMembers).toHaveLength(1);
+    expect(result.manifest.availableTeamMembers?.[0].id).toBe('tm-a');
+    expect(result.warnings.some((message) => message.includes('Removed duplicate team member'))).toBe(true);
+    expect(result.warnings.some((message) => message.includes('Filtered 1 self team member'))).toBe(true);
+  });
+
+  it('enforces strict single-self cardinality for coordinator modes by default', () => {
+    const noSelf = normalizeManifest(buildManifest({
+      mode: 'coordinator',
+      teamMemberProfiles: [],
+    }));
+    const multiSelf = normalizeManifest(buildManifest({
+      mode: 'coordinator',
+      teamMemberProfiles: [
+        { id: 'tm-1', name: 'A', avatar: 'A', identity: 'A' },
+        { id: 'tm-2', name: 'B', avatar: 'B', identity: 'B' },
+      ],
+    }));
+
+    expect(noSelf.errors[0]).toContain('requires exactly one self profile');
+    expect(multiSelf.errors[0]).toContain('requires exactly one self profile');
+  });
+
+  it('supports permissive coordinator fallback and chooses deterministic-first self profile', () => {
+    const result = normalizeManifest(
+      buildManifest({
+        mode: 'coordinator',
+        teamMemberProfiles: [
+          { id: 'tm-2', name: 'B', avatar: 'B', identity: 'B' },
+          { id: 'tm-1', name: 'A', avatar: 'A', identity: 'A' },
+        ],
+      }),
+      { coordinatorSelfIdentityPolicy: 'permissive' },
+    );
+
+    expect(result.errors).toEqual([]);
+    expect(result.manifest.teamMemberProfiles).toHaveLength(1);
+    expect(result.manifest.teamMemberProfiles?.[0].id).toBe('tm-2');
+    expect(result.warnings.some((message) => message.includes('deterministic first profile'))).toBe(true);
+  });
+
+  it('enforces coordinatorSessionId in coordinated modes', () => {
+    const result = normalizeManifest(buildManifest({
+      mode: 'coordinated-worker',
+      coordinatorSessionId: undefined,
+    }));
+
+    expect(result.errors[0]).toContain('requires coordinatorSessionId');
   });
 });

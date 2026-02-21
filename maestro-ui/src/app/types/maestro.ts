@@ -325,6 +325,7 @@ export interface MaestroSession {
   name: string;
   agentId?: string;
   env: Record<string, string>;
+  metadata?: Record<string, any>;
   status: MaestroSessionStatus;
   startedAt: number;
   lastActivity: number;

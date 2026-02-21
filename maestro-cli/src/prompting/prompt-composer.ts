@@ -28,11 +28,20 @@ export class PromptComposer {
   private readonly promptBuilder: PromptBuilder;
 
   constructor() {
-    this.promptBuilder = new PromptBuilder('xml');
+    this.promptBuilder = new PromptBuilder();
   }
 
   compose(manifest: MaestroManifest, runtime: PromptRuntimeContext = {}): PromptEnvelope {
-    const normalized = normalizeManifest(manifest).manifest;
+    const enforceIdentityContract = config.promptIdentityV2;
+    const normalizedResult = normalizeManifest(manifest, {
+      coordinatorSelfIdentityPolicy: enforceIdentityContract
+        ? config.promptIdentityCardinalityPolicy
+        : 'permissive',
+    });
+    if (enforceIdentityContract && normalizedResult.errors.length > 0) {
+      throw new Error(`Manifest normalization failed: ${normalizedResult.errors.join(' | ')}`);
+    }
+    const normalized = normalizedResult.manifest;
     const capabilities = resolveCapabilitySet(normalized, {
       isMasterSession: normalized.isMaster || config.isMaster,
     });
@@ -92,9 +101,11 @@ export class PromptComposer {
   private renderCapabilitySummary(flags: CapabilityFlags): string {
     const lines: string[] = ['  <capability_summary>'];
 
-    const orderedKeys = Object.keys(flags).sort();
+    const orderedKeys = Object.keys(flags)
+      .filter((key) => Boolean(flags[key as keyof CapabilityFlags]))
+      .sort();
     for (const key of orderedKeys) {
-      lines.push(`    <capability name="${this.esc(key)}" enabled="${flags[key as keyof CapabilityFlags]}" />`);
+      lines.push(`    <capability name="${this.esc(key)}" enabled="true" />`);
     }
 
     lines.push('  </capability_summary>');
@@ -109,9 +120,6 @@ export class PromptComposer {
 
     if (resolvedSessionId) {
       lines.push(`    <session_id>${this.esc(resolvedSessionId)}</session_id>`);
-    }
-    if (manifest.coordinatorSessionId) {
-      lines.push(`    <coordinator_session_id>${this.esc(manifest.coordinatorSessionId)}</coordinator_session_id>`);
     }
     if (projectId) {
       lines.push(`    <project_id>${this.esc(projectId)}</project_id>`);

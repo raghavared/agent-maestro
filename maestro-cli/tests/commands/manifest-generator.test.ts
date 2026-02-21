@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ManifestGenerator } from '../../src/commands/manifest-generator.js';
+import { ManifestGenerator, resolveSelfIdentityMemberIds } from '../../src/commands/manifest-generator.js';
 import type { MaestroManifest } from '../../src/types/manifest.js';
 
 describe('ManifestGenerator', () => {
@@ -130,6 +130,23 @@ describe('ManifestGenerator', () => {
       // This test would require mocking the API
       // For now, just verify the method exists
       expect(generator.generateFromApi).toBeDefined();
+    });
+  });
+
+  describe('resolveSelfIdentityMemberIds', () => {
+    it('keeps multi-self identities for worker modes', () => {
+      const ids = resolveSelfIdentityMemberIds('worker', undefined, ['tm-a', 'tm-b']);
+      expect(ids).toEqual(['tm-a', 'tm-b']);
+    });
+
+    it('restricts coordinator self identity to one profile when team-member-id is not provided', () => {
+      const ids = resolveSelfIdentityMemberIds('coordinator', undefined, ['tm-a', 'tm-b', 'tm-c']);
+      expect(ids).toEqual(['tm-a']);
+    });
+
+    it('prioritizes explicit team-member-id for coordinator modes', () => {
+      const ids = resolveSelfIdentityMemberIds('coordinator', 'tm-self', ['tm-a', 'tm-b']);
+      expect(ids).toEqual(['tm-self']);
     });
   });
 

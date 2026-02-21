@@ -19,7 +19,6 @@ import {
   groupCommandsByParent,
   getDefaultCommandsForMode,
 } from '../prompting/command-catalog.js';
-import { renderCommandSurface } from '../prompting/command-surface-renderer.js';
 import { normalizeManifest } from '../prompting/manifest-normalizer.js';
 
 export type CommandDefinition = CommandCatalogEntry;
@@ -53,19 +52,6 @@ function toPermissions(set: CapabilitySet): CommandPermissions {
     loadedFromManifest: set.loadedFromManifest,
     resolution: set.resolution,
     capabilities: set.capabilities,
-  };
-}
-
-function toCapabilitySet(manifest: MaestroManifest, permissions: CommandPermissions): CapabilitySet {
-  return {
-    mode: permissions.mode,
-    allowedCommands: permissions.allowedCommands,
-    hiddenCommands: permissions.hiddenCommands,
-    loadedFromManifest: permissions.loadedFromManifest,
-    resolution: permissions.resolution || 'manifest',
-    capabilities: permissions.capabilities || resolveCapabilitySet(manifest, {
-      isMasterSession: manifest.isMaster || config.isMaster,
-    }).capabilities,
   };
 }
 
@@ -191,16 +177,6 @@ export function guardCommandSync(commandName: string): boolean {
 
 export function getCommandSyntax(commandName: string): string {
   return getCatalogCommandSyntax(commandName);
-}
-
-export function generateCommandBrief(manifest: MaestroManifest, permissions: CommandPermissions): string {
-  const capabilitySet = toCapabilitySet(manifest, permissions);
-  return renderCommandSurface(manifest.mode, capabilitySet, { compact: false });
-}
-
-export function generateCompactCommandBrief(manifest: MaestroManifest, permissions: CommandPermissions): string {
-  const capabilitySet = toCapabilitySet(manifest, permissions);
-  return renderCommandSurface(manifest.mode, capabilitySet, { compact: true });
 }
 
 export function getCommandCatalogEntries(): CommandDefinition[] {

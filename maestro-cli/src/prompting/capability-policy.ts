@@ -1,4 +1,5 @@
 import type { AgentMode, MaestroManifest } from '../types/manifest.js';
+import { isCoordinatedMode } from '../types/manifest.js';
 import {
   getAllCommandIds,
   getCommandById,
@@ -137,7 +138,11 @@ function applyExplicitAllowlist(manifest: MaestroManifest, mode: AgentMode): Set
   return filtered;
 }
 
-function buildCapabilityFlags(allowedCommands: string[], overrides?: Record<string, boolean>): CapabilityFlags {
+function buildCapabilityFlags(
+  mode: AgentMode,
+  allowedCommands: string[],
+  overrides?: Record<string, boolean>,
+): CapabilityFlags {
   const allowed = new Set(allowedCommands);
   const flags: CapabilityFlags = {
     canSpawnSessions: allowed.has('session:spawn'),
@@ -150,7 +155,7 @@ function buildCapabilityFlags(allowedCommands: string[], overrides?: Record<stri
     canManageTeamMembers: allowed.has('team-member:create') || allowed.has('team-member:edit'),
     canManageTeams: allowed.has('team:create') || allowed.has('team:edit'),
     canUseMasterCommands: allowed.has('master:projects') || allowed.has('master:context'),
-    canPromptOtherSessions: allowed.has('session:prompt'),
+    canPromptOtherSessions: isCoordinatedMode(mode) && allowed.has('session:prompt'),
     canUseModal: allowed.has('show:modal') || allowed.has('modal:events'),
   };
 
@@ -195,7 +200,7 @@ export function resolveCapabilitySet(
     mode,
     allowedCommands,
     hiddenCommands,
-    capabilities: buildCapabilityFlags(allowedCommands, manifest.teamMemberCapabilities),
+    capabilities: buildCapabilityFlags(mode, allowedCommands, manifest.teamMemberCapabilities),
     loadedFromManifest: true,
     resolution: 'manifest',
   };
@@ -208,7 +213,7 @@ export function resolveNoManifestCapabilities(mode: AgentMode = 'worker'): Capab
     mode,
     allowedCommands,
     hiddenCommands: [],
-    capabilities: buildCapabilityFlags(allowedCommands),
+    capabilities: buildCapabilityFlags(mode, allowedCommands),
     loadedFromManifest: false,
     resolution: 'no-manifest',
   };
@@ -241,7 +246,7 @@ export function resolveManifestFailureCapabilities(
     mode,
     allowedCommands,
     hiddenCommands,
-    capabilities: buildCapabilityFlags(allowedCommands),
+    capabilities: buildCapabilityFlags(mode, allowedCommands),
     loadedFromManifest: false,
     resolution: 'fallback',
   };

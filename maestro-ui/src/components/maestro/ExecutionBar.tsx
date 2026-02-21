@@ -293,9 +293,9 @@ export function ExecutionBar({
 
     const activeMembers = teamMembers.filter(m => m.status === 'active' && (!projectId || m.projectId === projectId));
 
-    // For orchestrate: coordinators have mode=coordinate, workers have mode=execute
+    // For orchestrate: coordinator is selected separately; roster can include any active member mode.
     const coordinatorMembers = activeMembers.filter(m => m.mode === 'coordinator' || m.mode === 'coordinated-coordinator' || (m.mode as string) === 'coordinate');
-    const workerMembers = activeMembers.filter(m => m.mode === 'worker' || m.mode === 'coordinated-worker' || (m.mode as string) === 'execute' || !m.mode);
+    const workerMembers = activeMembers;
 
     // Derive strategy from selected team member for WhoamiPreview
     const selectedExecuteMember = activeMembers.find(m => m.id === selectedExecuteMemberId);
@@ -437,7 +437,7 @@ export function ExecutionBar({
                             accentColor="var(--terminal-amber, #ffab00)"
                         />
                         <TeamMemberMultiDropdown
-                            label="Workers"
+                            label="Team Roster"
                             members={workerMembers}
                             selectedIds={selectedWorkerIds}
                             onToggle={(id) => {
@@ -478,7 +478,7 @@ export function ExecutionBar({
                                 )}
                                 disabled={selectedCount === 0}
                             >
-                                <span className="terminalPrompt">$</span> orchestrate ({selectedCount} task{selectedCount !== 1 ? "s" : ""}{totalWorkerCount > 0 ? `, ${totalWorkerCount} worker${totalWorkerCount !== 1 ? 's' : ''}` : ''})
+                                <span className="terminalPrompt">$</span> orchestrate ({selectedCount} task{selectedCount !== 1 ? "s" : ""}{totalWorkerCount > 0 ? `, ${totalWorkerCount} member${totalWorkerCount !== 1 ? 's' : ''}` : ''})
                             </button>
                         </div>
                     </div>

@@ -29,7 +29,7 @@ type MaestroPanelProps = {
     onClose: () => void;
     projectId: string;
     project: MaestroProject;
-    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy | OrchestratorStrategy; mode?: AgentModeInput; teamMemberIds?: string[]; teamMemberId?: string; agentTool?: AgentTool; model?: ModelType; memberOverrides?: Record<string, MemberLaunchOverride> }) => Promise<any>;
+    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy | OrchestratorStrategy; mode?: AgentModeInput; teamMemberIds?: string[]; teamMemberId?: string; delegateTeamMemberIds?: string[]; agentTool?: AgentTool; model?: ModelType; memberOverrides?: Record<string, MemberLaunchOverride> }) => Promise<any>;
     onJumpToSession?: (maestroSessionId: string) => void;
     onAddTaskToSession?: (taskId: string) => void;
 };
@@ -383,7 +383,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 mode: 'coordinator',
                 skillIds: ['maestro-orchestrator'],
                 teamMemberId: coordinatorId,
-                teamMemberIds: workerIds && workerIds.length > 0 ? workerIds : undefined,
+                delegateTeamMemberIds: workerIds && workerIds.length > 0 ? workerIds : undefined,
                 ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
                 ...(memberOverrides && Object.keys(memberOverrides).length > 0 ? { memberOverrides } : {}),
             });
@@ -547,7 +547,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 project,
                 mode: 'coordinator',
                 teamMemberId: leader.id,
-                teamMemberIds: delegateIds.length > 0 ? delegateIds : undefined,
+                delegateTeamMemberIds: delegateIds.length > 0 ? delegateIds : undefined,
             });
         } catch (err: any) {
             setError(`Failed to start team session: ${err.message}`);

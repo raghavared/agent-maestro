@@ -10,6 +10,9 @@
 /** Agent mode — four-mode model covering all session scenarios */
 export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coordinated-coordinator';
 
+/** Team context lens used by the prompt identity v2 contract */
+export type TeamContextLens = 'full_expertise' | 'slim_roster';
+
 /** Legacy mode aliases for backward compatibility */
 export type LegacyAgentMode = 'execute' | 'coordinate';
 
@@ -40,6 +43,16 @@ export function normalizeMode(mode: AgentModeInput, hasCoordinator?: boolean): A
     return hasCoordinator ? 'coordinated-coordinator' : 'coordinator';
   }
   return mode as AgentMode;
+}
+
+/** Helper: does this mode require exactly one self identity profile? */
+export function requiresSingleSelfIdentity(mode: AgentModeInput): boolean {
+  return mode === 'coordinator' || mode === 'coordinated-coordinator' || mode === 'coordinate';
+}
+
+/** Resolve team context lens for a mode */
+export function resolveTeamContextLensForMode(mode: AgentModeInput): TeamContextLens {
+  return isWorkerMode(mode) ? 'full_expertise' : 'slim_roster';
 }
 
 /** Supported agent tools */
@@ -74,7 +87,7 @@ export interface MaestroManifest {
   referenceTaskIds?: string[];
 
   /** Team members available for coordination (only in coordinate mode) */
-  teamMembers?: TeamMemberData[];
+  availableTeamMembers?: TeamMemberData[];
 
   /** Team member ID for this session (single team member running this session) */
   teamMemberId?: string;

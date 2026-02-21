@@ -117,6 +117,7 @@ function computeStripStats(messages: ParsedMessage[]): StripStats {
 
 export function SessionLogStrip({ cwd, maestroSessionId, agentTool }: SessionLogStripProps) {
   const provider = resolveLogProvider(agentTool);
+  const [resolvedProvider, setResolvedProvider] = useState<LogProvider>(provider);
   const [allMessages, setAllMessages] = useState<ParsedMessage[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -143,23 +144,36 @@ export function SessionLogStrip({ cwd, maestroSessionId, agentTool }: SessionLog
   useEffect(() => {
     let cancelled = false;
 
-    const search = () => {
-      const listCommand = provider === 'codex' ? 'list_codex_session_logs' : 'list_claude_session_logs';
-      invoke<ClaudeLogFile[]>(listCommand, { cwd })
-        .then((files) => {
+    // Reset discovery state when source inputs change.
+    setReady(false);
+    setSelectedFile(null);
+    setResolvedProvider(provider);
+
+    const providerOrder: LogProvider[] = provider === 'codex'
+      ? ['codex', 'claude']
+      : ['claude', 'codex'];
+
+    const search = async () => {
+      for (const candidate of providerOrder) {
+        try {
+          const listCommand = candidate === 'codex' ? 'list_codex_session_logs' : 'list_claude_session_logs';
+          const files = await invoke<ClaudeLogFile[]>(listCommand, { cwd });
           if (cancelled) return;
           const match = files.find((f) => f.maestroSessionId === maestroSessionId);
           if (match) {
             setSelectedFile(getLogFilePath(match));
+            setResolvedProvider(candidate);
             setReady(true);
-          } else {
-            // File not created yet — retry
-            setTimeout(search, POLL_INTERVAL);
+            return;
           }
-        })
-        .catch(() => {
-          if (!cancelled) setTimeout(search, POLL_INTERVAL);
-        });
+        } catch {
+          // Try the next provider.
+        }
+      }
+
+      if (!cancelled) {
+        setTimeout(search, POLL_INTERVAL);
+      }
     };
 
     search();
@@ -172,7 +186,7 @@ export function SessionLogStrip({ cwd, maestroSessionId, agentTool }: SessionLog
     setAllMessages([]);
     offsetRef.current = 0;
 
-    const readCommand = provider === 'codex' ? 'read_codex_session_log' : 'read_claude_session_log';
+    const readCommand = resolvedProvider === 'codex' ? 'read_codex_session_log' : 'read_claude_session_log';
     invoke<string>(readCommand, { cwd, filename: selectedFile })
       .then((content) => {
         const messages = parseJsonlText(content);
@@ -181,7 +195,7 @@ export function SessionLogStrip({ cwd, maestroSessionId, agentTool }: SessionLog
         setTimeout(autoScroll, 50);
       })
       .catch(() => {});
-  }, [cwd, selectedFile, autoScroll, provider]);
+  }, [cwd, selectedFile, autoScroll, resolvedProvider]);
 
   // Live polling
   useEffect(() => {
@@ -189,7 +203,7 @@ export function SessionLogStrip({ cwd, maestroSessionId, agentTool }: SessionLog
 
     const poll = async () => {
       try {
-        const tailCommand = provider === 'codex' ? 'tail_codex_session_log' : 'tail_claude_session_log';
+        const tailCommand = resolvedProvider === 'codex' ? 'tail_codex_session_log' : 'tail_claude_session_log';
         const result = await invoke<LogTailResult>(tailCommand, {
           cwd,
           filename: selectedFile,
@@ -210,7 +224,7 @@ export function SessionLogStrip({ cwd, maestroSessionId, agentTool }: SessionLog
 
     const interval = setInterval(poll, POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [selectedFile, cwd, autoScroll, provider]);
+  }, [selectedFile, cwd, autoScroll, resolvedProvider]);
 
   const { groups, isOngoing, stats } = useMemo(() => {
     if (allMessages.length === 0) {
