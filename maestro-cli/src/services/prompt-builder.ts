@@ -9,7 +9,6 @@ import type {
   MasterProjectInfo,
 } from '../types/manifest.js';
 import { isWorkerMode, isCoordinatorMode } from '../types/manifest.js';
-import { getWorkflowTemplate } from './workflow-templates.js';
 import {
   WORKER_PROFILE,
   COORDINATOR_PROFILE,
@@ -20,25 +19,6 @@ import {
   COORDINATED_WORKER_IDENTITY_INSTRUCTION,
   COORDINATED_COORDINATOR_IDENTITY_INSTRUCTION,
   buildMultiIdentityInstruction,
-  // Worker mode phases
-  WORKER_INIT_PHASE,
-  WORKER_EXECUTE_PHASE,
-  WORKER_COMPLETE_PHASE,
-  // Coordinated-worker mode phases
-  COORDINATED_WORKER_INIT_PHASE,
-  COORDINATED_WORKER_EXECUTE_PHASE,
-  COORDINATED_WORKER_COMPLETE_PHASE,
-  // Coordinator mode phases
-  COORDINATOR_ANALYZE_PHASE,
-  COORDINATOR_DECOMPOSE_PHASE,
-  COORDINATOR_SPAWN_PHASE,
-  COORDINATOR_MONITOR_PHASE,
-  COORDINATOR_RECOVER_PHASE,
-  COORDINATOR_VERIFY_PHASE,
-  COORDINATOR_COMPLETE_PHASE,
-  // Coordinated-coordinator mode phases
-  COORDINATED_COORDINATOR_ANALYZE_PHASE,
-  COORDINATED_COORDINATOR_COMPLETE_PHASE,
   ACCEPTANCE_CRITERIA_PLACEHOLDER_PATTERNS,
 } from '../prompts/index.js';
 
@@ -83,7 +63,6 @@ export class PromptBuilder {
     // Team members roster
     const teamMembers = this.buildTeamMembers(manifest.teamMembers, mode, manifest);
     if (teamMembers) parts.push(teamMembers);
-    parts.push(this.buildWorkflow(mode, manifest));
     // Master project context (if this is a master session)
     const masterContext = this.buildMasterProjectContext(manifest);
     if (masterContext) parts.push(masterContext);
@@ -182,7 +161,6 @@ export class PromptBuilder {
     if (xmlTeamMembers) parts.push(xmlTeamMembers);
 
     // Workflow
-    parts.push(this.buildWorkflow(mode, manifest));
 
     // Master project context (if this is a master session)
     const xmlMasterContext = this.buildMasterProjectContext(manifest);
@@ -626,141 +604,6 @@ export class PromptBuilder {
     return lines.join('\n');
   }
 
-  private buildWorkflow(mode: AgentMode, manifest?: MaestroManifest): string {
-    // Multi-identity: merge workflows from all profiles
-    if (manifest?.teamMemberProfiles && manifest.teamMemberProfiles.length > 1) {
-      const allPhases: { name: string; description: string }[] = [];
-      const seenPhaseNames = new Set<string>();
-
-      for (const profile of manifest.teamMemberProfiles) {
-        if (profile.customWorkflow) {
-          // Custom freeform — add as a single phase
-          const phaseName = `custom_${profile.name.toLowerCase().replace(/\s+/g, '_')}`;
-          if (!seenPhaseNames.has(phaseName)) {
-            allPhases.push({ name: phaseName, description: profile.customWorkflow });
-            seenPhaseNames.add(phaseName);
-          }
-        } else if (profile.workflowTemplateId) {
-          const template = getWorkflowTemplate(profile.workflowTemplateId);
-          if (template) {
-            for (const phase of template.phases) {
-              if (!seenPhaseNames.has(phase.name)) {
-                allPhases.push({ name: phase.name, description: phase.instruction });
-                seenPhaseNames.add(phase.name);
-              }
-            }
-          }
-        }
-      }
-
-      // If we collected phases from profiles, use them; otherwise fall through to defaults
-      if (allPhases.length > 0) {
-        const lines = ['  <workflow>'];
-        for (let i = 0; i < allPhases.length; i++) {
-          const phase = allPhases[i];
-          lines.push(`    <phase name="${phase.name}" order="${i + 1}">${phase.description}</phase>`);
-        }
-        lines.push('  </workflow>');
-        return lines.join('\n');
-      }
-      // Fall through to default mode-based workflow
-    }
-
-    // Phase 3: Check for custom workflow or template from team member (singular)
-    if (manifest?.teamMemberCustomWorkflow) {
-      // P1.4: Wrap in <phase> tags for consistency with template-based rendering
-      const lines = ['  <workflow>'];
-      lines.push(`    <phase name="custom" order="1">${this.raw(manifest.teamMemberCustomWorkflow)}</phase>`);
-      lines.push('  </workflow>');
-      return lines.join('\n');
-    }
-
-    if (manifest?.teamMemberWorkflowTemplateId) {
-      const template = getWorkflowTemplate(manifest.teamMemberWorkflowTemplateId);
-      if (template) {
-        const lines = ['  <workflow>'];
-        for (let i = 0; i < template.phases.length; i++) {
-          const phase = template.phases[i];
-          const order = phase.order ?? (i + 1);
-          lines.push(`    <phase name="${phase.name}" order="${order}">${phase.instruction}</phase>`);
-        }
-        lines.push('  </workflow>');
-        return lines.join('\n');
-      }
-    }
-
-    // Default: compute from mode
-    const phases = this.getWorkflowPhases(mode);
-    const lines = ['  <workflow>'];
-    for (const phase of phases) {
-      lines.push(`    <phase name="${phase.name}" order="${phase.order}">${phase.description}</phase>`);
-    }
-    lines.push('  </workflow>');
-    return lines.join('\n');
-  }
-
-  /**
-   * Default workflow phases by mode.
-   * Custom workflows are handled via team member workflow templates.
-   */
-  private getWorkflowPhases(mode: AgentMode): { name: string; description: string; order: number }[] {
-    switch (mode) {
-      case 'worker':
-        return [
-          { name: 'init', order: 1, description: WORKER_INIT_PHASE },
-          { name: 'execute', order: 2, description: WORKER_EXECUTE_PHASE },
-          { name: 'complete', order: 3, description: WORKER_COMPLETE_PHASE },
-        ];
-
-      case 'coordinated-worker':
-        return [
-          { name: 'init', order: 1, description: COORDINATED_WORKER_INIT_PHASE },
-          { name: 'execute', order: 2, description: COORDINATED_WORKER_EXECUTE_PHASE },
-          { name: 'complete', order: 3, description: COORDINATED_WORKER_COMPLETE_PHASE },
-        ];
-
-      case 'coordinator':
-        return [
-          { name: 'analyze', order: 1, description: COORDINATOR_ANALYZE_PHASE },
-          { name: 'decompose', order: 2, description: COORDINATOR_DECOMPOSE_PHASE },
-          { name: 'spawn', order: 3, description: COORDINATOR_SPAWN_PHASE },
-          { name: 'monitor', order: 4, description: COORDINATOR_MONITOR_PHASE },
-          { name: 'recover', order: 5, description: COORDINATOR_RECOVER_PHASE },
-          { name: 'verify', order: 6, description: COORDINATOR_VERIFY_PHASE },
-          { name: 'complete', order: 7, description: COORDINATOR_COMPLETE_PHASE },
-        ];
-
-      case 'coordinated-coordinator':
-        return [
-          { name: 'analyze', order: 1, description: COORDINATED_COORDINATOR_ANALYZE_PHASE },
-          { name: 'decompose', order: 2, description: COORDINATOR_DECOMPOSE_PHASE },
-          { name: 'spawn', order: 3, description: COORDINATOR_SPAWN_PHASE },
-          { name: 'monitor', order: 4, description: COORDINATOR_MONITOR_PHASE },
-          { name: 'recover', order: 5, description: COORDINATOR_RECOVER_PHASE },
-          { name: 'verify', order: 6, description: COORDINATOR_VERIFY_PHASE },
-          { name: 'complete', order: 7, description: COORDINATED_COORDINATOR_COMPLETE_PHASE },
-        ];
-
-      default:
-        // Fallback for any unrecognized mode (backward compat)
-        if (isWorkerMode(mode)) {
-          return [
-            { name: 'init', order: 1, description: WORKER_INIT_PHASE },
-            { name: 'execute', order: 2, description: WORKER_EXECUTE_PHASE },
-            { name: 'complete', order: 3, description: WORKER_COMPLETE_PHASE },
-          ];
-        }
-        return [
-          { name: 'analyze', order: 1, description: COORDINATOR_ANALYZE_PHASE },
-          { name: 'decompose', order: 2, description: COORDINATOR_DECOMPOSE_PHASE },
-          { name: 'spawn', order: 3, description: COORDINATOR_SPAWN_PHASE },
-          { name: 'monitor', order: 4, description: COORDINATOR_MONITOR_PHASE },
-          { name: 'recover', order: 5, description: COORDINATOR_RECOVER_PHASE },
-          { name: 'verify', order: 6, description: COORDINATOR_VERIFY_PHASE },
-          { name: 'complete', order: 7, description: COORDINATOR_COMPLETE_PHASE },
-        ];
-    }
-  }
 
   private buildMasterProjectContext(manifest: MaestroManifest): string | null {
     if (!manifest.isMaster) return null;

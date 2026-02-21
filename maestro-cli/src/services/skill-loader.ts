@@ -42,6 +42,10 @@ interface SkillDirectory {
   source: 'claude' | 'agents';
 }
 
+export interface SkillLoaderOptions {
+  includeGlobal?: boolean;
+}
+
 /**
  * Check if a skill directory has a valid skill file (SKILL.md or skill.md).
  * Returns the path to the skill file if found, null otherwise.
@@ -89,6 +93,7 @@ async function extractDescription(skillFilePath: string): Promise<string | undef
  */
 export class SkillLoader {
   private projectPath?: string;
+  private includeGlobal: boolean;
   private directories: SkillDirectory[];
 
   /**
@@ -96,17 +101,22 @@ export class SkillLoader {
    *
    * @param projectPath - Optional project root for project-scoped skills
    */
-  constructor(projectPath?: string) {
+  constructor(projectPath?: string, options: SkillLoaderOptions = {}) {
     this.projectPath = projectPath;
+    this.includeGlobal = options.includeGlobal ?? true;
     this.directories = this.buildDirectories();
   }
 
   private buildDirectories(): SkillDirectory[] {
     const home = homedir();
-    const dirs: SkillDirectory[] = [
-      { path: join(home, '.claude', 'skills'), scope: 'global', source: 'claude' },
-      { path: join(home, '.agents', 'skills'), scope: 'global', source: 'agents' },
-    ];
+    const dirs: SkillDirectory[] = [];
+
+    if (this.includeGlobal) {
+      dirs.push(
+        { path: join(home, '.claude', 'skills'), scope: 'global', source: 'claude' },
+        { path: join(home, '.agents', 'skills'), scope: 'global', source: 'agents' },
+      );
+    }
 
     if (this.projectPath) {
       dirs.push(
@@ -243,6 +253,6 @@ export const defaultSkillLoader = new SkillLoader();
 /**
  * Factory function to create a SkillLoader with optional project path
  */
-export function createSkillLoader(projectPath?: string): SkillLoader {
-  return new SkillLoader(projectPath);
+export function createSkillLoader(projectPath?: string, options: SkillLoaderOptions = {}): SkillLoader {
+  return new SkillLoader(projectPath, options);
 }

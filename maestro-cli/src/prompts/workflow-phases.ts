@@ -26,18 +26,11 @@ const SIBLING_COMMUNICATION_INSTRUCTION =
   '  1. Discover siblings: maestro session siblings\n' +
   '     Returns: session ID, name, role, status for each active peer\n' +
   '  2. Send a message:    maestro session prompt <siblingSessionId> --message "<your question or info>"\n' +
-  'Use peer messaging when another worker has context you need — they are all working on the same codebase.\n' +
-  'To send a persistent message (with PTY wakeup) to a sibling session:\n' +
-  '  maestro session notify <targetSessionId> --message "<brief>" [--detail "<longer context>"]\n' +
-  '  This sends a PTY wakeup AND stores a mail record for the recipient to read later.\n' +
-  'To read messages sent to you by siblings:\n' +
-  '  maestro session mail read';
+  'Use peer messaging when another worker has context you need — they are all working on the same codebase.\n';
 
 const COORDINATOR_REPORTING_INSTRUCTION =
-  'Notify your coordinator directly AFTER calling task report:\n' +
-  '  On task complete: maestro session prompt <coordinatorSessionId> --message "Task <taskId> complete: <summary>"\n' +
-  '  On blocked:       maestro session prompt <coordinatorSessionId> --message "BLOCKED on task <taskId>: <reason>"\n' +
-  '  On error:         maestro session prompt <coordinatorSessionId> --message "ERROR on task <taskId>: <description>"';
+  'Communicate with your coordinator using the following commands:\n' +
+  '  maestro session prompt <coordinatorSessionId> --message "<your question or info>"\n';
 
 const TASK_DOCS_INSTRUCTION =
   'Add any docs or artifacts produced for a task, using maestro task docs add <taskId> "title" --file <filePath>';
