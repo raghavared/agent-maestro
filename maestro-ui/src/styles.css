@@ -17841,6 +17841,10 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   flex: 1;
   min-height: 0;
   background: var(--bg, #0a0e16);
+  /* Neutralize body CSS zoom so Excalidraw mouse coordinates match correctly.
+     Without this, getBoundingClientRect() and pointer clientX/Y are in different
+     coordinate spaces, causing drawing strokes to appear offset from the cursor. */
+  zoom: calc(1 / var(--app-zoom-scale));
 }
 
 .excalidrawCanvas .excalidraw {

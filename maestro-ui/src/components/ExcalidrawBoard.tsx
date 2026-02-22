@@ -17,7 +17,13 @@ function loadInitialData(): ExcalidrawInitialDataState | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as ExcalidrawInitialDataState;
+    const data = JSON.parse(raw) as ExcalidrawInitialDataState;
+    // collaborators is a Map internally; JSON serialization turns it into a plain
+    // object which lacks forEach, causing a runtime error. Drop it on load.
+    if (data.appState) {
+      delete (data.appState as Record<string, unknown>).collaborators;
+    }
+    return data;
   } catch {
     return null;
   }
@@ -34,11 +40,14 @@ export function ExcalidrawBoard({ onClose }: ExcalidrawBoardProps) {
 
     saveTimeoutRef.current = window.setTimeout(() => {
       try {
+        // collaborators is a Map – strip it before serialising to avoid a
+        // plain-object being reloaded where a Map is expected.
+        const { collaborators: _collaborators, ...appStateToSave } = appState as unknown as Record<string, unknown>;
         localStorage.setItem(
           STORAGE_KEY,
           JSON.stringify({
             elements,
-            appState,
+            appState: appStateToSave,
             files,
           }),
         );
