@@ -28,6 +28,7 @@ type ProjectTabBarProps = {
   onReopenProject: (projectId: string) => void;
   onMoveProject: (projectId: string, targetProjectId: string, position: 'before' | 'after') => void;
   onOpenMultiProjectBoard?: () => void;
+  onOpenWhiteboard?: () => void;
 };
 
 type SettingsDialogProps = {
@@ -57,6 +58,7 @@ const SHORTCUT_ROWS: ShortcutRow[] = [
   { action: "Toggle prompts panel", mac: "Cmd + Shift + P", windowsLinux: "Ctrl + Shift + P" },
   { action: "Toggle recordings panel", mac: "Cmd + Shift + R", windowsLinux: "Ctrl + Shift + R" },
   { action: "Toggle assets panel", mac: "Cmd + Shift + A", windowsLinux: "Ctrl + Shift + A" },
+  { action: "Toggle whiteboard", mac: "Cmd + Shift + X", windowsLinux: "Ctrl + Shift + X" },
   { action: "Send quick prompt (pinned)", mac: "Cmd + 1..5", windowsLinux: "Ctrl + 1..5" },
   { action: "Close open modal/panel", mac: "Esc", windowsLinux: "Esc" },
 ];
@@ -305,6 +307,7 @@ export function ProjectTabBar({
   onReopenProject,
   onMoveProject,
   onOpenMultiProjectBoard,
+  onOpenWhiteboard,
 }: ProjectTabBarProps) {
   const [settingsProjectId, setSettingsProjectId] = useState<string | null>(null);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
@@ -633,9 +636,19 @@ export function ProjectTabBar({
               type="button"
               className="projectTabBarBtn"
               onClick={onOpenMultiProjectBoard}
-              title="Multi-Project Board (Cmd+Shift+B)"
+              title="Multi-Project Board (Cmd/Ctrl+Shift+B)"
             >
               <Icon name="layers" size={14} />
+            </button>
+          )}
+          {onOpenWhiteboard && (
+            <button
+              type="button"
+              className="projectTabBarBtn"
+              onClick={onOpenWhiteboard}
+              title="Whiteboard (Cmd/Ctrl+Shift+X)"
+            >
+              <Icon name="edit" size={14} />
             </button>
           )}
           <button

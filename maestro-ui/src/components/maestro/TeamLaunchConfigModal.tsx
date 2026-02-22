@@ -2,9 +2,13 @@ import React, { useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
     AgentTool, ModelType, TeamMember, MemberLaunchOverride,
-    CreateTeamPayload,
 } from "../../app/types/maestro";
 import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
+import {
+    getEffectiveCommandEnabled,
+    isCommandAllowedForMode,
+    toggleCommandOverride,
+} from "../../utils/commandPermissions";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -131,15 +135,10 @@ export function TeamLaunchConfigModal({
         updateConfig(memberId, { agentTool: tool, model: defaultModel });
     };
 
-    const handleCommandToggle = (memberId: string, cmd: string) => {
+    const handleCommandToggle = (memberId: string, cmd: string, memberMode: string | undefined) => {
         setConfigs(prev => {
             const current = prev[memberId];
-            const newOverrides = { ...current.commandOverrides };
-            if (newOverrides[cmd] === false) {
-                delete newOverrides[cmd]; // restore default (enabled)
-            } else {
-                newOverrides[cmd] = false; // disable
-            }
+            const newOverrides = toggleCommandOverride(current.commandOverrides, cmd, memberMode);
             return { ...prev, [memberId]: { ...current, commandOverrides: newOverrides } };
         });
     };
@@ -236,6 +235,7 @@ export function TeamLaunchConfigModal({
                                 if (!config) return null;
                                 const isCoordinator = member.id === coordinatorId;
                                 const models = MODELS_BY_TOOL[config.agentTool] || [];
+                                const memberMode = member.mode || 'worker';
 
                                 return (
                                     <div key={member.id} className={`launchConfigCard ${isCoordinator ? 'launchConfigCard--coordinator' : ''}`}>
@@ -311,11 +311,12 @@ export function TeamLaunchConfigModal({
                                                     <div className="tmModal__permCard">
                                                         <div className="tmModal__permCardLabel">Command Permissions</div>
                                                         <div className="themedFormHint" style={{ marginBottom: '6px' }}>
-                                                            All commands enabled by default. Toggle off to restrict.
+                                                            Defaults depend on mode. Toggle to restrict or explicitly grant mode-supported commands.
                                                         </div>
                                                         {COMMAND_GROUPS.map(group => {
                                                             const isExpanded = expandedCommandGroups.has(`${member.id}:${group.key}`);
-                                                            const disabledCount = group.commands.filter(c => config.commandOverrides[c] === false).length;
+                                                            const supportedCommands = group.commands.filter(c => isCommandAllowedForMode(c, memberMode));
+                                                            const enabledCount = supportedCommands.filter(c => getEffectiveCommandEnabled(c, memberMode, config.commandOverrides)).length;
                                                             return (
                                                                 <div key={group.key} style={{ marginBottom: '2px' }}>
                                                                     <button
@@ -333,23 +334,31 @@ export function TeamLaunchConfigModal({
                                                                         </span>
                                                                         <span style={{ fontWeight: 500 }}>{group.label}</span>
                                                                         <span style={{ opacity: 0.5, fontSize: '10px' }}>
-                                                                            ({group.commands.length - disabledCount}/{group.commands.length})
+                                                                            ({enabledCount}/{supportedCommands.length})
                                                                         </span>
                                                                     </button>
                                                                     {isExpanded && (
                                                                         <div style={{ paddingLeft: '20px', display: 'flex', flexWrap: 'wrap', gap: '4px 16px', paddingTop: '4px', paddingBottom: '4px' }}>
                                                                             {group.commands.map(cmd => {
-                                                                                const isDisabled = config.commandOverrides[cmd] === false;
-                                                                                const isChecked = !isDisabled;
+                                                                                const modeSupported = isCommandAllowedForMode(cmd, memberMode);
+                                                                                const isChecked = getEffectiveCommandEnabled(cmd, memberMode, config.commandOverrides);
                                                                                 return (
                                                                                     <label
                                                                                         key={cmd}
                                                                                         className="terminalTaskCheckbox"
+                                                                                        title={modeSupported ? undefined : 'Not available for current mode'}
                                                                                         style={{
                                                                                             display: 'flex', alignItems: 'center', gap: '5px',
-                                                                                            cursor: 'pointer', opacity: isDisabled ? 0.5 : 1, marginRight: 0,
+                                                                                            cursor: modeSupported ? 'pointer' : 'not-allowed',
+                                                                                            opacity: modeSupported ? (isChecked ? 1 : 0.6) : 0.35,
+                                                                                            marginRight: 0,
                                                                                         }}
-                                                                                        onClick={(e) => { e.preventDefault(); handleCommandToggle(member.id, cmd); }}
+                                                                                        onClick={(e) => {
+                                                                                            e.preventDefault();
+                                                                                            if (modeSupported) {
+                                                                                                handleCommandToggle(member.id, cmd, memberMode);
+                                                                                            }
+                                                                                        }}
                                                                                     >
                                                                                         <input type="checkbox" checked={isChecked} readOnly />
                                                                                         <span

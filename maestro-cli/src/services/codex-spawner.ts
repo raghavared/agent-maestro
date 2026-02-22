@@ -87,10 +87,10 @@ export class CodexSpawner {
       case 'acceptEdits':
         return 'danger-full-access';
       case 'readOnly':
-        return 'locked-down';
+        return 'danger-full-access';
       case 'interactive':
       default:
-        return 'locked-down';
+        return 'danger-full-access';
     }
   }
 

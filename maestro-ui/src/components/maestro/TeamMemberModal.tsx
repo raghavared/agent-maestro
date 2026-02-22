@@ -7,6 +7,11 @@ import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
 import { soundManager, getNotesForDisplay } from "../../services/soundManager";
 import type { SoundCategory } from "../../services/soundManager";
 import { assignRandomInstrument, getInstrumentEmoji, getInstrumentRole } from "../../services/soundTemplates";
+import {
+    getEffectiveCommandEnabled,
+    isCommandAllowedForMode,
+    toggleCommandOverride,
+} from "../../utils/commandPermissions";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -55,7 +60,18 @@ const DEFAULT_MODEL: Record<string, string> = {
     "gemini": "gemini-3-pro-preview",
 };
 
-const DEFAULT_CONFIGS: Record<string, { name: string; role: string; avatar: string; identity: string; agentTool: AgentTool; model: ModelType; mode: AgentMode }> = {
+const DEFAULT_CONFIGS: Record<string, {
+    name: string;
+    role: string;
+    avatar: string;
+    identity: string;
+    agentTool: AgentTool;
+    model: ModelType;
+    mode: AgentMode;
+    commandPermissions?: {
+        commands?: Record<string, boolean>;
+    };
+}> = {
     simple_worker: {
         name: "Simple Worker", role: "Default executor", avatar: "\u26A1",
         identity: "You are a worker agent. You implement tasks directly \u2014 write code, run tests, fix bugs.",
@@ -80,6 +96,13 @@ const DEFAULT_CONFIGS: Record<string, { name: string; role: string; avatar: stri
         name: "Recruiter", role: "Team member recruiter with skill discovery", avatar: "\u{1F50D}",
         identity: "You are a recruiter agent. You analyze task requirements, discover and install relevant skills from the ecosystem using the find-skills skill (npx skills find/add), and create appropriately configured team members with matched skills. You present a detailed recruitment plan for approval before creating any team members.",
         agentTool: "claude-code", model: "sonnet", mode: "worker",
+        commandPermissions: {
+            commands: {
+                "team-member:create": true,
+                "team-member:list": true,
+                "team-member:get": true,
+            },
+        },
     },
 };
 
@@ -369,13 +392,8 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
     }, []);
 
     const handleCommandToggle = useCallback((cmd: string) => {
-        setCommandOverrides(prev => {
-            const next = { ...prev };
-            if (cmd in next) delete next[cmd];
-            else next[cmd] = false;
-            return next;
-        });
-    }, []);
+        setCommandOverrides(prev => toggleCommandOverride(prev, cmd, mode));
+    }, [mode]);
 
     const toggleGroupExpanded = useCallback((group: string) => {
         setExpandedGroups(prev => {
@@ -405,7 +423,7 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
         setMode(defaults.mode);
         setPermissionMode('acceptEdits');
         setCapabilities(getDefaultCapabilities(defaults.mode));
-        setCommandOverrides({});
+        setCommandOverrides(defaults.commandPermissions?.commands ? { ...defaults.commandPermissions.commands } : {});
         setSelectedSkills([]);
         setWorkflowTemplateId('');
         setUseCustomWorkflow(false);
@@ -824,11 +842,12 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                                 <div className="tmModal__permCard">
                                     <div className="tmModal__permCardLabel">Command Permissions</div>
                                     <div className="themedFormHint" style={{ marginBottom: '6px' }}>
-                                        All commands enabled by default. Toggle off to restrict.
+                                        Defaults depend on mode. Toggle to restrict or explicitly grant mode-supported commands.
                                     </div>
                                     {COMMAND_GROUPS.map(group => {
                                         const isExpanded = expandedGroups.has(group.key);
-                                        const disabledCount = group.commands.filter(c => commandOverrides[c] === false).length;
+                                        const supportedCommands = group.commands.filter(c => isCommandAllowedForMode(c, mode));
+                                        const enabledCount = supportedCommands.filter(c => getEffectiveCommandEnabled(c, mode, commandOverrides)).length;
                                         return (
                                             <div key={group.key} style={{ marginBottom: '2px' }}>
                                                 <button
@@ -846,23 +865,29 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                                                     </span>
                                                     <span style={{ fontWeight: 500 }}>{group.label}</span>
                                                     <span style={{ opacity: 0.5, fontSize: '10px' }}>
-                                                        ({group.commands.length - disabledCount}/{group.commands.length})
+                                                        ({enabledCount}/{supportedCommands.length})
                                                     </span>
                                                 </button>
                                                 {isExpanded && (
                                                     <div style={{ paddingLeft: '20px', display: 'flex', flexWrap: 'wrap', gap: '4px 16px', paddingTop: '4px', paddingBottom: '4px' }}>
                                                         {group.commands.map(cmd => {
-                                                            const isDisabled = commandOverrides[cmd] === false;
-                                                            const isChecked = !isDisabled;
+                                                            const modeSupported = isCommandAllowedForMode(cmd, mode);
+                                                            const isChecked = getEffectiveCommandEnabled(cmd, mode, commandOverrides);
                                                             return (
                                                                 <label
                                                                     key={cmd}
                                                                     className="terminalTaskCheckbox"
+                                                                    title={modeSupported ? undefined : 'Not available for current mode'}
                                                                     style={{
                                                                         display: 'flex', alignItems: 'center', gap: '5px',
-                                                                        cursor: 'pointer', opacity: isDisabled ? 0.5 : 1, marginRight: 0,
+                                                                        cursor: modeSupported ? 'pointer' : 'not-allowed',
+                                                                        opacity: modeSupported ? (isChecked ? 1 : 0.6) : 0.35,
+                                                                        marginRight: 0,
                                                                     }}
-                                                                    onClick={(e) => { e.preventDefault(); if (!isSaving) handleCommandToggle(cmd); }}
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        if (!isSaving && modeSupported) handleCommandToggle(cmd);
+                                                                    }}
                                                                 >
                                                                     <input type="checkbox" checked={isChecked} readOnly />
                                                                     <span className={`terminalTaskCheckmark ${isChecked ? 'terminalTaskCheckmark--checked' : ''}`} style={{ width: '14px', height: '14px', fontSize: '9px' }}>
