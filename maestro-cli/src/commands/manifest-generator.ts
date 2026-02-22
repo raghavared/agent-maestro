@@ -66,6 +66,115 @@ export function resolveSelfIdentityMemberIds(
   return ids;
 }
 
+type MemberPermissionMode = SessionOptions['permissionMode'];
+type MemberCommandPermissions = NonNullable<MaestroManifest['teamMemberCommandPermissions']>;
+
+interface MemberLaunchOverride {
+  agentTool?: AgentTool;
+  model?: string;
+  permissionMode?: MemberPermissionMode;
+  skillIds?: string[];
+  commandPermissions?: MemberCommandPermissions;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readBooleanRecord(value: unknown): Record<string, boolean> {
+  if (!isRecord(value)) return {};
+  const filtered: Record<string, boolean> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === 'boolean') {
+      filtered[key] = entry;
+    }
+  }
+  return filtered;
+}
+
+function mergeCommandPermissions(
+  base: MemberCommandPermissions | undefined,
+  override: MemberCommandPermissions | undefined,
+): MemberCommandPermissions | undefined {
+  if (!base && !override) return undefined;
+
+  const hasOverrideGroups = !!override && Object.prototype.hasOwnProperty.call(override, 'groups');
+  const hasOverrideCommands = !!override && Object.prototype.hasOwnProperty.call(override, 'commands');
+
+  const result: MemberCommandPermissions = {};
+  if (hasOverrideGroups || base?.groups) {
+    result.groups = hasOverrideGroups ? (override?.groups || {}) : (base?.groups || {});
+  }
+  if (hasOverrideCommands || base?.commands) {
+    result.commands = hasOverrideCommands ? (override?.commands || {}) : (base?.commands || {});
+  }
+
+  if (!('groups' in result) && !('commands' in result)) {
+    return undefined;
+  }
+
+  return result;
+}
+
+function parseMemberOverrides(raw: string | undefined): Record<string, MemberLaunchOverride> {
+  if (!raw) return {};
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!isRecord(parsed)) return {};
+
+    const overrides: Record<string, MemberLaunchOverride> = {};
+    for (const [memberId, value] of Object.entries(parsed)) {
+      if (!isRecord(value)) continue;
+
+      let commandPermissions: MemberCommandPermissions | undefined;
+      if (isRecord(value.commandPermissions)) {
+        const hasGroups = Object.prototype.hasOwnProperty.call(value.commandPermissions, 'groups');
+        const hasCommands = Object.prototype.hasOwnProperty.call(value.commandPermissions, 'commands');
+        if (hasGroups || hasCommands) {
+          commandPermissions = {
+            ...(hasGroups ? { groups: readBooleanRecord(value.commandPermissions.groups) } : {}),
+            ...(hasCommands ? { commands: readBooleanRecord(value.commandPermissions.commands) } : {}),
+          };
+        }
+      }
+
+      const override: MemberLaunchOverride = {
+        ...(typeof value.agentTool === 'string' ? { agentTool: value.agentTool as AgentTool } : {}),
+        ...(typeof value.model === 'string' ? { model: value.model } : {}),
+        ...(typeof value.permissionMode === 'string' ? { permissionMode: value.permissionMode as MemberPermissionMode } : {}),
+        ...(Array.isArray(value.skillIds)
+          ? { skillIds: value.skillIds.filter((entry): entry is string => typeof entry === 'string') }
+          : {}),
+        ...(commandPermissions && Object.keys(commandPermissions).length > 0 ? { commandPermissions } : {}),
+      };
+
+      if (Object.keys(override).length > 0) {
+        overrides[memberId] = override;
+      }
+    }
+
+    return overrides;
+  } catch {
+    return {};
+  }
+}
+
+function applyMemberOverride(teamMember: any, override: MemberLaunchOverride | undefined): any {
+  if (!override) return teamMember;
+
+  const mergedCommandPermissions = mergeCommandPermissions(teamMember.commandPermissions, override.commandPermissions);
+
+  return {
+    ...teamMember,
+    ...(override.agentTool !== undefined ? { agentTool: override.agentTool } : {}),
+    ...(override.model !== undefined ? { model: override.model } : {}),
+    ...(override.permissionMode !== undefined ? { permissionMode: override.permissionMode } : {}),
+    ...(override.skillIds !== undefined ? { skillIds: override.skillIds } : {}),
+    ...(mergedCommandPermissions ? { commandPermissions: mergedCommandPermissions } : {}),
+  };
+}
+
 /**
  * CLI Command handler for manifest generation
  */
@@ -169,6 +278,7 @@ export class ManifestGeneratorCLICommand {
           },
         },
       };
+      const memberOverrides = parseMemberOverrides(process.env.MAESTRO_MEMBER_OVERRIDES);
 
       // 4. Generate manifest with all tasks
       const manifest = this.generator.generateManifest(
@@ -241,7 +351,8 @@ export class ManifestGeneratorCLICommand {
       if (effectiveTeamMemberIds.length === 1 && !options.teamMemberIds?.length) {
         // Single team member — backward compat: use singular fields
         try {
-          const teamMember: any = await api.get(`/api/team-members/${effectiveTeamMemberIds[0]}?projectId=${options.projectId}`);
+          const teamMemberRaw: any = await api.get(`/api/team-members/${effectiveTeamMemberIds[0]}?projectId=${options.projectId}`);
+          const teamMember = applyMemberOverride(teamMemberRaw, memberOverrides[effectiveTeamMemberIds[0]]);
           manifest.teamMemberId = teamMember.id;
           manifest.teamMemberName = teamMember.name;
           manifest.teamMemberAvatar = teamMember.avatar;
@@ -272,7 +383,8 @@ export class ManifestGeneratorCLICommand {
 
         for (const memberId of effectiveTeamMemberIds) {
           try {
-            const tm: any = await api.get(`/api/team-members/${memberId}?projectId=${options.projectId}`);
+            const tmRaw: any = await api.get(`/api/team-members/${memberId}?projectId=${options.projectId}`);
+            const tm = applyMemberOverride(tmRaw, memberOverrides[memberId]);
             profiles.push({
               id: tm.id,
               name: tm.name,
@@ -371,16 +483,22 @@ export class ManifestGeneratorCLICommand {
         for (const memberId of options.teamMemberIds) {
           try {
             // Fetch team member from new API instead of task storage
-            const teamMember: any = await api.get(`/api/team-members/${memberId}?projectId=${options.projectId}`);
+            const teamMemberRaw: any = await api.get(`/api/team-members/${memberId}?projectId=${options.projectId}`);
+            const teamMember = applyMemberOverride(teamMemberRaw, memberOverrides[memberId]);
             teamMembers.push({
               id: teamMember.id,
               name: teamMember.name,
               role: teamMember.role,
               identity: teamMember.identity,
               avatar: teamMember.avatar,
+              mode: teamMember.mode,
+              permissionMode: teamMember.permissionMode,
               skillIds: teamMember.skillIds,
               model: teamMember.model,
               agentTool: teamMember.agentTool,
+              capabilities: teamMember.capabilities,
+              commandPermissions: teamMember.commandPermissions,
+              memory: teamMember.memory,
             });
           } catch {
             // ignore team member load error

@@ -40,6 +40,7 @@ import { AppWorkspace } from "./components/app/AppWorkspace";
 import { ConfirmActionModal } from "./components/modals/ConfirmActionModal";
 import { StartupSettingsOverlay } from "./components/StartupSettingsOverlay";
 import { Board } from "./components/maestro/MultiProjectBoard";
+import { ExcalidrawBoard } from "./components/ExcalidrawBoard";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { PromptSendAnimationLayer } from "./components/PromptSendAnimation";
 import { createMaestroSession } from "./services/maestroService";
@@ -75,13 +76,33 @@ export default function App() {
     }
   });
   const [showMultiProjectBoard, setShowMultiProjectBoard] = useState(false);
+  const [showExcalidrawBoard, setShowExcalidrawBoard] = useState(false);
 
-  // Keyboard shortcut for multi-project board (Cmd/Ctrl+Shift+B)
+  // Keyboard shortcuts for overlays:
+  //   Cmd/Ctrl+Shift+B -> Multi-project board
+  //   Cmd/Ctrl+Shift+X -> Whiteboard (Excalidraw)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "b") {
+      if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return;
+
+      const key = e.key.toLowerCase();
+      if (key === "b") {
         e.preventDefault();
-        setShowMultiProjectBoard((v) => !v);
+        setShowMultiProjectBoard((prev) => {
+          const next = !prev;
+          if (next) setShowExcalidrawBoard(false);
+          return next;
+        });
+        return;
+      }
+
+      if (key === "x") {
+        e.preventDefault();
+        setShowExcalidrawBoard((prev) => {
+          const next = !prev;
+          if (next) setShowMultiProjectBoard(false);
+          return next;
+        });
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -425,7 +446,14 @@ export default function App() {
           onFetchSavedProjects={fetchSavedProjects}
           onReopenProject={handleReopenProject}
           onMoveProject={moveProject}
-          onOpenMultiProjectBoard={() => setShowMultiProjectBoard(true)}
+          onOpenMultiProjectBoard={() => {
+            setShowExcalidrawBoard(false);
+            setShowMultiProjectBoard(true);
+          }}
+          onOpenWhiteboard={() => {
+            setShowMultiProjectBoard(false);
+            setShowExcalidrawBoard(true);
+          }}
         />
       )}
 
@@ -592,6 +620,11 @@ export default function App() {
           onWorkOnTask={handleBoardWorkOnTask}
           onCreateMaestroSession={createMaestroSession}
         />
+      )}
+
+      {/* -------- Excalidraw Whiteboard -------- */}
+      {showExcalidrawBoard && (
+        <ExcalidrawBoard onClose={() => setShowExcalidrawBoard(false)} />
       )}
 
       {/* -------- Command Palette -------- */}

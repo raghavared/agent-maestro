@@ -438,6 +438,14 @@ export interface SpawnSessionPayload {
   teamMemberId?: string;                // Team member running this session (backward compat)
   teamMemberIds?: string[];             // Multiple team member identities for this session
   delegateTeamMemberIds?: string[];     // Team member IDs for coordination delegation pool
+  agentTool?: AgentTool;                // Override agent tool for this run
+  model?: string;                       // Override model for this run
+  initialDirective?: {
+    subject: string;
+    message: string;
+    fromSessionId?: string;
+  };
+  memberOverrides?: Record<string, MemberLaunchOverride>; // Per-member launch overrides
 }
 
 // Spawn request event (emitted by server to UI)

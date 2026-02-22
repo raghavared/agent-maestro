@@ -10,7 +10,7 @@ import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
 import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
-import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, isCoordinatorMode, normalizeMode } from '../types';
+import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, MemberLaunchOverride, isCoordinatorMode, normalizeMode } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
 import { MailService } from '../application/services/MailService';
 
@@ -55,8 +55,9 @@ async function generateManifestViaCLI(options: {
   initialDirective?: { subject: string; message: string; fromSessionId?: string };
   coordinatorSessionId?: string;
   isMaster?: boolean;
+  memberOverrides?: Record<string, MemberLaunchOverride>;
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective } = options;
+  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective, memberOverrides } = options;
 
   const sessionDir = process.env.SESSION_DIR
     ? (process.env.SESSION_DIR.startsWith('~') ? join(homedir(), process.env.SESSION_DIR.slice(1)) : process.env.SESSION_DIR)
@@ -103,6 +104,10 @@ async function generateManifestViaCLI(options: {
 
   if (options.isMaster) {
     spawnEnv.MAESTRO_IS_MASTER = 'true';
+  }
+
+  if (memberOverrides && Object.keys(memberOverrides).length > 0) {
+    spawnEnv.MAESTRO_MEMBER_OVERRIDES = JSON.stringify(memberOverrides);
   }
 
   return new Promise((resolve, reject) => {
@@ -725,6 +730,11 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         memberOverrides,                 // Per-member launch overrides: Record<string, MemberLaunchOverride>
       } = req.body;
 
+      const normalizedMemberOverrides: Record<string, MemberLaunchOverride> | undefined =
+        memberOverrides && typeof memberOverrides === 'object' && !Array.isArray(memberOverrides)
+          ? memberOverrides
+          : undefined;
+
       const requestedModeInput = String(requestedMode || 'worker');
       const requestedCoordinatorMode =
         requestedModeInput === 'coordinator' ||
@@ -914,7 +924,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
             const teamMember = await teamMemberRepo.findById(projectId, tmId);
             if (teamMember && teamMember.status !== 'archived') {
               // Apply per-member overrides if provided
-              const override = memberOverrides && memberOverrides[tmId];
+              const override = normalizedMemberOverrides && normalizedMemberOverrides[tmId];
               const effectiveModel = override?.model || teamMember.model;
               const effectiveAgentTool = override?.agentTool || teamMember.agentTool;
               const effectivePermissionMode = override?.permissionMode || teamMember.permissionMode;
@@ -1010,7 +1020,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : null,
           teamMemberIds: effectiveTeamMemberIds.length > 0 ? effectiveTeamMemberIds : null,
           context: context || {},
-          ...(memberOverrides && Object.keys(memberOverrides).length > 0 ? { memberOverrides } : {}),
+          ...(normalizedMemberOverrides && Object.keys(normalizedMemberOverrides).length > 0 ? { memberOverrides: normalizedMemberOverrides } : {}),
         },
         parentSessionId: resolvedParentSessionId,
         rootSessionId: resolvedRootSessionId,
@@ -1078,6 +1088,10 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           coordinatorSessionId: resolvedParentSessionId || undefined,
           // Pass master flag so CLI includes cross-project data in manifest
           isMaster: project.isMaster === true,
+          // Pass per-member launch overrides so CLI manifest reflects effective identity config
+          memberOverrides: normalizedMemberOverrides && Object.keys(normalizedMemberOverrides).length > 0
+            ? normalizedMemberOverrides
+            : undefined,
         });
         manifestPath = result.manifestPath;
         manifest = result.manifest;

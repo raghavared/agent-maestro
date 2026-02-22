@@ -77,6 +77,40 @@ describe('capability-policy', () => {
     expect(result.allowedCommands).not.toContain('team-member:list');
   });
 
+  it('allows worker overrides to grant recruiter team-member commands', () => {
+    const manifest = buildManifest({
+      mode: 'worker',
+      teamMemberCommandPermissions: {
+        commands: {
+          'team-member:create': true,
+          'team-member:list': true,
+          'team-member:get': true,
+        },
+      },
+    });
+
+    const result = resolveCapabilitySet(manifest);
+
+    expect(result.allowedCommands).toContain('team-member:create');
+    expect(result.allowedCommands).toContain('team-member:list');
+    expect(result.allowedCommands).toContain('team-member:get');
+  });
+
+  it('keeps non-grantable team-member commands blocked for worker overrides', () => {
+    const manifest = buildManifest({
+      mode: 'worker',
+      teamMemberCommandPermissions: {
+        commands: {
+          'team-member:edit': true,
+        },
+      },
+    });
+
+    const result = resolveCapabilitySet(manifest);
+
+    expect(result.allowedCommands).not.toContain('team-member:edit');
+  });
+
   it('hard-blocks coordinated-coordinator spawn even with explicit allowlist', () => {
     const manifest = buildManifest({
       mode: 'coordinated-coordinator',
