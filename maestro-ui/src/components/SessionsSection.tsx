@@ -22,6 +22,7 @@ import { Icon } from "./Icon";
 import { type MaestroTask, type MaestroSession as MaestroSession, type Team } from "../app/types/maestro";
 import { useMaestroStore } from "../stores/useMaestroStore";
 import { useUIStore } from "../stores/useUIStore";
+import { useSpacesStore } from "../stores/useSpacesStore";
 import { MaestroSessionContent } from "./maestro/MaestroSessionContent";
 import { StrategyBadge } from "./maestro/StrategyBadge";
 import { SessionDetailModal } from "./maestro/SessionDetailModal";
@@ -30,6 +31,7 @@ import { ConfirmActionModal } from "./modals/ConfirmActionModal";
 import { buildTeamGroups, getGroupedSessionOrder } from "../utils/teamGrouping";
 import { TeamSessionGroup } from "./maestro/TeamSessionGroup";
 import type { TeamColor } from "../app/constants/teamColors";
+import type { Space } from "../app/types/space";
 
 function isSshCommand(commandLine: string | null | undefined): boolean {
   const trimmed = commandLine?.trim() ?? "";
@@ -75,6 +77,8 @@ type SessionsSectionProps = {
   onOpenPersistentSessions: () => void;
   onOpenSshManager: () => void;
   onOpenManageTerminals: () => void;
+  onCreateWhiteboard?: () => void;
+  onCloseSpace?: (id: string) => void;
 };
 
 function SortableSessionItem({ id, children }: { id: string; children: React.ReactNode }) {
@@ -123,6 +127,8 @@ export function SessionsSection({
   onOpenPersistentSessions,
   onOpenSshManager,
   onOpenManageTerminals,
+  onCreateWhiteboard,
+  onCloseSpace,
 }: SessionsSectionProps) {
   // ==================== STATE MANAGEMENT (PHASE V) ====================
 
@@ -280,6 +286,13 @@ export function SessionsSection({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [settingsOpen]);
+
+  // Non-session spaces (whiteboards, documents)
+  const allSpaces = useSpacesStore((s) => s.spaces);
+  const projectSpaces = useMemo(
+    () => allSpaces.filter((s) => s.projectId === activeProjectId),
+    [allSpaces, activeProjectId],
+  );
 
   // Map agentTool to icon paths
   const AGENT_TOOL_ICONS: Record<string, string> = {
@@ -711,6 +724,82 @@ export function SessionsSection({
           </DndContext>
         )}
       </div>
+
+      {/* Whiteboard & Document spaces */}
+      {(projectSpaces.length > 0 || onCreateWhiteboard) && (
+        <>
+          <div className="sidebarHeader" style={{ marginTop: 8 }}>
+            <div className="title">Spaces</div>
+            <div className="sidebarHeaderActions">
+              {onCreateWhiteboard && (
+                <button
+                  type="button"
+                  className="btnSmall btnIcon"
+                  onClick={onCreateWhiteboard}
+                  title="New Whiteboard"
+                  aria-label="New Whiteboard"
+                >
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14">
+                    <line x1="8" y1="3" x2="8" y2="13" strokeLinecap="round" />
+                    <line x1="3" y1="8" x2="13" y2="8" strokeLinecap="round" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="sessionList">
+            {projectSpaces.map((space) => {
+              const isActive = space.id === activeSessionId;
+              return (
+                <div
+                  key={space.id}
+                  className={`sessionItem ${isActive ? "sessionItemActive" : ""}`}
+                  onClick={() => onSelectSession(space.id)}
+                >
+                  <div className="sessionItemRow">
+                    <div className="sessionAgentIcon">
+                      <div className="sessionAgentIcon__placeholder">
+                        {space.type === "whiteboard" ? (
+                          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
+                            <path d="M3 17l3.5-3.5M6.5 13.5l-2-2L14 2l2 2L6.5 13.5z" strokeLinejoin="round" />
+                            <path d="M12 4l2 2" strokeLinecap="round" />
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
+                            <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
+                            <path d="M12 2v4h4" />
+                            <path d="M7 10h6M7 13h4" strokeLinecap="round" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                    <div className="sessionMeta">
+                      <div className="sessionName">
+                        <span className="sessionNameText">{space.name}</span>
+                        <span className="chip">{space.type === "whiteboard" ? "whiteboard" : "document"}</span>
+                      </div>
+                    </div>
+                    <div className="sessionItemActions">
+                      {onCloseSpace && (
+                        <button
+                          className="closeBtn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onCloseSpace(space.id);
+                          }}
+                          title={`Close ${space.type}`}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {sessionModalId && createPortal(
         <SessionDetailModal

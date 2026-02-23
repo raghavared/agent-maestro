@@ -244,6 +244,22 @@ INSTALLED_APP_EXEC="${APP_DEST}/Contents/MacOS/${APP_EXEC}"
 require_file "$BUILD_APP_EXEC"
 require_file "$INSTALLED_APP_EXEC"
 
+# ── Clear stale WebView cache ─────────────────────────────
+# macOS WKWebView aggressively caches frontend assets; without
+# clearing, the app may render an older UI after a rebuild.
+
+APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "${TAURI_APP}/Contents/Info.plist" 2>/dev/null || true)"
+if [ -n "$APP_ID" ]; then
+  for CACHE_DIR in \
+    "$HOME/Library/WebKit/${APP_ID}" \
+    "$HOME/Library/Caches/${APP_ID}"; do
+    if [ -d "$CACHE_DIR" ]; then
+      rm -rf "$CACHE_DIR"
+    fi
+  done
+  success "Cleared WebView cache for ${APP_ID}"
+fi
+
 # ── Create config ──────────────────────────────────────────
 
 CONFIG_FILE="${INSTALL_DIR}/config"

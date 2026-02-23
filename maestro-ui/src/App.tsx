@@ -31,19 +31,19 @@ import { useTeamMemberSoundSync } from "./hooks/useTeamMemberSoundSync";
 // Components
 import { CommandPalette } from "./CommandPalette";
 import { ProjectTabBar } from "./components/ProjectTabBar";
-import { QuickPromptsSection } from "./components/QuickPromptsSection";
-import { SessionsSection } from "./components/SessionsSection";
-import { AppRightPanel } from "./components/AppRightPanel";
+import { AppLeftPanel } from "./components/AppLeftPanel";
+import { SpacesPanel } from "./components/SpacesPanel";
 import { AppSlidePanel } from "./components/AppSlidePanel";
 import { AppModals } from "./components/app/AppModals";
 import { AppWorkspace } from "./components/app/AppWorkspace";
 import { ConfirmActionModal } from "./components/modals/ConfirmActionModal";
 import { StartupSettingsOverlay } from "./components/StartupSettingsOverlay";
 import { Board } from "./components/maestro/MultiProjectBoard";
-import { ExcalidrawBoard } from "./components/ExcalidrawBoard";
+import { useSpacesStore } from "./stores/useSpacesStore";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { PromptSendAnimationLayer } from "./components/PromptSendAnimation";
 import { createMaestroSession } from "./services/maestroService";
+import { TaskDetailOverlay } from "./components/maestro/TaskDetailOverlay";
 import { STORAGE_SETUP_COMPLETE_KEY } from "./app/constants/defaults";
 
 // ---------------------------------------------------------------------------
@@ -60,7 +60,6 @@ export default function App() {
   // DOM-bound refs (these cannot live in Zustand)
   const registry = useRef<TerminalRegistry>(new Map());
   const pendingData = useRef<PendingDataBuffer>(new Map());
-  const sidebarRef = useRef<HTMLElement | null>(null);
   const sessionsRef = useRef<ReturnType<typeof useSessionStore.getState>["sessions"]>([]);
   const projectsRef = useRef<ReturnType<typeof useProjectStore.getState>["projects"]>([]);
   const onCloseRef = useRef<ReturnType<typeof useSessionStore.getState>["onClose"]>(async () => {});
@@ -76,11 +75,10 @@ export default function App() {
     }
   });
   const [showMultiProjectBoard, setShowMultiProjectBoard] = useState(false);
-  const [showExcalidrawBoard, setShowExcalidrawBoard] = useState(false);
 
   // Keyboard shortcuts for overlays:
   //   Cmd/Ctrl+Shift+B -> Multi-project board
-  //   Cmd/Ctrl+Shift+X -> Whiteboard (Excalidraw)
+  //   Cmd/Ctrl+Shift+X -> Whiteboard space (create or toggle)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return;
@@ -88,21 +86,39 @@ export default function App() {
       const key = e.key.toLowerCase();
       if (key === "b") {
         e.preventDefault();
-        setShowMultiProjectBoard((prev) => {
-          const next = !prev;
-          if (next) setShowExcalidrawBoard(false);
-          return next;
-        });
+        setShowMultiProjectBoard((prev) => !prev);
         return;
       }
 
       if (key === "x") {
         e.preventDefault();
-        setShowExcalidrawBoard((prev) => {
-          const next = !prev;
-          if (next) setShowMultiProjectBoard(false);
-          return next;
-        });
+        // Create or toggle whiteboard space
+        const { activeProjectId } = useProjectStore.getState();
+        const spacesStore = useSpacesStore.getState();
+        const { activeId, setActiveId: setActive } = useSessionStore.getState();
+
+        // If currently viewing a whiteboard, go back to the first session
+        if (activeId?.startsWith("wb_")) {
+          const sessionStore = useSessionStore.getState();
+          const projectSessions = sessionStore.sessions.filter((s) => s.projectId === activeProjectId);
+          if (projectSessions.length > 0) {
+            setActive(projectSessions[0].id);
+          }
+          return;
+        }
+
+        // Check for existing whiteboards in this project
+        const projectWbs = spacesStore.spaces.filter(
+          (s) => s.type === "whiteboard" && s.projectId === activeProjectId,
+        );
+        if (projectWbs.length > 0) {
+          // Focus the first existing whiteboard
+          setActive(projectWbs[0].id);
+        } else {
+          // Create a new whiteboard
+          const id = spacesStore.createWhiteboard(activeProjectId);
+          setActive(id);
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -155,30 +171,16 @@ export default function App() {
   // ---------- team member instrument sync ----------
   useTeamMemberSoundSync();
 
-  // ---------- responsive mode ----------
-  const responsiveMode = useUIStore((s) => s.responsiveMode);
-  const setResponsiveMode = useUIStore((s) => s.setResponsiveMode);
-  const activeMobilePanel = useUIStore((s) => s.activeMobilePanel);
-  const setActiveMobilePanel = useUIStore((s) => s.setActiveMobilePanel);
-
-  useEffect(() => {
-    const BREAKPOINT = 960;
-    const check = () => {
-      const narrow = window.innerWidth < BREAKPOINT;
-      if (narrow !== useUIStore.getState().responsiveMode) {
-        setResponsiveMode(narrow);
-      }
-    };
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, [setResponsiveMode]);
+  // ---------- responsive mode (kept for potential future use) ----------
 
   // ---------- read layout values from stores ----------
-  const sidebarWidth = useUIStore((s) => s.sidebarWidth);
+  // Only subscribe to values that affect conditional rendering in App.
+  // Width values are read via getState() in the resize hook to avoid
+  // re-rendering the entire App tree on every pixel change.
+  const iconRailActiveSection = useUIStore((s) => s.iconRailActiveSection);
+  const spacesRailActiveSection = useUIStore((s) => s.spacesRailActiveSection);
   const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
-  const setSlidePanelOpen = useUIStore((s) => s.setSlidePanelOpen);
-  const setSlidePanelTab = useUIStore((s) => s.setSlidePanelTab);
+  const toggleSpacesPanel = useUIStore((s) => s.toggleSpacesPanel);
 
   // ---------- projects ----------
   const projects = useProjectStore((s) => s.projects);
@@ -217,7 +219,7 @@ export default function App() {
   const onClose = useSessionStore((s) => s.onClose);
   const quickStart = useSessionStore((s) => s.quickStart);
   const reorderSessions = useSessionStore((s) => s.reorderSessions);
-  const sendPromptToActive = useSessionStore((s) => s.sendPromptToActive);
+  // sendPromptToActive removed (QuickPromptsSection moved out of layout)
 
   // ---------- auto-clear needsInput when user views a session ----------
   const checkAndClearNeedsInput = useMaestroStore((s) => s.checkAndClearNeedsInputForActiveSession);
@@ -270,9 +272,7 @@ export default function App() {
     return result;
   }, [sessions, maestroSessions]);
 
-  // ---------- prompts ----------
-  const prompts = usePromptStore((s) => s.prompts);
-  const openPromptEditor = usePromptStore((s) => s.openPromptEditor);
+  // ---------- prompts (kept store import for keyboard shortcuts) ----------
 
   // ---------- agent shortcuts & quick-launch ----------
   const agentShortcutIds = useAgentShortcutStore((s) => s.agentShortcutIds);
@@ -290,6 +290,45 @@ export default function App() {
     setNewOpen(false);
     useSshStore.getState().setSshManagerOpen(true);
   }, [setProjectOpen, setNewOpen]);
+
+  // ---------- stable callbacks for ProjectTabBar & SpacesPanel ----------
+  const handleOpenMultiProjectBoard = useCallback(() => {
+    setShowMultiProjectBoard(true);
+  }, []);
+
+  const handleSelectSession = useCallback((id: string) => {
+    setActiveId(id);
+  }, [setActiveId]);
+
+  const handleCloseSession = useCallback((id: string) => {
+    void onClose(id);
+  }, [onClose]);
+
+  const handleQuickStart = useCallback((effect: import("./processEffects").ProcessEffect) => {
+    void quickStart({
+      id: effect.id,
+      title: effect.label,
+      command: effect.matchCommands[0] ?? effect.label,
+    });
+  }, [quickStart]);
+
+  const handleOpenNewSession = useCallback(() => {
+    setProjectOpen(false);
+    setNewOpen(true);
+  }, [setProjectOpen, setNewOpen]);
+
+  const handleOpenPersistentSessions = useCallback(() => {
+    setPersistentSessionsOpen(true);
+    void refreshPersistentSessions();
+  }, [setPersistentSessionsOpen, refreshPersistentSessions]);
+
+  const handleOpenAgentShortcuts = useCallback(() => {
+    setAgentShortcutsOpen(true);
+  }, [setAgentShortcutsOpen]);
+
+  const handleOpenManageTerminals = useCallback(() => {
+    setManageTerminalsOpen(true);
+  }, [setManageTerminalsOpen]);
 
   // ---------- multi-project board callbacks ----------
   const updateTask = useMaestroStore((s) => s.updateTask);
@@ -407,21 +446,9 @@ export default function App() {
 
   // ---------- layout resize handlers ----------
   const {
-    handleSidebarResizePointerDown,
-  } = useAppLayoutResizing({
-    sidebarRef,
-    projects,
-    sidebarWidth,
-    setSidebarWidth: useUIStore.getState().setSidebarWidth,
-    persistSidebarWidth: useUIStore.getState().persistSidebarWidth,
-    rightPanelWidth,
-    setRightPanelWidth: useUIStore.getState().setRightPanelWidth,
-    persistRightPanelWidth: useUIStore.getState().persistRightPanelWidth,
-    projectsListHeightMode: 'auto',
-    setProjectsListHeightMode: () => {},
-    projectsListMaxHeight: 0,
-    setProjectsListMaxHeight: () => {},
-  });
+    handleMaestroSidebarResizePointerDown,
+    handleRightPanelResizePointerDown,
+  } = useAppLayoutResizing();
 
   // ---------- render ----------
   const isEmpty = projects.length === 0;
@@ -446,14 +473,7 @@ export default function App() {
           onFetchSavedProjects={fetchSavedProjects}
           onReopenProject={handleReopenProject}
           onMoveProject={moveProject}
-          onOpenMultiProjectBoard={() => {
-            setShowExcalidrawBoard(false);
-            setShowMultiProjectBoard(true);
-          }}
-          onOpenWhiteboard={() => {
-            setShowMultiProjectBoard(false);
-            setShowExcalidrawBoard(true);
-          }}
+          onOpenMultiProjectBoard={handleOpenMultiProjectBoard}
         />
       )}
 
@@ -477,131 +497,73 @@ export default function App() {
         </>
       ) : (
         <>
-          {/* -------- Mobile Panel Switcher -------- */}
-          {responsiveMode && (
-            <div className="mobilePanelSwitcher">
-              <button
-                type="button"
-                className={`mobilePanelTab ${activeMobilePanel === "sidebar" ? "mobilePanelTabActive" : ""}`}
-                onClick={() => setActiveMobilePanel("sidebar")}
-              >
-                Sessions
-              </button>
-              <button
-                type="button"
-                className={`mobilePanelTab ${activeMobilePanel === "terminal" ? "mobilePanelTabActive" : ""}`}
-                onClick={() => setActiveMobilePanel("terminal")}
-              >
-                Terminal
-              </button>
-              <button
-                type="button"
-                className={`mobilePanelTab ${activeMobilePanel === "maestro" ? "mobilePanelTabActive" : ""}`}
-                onClick={() => setActiveMobilePanel("maestro")}
-              >
-                Maestro
-              </button>
-            </div>
-          )}
-
           {/* -------- App Content -------- */}
-          <div className={`appContent ${responsiveMode ? "appContentResponsive" : ""}`}>
-            {/* -------- Sidebar -------- */}
-            <aside
-              className="sidebar"
-              ref={sidebarRef}
-              style={responsiveMode
-                ? { width: "100%", maxWidth: "100%", flexGrow: 1, display: activeMobilePanel === "sidebar" ? undefined : "none" }
-                : {
-                    width: `${sidebarWidth}px`,
-                    maxWidth: `${sidebarWidth}px`,
-                    flexGrow: 0,
-                  }
-              }
-            >
-              <QuickPromptsSection
-              prompts={prompts}
-              activeSessionId={activeId}
-              onSendPrompt={(prompt) => void sendPromptToActive(prompt, "send")}
-              onEditPrompt={openPromptEditor}
-              onOpenPromptsPanel={() => {
-                setSlidePanelTab("prompts");
-                setSlidePanelOpen(true);
-              }}
-            />
+          <div className="appContent">
+            {/* -------- Left Panel (Icon Rail + Maestro Sidebar) -------- */}
+            <AppLeftPanel />
 
-            <SessionsSection
+            {/* -------- Left panel resize handle -------- */}
+            {iconRailActiveSection !== null && (
+              <div
+                className="sidebarRightResizeHandle"
+                role="separator"
+                aria-label="Resize Maestro Sidebar"
+                aria-orientation="vertical"
+                aria-valuemin={DEFAULTS.MIN_MAESTRO_SIDEBAR_WIDTH}
+                aria-valuemax={DEFAULTS.MAX_MAESTRO_SIDEBAR_WIDTH}
+                tabIndex={0}
+                onPointerDown={handleMaestroSidebarResizePointerDown}
+                title="Drag to resize"
+              />
+            )}
+
+            {/* -------- Main content -------- */}
+            <main className="main">
+              <div className="terminalArea">
+                <AppWorkspace registry={registry} pendingData={pendingData} />
+                <TaskDetailOverlay />
+                <AppModals />
+                <AppSlidePanel />
+              </div>
+            </main>
+
+            {/* -------- Right panel resize handle -------- */}
+            {spacesRailActiveSection !== null && (
+              <div
+                className="sidebarLeftResizeHandle"
+                role="separator"
+                aria-label="Resize Spaces Panel"
+                aria-orientation="vertical"
+                aria-valuemin={DEFAULTS.MIN_RIGHT_PANEL_WIDTH}
+                aria-valuemax={DEFAULTS.MAX_RIGHT_PANEL_WIDTH}
+                aria-valuenow={rightPanelWidth}
+                tabIndex={0}
+                onPointerDown={handleRightPanelResizePointerDown}
+                title="Drag to resize"
+              />
+            )}
+
+            {/* -------- Spaces Panel (Sessions on right) -------- */}
+            <SpacesPanel
               agentShortcuts={agentShortcuts}
               sessions={projectSessions}
               activeSessionId={activeId}
               activeProjectId={activeProjectId}
               projectName={activeProject?.name ?? null}
               projectBasePath={activeProject?.basePath ?? null}
-              onSelectSession={(id) => {
-                setActiveId(id);
-                if (responsiveMode) setActiveMobilePanel("terminal");
-              }}
-              onCloseSession={(id) => void onClose(id)}
+              onSelectSession={handleSelectSession}
+              onCloseSession={handleCloseSession}
               onReorderSessions={reorderSessions}
-              onQuickStart={(effect) => {
-                void quickStart({
-                  id: effect.id,
-                  title: effect.label,
-                  command: effect.matchCommands[0] ?? effect.label,
-                });
-                if (responsiveMode) setActiveMobilePanel("terminal");
-              }}
-              onOpenNewSession={() => {
-                setProjectOpen(false);
-                setNewOpen(true);
-              }}
-              onOpenPersistentSessions={() => {
-                setPersistentSessionsOpen(true);
-                void refreshPersistentSessions();
-              }}
+              onQuickStart={handleQuickStart}
+              onOpenNewSession={handleOpenNewSession}
+              onOpenPersistentSessions={handleOpenPersistentSessions}
               onOpenSshManager={openSshManager}
-              onOpenAgentShortcuts={() => setAgentShortcutsOpen(true)}
-              onOpenManageTerminals={() => setManageTerminalsOpen(true)}
+              onOpenAgentShortcuts={handleOpenAgentShortcuts}
+              onOpenManageTerminals={handleOpenManageTerminals}
+              contentWidth={rightPanelWidth}
+              activeSection={spacesRailActiveSection}
+              onToggle={toggleSpacesPanel}
             />
-            </aside>
-
-            {/* -------- Sidebar resize handle -------- */}
-            {!responsiveMode && (
-              <div
-                className="sidebarRightResizeHandle"
-                role="separator"
-                aria-label="Resize Sidebar"
-                aria-orientation="vertical"
-                aria-valuemin={DEFAULTS.MIN_SIDEBAR_WIDTH}
-                aria-valuemax={DEFAULTS.MAX_SIDEBAR_WIDTH}
-                aria-valuenow={sidebarWidth}
-                tabIndex={0}
-                onPointerDown={handleSidebarResizePointerDown}
-                title="Drag to resize"
-              />
-            )}
-
-            {/* -------- Main content -------- */}
-            <main
-              className="main"
-              style={responsiveMode
-                ? { display: activeMobilePanel === "terminal" ? undefined : "none" }
-                : undefined
-              }
-            >
-              <div className="terminalArea">
-                <AppWorkspace registry={registry} pendingData={pendingData} />
-                <AppModals />
-                <AppSlidePanel />
-              </div>
-            </main>
-
-            {/* -------- Right Panel (Maestro) -------- */}
-            {responsiveMode ? (
-              activeMobilePanel === "maestro" && <AppRightPanel forceMobileOpen />
-            ) : (
-              <AppRightPanel />
-            )}
           </div>
         </>
       )}
@@ -620,11 +582,6 @@ export default function App() {
           onWorkOnTask={handleBoardWorkOnTask}
           onCreateMaestroSession={createMaestroSession}
         />
-      )}
-
-      {/* -------- Excalidraw Whiteboard -------- */}
-      {showExcalidrawBoard && (
-        <ExcalidrawBoard onClose={() => setShowExcalidrawBoard(false)} />
       )}
 
       {/* -------- Command Palette -------- */}

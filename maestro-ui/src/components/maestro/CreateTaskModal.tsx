@@ -69,6 +69,7 @@ type CreateTaskModalProps = {
     onWorkOnSubtask?: (subtask: MaestroTask) => void;
     selectedAgentId?: string;
     onAgentSelect?: (agentId: string) => void;
+    variant?: "modal" | "overlay";
 };
 
 export function CreateTaskModal({
@@ -90,6 +91,7 @@ export function CreateTaskModal({
     onWorkOnSubtask,
     selectedAgentId,
     onAgentSelect,
+    variant = "modal",
 }: CreateTaskModalProps) {
     const isEditMode = mode === "edit" && !!task;
 
@@ -426,20 +428,23 @@ export function CreateTaskModal({
     const subtasks = isEditMode && task ? (task.subtasks || []) : [];
 
     // Style for react-mentions
+    const isOverlay = variant === 'overlay';
     const mentionsStyle = {
         control: {
             backgroundColor: 'transparent',
             fontSize: '12px',
             fontWeight: 'normal' as const,
             lineHeight: '1.5',
-            minHeight: '250px',
-            maxHeight: '400px',
+            ...(isOverlay
+                ? { height: '100%', minHeight: 0 }
+                : { minHeight: '250px', maxHeight: '400px' }),
         },
         '&multiLine': {
             control: {
                 fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                minHeight: '250px',
-                maxHeight: '400px',
+                ...(isOverlay
+                    ? { height: '100%', minHeight: 0 }
+                    : { minHeight: '250px', maxHeight: '400px' }),
             },
             highlighter: {
                 padding: '8px 10px',
@@ -458,7 +463,7 @@ export function CreateTaskModal({
                 fontFamily: '"JetBrains Mono", "Fira Code", monospace',
                 fontSize: '12px',
                 lineHeight: '1.5',
-                maxHeight: '400px',
+                ...(isOverlay ? {} : { maxHeight: '400px' }),
                 overflow: 'auto' as const,
             },
         },
@@ -477,11 +482,24 @@ export function CreateTaskModal({
         },
     };
 
-    return createPortal(
-        <div className="themedModalBackdrop" onClick={handleClose}>
-            <div className="themedModal themedModal--wide" onClick={(e) => e.stopPropagation()}>
+    const modalContent = (
+        <>
+            <div className={`themedModal themedModal--wide ${variant === 'overlay' ? 'themedModal--overlay' : ''}`} onClick={(e) => e.stopPropagation()}>
                 <div className="themedModalHeader">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                        {isOverlay && (
+                            <button
+                                className="taskDetailOverlay__backBtn"
+                                onClick={handleClose}
+                                title="Back to terminal"
+                                style={{ flexShrink: 0 }}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M10 12L6 8l4-4" />
+                                </svg>
+                                Back
+                            </button>
+                        )}
                         {isEditMode && task ? (
                             <span className="themedTaskStatusBadge" data-status={task.status} style={{ flexShrink: 0, padding: '6px 10px', fontSize: '12px', lineHeight: '1' }}>
                                 {STATUS_LABELS[task.status] || task.status}
@@ -502,7 +520,10 @@ export function CreateTaskModal({
                             onKeyDown={handleKeyDown}
                         />
                     </div>
-                    <button className="themedModalClose" onClick={handleClose}>×</button>
+                    {/* Only show close button when not in overlay mode (overlay uses Back button instead) */}
+                    {!isOverlay && (
+                        <button className="themedModalClose" onClick={handleClose}>×</button>
+                    )}
                 </div>
 
                 <div className="themedModalContent">
@@ -558,7 +579,7 @@ export function CreateTaskModal({
                     )}
 
                     {/* Prompt/Description Textarea */}
-                    <div className="themedFormRow" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                    <div className="themedFormRow" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, marginBottom: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div className="themedFormLabel" style={{ marginBottom: 0 }}>{isTeamMemberMode ? 'Identity Prompt' : 'Description'}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -1375,6 +1396,16 @@ export function CreateTaskModal({
                     </div>
                 </div>
             )}
+        </>
+    );
+
+    if (variant === 'overlay') {
+        return modalContent;
+    }
+
+    return createPortal(
+        <div className="themedModalBackdrop" onClick={handleClose}>
+            {modalContent}
         </div>,
         document.body
     );

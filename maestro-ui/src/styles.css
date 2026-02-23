@@ -1308,8 +1308,37 @@ body {
   will-change: width;
 }
 
+/* During maestro sidebar resize */
+:root.maestro-sidebar-resizing .appLeftPanel {
+  width: calc(48px + var(--maestro-sidebar-width-live)) !important;
+  will-change: width;
+  transition: none !important;
+}
+
+:root.maestro-sidebar-resizing .appLeftPanelContent {
+  width: var(--maestro-sidebar-width-live) !important;
+  will-change: width;
+  transition: none !important;
+}
+
+:root.maestro-sidebar-resizing .terminalPane {
+  pointer-events: none;
+}
+
+:root.maestro-sidebar-resizing .main {
+  will-change: width;
+}
+
 /* During right panel resize: use live CSS variable, optimize for performance */
-:root.right-panel-resizing .rightPanel {
+:root.right-panel-resizing .rightPanel,
+:root.right-panel-resizing .spacesPanel {
+  width: var(--right-panel-width-live) !important;
+  max-width: var(--right-panel-width-live) !important;
+  will-change: width;
+  transition: none !important;
+}
+
+:root.right-panel-resizing .spacesPanelContent {
   width: var(--right-panel-width-live) !important;
   will-change: width;
   transition: none !important;
@@ -1326,9 +1355,474 @@ body {
 
 /* GPU acceleration during any resize */
 :root.sidebar-resizing,
+:root.maestro-sidebar-resizing,
 :root.right-panel-resizing {
   /* Prevent text selection during drag */
   user-select: none;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Icon Rail                                                          */
+/* ------------------------------------------------------------------ */
+
+.iconRail {
+  width: 48px;
+  min-width: 48px;
+  height: 100%;
+  background: #080a0f;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 2px;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.iconRailButton {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(240, 244, 248, 0.45);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.iconRailButton:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(240, 244, 248, 0.8);
+}
+
+.iconRailButton--active {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+}
+
+.iconRailButton--active:hover {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+}
+
+.iconRailActiveIndicator {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--theme-primary);
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 6px rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.iconRailBadge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--theme-primary);
+  color: #000;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 8px;
+  font-family: var(--style-font-ui);
+}
+
+.iconRailSpacer {
+  flex: 1 1 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  App Left Panel                                                     */
+/* ------------------------------------------------------------------ */
+
+.appLeftPanel {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  flex-shrink: 0;
+  overflow: hidden;
+  /* Performance: strict containment isolates layout from main content */
+  contain: strict;
+  /* No width transition — instant toggle avoids layout thrashing */
+}
+
+.appLeftPanel--expanded {
+  /* expanded state — width is set inline */
+}
+
+.appLeftPanelContent {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: #000;
+  contain: strict;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Spaces Panel (right)                                               */
+/* ------------------------------------------------------------------ */
+
+.spacesPanel {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  overflow: hidden;
+  flex-shrink: 0;
+  flex-grow: 0;
+  /* Performance: strict containment isolates layout from main content */
+  contain: strict;
+  /* No width transition — instant toggle avoids layout thrashing */
+}
+
+.spacesPanelContent {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(900px 520px at 90% 0%, rgba(var(--theme-primary-rgb), 0.06), transparent 55%),
+    linear-gradient(180deg, var(--panel), var(--panel-2));
+  border-left: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  contain: strict;
+}
+
+.spacesRail {
+  width: 48px;
+  min-width: 48px;
+  height: 100%;
+  background: #080a0f;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 2px;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.iconRailActiveIndicator--right {
+  left: auto;
+  right: 0;
+  border-radius: 2px 0 0 2px;
+}
+
+.spacesRailDivider {
+  width: 24px;
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+  flex-shrink: 0;
+}
+
+/* Per-session icons in the spaces rail */
+.spacesRailSessions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0 4px;
+  scrollbar-width: none;
+}
+
+.spacesRailSessions::-webkit-scrollbar {
+  display: none;
+}
+
+/* Dropdown menu from plus button (rendered via portal with fixed positioning) */
+.spacesRailDropdown {
+  min-width: 160px;
+  background: var(--bg-elevated, #1a1b26);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.spacesRailDropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  color: var(--fg, #c0caf5);
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  white-space: nowrap;
+  transition: background 0.1s ease;
+}
+
+.spacesRailDropdownItem:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.spacesRailDropdownItem:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.spacesRailDropdownItem:disabled:hover {
+  background: transparent;
+}
+
+.spacesRailDropdownItem svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.spacesRailDropdownIcon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* In SpacesRail, no spacer should compete with sessions */
+.spacesRail > .iconRailSpacer {
+  display: none;
+}
+
+/* Team group box in collapsed rail */
+.spacesRailTeamGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.spacesRailSession {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  color: rgba(240, 244, 248, 0.5);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.spacesRailSession:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(240, 244, 248, 0.8);
+}
+
+.spacesRailSession--active {
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  border-color: rgba(var(--theme-primary-rgb), 0.3);
+  color: var(--theme-primary);
+}
+
+.spacesRailSession--active:hover {
+  background: rgba(var(--theme-primary-rgb), 0.18);
+}
+
+.spacesRailSession--exited {
+  opacity: 0.4;
+}
+
+.spacesRailSessionIcon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+.spacesRailSessionInitial {
+  font-family: var(--style-font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  color: inherit;
+}
+
+.spacesRailSessionInitial--maestro {
+  color: var(--theme-primary);
+}
+
+.spacesRailSessionPulse {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--theme-primary);
+  box-shadow: 0 0 4px rgba(var(--theme-primary-rgb), 0.6);
+  animation: spacesRailPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes spacesRailPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Needs Input indicator — pulsing orange dot, top-right */
+.spacesRailSession--needsInput {
+  border-color: rgba(255, 170, 0, 0.4);
+  animation: spacesRailNeedsInputGlow 1.5s ease-in-out infinite;
+}
+
+.spacesRailSessionNeedsInput {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ffaa00;
+  box-shadow: 0 0 4px rgba(255, 170, 0, 0.7);
+  animation: spacesRailPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes spacesRailNeedsInputGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 170, 0, 0); }
+  50% { box-shadow: 0 0 6px 2px rgba(255, 170, 0, 0.3); }
+}
+
+/* Completed indicator — green checkmark dot, bottom-right */
+.spacesRailSession--completed {
+  border-color: rgba(0, 200, 80, 0.3);
+}
+
+.spacesRailSessionCompleted {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00c850;
+  box-shadow: 0 0 4px rgba(0, 200, 80, 0.5);
+}
+
+.spacesPanelToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.1);
+  flex-shrink: 0;
+}
+
+.spacesPanelTitle {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-primary);
+  text-transform: var(--style-text-transform);
+  letter-spacing: var(--style-letter-spacing);
+  text-shadow: 0 0 4px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.spacesPanelActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.spacesPanelAction {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.12);
+  color: rgba(240, 244, 248, 0.5);
+  cursor: pointer;
+  border-radius: var(--style-radius-sm, 4px);
+  transition: all 0.15s ease;
+}
+
+.spacesPanelAction:hover {
+  border-color: rgba(var(--theme-primary-rgb), 0.3);
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  color: var(--theme-primary);
+  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.15);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Spaces Panel Content — scoped overrides for right panel context    */
+/* ------------------------------------------------------------------ */
+
+.spacesPanelContent .sidebarHeader {
+  padding: 12px 16px 10px 16px;
+  margin-bottom: 0;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.08);
+}
+
+.spacesPanelContent .sidebarHeader .title {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.spacesPanelContent .sidebarHeaderActions {
+  gap: 4px;
+}
+
+.spacesPanelContent .agentShortcutRow {
+  padding: 10px 16px 10px 16px;
+  gap: 8px;
+  margin-bottom: 0;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+}
+
+.spacesPanelContent .sessionList {
+  padding: 8px 12px;
+  gap: 6px;
+}
+
+.spacesPanelContent .sessionItem {
+  padding: 10px 12px;
+  border-radius: var(--style-radius-sm, 4px);
+}
+
+.spacesPanelContent .sessionItemStatusRow {
+  padding-left: 40px;
+}
+
+.spacesPanelContent .sessionItemTaskChips {
+  padding-left: 40px;
+}
+
+.spacesPanelContent .empty {
+  padding: 16px;
+  text-align: center;
 }
 
 /* ------------------------------------------------------------------ */
@@ -8077,6 +8571,13 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   transform: translateY(-1px);
 }
 
+.executionBarBtnIcon {
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
 .terminalCmdPrimary {
   border-color: var(--terminal-green);
   background: rgba(var(--theme-primary-rgb), 0.08);
@@ -8131,7 +8632,7 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   flex: 1;
   overflow-y: overlay;
   overflow-x: hidden;
-  padding: 16px;
+  padding: 6px 4px;
   position: relative;
   z-index: 1001;
   min-width: 0;
@@ -8360,8 +8861,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 /* Task group - wraps parent and its children */
 .terminalTaskGroup {
   border: 1px solid var(--terminal-border);
-  border-radius: 6px;
-  margin-bottom: 8px;
+  border-radius: 4px;
+  margin-bottom: 4px;
   background: rgba(0, 0, 0, 0.2);
   overflow: hidden;
 }
@@ -8407,7 +8908,7 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .terminalTaskRow {
   border: 1px solid var(--terminal-border);
   background: rgba(var(--theme-primary-rgb), 0.03);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
@@ -8569,17 +9070,19 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .terminalTaskMain {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  cursor: pointer;
-  gap: 16px;
+  padding: 5px 6px;
+  cursor: default;
+  gap: 6px;
   position: relative;
   min-width: 0;
   max-width: 100%;
   width: 100%;
   overflow: hidden;
   box-sizing: border-box;
+  height: 32px;
+  flex-shrink: 0;
 }
 
 .terminalTaskContent {
@@ -11375,23 +11878,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 @media (max-width: 768px) {
-  .terminalTaskMain {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    padding: 10px 12px;
-  }
-
   .terminalTaskContent {
-    flex-direction: column;
-    align-items: stretch;
     gap: 8px;
-  }
-
-  .terminalTaskPrimaryContent {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
   }
 
   .terminalTaskTitle {
@@ -11400,19 +11888,6 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
   .terminalDescriptionPreview {
     font-size: 10px;
-  }
-
-  .terminalTaskMeta {
-    flex-wrap: wrap;
-  }
-
-  .terminalTaskStatus {
-    align-self: flex-start;
-  }
-
-  .terminalTaskActions {
-    flex-wrap: wrap;
-    justify-content: flex-start;
   }
 }
 
@@ -11463,33 +11938,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Responsive styles for narrow right panel using container queries */
 @container maestro-panel (max-width: 400px) {
-  .terminalTaskMain {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    padding: 10px;
-  }
-
-  .terminalTaskPrimaryContent {
-    order: 1;
-  }
-
-  .terminalTaskActions {
-    order: 2;
-    justify-content: flex-end;
-  }
-
-  .terminalTaskMeta {
-    gap: 4px;
-  }
-
   .terminalMetaBadge {
     font-size: 9px;
     padding: 2px 5px;
-  }
-
-  .terminalTimeAgo {
-    display: none;
   }
 
   .terminalTreeCollapseBtn {
@@ -15173,18 +15624,28 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   gap: 10px;
   position: relative;
   z-index: 2;
+  transition: all 0.2s ease;
 }
 
 .executionBar--inactive {
   justify-content: flex-start;
   gap: 8px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
 }
 
 .executionBar--inactive .terminalCmd {
   flex: 1;
-  max-width: 180px;
   text-align: center;
   justify-content: center;
+  border-radius: 4px;
+}
+
+.executionBar--inactive .terminalCmdPrimary .executionBarBtnIcon {
+  color: var(--terminal-green);
+}
+
+.executionBar--inactive .terminalCmdOrchestrate .executionBarBtnIcon {
+  color: var(--terminal-amber, #ffab00);
 }
 
 .executionBar--active {
@@ -15225,9 +15686,31 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .executionBarActions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
   margin-left: auto;
+}
+
+/* Ghost-style cancel button */
+.executionBarCancelBtn {
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  opacity: 0.6;
+  padding: 6px 8px !important;
+  font-size: 11px !important;
+}
+
+.executionBarCancelBtn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Prominent primary action button */
+.terminalCmdPrimary--prominent {
+  padding: 8px 18px !important;
+  font-size: 12px !important;
+  font-weight: 600;
 }
 
 .executionBarActions .terminalCmd:disabled {
@@ -15300,21 +15783,25 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: center;
   gap: 6px;
   width: 100%;
-  padding: 6px 10px;
+  padding: 7px 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--terminal-border);
-  border-radius: 3px;
+  border-radius: 4px;
   color: var(--terminal-text);
   font-family: var(--style-font-ui);
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
   text-align: left;
 }
 
 .executionBarDropdownTrigger:hover {
   border-color: var(--terminal-green);
   background: rgba(255, 255, 255, 0.05);
+}
+
+.executionBarDropdownTrigger:active {
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .executionBarDropdownLabel {
@@ -15358,11 +15845,17 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   z-index: 99999;
   background: var(--panel, #10151e);
   border: 1px solid var(--terminal-border);
-  border-radius: 3px;
+  border-top: 2px solid var(--terminal-green);
+  border-radius: 6px;
   max-height: 220px;
   overflow-y: auto;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.5);
   min-width: 180px;
+}
+
+/* Amber accent for orchestrate mode dropdowns */
+.executionBar--orchestrate .executionBarDropdownTrigger:hover {
+  border-color: var(--terminal-amber, #ffab00);
 }
 
 .executionBarDropdownEmpty {
@@ -15399,9 +15892,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .executionBarDropdownOption {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 6px 10px;
+  padding: 8px 12px;
   background: var(--panel, #10151e);
   border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
@@ -15426,7 +15919,7 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .executionBarDropdownOptionAvatar {
-  font-size: 13px;
+  font-size: 15px;
   flex-shrink: 0;
 }
 
@@ -17850,6 +18343,56 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .excalidrawCanvas .excalidraw {
   width: 100%;
   height: 100%;
+}
+
+/* ── Excalidraw Inline (space mode) ── */
+
+.excalidrawInline {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+  background: var(--bg, #0a0e16);
+}
+
+/* ── DocViewer Inline (space mode) ── */
+
+.docViewerInline {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+  background: var(--bg, #0a0e16);
+  overflow: hidden;
+}
+
+.docViewerPanel--inline {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Space icons in SpacesRail ── */
+
+.spacesRailSpace {
+  color: var(--muted);
+}
+
+.spacesRailSpace--whiteboard {
+  color: var(--theme-primary, #7aa2f7);
+}
+
+.spacesRailSpace--document {
+  color: var(--theme-accent, #bb9af7);
 }
 
 /* ── Columns Container ── */
@@ -20535,13 +21078,14 @@ html[data-style="minimal"] * {
   border: 1px solid var(--theme-border);
   color: rgba(var(--theme-primary-rgb), 0.5);
   font-family: var(--style-font-ui);
-  font-size: 12px;
-  padding: 4px 8px;
+  font-size: 14px;
+  padding: 4px 7px;
   cursor: pointer;
   transition: all 0.15s ease;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0;
+  border-radius: 4px;
 }
 
 .executionBarConfigBtn:hover {
@@ -20642,4 +21186,447 @@ html[data-style="minimal"] * {
   font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.5);
   padding-left: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Task List Redesign - Minimal single-line tiles                     */
+/* ------------------------------------------------------------------ */
+
+/* Subtask arrow (leftmost in task row) */
+.terminalTaskSubtaskArrow {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--terminal-text-dim);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+  opacity: 0;
+  position: relative;
+}
+
+.terminalTaskRow:hover .terminalTaskSubtaskArrow,
+.terminalTaskSubtaskArrow--expanded,
+.terminalTaskSubtaskArrow--collapsed,
+.terminalTaskSubtaskArrow--adding {
+  opacity: 1;
+}
+
+.terminalTaskSubtaskArrow--expanded {
+  color: var(--terminal-green);
+}
+
+.terminalTaskSubtaskArrow--expanded svg {
+  transform: rotate(90deg);
+  transition: transform 0.2s ease;
+}
+
+.terminalTaskSubtaskArrow--collapsed svg {
+  transition: transform 0.2s ease;
+}
+
+.terminalTaskSubtaskArrow:hover {
+  color: var(--terminal-cyan);
+}
+
+.terminalTaskSubtaskArrow__count {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  font-size: 8px;
+  background: var(--terminal-cyan);
+  color: var(--terminal-bg);
+  border-radius: 50%;
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+/* Radio status button */
+.terminalTaskRadioStatus {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.terminalTaskRadioStatus--todo { color: var(--terminal-text-dim); }
+.terminalTaskRadioStatus--in_progress { color: var(--terminal-cyan); }
+.terminalTaskRadioStatus--in_review { color: #a855f7; }
+.terminalTaskRadioStatus--completed { color: var(--terminal-green); }
+.terminalTaskRadioStatus--cancelled { color: var(--terminal-gray); }
+.terminalTaskRadioStatus--blocked { color: var(--terminal-red); }
+.terminalTaskRadioStatus--archived { color: var(--terminal-text-dim); opacity: 0.5; }
+
+.terminalTaskRadioStatus:hover {
+  transform: scale(1.2);
+  filter: brightness(1.3);
+}
+
+/* Clickable title */
+.terminalTaskTitle--clickable {
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminalTaskTitle--clickable:hover {
+  text-decoration: underline;
+  text-decoration-color: rgba(var(--theme-primary-rgb), 0.4);
+  text-underline-offset: 2px;
+}
+
+/* Doc count badge in the collapsed task row */
+.terminalTaskDocBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  padding: 1px 5px 1px 4px;
+  border-radius: 3px;
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.12);
+  color: rgba(var(--theme-primary-rgb), 0.55);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.terminalTaskDocBadge:hover {
+  background: rgba(var(--theme-primary-rgb), 0.14);
+  color: rgba(var(--theme-primary-rgb), 0.8);
+}
+
+/* Docs section in the expanded meta panel */
+.terminalTaskDocsRow {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.terminalTaskDocsList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.terminalTaskDocItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  background: none;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.1);
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.terminalTaskDocItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
+  color: rgba(var(--theme-primary-rgb), 0.9);
+}
+
+.terminalTaskDocItemIcon {
+  flex-shrink: 0;
+  font-size: 9px;
+  opacity: 0.7;
+  font-weight: 600;
+}
+
+.terminalTaskDocItemTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Compact session statuses in the main row */
+.terminalSessionStatuses--compact {
+  flex-shrink: 0;
+  gap: 3px;
+}
+
+/* Play button */
+.terminalTaskPlayBtn {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--terminal-green);
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.15s ease;
+  opacity: 0;
+  border-radius: 3px;
+}
+
+.terminalTaskRow:hover .terminalTaskPlayBtn {
+  opacity: 1;
+}
+
+.terminalTaskPlayBtn:hover {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  border-color: var(--terminal-green);
+  box-shadow: 0 0 6px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+/* Expand button */
+.terminalTaskExpandBtn {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--terminal-text-dim);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.2s ease;
+  border-radius: 3px;
+}
+
+.terminalTaskExpandBtn--open {
+  transform: rotate(180deg);
+  color: var(--terminal-green);
+}
+
+.terminalTaskExpandBtn:hover {
+  color: var(--terminal-cyan);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+/* Meta expanded panel (structured rows below single-line) */
+.terminalTaskMetaExpanded {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 6px 6px 44px; /* align under title */
+  border-top: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  animation: slideDownMeta 0.15s ease-out;
+  overflow: hidden;
+}
+
+@keyframes slideDownMeta {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Each row in the meta panel: label + value pairs */
+.terminalTaskMetaRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px 0;
+  min-height: 24px;
+}
+
+.terminalTaskMetaRow + .terminalTaskMetaRow {
+  border-top: 1px solid rgba(var(--theme-primary-rgb), 0.04);
+}
+
+/* Dim label before each control — hidden by default now */
+.terminalTaskMetaLabel {
+  display: none;
+}
+
+/* Dot separator between groups — hidden since labels removed */
+.terminalTaskMetaSep {
+  display: none;
+}
+
+/* Flex filler to push time-ago to the right */
+.terminalTaskMetaFill {
+  flex: 1;
+  min-width: 8px;
+}
+
+/* Split play in meta row — inline model badge+caret */
+.terminalSplitPlay--meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Task Detail Overlay                                                */
+/* ------------------------------------------------------------------ */
+
+.taskDetailOverlay {
+  position: absolute;
+  inset: 0;
+  background: var(--terminal-bg, #1a1a2e);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  animation: fadeInOverlay 0.15s ease-out;
+  /* Ensure overlay sits above everything in the terminal area */
+  isolation: isolate;
+  overflow: hidden;
+}
+
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.taskDetailOverlay__backBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid var(--terminal-border);
+  color: var(--terminal-text-dim);
+  cursor: pointer;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: var(--terminal-font);
+  border-radius: 3px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.taskDetailOverlay__backBtn:hover {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+/* Overlay variant for CreateTaskModal - fills parent instead of portal */
+.themedModal--overlay {
+  position: relative;
+  max-width: none;
+  max-height: none;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  flex: 1 1 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.themedModal--overlay .themedModalContent {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px;
+}
+
+.themedModal--overlay .themedFormRow {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+
+.themedModal--overlay .mentionsWrapper {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.themedModal--overlay .mentionsInput {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.themedModal--overlay .mentionsInput > div {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.themedModal--overlay .mentionsInput > div > div {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.themedModal--overlay .mentionsInput textarea {
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  flex: 1 1 0;
+}
+
+.themedModal--overlay .themedModalHeader {
+  flex-shrink: 0;
+}
+
+.themedModal--overlay .themedModalTabBar {
+  flex-shrink: 0;
+}
+
+.themedModal--overlay .themedModalTabContent {
+  flex-shrink: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.themedModal--overlay .themedFormActions {
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  PanelIconBar - Icon-only sub-tabs                                  */
+/* ------------------------------------------------------------------ */
+
+.maestroPanelSubTab--icon {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+.maestroPanelSubTabIcon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }

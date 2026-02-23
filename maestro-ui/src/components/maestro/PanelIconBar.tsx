@@ -25,6 +25,7 @@ type PanelIconBarProps = {
     onNewTeam?: () => void;
     teamCount?: number;
     taskListCount?: number;
+    hidePrimaryTabs?: boolean;
 };
 
 export const PanelIconBar: React.FC<PanelIconBarProps> = ({
@@ -46,6 +47,7 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
     onNewTeam,
     teamCount = 0,
     taskListCount = 0,
+    hidePrimaryTabs = false,
 }) => {
     const activeCount = roots.filter(t => t.status !== 'completed' && t.status !== 'archived').length;
     const pinnedCount = roots.filter(t => t.pinned).length;
@@ -59,7 +61,7 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
     return (
         <div className="maestroPanelTabSystem">
             {/* Primary tab bar - at the very top */}
-            <div className="maestroPanelPrimaryTabs">
+            {!hidePrimaryTabs && <div className="maestroPanelPrimaryTabs">
                 <button
                     className={`maestroPanelPrimaryTab ${primaryTab === "tasks" ? "maestroPanelPrimaryTabActive" : ""}`}
                     onClick={() => onPrimaryTabChange("tasks")}
@@ -107,7 +109,7 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                     </svg>
                     Lists
                 </button>
-            </div>
+            </div>}
 
             {/* Secondary sub-tab bar - contextual */}
             <div className="maestroPanelSubTabs">
@@ -121,31 +123,46 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                             New Task
                         </button>
                         <button
-                            className={`maestroPanelSubTab ${taskSubTab === "current" ? "maestroPanelSubTabActive" : ""}`}
+                            className={`maestroPanelSubTab maestroPanelSubTab--icon ${taskSubTab === "current" ? "maestroPanelSubTabActive" : ""}`}
                             onClick={() => onTaskSubTabChange("current")}
+                            title="Current"
                         >
-                            Current
+                            <svg className="maestroPanelSubTabIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                                <path d="M3 4h10M3 8h10M3 12h7" />
+                            </svg>
                             <span className="maestroPanelSubTabCount">{activeCount}</span>
                         </button>
                         <button
-                            className={`maestroPanelSubTab ${taskSubTab === "pinned" ? "maestroPanelSubTabActive" : ""}`}
+                            className={`maestroPanelSubTab maestroPanelSubTab--icon ${taskSubTab === "pinned" ? "maestroPanelSubTabActive" : ""}`}
                             onClick={() => onTaskSubTabChange("pinned")}
+                            title="Pinned"
                         >
-                            Pinned
+                            <svg className="maestroPanelSubTabIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 2l5 5-3.5 1L7 11.5 4.5 9l3.5-3.5L9 2z" />
+                                <path d="M4.5 9L2 14l5-2.5" />
+                            </svg>
                             <span className="maestroPanelSubTabCount">{pinnedCount}</span>
                         </button>
                         <button
-                            className={`maestroPanelSubTab ${taskSubTab === "completed" ? "maestroPanelSubTabActive" : ""}`}
+                            className={`maestroPanelSubTab maestroPanelSubTab--icon ${taskSubTab === "completed" ? "maestroPanelSubTabActive" : ""}`}
                             onClick={() => onTaskSubTabChange("completed")}
+                            title="Completed"
                         >
-                            Completed
+                            <svg className="maestroPanelSubTabIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 8.5l3.5 3.5L13 5" />
+                            </svg>
                             <span className="maestroPanelSubTabCount">{completedCount}</span>
                         </button>
                         <button
-                            className={`maestroPanelSubTab ${taskSubTab === "archived" ? "maestroPanelSubTabActive" : ""}`}
+                            className={`maestroPanelSubTab maestroPanelSubTab--icon ${taskSubTab === "archived" ? "maestroPanelSubTabActive" : ""}`}
                             onClick={() => onTaskSubTabChange("archived")}
+                            title="Archived"
                         >
-                            Archived
+                            <svg className="maestroPanelSubTabIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="2" y="3" width="12" height="4" rx="1" />
+                                <path d="M3 7v5a1 1 0 001 1h8a1 1 0 001-1V7" />
+                                <path d="M6.5 10h3" />
+                            </svg>
                             <span className="maestroPanelSubTabCount">{archivedCount}</span>
                         </button>
                     </>

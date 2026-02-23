@@ -1,4 +1,4 @@
-import React, { MutableRefObject, useCallback, useRef, useState } from "react";
+import React, { MutableRefObject, useCallback, useMemo, useRef, useState } from "react";
 import SessionTerminal, { TerminalRegistry } from "../../SessionTerminal";
 import { PendingDataBuffer } from "../../app/types/app-state";
 import { FileExplorerPanel } from "../FileExplorerPanel";
@@ -6,6 +6,7 @@ import { Icon } from "../Icon";
 import { useSessionStore } from "../../stores/useSessionStore";
 import { useProjectStore } from "../../stores/useProjectStore";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { useSpacesStore } from "../../stores/useSpacesStore";
 import {
   useWorkspaceStore,
   getActiveWorkspaceKey,
@@ -13,6 +14,10 @@ import {
 } from "../../stores/useWorkspaceStore";
 import { isSshCommandLine, sshTargetFromCommandLine } from "../../app/utils/ssh";
 import { SessionLogStrip } from "../session-log/SessionLogStrip";
+import { isWhiteboardId, isDocumentId } from "../../app/types/space";
+import type { WhiteboardSpace, DocumentSpace } from "../../app/types/space";
+import { ExcalidrawBoard } from "../ExcalidrawBoard";
+import { DocViewer } from "../maestro/DocViewer";
 
 const LazyCodeEditorPanel = React.lazy(() => import("../CodeEditorPanel"));
 
@@ -35,6 +40,20 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
   const sendPromptToActive = useSessionStore((s) => s.sendPromptToActive);
   const active = sessions.find((s) => s.id === activeId) ?? null;
   const maestroSessions = useMaestroStore((s) => s.sessions);
+
+  // --- Spaces store (whiteboards & documents) ---
+  const allSpaces = useSpacesStore((s) => s.spaces);
+  const activeSpace = useMemo(
+    () => activeId ? allSpaces.find((s) => s.id === activeId) : undefined,
+    [allSpaces, activeId],
+  );
+  const closeWhiteboard = useSpacesStore((s) => s.closeWhiteboard);
+  const closeDocument = useSpacesStore((s) => s.closeDocument);
+
+  // Determine if we're showing a non-session space
+  const isActiveWhiteboard = activeId ? isWhiteboardId(activeId) : false;
+  const isActiveDocument = activeId ? isDocumentId(activeId) : false;
+  const isActiveSession = !isActiveWhiteboard && !isActiveDocument;
 
   const activeLogAgentTool = (() => {
     if (!active?.maestroSessionId) return active?.effectId ?? null;
@@ -135,9 +154,31 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
         } as React.CSSProperties
       }
     >
+      {/* Inline whiteboard space */}
+      {isActiveWhiteboard && activeSpace?.type === "whiteboard" && (
+        <ExcalidrawBoard
+          key={activeSpace.id}
+          inline
+          storageKey={(activeSpace as WhiteboardSpace).storageKey}
+          name={activeSpace.name}
+          onClose={() => closeWhiteboard(activeSpace.id)}
+        />
+      )}
+
+      {/* Inline document space */}
+      {isActiveDocument && activeSpace?.type === "document" && (
+        <DocViewer
+          key={activeSpace.id}
+          inline
+          doc={(activeSpace as DocumentSpace).doc}
+          onClose={() => closeDocument(activeSpace.id)}
+        />
+      )}
+
       <div
         className={`terminalPane ${terminalDragOver ? "terminalPane--dragOver" : ""}`}
         aria-label="Terminal"
+        style={!isActiveSession ? { display: "none" } : undefined}
         onDragOver={handleTerminalDragOver}
         onDragEnter={handleTerminalDragEnter}
         onDragLeave={handleTerminalDragLeave}
