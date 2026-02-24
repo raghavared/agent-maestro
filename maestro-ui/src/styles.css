@@ -1308,8 +1308,37 @@ body {
   will-change: width;
 }
 
+/* During maestro sidebar resize */
+:root.maestro-sidebar-resizing .appLeftPanel {
+  width: calc(48px + var(--maestro-sidebar-width-live)) !important;
+  will-change: width;
+  transition: none !important;
+}
+
+:root.maestro-sidebar-resizing .appLeftPanelContent {
+  width: var(--maestro-sidebar-width-live) !important;
+  will-change: width;
+  transition: none !important;
+}
+
+:root.maestro-sidebar-resizing .terminalPane {
+  pointer-events: none;
+}
+
+:root.maestro-sidebar-resizing .main {
+  will-change: width;
+}
+
 /* During right panel resize: use live CSS variable, optimize for performance */
-:root.right-panel-resizing .rightPanel {
+:root.right-panel-resizing .rightPanel,
+:root.right-panel-resizing .spacesPanel {
+  width: var(--right-panel-width-live) !important;
+  max-width: var(--right-panel-width-live) !important;
+  will-change: width;
+  transition: none !important;
+}
+
+:root.right-panel-resizing .spacesPanelContent {
   width: var(--right-panel-width-live) !important;
   will-change: width;
   transition: none !important;
@@ -1326,9 +1355,483 @@ body {
 
 /* GPU acceleration during any resize */
 :root.sidebar-resizing,
+:root.maestro-sidebar-resizing,
 :root.right-panel-resizing {
   /* Prevent text selection during drag */
   user-select: none;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Icon Rail                                                          */
+/* ------------------------------------------------------------------ */
+
+.iconRail {
+  width: 48px;
+  min-width: 48px;
+  height: 100%;
+  background: #080a0f;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 2px;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.iconRailButton {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(240, 244, 248, 0.45);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.iconRailButton:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(240, 244, 248, 0.8);
+}
+
+.iconRailButton--active {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+}
+
+.iconRailButton--active:hover {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+}
+
+.iconRailActiveIndicator {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--theme-primary);
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 6px rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.iconRailBadge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--theme-primary);
+  color: #000;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 8px;
+  font-family: var(--style-font-ui);
+}
+
+.iconRailSpacer {
+  flex: 1 1 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  App Left Panel                                                     */
+/* ------------------------------------------------------------------ */
+
+.appLeftPanel {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  flex-shrink: 0;
+  overflow: hidden;
+  /* Performance: strict containment isolates layout from main content */
+  contain: strict;
+  /* No width transition — instant toggle avoids layout thrashing */
+}
+
+.appLeftPanel--expanded {
+  /* expanded state — width is set inline */
+}
+
+.appLeftPanelContent {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: #000;
+  contain: strict;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Spaces Panel (right)                                               */
+/* ------------------------------------------------------------------ */
+
+.spacesPanel {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  overflow: hidden;
+  flex-shrink: 0;
+  flex-grow: 0;
+  /* Performance: strict containment isolates layout from main content */
+  contain: strict;
+  /* No width transition — instant toggle avoids layout thrashing */
+}
+
+.spacesPanelContent {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(900px 520px at 90% 0%, rgba(var(--theme-primary-rgb), 0.06), transparent 55%),
+    linear-gradient(180deg, var(--panel), var(--panel-2));
+  border-left: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  contain: strict;
+}
+
+.spacesRail {
+  width: 48px;
+  min-width: 48px;
+  height: 100%;
+  background: #080a0f;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 2px;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.iconRailActiveIndicator--right {
+  left: auto;
+  right: 0;
+  border-radius: 2px 0 0 2px;
+}
+
+.spacesRailDivider {
+  width: 24px;
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+  flex-shrink: 0;
+}
+
+/* Per-session icons in the spaces rail */
+.spacesRailSessions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0 4px;
+  scrollbar-width: none;
+}
+
+.spacesRailSessions::-webkit-scrollbar {
+  display: none;
+}
+
+/* Dropdown menu from plus button (rendered via portal with fixed positioning) */
+.spacesRailDropdown {
+  min-width: 160px;
+  background: var(--bg-elevated, #1a1b26);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.spacesRailDropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  color: var(--fg, #c0caf5);
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  white-space: nowrap;
+  transition: background 0.1s ease;
+}
+
+.spacesRailDropdownItem:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.spacesRailDropdownItem:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.spacesRailDropdownItem:disabled:hover {
+  background: transparent;
+}
+
+.spacesRailDropdownItem svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.spacesRailDropdownIcon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* In SpacesRail, no spacer should compete with sessions */
+.spacesRail > .iconRailSpacer {
+  display: none;
+}
+
+/* Team group box in collapsed rail */
+.spacesRailTeamGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.spacesRailSession {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  color: rgba(240, 244, 248, 0.5);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.spacesRailSession:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(240, 244, 248, 0.8);
+}
+
+.spacesRailSession--active {
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  border-color: rgba(var(--theme-primary-rgb), 0.3);
+  color: var(--theme-primary);
+}
+
+.spacesRailSession--active:hover {
+  background: rgba(var(--theme-primary-rgb), 0.18);
+}
+
+.spacesRailSession--exited {
+  opacity: 0.4;
+}
+
+.spacesRailSessionIcon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+.spacesRailSessionInitial {
+  font-family: var(--style-font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  color: inherit;
+}
+
+.spacesRailSessionInitial--maestro {
+  color: var(--theme-primary);
+}
+
+.spacesRailSessionPulse {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--theme-primary);
+  box-shadow: 0 0 4px rgba(var(--theme-primary-rgb), 0.6);
+  animation: spacesRailPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes spacesRailPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Needs Input indicator — pulsing orange dot, top-right */
+.spacesRailSession--needsInput {
+  border-color: rgba(255, 170, 0, 0.4);
+  animation: spacesRailNeedsInputGlow 1.5s ease-in-out infinite;
+}
+
+.spacesRailSessionNeedsInput {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ffaa00;
+  box-shadow: 0 0 4px rgba(255, 170, 0, 0.7);
+  animation: spacesRailPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes spacesRailNeedsInputGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 170, 0, 0); }
+  50% { box-shadow: 0 0 6px 2px rgba(255, 170, 0, 0.3); }
+}
+
+/* Completed indicator — green checkmark dot, bottom-right */
+.spacesRailSession--completed {
+  border-color: rgba(0, 200, 80, 0.3);
+}
+
+.spacesRailSessionCompleted {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00c850;
+  box-shadow: 0 0 4px rgba(0, 200, 80, 0.5);
+}
+
+.spacesPanelToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.1);
+  flex-shrink: 0;
+}
+
+.spacesPanelTitle {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-primary);
+  text-transform: var(--style-text-transform);
+  letter-spacing: var(--style-letter-spacing);
+  text-shadow: 0 0 4px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.spacesPanelActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.spacesPanelAction {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.12);
+  color: rgba(240, 244, 248, 0.5);
+  cursor: pointer;
+  border-radius: var(--style-radius-sm, 4px);
+  transition: all 0.15s ease;
+}
+
+.spacesPanelAction:hover {
+  border-color: rgba(var(--theme-primary-rgb), 0.3);
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  color: var(--theme-primary);
+  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.15);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Spaces Panel Content — scoped overrides for right panel context    */
+/* ------------------------------------------------------------------ */
+
+.spacesPanelContent .sidebarHeader {
+  padding: 12px 16px 10px 16px;
+  margin-bottom: 0;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.08);
+}
+
+.spacesPanelContent .sidebarHeader .title {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.spacesPanelContent .sidebarHeaderActions {
+  gap: 4px;
+}
+
+.spacesPanelContent .agentShortcutRow {
+  padding: 10px 16px 10px 16px;
+  gap: 8px;
+  margin-bottom: 0;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+}
+
+.spacesPanelContent .sessionList {
+  padding: 8px 14px;
+  gap: 4px;
+}
+
+.spacesPanelContent .sessionItem {
+  padding: 10px 14px;
+  border-radius: var(--style-radius-sm, 4px);
+}
+
+.spacesPanelContent .sessionItem.sessionItemCompact {
+  padding: 6px 14px;
+}
+
+.spacesPanelContent .sessionItemStatusRow {
+  padding-left: 38px;
+}
+
+.spacesPanelContent .sessionItemTaskChips {
+  padding-left: 38px;
+}
+
+.spacesPanelContent .sessionItemBottomActions {
+  margin-left: 38px;
+  margin-right: 2px;
+}
+
+.spacesPanelContent .empty {
+  padding: 16px;
+  text-align: center;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1877,8 +2380,8 @@ body {
 .sessionItem {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 10px;
+  gap: 10px;
+  padding: 10px 12px;
   border-radius: var(--radius-control);
   border: 1px solid transparent;
   cursor: pointer;
@@ -2036,8 +2539,9 @@ body {
 .sessionName {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font-size: 13px;
+  font-weight: 500;
   min-width: 0;
 }
 
@@ -2422,6 +2926,14 @@ body {
 
 .terminalPane--dragOver {
   box-shadow: inset 0 0 0 2px rgba(0, 187, 255, 0.5);
+}
+
+/* When TeamView is open, remove all containment and transform so
+   position:fixed children escape to the viewport correctly. */
+.terminalPane--teamView {
+  contain: none;
+  transform: none;
+  overflow: visible;
 }
 
 .terminalContainer {
@@ -4585,9 +5097,11 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   width: 100%;
   height: 100%;
   background:
+    radial-gradient(ellipse 120% 80% at 100% 0%, rgba(107, 138, 253, 0.04), transparent 50%),
+    radial-gradient(ellipse 80% 60% at 0% 100%, rgba(34, 211, 238, 0.02), transparent 40%),
     linear-gradient(180deg,
-      rgba(16, 21, 30, 0.98),
-      rgba(10, 14, 22, 0.98));
+      var(--style-surface-1, rgba(16, 21, 30, 0.98)),
+      var(--style-surface-1, rgba(10, 14, 22, 0.98)));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -4615,7 +5129,7 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: center;
   justify-content: space-between;
   background:
-    radial-gradient(800px 400px at 90% 0%, rgba(107, 138, 253, 0.1), transparent 60%);
+    radial-gradient(600px 300px at 90% 0%, rgba(107, 138, 253, 0.06), transparent 60%);
   position: relative;
 }
 
@@ -4707,9 +5221,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .maestroStat {
   white-space: nowrap;
   padding: 4px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--style-radius-sm, 6px);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
   letter-spacing: 0.01em;
 }
 
@@ -4745,10 +5259,10 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.12);
   padding: 4px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--style-radius-md, 10px);
+  border: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .maestroFilterButton {
@@ -4771,12 +5285,12 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .maestroFilterButtonActive {
-  background: linear-gradient(135deg, rgba(107, 138, 253, 0.18), rgba(34, 211, 238, 0.1));
-  border-color: rgba(107, 138, 253, 0.25);
+  background: linear-gradient(135deg, rgba(107, 138, 253, 0.12), rgba(34, 211, 238, 0.06));
+  border-color: rgba(107, 138, 253, 0.2);
   color: var(--text);
   box-shadow:
-    0 2px 6px rgba(107, 138, 253, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 1px 4px rgba(107, 138, 253, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .maestroFilterSelect {
@@ -4813,21 +5327,20 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Custom scrollbar for maestro panel */
 .maestroPanelContent::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .maestroPanelContent::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+  background: transparent;
 }
 
 .maestroPanelContent::-webkit-scrollbar-thumb {
-  background: rgba(107, 138, 253, 0.2);
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
 }
 
 .maestroPanelContent::-webkit-scrollbar-thumb:hover {
-  background: rgba(107, 138, 253, 0.3);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 /* Task List */
@@ -4839,18 +5352,22 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Task Card - Redesigned */
 .maestroTaskCard {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   background:
-    linear-gradient(135deg,
-      rgba(255, 255, 255, 0.03),
-      rgba(255, 255, 255, 0.01));
-  border-radius: 14px;
+    linear-gradient(145deg,
+      var(--style-surface-2, rgba(22, 27, 38, 0.95)),
+      var(--style-surface-1, rgba(14, 18, 28, 0.95)));
+  border-radius: var(--style-radius-lg, 14px);
   padding: 16px;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(8px);
 }
 
 .maestroTaskCard::before {
@@ -4858,61 +5375,67 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   position: absolute;
   top: 0;
   left: 0;
-  width: 4px;
+  width: 3px;
   height: 100%;
-  opacity: 0.8;
+  opacity: 0.85;
   transition: all 0.25s ease;
+  border-radius: 0 2px 2px 0;
 }
 
 .maestroTaskCard:hover {
-  border-color: rgba(107, 138, 253, 0.2);
+  border-color: rgba(107, 138, 253, 0.18);
   background:
-    linear-gradient(135deg,
-      rgba(255, 255, 255, 0.05),
-      rgba(255, 255, 255, 0.02));
-  transform: translateY(-2px);
+    linear-gradient(145deg,
+      var(--style-surface-3, rgba(28, 33, 45, 0.95)),
+      var(--style-surface-2, rgba(20, 25, 36, 0.95)));
+  transform: translateY(-1px);
   box-shadow:
-    0 8px 20px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(107, 138, 253, 0.1);
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    0 8px 24px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .maestroTaskCardActive {
-  border-color: rgba(107, 138, 253, 0.4);
+  border-color: rgba(107, 138, 253, 0.3);
   background:
-    linear-gradient(135deg,
-      rgba(107, 138, 253, 0.12),
-      rgba(34, 211, 238, 0.06));
+    linear-gradient(145deg,
+      rgba(107, 138, 253, 0.08),
+      rgba(34, 211, 238, 0.03)),
+    linear-gradient(145deg,
+      var(--style-surface-2, rgba(22, 27, 38, 0.95)),
+      var(--style-surface-1, rgba(14, 18, 28, 0.95)));
   box-shadow:
-    0 8px 24px rgba(107, 138, 253, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 4px 16px rgba(107, 138, 253, 0.12),
+    0 8px 32px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .maestroTaskCard--in_progress::before {
-  background: linear-gradient(180deg, rgba(107, 138, 253, 0.9), rgba(34, 211, 238, 0.7));
-  box-shadow: 0 0 12px rgba(107, 138, 253, 0.4);
+  background: linear-gradient(180deg, #6b8afd, #22d3ee);
+  box-shadow: 0 0 8px rgba(107, 138, 253, 0.35);
 }
 
 .maestroTaskCard--completed::before {
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.7));
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+  background: linear-gradient(180deg, #10b981, #059669);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
 }
 
 .maestroTaskCard--completed {
-  opacity: 0.75;
+  opacity: 0.7;
 }
 
 .maestroTaskCard--in_review::before {
-  background: linear-gradient(180deg, rgba(168, 85, 247, 0.9), rgba(139, 92, 246, 0.7));
-  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+  background: linear-gradient(180deg, #a855f7, #8b5cf6);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
 }
 
 .maestroTaskCard--blocked::before {
-  background: linear-gradient(180deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.7));
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+  background: linear-gradient(180deg, #ef4444, #dc2626);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
 }
 
 .maestroTaskCard--todo::before {
-  background: linear-gradient(180deg, rgba(148, 163, 184, 0.6), rgba(100, 116, 139, 0.5));
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.5), rgba(100, 116, 139, 0.4));
 }
 
 .maestroTaskCardHeader {
@@ -4930,72 +5453,72 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .maestroTaskCardStatusBadge {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 4px 9px;
+  border-radius: var(--style-radius-sm, 6px);
   border: 1px solid;
   line-height: 1;
 }
 
 .maestroTaskCardStatusBadge--todo {
-  background: rgba(148, 163, 184, 0.12);
-  border-color: rgba(148, 163, 184, 0.25);
-  color: rgba(203, 213, 225, 0.9);
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.15);
+  color: rgba(203, 213, 225, 0.8);
 }
 
 .maestroTaskCardStatusBadge--in_progress {
-  background: linear-gradient(135deg, rgba(107, 138, 253, 0.15), rgba(34, 211, 238, 0.1));
-  border-color: rgba(107, 138, 253, 0.3);
+  background: rgba(107, 138, 253, 0.1);
+  border-color: rgba(107, 138, 253, 0.22);
   color: rgba(139, 174, 255, 0.95);
 }
 
 .maestroTaskCardStatusBadge--in_review {
-  background: rgba(168, 85, 247, 0.12);
-  border-color: rgba(168, 85, 247, 0.3);
-  color: rgba(192, 132, 252, 0.95);
+  background: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.2);
+  color: rgba(192, 132, 252, 0.9);
 }
 
 .maestroTaskCardStatusBadge--completed {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.3);
-  color: rgba(52, 211, 153, 0.95);
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: rgba(52, 211, 153, 0.9);
 }
 
 .maestroTaskCardStatusBadge--blocked {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: rgba(252, 129, 129, 0.95);
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: rgba(252, 129, 129, 0.9);
 }
 
 .maestroTaskCardPriorityBadge {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 4px 9px;
+  border-radius: var(--style-radius-sm, 6px);
   border: 1px solid;
   line-height: 1;
 }
 
 .maestroTaskCardPriorityBadge--low {
-  background: rgba(100, 116, 139, 0.1);
-  border-color: rgba(148, 163, 184, 0.2);
-  color: rgba(203, 213, 225, 0.8);
+  background: rgba(100, 116, 139, 0.06);
+  border-color: rgba(148, 163, 184, 0.12);
+  color: rgba(203, 213, 225, 0.7);
 }
 
 .maestroTaskCardPriorityBadge--medium {
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.3);
-  color: rgba(251, 191, 36, 0.95);
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: rgba(251, 191, 36, 0.9);
 }
 
 .maestroTaskCardPriorityBadge--high {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: rgba(252, 129, 129, 0.95);
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: rgba(252, 129, 129, 0.9);
 }
 
 .maestroTaskCardMenu {
@@ -5003,12 +5526,12 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .maestroTaskCardMenuButton {
-  border: 1px solid transparent;
-  background: rgba(0, 0, 0, 0.15);
-  color: rgba(240, 244, 248, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(240, 244, 248, 0.4);
   width: 28px;
   height: 28px;
-  border-radius: 7px;
+  border-radius: var(--style-radius-sm, 7px);
   cursor: pointer;
   font-size: 18px;
   line-height: 1;
@@ -5019,10 +5542,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .maestroTaskCardMenuButton:hover {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text);
-  transform: scale(1.05);
 }
 
 .maestroTaskCardMenuDropdown {
@@ -5031,14 +5553,16 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   right: 0;
   min-width: 170px;
   padding: 8px;
-  border: 1px solid rgba(107, 138, 253, 0.2);
-  background: linear-gradient(180deg, rgba(17, 24, 34, 0.98), rgba(10, 14, 20, 0.98));
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg,
+    var(--style-surface-3, rgba(17, 24, 34, 0.98)),
+    var(--style-surface-2, rgba(10, 14, 20, 0.98)));
+  border-radius: var(--style-radius-lg, 12px);
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
   z-index: 200;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
   animation: dropdownSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -5114,12 +5638,12 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: center;
   gap: 5px;
   font-size: 11px;
-  color: rgba(240, 244, 248, 0.5);
+  color: rgba(240, 244, 248, 0.45);
   font-weight: 500;
   padding: 3px 8px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: var(--style-radius-sm, 6px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .maestroTaskCardMetaItem svg {
@@ -5132,17 +5656,17 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: flex-start;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--style-radius-md, 10px);
   background:
     linear-gradient(135deg,
-      rgba(107, 138, 253, 0.08),
-      rgba(34, 211, 238, 0.05));
-  border: 1px solid rgba(107, 138, 253, 0.2);
+      rgba(107, 138, 253, 0.05),
+      rgba(34, 211, 238, 0.02));
+  border: 1px solid rgba(107, 138, 253, 0.12);
   margin-bottom: 12px;
   font-size: 11px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.9);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .maestroTaskCardLastUpdate svg {
@@ -5160,13 +5684,13 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .maestroTaskCardActionPrimary {
   flex: 1;
-  border: 1px solid rgba(107, 138, 253, 0.35);
+  border: 1px solid rgba(107, 138, 253, 0.25);
   background: linear-gradient(135deg,
-      rgba(107, 138, 253, 0.18),
-      rgba(34, 211, 238, 0.1));
+      rgba(107, 138, 253, 0.12),
+      rgba(34, 211, 238, 0.06));
   color: var(--text);
   padding: 10px 14px;
-  border-radius: 9px;
+  border-radius: var(--style-radius-md, 9px);
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
@@ -5176,20 +5700,20 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   gap: 7px;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow:
-    0 2px 8px rgba(107, 138, 253, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 1px 4px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   letter-spacing: 0.01em;
 }
 
 .maestroTaskCardActionPrimary:hover {
-  border-color: rgba(107, 138, 253, 0.5);
+  border-color: rgba(107, 138, 253, 0.4);
   background: linear-gradient(135deg,
-      rgba(107, 138, 253, 0.25),
-      rgba(34, 211, 238, 0.15));
+      rgba(107, 138, 253, 0.18),
+      rgba(34, 211, 238, 0.1));
   transform: translateY(-1px);
   box-shadow:
-    0 4px 14px rgba(107, 138, 253, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    0 4px 12px rgba(107, 138, 253, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .maestroTaskCardActionPrimary:active {
@@ -6221,17 +6745,28 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Task List Item */
 .taskListItem {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-2, rgba(22, 27, 38, 0.9)),
+      var(--style-surface-1, rgba(14, 18, 28, 0.9)));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--style-radius-md, 10px);
   overflow: hidden;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .taskListItem:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(107, 138, 253, 0.2);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-3, rgba(28, 33, 45, 0.9)),
+      var(--style-surface-2, rgba(20, 25, 36, 0.9)));
+  border-color: rgba(107, 138, 253, 0.15);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .taskListItemMain {
@@ -6254,8 +6789,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .taskListItemExpand {
   border: none;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(240, 244, 248, 0.6);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(240, 244, 248, 0.5);
   width: 24px;
   height: 24px;
   border-radius: 6px;
@@ -6320,78 +6855,78 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .taskListItemStatusBadge {
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 3px 7px;
-  border-radius: 5px;
+  padding: 3px 8px;
+  border-radius: var(--style-radius-sm, 5px);
   border: 1px solid;
   line-height: 1;
 }
 
 .taskListItemStatusBadge--todo {
-  background: rgba(148, 163, 184, 0.1);
-  border-color: rgba(148, 163, 184, 0.2);
-  color: rgba(203, 213, 225, 0.85);
+  background: rgba(148, 163, 184, 0.07);
+  border-color: rgba(148, 163, 184, 0.14);
+  color: rgba(203, 213, 225, 0.75);
 }
 
 .taskListItemStatusBadge--in_progress {
-  background: linear-gradient(135deg, rgba(107, 138, 253, 0.12), rgba(34, 211, 238, 0.08));
-  border-color: rgba(107, 138, 253, 0.25);
+  background: rgba(107, 138, 253, 0.08);
+  border-color: rgba(107, 138, 253, 0.18);
   color: rgba(139, 174, 255, 0.9);
 }
 
 .taskListItemStatusBadge--in_review {
-  background: rgba(168, 85, 247, 0.1);
-  border-color: rgba(168, 85, 247, 0.25);
-  color: rgba(192, 132, 252, 0.9);
+  background: rgba(168, 85, 247, 0.07);
+  border-color: rgba(168, 85, 247, 0.18);
+  color: rgba(192, 132, 252, 0.85);
 }
 
 .taskListItemStatusBadge--completed {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.25);
-  color: rgba(52, 211, 153, 0.9);
+  background: rgba(16, 185, 129, 0.07);
+  border-color: rgba(16, 185, 129, 0.18);
+  color: rgba(52, 211, 153, 0.85);
 }
 
 .taskListItemStatusBadge--cancelled {
-  background: rgba(128, 128, 128, 0.1);
-  border-color: rgba(128, 128, 128, 0.2);
-  color: rgba(160, 160, 160, 0.9);
+  background: rgba(128, 128, 128, 0.06);
+  border-color: rgba(128, 128, 128, 0.12);
+  color: rgba(160, 160, 160, 0.8);
 }
 
 .taskListItemStatusBadge--blocked {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.25);
-  color: rgba(252, 129, 129, 0.9);
+  background: rgba(239, 68, 68, 0.07);
+  border-color: rgba(239, 68, 68, 0.18);
+  color: rgba(252, 129, 129, 0.85);
 }
 
 .taskListItemPriorityBadge {
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 3px 7px;
-  border-radius: 5px;
+  padding: 3px 8px;
+  border-radius: var(--style-radius-sm, 5px);
   border: 1px solid;
   line-height: 1;
 }
 
 .taskListItemPriorityBadge--low {
-  background: rgba(100, 116, 139, 0.08);
-  border-color: rgba(148, 163, 184, 0.18);
-  color: rgba(203, 213, 225, 0.75);
+  background: rgba(100, 116, 139, 0.05);
+  border-color: rgba(148, 163, 184, 0.1);
+  color: rgba(203, 213, 225, 0.65);
 }
 
 .taskListItemPriorityBadge--medium {
-  background: rgba(245, 158, 11, 0.1);
-  border-color: rgba(245, 158, 11, 0.25);
-  color: rgba(251, 191, 36, 0.9);
+  background: rgba(245, 158, 11, 0.07);
+  border-color: rgba(245, 158, 11, 0.18);
+  color: rgba(251, 191, 36, 0.85);
 }
 
 .taskListItemPriorityBadge--high {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.25);
-  color: rgba(252, 129, 129, 0.9);
+  background: rgba(239, 68, 68, 0.07);
+  border-color: rgba(239, 68, 68, 0.18);
+  color: rgba(252, 129, 129, 0.85);
 }
 
 .taskListItemMeta {
@@ -6423,10 +6958,10 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .taskListItemActionBtn {
-  border: 1px solid rgba(107, 138, 253, 0.3);
+  border: 1px solid rgba(107, 138, 253, 0.2);
   background: linear-gradient(135deg,
-      rgba(107, 138, 253, 0.15),
-      rgba(34, 211, 238, 0.08));
+      rgba(107, 138, 253, 0.1),
+      rgba(34, 211, 238, 0.05));
   color: var(--text);
   padding: 7px 12px;
   border-radius: 7px;
@@ -6442,12 +6977,12 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .taskListItemActionBtn:hover {
-  border-color: rgba(107, 138, 253, 0.5);
+  border-color: rgba(107, 138, 253, 0.35);
   background: linear-gradient(135deg,
-      rgba(107, 138, 253, 0.22),
-      rgba(34, 211, 238, 0.12));
+      rgba(107, 138, 253, 0.16),
+      rgba(34, 211, 238, 0.08));
   transform: translateY(-1px);
-  box-shadow: 0 3px 10px rgba(107, 138, 253, 0.2);
+  box-shadow: 0 2px 8px rgba(107, 138, 253, 0.12);
 }
 
 .taskListItemActionBtn svg {
@@ -6460,8 +6995,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .taskListItemMenuBtn {
   border: none;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(240, 244, 248, 0.5);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(240, 244, 248, 0.4);
   width: 28px;
   height: 28px;
   border-radius: 6px;
@@ -6571,8 +7106,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Subtasks */
 .taskListItemSubtasks {
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(0, 0, 0, 0.15);
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  background: rgba(0, 0, 0, 0.1);
   padding: 8px 16px 8px 52px;
   animation: expandDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -6647,18 +7182,19 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   max-width: 720px;
   max-height: 90vh;
   background: linear-gradient(180deg,
-      rgba(16, 21, 30, 0.98),
-      rgba(10, 14, 22, 0.98));
-  border: 1px solid rgba(107, 138, 253, 0.2);
-  border-radius: 20px;
+      var(--style-surface-2, rgba(16, 21, 30, 0.98)),
+      var(--style-surface-1, rgba(10, 14, 22, 0.98)));
+  border: 1px solid rgba(107, 138, 253, 0.15);
+  border-radius: var(--style-radius-xl, 20px);
   box-shadow:
-    0 24px 80px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(107, 138, 253, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 24px 80px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(107, 138, 253, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
   animation: slideUpScale 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
+  backdrop-filter: blur(12px);
 }
 
 .taskDetailModalHeader {
@@ -7793,15 +8329,18 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Main terminal panel with scanline effects */
 .maestroPanel.terminalTheme {
-  background: var(--terminal-bg);
-  border-left: 2px solid var(--terminal-border);
+  background:
+    linear-gradient(180deg,
+      var(--style-surface-1, var(--terminal-bg)),
+      var(--bg, var(--terminal-bg)));
+  border-left: 1px solid rgba(var(--theme-primary-rgb), 0.1);
   box-shadow:
-    -8px 0 32px rgba(var(--theme-primary-rgb), 0.15),
-    inset 0 0 100px rgba(var(--theme-primary-rgb), 0.03);
+    -4px 0 16px rgba(0, 0, 0, 0.3),
+    inset 0 0 40px rgba(var(--theme-primary-rgb), 0.01);
   position: relative;
 }
 
-/* Scanline effect overlay */
+/* Scanline effect overlay - very subtle */
 .maestroPanel.terminalTheme::before {
   content: '';
   position: absolute;
@@ -7810,13 +8349,13 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   right: 0;
   bottom: 0;
   background: repeating-linear-gradient(0deg,
-      rgba(0, 0, 0, 0.15) 0px,
-      rgba(0, 0, 0, 0.15) 1px,
+      rgba(0, 0, 0, 0.08) 0px,
+      rgba(0, 0, 0, 0.08) 1px,
       transparent 1px,
       transparent 2px);
   pointer-events: none;
   z-index: 1000;
-  opacity: 0.3;
+  opacity: 0.15;
   animation: scanlineMove 8s linear infinite;
 }
 
@@ -7830,7 +8369,7 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   }
 }
 
-/* CRT glow effect */
+/* Subtle ambient glow */
 .maestroPanel.terminalTheme::after {
   content: '';
   position: absolute;
@@ -7839,7 +8378,7 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   right: 0;
   bottom: 0;
   background: radial-gradient(ellipse at center,
-      rgba(var(--theme-primary-rgb), 0.1) 0%,
+      rgba(var(--theme-primary-rgb), 0.03) 0%,
       transparent 70%);
   pointer-events: none;
   z-index: 999;
@@ -8077,6 +8616,13 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   transform: translateY(-1px);
 }
 
+.executionBarBtnIcon {
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
 .terminalCmdPrimary {
   border-color: var(--terminal-green);
   background: rgba(var(--theme-primary-rgb), 0.08);
@@ -8131,7 +8677,7 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   flex: 1;
   overflow-y: overlay;
   overflow-x: hidden;
-  padding: 16px;
+  padding: 6px 4px;
   position: relative;
   z-index: 1001;
   min-width: 0;
@@ -8359,20 +8905,29 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Task group - wraps parent and its children */
 .terminalTaskGroup {
-  border: 1px solid var(--terminal-border);
-  border-radius: 6px;
-  margin-bottom: 8px;
-  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.08);
+  border-radius: var(--style-radius-md, 6px);
+  margin-bottom: 6px;
+  background:
+    linear-gradient(135deg,
+      var(--style-surface-2, rgba(16, 21, 30, 0.9)),
+      var(--style-surface-1, rgba(10, 14, 22, 0.95)));
   overflow: hidden;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.2),
+    0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
 }
 
 .terminalTaskGroup--expanded {
-  border-color: rgba(0, 255, 255, 0.3);
-  box-shadow: 0 0 8px rgba(0, 255, 255, 0.1);
+  border-color: rgba(var(--theme-primary-rgb), 0.18);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.25),
+    0 0 1px rgba(var(--theme-primary-rgb), 0.15);
 }
 
 .terminalTaskGroup--collapsed {
-  border-color: var(--terminal-border);
+  border-color: rgba(var(--theme-primary-rgb), 0.06);
 }
 
 .terminalTaskGroup > .terminalTaskRow {
@@ -8387,9 +8942,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .terminalTaskGroupChildren {
-  background: rgba(0, 255, 255, 0.02);
+  background: rgba(var(--theme-primary-rgb), 0.015);
   padding-left: 4px;
-  border-left: 2px solid rgba(0, 255, 255, 0.2);
+  border-left: 2px solid rgba(var(--theme-primary-rgb), 0.12);
   margin-left: 12px;
 }
 
@@ -8405,9 +8960,13 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Task row */
 .terminalTaskRow {
-  border: 1px solid var(--terminal-border);
-  background: rgba(var(--theme-primary-rgb), 0.03);
-  margin-bottom: 4px;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-2, rgba(16, 21, 30, 0.85)),
+      var(--style-surface-1, rgba(10, 14, 22, 0.9)));
+  margin-bottom: 2px;
+  border-radius: var(--style-radius-sm, 4px);
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
@@ -8415,6 +8974,7 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   max-width: 100%;
   width: 100%;
   box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 .terminalTaskRow::before {
@@ -8433,17 +8993,14 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .terminalTaskRow--in_progress::before {
   background: var(--terminal-cyan);
-  box-shadow: 0 0 8px var(--terminal-cyan);
 }
 
 .terminalTaskRow--in_review::before {
   background: #a855f7;
-  box-shadow: 0 0 8px #a855f7;
 }
 
 .terminalTaskRow--completed::before {
   background: var(--terminal-green);
-  box-shadow: 0 0 8px var(--terminal-green);
 }
 
 .terminalTaskRow--cancelled::before {
@@ -8452,21 +9009,30 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .terminalTaskRow--blocked::before {
   background: var(--terminal-red);
-  box-shadow: 0 0 8px var(--terminal-red);
 }
 
 .terminalTaskRow:hover {
-  border-color: var(--terminal-green);
-  background: rgba(var(--theme-primary-rgb), 0.08);
-  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.2);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-3, rgba(22, 27, 38, 0.9)),
+      var(--style-surface-2, rgba(16, 21, 30, 0.95)));
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.2),
+    0 0 1px rgba(var(--theme-primary-rgb), 0.12);
 }
 
 /* Disable hover effects when dropdown is open */
 .terminalTaskRow--dropdownOpen,
 .terminalTaskRow--dropdownOpen:hover {
-  border-color: var(--terminal-green);
-  background: rgba(var(--theme-primary-rgb), 0.08);
-  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.2);
+  border-color: rgba(var(--theme-primary-rgb), 0.25);
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-3, rgba(22, 27, 38, 0.95)),
+      var(--style-surface-2, rgba(16, 21, 30, 0.98)));
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 1px rgba(var(--theme-primary-rgb), 0.15);
   z-index: 1001;
   position: relative;
   overflow: visible; /* Allow dropdown to show outside row bounds */
@@ -8481,8 +9047,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Prevent hover on other rows when a dropdown is open */
 .terminalTaskList:has(.terminalTaskRow--dropdownOpen) .terminalTaskRow:not(.terminalTaskRow--dropdownOpen):hover {
-  border-color: rgba(var(--theme-primary-rgb), 0.15);
-  background: rgba(var(--theme-primary-rgb), 0.02);
+  border-color: rgba(var(--theme-primary-rgb), 0.08);
+  background: var(--style-surface-2, rgba(16, 21, 30, 0.85));
   box-shadow: none;
   transform: none;
 }
@@ -8498,6 +9064,34 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   color: var(--terminal-text-dim);
 }
 
+/* Highlight tasks belonging to the currently active session */
+.terminalTaskRow--sessionActive {
+  background:
+    linear-gradient(145deg,
+      rgba(var(--theme-primary-rgb), 0.06),
+      rgba(var(--theme-primary-rgb), 0.02)),
+    linear-gradient(145deg,
+      var(--style-surface-2, rgba(16, 21, 30, 0.9)),
+      var(--style-surface-1, rgba(10, 14, 22, 0.95)));
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    inset 0 0 0 1px rgba(var(--theme-primary-rgb), 0.08);
+  position: relative;
+}
+
+.terminalTaskRow--sessionActive::after {
+  content: '\2B25';
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  color: var(--terminal-cyan);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
 .terminalTreePrefix {
   font-family: var(--terminal-font);
   color: var(--terminal-text-dim);
@@ -8508,15 +9102,15 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Tree collapse toggle for parent tasks with children */
 .terminalTreeCollapseBtn {
-  background: rgba(0, 255, 255, 0.08);
-  border: 1px solid rgba(0, 255, 255, 0.3);
-  color: var(--terminal-cyan);
+  background: rgba(var(--theme-primary-rgb), 0.06);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  color: rgba(var(--theme-primary-rgb), 0.7);
   font-size: 16px;
   font-weight: bold;
   cursor: pointer;
   padding: 0;
   margin-right: 10px;
-  border-radius: 50%;
+  border-radius: var(--style-radius-sm, 4px);
   transition: all 0.2s ease;
   flex-shrink: 0;
   width: 22px;
@@ -8524,40 +9118,37 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 6px rgba(0, 255, 255, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .terminalTreeCollapseBtn.collapsed {
-  color: var(--terminal-cyan);
-  border-color: rgba(0, 255, 255, 0.4);
-  background: rgba(0, 255, 255, 0.1);
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
+  background: rgba(var(--theme-primary-rgb), 0.06);
 }
 
 .terminalTreeCollapseBtn.expanded {
-  color: var(--terminal-green);
-  border-color: rgba(var(--theme-primary-rgb), 0.4);
+  color: var(--theme-primary);
+  border-color: rgba(var(--theme-primary-rgb), 0.25);
   background: rgba(var(--theme-primary-rgb), 0.1);
-  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.2);
 }
 
 .terminalTreeCollapseBtn:hover {
-  transform: scale(1.15);
+  transform: scale(1.1);
 }
 
 .terminalTreeCollapseBtn.collapsed:hover {
-  background: rgba(0, 255, 255, 0.2);
-  border-color: var(--terminal-cyan);
-  box-shadow: 0 0 12px rgba(0, 255, 255, 0.4);
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  border-color: rgba(var(--theme-primary-rgb), 0.3);
 }
 
 .terminalTreeCollapseBtn.expanded:hover {
-  background: rgba(var(--theme-primary-rgb), 0.2);
-  border-color: var(--terminal-green);
-  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.4);
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  border-color: rgba(var(--theme-primary-rgb), 0.35);
 }
 
 .terminalTreeCollapseBtn:active {
-  transform: scale(0.9);
+  transform: scale(0.95);
 }
 
 /* Spacer for alignment when task has no children */
@@ -8569,17 +9160,19 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .terminalTaskMain {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  cursor: pointer;
-  gap: 16px;
+  padding: 5px 6px;
+  cursor: default;
+  gap: 6px;
   position: relative;
   min-width: 0;
   max-width: 100%;
   width: 100%;
   overflow: hidden;
   box-sizing: border-box;
+  height: 32px;
+  flex-shrink: 0;
 }
 
 .terminalTaskContent {
@@ -8635,9 +9228,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Expand button - highlighted and visible */
 .terminalExpandBtn {
-  background: rgba(var(--theme-primary-rgb), 0.1);
-  border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
-  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.06);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  color: rgba(var(--theme-primary-rgb), 0.7);
   width: 18px;
   height: 18px;
   cursor: pointer;
@@ -8647,21 +9240,20 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   justify-content: center;
   transition: all 0.2s ease;
   flex-shrink: 0;
-  border-radius: 3px;
-  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.2);
+  border-radius: var(--style-radius-sm, 3px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .terminalExpandBtn:hover {
-  background: rgba(var(--theme-primary-rgb), 0.2);
-  border-color: var(--terminal-green);
-  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.4);
-  transform: scale(1.1);
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  border-color: rgba(var(--theme-primary-rgb), 0.3);
+  transform: scale(1.05);
 }
 
 .terminalExpandBtn.expanded {
-  background: rgba(var(--theme-primary-rgb), 0.15);
-  border-color: var(--terminal-green);
-  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.4);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  border-color: rgba(var(--theme-primary-rgb), 0.25);
+  color: var(--theme-primary);
 }
 
 /* Expand indicator (non-interactive, shows expand state) */
@@ -8758,46 +9350,48 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .terminalStatusLabel {
   font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
+  font-weight: 600;
+  padding: 2px 7px;
   border: 1px solid;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   flex-shrink: 0;
+  border-radius: var(--style-radius-sm, 4px);
 }
 
 .terminalStatusLabel--todo {
   color: var(--terminal-text-dim);
-  border-color: var(--terminal-border);
+  border-color: rgba(var(--theme-primary-rgb), 0.1);
+  background: rgba(var(--theme-primary-rgb), 0.03);
 }
 
 .terminalStatusLabel--in_progress {
-  color: var(--terminal-cyan);
-  border-color: var(--terminal-cyan);
-  background: rgba(0, 217, 255, 0.1);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.2);
+  background: rgba(56, 189, 248, 0.08);
 }
 
 .terminalStatusLabel--in_review {
-  color: #a855f7;
-  border-color: #a855f7;
-  background: rgba(168, 85, 247, 0.1);
+  color: #c084fc;
+  border-color: rgba(192, 132, 252, 0.2);
+  background: rgba(168, 85, 247, 0.08);
 }
 
 .terminalStatusLabel--completed {
-  color: var(--terminal-green);
-  border-color: var(--terminal-green);
-  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
+  background: rgba(var(--theme-primary-rgb), 0.08);
 }
 
 .terminalStatusLabel--cancelled {
-  color: var(--terminal-gray);
-  border-color: var(--terminal-gray);
-  background: rgba(128, 128, 128, 0.1);
+  color: rgba(148, 163, 184, 0.6);
+  border-color: rgba(148, 163, 184, 0.12);
+  background: rgba(148, 163, 184, 0.05);
 }
 
 .terminalStatusLabel--blocked {
-  color: var(--terminal-red);
-  border-color: var(--terminal-red);
-  background: rgba(255, 59, 59, 0.1);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.2);
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .terminalTaskTitle {
@@ -9326,6 +9920,12 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .terminalInlineTeamMemberOption--current {
   background: rgba(var(--theme-primary-rgb), 0.08);
   color: var(--terminal-text);
+}
+
+.terminalInlineTeamMemberOption--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: default;
 }
 
 .terminalInlineTeamMemberOption--create {
@@ -11375,23 +11975,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 @media (max-width: 768px) {
-  .terminalTaskMain {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    padding: 10px 12px;
-  }
-
   .terminalTaskContent {
-    flex-direction: column;
-    align-items: stretch;
     gap: 8px;
-  }
-
-  .terminalTaskPrimaryContent {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
   }
 
   .terminalTaskTitle {
@@ -11400,19 +11985,6 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
   .terminalDescriptionPreview {
     font-size: 10px;
-  }
-
-  .terminalTaskMeta {
-    flex-wrap: wrap;
-  }
-
-  .terminalTaskStatus {
-    align-self: flex-start;
-  }
-
-  .terminalTaskActions {
-    flex-wrap: wrap;
-    justify-content: flex-start;
   }
 }
 
@@ -11463,33 +12035,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Responsive styles for narrow right panel using container queries */
 @container maestro-panel (max-width: 400px) {
-  .terminalTaskMain {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    padding: 10px;
-  }
-
-  .terminalTaskPrimaryContent {
-    order: 1;
-  }
-
-  .terminalTaskActions {
-    order: 2;
-    justify-content: flex-end;
-  }
-
-  .terminalTaskMeta {
-    gap: 4px;
-  }
-
   .terminalMetaBadge {
     font-size: 9px;
     padding: 2px 5px;
-  }
-
-  .terminalTimeAgo {
-    display: none;
   }
 
   .terminalTreeCollapseBtn {
@@ -13323,8 +13871,11 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .maestroPanelTabSystem {
   display: flex;
   flex-direction: column;
-  background: rgba(0, 0, 0, 0.3);
-  border-bottom: 1px solid var(--terminal-border);
+  background:
+    linear-gradient(180deg,
+      rgba(0, 0, 0, 0.25),
+      rgba(0, 0, 0, 0.15));
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
 }
 
 /* Utility bar - refresh & board at the top */
@@ -13491,8 +14042,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: center;
   gap: 4px;
   padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border-bottom: 1px solid var(--terminal-border);
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
 }
 
 .maestroPanelIconSvg {
@@ -15173,18 +15724,28 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   gap: 10px;
   position: relative;
   z-index: 2;
+  transition: all 0.2s ease;
 }
 
 .executionBar--inactive {
   justify-content: flex-start;
   gap: 8px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
 }
 
 .executionBar--inactive .terminalCmd {
   flex: 1;
-  max-width: 180px;
   text-align: center;
   justify-content: center;
+  border-radius: 4px;
+}
+
+.executionBar--inactive .terminalCmdPrimary .executionBarBtnIcon {
+  color: var(--terminal-green);
+}
+
+.executionBar--inactive .terminalCmdOrchestrate .executionBarBtnIcon {
+  color: var(--terminal-amber, #ffab00);
 }
 
 .executionBar--active {
@@ -15225,9 +15786,31 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .executionBarActions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
   margin-left: auto;
+}
+
+/* Ghost-style cancel button */
+.executionBarCancelBtn {
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  opacity: 0.6;
+  padding: 6px 8px !important;
+  font-size: 11px !important;
+}
+
+.executionBarCancelBtn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Prominent primary action button */
+.terminalCmdPrimary--prominent {
+  padding: 8px 18px !important;
+  font-size: 12px !important;
+  font-weight: 600;
 }
 
 .executionBarActions .terminalCmd:disabled {
@@ -15300,21 +15883,25 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: center;
   gap: 6px;
   width: 100%;
-  padding: 6px 10px;
+  padding: 7px 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--terminal-border);
-  border-radius: 3px;
+  border-radius: 4px;
   color: var(--terminal-text);
   font-family: var(--style-font-ui);
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
   text-align: left;
 }
 
 .executionBarDropdownTrigger:hover {
   border-color: var(--terminal-green);
   background: rgba(255, 255, 255, 0.05);
+}
+
+.executionBarDropdownTrigger:active {
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .executionBarDropdownLabel {
@@ -15358,11 +15945,17 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   z-index: 99999;
   background: var(--panel, #10151e);
   border: 1px solid var(--terminal-border);
-  border-radius: 3px;
+  border-top: 2px solid var(--terminal-green);
+  border-radius: 6px;
   max-height: 220px;
   overflow-y: auto;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.5);
   min-width: 180px;
+}
+
+/* Amber accent for orchestrate mode dropdowns */
+.executionBar--orchestrate .executionBarDropdownTrigger:hover {
+  border-color: var(--terminal-amber, #ffab00);
 }
 
 .executionBarDropdownEmpty {
@@ -15399,9 +15992,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .executionBarDropdownOption {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 6px 10px;
+  padding: 8px 12px;
   background: var(--panel, #10151e);
   border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
@@ -15426,7 +16019,7 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .executionBarDropdownOptionAvatar {
-  font-size: 13px;
+  font-size: 15px;
   flex-shrink: 0;
 }
 
@@ -16730,6 +17323,46 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   box-shadow: 0 0 6px rgba(var(--theme-primary-rgb), 0.3);
 }
 
+/* Session status badges */
+.sessionStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.sessionStatusBadge--spawning {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+}
+
+.sessionStatusBadge--working {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+}
+
+.sessionStatusBadge--idle {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.sessionStatusBadge--stopped {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+.sessionStatusBadge--completed {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+}
+
 /* Clickable session badges in SessionsSection sidebar */
 .sessionStatusBadge--clickable {
   cursor: pointer;
@@ -17709,9 +18342,13 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.08));
-  background: rgba(var(--theme-primary-rgb), 0.03);
+  padding: 14px 24px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  background:
+    linear-gradient(135deg,
+      rgba(var(--theme-primary-rgb), 0.02),
+      transparent 60%),
+    var(--style-surface-1, var(--bg, #0a0e16));
   flex-shrink: 0;
 }
 
@@ -17765,9 +18402,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .taskBoardStatDone { color: var(--theme-primary); }
 
 .taskBoardCloseBtn {
-  background: transparent;
-  border: 1px solid var(--theme-border, rgba(255,255,255,0.08));
-  color: rgba(var(--theme-primary-rgb), 0.5);
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.08);
+  color: rgba(var(--theme-primary-rgb), 0.4);
   width: 36px;
   height: 36px;
   display: flex;
@@ -17776,15 +18413,15 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   cursor: pointer;
   font-size: 16px;
   font-family: var(--style-font-ui);
-  transition: all 0.15s ease;
-  border-radius: 4px;
+  transition: all 0.2s ease;
+  border-radius: var(--style-radius-sm, 4px);
   flex-shrink: 0;
 }
 
 .taskBoardCloseBtn:hover {
-  border-color: var(--theme-primary);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
   color: var(--theme-primary);
-  background: rgba(var(--theme-primary-rgb), 0.1);
+  background: rgba(var(--theme-primary-rgb), 0.08);
 }
 
 /* ==================== Excalidraw Overlay ==================== */
@@ -17841,11 +18478,65 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   flex: 1;
   min-height: 0;
   background: var(--bg, #0a0e16);
+  /* Neutralize body CSS zoom so Excalidraw mouse coordinates match correctly.
+     Without this, getBoundingClientRect() and pointer clientX/Y are in different
+     coordinate spaces, causing drawing strokes to appear offset from the cursor. */
+  zoom: calc(1 / var(--app-zoom-scale));
 }
 
 .excalidrawCanvas .excalidraw {
   width: 100%;
   height: 100%;
+}
+
+/* ── Excalidraw Inline (space mode) ── */
+
+.excalidrawInline {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+  background: var(--bg, #0a0e16);
+}
+
+/* ── DocViewer Inline (space mode) ── */
+
+.docViewerInline {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+  background: var(--bg, #0a0e16);
+  overflow: hidden;
+}
+
+.docViewerPanel--inline {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Space icons in SpacesRail ── */
+
+.spacesRailSpace {
+  color: var(--muted);
+}
+
+.spacesRailSpace--whiteboard {
+  color: var(--theme-primary, #7aa2f7);
+}
+
+.spacesRailSpace--document {
+  color: var(--theme-accent, #bb9af7);
 }
 
 /* ── Columns Container ── */
@@ -17857,9 +18548,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   min-height: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  background: rgba(var(--theme-primary-rgb), 0.03);
+  background: rgba(var(--theme-primary-rgb), 0.015);
   scrollbar-width: thin;
-  scrollbar-color: rgba(var(--theme-primary-rgb), 0.15) transparent;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.1) transparent;
 }
 
 /* ── Column ── */
@@ -17871,8 +18562,11 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  background: var(--bg, #0a0e16);
-  border-right: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  background:
+    linear-gradient(180deg,
+      var(--style-surface-1, var(--bg, #0a0e16)),
+      var(--bg, #0a0e16));
+  border-right: 1px solid rgba(var(--theme-primary-rgb), 0.04);
   transition: background 0.2s ease;
 }
 
@@ -17881,8 +18575,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .taskBoardColumn--dragOver {
-  background: rgba(var(--theme-primary-rgb), 0.08);
-  box-shadow: inset 0 0 0 1px rgba(var(--theme-primary-rgb), 0.2);
+  background: rgba(var(--theme-primary-rgb), 0.04);
+  box-shadow: inset 0 0 0 1px rgba(var(--theme-primary-rgb), 0.12);
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -17929,14 +18623,15 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.05);
   cursor: pointer;
   user-select: none;
   transition: background 0.15s ease;
+  background: rgba(var(--theme-primary-rgb), 0.015);
 }
 
 .taskBoardColumnHeader:hover {
-  background: rgba(var(--theme-primary-rgb), 0.04);
+  background: rgba(var(--theme-primary-rgb), 0.03);
 }
 
 .taskBoardColumnDot {
@@ -17970,13 +18665,15 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .taskBoardColumnCount {
   font-family: var(--style-font-ui);
-  font-size: 12px;
-  color: var(--theme-primary);
-  background: rgba(var(--theme-primary-rgb), 0.1);
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  background: rgba(var(--theme-primary-rgb), 0.06);
   padding: 2px 8px;
-  border-radius: 8px;
+  border-radius: var(--style-radius-sm, 4px);
   min-width: 22px;
   text-align: center;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.08);
 }
 
 /* ── Column Body ── */
@@ -18021,18 +18718,28 @@ body.dragging-active * {
 .taskBoardCard {
   display: flex;
   flex-shrink: 0;
-  background: var(--panel, #10151e);
-  border: 1px solid var(--theme-border, rgba(255,255,255,0.08));
-  border-radius: 4px;
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-2, var(--panel, #10151e)),
+      var(--style-surface-1, var(--panel, #10151e)));
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  border-radius: var(--style-radius-md, 6px);
   cursor: grab;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
   overflow: hidden;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .taskBoardCard:hover {
-  border-color: rgba(var(--theme-primary-rgb), 0.25);
-  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.08);
-  transform: translateY(-1px);
+  border-color: rgba(var(--theme-primary-rgb), 0.15);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    0 8px 24px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transform: translateY(-2px);
 }
 
 .taskBoardCard:active {
@@ -18040,10 +18747,10 @@ body.dragging-active * {
 }
 
 .taskBoardCard--dragging {
-  opacity: 0.25;
+  opacity: 0.2;
   transform: scale(0.97);
   border-style: dashed;
-  border-color: rgba(var(--theme-primary-rgb), 0.3);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
 }
 
 /* ── Drag Ghost ── */
@@ -18054,10 +18761,14 @@ body.dragging-active * {
 }
 
 .taskBoardCard--ghost {
-  border-color: rgba(var(--theme-primary-rgb), 0.4);
-  box-shadow: 0 0 16px rgba(var(--theme-primary-rgb), 0.12),
-              inset 0 0 0 1px rgba(var(--theme-primary-rgb), 0.1);
-  background: var(--panel, #10151e);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.3),
+    0 0 1px rgba(var(--theme-primary-rgb), 0.1);
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-3, rgba(22, 27, 38, 0.98)),
+      var(--style-surface-2, var(--panel, #10151e)));
 }
 
 .taskBoardCard--active {
@@ -18084,23 +18795,21 @@ body.dragging-active * {
 }
 
 .taskBoardCard--active .taskBoardCardStripe {
-  background: #00d9ff !important;
-  box-shadow: 0 0 6px rgba(0, 217, 255, 0.4);
+  background: linear-gradient(180deg, #38bdf8, #0ea5e9) !important;
 }
 
 .taskBoardCard--blocked .taskBoardCardStripe {
-  background: #ef4444 !important;
-  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+  background: linear-gradient(180deg, #f87171, #ef4444) !important;
 }
 
 /* ── Card Content ── */
 
 .taskBoardCardContent {
   flex: 1;
-  padding: 10px 12px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -18182,23 +18891,22 @@ body.dragging-active * {
 /* ── Card Action ── */
 
 .taskBoardCardAction {
-  background: transparent;
-  border: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  background: rgba(var(--theme-primary-rgb), 0.04);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.1);
   color: rgba(var(--theme-primary-rgb), 0.5);
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  border-radius: 3px;
+  transition: all 0.2s ease;
+  border-radius: var(--style-radius-sm, 4px);
   align-self: flex-start;
 }
 
 .taskBoardCardAction:hover {
-  border-color: var(--theme-primary);
+  border-color: rgba(var(--theme-primary-rgb), 0.25);
   color: var(--theme-primary);
-  background: rgba(var(--theme-primary-rgb), 0.1);
-  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.2);
+  background: rgba(var(--theme-primary-rgb), 0.08);
 }
 
 .taskBoardCardAction .terminalPrompt {
@@ -18211,9 +18919,10 @@ body.dragging-active * {
 .taskBoardTabs {
   display: flex;
   gap: 2px;
-  background: rgba(var(--theme-primary-rgb), 0.06);
-  border-radius: 4px;
-  padding: 2px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  border-radius: var(--style-radius-sm, 4px);
+  padding: 3px;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.06);
 }
 
 .taskBoardTab {
@@ -18221,13 +18930,13 @@ body.dragging-active * {
   border: none;
   color: rgba(var(--theme-primary-rgb), 0.4);
   font-family: var(--style-font-ui);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   padding: 6px 14px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  border-radius: 3px;
+  transition: all 0.2s ease;
+  border-radius: var(--style-radius-sm, 3px);
   text-transform: uppercase;
   display: flex;
   align-items: center;
@@ -18235,13 +18944,14 @@ body.dragging-active * {
 }
 
 .taskBoardTab:hover {
-  color: rgba(var(--theme-primary-rgb), 0.7);
-  background: rgba(var(--theme-primary-rgb), 0.06);
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  background: rgba(var(--theme-primary-rgb), 0.04);
 }
 
 .taskBoardTab--active {
   color: var(--theme-primary);
-  background: rgba(var(--theme-primary-rgb), 0.12);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .taskBoardTabSymbol {
@@ -18445,6 +19155,17 @@ body.dragging-active * {
   inset: 0 !important;
   visibility: visible !important;
   pointer-events: auto !important;
+}
+
+/* Terminal positioned over TeamView slot (not reparented — stays in AppWorkspace) */
+.terminalInTeamView {
+  /* Reset inset from .terminalContainer so position:fixed + explicit top/left/width/height work */
+  inset: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  border-radius: 0 0 4px 4px;
 }
 
 /* ── Session Column Tasks ── */
@@ -20531,13 +21252,14 @@ html[data-style="minimal"] * {
   border: 1px solid var(--theme-border);
   color: rgba(var(--theme-primary-rgb), 0.5);
   font-family: var(--style-font-ui);
-  font-size: 12px;
-  padding: 4px 8px;
+  font-size: 14px;
+  padding: 4px 7px;
   cursor: pointer;
   transition: all 0.15s ease;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0;
+  border-radius: 4px;
 }
 
 .executionBarConfigBtn:hover {
@@ -20638,4 +21360,447 @@ html[data-style="minimal"] * {
   font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.5);
   padding-left: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Task List Redesign - Minimal single-line tiles                     */
+/* ------------------------------------------------------------------ */
+
+/* Subtask arrow (leftmost in task row) */
+.terminalTaskSubtaskArrow {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--terminal-text-dim);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+  opacity: 0;
+  position: relative;
+}
+
+.terminalTaskRow:hover .terminalTaskSubtaskArrow,
+.terminalTaskSubtaskArrow--expanded,
+.terminalTaskSubtaskArrow--collapsed,
+.terminalTaskSubtaskArrow--adding {
+  opacity: 1;
+}
+
+.terminalTaskSubtaskArrow--expanded {
+  color: var(--terminal-green);
+}
+
+.terminalTaskSubtaskArrow--expanded svg {
+  transform: rotate(90deg);
+  transition: transform 0.2s ease;
+}
+
+.terminalTaskSubtaskArrow--collapsed svg {
+  transition: transform 0.2s ease;
+}
+
+.terminalTaskSubtaskArrow:hover {
+  color: var(--terminal-cyan);
+}
+
+.terminalTaskSubtaskArrow__count {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  font-size: 8px;
+  background: var(--terminal-cyan);
+  color: var(--terminal-bg);
+  border-radius: 50%;
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+/* Radio status button */
+.terminalTaskRadioStatus {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.terminalTaskRadioStatus--todo { color: var(--terminal-text-dim); }
+.terminalTaskRadioStatus--in_progress { color: var(--terminal-cyan); }
+.terminalTaskRadioStatus--in_review { color: #a855f7; }
+.terminalTaskRadioStatus--completed { color: var(--terminal-green); }
+.terminalTaskRadioStatus--cancelled { color: var(--terminal-gray); }
+.terminalTaskRadioStatus--blocked { color: var(--terminal-red); }
+.terminalTaskRadioStatus--archived { color: var(--terminal-text-dim); opacity: 0.5; }
+
+.terminalTaskRadioStatus:hover {
+  transform: scale(1.2);
+  filter: brightness(1.3);
+}
+
+/* Clickable title */
+.terminalTaskTitle--clickable {
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminalTaskTitle--clickable:hover {
+  text-decoration: underline;
+  text-decoration-color: rgba(var(--theme-primary-rgb), 0.4);
+  text-underline-offset: 2px;
+}
+
+/* Doc count badge in the collapsed task row */
+.terminalTaskDocBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  padding: 1px 5px 1px 4px;
+  border-radius: 3px;
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.12);
+  color: rgba(var(--theme-primary-rgb), 0.55);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.terminalTaskDocBadge:hover {
+  background: rgba(var(--theme-primary-rgb), 0.14);
+  color: rgba(var(--theme-primary-rgb), 0.8);
+}
+
+/* Docs section in the expanded meta panel */
+.terminalTaskDocsRow {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.terminalTaskDocsList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.terminalTaskDocItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  background: none;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.1);
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.terminalTaskDocItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
+  color: rgba(var(--theme-primary-rgb), 0.9);
+}
+
+.terminalTaskDocItemIcon {
+  flex-shrink: 0;
+  font-size: 9px;
+  opacity: 0.7;
+  font-weight: 600;
+}
+
+.terminalTaskDocItemTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Compact session statuses in the main row */
+.terminalSessionStatuses--compact {
+  flex-shrink: 0;
+  gap: 3px;
+}
+
+/* Play button */
+.terminalTaskPlayBtn {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--terminal-green);
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.15s ease;
+  opacity: 0;
+  border-radius: 3px;
+}
+
+.terminalTaskRow:hover .terminalTaskPlayBtn {
+  opacity: 1;
+}
+
+.terminalTaskPlayBtn:hover {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  border-color: var(--terminal-green);
+  box-shadow: 0 0 6px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+/* Expand button */
+.terminalTaskExpandBtn {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--terminal-text-dim);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.2s ease;
+  border-radius: 3px;
+}
+
+.terminalTaskExpandBtn--open {
+  transform: rotate(180deg);
+  color: var(--terminal-green);
+}
+
+.terminalTaskExpandBtn:hover {
+  color: var(--terminal-cyan);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+/* Meta expanded panel (structured rows below single-line) */
+.terminalTaskMetaExpanded {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 6px 6px 44px; /* align under title */
+  border-top: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  animation: slideDownMeta 0.15s ease-out;
+  overflow: hidden;
+}
+
+@keyframes slideDownMeta {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Each row in the meta panel: label + value pairs */
+.terminalTaskMetaRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px 0;
+  min-height: 24px;
+}
+
+.terminalTaskMetaRow + .terminalTaskMetaRow {
+  border-top: 1px solid rgba(var(--theme-primary-rgb), 0.04);
+}
+
+/* Dim label before each control — hidden by default now */
+.terminalTaskMetaLabel {
+  display: none;
+}
+
+/* Dot separator between groups — hidden since labels removed */
+.terminalTaskMetaSep {
+  display: none;
+}
+
+/* Flex filler to push time-ago to the right */
+.terminalTaskMetaFill {
+  flex: 1;
+  min-width: 8px;
+}
+
+/* Split play in meta row — inline model badge+caret */
+.terminalSplitPlay--meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Task Detail Overlay                                                */
+/* ------------------------------------------------------------------ */
+
+.taskDetailOverlay {
+  position: absolute;
+  inset: 0;
+  background: var(--terminal-bg, #1a1a2e);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  animation: fadeInOverlay 0.15s ease-out;
+  /* Ensure overlay sits above everything in the terminal area */
+  isolation: isolate;
+  overflow: hidden;
+}
+
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.taskDetailOverlay__backBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid var(--terminal-border);
+  color: var(--terminal-text-dim);
+  cursor: pointer;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: var(--terminal-font);
+  border-radius: 3px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.taskDetailOverlay__backBtn:hover {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+/* Overlay variant for CreateTaskModal - fills parent instead of portal */
+.themedModal--overlay {
+  position: relative;
+  max-width: none;
+  max-height: none;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  flex: 1 1 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.themedModal--overlay .themedModalContent {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px;
+}
+
+.themedModal--overlay .themedFormRow {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+
+.themedModal--overlay .mentionsWrapper {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.themedModal--overlay .mentionsInput {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.themedModal--overlay .mentionsInput > div {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.themedModal--overlay .mentionsInput > div > div {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.themedModal--overlay .mentionsInput textarea {
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  flex: 1 1 0;
+}
+
+.themedModal--overlay .themedModalHeader {
+  flex-shrink: 0;
+}
+
+.themedModal--overlay .themedModalTabBar {
+  flex-shrink: 0;
+}
+
+.themedModal--overlay .themedModalTabContent {
+  flex-shrink: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.themedModal--overlay .themedFormActions {
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  PanelIconBar - Icon-only sub-tabs                                  */
+/* ------------------------------------------------------------------ */
+
+.maestroPanelSubTab--icon {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+.maestroPanelSubTabIcon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }

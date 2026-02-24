@@ -62,14 +62,18 @@ export class ClaudeSpawner {
   }
 
   /**
-   * Map manifest permission mode to Claude Code --permission-mode value
+   * Map manifest permission mode to Claude Code --permission-mode value.
+   * Note: 'bypassPermissions' is handled separately via --dangerously-skip-permissions flag,
+   * not via --permission-mode.
    */
   private mapPermissionMode(permissionMode: string): string {
     switch (permissionMode) {
       case 'acceptEdits':
         return 'acceptEdits';
       case 'bypassPermissions':
-        return 'bypassPermissions';
+        // bypassPermissions uses --dangerously-skip-permissions flag instead
+        // Fall back to acceptEdits for --permission-mode since both flags are used together
+        return 'acceptEdits';
       case 'readOnly':
         return 'plan';
       case 'interactive':
@@ -141,8 +145,13 @@ export class ClaudeSpawner {
 
     // Add permission mode
     if (manifest.session.permissionMode) {
-      const claudePermMode = this.mapPermissionMode(manifest.session.permissionMode);
-      args.push('--permission-mode', claudePermMode);
+      if (manifest.session.permissionMode === 'bypassPermissions') {
+        // Use --dangerously-skip-permissions for full bypass mode
+        args.push('--dangerously-skip-permissions');
+      } else {
+        const claudePermMode = this.mapPermissionMode(manifest.session.permissionMode);
+        args.push('--permission-mode', claudePermMode);
+      }
     }
 
     // Add max turns if specified

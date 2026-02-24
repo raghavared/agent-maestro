@@ -64,12 +64,16 @@ export class CodexSpawner {
   }
 
   /**
-   * Map manifest permission mode to Codex approval policy
+   * Map manifest permission mode to Codex approval policy.
+   * Note: 'bypassPermissions' is handled separately via --dangerously-bypass-approvals-and-sandbox flag.
    */
   private mapApprovalPolicy(permissionMode: string): string {
     switch (permissionMode) {
+      case 'bypassPermissions':
+        // Handled by --dangerously-bypass-approvals-and-sandbox flag
+        return 'never';
       case 'acceptEdits':
-        return 'on-failure';
+        return 'never';
       case 'readOnly':
         return 'untrusted';
       case 'interactive':
@@ -79,18 +83,21 @@ export class CodexSpawner {
   }
 
   /**
-   * Map manifest permission mode to Codex sandbox mode
+   * Map manifest permission mode to Codex sandbox mode.
+   * Note: 'bypassPermissions' uses --dangerously-bypass-approvals-and-sandbox instead.
    */
   private mapSandboxMode(permissionMode: string): string {
     switch (permissionMode) {
       case 'bypassPermissions':
+        // Handled by --dangerously-bypass-approvals-and-sandbox flag
+        return 'danger-full-access';
       case 'acceptEdits':
-        return 'danger-full-access';
+        return 'workspace-write';
       case 'readOnly':
-        return 'danger-full-access';
+        return 'read-only';
       case 'interactive':
       default:
-        return 'danger-full-access';
+        return 'workspace-write';
     }
   }
 
@@ -104,13 +111,19 @@ export class CodexSpawner {
     const model = this.mapModel(manifest.session.model);
     args.push('--model', model);
 
-    // Set approval policy based on permission mode
-    const approval = this.mapApprovalPolicy(manifest.session.permissionMode);
-    args.push('--ask-for-approval', approval);
+    if (manifest.session.permissionMode === 'bypassPermissions') {
+      // Use --dangerously-bypass-approvals-and-sandbox for full bypass mode
+      // This skips all confirmation prompts and runs without sandboxing
+      args.push('--dangerously-bypass-approvals-and-sandbox');
+    } else {
+      // Set approval policy based on permission mode
+      const approval = this.mapApprovalPolicy(manifest.session.permissionMode);
+      args.push('--ask-for-approval', approval);
 
-    // Set sandbox mode based on permission mode
-    const sandbox = this.mapSandboxMode(manifest.session.permissionMode);
-    args.push('--sandbox', sandbox);
+      // Set sandbox mode based on permission mode
+      const sandbox = this.mapSandboxMode(manifest.session.permissionMode);
+      args.push('--sandbox', sandbox);
+    }
 
     // Set working directory if specified
     if (manifest.session.workingDirectory) {

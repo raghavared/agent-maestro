@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { MaestroTask, TeamMember, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType, ClaudeModel, CodexModel, MemberLaunchOverride } from "../../app/types/maestro";
-import { WhoamiPreview } from "./WhoamiPreview";
+import { TeamMember, AgentTool, ModelType, ClaudeModel, CodexModel, MemberLaunchOverride } from "../../app/types/maestro";
 import { TeamLaunchConfigModal } from "./TeamLaunchConfigModal";
 
 type ExecutionMode = 'none' | 'execute' | 'orchestrate';
@@ -39,7 +38,6 @@ type ExecutionBarProps = {
     selectedCount: number;
     activeMode?: ExecutionMode;
     onActivateOrchestrate: () => void;
-    selectedTasks?: MaestroTask[];
     projectId?: string;
     teamMembers?: TeamMember[];
     onSaveAsTeam?: (teamName: string, coordinatorId: string | null, workerIds: string[], overrides: Record<string, MemberLaunchOverride>) => void;
@@ -47,13 +45,21 @@ type ExecutionBarProps = {
 
 // Hook to compute portal menu position from a trigger button ref
 function useDropdownPosition(triggerRef: React.RefObject<HTMLButtonElement | null>, isOpen: boolean) {
-    const [pos, setPos] = useState<{ top: number; right: number; width: number } | null>(null);
+    const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
     const updatePos = useCallback(() => {
         if (triggerRef.current) {
             const rect = triggerRef.current.getBoundingClientRect();
-            const rightOffset = window.innerWidth - rect.right;
-            setPos({ top: rect.bottom + 2, right: rightOffset, width: rect.width });
+            // Anchor dropdown to left edge of trigger so it opens rightward
+            let left = rect.left;
+            // If dropdown would overflow right edge, clamp it
+            const menuWidth = Math.max(rect.width, 220); // approximate min menu width
+            if (left + menuWidth > window.innerWidth) {
+                left = window.innerWidth - menuWidth - 8;
+            }
+            // Ensure it never goes off-screen left
+            if (left < 4) left = 4;
+            setPos({ top: rect.bottom + 2, left, width: rect.width });
         }
     }, [triggerRef]);
 
@@ -115,7 +121,7 @@ function TeamMemberDropdown({
                     <div
                         ref={menuRef}
                         className="executionBarDropdownMenu executionBarDropdownMenu--portal"
-                        style={{ top: pos.top, right: pos.right, minWidth: pos.width }}
+                        style={{ top: pos.top, left: pos.left, minWidth: pos.width }}
                     >
                         {members.length === 0 ? (
                             <div className="executionBarDropdownEmpty">No members available</div>
@@ -202,7 +208,7 @@ function TeamMemberMultiDropdown({
                     <div
                         ref={menuRef}
                         className="executionBarDropdownMenu executionBarDropdownMenu--portal"
-                        style={{ top: pos.top, right: pos.right, minWidth: pos.width }}
+                        style={{ top: pos.top, left: pos.left, minWidth: pos.width }}
                     >
                         {members.length === 0 ? (
                             <div className="executionBarDropdownEmpty">No members available</div>
@@ -248,7 +254,6 @@ export function ExecutionBar({
     selectedCount,
     activeMode = 'none',
     onActivateOrchestrate,
-    selectedTasks = [],
     projectId = '',
     teamMembers = [],
     onSaveAsTeam,
@@ -265,7 +270,7 @@ export function ExecutionBar({
     const [showLaunchDropdown, setShowLaunchDropdown] = useState(false);
     const [expandedTool, setExpandedTool] = useState<AgentTool | null>(null);
     const launchBtnRef = useRef<HTMLButtonElement>(null);
-    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; right: number; openDirection: 'down' | 'up' } | null>(null);
+    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' } | null>(null);
 
     // Launch config modal state
     const [showConfigModal, setShowConfigModal] = useState(false);
@@ -275,13 +280,19 @@ export function ExecutionBar({
         const btn = launchBtnRef.current;
         if (!btn) return null;
         const rect = btn.getBoundingClientRect();
-        const rightOffset = window.innerWidth - rect.right;
+        let left = rect.left;
+        // Clamp so dropdown doesn't overflow right edge
+        const menuWidth = 200;
+        if (left + menuWidth > window.innerWidth) {
+            left = window.innerWidth - menuWidth - 8;
+        }
+        if (left < 4) left = 4;
         const spaceBelow = window.innerHeight - rect.bottom;
         const spaceAbove = rect.top;
         if (spaceAbove >= 200 || spaceAbove >= spaceBelow) {
-            return { bottom: (window.innerHeight - rect.top) + 4, right: rightOffset, openDirection: 'up' as const };
+            return { bottom: (window.innerHeight - rect.top) + 4, left, openDirection: 'up' as const };
         } else {
-            return { top: rect.bottom + 4, right: rightOffset, openDirection: 'down' as const };
+            return { top: rect.bottom + 4, left, openDirection: 'down' as const };
         }
     }, []);
 
@@ -296,14 +307,6 @@ export function ExecutionBar({
     // For orchestrate: coordinator is selected separately; roster can include any active member mode.
     const coordinatorMembers = activeMembers.filter(m => m.mode === 'coordinator' || m.mode === 'coordinated-coordinator' || (m.mode as string) === 'coordinate');
     const workerMembers = activeMembers;
-
-    // Derive strategy from selected team member for WhoamiPreview
-    const selectedExecuteMember = activeMembers.find(m => m.id === selectedExecuteMemberId);
-    const selectedCoordinator = coordinatorMembers.find(m => m.id === selectedCoordinatorId);
-
-    // Effective model: override > selected team member's model
-    const effectiveExecuteModel = launchOverride?.model || selectedExecuteMember?.model || null;
-    const effectiveCoordinatorModel = launchOverride?.model || selectedCoordinator?.model || null;
 
     // Reset override when team member changes
     const handleSelectExecuteMember = (id: string | null) => {
@@ -323,13 +326,13 @@ export function ExecutionBar({
                     className="terminalCmd terminalCmdPrimary"
                     onClick={onActivate}
                 >
-                    <span className="terminalPrompt">$</span> execute
+                    <span className="executionBarBtnIcon">▶</span> run
                 </button>
                 <button
                     className="terminalCmd terminalCmdOrchestrate"
                     onClick={onActivateOrchestrate}
                 >
-                    <span className="terminalPrompt">$</span> orchestrate
+                    <span className="executionBarBtnIcon">⊛</span> coordinate
                 </button>
             </div>
         );
@@ -348,7 +351,7 @@ export function ExecutionBar({
                     ...(launchDropdownPos.openDirection === 'down'
                         ? { top: launchDropdownPos.top }
                         : { bottom: launchDropdownPos.bottom }),
-                    right: launchDropdownPos.right,
+                    left: launchDropdownPos.left,
                 }}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -417,6 +420,10 @@ export function ExecutionBar({
             );
         };
 
+        const handleConfigSave = (overrides: Record<string, MemberLaunchOverride>) => {
+            setPendingMemberOverrides(Object.keys(overrides).length > 0 ? overrides : null);
+        };
+
         const handleConfigSaveAsTeam = (teamName: string, overrides: Record<string, MemberLaunchOverride>) => {
             if (onSaveAsTeam) {
                 onSaveAsTeam(teamName, selectedCoordinatorId, Array.from(selectedWorkerIds), overrides);
@@ -454,22 +461,17 @@ export function ExecutionBar({
                         />
                     </div>
                     <div className="executionBarRow">
-                        {effectiveCoordinatorModel && (
-                            <span className={`executionBarModelBadge ${launchOverride ? 'executionBarModelBadge--override' : ''}`}>
-                                {effectiveCoordinatorModel}
-                            </span>
-                        )}
                         <div className="executionBarActions">
-                            <button className="terminalCmd" onClick={onCancel}>cancel</button>
+                            <button className="terminalCmd executionBarCancelBtn" onClick={onCancel}>cancel</button>
                             <button
                                 className="executionBarConfigBtn executionBarConfigBtn--orchestrate"
                                 onClick={() => setShowConfigModal(true)}
                                 title="Configure launch options per team member"
                             >
-                                {'\u2699'} configure
+                                {'\u2699'}
                             </button>
                             <button
-                                className="terminalCmd terminalCmdOrchestrate"
+                                className="terminalCmd terminalCmdOrchestrate terminalCmdPrimary--prominent"
                                 onClick={() => onOrchestrate(
                                     selectedCoordinatorId || undefined,
                                     selectedWorkerIds.size > 0 ? Array.from(selectedWorkerIds) : undefined,
@@ -478,19 +480,11 @@ export function ExecutionBar({
                                 )}
                                 disabled={selectedCount === 0}
                             >
-                                <span className="terminalPrompt">$</span> orchestrate ({selectedCount} task{selectedCount !== 1 ? "s" : ""}{totalWorkerCount > 0 ? `, ${totalWorkerCount} member${totalWorkerCount !== 1 ? 's' : ''}` : ''})
+                                <span className="executionBarBtnIcon">⊛</span> coordinate ({selectedCount} task{selectedCount !== 1 ? "s" : ""}{totalWorkerCount > 0 ? `, ${totalWorkerCount} member${totalWorkerCount !== 1 ? 's' : ''}` : ''})
                             </button>
                         </div>
                     </div>
                 </div>
-                {selectedTasks.length > 0 && projectId && (
-                    <WhoamiPreview
-                        mode="orchestrate"
-                        strategy={(selectedCoordinator?.strategy || 'default') as OrchestratorStrategy}
-                        selectedTasks={selectedTasks}
-                        projectId={projectId}
-                    />
-                )}
                 <TeamLaunchConfigModal
                     isOpen={showConfigModal}
                     onClose={() => setShowConfigModal(false)}
@@ -499,6 +493,7 @@ export function ExecutionBar({
                     teamMembers={teamMembers}
                     projectId={projectId}
                     onLaunch={handleConfigLaunch}
+                    onSave={handleConfigSave}
                     onSaveAsTeam={handleConfigSaveAsTeam}
                 />
             </>
@@ -513,6 +508,10 @@ export function ExecutionBar({
             launchOverride || undefined,
             Object.keys(overrides).length > 0 ? overrides : undefined,
         );
+    };
+
+    const handleExecuteConfigSave = (overrides: Record<string, MemberLaunchOverride>) => {
+        setPendingMemberOverrides(Object.keys(overrides).length > 0 ? overrides : null);
     };
 
     const handleExecuteConfigSaveAsTeam = (teamName: string, overrides: Record<string, MemberLaunchOverride>) => {
@@ -534,22 +533,17 @@ export function ExecutionBar({
                     />
                 </div>
                 <div className="executionBarRow">
-                    {effectiveExecuteModel && (
-                        <span className={`executionBarModelBadge ${launchOverride ? 'executionBarModelBadge--override' : ''}`}>
-                            {effectiveExecuteModel}
-                        </span>
-                    )}
                     <div className="executionBarActions">
-                        <button className="terminalCmd" onClick={onCancel}>cancel</button>
+                        <button className="terminalCmd executionBarCancelBtn" onClick={onCancel}>cancel</button>
                         <button
                             className="executionBarConfigBtn"
                             onClick={() => setShowConfigModal(true)}
                             title="Configure launch options"
                         >
-                            {'\u2699'} configure
+                            {'\u2699'}
                         </button>
                         <button
-                            className="terminalCmd terminalCmdPrimary"
+                            className="terminalCmd terminalCmdPrimary terminalCmdPrimary--prominent"
                             onClick={() => onExecute(
                                 selectedExecuteMemberId || undefined,
                                 launchOverride || undefined,
@@ -557,19 +551,11 @@ export function ExecutionBar({
                             )}
                             disabled={selectedCount === 0}
                         >
-                            <span className="terminalPrompt">$</span> execute ({selectedCount} task{selectedCount !== 1 ? "s" : ""})
+                            <span className="executionBarBtnIcon">▶</span> run ({selectedCount} task{selectedCount !== 1 ? "s" : ""})
                         </button>
                     </div>
                 </div>
             </div>
-            {selectedTasks.length > 0 && projectId && (
-                <WhoamiPreview
-                    mode="execute"
-                    strategy={(selectedExecuteMember?.strategy || 'simple') as WorkerStrategy}
-                    selectedTasks={selectedTasks}
-                    projectId={projectId}
-                />
-            )}
             <TeamLaunchConfigModal
                 isOpen={showConfigModal}
                 onClose={() => setShowConfigModal(false)}
@@ -578,6 +564,7 @@ export function ExecutionBar({
                 teamMembers={teamMembers}
                 projectId={projectId}
                 onLaunch={handleExecuteConfigLaunch}
+                onSave={handleExecuteConfigSave}
                 onSaveAsTeam={handleExecuteConfigSaveAsTeam}
             />
         </>

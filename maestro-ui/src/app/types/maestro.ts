@@ -309,6 +309,9 @@ export interface MaestroTask {
   // Multiple team member identities for this task
   teamMemberIds?: string[];
 
+  // Docs attached to this task
+  docs?: DocEntry[];
+
   // UI/Populated Fields (Optional)
   subtasks?: MaestroTask[];
   sessionCount?: number; // UI computed field

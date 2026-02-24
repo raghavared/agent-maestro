@@ -264,6 +264,8 @@ export class ManifestGeneratorCLICommand {
       const project = await this.fetchProject(options.projectId);
 
       // 3. Resolve model from CLI option (set by team member via server) or default to 'sonnet'
+      // Track whether the model was explicitly set vs defaulted, so team member overrides can take precedence
+      const hasExplicitModel = !!options.model;
       const resolvedModel = options.model || 'sonnet';
 
       // 4. Build session options
@@ -422,8 +424,8 @@ export class ManifestGeneratorCLICommand {
         if (profiles.length > 0) {
           manifest.teamMemberProfiles = profiles;
 
-          // Override model with most powerful from profiles (if not already set by launch settings)
-          if (resolvedModelFromProfiles && !options.model) {
+          // Override model with most powerful from profiles (if not explicitly set by launch settings)
+          if (resolvedModelFromProfiles && !hasExplicitModel) {
             manifest.session.model = resolvedModelFromProfiles;
           }
 

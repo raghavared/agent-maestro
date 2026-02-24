@@ -76,6 +76,20 @@ function readClampedFromStorage(key: string, min: number, max: number, fallback:
   return fallback;
 }
 
+export type IconRailSection = 'tasks' | 'members' | 'teams' | 'skills' | 'lists' | 'files' | null;
+
+function readIconRailSection(): IconRailSection {
+  try {
+    const raw = localStorage.getItem(DEFAULTS.STORAGE_ICON_RAIL_SECTION_KEY);
+    if (raw && ['tasks', 'members', 'teams', 'skills', 'lists', 'files'].includes(raw)) {
+      return raw as IconRailSection;
+    }
+  } catch {
+    // best-effort
+  }
+  return 'tasks';
+}
+
 function readProjectsListHeightMode(): 'auto' | 'manual' {
   try {
     const raw = localStorage.getItem(DEFAULTS.STORAGE_SIDEBAR_PROJECTS_LIST_MAX_HEIGHT_KEY);
@@ -99,6 +113,19 @@ interface UIState {
   reportError: (prefix: string, err: unknown) => void;
   showNotice: (message: string, timeoutMs?: number) => void;
   dismissNotice: () => void;
+
+  // Icon rail + Maestro sidebar (left panel)
+  iconRailActiveSection: IconRailSection;
+  maestroSidebarWidth: number;
+  setIconRailActiveSection: (section: IconRailSection) => void;
+  toggleIconRailSection: (section: Exclude<IconRailSection, null>) => void;
+  setMaestroSidebarWidth: (width: number) => void;
+  persistMaestroSidebarWidth: (width: number) => void;
+
+  // Spaces panel (right) — null = collapsed, 'sessions' = expanded
+  spacesRailActiveSection: 'sessions' | null;
+  setSpacesRailActiveSection: (section: 'sessions' | null) => void;
+  toggleSpacesPanel: () => void;
 
   // Layout
   sidebarWidth: number;
@@ -133,6 +160,14 @@ interface UIState {
   // Maestro board trigger (consumed by MaestroPanel)
   showBoardRequested: boolean;
   setShowBoardRequested: (requested: boolean) => void;
+
+  // Team view overlay
+  teamViewGroupId: string | null;
+  setTeamViewGroupId: (groupId: string | null) => void;
+
+  // Task detail overlay (covers workspace area)
+  taskDetailOverlay: { taskId: string; projectId: string } | null;
+  setTaskDetailOverlay: (overlay: { taskId: string; projectId: string } | null) => void;
 
   // App update
   appInfo: AppInfo | null;
@@ -186,6 +221,48 @@ export const useUIStore = create<UIState>((set, get) => ({
       window.clearTimeout(noticeTimerRef);
       noticeTimerRef = null;
     }
+  },
+
+  // -- Icon rail + Maestro sidebar --
+  iconRailActiveSection: readIconRailSection(),
+  maestroSidebarWidth: readClampedFromStorage(
+    DEFAULTS.STORAGE_MAESTRO_SIDEBAR_WIDTH_KEY,
+    DEFAULTS.MIN_MAESTRO_SIDEBAR_WIDTH,
+    DEFAULTS.MAX_MAESTRO_SIDEBAR_WIDTH,
+    DEFAULTS.DEFAULT_MAESTRO_SIDEBAR_WIDTH,
+  ),
+  setIconRailActiveSection: (section) => {
+    set({ iconRailActiveSection: section });
+    try {
+      if (section) {
+        localStorage.setItem(DEFAULTS.STORAGE_ICON_RAIL_SECTION_KEY, section);
+      } else {
+        localStorage.removeItem(DEFAULTS.STORAGE_ICON_RAIL_SECTION_KEY);
+      }
+    } catch {
+      // best-effort
+    }
+  },
+  toggleIconRailSection: (section) => {
+    const current = get().iconRailActiveSection;
+    const next = current === section ? null : section;
+    get().setIconRailActiveSection(next);
+  },
+  setMaestroSidebarWidth: (width) => set({ maestroSidebarWidth: width }),
+  persistMaestroSidebarWidth: (value) => {
+    try {
+      localStorage.setItem(DEFAULTS.STORAGE_MAESTRO_SIDEBAR_WIDTH_KEY, String(value));
+    } catch {
+      // best-effort
+    }
+  },
+
+  // -- Spaces panel (right) --
+  spacesRailActiveSection: 'sessions' as 'sessions' | null,
+  setSpacesRailActiveSection: (section) => set({ spacesRailActiveSection: section }),
+  toggleSpacesPanel: () => {
+    const current = get().spacesRailActiveSection;
+    set({ spacesRailActiveSection: current === null ? 'sessions' : null });
   },
 
   // -- Layout --
@@ -252,6 +329,14 @@ export const useUIStore = create<UIState>((set, get) => ({
   // -- Maestro board trigger --
   showBoardRequested: false,
   setShowBoardRequested: (requested) => set({ showBoardRequested: requested }),
+
+  // -- Team view overlay --
+  teamViewGroupId: null,
+  setTeamViewGroupId: (groupId) => set({ teamViewGroupId: groupId }),
+
+  // -- Task detail overlay --
+  taskDetailOverlay: null,
+  setTaskDetailOverlay: (overlay) => set({ taskDetailOverlay: overlay }),
 
   // -- App update --
   appInfo: null,

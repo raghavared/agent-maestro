@@ -128,6 +128,7 @@ const DEFAULT_RECRUITER = {
       'team-member:create': true,
       'team-member:list': true,
       'team-member:get': true,
+      'team-member:edit': true,
     },
   },
   workflowTemplateId: 'execute-recruit',

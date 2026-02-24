@@ -57,31 +57,59 @@ require_dir() {
   [ -d "$1" ] || die "Expected directory not found: $1"
 }
 
-# ── Check dependencies ────────────────────────────────────
+# ── Check/Install Xcode Command Line Tools ────────────────
 
-info "Checking build dependencies..."
-
-MISSING=""
-
-if ! command -v bun >/dev/null 2>&1; then
-  MISSING="${MISSING}  - bun (https://bun.sh)\n"
-fi
-
-if ! command -v cargo >/dev/null 2>&1; then
-  MISSING="${MISSING}  - cargo/rustc (https://rustup.rs)\n"
-fi
-
-if ! command -v node >/dev/null 2>&1; then
-  MISSING="${MISSING}  - node (https://nodejs.org)\n"
-fi
-
-if [ -n "$MISSING" ]; then
-  error "Missing required build tools:"
-  printf "$MISSING"
+info "Checking for Xcode Command Line Tools..."
+if ! xcode-select -p &>/dev/null; then
+  warn "Xcode Command Line Tools not found."
+  info "Triggering installation dialog — complete it, then re-run this script."
+  xcode-select --install 2>/dev/null || true
   exit 1
 fi
+success "Xcode Command Line Tools found"
 
-success "All build dependencies found"
+# ── Install bun if missing ────────────────────────────────
+
+info "Checking for bun..."
+if ! command -v bun >/dev/null 2>&1; then
+  info "bun not found — installing..."
+  curl -fsSL https://bun.sh/install | bash
+  # Make bun available in the current shell session
+  export BUN_INSTALL="${HOME}/.bun"
+  export PATH="${BUN_INSTALL}/bin:${PATH}"
+  command -v bun >/dev/null 2>&1 || die "bun installation failed. Install manually: https://bun.sh"
+  success "bun installed: $(bun --version)"
+else
+  # Ensure bun home is in PATH in case the shell rc wasn't sourced
+  if [ -d "${HOME}/.bun/bin" ]; then
+    export PATH="${HOME}/.bun/bin:${PATH}"
+  fi
+  success "bun found: $(bun --version)"
+fi
+
+# ── Install Rust/Cargo if missing (required for Tauri) ────
+
+info "Checking for Rust/Cargo..."
+# Source cargo env in case Rust is installed but not in the current PATH
+if [ -f "${HOME}/.cargo/env" ]; then
+  # shellcheck disable=SC1091
+  source "${HOME}/.cargo/env"
+fi
+if ! command -v cargo >/dev/null 2>&1; then
+  info "Rust/Cargo not found — installing via rustup..."
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  # shellcheck disable=SC1091
+  source "${HOME}/.cargo/env"
+  command -v cargo >/dev/null 2>&1 || die "Rust installation failed. Install manually: https://rustup.rs"
+  success "Rust installed: $(rustc --version)"
+else
+  success "Rust found: $(rustc --version)"
+fi
+
+# Ensure the Apple Silicon target is present (required for Tauri on ARM Macs)
+info "Ensuring Rust target aarch64-apple-darwin..."
+rustup target add aarch64-apple-darwin 2>/dev/null || true
+success "Rust target aarch64-apple-darwin ready"
 
 # ── Clean stale build outputs ─────────────────────────────
 
@@ -161,7 +189,15 @@ require_file "$CLI_BUNDLE"
 cp "$CLI_BUNDLE" "${INSTALL_DIR}/cli/bundle.cjs"
 cat > "${INSTALL_DIR}/bin/maestro" << 'WRAPPER'
 #!/bin/bash
-exec node "$HOME/.maestro/cli/bundle.cjs" "$@"
+# Use bun if available, fall back to node
+if command -v bun >/dev/null 2>&1; then
+  exec bun "$HOME/.maestro/cli/bundle.cjs" "$@"
+elif command -v node >/dev/null 2>&1; then
+  exec node "$HOME/.maestro/cli/bundle.cjs" "$@"
+else
+  echo "Error: neither bun nor node found in PATH" >&2
+  exit 1
+fi
 WRAPPER
 
 chmod +x "${INSTALL_DIR}/bin/"* 2>/dev/null || true
@@ -207,6 +243,22 @@ BUILD_APP_EXEC="${TAURI_APP}/Contents/MacOS/${APP_EXEC}"
 INSTALLED_APP_EXEC="${APP_DEST}/Contents/MacOS/${APP_EXEC}"
 require_file "$BUILD_APP_EXEC"
 require_file "$INSTALLED_APP_EXEC"
+
+# ── Clear stale WebView cache ─────────────────────────────
+# macOS WKWebView aggressively caches frontend assets; without
+# clearing, the app may render an older UI after a rebuild.
+
+APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "${TAURI_APP}/Contents/Info.plist" 2>/dev/null || true)"
+if [ -n "$APP_ID" ]; then
+  for CACHE_DIR in \
+    "$HOME/Library/WebKit/${APP_ID}" \
+    "$HOME/Library/Caches/${APP_ID}"; do
+    if [ -d "$CACHE_DIR" ]; then
+      rm -rf "$CACHE_DIR"
+    fi
+  done
+  success "Cleared WebView cache for ${APP_ID}"
+fi
 
 # ── Create config ──────────────────────────────────────────
 

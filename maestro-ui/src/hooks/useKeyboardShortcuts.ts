@@ -184,6 +184,28 @@ export function useKeyboardShortcuts() {
             const { sessions, activeId } = useSessionStore.getState();
             const projectSessions = sessions.filter((s) => s.projectId === activeProjectId);
 
+            // Cmd+B / Ctrl+B - Toggle left sidebar collapse
+            if (modKey && !e.shiftKey && e.key.toLowerCase() === "b") {
+                e.preventDefault();
+                const ui = useUIStore.getState();
+                const current = ui.iconRailActiveSection;
+                if (current === null) {
+                    ui.setIconRailActiveSection("tasks");
+                } else {
+                    ui.setIconRailActiveSection(null);
+                }
+                return;
+            }
+
+            // Cmd+Shift+B / Ctrl+Shift+B - Toggle right spaces panel
+            // (Note: this overrides the old multi-project board shortcut which moved to App.tsx overlay)
+            // Use Cmd+. / Ctrl+. instead to avoid conflict
+            if (modKey && !e.shiftKey && e.key === ".") {
+                e.preventDefault();
+                useUIStore.getState().toggleSpacesPanel();
+                return;
+            }
+
             if (isMac) {
                 // Cmd+T - Create new Maestro task
                 if (e.metaKey && !e.shiftKey && e.key.toLowerCase() === "t") {

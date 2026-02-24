@@ -7,6 +7,8 @@ import { MermaidDiagram } from "./MermaidDiagram";
 interface DocViewerProps {
   doc: DocEntry;
   onClose: () => void;
+  /** When true, render inline in the workspace instead of as an overlay */
+  inline?: boolean;
 }
 
 function formatDate(timestamp: number): string {
@@ -81,7 +83,7 @@ const markdownComponents = {
   },
 };
 
-export function DocViewer({ doc, onClose }: DocViewerProps) {
+export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const fileExt = useMemo(() => getFileExtension(doc.filePath), [doc.filePath]);
   const shouldRenderMarkdown = useMemo(() => isMarkdown(doc.filePath), [doc.filePath]);
@@ -90,7 +92,9 @@ export function DocViewer({ doc, onClose }: DocViewerProps) {
     return parts[parts.length - 1];
   }, [doc.filePath]);
 
+  // Escape-to-close only for overlay mode
   useEffect(() => {
+    if (inline) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (isFullscreen) {
@@ -102,28 +106,28 @@ export function DocViewer({ doc, onClose }: DocViewerProps) {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isFullscreen, onClose]);
+  }, [isFullscreen, onClose, inline]);
 
-  return (
-    <div className={`docViewerOverlay ${isFullscreen ? 'docViewerOverlay--fullscreen' : ''}`} onClick={onClose}>
-      <div className={`docViewerPanel ${isFullscreen ? 'docViewerPanel--fullscreen' : ''}`} onClick={(e) => e.stopPropagation()}>
-        {/* Header bar */}
-        <div className="docViewerHeader">
-          <div className="docViewerHeaderLeft">
-            <span className="docViewerIcon">
-              {shouldRenderMarkdown ? "M↓" : "{ }"}
-            </span>
-            <div className="docViewerHeaderInfo">
-              <h3 className="docViewerTitle">{doc.title}</h3>
-              <div className="docViewerPathRow">
-                <span className="docViewerFileName">{fileName}</span>
-                {fileExt && (
-                  <span className="docViewerExtBadge">.{fileExt}</span>
-                )}
-              </div>
+  const panel = (
+    <div className={`docViewerPanel ${inline ? 'docViewerPanel--inline' : ''} ${isFullscreen ? 'docViewerPanel--fullscreen' : ''}`} onClick={(e) => e.stopPropagation()}>
+      {/* Header bar */}
+      <div className="docViewerHeader">
+        <div className="docViewerHeaderLeft">
+          <span className="docViewerIcon">
+            {shouldRenderMarkdown ? "M↓" : "{ }"}
+          </span>
+          <div className="docViewerHeaderInfo">
+            <h3 className="docViewerTitle">{doc.title}</h3>
+            <div className="docViewerPathRow">
+              <span className="docViewerFileName">{fileName}</span>
+              {fileExt && (
+                <span className="docViewerExtBadge">.{fileExt}</span>
+              )}
             </div>
           </div>
-          <div className="docViewerHeaderActions">
+        </div>
+        <div className="docViewerHeaderActions">
+          {!inline && (
             <button
               className="docViewerFullscreenBtn"
               onClick={() => setIsFullscreen(!isFullscreen)}
@@ -139,57 +143,69 @@ export function DocViewer({ doc, onClose }: DocViewerProps) {
                 </svg>
               )}
             </button>
+          )}
+          {!inline && (
             <button className="docViewerCloseBtn" onClick={onClose} title="Close (Esc)">
               ✕
             </button>
-          </div>
-        </div>
-
-        {/* Metadata bar */}
-        <div className="docViewerMeta">
-          <span className="docViewerMetaItem">
-            <span className="docViewerMetaLabel">Path</span>
-            <span className="docViewerMetaValue" title={doc.filePath}>{doc.filePath}</span>
-          </span>
-          <span className="docViewerMetaItem">
-            <span className="docViewerMetaLabel">Added</span>
-            <span className="docViewerMetaValue">{formatDate(doc.addedAt)}</span>
-          </span>
-          {doc.addedBy && (
-            <span className="docViewerMetaItem">
-              <span className="docViewerMetaLabel">By</span>
-              <span className="docViewerMetaValue">{doc.addedBy}</span>
-            </span>
-          )}
-          {doc.sessionName && (
-            <span className="docViewerMetaItem">
-              <span className="docViewerMetaLabel">Session</span>
-              <span className="docViewerMetaSessionBadge">{doc.sessionName}</span>
-            </span>
-          )}
-        </div>
-
-        {/* Content body */}
-        <div className="docViewerBody">
-          {doc.content ? (
-            shouldRenderMarkdown ? (
-              <div className="docViewerMarkdown">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                  {doc.content}
-                </ReactMarkdown>
-              </div>
-            ) : (
-              <pre className="docViewerCode"><code>{doc.content}</code></pre>
-            )
-          ) : (
-            <div className="docViewerEmpty">
-              <span className="docViewerEmptyIcon">○</span>
-              <span>No content available</span>
-              <span className="docViewerEmptyPath">{doc.filePath}</span>
-            </div>
           )}
         </div>
       </div>
+
+      {/* Metadata bar */}
+      <div className="docViewerMeta">
+        <span className="docViewerMetaItem">
+          <span className="docViewerMetaLabel">Path</span>
+          <span className="docViewerMetaValue" title={doc.filePath}>{doc.filePath}</span>
+        </span>
+        <span className="docViewerMetaItem">
+          <span className="docViewerMetaLabel">Added</span>
+          <span className="docViewerMetaValue">{formatDate(doc.addedAt)}</span>
+        </span>
+        {doc.addedBy && (
+          <span className="docViewerMetaItem">
+            <span className="docViewerMetaLabel">By</span>
+            <span className="docViewerMetaValue">{doc.addedBy}</span>
+          </span>
+        )}
+        {doc.sessionName && (
+          <span className="docViewerMetaItem">
+            <span className="docViewerMetaLabel">Session</span>
+            <span className="docViewerMetaSessionBadge">{doc.sessionName}</span>
+          </span>
+        )}
+      </div>
+
+      {/* Content body */}
+      <div className="docViewerBody">
+        {doc.content ? (
+          shouldRenderMarkdown ? (
+            <div className="docViewerMarkdown">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                {doc.content}
+              </ReactMarkdown>
+            </div>
+          ) : (
+            <pre className="docViewerCode"><code>{doc.content}</code></pre>
+          )
+        ) : (
+          <div className="docViewerEmpty">
+            <span className="docViewerEmptyIcon">○</span>
+            <span>No content available</span>
+            <span className="docViewerEmptyPath">{doc.filePath}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  if (inline) {
+    return <div className="docViewerInline">{panel}</div>;
+  }
+
+  return (
+    <div className={`docViewerOverlay ${isFullscreen ? 'docViewerOverlay--fullscreen' : ''}`} onClick={onClose}>
+      {panel}
     </div>
   );
 }

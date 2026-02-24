@@ -13,6 +13,7 @@ import {
   WRONG_MODE_ORCHESTRATOR_PREFIX,
   WRONG_MODE_ORCHESTRATOR_HINT,
 } from '../prompts/index.js';
+import { displayInitUI } from '../ui/init-display.js';
 
 /**
  * OrchestratorInitCommand - Initialize an orchestrator session from a manifest
@@ -155,10 +156,13 @@ export class OrchestratorInitCommand {
       // Step 4: Get session ID
       const sessionId = this.getSessionId();
 
-      // Step 5: Auto-update session status to working
+      // Step 5: Display init UI
+      displayInitUI(manifest, sessionId);
+
+      // Step 6: Auto-update session status to working
       await this.autoUpdateSessionStatus(manifest, sessionId);
 
-      // Step 6: Spawn agent
+      // Step 7: Spawn agent
       const spawnResult = await this.spawner.spawn(manifest, sessionId, {
         interactive: true,
       });

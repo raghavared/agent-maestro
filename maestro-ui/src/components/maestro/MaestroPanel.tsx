@@ -15,6 +15,7 @@ import { TaskTabContent } from "./TaskTabContent";
 import { PanelErrorState, NoProjectState } from "./PanelErrorState";
 import { useTasks } from "../../hooks/useTasks";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { useSessionStore } from "../../stores/useSessionStore";
 import { useTaskTree } from "../../hooks/useTaskTree";
 import { useUIStore } from "../../stores/useUIStore";
 import { Board } from "./MultiProjectBoard";
@@ -32,6 +33,8 @@ type MaestroPanelProps = {
     onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy | OrchestratorStrategy; mode?: AgentModeInput; teamMemberIds?: string[]; teamMemberId?: string; delegateTeamMemberIds?: string[]; agentTool?: AgentTool; model?: ModelType; memberOverrides?: Record<string, MemberLaunchOverride> }) => Promise<any>;
     onJumpToSession?: (maestroSessionId: string) => void;
     onAddTaskToSession?: (taskId: string) => void;
+    forcedPrimaryTab?: PrimaryTab;
+    forcedTeamSubTab?: TeamSubTab;
 };
 
 export const MaestroPanel = React.memo(function MaestroPanel({
@@ -41,7 +44,9 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     project,
     onCreateMaestroSession,
     onJumpToSession,
-    onAddTaskToSession
+    onAddTaskToSession,
+    forcedPrimaryTab,
+    forcedTeamSubTab,
 }: MaestroPanelProps) {
 
     // ==================== STATE MANAGEMENT (PHASE V) ====================
@@ -60,19 +65,38 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     // Task lists
     const { taskLists: taskListArray } = useTaskLists(projectId);
 
+    // Derive current session's task IDs for highlighting
+    const activeTerminalId = useSessionStore(s => s.activeId);
+    const terminalSessions = useSessionStore(s => s.sessions);
+    const maestroSessions = useMaestroStore(s => s.sessions);
+
+    const currentSessionTaskIds = useMemo(() => {
+        const terminal = terminalSessions.find(s => s.id === activeTerminalId);
+        if (!terminal?.maestroSessionId) return new Set<string>();
+        const maestroSession = maestroSessions.get(terminal.maestroSessionId);
+        return new Set(maestroSession?.taskIds || []);
+    }, [activeTerminalId, terminalSessions, maestroSessions]);
+
     // ==================== UI STATE ====================
 
-    const [primaryTab, setPrimaryTab] = React.useState<PrimaryTab>("tasks");
+    const [internalPrimaryTab, setInternalPrimaryTab] = React.useState<PrimaryTab>("tasks");
     const [taskSubTab, setTaskSubTab] = React.useState<TaskSubTab>("current");
     const [skillSubTab, setSkillSubTab] = React.useState<SkillSubTab>("browse");
-    const [teamSubTab, setTeamSubTab] = React.useState<TeamSubTab>("members");
+    const [internalTeamSubTab, setInternalTeamSubTab] = React.useState<TeamSubTab>("members");
+
+    // When forced from outside (icon rail), use the forced value
+    const primaryTab = forcedPrimaryTab ?? internalPrimaryTab;
+    const setPrimaryTab = forcedPrimaryTab ? () => {} : setInternalPrimaryTab;
+    const teamSubTab = forcedTeamSubTab ?? internalTeamSubTab;
+    const setTeamSubTab = forcedTeamSubTab ? () => {} : setInternalTeamSubTab;
     const [componentError, setComponentError] = React.useState<Error | null>(null);
+    // selectedTaskId kept for board navigation only
     const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null);
     const [statusFilter, setStatusFilter] = React.useState<MaestroTask["status"][]>([]);
     const [priorityFilter, setPriorityFilter] = React.useState<MaestroTask["priority"][]>([]);
     const [sortBy, setSortBy] = React.useState<SortByOption>("custom");
     const [showCreateModal, setShowCreateModal] = React.useState(false);
-    const [showDetailModal, setShowDetailModal] = React.useState(false);
+    // showDetailModal removed — task detail now uses TaskDetailOverlay via useUIStore
     const [error, setError] = React.useState<string | null>(null);
     const [executionMode, setExecutionMode] = React.useState(false);
     const [activeBarMode, setActiveBarMode] = React.useState<'none' | 'execute' | 'orchestrate'>('none');
@@ -236,6 +260,31 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }
     }, [regularTasks]);
 
+    // Build task tree for hierarchical display (excludes team members)
+    // IMPORTANT: all hooks must be called before any early returns to obey rules of hooks
+    const { roots } = useTaskTree(regularTasks);
+
+    // Search filter helper: recursively filters tree nodes by search query
+    const filterBySearch = useCallback((nodes: TaskTreeNode[]): TaskTreeNode[] => {
+        if (!searchQuery.trim()) return nodes;
+        const query = searchQuery.toLowerCase().trim();
+
+        const matches = (node: TaskTreeNode): boolean => {
+            if (node.title.toLowerCase().includes(query)) return true;
+            if (node.description?.toLowerCase().includes(query)) return true;
+            return node.children.some(child => matches(child));
+        };
+
+        return nodes.filter(node => matches(node));
+    }, [searchQuery]);
+
+    const handleTaskReorder = useCallback((orderedIds: string[]) => {
+        saveTaskOrdering(projectId, orderedIds);
+    }, [projectId, saveTaskOrdering]);
+
+    // Search all tasks (not just roots) so subtasks can be selected
+    const selectedTask = normalizedTasks.find((t) => t.id === selectedTaskId);
+
     // Show component error if any
     if (componentError) {
         return (
@@ -253,12 +302,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     if (!projectId) {
         return <NoProjectState onClose={onClose} />;
     }
-
-    // Build task tree for hierarchical display (excludes team members)
-    const { roots } = useTaskTree(regularTasks);
-
-    // Search all tasks (not just roots) so subtasks can be selected
-    const selectedTask = normalizedTasks.find((t) => t.id === selectedTaskId);
 
     // ==================== EVENT HANDLERS ====================
 
@@ -590,20 +633,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     // ==================== DERIVED DATA ====================
 
-    // Search filter helper: recursively filters tree nodes by search query
-    const filterBySearch = useCallback((nodes: TaskTreeNode[]): TaskTreeNode[] => {
-        if (!searchQuery.trim()) return nodes;
-        const query = searchQuery.toLowerCase().trim();
-
-        const matches = (node: TaskTreeNode): boolean => {
-            if (node.title.toLowerCase().includes(query)) return true;
-            if (node.description?.toLowerCase().includes(query)) return true;
-            return node.children.some(child => matches(child));
-        };
-
-        return nodes.filter(node => matches(node));
-    }, [searchQuery]);
-
     const customOrder = taskOrdering.get(projectId) || [];
 
     const activeRoots = filterBySearch(roots
@@ -626,10 +655,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             }
             return b[sortBy] - a[sortBy];
         }));
-
-    const handleTaskReorder = useCallback((orderedIds: string[]) => {
-        saveTaskOrdering(projectId, orderedIds);
-    }, [projectId, saveTaskOrdering]);
 
     const completedRoots = filterBySearch(roots
         .filter((node) => node.status === 'completed')
@@ -657,8 +682,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 <TaskListItem
                     task={node}
                     onSelect={() => {
-                        setSelectedTaskId(node.id);
-                        setShowDetailModal(true);
+                        useUIStore.getState().setTaskDetailOverlay({ taskId: node.id, projectId });
                     }}
                     onWorkOn={() => handleWorkOnTask(node)}
                     onWorkOnWithOverride={(agentTool: AgentTool, model: ModelType) => handleWorkOnTask(node, { agentTool, model })}
@@ -666,8 +690,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     onOpenCreateTeamMember={() => { setEditingTeamMember(null); setShowTeamMemberModal(true); }}
                     onJumpToSession={(sid) => onJumpToSession?.(sid)}
                     onNavigateToTask={(taskId: string) => {
-                        setSelectedTaskId(taskId);
-                        setShowDetailModal(true);
+                        useUIStore.getState().setTaskDetailOverlay({ taskId, projectId });
                     }}
                     depth={depth}
                     hasChildren={hasChildren}
@@ -679,6 +702,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     isSelected={selectedForExecution.has(node.id)}
                     onToggleSelect={() => handleToggleTaskSelection(node.id)}
                     showPermanentDelete={options?.showPermanentDelete}
+                    isSessionTask={currentSessionTaskIds.has(node.id)}
                 />
             </div>
         );
@@ -723,26 +747,51 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     return (
         <>
             <div className={`maestroPanel terminalTheme ${executionMode ? 'maestroPanel--executionMode' : ''}`}>
-                <PanelIconBar
-                    primaryTab={primaryTab}
-                    onPrimaryTabChange={setPrimaryTab}
-                    taskSubTab={taskSubTab}
-                    onTaskSubTabChange={setTaskSubTab}
-                    skillSubTab={skillSubTab}
-                    onSkillSubTabChange={setSkillSubTab}
-                    teamSubTab={teamSubTab}
-                    onTeamSubTabChange={setTeamSubTab}
-                    roots={roots}
-                    teamMembers={teamMembers}
-                    loading={loading}
-                    projectId={projectId}
-                    onNewTask={() => setShowCreateModal(true)}
-                    onNewTaskList={() => setTaskListCreateSignal((prev) => prev + 1)}
-                    onNewTeamMember={() => { setEditingTeamMember(null); setShowTeamMemberModal(true); }}
-                    onNewTeam={() => { setEditingTeam(null); setShowTeamModal(true); }}
-                    teamCount={activeTeams.length}
-                    taskListCount={taskListArray.length}
-                />
+                {!forcedPrimaryTab && (
+                    <PanelIconBar
+                        primaryTab={primaryTab}
+                        onPrimaryTabChange={setPrimaryTab}
+                        taskSubTab={taskSubTab}
+                        onTaskSubTabChange={setTaskSubTab}
+                        skillSubTab={skillSubTab}
+                        onSkillSubTabChange={setSkillSubTab}
+                        teamSubTab={teamSubTab}
+                        onTeamSubTabChange={setTeamSubTab}
+                        roots={roots}
+                        teamMembers={teamMembers}
+                        loading={loading}
+                        projectId={projectId}
+                        onNewTask={() => setShowCreateModal(true)}
+                        onNewTaskList={() => setTaskListCreateSignal((prev) => prev + 1)}
+                        onNewTeamMember={() => { setEditingTeamMember(null); setShowTeamMemberModal(true); }}
+                        onNewTeam={() => { setEditingTeam(null); setShowTeamModal(true); }}
+                        teamCount={activeTeams.length}
+                        taskListCount={taskListArray.length}
+                    />
+                )}
+                {forcedPrimaryTab && (
+                    <PanelIconBar
+                        primaryTab={primaryTab}
+                        onPrimaryTabChange={() => {}}
+                        taskSubTab={taskSubTab}
+                        onTaskSubTabChange={setTaskSubTab}
+                        skillSubTab={skillSubTab}
+                        onSkillSubTabChange={setSkillSubTab}
+                        teamSubTab={teamSubTab}
+                        onTeamSubTabChange={setTeamSubTab}
+                        roots={roots}
+                        teamMembers={teamMembers}
+                        loading={loading}
+                        projectId={projectId}
+                        onNewTask={() => setShowCreateModal(true)}
+                        onNewTaskList={() => setTaskListCreateSignal((prev) => prev + 1)}
+                        onNewTeamMember={() => { setEditingTeamMember(null); setShowTeamMemberModal(true); }}
+                        onNewTeam={() => { setEditingTeam(null); setShowTeamModal(true); }}
+                        teamCount={activeTeams.length}
+                        taskListCount={taskListArray.length}
+                        hidePrimaryTabs
+                    />
+                )}
 
                 {primaryTab === "tasks" && (
                     <div className="taskSearchBar">
@@ -797,7 +846,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                                     onExecute={handleBatchExecute}
                                     onOrchestrate={handleBatchOrchestrate}
                                     selectedCount={selectedForExecution.size}
-                                    selectedTasks={regularTasks.filter(t => selectedForExecution.has(t.id))}
                                     projectId={projectId}
                                     teamMembers={teamMembers}
                                     onSaveAsTeam={handleSaveAsTeam}
@@ -1053,41 +1101,14 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 projectId={projectId}
             />
 
-            {selectedTask && showDetailModal && (
-                <CreateTaskModal
-                    isOpen={showDetailModal}
-                    mode="edit"
-                    task={selectedTask}
-                    onClose={() => {
-                        setShowDetailModal(false);
-                        setSelectedTaskId(null);
-                    }}
-                    onCreate={handleCreateTask}
-                    project={project}
-                    onUpdateTask={async (taskId, updates) => {
-                        await updateTask(taskId, updates);
-                    }}
-                    onAddSubtask={(title: string) => handleAddSubtask(selectedTask.id)}
-                    onToggleSubtask={(subtaskId: string) => handleToggleSubtask(selectedTask.id, subtaskId)}
-                    onDeleteSubtask={(subtaskId: string) => handleDeleteSubtask(selectedTask.id, subtaskId)}
-                    onWorkOn={() => handleWorkOnTask(selectedTask)}
-                    onNavigateToTask={(taskId: string) => {
-                        setSelectedTaskId(taskId);
-                    }}
-                    onJumpToSession={(sessionId: string) => onJumpToSession?.(sessionId)}
-                    onWorkOnSubtask={(subtask: MaestroTask) => handleWorkOnTask(subtask)}
-                    selectedAgentId={selectedAgentByTask[selectedTask.id] || 'claude'}
-                    onAgentSelect={(agentId) => handleAgentSelect(selectedTask.id, agentId)}
-                />
-            )}
+            {/* Task detail view now handled by TaskDetailOverlay in App.tsx */}
 
             {showBoard && (
                 <Board
                     focusProjectId={projectId}
                     onClose={() => setShowBoard(false)}
                     onSelectTask={(taskId, _projectId) => {
-                        setSelectedTaskId(taskId);
-                        setShowDetailModal(true);
+                        useUIStore.getState().setTaskDetailOverlay({ taskId, projectId });
                     }}
                     onUpdateTaskStatus={(taskId, status) => {
                         void handleUpdateTask(taskId, { status });
