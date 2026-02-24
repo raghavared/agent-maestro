@@ -5,16 +5,17 @@
 }
 
 .terminalSessions {
-    border-top: 1px solid var(--terminal-border);
-    background: rgba(0, 0, 0, 0.3);
+    border-top: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+    background: rgba(0, 0, 0, 0.15);
     padding: 8px 12px 8px 40px;
 }
 
 .terminalSubsectionHeader {
-    background: transparent;
-    border: 1px solid var(--terminal-border);
+    background: rgba(var(--theme-primary-rgb), 0.03);
+    border: 1px solid rgba(var(--theme-primary-rgb), 0.08);
+    border-radius: var(--style-radius-sm, 4px);
     color: var(--terminal-text);
-    padding: 6px 10px;
+    padding: 7px 10px;
     font-size: 11px;
     font-family: var(--style-font-ui);
     font-weight: 500;
@@ -22,17 +23,16 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     margin-bottom: 8px;
     width: 100%;
     text-align: left;
 }
 
 .terminalSubsectionHeader:hover {
-    border-color: var(--terminal-green);
-    background: rgba(0, 255, 65, 0.05);
-    color: var(--terminal-green);
-    box-shadow: 0 0 8px rgba(0, 255, 65, 0.2);
+    border-color: rgba(var(--theme-primary-rgb), 0.18);
+    background: rgba(var(--theme-primary-rgb), 0.06);
+    color: var(--theme-primary);
 }
 
 .terminalSubsectionContent {
@@ -66,19 +66,25 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding: 7px 10px;
-    background: rgba(139, 92, 246, 0.08);
-    border: 1px solid rgba(139, 92, 246, 0.2);
-    border-radius: 4px;
+    padding: 8px 12px;
+    background:
+        linear-gradient(145deg,
+            rgba(139, 92, 246, 0.06),
+            rgba(139, 92, 246, 0.02));
+    border: 1px solid rgba(139, 92, 246, 0.12);
+    border-radius: var(--style-radius-sm, 4px);
     font-family: var(--font-mono);
     font-size: 12px;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
 }
 
 .terminalSessionItem:hover {
-    background: rgba(139, 92, 246, 0.15);
-    border-color: rgba(139, 92, 246, 0.4);
-    box-shadow: 0 0 8px rgba(139, 92, 246, 0.2);
+    background:
+        linear-gradient(145deg,
+            rgba(139, 92, 246, 0.1),
+            rgba(139, 92, 246, 0.04));
+    border-color: rgba(139, 92, 246, 0.25);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .terminalSessionName {
@@ -95,9 +101,9 @@
 }
 
 .terminalSessionBtn {
-    background: transparent;
-    border: 1px solid rgba(139, 92, 246, 0.3);
-    color: rgba(139, 92, 246, 0.8);
+    background: rgba(139, 92, 246, 0.04);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    color: rgba(139, 92, 246, 0.7);
     width: 24px;
     height: 24px;
     cursor: pointer;
@@ -105,27 +111,25 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s ease;
-    border-radius: 2px;
+    transition: all 0.2s ease;
+    border-radius: var(--style-radius-sm, 4px);
 }
 
 .terminalSessionBtn:hover {
-    border-color: rgba(139, 92, 246, 0.6);
-    background: rgba(139, 92, 246, 0.15);
-    color: rgba(139, 92, 246, 1);
-    box-shadow: 0 0 6px rgba(139, 92, 246, 0.3);
+    border-color: rgba(139, 92, 246, 0.35);
+    background: rgba(139, 92, 246, 0.1);
+    color: rgba(139, 92, 246, 0.9);
 }
 
 .terminalSessionBtn.remove {
-    border-color: rgba(255, 59, 59, 0.3);
-    color: rgba(255, 59, 59, 0.8);
+    border-color: rgba(255, 59, 59, 0.15);
+    color: rgba(255, 59, 59, 0.6);
 }
 
 .terminalSessionBtn.remove:hover {
-    border-color: rgba(255, 59, 59, 0.6);
-    background: rgba(255, 59, 59, 0.15);
-    color: var(--terminal-red);
-    box-shadow: 0 0 6px rgba(255, 59, 59, 0.3);
+    border-color: rgba(255, 59, 59, 0.35);
+    background: rgba(255, 59, 59, 0.1);
+    color: #f87171;
 }
 
 .terminalSessionFooter {
@@ -135,16 +139,17 @@
 }
 
 .terminalAddSessionBtn {
-    background: transparent;
-    border: 1px dashed rgba(139, 92, 246, 0.3);
-    color: rgba(139, 92, 246, 0.8);
-    padding: 6px 10px;
+    background: rgba(139, 92, 246, 0.03);
+    border: 1px dashed rgba(139, 92, 246, 0.18);
+    border-radius: var(--style-radius-sm, 4px);
+    color: rgba(139, 92, 246, 0.7);
+    padding: 7px 10px;
     font-size: 11px;
     font-family: var(--style-font-ui);
     font-weight: 500;
     cursor: pointer;
     width: 100%;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -152,11 +157,10 @@
 }
 
 .terminalAddSessionBtn:hover {
-    border-color: rgba(139, 92, 246, 0.6);
+    border-color: rgba(139, 92, 246, 0.35);
     border-style: solid;
-    background: rgba(139, 92, 246, 0.1);
-    color: rgba(139, 92, 246, 1);
-    box-shadow: 0 0 8px rgba(139, 92, 246, 0.2);
+    background: rgba(139, 92, 246, 0.08);
+    color: rgba(139, 92, 246, 0.9);
 }
 /* Sessions Section Expansion */
 .terminalExpandBtn {
@@ -212,11 +216,12 @@
 /* ==================== TEAM GROUP CONTAINERS ==================== */
 
 .teamGroup {
-    border-left: 3px solid var(--team-color, rgba(139, 92, 246, 0.4));
-    border-radius: 6px;
+    border-left: 3px solid var(--team-color, rgba(139, 92, 246, 0.3));
+    border-radius: var(--style-radius-md, 6px);
     margin-bottom: 6px;
-    background: var(--team-color-dim, transparent);
+    background: var(--team-color-dim, rgba(0, 0, 0, 0.08));
     padding: 4px 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .teamGroupHeader {
@@ -264,11 +269,12 @@
 /* ==================== TEAM SESSION GROUP (V2) ==================== */
 
 .tsGroup {
-    border-left: 3px solid var(--team-color, rgba(139, 92, 246, 0.4));
-    border-radius: 6px;
+    border-left: 3px solid var(--team-color, rgba(139, 92, 246, 0.3));
+    border-radius: var(--style-radius-md, 6px);
     margin-bottom: 6px;
-    background: var(--team-color-dim, transparent);
+    background: var(--team-color-dim, rgba(0, 0, 0, 0.08));
     padding: 4px 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .tsGroupHeader {
@@ -930,7 +936,7 @@
 .teamViewBody {
     flex: 1;
     display: flex;
-    gap: 2px;
+    gap: 0;
     padding: 2px;
     min-height: 0;
     overflow: hidden;
@@ -1033,6 +1039,40 @@
     color: #ef4444;
 }
 
+/* Resize handle between coordinator and workers panels */
+.teamViewResizeHandle {
+    flex: 0 0 6px;
+    cursor: col-resize;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 3px;
+    transition: background 0.15s ease;
+    position: relative;
+    z-index: 2;
+}
+
+.teamViewResizeHandle:hover,
+.teamViewResizeHandle:active {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.teamViewResizeHandle::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 32px;
+    border-radius: 1px;
+    background: rgba(255, 255, 255, 0.2);
+    transition: background 0.15s ease;
+}
+
+.teamViewResizeHandle:hover::after,
+.teamViewResizeHandle:active::after {
+    background: rgba(255, 255, 255, 0.4);
+}
+
 /* Terminal slot placeholder — the real terminal floats over this via position:fixed.
    pointer-events:none so clicks pass through to the terminal above. */
 .teamViewSlotTerminal {
@@ -1042,4 +1082,147 @@
     overflow: hidden;
     pointer-events: none;
     background: rgba(10, 14, 22, 0.95);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Sessions Segmented Filter (multi-select)                           */
+/* ------------------------------------------------------------------ */
+
+.sessionsSegmentedFilter {
+    display: flex;
+    gap: 0;
+    margin: 4px 10px 6px;
+    border: 1px solid var(--theme-border, var(--terminal-border));
+    border-radius: var(--style-radius, 4px);
+    overflow: hidden;
+}
+
+.sessionsSegmentedFilter__btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: rgba(var(--theme-primary-rgb), 0.45);
+    padding: 4px 8px;
+    font-family: var(--style-font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-right: 1px solid var(--theme-border, var(--terminal-border));
+}
+
+.sessionsSegmentedFilter__btn:last-child {
+    border-right: none;
+}
+
+.sessionsSegmentedFilter__btn:hover {
+    color: rgba(var(--theme-primary-rgb), 0.75);
+    background: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.sessionsSegmentedFilter__btn--active {
+    color: var(--theme-primary);
+    background: rgba(var(--theme-primary-rgb), 0.1);
+    box-shadow: inset 0 0 10px rgba(var(--theme-primary-rgb), 0.06);
+}
+
+/* ================================================================== */
+/*  Compact Session Cards (non-active sessions)                        */
+/* ================================================================== */
+
+.sessionItemCompact {
+    padding: 6px 14px !important;
+}
+
+.sessionItemCompact .sessionAgentIcon {
+    width: 24px;
+    height: 24px;
+}
+
+.sessionItemCompact .sessionAgentIcon__wrapper {
+    width: 22px;
+    height: 22px;
+}
+
+.sessionItemCompact .sessionAgentIcon__img {
+    width: 20px;
+    height: 20px;
+}
+
+.sessionItemCompact .sessionAgentIcon__placeholder {
+    width: 22px;
+    height: 22px;
+    font-size: 9px;
+}
+
+.sessionItemCompact .sessionName {
+    font-size: 12px;
+}
+
+.sessionItemCompact .sessionStatusBadge {
+    font-size: 9px;
+    padding: 1px 5px;
+    flex-shrink: 0;
+}
+
+/* ================================================================== */
+/*  Active Session - Bottom Action Bar                                 */
+/* ================================================================== */
+
+.sessionItemBottomActions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 0 2px 0;
+    margin-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sessionItemBottomBtn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--muted, rgba(240, 244, 248, 0.7));
+    padding: 5px 8px;
+    border-radius: var(--style-radius-sm, 4px);
+    font-size: 10px;
+    font-family: var(--style-font-ui, sans-serif);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--style-transition, 0.15s ease);
+    white-space: nowrap;
+}
+
+.sessionItemBottomBtn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: var(--text, #f0f4f8);
+}
+
+.sessionItemBottomBtn--active {
+    background: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.08);
+    border-color: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.2);
+    color: var(--theme-primary, #00ff41);
+}
+
+.sessionItemBottomBtn--active:hover {
+    background: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.12);
+    border-color: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.3);
+}
+
+.sessionItemBottomBtn--danger:hover {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.25);
+    color: #f87171;
+}
+
+.sessionItemBottomBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }

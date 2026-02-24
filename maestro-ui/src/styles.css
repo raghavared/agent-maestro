@@ -1803,21 +1803,30 @@ body {
 }
 
 .spacesPanelContent .sessionList {
-  padding: 8px 12px;
-  gap: 6px;
+  padding: 8px 14px;
+  gap: 4px;
 }
 
 .spacesPanelContent .sessionItem {
-  padding: 10px 12px;
+  padding: 10px 14px;
   border-radius: var(--style-radius-sm, 4px);
 }
 
+.spacesPanelContent .sessionItem.sessionItemCompact {
+  padding: 6px 14px;
+}
+
 .spacesPanelContent .sessionItemStatusRow {
-  padding-left: 40px;
+  padding-left: 38px;
 }
 
 .spacesPanelContent .sessionItemTaskChips {
-  padding-left: 40px;
+  padding-left: 38px;
+}
+
+.spacesPanelContent .sessionItemBottomActions {
+  margin-left: 38px;
+  margin-right: 2px;
 }
 
 .spacesPanelContent .empty {
@@ -2919,10 +2928,12 @@ body {
   box-shadow: inset 0 0 0 2px rgba(0, 187, 255, 0.5);
 }
 
-/* When TeamView is open, disable paint containment so position:fixed
-   children can render outside the terminalPane bounds. */
+/* When TeamView is open, remove all containment and transform so
+   position:fixed children escape to the viewport correctly. */
 .terminalPane--teamView {
-  contain: layout style;
+  contain: none;
+  transform: none;
+  overflow: visible;
 }
 
 .terminalContainer {
@@ -5086,9 +5097,11 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   width: 100%;
   height: 100%;
   background:
+    radial-gradient(ellipse 120% 80% at 100% 0%, rgba(107, 138, 253, 0.04), transparent 50%),
+    radial-gradient(ellipse 80% 60% at 0% 100%, rgba(34, 211, 238, 0.02), transparent 40%),
     linear-gradient(180deg,
-      rgba(16, 21, 30, 0.98),
-      rgba(10, 14, 22, 0.98));
+      var(--style-surface-1, rgba(16, 21, 30, 0.98)),
+      var(--style-surface-1, rgba(10, 14, 22, 0.98)));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -5116,7 +5129,7 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: center;
   justify-content: space-between;
   background:
-    radial-gradient(800px 400px at 90% 0%, rgba(107, 138, 253, 0.1), transparent 60%);
+    radial-gradient(600px 300px at 90% 0%, rgba(107, 138, 253, 0.06), transparent 60%);
   position: relative;
 }
 
@@ -5208,9 +5221,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .maestroStat {
   white-space: nowrap;
   padding: 4px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--style-radius-sm, 6px);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
   letter-spacing: 0.01em;
 }
 
@@ -5246,10 +5259,10 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.12);
   padding: 4px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--style-radius-md, 10px);
+  border: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .maestroFilterButton {
@@ -5272,12 +5285,12 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .maestroFilterButtonActive {
-  background: linear-gradient(135deg, rgba(107, 138, 253, 0.18), rgba(34, 211, 238, 0.1));
-  border-color: rgba(107, 138, 253, 0.25);
+  background: linear-gradient(135deg, rgba(107, 138, 253, 0.12), rgba(34, 211, 238, 0.06));
+  border-color: rgba(107, 138, 253, 0.2);
   color: var(--text);
   box-shadow:
-    0 2px 6px rgba(107, 138, 253, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 1px 4px rgba(107, 138, 253, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .maestroFilterSelect {
@@ -5314,21 +5327,20 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Custom scrollbar for maestro panel */
 .maestroPanelContent::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .maestroPanelContent::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+  background: transparent;
 }
 
 .maestroPanelContent::-webkit-scrollbar-thumb {
-  background: rgba(107, 138, 253, 0.2);
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
 }
 
 .maestroPanelContent::-webkit-scrollbar-thumb:hover {
-  background: rgba(107, 138, 253, 0.3);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 /* Task List */
@@ -5340,18 +5352,22 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Task Card - Redesigned */
 .maestroTaskCard {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   background:
-    linear-gradient(135deg,
-      rgba(255, 255, 255, 0.03),
-      rgba(255, 255, 255, 0.01));
-  border-radius: 14px;
+    linear-gradient(145deg,
+      var(--style-surface-2, rgba(22, 27, 38, 0.95)),
+      var(--style-surface-1, rgba(14, 18, 28, 0.95)));
+  border-radius: var(--style-radius-lg, 14px);
   padding: 16px;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(8px);
 }
 
 .maestroTaskCard::before {
@@ -5359,61 +5375,67 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   position: absolute;
   top: 0;
   left: 0;
-  width: 4px;
+  width: 3px;
   height: 100%;
-  opacity: 0.8;
+  opacity: 0.85;
   transition: all 0.25s ease;
+  border-radius: 0 2px 2px 0;
 }
 
 .maestroTaskCard:hover {
-  border-color: rgba(107, 138, 253, 0.2);
+  border-color: rgba(107, 138, 253, 0.18);
   background:
-    linear-gradient(135deg,
-      rgba(255, 255, 255, 0.05),
-      rgba(255, 255, 255, 0.02));
-  transform: translateY(-2px);
+    linear-gradient(145deg,
+      var(--style-surface-3, rgba(28, 33, 45, 0.95)),
+      var(--style-surface-2, rgba(20, 25, 36, 0.95)));
+  transform: translateY(-1px);
   box-shadow:
-    0 8px 20px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(107, 138, 253, 0.1);
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    0 8px 24px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .maestroTaskCardActive {
-  border-color: rgba(107, 138, 253, 0.4);
+  border-color: rgba(107, 138, 253, 0.3);
   background:
-    linear-gradient(135deg,
-      rgba(107, 138, 253, 0.12),
-      rgba(34, 211, 238, 0.06));
+    linear-gradient(145deg,
+      rgba(107, 138, 253, 0.08),
+      rgba(34, 211, 238, 0.03)),
+    linear-gradient(145deg,
+      var(--style-surface-2, rgba(22, 27, 38, 0.95)),
+      var(--style-surface-1, rgba(14, 18, 28, 0.95)));
   box-shadow:
-    0 8px 24px rgba(107, 138, 253, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 4px 16px rgba(107, 138, 253, 0.12),
+    0 8px 32px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .maestroTaskCard--in_progress::before {
-  background: linear-gradient(180deg, rgba(107, 138, 253, 0.9), rgba(34, 211, 238, 0.7));
-  box-shadow: 0 0 12px rgba(107, 138, 253, 0.4);
+  background: linear-gradient(180deg, #6b8afd, #22d3ee);
+  box-shadow: 0 0 8px rgba(107, 138, 253, 0.35);
 }
 
 .maestroTaskCard--completed::before {
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.7));
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+  background: linear-gradient(180deg, #10b981, #059669);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
 }
 
 .maestroTaskCard--completed {
-  opacity: 0.75;
+  opacity: 0.7;
 }
 
 .maestroTaskCard--in_review::before {
-  background: linear-gradient(180deg, rgba(168, 85, 247, 0.9), rgba(139, 92, 246, 0.7));
-  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+  background: linear-gradient(180deg, #a855f7, #8b5cf6);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
 }
 
 .maestroTaskCard--blocked::before {
-  background: linear-gradient(180deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.7));
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+  background: linear-gradient(180deg, #ef4444, #dc2626);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
 }
 
 .maestroTaskCard--todo::before {
-  background: linear-gradient(180deg, rgba(148, 163, 184, 0.6), rgba(100, 116, 139, 0.5));
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.5), rgba(100, 116, 139, 0.4));
 }
 
 .maestroTaskCardHeader {
@@ -5431,72 +5453,72 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .maestroTaskCardStatusBadge {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 4px 9px;
+  border-radius: var(--style-radius-sm, 6px);
   border: 1px solid;
   line-height: 1;
 }
 
 .maestroTaskCardStatusBadge--todo {
-  background: rgba(148, 163, 184, 0.12);
-  border-color: rgba(148, 163, 184, 0.25);
-  color: rgba(203, 213, 225, 0.9);
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.15);
+  color: rgba(203, 213, 225, 0.8);
 }
 
 .maestroTaskCardStatusBadge--in_progress {
-  background: linear-gradient(135deg, rgba(107, 138, 253, 0.15), rgba(34, 211, 238, 0.1));
-  border-color: rgba(107, 138, 253, 0.3);
+  background: rgba(107, 138, 253, 0.1);
+  border-color: rgba(107, 138, 253, 0.22);
   color: rgba(139, 174, 255, 0.95);
 }
 
 .maestroTaskCardStatusBadge--in_review {
-  background: rgba(168, 85, 247, 0.12);
-  border-color: rgba(168, 85, 247, 0.3);
-  color: rgba(192, 132, 252, 0.95);
+  background: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.2);
+  color: rgba(192, 132, 252, 0.9);
 }
 
 .maestroTaskCardStatusBadge--completed {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.3);
-  color: rgba(52, 211, 153, 0.95);
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: rgba(52, 211, 153, 0.9);
 }
 
 .maestroTaskCardStatusBadge--blocked {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: rgba(252, 129, 129, 0.95);
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: rgba(252, 129, 129, 0.9);
 }
 
 .maestroTaskCardPriorityBadge {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 4px 9px;
+  border-radius: var(--style-radius-sm, 6px);
   border: 1px solid;
   line-height: 1;
 }
 
 .maestroTaskCardPriorityBadge--low {
-  background: rgba(100, 116, 139, 0.1);
-  border-color: rgba(148, 163, 184, 0.2);
-  color: rgba(203, 213, 225, 0.8);
+  background: rgba(100, 116, 139, 0.06);
+  border-color: rgba(148, 163, 184, 0.12);
+  color: rgba(203, 213, 225, 0.7);
 }
 
 .maestroTaskCardPriorityBadge--medium {
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.3);
-  color: rgba(251, 191, 36, 0.95);
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: rgba(251, 191, 36, 0.9);
 }
 
 .maestroTaskCardPriorityBadge--high {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: rgba(252, 129, 129, 0.95);
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: rgba(252, 129, 129, 0.9);
 }
 
 .maestroTaskCardMenu {
@@ -5504,12 +5526,12 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .maestroTaskCardMenuButton {
-  border: 1px solid transparent;
-  background: rgba(0, 0, 0, 0.15);
-  color: rgba(240, 244, 248, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(240, 244, 248, 0.4);
   width: 28px;
   height: 28px;
-  border-radius: 7px;
+  border-radius: var(--style-radius-sm, 7px);
   cursor: pointer;
   font-size: 18px;
   line-height: 1;
@@ -5520,10 +5542,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .maestroTaskCardMenuButton:hover {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text);
-  transform: scale(1.05);
 }
 
 .maestroTaskCardMenuDropdown {
@@ -5532,14 +5553,16 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   right: 0;
   min-width: 170px;
   padding: 8px;
-  border: 1px solid rgba(107, 138, 253, 0.2);
-  background: linear-gradient(180deg, rgba(17, 24, 34, 0.98), rgba(10, 14, 20, 0.98));
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg,
+    var(--style-surface-3, rgba(17, 24, 34, 0.98)),
+    var(--style-surface-2, rgba(10, 14, 20, 0.98)));
+  border-radius: var(--style-radius-lg, 12px);
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
   z-index: 200;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
   animation: dropdownSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -5615,12 +5638,12 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: center;
   gap: 5px;
   font-size: 11px;
-  color: rgba(240, 244, 248, 0.5);
+  color: rgba(240, 244, 248, 0.45);
   font-weight: 500;
   padding: 3px 8px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: var(--style-radius-sm, 6px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .maestroTaskCardMetaItem svg {
@@ -5633,17 +5656,17 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: flex-start;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--style-radius-md, 10px);
   background:
     linear-gradient(135deg,
-      rgba(107, 138, 253, 0.08),
-      rgba(34, 211, 238, 0.05));
-  border: 1px solid rgba(107, 138, 253, 0.2);
+      rgba(107, 138, 253, 0.05),
+      rgba(34, 211, 238, 0.02));
+  border: 1px solid rgba(107, 138, 253, 0.12);
   margin-bottom: 12px;
   font-size: 11px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.9);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .maestroTaskCardLastUpdate svg {
@@ -5661,13 +5684,13 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .maestroTaskCardActionPrimary {
   flex: 1;
-  border: 1px solid rgba(107, 138, 253, 0.35);
+  border: 1px solid rgba(107, 138, 253, 0.25);
   background: linear-gradient(135deg,
-      rgba(107, 138, 253, 0.18),
-      rgba(34, 211, 238, 0.1));
+      rgba(107, 138, 253, 0.12),
+      rgba(34, 211, 238, 0.06));
   color: var(--text);
   padding: 10px 14px;
-  border-radius: 9px;
+  border-radius: var(--style-radius-md, 9px);
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
@@ -5677,20 +5700,20 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   gap: 7px;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow:
-    0 2px 8px rgba(107, 138, 253, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 1px 4px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   letter-spacing: 0.01em;
 }
 
 .maestroTaskCardActionPrimary:hover {
-  border-color: rgba(107, 138, 253, 0.5);
+  border-color: rgba(107, 138, 253, 0.4);
   background: linear-gradient(135deg,
-      rgba(107, 138, 253, 0.25),
-      rgba(34, 211, 238, 0.15));
+      rgba(107, 138, 253, 0.18),
+      rgba(34, 211, 238, 0.1));
   transform: translateY(-1px);
   box-shadow:
-    0 4px 14px rgba(107, 138, 253, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    0 4px 12px rgba(107, 138, 253, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .maestroTaskCardActionPrimary:active {
@@ -6722,17 +6745,28 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Task List Item */
 .taskListItem {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-2, rgba(22, 27, 38, 0.9)),
+      var(--style-surface-1, rgba(14, 18, 28, 0.9)));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--style-radius-md, 10px);
   overflow: hidden;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .taskListItem:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(107, 138, 253, 0.2);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-3, rgba(28, 33, 45, 0.9)),
+      var(--style-surface-2, rgba(20, 25, 36, 0.9)));
+  border-color: rgba(107, 138, 253, 0.15);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .taskListItemMain {
@@ -6755,8 +6789,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .taskListItemExpand {
   border: none;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(240, 244, 248, 0.6);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(240, 244, 248, 0.5);
   width: 24px;
   height: 24px;
   border-radius: 6px;
@@ -6821,78 +6855,78 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .taskListItemStatusBadge {
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 3px 7px;
-  border-radius: 5px;
+  padding: 3px 8px;
+  border-radius: var(--style-radius-sm, 5px);
   border: 1px solid;
   line-height: 1;
 }
 
 .taskListItemStatusBadge--todo {
-  background: rgba(148, 163, 184, 0.1);
-  border-color: rgba(148, 163, 184, 0.2);
-  color: rgba(203, 213, 225, 0.85);
+  background: rgba(148, 163, 184, 0.07);
+  border-color: rgba(148, 163, 184, 0.14);
+  color: rgba(203, 213, 225, 0.75);
 }
 
 .taskListItemStatusBadge--in_progress {
-  background: linear-gradient(135deg, rgba(107, 138, 253, 0.12), rgba(34, 211, 238, 0.08));
-  border-color: rgba(107, 138, 253, 0.25);
+  background: rgba(107, 138, 253, 0.08);
+  border-color: rgba(107, 138, 253, 0.18);
   color: rgba(139, 174, 255, 0.9);
 }
 
 .taskListItemStatusBadge--in_review {
-  background: rgba(168, 85, 247, 0.1);
-  border-color: rgba(168, 85, 247, 0.25);
-  color: rgba(192, 132, 252, 0.9);
+  background: rgba(168, 85, 247, 0.07);
+  border-color: rgba(168, 85, 247, 0.18);
+  color: rgba(192, 132, 252, 0.85);
 }
 
 .taskListItemStatusBadge--completed {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.25);
-  color: rgba(52, 211, 153, 0.9);
+  background: rgba(16, 185, 129, 0.07);
+  border-color: rgba(16, 185, 129, 0.18);
+  color: rgba(52, 211, 153, 0.85);
 }
 
 .taskListItemStatusBadge--cancelled {
-  background: rgba(128, 128, 128, 0.1);
-  border-color: rgba(128, 128, 128, 0.2);
-  color: rgba(160, 160, 160, 0.9);
+  background: rgba(128, 128, 128, 0.06);
+  border-color: rgba(128, 128, 128, 0.12);
+  color: rgba(160, 160, 160, 0.8);
 }
 
 .taskListItemStatusBadge--blocked {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.25);
-  color: rgba(252, 129, 129, 0.9);
+  background: rgba(239, 68, 68, 0.07);
+  border-color: rgba(239, 68, 68, 0.18);
+  color: rgba(252, 129, 129, 0.85);
 }
 
 .taskListItemPriorityBadge {
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 3px 7px;
-  border-radius: 5px;
+  padding: 3px 8px;
+  border-radius: var(--style-radius-sm, 5px);
   border: 1px solid;
   line-height: 1;
 }
 
 .taskListItemPriorityBadge--low {
-  background: rgba(100, 116, 139, 0.08);
-  border-color: rgba(148, 163, 184, 0.18);
-  color: rgba(203, 213, 225, 0.75);
+  background: rgba(100, 116, 139, 0.05);
+  border-color: rgba(148, 163, 184, 0.1);
+  color: rgba(203, 213, 225, 0.65);
 }
 
 .taskListItemPriorityBadge--medium {
-  background: rgba(245, 158, 11, 0.1);
-  border-color: rgba(245, 158, 11, 0.25);
-  color: rgba(251, 191, 36, 0.9);
+  background: rgba(245, 158, 11, 0.07);
+  border-color: rgba(245, 158, 11, 0.18);
+  color: rgba(251, 191, 36, 0.85);
 }
 
 .taskListItemPriorityBadge--high {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.25);
-  color: rgba(252, 129, 129, 0.9);
+  background: rgba(239, 68, 68, 0.07);
+  border-color: rgba(239, 68, 68, 0.18);
+  color: rgba(252, 129, 129, 0.85);
 }
 
 .taskListItemMeta {
@@ -6924,10 +6958,10 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .taskListItemActionBtn {
-  border: 1px solid rgba(107, 138, 253, 0.3);
+  border: 1px solid rgba(107, 138, 253, 0.2);
   background: linear-gradient(135deg,
-      rgba(107, 138, 253, 0.15),
-      rgba(34, 211, 238, 0.08));
+      rgba(107, 138, 253, 0.1),
+      rgba(34, 211, 238, 0.05));
   color: var(--text);
   padding: 7px 12px;
   border-radius: 7px;
@@ -6943,12 +6977,12 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .taskListItemActionBtn:hover {
-  border-color: rgba(107, 138, 253, 0.5);
+  border-color: rgba(107, 138, 253, 0.35);
   background: linear-gradient(135deg,
-      rgba(107, 138, 253, 0.22),
-      rgba(34, 211, 238, 0.12));
+      rgba(107, 138, 253, 0.16),
+      rgba(34, 211, 238, 0.08));
   transform: translateY(-1px);
-  box-shadow: 0 3px 10px rgba(107, 138, 253, 0.2);
+  box-shadow: 0 2px 8px rgba(107, 138, 253, 0.12);
 }
 
 .taskListItemActionBtn svg {
@@ -6961,8 +6995,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .taskListItemMenuBtn {
   border: none;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(240, 244, 248, 0.5);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(240, 244, 248, 0.4);
   width: 28px;
   height: 28px;
   border-radius: 6px;
@@ -7072,8 +7106,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Subtasks */
 .taskListItemSubtasks {
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(0, 0, 0, 0.15);
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  background: rgba(0, 0, 0, 0.1);
   padding: 8px 16px 8px 52px;
   animation: expandDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -7148,18 +7182,19 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   max-width: 720px;
   max-height: 90vh;
   background: linear-gradient(180deg,
-      rgba(16, 21, 30, 0.98),
-      rgba(10, 14, 22, 0.98));
-  border: 1px solid rgba(107, 138, 253, 0.2);
-  border-radius: 20px;
+      var(--style-surface-2, rgba(16, 21, 30, 0.98)),
+      var(--style-surface-1, rgba(10, 14, 22, 0.98)));
+  border: 1px solid rgba(107, 138, 253, 0.15);
+  border-radius: var(--style-radius-xl, 20px);
   box-shadow:
-    0 24px 80px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(107, 138, 253, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 24px 80px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(107, 138, 253, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
   animation: slideUpScale 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
+  backdrop-filter: blur(12px);
 }
 
 .taskDetailModalHeader {
@@ -8294,15 +8329,18 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Main terminal panel with scanline effects */
 .maestroPanel.terminalTheme {
-  background: var(--terminal-bg);
-  border-left: 2px solid var(--terminal-border);
+  background:
+    linear-gradient(180deg,
+      var(--style-surface-1, var(--terminal-bg)),
+      var(--bg, var(--terminal-bg)));
+  border-left: 1px solid rgba(var(--theme-primary-rgb), 0.1);
   box-shadow:
-    -8px 0 32px rgba(var(--theme-primary-rgb), 0.15),
-    inset 0 0 100px rgba(var(--theme-primary-rgb), 0.03);
+    -4px 0 16px rgba(0, 0, 0, 0.3),
+    inset 0 0 40px rgba(var(--theme-primary-rgb), 0.01);
   position: relative;
 }
 
-/* Scanline effect overlay */
+/* Scanline effect overlay - very subtle */
 .maestroPanel.terminalTheme::before {
   content: '';
   position: absolute;
@@ -8311,13 +8349,13 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   right: 0;
   bottom: 0;
   background: repeating-linear-gradient(0deg,
-      rgba(0, 0, 0, 0.15) 0px,
-      rgba(0, 0, 0, 0.15) 1px,
+      rgba(0, 0, 0, 0.08) 0px,
+      rgba(0, 0, 0, 0.08) 1px,
       transparent 1px,
       transparent 2px);
   pointer-events: none;
   z-index: 1000;
-  opacity: 0.3;
+  opacity: 0.15;
   animation: scanlineMove 8s linear infinite;
 }
 
@@ -8331,7 +8369,7 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   }
 }
 
-/* CRT glow effect */
+/* Subtle ambient glow */
 .maestroPanel.terminalTheme::after {
   content: '';
   position: absolute;
@@ -8340,7 +8378,7 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   right: 0;
   bottom: 0;
   background: radial-gradient(ellipse at center,
-      rgba(var(--theme-primary-rgb), 0.1) 0%,
+      rgba(var(--theme-primary-rgb), 0.03) 0%,
       transparent 70%);
   pointer-events: none;
   z-index: 999;
@@ -8867,20 +8905,29 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Task group - wraps parent and its children */
 .terminalTaskGroup {
-  border: 1px solid var(--terminal-border);
-  border-radius: 4px;
-  margin-bottom: 4px;
-  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.08);
+  border-radius: var(--style-radius-md, 6px);
+  margin-bottom: 6px;
+  background:
+    linear-gradient(135deg,
+      var(--style-surface-2, rgba(16, 21, 30, 0.9)),
+      var(--style-surface-1, rgba(10, 14, 22, 0.95)));
   overflow: hidden;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.2),
+    0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
 }
 
 .terminalTaskGroup--expanded {
-  border-color: rgba(0, 255, 255, 0.3);
-  box-shadow: 0 0 8px rgba(0, 255, 255, 0.1);
+  border-color: rgba(var(--theme-primary-rgb), 0.18);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.25),
+    0 0 1px rgba(var(--theme-primary-rgb), 0.15);
 }
 
 .terminalTaskGroup--collapsed {
-  border-color: var(--terminal-border);
+  border-color: rgba(var(--theme-primary-rgb), 0.06);
 }
 
 .terminalTaskGroup > .terminalTaskRow {
@@ -8895,9 +8942,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .terminalTaskGroupChildren {
-  background: rgba(0, 255, 255, 0.02);
+  background: rgba(var(--theme-primary-rgb), 0.015);
   padding-left: 4px;
-  border-left: 2px solid rgba(0, 255, 255, 0.2);
+  border-left: 2px solid rgba(var(--theme-primary-rgb), 0.12);
   margin-left: 12px;
 }
 
@@ -8913,9 +8960,13 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Task row */
 .terminalTaskRow {
-  border: 1px solid var(--terminal-border);
-  background: rgba(var(--theme-primary-rgb), 0.03);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-2, rgba(16, 21, 30, 0.85)),
+      var(--style-surface-1, rgba(10, 14, 22, 0.9)));
   margin-bottom: 2px;
+  border-radius: var(--style-radius-sm, 4px);
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
@@ -8923,6 +8974,7 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   max-width: 100%;
   width: 100%;
   box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 .terminalTaskRow::before {
@@ -8941,17 +8993,14 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .terminalTaskRow--in_progress::before {
   background: var(--terminal-cyan);
-  box-shadow: 0 0 8px var(--terminal-cyan);
 }
 
 .terminalTaskRow--in_review::before {
   background: #a855f7;
-  box-shadow: 0 0 8px #a855f7;
 }
 
 .terminalTaskRow--completed::before {
   background: var(--terminal-green);
-  box-shadow: 0 0 8px var(--terminal-green);
 }
 
 .terminalTaskRow--cancelled::before {
@@ -8960,21 +9009,30 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .terminalTaskRow--blocked::before {
   background: var(--terminal-red);
-  box-shadow: 0 0 8px var(--terminal-red);
 }
 
 .terminalTaskRow:hover {
-  border-color: var(--terminal-green);
-  background: rgba(var(--theme-primary-rgb), 0.08);
-  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.2);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-3, rgba(22, 27, 38, 0.9)),
+      var(--style-surface-2, rgba(16, 21, 30, 0.95)));
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.2),
+    0 0 1px rgba(var(--theme-primary-rgb), 0.12);
 }
 
 /* Disable hover effects when dropdown is open */
 .terminalTaskRow--dropdownOpen,
 .terminalTaskRow--dropdownOpen:hover {
-  border-color: var(--terminal-green);
-  background: rgba(var(--theme-primary-rgb), 0.08);
-  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.2);
+  border-color: rgba(var(--theme-primary-rgb), 0.25);
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-3, rgba(22, 27, 38, 0.95)),
+      var(--style-surface-2, rgba(16, 21, 30, 0.98)));
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 1px rgba(var(--theme-primary-rgb), 0.15);
   z-index: 1001;
   position: relative;
   overflow: visible; /* Allow dropdown to show outside row bounds */
@@ -8989,8 +9047,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Prevent hover on other rows when a dropdown is open */
 .terminalTaskList:has(.terminalTaskRow--dropdownOpen) .terminalTaskRow:not(.terminalTaskRow--dropdownOpen):hover {
-  border-color: rgba(var(--theme-primary-rgb), 0.15);
-  background: rgba(var(--theme-primary-rgb), 0.02);
+  border-color: rgba(var(--theme-primary-rgb), 0.08);
+  background: var(--style-surface-2, rgba(16, 21, 30, 0.85));
   box-shadow: none;
   transform: none;
 }
@@ -9008,9 +9066,17 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Highlight tasks belonging to the currently active session */
 .terminalTaskRow--sessionActive {
-  background: rgba(var(--theme-primary-rgb), 0.08);
-  border-color: var(--terminal-cyan);
-  box-shadow: inset 0 0 0 1px rgba(0, 255, 255, 0.15);
+  background:
+    linear-gradient(145deg,
+      rgba(var(--theme-primary-rgb), 0.06),
+      rgba(var(--theme-primary-rgb), 0.02)),
+    linear-gradient(145deg,
+      var(--style-surface-2, rgba(16, 21, 30, 0.9)),
+      var(--style-surface-1, rgba(10, 14, 22, 0.95)));
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    inset 0 0 0 1px rgba(var(--theme-primary-rgb), 0.08);
   position: relative;
 }
 
@@ -9036,15 +9102,15 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Tree collapse toggle for parent tasks with children */
 .terminalTreeCollapseBtn {
-  background: rgba(0, 255, 255, 0.08);
-  border: 1px solid rgba(0, 255, 255, 0.3);
-  color: var(--terminal-cyan);
+  background: rgba(var(--theme-primary-rgb), 0.06);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  color: rgba(var(--theme-primary-rgb), 0.7);
   font-size: 16px;
   font-weight: bold;
   cursor: pointer;
   padding: 0;
   margin-right: 10px;
-  border-radius: 50%;
+  border-radius: var(--style-radius-sm, 4px);
   transition: all 0.2s ease;
   flex-shrink: 0;
   width: 22px;
@@ -9052,40 +9118,37 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 6px rgba(0, 255, 255, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .terminalTreeCollapseBtn.collapsed {
-  color: var(--terminal-cyan);
-  border-color: rgba(0, 255, 255, 0.4);
-  background: rgba(0, 255, 255, 0.1);
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
+  background: rgba(var(--theme-primary-rgb), 0.06);
 }
 
 .terminalTreeCollapseBtn.expanded {
-  color: var(--terminal-green);
-  border-color: rgba(var(--theme-primary-rgb), 0.4);
+  color: var(--theme-primary);
+  border-color: rgba(var(--theme-primary-rgb), 0.25);
   background: rgba(var(--theme-primary-rgb), 0.1);
-  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.2);
 }
 
 .terminalTreeCollapseBtn:hover {
-  transform: scale(1.15);
+  transform: scale(1.1);
 }
 
 .terminalTreeCollapseBtn.collapsed:hover {
-  background: rgba(0, 255, 255, 0.2);
-  border-color: var(--terminal-cyan);
-  box-shadow: 0 0 12px rgba(0, 255, 255, 0.4);
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  border-color: rgba(var(--theme-primary-rgb), 0.3);
 }
 
 .terminalTreeCollapseBtn.expanded:hover {
-  background: rgba(var(--theme-primary-rgb), 0.2);
-  border-color: var(--terminal-green);
-  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.4);
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  border-color: rgba(var(--theme-primary-rgb), 0.35);
 }
 
 .terminalTreeCollapseBtn:active {
-  transform: scale(0.9);
+  transform: scale(0.95);
 }
 
 /* Spacer for alignment when task has no children */
@@ -9165,9 +9228,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 /* Expand button - highlighted and visible */
 .terminalExpandBtn {
-  background: rgba(var(--theme-primary-rgb), 0.1);
-  border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
-  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.06);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  color: rgba(var(--theme-primary-rgb), 0.7);
   width: 18px;
   height: 18px;
   cursor: pointer;
@@ -9177,21 +9240,20 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   justify-content: center;
   transition: all 0.2s ease;
   flex-shrink: 0;
-  border-radius: 3px;
-  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.2);
+  border-radius: var(--style-radius-sm, 3px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .terminalExpandBtn:hover {
-  background: rgba(var(--theme-primary-rgb), 0.2);
-  border-color: var(--terminal-green);
-  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.4);
-  transform: scale(1.1);
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  border-color: rgba(var(--theme-primary-rgb), 0.3);
+  transform: scale(1.05);
 }
 
 .terminalExpandBtn.expanded {
-  background: rgba(var(--theme-primary-rgb), 0.15);
-  border-color: var(--terminal-green);
-  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.4);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  border-color: rgba(var(--theme-primary-rgb), 0.25);
+  color: var(--theme-primary);
 }
 
 /* Expand indicator (non-interactive, shows expand state) */
@@ -9288,46 +9350,48 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .terminalStatusLabel {
   font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
+  font-weight: 600;
+  padding: 2px 7px;
   border: 1px solid;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   flex-shrink: 0;
+  border-radius: var(--style-radius-sm, 4px);
 }
 
 .terminalStatusLabel--todo {
   color: var(--terminal-text-dim);
-  border-color: var(--terminal-border);
+  border-color: rgba(var(--theme-primary-rgb), 0.1);
+  background: rgba(var(--theme-primary-rgb), 0.03);
 }
 
 .terminalStatusLabel--in_progress {
-  color: var(--terminal-cyan);
-  border-color: var(--terminal-cyan);
-  background: rgba(0, 217, 255, 0.1);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.2);
+  background: rgba(56, 189, 248, 0.08);
 }
 
 .terminalStatusLabel--in_review {
-  color: #a855f7;
-  border-color: #a855f7;
-  background: rgba(168, 85, 247, 0.1);
+  color: #c084fc;
+  border-color: rgba(192, 132, 252, 0.2);
+  background: rgba(168, 85, 247, 0.08);
 }
 
 .terminalStatusLabel--completed {
-  color: var(--terminal-green);
-  border-color: var(--terminal-green);
-  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
+  background: rgba(var(--theme-primary-rgb), 0.08);
 }
 
 .terminalStatusLabel--cancelled {
-  color: var(--terminal-gray);
-  border-color: var(--terminal-gray);
-  background: rgba(128, 128, 128, 0.1);
+  color: rgba(148, 163, 184, 0.6);
+  border-color: rgba(148, 163, 184, 0.12);
+  background: rgba(148, 163, 184, 0.05);
 }
 
 .terminalStatusLabel--blocked {
-  color: var(--terminal-red);
-  border-color: var(--terminal-red);
-  background: rgba(255, 59, 59, 0.1);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.2);
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .terminalTaskTitle {
@@ -13807,8 +13871,11 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .maestroPanelTabSystem {
   display: flex;
   flex-direction: column;
-  background: rgba(0, 0, 0, 0.3);
-  border-bottom: 1px solid var(--terminal-border);
+  background:
+    linear-gradient(180deg,
+      rgba(0, 0, 0, 0.25),
+      rgba(0, 0, 0, 0.15));
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
 }
 
 /* Utility bar - refresh & board at the top */
@@ -13975,8 +14042,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: center;
   gap: 4px;
   padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border-bottom: 1px solid var(--terminal-border);
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
 }
 
 .maestroPanelIconSvg {
@@ -18275,9 +18342,13 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.08));
-  background: rgba(var(--theme-primary-rgb), 0.03);
+  padding: 14px 24px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  background:
+    linear-gradient(135deg,
+      rgba(var(--theme-primary-rgb), 0.02),
+      transparent 60%),
+    var(--style-surface-1, var(--bg, #0a0e16));
   flex-shrink: 0;
 }
 
@@ -18331,9 +18402,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .taskBoardStatDone { color: var(--theme-primary); }
 
 .taskBoardCloseBtn {
-  background: transparent;
-  border: 1px solid var(--theme-border, rgba(255,255,255,0.08));
-  color: rgba(var(--theme-primary-rgb), 0.5);
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.08);
+  color: rgba(var(--theme-primary-rgb), 0.4);
   width: 36px;
   height: 36px;
   display: flex;
@@ -18342,15 +18413,15 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   cursor: pointer;
   font-size: 16px;
   font-family: var(--style-font-ui);
-  transition: all 0.15s ease;
-  border-radius: 4px;
+  transition: all 0.2s ease;
+  border-radius: var(--style-radius-sm, 4px);
   flex-shrink: 0;
 }
 
 .taskBoardCloseBtn:hover {
-  border-color: var(--theme-primary);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
   color: var(--theme-primary);
-  background: rgba(var(--theme-primary-rgb), 0.1);
+  background: rgba(var(--theme-primary-rgb), 0.08);
 }
 
 /* ==================== Excalidraw Overlay ==================== */
@@ -18477,9 +18548,9 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   min-height: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  background: rgba(var(--theme-primary-rgb), 0.03);
+  background: rgba(var(--theme-primary-rgb), 0.015);
   scrollbar-width: thin;
-  scrollbar-color: rgba(var(--theme-primary-rgb), 0.15) transparent;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.1) transparent;
 }
 
 /* ── Column ── */
@@ -18491,8 +18562,11 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  background: var(--bg, #0a0e16);
-  border-right: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  background:
+    linear-gradient(180deg,
+      var(--style-surface-1, var(--bg, #0a0e16)),
+      var(--bg, #0a0e16));
+  border-right: 1px solid rgba(var(--theme-primary-rgb), 0.04);
   transition: background 0.2s ease;
 }
 
@@ -18501,8 +18575,8 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 }
 
 .taskBoardColumn--dragOver {
-  background: rgba(var(--theme-primary-rgb), 0.08);
-  box-shadow: inset 0 0 0 1px rgba(var(--theme-primary-rgb), 0.2);
+  background: rgba(var(--theme-primary-rgb), 0.04);
+  box-shadow: inset 0 0 0 1px rgba(var(--theme-primary-rgb), 0.12);
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -18549,14 +18623,15 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.05);
   cursor: pointer;
   user-select: none;
   transition: background 0.15s ease;
+  background: rgba(var(--theme-primary-rgb), 0.015);
 }
 
 .taskBoardColumnHeader:hover {
-  background: rgba(var(--theme-primary-rgb), 0.04);
+  background: rgba(var(--theme-primary-rgb), 0.03);
 }
 
 .taskBoardColumnDot {
@@ -18590,13 +18665,15 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 
 .taskBoardColumnCount {
   font-family: var(--style-font-ui);
-  font-size: 12px;
-  color: var(--theme-primary);
-  background: rgba(var(--theme-primary-rgb), 0.1);
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  background: rgba(var(--theme-primary-rgb), 0.06);
   padding: 2px 8px;
-  border-radius: 8px;
+  border-radius: var(--style-radius-sm, 4px);
   min-width: 22px;
   text-align: center;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.08);
 }
 
 /* ── Column Body ── */
@@ -18641,18 +18718,28 @@ body.dragging-active * {
 .taskBoardCard {
   display: flex;
   flex-shrink: 0;
-  background: var(--panel, #10151e);
-  border: 1px solid var(--theme-border, rgba(255,255,255,0.08));
-  border-radius: 4px;
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-2, var(--panel, #10151e)),
+      var(--style-surface-1, var(--panel, #10151e)));
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  border-radius: var(--style-radius-md, 6px);
   cursor: grab;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
   overflow: hidden;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .taskBoardCard:hover {
-  border-color: rgba(var(--theme-primary-rgb), 0.25);
-  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.08);
-  transform: translateY(-1px);
+  border-color: rgba(var(--theme-primary-rgb), 0.15);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    0 8px 24px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transform: translateY(-2px);
 }
 
 .taskBoardCard:active {
@@ -18660,10 +18747,10 @@ body.dragging-active * {
 }
 
 .taskBoardCard--dragging {
-  opacity: 0.25;
+  opacity: 0.2;
   transform: scale(0.97);
   border-style: dashed;
-  border-color: rgba(var(--theme-primary-rgb), 0.3);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
 }
 
 /* ── Drag Ghost ── */
@@ -18674,10 +18761,14 @@ body.dragging-active * {
 }
 
 .taskBoardCard--ghost {
-  border-color: rgba(var(--theme-primary-rgb), 0.4);
-  box-shadow: 0 0 16px rgba(var(--theme-primary-rgb), 0.12),
-              inset 0 0 0 1px rgba(var(--theme-primary-rgb), 0.1);
-  background: var(--panel, #10151e);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.3),
+    0 0 1px rgba(var(--theme-primary-rgb), 0.1);
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-3, rgba(22, 27, 38, 0.98)),
+      var(--style-surface-2, var(--panel, #10151e)));
 }
 
 .taskBoardCard--active {
@@ -18704,23 +18795,21 @@ body.dragging-active * {
 }
 
 .taskBoardCard--active .taskBoardCardStripe {
-  background: #00d9ff !important;
-  box-shadow: 0 0 6px rgba(0, 217, 255, 0.4);
+  background: linear-gradient(180deg, #38bdf8, #0ea5e9) !important;
 }
 
 .taskBoardCard--blocked .taskBoardCardStripe {
-  background: #ef4444 !important;
-  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+  background: linear-gradient(180deg, #f87171, #ef4444) !important;
 }
 
 /* ── Card Content ── */
 
 .taskBoardCardContent {
   flex: 1;
-  padding: 10px 12px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -18802,23 +18891,22 @@ body.dragging-active * {
 /* ── Card Action ── */
 
 .taskBoardCardAction {
-  background: transparent;
-  border: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  background: rgba(var(--theme-primary-rgb), 0.04);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.1);
   color: rgba(var(--theme-primary-rgb), 0.5);
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  border-radius: 3px;
+  transition: all 0.2s ease;
+  border-radius: var(--style-radius-sm, 4px);
   align-self: flex-start;
 }
 
 .taskBoardCardAction:hover {
-  border-color: var(--theme-primary);
+  border-color: rgba(var(--theme-primary-rgb), 0.25);
   color: var(--theme-primary);
-  background: rgba(var(--theme-primary-rgb), 0.1);
-  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.2);
+  background: rgba(var(--theme-primary-rgb), 0.08);
 }
 
 .taskBoardCardAction .terminalPrompt {
@@ -18831,9 +18919,10 @@ body.dragging-active * {
 .taskBoardTabs {
   display: flex;
   gap: 2px;
-  background: rgba(var(--theme-primary-rgb), 0.06);
-  border-radius: 4px;
-  padding: 2px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  border-radius: var(--style-radius-sm, 4px);
+  padding: 3px;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.06);
 }
 
 .taskBoardTab {
@@ -18841,13 +18930,13 @@ body.dragging-active * {
   border: none;
   color: rgba(var(--theme-primary-rgb), 0.4);
   font-family: var(--style-font-ui);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   padding: 6px 14px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  border-radius: 3px;
+  transition: all 0.2s ease;
+  border-radius: var(--style-radius-sm, 3px);
   text-transform: uppercase;
   display: flex;
   align-items: center;
@@ -18855,13 +18944,14 @@ body.dragging-active * {
 }
 
 .taskBoardTab:hover {
-  color: rgba(var(--theme-primary-rgb), 0.7);
-  background: rgba(var(--theme-primary-rgb), 0.06);
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  background: rgba(var(--theme-primary-rgb), 0.04);
 }
 
 .taskBoardTab--active {
   color: var(--theme-primary);
-  background: rgba(var(--theme-primary-rgb), 0.12);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .taskBoardTabSymbol {

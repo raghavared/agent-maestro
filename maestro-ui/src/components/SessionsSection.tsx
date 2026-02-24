@@ -24,7 +24,6 @@ import { useMaestroStore } from "../stores/useMaestroStore";
 import { useUIStore } from "../stores/useUIStore";
 import { useSpacesStore } from "../stores/useSpacesStore";
 import { MaestroSessionContent } from "./maestro/MaestroSessionContent";
-import { StrategyBadge } from "./maestro/StrategyBadge";
 import { SessionDetailModal } from "./maestro/SessionDetailModal";
 import { SessionLogModal } from "./session-log/SessionLogModal";
 import { ConfirmActionModal } from "./modals/ConfirmActionModal";
@@ -130,6 +129,25 @@ export function SessionsSection({
   onCreateWhiteboard,
   onCloseSpace,
 }: SessionsSectionProps) {
+  // ==================== SEGMENTED FILTER ====================
+  type SessionFilter = 'terminals' | 'sessions' | 'documents';
+  const [activeFilters, setActiveFilters] = useState<Set<SessionFilter>>(
+    new Set<SessionFilter>(['terminals', 'sessions', 'documents'])
+  );
+
+  const toggleFilter = useCallback((filter: SessionFilter) => {
+    setActiveFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(filter)) {
+        // Don't allow deselecting all — keep at least one
+        if (next.size > 1) next.delete(filter);
+      } else {
+        next.add(filter);
+      }
+      return next;
+    });
+  }, []);
+
   // ==================== STATE MANAGEMENT (PHASE V) ====================
 
   const settingsMenuRef = React.useRef<HTMLDivElement | null>(null);
@@ -294,6 +312,28 @@ export function SessionsSection({
     [allSpaces, activeProjectId],
   );
 
+  // Filter sessions based on active filters
+  const showTerminals = activeFilters.has('terminals');
+  const showSessions = activeFilters.has('sessions');
+  const showDocuments = activeFilters.has('documents');
+
+  const filteredUngroupedSessions = useMemo(() => {
+    return ungroupedSessions.filter(s => {
+      const isMaestro = Boolean(s.maestroSessionId);
+      if (isMaestro) return showSessions;
+      return showTerminals;
+    });
+  }, [ungroupedSessions, showTerminals, showSessions]);
+
+  const filteredGroupedSessions = useMemo(() => {
+    // Team groups are maestro sessions, so filter by "sessions"
+    return showSessions ? groupedSessions : [];
+  }, [groupedSessions, showSessions]);
+
+  const filteredSpaces = useMemo(() => {
+    return showDocuments ? projectSpaces : [];
+  }, [projectSpaces, showDocuments]);
+
   // Map agentTool to icon paths
   const AGENT_TOOL_ICONS: Record<string, string> = {
     'claude-code': '/agent-icons/claude-code-icon.png',
@@ -377,12 +417,12 @@ export function SessionsSection({
         className={`sessionItem ${isActive ? "sessionItemActive" : ""} ${isExited ? "sessionItemExited" : ""
           } ${isClosing ? "sessionItemClosing" : ""} ${isSshType ? "sessionItemSsh" : ""
           } ${isPersistent ? "sessionItemPersistent" : ""} ${isDefaultType ? "sessionItemDefault" : ""
-          } ${needsInput ? "sessionItemNeedsInput" : ""}`}
+          } ${needsInput ? "sessionItemNeedsInput" : ""} ${!isActive ? "sessionItemCompact" : ""}`}
         onClick={() => onSelectSession(s.id)}
         style={{ flexDirection: 'column', alignItems: 'stretch' }}
         {...(s.maestroSessionId ? { 'data-maestro-session-id': s.maestroSessionId } : {})}
       >
-        {/* Main row: agent icon + title + status + actions */}
+        {/* Main row: agent icon + title + status */}
         <div className="sessionItemRow">
           {/* Agent tool icon with live indicator */}
           <div className="sessionAgentIcon">
@@ -435,112 +475,125 @@ export function SessionsSection({
                 </span>
               ) : null}
             </div>
-            {/* Secondary info: session name if different from title */}
-            {hasMaestroTeam && (
+            {/* Secondary info: session name if different from title (active only) */}
+            {isActive && hasMaestroTeam && (
               <div className="sessionItemSecondary">
                 {s.name}
               </div>
             )}
           </div>
 
-          {/* Right actions */}
-          <div className="sessionItemActions">
-            {s.maestroSessionId && (
-              <button
-                className={`terminalExpandBtn ${expandedSessions.has(s.id) ? 'expanded' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleSession(s.id, s.maestroSessionId);
-                }}
-                title="Expand session details"
-              >
-                {expandedSessions.has(s.id) ? '▾' : '▸'}
-              </button>
-            )}
-            <button
-              className="logBtn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setLogModalSessionId(s.id);
-              }}
-              title="View session log"
-            >
-              <Icon name="log" size={12} />
-            </button>
-            <button
-              className="closeBtn"
-              disabled={isClosing}
-              onClick={(e) => {
-                e.stopPropagation();
-                const isActiveSession = !isExited && !isClosing;
-                if (isActiveSession) {
-                  setSessionToClose(s);
-                } else {
-                  onCloseSession(s.id);
-                }
-              }}
-              title="Close session"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-
-        {/* Status row: badges + strategy */}
-        {maestroSession && (
-          <div className="sessionItemStatusRow">
-            <span className={`sessionStatusBadge sessionStatusBadge--${maestroSession.status} sessionStatusBadge--clickable`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setSessionModalId(maestroSession.id);
-              }}>
+          {/* Inline status badge for non-active sessions */}
+          {!isActive && maestroSession && (
+            <span className={`sessionStatusBadge sessionStatusBadge--${maestroSession.status}`}>
               {maestroSession.status === 'spawning' ? 'SPAWN' : maestroSession.status === 'stopped' ? 'STOP' : maestroSession.status.toUpperCase()}
             </span>
-            {needsInput && (
-              <span className="sessionStatusBadge sessionStatusBadge--needsInput">
-                NEEDS INPUT
-              </span>
-            )}
-            <StrategyBadge strategy={maestroSession.strategy} orchestratorStrategy={maestroSession.orchestratorStrategy} compact />
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Task chips row */}
-        {sessionTaskList.length > 0 && (
-          <div className="sessionItemTaskChips">
-            {sessionTaskList.slice(0, 4).map(task => (
-              <span
-                key={task.id}
-                className={`sessionTaskChip sessionTaskChip--${task.status}`}
-                title={`${task.title} (${task.status})`}
+        {/* === Active session: expanded details === */}
+        {isActive && (
+          <>
+            {/* Status row: badges (no strategy badge) */}
+            {maestroSession && (
+              <div className="sessionItemStatusRow">
+                <span className={`sessionStatusBadge sessionStatusBadge--${maestroSession.status} sessionStatusBadge--clickable`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSessionModalId(maestroSession.id);
+                  }}>
+                  {maestroSession.status === 'spawning' ? 'SPAWN' : maestroSession.status === 'stopped' ? 'STOP' : maestroSession.status.toUpperCase()}
+                </span>
+                {needsInput && (
+                  <span className="sessionStatusBadge sessionStatusBadge--needsInput">
+                    NEEDS INPUT
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Task chips row */}
+            {sessionTaskList.length > 0 && (
+              <div className="sessionItemTaskChips">
+                {sessionTaskList.slice(0, 4).map(task => (
+                  <span
+                    key={task.id}
+                    className={`sessionTaskChip sessionTaskChip--${task.status}`}
+                    title={`${task.title} (${task.status})`}
+                  >
+                    <span className="sessionTaskChip__dot" />
+                    <span className="sessionTaskChip__label">{task.title}</span>
+                  </span>
+                ))}
+                {sessionTaskList.length > 4 && (
+                  <span className="sessionTaskChip sessionTaskChip--more">
+                    +{sessionTaskList.length - 4}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Maestro Session Content - Enhanced (expanded view) */}
+            {expandedSessions.has(s.id) && maestroSession && (
+              <MaestroSessionContent
+                session={maestroSession}
+                tasks={sessionTasks.get(s.id) || []}
+                allTasks={maestroTasks}
+                loading={loadingTasks.has(s.id)}
+              />
+            )}
+            {expandedSessions.has(s.id) && !maestroSession && loadingTasks.has(s.id) && (
+              <div className="terminalSubtasks" style={{ padding: '8px 24px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic' }}>
+                  Loading session data...
+                </div>
+              </div>
+            )}
+
+            {/* Bottom action bar: expand, logs, close */}
+            <div className="sessionItemBottomActions">
+              {s.maestroSessionId && (
+                <button
+                  className={`sessionItemBottomBtn ${expandedSessions.has(s.id) ? 'sessionItemBottomBtn--active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSession(s.id, s.maestroSessionId);
+                  }}
+                  title="Expand session details"
+                >
+                  <Icon name="layers" size={12} />
+                  <span>{expandedSessions.has(s.id) ? 'Collapse' : 'Expand'}</span>
+                </button>
+              )}
+              <button
+                className="sessionItemBottomBtn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLogModalSessionId(s.id);
+                }}
+                title="View session log"
               >
-                <span className="sessionTaskChip__dot" />
-                <span className="sessionTaskChip__label">{task.title}</span>
-              </span>
-            ))}
-            {sessionTaskList.length > 4 && (
-              <span className="sessionTaskChip sessionTaskChip--more">
-                +{sessionTaskList.length - 4}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Maestro Session Content - Enhanced (expanded view) */}
-        {expandedSessions.has(s.id) && maestroSession && (
-          <MaestroSessionContent
-            session={maestroSession}
-            tasks={sessionTasks.get(s.id) || []}
-            allTasks={maestroTasks}
-            loading={loadingTasks.has(s.id)}
-          />
-        )}
-        {expandedSessions.has(s.id) && !maestroSession && loadingTasks.has(s.id) && (
-          <div className="terminalSubtasks" style={{ padding: '8px 24px' }}>
-            <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic' }}>
-              Loading session data...
+                <Icon name="log" size={12} />
+                <span>Logs</span>
+              </button>
+              <button
+                className="sessionItemBottomBtn sessionItemBottomBtn--danger"
+                disabled={isClosing}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const isActiveSession = !isExited && !isClosing;
+                  if (isActiveSession) {
+                    setSessionToClose(s);
+                  } else {
+                    onCloseSession(s.id);
+                  }
+                }}
+                title="Close session"
+              >
+                <span>Close</span>
+              </button>
             </div>
-          </div>
+          </>
         )}
       </div>
       </SortableSessionItem>
@@ -679,6 +732,20 @@ export function SessionsSection({
         ))}
       </div>
 
+      {/* Segmented filter: Terminals / Sessions / Documents */}
+      <div className="sessionsSegmentedFilter">
+        {(['terminals', 'sessions', 'documents'] as SessionFilter[]).map(filter => (
+          <button
+            key={filter}
+            type="button"
+            className={`sessionsSegmentedFilter__btn ${activeFilters.has(filter) ? 'sessionsSegmentedFilter__btn--active' : ''}`}
+            onClick={() => toggleFilter(filter)}
+          >
+            {filter.charAt(0).toUpperCase() + filter.slice(1)}
+          </button>
+        ))}
+      </div>
+
       <div className="sessionList">
         {sessions.length === 0 ? (
           <div className="empty">No sessions in this project.</div>
@@ -693,7 +760,7 @@ export function SessionsSection({
             strategy={verticalListSortingStrategy}
           >
           {/* Grouped sessions (coordinator teams) */}
-          {groupedSessions.map(({ group, sessions: groupSess }) => {
+          {filteredGroupedSessions.map(({ group, sessions: groupSess }) => {
             const coordSession = groupSess[0]; // coordinator is always first
 
             return (
@@ -719,19 +786,19 @@ export function SessionsSection({
           })}
 
           {/* Ungrouped sessions (plain terminals, no coordinator) */}
-          {ungroupedSessions.map((s) => renderSessionItem(s, null))}
+          {filteredUngroupedSessions.map((s) => renderSessionItem(s, null))}
           </SortableContext>
           </DndContext>
         )}
       </div>
 
       {/* Whiteboard & Document spaces */}
-      {(projectSpaces.length > 0 || onCreateWhiteboard) && (
+      {(filteredSpaces.length > 0 || (showDocuments && onCreateWhiteboard)) && (
         <>
           <div className="sidebarHeader" style={{ marginTop: 8 }}>
             <div className="title">Spaces</div>
             <div className="sidebarHeaderActions">
-              {onCreateWhiteboard && (
+              {showDocuments && onCreateWhiteboard && (
                 <button
                   type="button"
                   className="btnSmall btnIcon"
@@ -748,7 +815,7 @@ export function SessionsSection({
             </div>
           </div>
           <div className="sessionList">
-            {projectSpaces.map((space) => {
+            {filteredSpaces.map((space) => {
               const isActive = space.id === activeSessionId;
               return (
                 <div
