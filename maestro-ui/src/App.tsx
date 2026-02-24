@@ -39,6 +39,8 @@ import { AppWorkspace } from "./components/app/AppWorkspace";
 import { ConfirmActionModal } from "./components/modals/ConfirmActionModal";
 import { StartupSettingsOverlay } from "./components/StartupSettingsOverlay";
 import { Board } from "./components/maestro/MultiProjectBoard";
+import { TeamView } from "./components/maestro/TeamView";
+import { buildTeamGroups } from "./utils/teamGrouping";
 import { useSpacesStore } from "./stores/useSpacesStore";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { PromptSendAnimationLayer } from "./components/PromptSendAnimation";
@@ -290,6 +292,17 @@ export default function App() {
     setNewOpen(false);
     useSshStore.getState().setSshManagerOpen(true);
   }, [setProjectOpen, setNewOpen]);
+
+  // ---------- team view ----------
+  const teamViewGroupId = useUIStore((s) => s.teamViewGroupId);
+  const setTeamViewGroupId = useUIStore((s) => s.setTeamViewGroupId);
+  const teamsMap = useMaestroStore((s) => s.teams);
+
+  const teamViewGroup = useMemo(() => {
+    if (!teamViewGroupId) return null;
+    const { groups } = buildTeamGroups(sessions, maestroSessions, teamsMap);
+    return groups.find((g) => g.teamSessionId === teamViewGroupId) ?? null;
+  }, [teamViewGroupId, sessions, maestroSessions, teamsMap]);
 
   // ---------- stable callbacks for ProjectTabBar & SpacesPanel ----------
   const handleOpenMultiProjectBoard = useCallback(() => {
@@ -581,6 +594,16 @@ export default function App() {
           onUpdateTaskStatus={handleBoardUpdateTaskStatus}
           onWorkOnTask={handleBoardWorkOnTask}
           onCreateMaestroSession={createMaestroSession}
+        />
+      )}
+
+      {/* -------- Team View -------- */}
+      {teamViewGroup && (
+        <TeamView
+          group={teamViewGroup}
+          registry={registry}
+          onClose={() => setTeamViewGroupId(null)}
+          onSelectSession={handleSelectSession}
         />
       )}
 

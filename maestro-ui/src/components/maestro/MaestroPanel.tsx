@@ -15,6 +15,7 @@ import { TaskTabContent } from "./TaskTabContent";
 import { PanelErrorState, NoProjectState } from "./PanelErrorState";
 import { useTasks } from "../../hooks/useTasks";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { useSessionStore } from "../../stores/useSessionStore";
 import { useTaskTree } from "../../hooks/useTaskTree";
 import { useUIStore } from "../../stores/useUIStore";
 import { Board } from "./MultiProjectBoard";
@@ -63,6 +64,18 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     // Task lists
     const { taskLists: taskListArray } = useTaskLists(projectId);
+
+    // Derive current session's task IDs for highlighting
+    const activeTerminalId = useSessionStore(s => s.activeId);
+    const terminalSessions = useSessionStore(s => s.sessions);
+    const maestroSessions = useMaestroStore(s => s.sessions);
+
+    const currentSessionTaskIds = useMemo(() => {
+        const terminal = terminalSessions.find(s => s.id === activeTerminalId);
+        if (!terminal?.maestroSessionId) return new Set<string>();
+        const maestroSession = maestroSessions.get(terminal.maestroSessionId);
+        return new Set(maestroSession?.taskIds || []);
+    }, [activeTerminalId, terminalSessions, maestroSessions]);
 
     // ==================== UI STATE ====================
 
@@ -689,6 +702,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     isSelected={selectedForExecution.has(node.id)}
                     onToggleSelect={() => handleToggleTaskSelection(node.id)}
                     showPermanentDelete={options?.showPermanentDelete}
+                    isSessionTask={currentSessionTaskIds.has(node.id)}
                 />
             </div>
         );

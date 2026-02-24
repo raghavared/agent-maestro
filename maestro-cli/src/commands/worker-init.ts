@@ -18,6 +18,7 @@ import {
   WRONG_MODE_WORKER_PREFIX,
   WRONG_MODE_WORKER_HINT,
 } from '../prompts/index.js';
+import { displayInitUI } from '../ui/init-display.js';
 
 /**
  * WorkerInitCommand - Initialize a worker session from a manifest
@@ -169,10 +170,13 @@ export class WorkerInitCommand {
       // Get session ID
       const sessionId = this.getSessionId();
 
+      // Display init UI
+      displayInitUI(manifest, sessionId);
+
       // Register session with server
       await this.autoUpdateSessionStatus(manifest, sessionId);
 
-      // Spawn Claude
+      // Spawn agent
       const spawnResult = await this.spawner.spawn(manifest, sessionId, {
         interactive: true,
       });

@@ -730,7 +730,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         memberOverrides,                 // Per-member launch overrides: Record<string, MemberLaunchOverride>
       } = req.body;
 
-      const normalizedMemberOverrides: Record<string, MemberLaunchOverride> | undefined =
+      let normalizedMemberOverrides: Record<string, MemberLaunchOverride> | undefined =
         memberOverrides && typeof memberOverrides === 'object' && !Array.isArray(memberOverrides)
           ? memberOverrides
           : undefined;
@@ -820,6 +820,15 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
             code: 'parent_session_not_found',
             message: `Parent session ${sessionId} not found`
           });
+        }
+      }
+
+      // Inherit memberOverrides from parent session when coordinator spawns workers
+      // This ensures launch-time overrides (model, permissionMode, etc.) propagate to child sessions
+      if (spawnSource === 'session' && parentSession && !normalizedMemberOverrides) {
+        const parentOverrides = parentSession.metadata?.memberOverrides;
+        if (parentOverrides && typeof parentOverrides === 'object' && !Array.isArray(parentOverrides)) {
+          normalizedMemberOverrides = parentOverrides;
         }
       }
 

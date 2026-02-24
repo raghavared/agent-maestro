@@ -15,9 +15,9 @@ const COORDINATOR_MODES: AgentMode[] = ['coordinator', 'coordinated-coordinator'
 const WORKER_MODES: AgentMode[] = ['worker', 'coordinated-worker'];
 
 const DEFAULT_EXCLUDED_COMMANDS_BY_MODE: Partial<Record<AgentMode, string[]>> = {
-  worker: ['team-member:create', 'team-member:list', 'team-member:get'],
+  worker: ['team-member:create', 'team-member:list', 'team-member:get', 'team-member:edit'],
   coordinator: ['team-member:list'],
-  'coordinated-worker': ['team-member:create', 'team-member:list', 'team-member:get'],
+  'coordinated-worker': ['team-member:create', 'team-member:list', 'team-member:get', 'team-member:edit'],
   'coordinated-coordinator': ['team-member:list', 'session:spawn'],
 };
 
@@ -89,11 +89,11 @@ const COMMAND_DEFINITIONS: Array<Omit<CommandCatalogEntry, 'syntax'>> = [
   { id: 'orchestrator:init', description: 'Initialize coordinator-mode session', group: 'orchestrator', allowedModes: COORDINATOR_MODES, hiddenFromPrompt: true },
 
   // Team member commands
-  // create/list/get are grantable to worker modes through explicit command overrides
+  // create/list/get/edit are grantable to worker modes through explicit command overrides
   { id: 'team-member:create', description: 'Create a new team member', group: 'team-member', allowedModes: ALL_MODES },
   { id: 'team-member:list', description: 'List team members', group: 'team-member', allowedModes: ALL_MODES },
   { id: 'team-member:get', description: 'Get team member details', group: 'team-member', allowedModes: ALL_MODES },
-  { id: 'team-member:edit', description: 'Edit a team member', group: 'team-member', allowedModes: COORDINATOR_MODES },
+  { id: 'team-member:edit', description: 'Edit a team member', group: 'team-member', allowedModes: ALL_MODES },
   { id: 'team-member:archive', description: 'Archive a team member', group: 'team-member', allowedModes: COORDINATOR_MODES },
   { id: 'team-member:unarchive', description: 'Unarchive a team member', group: 'team-member', allowedModes: COORDINATOR_MODES },
   { id: 'team-member:delete', description: 'Delete a team member (must be archived first)', group: 'team-member', allowedModes: COORDINATOR_MODES },

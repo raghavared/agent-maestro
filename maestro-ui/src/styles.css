@@ -2371,8 +2371,8 @@ body {
 .sessionItem {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 10px;
+  gap: 10px;
+  padding: 10px 12px;
   border-radius: var(--radius-control);
   border: 1px solid transparent;
   cursor: pointer;
@@ -2530,8 +2530,9 @@ body {
 .sessionName {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font-size: 13px;
+  font-weight: 500;
   min-width: 0;
 }
 
@@ -2916,6 +2917,12 @@ body {
 
 .terminalPane--dragOver {
   box-shadow: inset 0 0 0 2px rgba(0, 187, 255, 0.5);
+}
+
+/* When TeamView is open, disable paint containment so position:fixed
+   children can render outside the terminalPane bounds. */
+.terminalPane--teamView {
+  contain: layout style;
 }
 
 .terminalContainer {
@@ -8999,6 +9006,26 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   color: var(--terminal-text-dim);
 }
 
+/* Highlight tasks belonging to the currently active session */
+.terminalTaskRow--sessionActive {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border-color: var(--terminal-cyan);
+  box-shadow: inset 0 0 0 1px rgba(0, 255, 255, 0.15);
+  position: relative;
+}
+
+.terminalTaskRow--sessionActive::after {
+  content: '\2B25';
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  color: var(--terminal-cyan);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
 .terminalTreePrefix {
   font-family: var(--terminal-font);
   color: var(--terminal-text-dim);
@@ -9829,6 +9856,12 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
 .terminalInlineTeamMemberOption--current {
   background: rgba(var(--theme-primary-rgb), 0.08);
   color: var(--terminal-text);
+}
+
+.terminalInlineTeamMemberOption--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: default;
 }
 
 .terminalInlineTeamMemberOption--create {
@@ -17223,6 +17256,46 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   box-shadow: 0 0 6px rgba(var(--theme-primary-rgb), 0.3);
 }
 
+/* Session status badges */
+.sessionStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.sessionStatusBadge--spawning {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+}
+
+.sessionStatusBadge--working {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+}
+
+.sessionStatusBadge--idle {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.sessionStatusBadge--stopped {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+.sessionStatusBadge--completed {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+}
+
 /* Clickable session badges in SessionsSection sidebar */
 .sessionStatusBadge--clickable {
   cursor: pointer;
@@ -18992,6 +19065,17 @@ body.dragging-active * {
   inset: 0 !important;
   visibility: visible !important;
   pointer-events: auto !important;
+}
+
+/* Terminal positioned over TeamView slot (not reparented — stays in AppWorkspace) */
+.terminalInTeamView {
+  /* Reset inset from .terminalContainer so position:fixed + explicit top/left/width/height work */
+  inset: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  border-radius: 0 0 4px 4px;
 }
 
 /* ── Session Column Tasks ── */

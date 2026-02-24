@@ -60,6 +60,7 @@ interface TeamLaunchConfigModalProps {
     teamMembers: TeamMember[];
     projectId: string;
     onLaunch: (overrides: Record<string, MemberLaunchOverride>) => void;
+    onSave?: (overrides: Record<string, MemberLaunchOverride>) => void;
     onSaveAsTeam: (teamName: string, overrides: Record<string, MemberLaunchOverride>) => void;
 }
 
@@ -83,6 +84,7 @@ export function TeamLaunchConfigModal({
     teamMembers,
     projectId,
     onLaunch,
+    onSave,
     onSaveAsTeam,
 }: TeamLaunchConfigModalProps) {
     // Build initial configs from team members
@@ -190,6 +192,13 @@ export function TeamLaunchConfigModal({
     const handleLaunch = () => {
         onLaunch(buildOverrides());
         onClose();
+    };
+
+    const handleSave = () => {
+        if (onSave) {
+            onSave(buildOverrides());
+            onClose();
+        }
     };
 
     const handleSaveAsTeam = () => {
@@ -399,6 +408,16 @@ export function TeamLaunchConfigModal({
 
                         {!showSaveDialog ? (
                             <>
+                                {onSave && (
+                                    <button
+                                        type="button"
+                                        className="themedBtn"
+                                        onClick={handleSave}
+                                        title="Save overrides for this launch context"
+                                    >
+                                        Save
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     className="themedBtn"

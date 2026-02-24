@@ -6,6 +6,7 @@ import { Icon } from "../Icon";
 import { useSessionStore } from "../../stores/useSessionStore";
 import { useProjectStore } from "../../stores/useProjectStore";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { useUIStore } from "../../stores/useUIStore";
 import { useSpacesStore } from "../../stores/useSpacesStore";
 import {
   useWorkspaceStore,
@@ -40,6 +41,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
   const sendPromptToActive = useSessionStore((s) => s.sendPromptToActive);
   const active = sessions.find((s) => s.id === activeId) ?? null;
   const maestroSessions = useMaestroStore((s) => s.sessions);
+  const teamViewOpen = useUIStore((s) => s.teamViewGroupId) !== null;
 
   // --- Spaces store (whiteboards & documents) ---
   const allSpaces = useSpacesStore((s) => s.spaces);
@@ -176,7 +178,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
       )}
 
       <div
-        className={`terminalPane ${terminalDragOver ? "terminalPane--dragOver" : ""}`}
+        className={`terminalPane ${terminalDragOver ? "terminalPane--dragOver" : ""} ${teamViewOpen ? "terminalPane--teamView" : ""}`}
         aria-label="Terminal"
         style={!isActiveSession ? { display: "none" } : undefined}
         onDragOver={handleTerminalDragOver}

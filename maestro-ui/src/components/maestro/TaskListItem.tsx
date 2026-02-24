@@ -28,6 +28,7 @@ type TaskListItemProps = {
     isSelected?: boolean;
     onToggleSelect?: () => void;
     showPermanentDelete?: boolean;
+    isSessionTask?: boolean;
 };
 
 // Terminal-style status symbols
@@ -118,6 +119,7 @@ export function TaskListItem({
     isSelected = false,
     onToggleSelect,
     showPermanentDelete = false,
+    isSessionTask = false,
 }: TaskListItemProps) {
     const [isMetaExpanded, setIsMetaExpanded] = useState(false);
     const [taskDocs, setTaskDocs] = useState<DocEntry[]>(task.docs ?? []);
@@ -374,7 +376,7 @@ export function TaskListItem({
 
     return (
         <div
-            className={`terminalTaskRow terminalTaskRow--${task.status} ${isSubtask ? 'terminalTaskRow--subtask' : ''} ${showStatusDropdown || showPriorityDropdown || showTeamMemberDropdown ? 'terminalTaskRow--dropdownOpen' : ''} ${selectionMode ? 'terminalTaskRow--selectable' : ''}`}
+            className={`terminalTaskRow terminalTaskRow--${task.status} ${isSubtask ? 'terminalTaskRow--subtask' : ''} ${showStatusDropdown || showPriorityDropdown || showTeamMemberDropdown ? 'terminalTaskRow--dropdownOpen' : ''} ${selectionMode ? 'terminalTaskRow--selectable' : ''} ${isSessionTask ? 'terminalTaskRow--sessionActive' : ''}`}
             draggable
             onDragStart={handleDragStart}
         >
@@ -586,30 +588,23 @@ export function TaskListItem({
                                 className={`terminalMetaBadge terminalMetaBadge--agent terminalMetaBadge--clickable ${showTeamMemberDropdown ? 'terminalMetaBadge--open' : ''} ${isUpdatingTeamMember ? 'terminalMetaBadge--updating' : ''}`}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    if (!isUpdatingTeamMember) setShowTeamMemberDropdown(!showTeamMemberDropdown);
+                                    setShowTeamMemberDropdown(!showTeamMemberDropdown);
                                 }}
-                                disabled={isUpdatingTeamMember}
                                 title={assignedTeamMembers.length > 0
                                     ? assignedTeamMembers.map(m => m.name).join(', ')
                                     : "Click to assign team members"
                                 }
                             >
-                                {isUpdatingTeamMember ? (
-                                    <span className="terminalStatusSpinner">⟳</span>
+                                {assignedTeamMembers.length > 1 ? (
+                                    <>{assignedTeamMembers.map(m => m.avatar).join('')} {assignedTeamMembers.length}</>
+                                ) : assignedTeamMember ? (
+                                    <>{assignedTeamMember.avatar} {assignedTeamMember.name}</>
                                 ) : (
-                                    <>
-                                        {assignedTeamMembers.length > 1 ? (
-                                            <>{assignedTeamMembers.map(m => m.avatar).join('')} {assignedTeamMembers.length}</>
-                                        ) : assignedTeamMember ? (
-                                            <>{assignedTeamMember.avatar} {assignedTeamMember.name}</>
-                                        ) : (
-                                            <>👤 Assign</>
-                                        )}
-                                        <span className="terminalMetaBadgeCaret">{showTeamMemberDropdown ? '▴' : '▾'}</span>
-                                    </>
+                                    <>👤 Assign</>
                                 )}
+                                <span className="terminalMetaBadgeCaret">{showTeamMemberDropdown ? '▴' : '▾'}</span>
                             </button>
-                            {showTeamMemberDropdown && !isUpdatingTeamMember && teamMemberDropdownPos && createPortal(
+                            {showTeamMemberDropdown && teamMemberDropdownPos && createPortal(
                                 <>
                                     <div className="terminalInlineStatusOverlay" onClick={(e) => { e.stopPropagation(); setShowTeamMemberDropdown(false); }} />
                                     <div
@@ -625,8 +620,9 @@ export function TaskListItem({
                                             return (
                                                 <button
                                                     key={member.id}
-                                                    className={`terminalInlineTeamMemberOption ${isSel ? 'terminalInlineTeamMemberOption--current' : ''}`}
-                                                    onClick={(e) => { e.stopPropagation(); handleInlineTeamMemberToggle(member.id); }}
+                                                    className={`terminalInlineTeamMemberOption ${isSel ? 'terminalInlineTeamMemberOption--current' : ''} ${isUpdatingTeamMember ? 'terminalInlineTeamMemberOption--disabled' : ''}`}
+                                                    onClick={(e) => { e.stopPropagation(); if (!isUpdatingTeamMember) handleInlineTeamMemberToggle(member.id); }}
+                                                    disabled={isUpdatingTeamMember}
                                                 >
                                                     <span className="terminalTeamMemberAvatar">{member.avatar}</span>
                                                     <span className="terminalTeamMemberLabel">{member.name}</span>

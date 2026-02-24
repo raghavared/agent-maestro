@@ -161,6 +161,10 @@ interface UIState {
   showBoardRequested: boolean;
   setShowBoardRequested: (requested: boolean) => void;
 
+  // Team view overlay
+  teamViewGroupId: string | null;
+  setTeamViewGroupId: (groupId: string | null) => void;
+
   // Task detail overlay (covers workspace area)
   taskDetailOverlay: { taskId: string; projectId: string } | null;
   setTaskDetailOverlay: (overlay: { taskId: string; projectId: string } | null) => void;
@@ -325,6 +329,10 @@ export const useUIStore = create<UIState>((set, get) => ({
   // -- Maestro board trigger --
   showBoardRequested: false,
   setShowBoardRequested: (requested) => set({ showBoardRequested: requested }),
+
+  // -- Team view overlay --
+  teamViewGroupId: null,
+  setTeamViewGroupId: (groupId) => set({ teamViewGroupId: groupId }),
 
   // -- Task detail overlay --
   taskDetailOverlay: null,

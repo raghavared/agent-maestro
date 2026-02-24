@@ -45,13 +45,21 @@ type ExecutionBarProps = {
 
 // Hook to compute portal menu position from a trigger button ref
 function useDropdownPosition(triggerRef: React.RefObject<HTMLButtonElement | null>, isOpen: boolean) {
-    const [pos, setPos] = useState<{ top: number; right: number; width: number } | null>(null);
+    const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
     const updatePos = useCallback(() => {
         if (triggerRef.current) {
             const rect = triggerRef.current.getBoundingClientRect();
-            const rightOffset = window.innerWidth - rect.right;
-            setPos({ top: rect.bottom + 2, right: rightOffset, width: rect.width });
+            // Anchor dropdown to left edge of trigger so it opens rightward
+            let left = rect.left;
+            // If dropdown would overflow right edge, clamp it
+            const menuWidth = Math.max(rect.width, 220); // approximate min menu width
+            if (left + menuWidth > window.innerWidth) {
+                left = window.innerWidth - menuWidth - 8;
+            }
+            // Ensure it never goes off-screen left
+            if (left < 4) left = 4;
+            setPos({ top: rect.bottom + 2, left, width: rect.width });
         }
     }, [triggerRef]);
 
@@ -113,7 +121,7 @@ function TeamMemberDropdown({
                     <div
                         ref={menuRef}
                         className="executionBarDropdownMenu executionBarDropdownMenu--portal"
-                        style={{ top: pos.top, right: pos.right, minWidth: pos.width }}
+                        style={{ top: pos.top, left: pos.left, minWidth: pos.width }}
                     >
                         {members.length === 0 ? (
                             <div className="executionBarDropdownEmpty">No members available</div>
@@ -200,7 +208,7 @@ function TeamMemberMultiDropdown({
                     <div
                         ref={menuRef}
                         className="executionBarDropdownMenu executionBarDropdownMenu--portal"
-                        style={{ top: pos.top, right: pos.right, minWidth: pos.width }}
+                        style={{ top: pos.top, left: pos.left, minWidth: pos.width }}
                     >
                         {members.length === 0 ? (
                             <div className="executionBarDropdownEmpty">No members available</div>
@@ -262,7 +270,7 @@ export function ExecutionBar({
     const [showLaunchDropdown, setShowLaunchDropdown] = useState(false);
     const [expandedTool, setExpandedTool] = useState<AgentTool | null>(null);
     const launchBtnRef = useRef<HTMLButtonElement>(null);
-    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; right: number; openDirection: 'down' | 'up' } | null>(null);
+    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' } | null>(null);
 
     // Launch config modal state
     const [showConfigModal, setShowConfigModal] = useState(false);
@@ -272,13 +280,19 @@ export function ExecutionBar({
         const btn = launchBtnRef.current;
         if (!btn) return null;
         const rect = btn.getBoundingClientRect();
-        const rightOffset = window.innerWidth - rect.right;
+        let left = rect.left;
+        // Clamp so dropdown doesn't overflow right edge
+        const menuWidth = 200;
+        if (left + menuWidth > window.innerWidth) {
+            left = window.innerWidth - menuWidth - 8;
+        }
+        if (left < 4) left = 4;
         const spaceBelow = window.innerHeight - rect.bottom;
         const spaceAbove = rect.top;
         if (spaceAbove >= 200 || spaceAbove >= spaceBelow) {
-            return { bottom: (window.innerHeight - rect.top) + 4, right: rightOffset, openDirection: 'up' as const };
+            return { bottom: (window.innerHeight - rect.top) + 4, left, openDirection: 'up' as const };
         } else {
-            return { top: rect.bottom + 4, right: rightOffset, openDirection: 'down' as const };
+            return { top: rect.bottom + 4, left, openDirection: 'down' as const };
         }
     }, []);
 
@@ -337,7 +351,7 @@ export function ExecutionBar({
                     ...(launchDropdownPos.openDirection === 'down'
                         ? { top: launchDropdownPos.top }
                         : { bottom: launchDropdownPos.bottom }),
-                    right: launchDropdownPos.right,
+                    left: launchDropdownPos.left,
                 }}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -404,6 +418,10 @@ export function ExecutionBar({
                 launchOverride || undefined,
                 Object.keys(overrides).length > 0 ? overrides : undefined,
             );
+        };
+
+        const handleConfigSave = (overrides: Record<string, MemberLaunchOverride>) => {
+            setPendingMemberOverrides(Object.keys(overrides).length > 0 ? overrides : null);
         };
 
         const handleConfigSaveAsTeam = (teamName: string, overrides: Record<string, MemberLaunchOverride>) => {
@@ -475,6 +493,7 @@ export function ExecutionBar({
                     teamMembers={teamMembers}
                     projectId={projectId}
                     onLaunch={handleConfigLaunch}
+                    onSave={handleConfigSave}
                     onSaveAsTeam={handleConfigSaveAsTeam}
                 />
             </>
@@ -489,6 +508,10 @@ export function ExecutionBar({
             launchOverride || undefined,
             Object.keys(overrides).length > 0 ? overrides : undefined,
         );
+    };
+
+    const handleExecuteConfigSave = (overrides: Record<string, MemberLaunchOverride>) => {
+        setPendingMemberOverrides(Object.keys(overrides).length > 0 ? overrides : null);
     };
 
     const handleExecuteConfigSaveAsTeam = (teamName: string, overrides: Record<string, MemberLaunchOverride>) => {
@@ -541,6 +564,7 @@ export function ExecutionBar({
                 teamMembers={teamMembers}
                 projectId={projectId}
                 onLaunch={handleExecuteConfigLaunch}
+                onSave={handleExecuteConfigSave}
                 onSaveAsTeam={handleExecuteConfigSaveAsTeam}
             />
         </>

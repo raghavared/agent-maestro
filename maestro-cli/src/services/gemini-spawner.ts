@@ -67,6 +67,9 @@ export class GeminiSpawner {
    */
   private mapApprovalMode(permissionMode: string): string {
     switch (permissionMode) {
+      case 'bypassPermissions':
+        // Gemini's 'yolo' mode auto-approves all tool calls
+        return 'yolo';
       case 'acceptEdits':
         return 'yolo';
       case 'readOnly':
