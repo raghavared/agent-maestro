@@ -23,6 +23,26 @@ export function VSCodePanel({ basePath }: VSCodePanelProps) {
       try {
         const baseUrl = await invoke<string>("get_code_server_url");
         if (cancelled) return;
+
+        // Health-check: wait until code-server is actually accepting connections
+        // before mounting the iframe (prevents "Could not connect to server" flash).
+        try {
+          await fetch(baseUrl, { method: "HEAD", mode: "no-cors" });
+        } catch {
+          if (cancelled) return;
+          retriesRef.current += 1;
+          if (retriesRef.current >= 20) {
+            setError("Could not connect to code-server: server not responding");
+            setLoading(false);
+            return;
+          }
+          timerRef.current = window.setTimeout(() => {
+            if (!cancelled) void tryConnect();
+          }, 1000);
+          return;
+        }
+
+        if (cancelled) return;
         const fullUrl = basePath
           ? `${baseUrl}?folder=${encodeURIComponent(basePath)}`
           : baseUrl;

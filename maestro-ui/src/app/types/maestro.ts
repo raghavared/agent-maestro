@@ -309,6 +309,9 @@ export interface MaestroTask {
   // Multiple team member identities for this task
   teamMemberIds?: string[];
 
+  // Per-member launch overrides saved on the task
+  memberOverrides?: Record<string, MemberLaunchOverride>;
+
   // Docs attached to this task
   docs?: DocEntry[];
 
@@ -375,6 +378,7 @@ export interface CreateTaskPayload {
   referenceTaskIds?: string[];
   teamMemberId?: string;
   teamMemberIds?: string[];
+  memberOverrides?: Record<string, MemberLaunchOverride>;
 }
 
 export interface UpdateTaskPayload {

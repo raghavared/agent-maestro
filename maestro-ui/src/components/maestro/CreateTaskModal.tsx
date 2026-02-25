@@ -1,43 +1,29 @@
-import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { invoke } from "@tauri-apps/api/core";
-import { MentionsInput, Mention } from 'react-mentions';
-import { TaskPriority, AgentSkill, MaestroProject, MaestroTask, ModelType, AgentTool, TeamMember, DocEntry } from "../../app/types/maestro";
+import { MaestroTask, MaestroProject, TeamMember, MemberLaunchOverride } from "../../app/types/maestro";
 import { maestroClient } from "../../utils/MaestroClient";
-import { Icon } from "../Icon";
-import { AgentSelector } from "./AgentSelector";
 import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
-import { SessionInTaskView } from "./SessionInTaskView";
-import { AggregatedTimeline } from "./SessionTimeline";
-import { useTaskBreadcrumb } from "../../hooks/useTaskBreadcrumb";
-import { useSubtaskProgress } from "../../hooks/useSubtaskProgress";
-import { useTaskSessions } from "../../hooks/useTaskSessions";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { useTaskForm } from "../../hooks/useTaskForm";
+import { useReferenceTaskPicker } from "../../hooks/useReferenceTaskPicker";
+import { useFileAutocomplete } from "../../hooks/useFileAutocomplete";
 
-// Agent tool display labels (used for showing team member info)
-const AGENT_TOOL_LABELS: Record<string, string> = {
-    "claude-code": "Claude Code",
-    "codex": "OpenAI Codex",
-};
+// Sub-components
+import { TaskFormHeader } from "./task-modal/TaskFormHeader";
+import { TaskDescriptionField } from "./task-modal/TaskDescriptionField";
+import { ReferenceTaskPicker } from "./task-modal/ReferenceTaskPicker";
+import { TaskModalFooter } from "./task-modal/TaskModalFooter";
+import { TaskTabBar } from "./task-modal/TaskTabBar";
+import { ConfirmDiscardDialog } from "./task-modal/ConfirmDiscardDialog";
+import { LaunchConfigPanel } from "./task-modal/LaunchConfigPanel";
 
-const STATUS_LABELS: Record<string, string> = {
-    todo: "Todo",
-    in_progress: "In Progress",
-    in_review: "In Review",
-    completed: "Completed",
-    cancelled: "Cancelled",
-    blocked: "Blocked",
-};
-
-function formatDate(timestamp: number): string {
-    return new Date(timestamp).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
-}
+// Tab content components
+import { SubtasksTab } from "./task-modal/SubtasksTab";
+import { SessionsTab } from "./task-modal/SessionsTab";
+import { GeneratedDocsTab } from "./task-modal/GeneratedDocsTab";
+import { TimelineTab } from "./task-modal/TimelineTab";
+import { DetailsTab } from "./task-modal/DetailsTab";
+import { RefDocsTab } from "./task-modal/RefDocsTab";
 
 type CreateTaskModalProps = {
     isOpen: boolean;
@@ -45,18 +31,18 @@ type CreateTaskModalProps = {
     onCreate: (task: {
         title: string;
         description: string;
-        priority: TaskPriority;
+        priority: string;
         startImmediately?: boolean;
         skillIds?: string[];
         referenceTaskIds?: string[];
         parentId?: string;
         teamMemberId?: string;
         teamMemberIds?: string[];
+        memberOverrides?: Record<string, MemberLaunchOverride>;
     }) => void;
     project: MaestroProject;
     parentId?: string;
     parentTitle?: string;
-    // Edit mode props
     mode?: "create" | "edit";
     task?: MaestroTask;
     onUpdateTask?: (taskId: string, updates: Partial<MaestroTask>) => void;
@@ -89,1313 +75,271 @@ export function CreateTaskModal({
     onNavigateToTask,
     onJumpToSession,
     onWorkOnSubtask,
-    selectedAgentId,
-    onAgentSelect,
     variant = "modal",
 }: CreateTaskModalProps) {
     const isEditMode = mode === "edit" && !!task;
+    const isOverlay = variant === "overlay";
 
-    const [title, setTitle] = useState("");
-    const [priority, setPriority] = useState<TaskPriority>("medium");
-    const [selectedTeamMemberIds, setSelectedTeamMemberIds] = useState<string[]>([]);
-    const [prompt, setPrompt] = useState("");
-    const [activeTab, setActiveTab] = useState<string | null>(null);
-    const [files, setFiles] = useState<{ id: string, display: string }[]>([]);
-    const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
-    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    // ==================== HOOKS ====================
 
-    // Team member fields (deprecated - team members are now separate entities)
-    const isTeamMemberMode = false;
-    const [tmRole, setTmRole] = useState("");
-    const [tmAvatar, setTmAvatar] = useState("");
-
-    // Reference tasks state
-    const [selectedReferenceTasks, setSelectedReferenceTasks] = useState<MaestroTask[]>([]);
-    const [showRefTaskPicker, setShowRefTaskPicker] = useState(false);
-    const [refTaskCandidates, setRefTaskCandidates] = useState<(MaestroTask & { docCount: number })[]>([]);
-    const [refTasksLoading, setRefTasksLoading] = useState(false);
-    const [refTasksDisplayCount, setRefTasksDisplayCount] = useState(5);
-    const refPickerBtnRef = useRef<HTMLButtonElement>(null);
-    const [refPickerPos, setRefPickerPos] = useState<{ top: number; left: number } | null>(null);
-
-    // Team member dropdown state
-    const [showTeamMemberDropdown, setShowTeamMemberDropdown] = useState(false);
-    const teamMemberBtnRef = useRef<HTMLButtonElement>(null);
-    const [teamMemberDropdownPos, setTeamMemberDropdownPos] = useState<{ bottom: number; left: number } | null>(null);
-
-    const computeTeamMemberDropdownPos = useCallback(() => {
-        const btn = teamMemberBtnRef.current;
-        if (!btn) return null;
-        const rect = btn.getBoundingClientRect();
-        // Open upward: position bottom of dropdown at top of button
-        return { bottom: window.innerHeight - rect.top + 4, left: rect.left };
-    }, []);
-
-    useLayoutEffect(() => {
-        if (showTeamMemberDropdown) {
-            setTeamMemberDropdownPos(computeTeamMemberDropdownPos());
-        }
-    }, [showTeamMemberDropdown, computeTeamMemberDropdownPos]);
-
-    const computeRefPickerPos = useCallback(() => {
-        const btn = refPickerBtnRef.current;
-        if (!btn) return null;
-        const rect = btn.getBoundingClientRect();
-        return { top: rect.bottom + 4, left: rect.left };
-    }, []);
-
-    useLayoutEffect(() => {
-        if (showRefTaskPicker) {
-            setRefPickerPos(computeRefPickerPos());
-        }
-    }, [showRefTaskPicker, computeRefPickerPos]);
-
-    // Fetch tasks with docs when picker opens
-    useEffect(() => {
-        if (!showRefTaskPicker || !project?.id) return;
-        let cancelled = false;
-        setRefTasksLoading(true);
-
-        (async () => {
-            try {
-                const tasks = await maestroClient.getTasks(project.id);
-                // Sort by updatedAt descending
-                const sorted = tasks.sort((a, b) => b.updatedAt - a.updatedAt);
-                // Check which tasks have docs
-                const withDocs: (MaestroTask & { docCount: number })[] = [];
-                for (const t of sorted) {
-                    if (cancelled) return;
-                    try {
-                        const docs = await maestroClient.getTaskDocs(t.id);
-                        if (docs.length > 0) {
-                            withDocs.push({ ...t, docCount: docs.length });
-                        }
-                    } catch {
-                        // skip tasks where docs fetch fails
-                    }
-                    // Stop after finding enough candidates to be useful
-                    if (withDocs.length >= 20) break;
-                }
-                if (!cancelled) {
-                    setRefTaskCandidates(withDocs);
-                    setRefTasksLoading(false);
-                }
-            } catch {
-                if (!cancelled) setRefTasksLoading(false);
-            }
-        })();
-
-        return () => { cancelled = true; };
-    }, [showRefTaskPicker, project?.id]);
-
-    // Task docs state
-    const [taskDocs, setTaskDocs] = useState<DocEntry[]>([]);
-
-    // Edit mode state
-    const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
-    const [showSubtaskInput, setShowSubtaskInput] = useState(false);
-
-    const titleInputRef = useRef<HTMLInputElement>(null);
-
-    // Hooks for edit mode (always called, but only used in edit mode)
-    const breadcrumb = useTaskBreadcrumb(isEditMode ? task!.id : null);
-    const subtaskProgress = useSubtaskProgress(isEditMode ? task!.id : null);
-    const { sessions, loading: loadingSessions } = useTaskSessions(isEditMode ? task!.id : null);
+    const form = useTaskForm(mode, isOpen, task);
+    const refPicker = useReferenceTaskPicker(project?.id);
+    const files = useFileAutocomplete(project?.basePath, isOpen);
     const tasks = useMaestroStore(s => s.tasks);
     const teamMembersMap = useMaestroStore(s => s.teamMembers);
     const teamMembers = useMemo(() =>
-        Array.from(teamMembersMap.values()).filter(m => m.status === 'active'),
+        Array.from(teamMembersMap.values()).filter((m: TeamMember) => m.status === 'active'),
         [teamMembersMap]
     );
-    const selectedTeamMembers = useMemo(() =>
-        selectedTeamMemberIds.length > 0
-            ? selectedTeamMemberIds.map(id => teamMembers.find(m => m.id === id)).filter(Boolean) as typeof teamMembers
-            : [],
-        [selectedTeamMemberIds, teamMembers]
-    );
 
-    // Aggregated timeline data from all sessions
-    const aggregatedTimelineData = useMemo(() => {
-        const data = new Map<string, { sessionName: string; events: typeof sessions[0]['timeline'] }>();
-        sessions.forEach(session => {
-            data.set(session.id, {
-                sessionName: session.name || session.id.slice(0, 8),
-                events: session.timeline || []
-            });
-        });
-        return data;
-    }, [sessions]);
-
-    const hasTimelineEvents = useMemo(() => {
-        return sessions.some(session =>
-            session.timeline?.some(event => event.taskId === (task?.id) || !event.taskId)
-        );
-    }, [sessions, task?.id]);
-
-    // Pre-fill form when task changes in edit mode
+    // Load reference tasks for edit mode
     useEffect(() => {
-        if (isEditMode && task) {
-            setTitle(task.title);
-            setPrompt(task.description || "");
-            setPriority(task.priority);
-            setSelectedTeamMemberIds(
-                task.teamMemberIds && task.teamMemberIds.length > 0
-                    ? task.teamMemberIds
-                    : task.teamMemberId ? [task.teamMemberId] : []
-            );
-            setSelectedSkills(task.skillIds || []);
-            // Load reference tasks by ID
-            if (task.referenceTaskIds && task.referenceTaskIds.length > 0) {
-                (async () => {
-                    const refTasks: MaestroTask[] = [];
-                    for (const refId of task.referenceTaskIds!) {
-                        try {
-                            const t = await maestroClient.getTask(refId);
-                            refTasks.push(t);
-                        } catch { /* skip if task not found */ }
-                    }
-                    setSelectedReferenceTasks(refTasks);
-                })();
-            } else {
-                setSelectedReferenceTasks([]);
-            }
+        if (isEditMode && task?.referenceTaskIds && task.referenceTaskIds.length > 0) {
+            (async () => {
+                const refTasks: MaestroTask[] = [];
+                for (const refId of task.referenceTaskIds!) {
+                    try {
+                        const t = await maestroClient.getTask(refId);
+                        refTasks.push(t);
+                    } catch { /* skip if task not found */ }
+                }
+                refPicker.setSelectedReferenceTasks(refTasks);
+            })();
+        } else if (isEditMode) {
+            refPicker.setSelectedReferenceTasks([]);
         }
-    }, [isEditMode, isOpen, task?.id, task?.title, task?.description, task?.priority, task?.teamMemberId, JSON.stringify(task?.teamMemberIds), JSON.stringify(task?.referenceTaskIds)]);
+    }, [isEditMode, isOpen, task?.id, JSON.stringify(task?.referenceTaskIds)]);
 
-    // Fetch task docs in edit mode
-    useEffect(() => {
-        if (isEditMode && task?.id) {
-            maestroClient.getTaskDocs(task.id).then(setTaskDocs).catch(() => setTaskDocs([]));
-        } else {
-            setTaskDocs([]);
-        }
-    }, [isEditMode, task?.id]);
-
-    // Reset form when switching to create mode
+    // Reset reference picker when switching to create mode
     useEffect(() => {
         if (mode === "create" && isOpen) {
-            setTitle("");
-            setPrompt("");
-            setPriority("medium");
-            setSelectedTeamMemberIds([]);
-            setSelectedSkills([]);
-            setSelectedReferenceTasks([]);
-            setActiveTab(null);
+            refPicker.reset();
         }
     }, [mode, isOpen]);
 
-    const hasUnsavedContent = mode === "create"
-        ? (title.trim() !== "" || prompt.trim() !== "")
-        : (isEditMode && task && (
-            title !== task.title ||
-            prompt !== (task.description || "") ||
-            priority !== task.priority ||
-            JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(task.teamMemberIds || (task.teamMemberId ? [task.teamMemberId] : []))
-        ));
+    // ==================== HANDLERS ====================
 
     const handleClose = () => {
-        if (hasUnsavedContent) {
-            setShowConfirmDialog(true);
+        if (form.hasUnsavedContent) {
+            form.setShowConfirmDialog(true);
         } else {
             onClose();
         }
     };
 
     const handleConfirmDiscard = () => {
-        setShowConfirmDialog(false);
-        setTitle("");
-        setPrompt("");
-        setPriority("medium");
-        setSelectedTeamMemberIds([]);
-        setActiveTab(null);
-        setSelectedSkills([]);
-        setSelectedReferenceTasks([]);
-        setTmRole("");
-        setTmAvatar("");
+        form.resetForm();
+        refPicker.reset();
         onClose();
     };
 
-    const handleCancelDiscard = () => {
-        setShowConfirmDialog(false);
-    };
-
-    const toggleTab = (tab: string) => {
-        setActiveTab(prev => prev === tab ? null : tab);
-    };
-
-    useEffect(() => {
-        if (isOpen && !isEditMode && titleInputRef.current) {
-            setTimeout(() => titleInputRef.current?.focus(), 100);
+    const handleToggleLaunchConfig = () => {
+        if (!form.showLaunchConfig) {
+            // Initialize configs for selected members
+            for (const id of form.selectedTeamMemberIds) {
+                form.initMemberConfig(id, teamMembers);
+            }
+            form.setActiveTab(null); // close any open tab
         }
-
-        // Load files for autocomplete
-        if (isOpen && project?.basePath) {
-            invoke<string[]>("list_project_files", { root: project?.basePath })
-                .then(fileList => {
-                    const formattedFiles = fileList.map(f => ({ id: f, display: f }));
-                    setFiles(formattedFiles);
-                })
-                .catch(() => {});
-        }
-    }, [isOpen, project?.basePath]);
-
-    if (!isOpen) return null;
+        form.setShowLaunchConfig(!form.showLaunchConfig);
+    };
 
     const handleSubmit = (startImmediately: boolean) => {
-        if (!title.trim()) return;
-        // For team members, description can be the identity prompt
-        if (!isTeamMemberMode && !prompt.trim()) return;
+        if (!form.title.trim() || !form.prompt.trim()) return;
 
-        const createPayload: Parameters<typeof onCreate>[0] = {
-            title: title.trim(),
-            description: prompt,
-            priority: isTeamMemberMode ? 'medium' as TaskPriority : priority,
-            startImmediately: isTeamMemberMode ? false : startImmediately,
-            skillIds: selectedSkills.length > 0 ? selectedSkills : undefined,
-            referenceTaskIds: selectedReferenceTasks.length > 0 ? selectedReferenceTasks.map(t => t.id) : undefined,
+        const payload = form.getCreatePayload(
+            startImmediately,
+            refPicker.selectedReferenceTasks.map(t => t.id),
             parentId,
-            teamMemberId: selectedTeamMemberIds.length === 1 ? selectedTeamMemberIds[0] : undefined,
-            teamMemberIds: selectedTeamMemberIds.length > 0 ? selectedTeamMemberIds : undefined,
-        };
+        );
 
-        if (isTeamMemberMode) {
-            // Team members are now separate entities, not tasks
-            // This code path is deprecated
-            // createPayload.taskType = 'team-member';
-            // createPayload.teamMemberMetadata = {
-            //     role: tmRole.trim() || 'agent',
-            //     identity: prompt,
-            //     avatar: tmAvatar.trim() || '?',
-            // };
+        // Attach member overrides if configured
+        const overrides = form.getMemberOverrides(teamMembers);
+        if (overrides) {
+            (payload as any).memberOverrides = overrides;
         }
 
-        onCreate(createPayload);
-
-        // Reset form
-        setTitle("");
-        setPrompt("");
-        setPriority("medium");
-        setSelectedTeamMemberIds([]);
-        setActiveTab(null);
-        setSelectedSkills([]);
-        setSelectedReferenceTasks([]);
-        setTmRole("");
-        setTmAvatar("");
+        onCreate(payload);
+        form.resetForm();
+        refPicker.reset();
         onClose();
     };
 
     const handleSave = () => {
         if (!isEditMode || !task) return;
-        const updates: Partial<MaestroTask> = {};
-        if (title.trim() && title !== task.title) updates.title = title.trim();
-        if (prompt !== (task.description || "")) updates.description = prompt;
-        if (priority !== task.priority) updates.priority = priority;
-        const currentIds = task.teamMemberIds || (task.teamMemberId ? [task.teamMemberId] : []);
-        if (JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(currentIds)) {
-            updates.teamMemberIds = selectedTeamMemberIds.length > 0 ? selectedTeamMemberIds : undefined;
-            updates.teamMemberId = selectedTeamMemberIds.length === 1 ? selectedTeamMemberIds[0] : undefined;
-        }
-        if (JSON.stringify(selectedSkills) !== JSON.stringify(task.skillIds || [])) updates.skillIds = selectedSkills;
-        const newRefIds = selectedReferenceTasks.map(t => t.id);
-        if (JSON.stringify(newRefIds) !== JSON.stringify(task.referenceTaskIds || [])) updates.referenceTaskIds = newRefIds;
-
-        if (Object.keys(updates).length > 0) {
+        const refIds = refPicker.selectedReferenceTasks.map(t => t.id);
+        const updates = form.getUpdateDiff(refIds);
+        if (updates) {
             onUpdateTask?.(task.id, updates);
         }
         onClose();
     };
 
     const handleAddSubtask = () => {
-        if (newSubtaskTitle.trim()) {
-            onAddSubtask?.(newSubtaskTitle);
-            setNewSubtaskTitle("");
-            setShowSubtaskInput(false);
+        if (form.newSubtaskTitle.trim()) {
+            onAddSubtask?.(form.newSubtaskTitle);
+            form.setNewSubtaskTitle("");
+            form.setShowSubtaskInput(false);
         }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
             e.preventDefault();
-            if (isEditMode) {
-                handleSave();
-            } else {
-                handleSubmit(false);
-            }
+            if (isEditMode) handleSave();
+            else handleSubmit(false);
         }
     };
 
-    // Safely handle subtasks
+    // ==================== EARLY RETURNS ====================
+
+    if (!isOpen) return null;
+
     const subtasks = isEditMode && task ? (task.subtasks || []) : [];
 
-    // Style for react-mentions
-    const isOverlay = variant === 'overlay';
-    const mentionsStyle = {
-        control: {
-            backgroundColor: 'transparent',
-            fontSize: '12px',
-            fontWeight: 'normal' as const,
-            lineHeight: '1.5',
-            ...(isOverlay
-                ? { height: '100%', minHeight: 0 }
-                : { minHeight: '250px', maxHeight: '400px' }),
-        },
-        '&multiLine': {
-            control: {
-                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                ...(isOverlay
-                    ? { height: '100%', minHeight: 0 }
-                    : { minHeight: '250px', maxHeight: '400px' }),
-            },
-            highlighter: {
-                padding: '8px 10px',
-                border: '1px solid transparent',
-                color: 'transparent',
-                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                fontSize: '12px',
-                lineHeight: '1.5',
-                pointerEvents: 'none' as const,
-                overflow: 'hidden' as const,
-            },
-            input: {
-                padding: '8px 10px',
-                border: '1px solid transparent',
-                outline: 'none',
-                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                fontSize: '12px',
-                lineHeight: '1.5',
-                ...(isOverlay ? {} : { maxHeight: '400px' }),
-                overflow: 'auto' as const,
-            },
-        },
-        suggestions: {
-            list: {
-                zIndex: 9999,
-                width: '100%',
-                maxWidth: '100%',
-                left: 0,
-                right: 0,
-                boxSizing: 'border-box' as const,
-            },
-            item: {
-                boxSizing: 'border-box' as const,
-            },
-        },
-    };
+    // ==================== RENDER ====================
 
     const modalContent = (
         <>
-            <div className={`themedModal themedModal--wide ${variant === 'overlay' ? 'themedModal--overlay' : ''}`} onClick={(e) => e.stopPropagation()}>
-                <div className="themedModalHeader">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
-                        {isOverlay && (
-                            <button
-                                className="taskDetailOverlay__backBtn"
-                                onClick={handleClose}
-                                title="Back to terminal"
-                                style={{ flexShrink: 0 }}
-                            >
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M10 12L6 8l4-4" />
-                                </svg>
-                                Back
-                            </button>
-                        )}
-                        {isEditMode && task ? (
-                            <span className="themedTaskStatusBadge" data-status={task.status} style={{ flexShrink: 0, padding: '6px 10px', fontSize: '12px', lineHeight: '1' }}>
-                                {STATUS_LABELS[task.status] || task.status}
-                            </span>
-                        ) : (
-                            <span className="themedModalTitle" style={{ flexShrink: 0 }}>
-                                [ {isTeamMemberMode ? 'NEW TEAM MEMBER' : parentId ? 'NEW SUBTASK' : 'NEW TASK'} ]
-                            </span>
-                        )}
-                        <input
-                            ref={titleInputRef}
-                            type="text"
-                            className="themedFormInput"
-                            style={{ flex: 1, margin: 0, padding: '6px 8px', fontSize: '13px', fontWeight: 600 }}
-                            placeholder={isTeamMemberMode ? "e.g., Senior Frontend Dev" : isEditMode ? "Task title..." : "e.g., Build user authentication system"}
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            onKeyDown={handleKeyDown}
+            <div className={`themedModal themedModal--wide ${isOverlay ? 'themedModal--overlay' : ''}`} onClick={(e) => e.stopPropagation()}>
+                <TaskFormHeader
+                    title={form.title}
+                    onTitleChange={form.setTitle}
+                    onKeyDown={handleKeyDown}
+                    isEditMode={isEditMode}
+                    task={task}
+                    isOverlay={isOverlay}
+                    onClose={handleClose}
+                    parentId={parentId}
+                    parentTitle={parentTitle}
+                    onNavigateToTask={onNavigateToTask}
+                    autoFocus={!isEditMode}
+                />
+
+                {form.showLaunchConfig ? (
+                    /* Launch config panel replaces description + tabs */
+                    <div className="themedModalContent">
+                        <LaunchConfigPanel
+                            selectedTeamMemberIds={form.selectedTeamMemberIds}
+                            teamMembers={teamMembers}
+                            memberConfigs={form.memberConfigs}
+                            onUpdateConfig={form.updateMemberConfig}
+                            onClose={() => form.setShowLaunchConfig(false)}
                         />
                     </div>
-                    {/* Only show close button when not in overlay mode (overlay uses Back button instead) */}
-                    {!isOverlay && (
-                        <button className="themedModalClose" onClick={handleClose}>×</button>
-                    )}
-                </div>
-
-                <div className="themedModalContent">
-                    {/* Breadcrumb for edit mode */}
-                    {isEditMode && breadcrumb.length > 1 && (
-                        <div className="themedFormHint" style={{ marginBottom: '4px' }}>
-                            {breadcrumb.slice(0, -1).map(t => (
-                                <span
-                                    key={t.id}
-                                    style={{ cursor: 'pointer' }}
-                                    onClick={() => onNavigateToTask?.(t.id)}
-                                >
-                                    {t.title} &rsaquo;{' '}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Subtitle for create mode */}
-                    {!isEditMode && parentId && parentTitle && (
-                        <div className="themedFormHint" style={{ marginBottom: '4px' }}>
-                            Subtask of: {parentTitle}
-                        </div>
-                    )}
-
-                    {/* Team member fields */}
-                    {isTeamMemberMode && !isEditMode && (
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                            <div style={{ flex: 1 }}>
-                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '2px' }}>Role</div>
-                                <input
-                                    type="text"
-                                    className="themedFormInput"
-                                    style={{ margin: 0, padding: '4px 8px', fontSize: '12px' }}
-                                    placeholder="e.g., frontend developer, tester"
-                                    value={tmRole}
-                                    onChange={(e) => setTmRole(e.target.value)}
-                                />
-                            </div>
-                            <div style={{ width: '80px' }}>
-                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '2px' }}>Avatar</div>
-                                <input
-                                    type="text"
-                                    className="themedFormInput"
-                                    style={{ margin: 0, padding: '4px 8px', fontSize: '16px', textAlign: 'center' }}
-                                    placeholder="?"
-                                    value={tmAvatar}
-                                    onChange={(e) => setTmAvatar(e.target.value)}
-                                    maxLength={2}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Prompt/Description Textarea */}
-                    <div className="themedFormRow" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, marginBottom: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div className="themedFormLabel" style={{ marginBottom: 0 }}>{isTeamMemberMode ? 'Identity Prompt' : 'Description'}</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                {/* Reference task chips */}
-                                {selectedReferenceTasks.map(rt => (
-                                    <span
-                                        key={rt.id}
-                                        style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '4px',
-                                            padding: '2px 8px',
-                                            fontSize: '10px',
-                                            border: '1px solid var(--theme-border)',
-                                            borderRadius: '3px',
-                                            backgroundColor: 'rgba(var(--theme-primary-rgb), 0.05)',
-                                            color: 'var(--theme-primary)',
-                                        }}
-                                    >
-                                        <span style={{ opacity: 0.5 }}>ref:</span>
-                                        {rt.title.length > 30 ? rt.title.slice(0, 30) + '...' : rt.title}
-                                        <button
-                                            type="button"
-                                            onClick={() => setSelectedReferenceTasks(prev => prev.filter(t => t.id !== rt.id))}
-                                            style={{
-                                                background: 'none',
-                                                border: 'none',
-                                                color: 'var(--theme-primary)',
-                                                cursor: 'pointer',
-                                                padding: '0 2px',
-                                                fontSize: '12px',
-                                                opacity: 0.6,
-                                            }}
-                                        >
-                                            ×
-                                        </button>
-                                    </span>
-                                ))}
-                                <button
-                                    ref={refPickerBtnRef}
-                                    type="button"
-                                    className="themedBtn"
-                                    style={{ padding: '1px 6px', fontSize: '10px' }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setShowRefTaskPicker(!showRefTaskPicker);
-                                        setRefTasksDisplayCount(5);
-                                    }}
-                                    title="Add reference tasks for context"
-                                >
-                                    + ref tasks
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Reference task picker dropdown */}
-                        {showRefTaskPicker && refPickerPos && createPortal(
-                            <>
-                                <div
-                                    className="themedDropdownOverlay"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setShowRefTaskPicker(false);
-                                    }}
-                                />
-                                <div
-                                    className="themedDropdownMenu"
-                                    style={{
-                                        top: refPickerPos.top,
-                                        left: refPickerPos.left,
-                                        maxHeight: '240px',
-                                        overflowY: 'auto',
-                                        minWidth: '320px',
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <div style={{ padding: '4px 8px', fontSize: '10px', opacity: 0.5, borderBottom: '1px solid var(--theme-border)' }}>
-                                        Reference tasks (select for context)
-                                    </div>
-                                    {refTasksLoading ? (
-                                        <div style={{ padding: '8px 12px', fontSize: '11px', opacity: 0.5 }}>
-                                            Loading tasks...
-                                        </div>
-                                    ) : refTaskCandidates.length === 0 ? (
-                                        <div style={{ padding: '8px 12px', fontSize: '11px', opacity: 0.5 }}>
-                                            No tasks with docs found
-                                        </div>
-                                    ) : (
-                                        <>
-                                            {refTaskCandidates.slice(0, refTasksDisplayCount).map(candidate => {
-                                                const isSelected = selectedReferenceTasks.some(t => t.id === candidate.id);
-                                                return (
-                                                    <button
-                                                        key={candidate.id}
-                                                        className={`themedDropdownOption ${isSelected ? 'themedDropdownOption--current' : ''}`}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (isSelected) {
-                                                                setSelectedReferenceTasks(prev => prev.filter(t => t.id !== candidate.id));
-                                                            } else {
-                                                                setSelectedReferenceTasks(prev => [...prev, candidate]);
-                                                            }
-                                                        }}
-                                                        style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '2px' }}
-                                                    >
-                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                            <span className="themedDropdownLabel" style={{ flex: 1 }}>
-                                                                {candidate.title.length > 45 ? candidate.title.slice(0, 45) + '...' : candidate.title}
-                                                            </span>
-                                                            <span style={{ fontSize: '9px', opacity: 0.5, flexShrink: 0 }}>
-                                                                {candidate.docCount} doc{candidate.docCount !== 1 ? 's' : ''}
-                                                            </span>
-                                                            {isSelected && (
-                                                                <span className="themedDropdownCheck">{'\u2713'}</span>
-                                                            )}
-                                                        </span>
-                                                    </button>
-                                                );
-                                            })}
-                                            {refTaskCandidates.length > refTasksDisplayCount && (
-                                                <button
-                                                    className="themedDropdownOption"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setRefTasksDisplayCount(prev => prev + 5);
-                                                    }}
-                                                    style={{ textAlign: 'center', opacity: 0.6, fontSize: '10px' }}
-                                                >
-                                                    Load more ({refTaskCandidates.length - refTasksDisplayCount} remaining)
-                                                </button>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            </>,
-                            document.body
-                        )}
-
-                        <div className="mentionsWrapper" style={{ flex: 1, minHeight: 0 }}>
-                            <MentionsInput
-                                value={prompt}
-                                onChange={(e) => setPrompt(e.target.value)}
-                                style={mentionsStyle}
-                                placeholder={isTeamMemberMode ? "Describe this team member's persona, expertise, and how they should approach tasks..." : "Describe the requirements... Use @ to tag files"}
-                                className="mentionsInput"
+                ) : (
+                    /* Normal description + tabs view */
+                    <>
+                        <div className="themedModalContent">
+                            <TaskDescriptionField
+                                prompt={form.prompt}
+                                onPromptChange={form.setPrompt}
                                 onKeyDown={handleKeyDown}
+                                files={files}
+                                isOverlay={isOverlay}
                             >
-                                <Mention
-                                    trigger="@"
-                                    data={files}
-                                    renderSuggestion={(entry, search, highlightedDisplay, index, focused) => (
-                                        <div className={`suggestionItem ${focused ? 'focused' : ''}`}>
-                                            {entry.display}
-                                        </div>
-                                    )}
+                                <ReferenceTaskPicker
+                                    selectedReferenceTasks={refPicker.selectedReferenceTasks}
+                                    showPicker={refPicker.showPicker}
+                                    candidates={refPicker.candidates}
+                                    loading={refPicker.loading}
+                                    displayCount={refPicker.displayCount}
+                                    onTogglePicker={refPicker.togglePicker}
+                                    onClosePicker={refPicker.closePicker}
+                                    onToggleSelection={refPicker.toggleSelection}
+                                    onRemoveTask={refPicker.removeTask}
+                                    onLoadMore={refPicker.loadMore}
                                 />
-                            </MentionsInput>
+                            </TaskDescriptionField>
                         </div>
-                    </div>
 
-                </div>
-
-                {/* Tab Content - between content and footer */}
-                {activeTab && (
-                    <div className="themedModalTabContent" style={{ maxHeight: '200px', overflowY: 'auto', borderTop: '1px solid var(--theme-border)' }}>
-                        {/* Subtasks Tab */}
-                        {activeTab === 'subtasks' && isEditMode && (
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                    <div className="themedFormHint" style={{ margin: 0 }}>
-                                        {subtaskProgress.total > 0
-                                            ? `${subtaskProgress.completed}/${subtaskProgress.total} completed (${subtaskProgress.percentage}%)`
-                                            : 'No subtasks yet'}
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="themedBtn"
-                                        onClick={() => setShowSubtaskInput(!showSubtaskInput)}
-                                        style={{ padding: '2px 8px', fontSize: '10px' }}
-                                    >
-                                        + add
-                                    </button>
-                                </div>
-
-                                {showSubtaskInput && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
-                                        <input
-                                            type="text"
-                                            className="themedFormInput"
-                                            placeholder="$ enter subtask title..."
-                                            value={newSubtaskTitle}
-                                            onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") handleAddSubtask();
-                                                if (e.key === "Escape") {
-                                                    setShowSubtaskInput(false);
-                                                    setNewSubtaskTitle("");
-                                                }
-                                            }}
-                                            autoFocus
-                                        />
-                                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                            <button
-                                                type="button"
-                                                className="themedBtn"
-                                                onClick={() => {
-                                                    setShowSubtaskInput(false);
-                                                    setNewSubtaskTitle("");
-                                                }}
-                                            >
-                                                cancel
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="themedBtn themedBtnPrimary"
-                                                onClick={handleAddSubtask}
-                                                disabled={!newSubtaskTitle.trim()}
-                                            >
-                                                add
-                                            </button>
-                                        </div>
-                                    </div>
+                        {/* Tab Content */}
+                        {form.activeTab && (
+                            <div className="themedModalTabContent" style={{ maxHeight: '200px', overflowY: 'auto', borderTop: '1px solid var(--theme-border)' }}>
+                                {form.activeTab === 'subtasks' && isEditMode && (
+                                    <SubtasksTab
+                                        taskId={task!.id}
+                                        subtasks={subtasks}
+                                        newSubtaskTitle={form.newSubtaskTitle}
+                                        onNewSubtaskTitleChange={form.setNewSubtaskTitle}
+                                        showSubtaskInput={form.showSubtaskInput}
+                                        onToggleSubtaskInput={form.setShowSubtaskInput}
+                                        onAddSubtask={handleAddSubtask}
+                                        onToggleSubtask={onToggleSubtask}
+                                        onDeleteSubtask={onDeleteSubtask}
+                                        onNavigateToTask={onNavigateToTask}
+                                        onWorkOnSubtask={onWorkOnSubtask}
+                                    />
                                 )}
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                    {subtasks.map((subtask) => (
-                                        <div
-                                            key={subtask.id}
-                                            className="themedSubtaskItem"
-                                            data-completed={subtask.status === "completed"}
-                                            onClick={() => onNavigateToTask?.(subtask.id)}
-                                            style={{ cursor: onNavigateToTask ? 'pointer' : undefined }}
-                                        >
-                                            <span
-                                                className="themedSubtaskCheckbox"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onToggleSubtask?.(subtask.id);
-                                                }}
-                                            >
-                                                {subtask.status === "completed" ? "[✓]" : "[ ]"}
-                                            </span>
-                                            <span className="themedSubtaskTitle">{subtask.title}</span>
-                                            <span className="themedFormHint" style={{ flexShrink: 0 }}>
-                                                {formatDate(subtask.createdAt)}
-                                            </span>
-                                            {onWorkOnSubtask && (
-                                                <button
-                                                    type="button"
-                                                    className="themedBtn"
-                                                    style={{ padding: '0 4px', fontSize: '10px' }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onWorkOnSubtask(subtask);
-                                                    }}
-                                                    title="Work on subtask"
-                                                >
-                                                    ▶
-                                                </button>
-                                            )}
-                                            <button
-                                                type="button"
-                                                className="themedBtn themedBtnDanger"
-                                                style={{ padding: '0 4px', fontSize: '12px' }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onDeleteSubtask?.(subtask.id);
-                                                }}
-                                                title="Delete subtask"
-                                            >
-                                                ×
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Skills Tab */}
-                        {activeTab === 'skills' && (
-                            <ClaudeCodeSkillsSelector
-                                selectedSkills={selectedSkills}
-                                onSelectionChange={setSelectedSkills}
-                            />
-                        )}
-
-                        {/* Sessions Tab */}
-                        {activeTab === 'sessions' && isEditMode && (
-                            <div className="terminalTabPane terminalTabPane--sessions">
-                                {loadingSessions ? (
-                                    <div className="terminalLoading">Loading sessions...</div>
-                                ) : sessions.length === 0 ? (
-                                    <div className="themedFormHint">No sessions working on this task</div>
-                                ) : (
-                                    <div className="terminalSessionsList">
-                                        {sessions.map(session => (
-                                            <SessionInTaskView
-                                                key={session.id}
-                                                session={session}
-                                                taskId={task!.id}
-                                                tasks={tasks}
-                                                onJumpToSession={onJumpToSession}
-                                            />
-                                        ))}
-                                    </div>
+                                {form.activeTab === 'skills' && (
+                                    <ClaudeCodeSkillsSelector
+                                        selectedSkills={form.selectedSkills}
+                                        onSelectionChange={form.setSelectedSkills}
+                                    />
                                 )}
-                            </div>
-                        )}
-
-                        {/* Referenced Docs Tab */}
-                        {activeTab === 'ref-docs' && (
-                            <div>
-                                {selectedReferenceTasks.length > 0 ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        {selectedReferenceTasks.map(rt => (
-                                            <div
-                                                key={rt.id}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    padding: '4px 0',
-                                                    borderBottom: '1px solid var(--theme-border)',
-                                                    fontSize: '11px',
-                                                }}
-                                            >
-                                                <span style={{ opacity: 0.5, flexShrink: 0 }}>ref</span>
-                                                <span style={{ flex: 1, color: 'var(--theme-primary)' }}>
-                                                    {rt.title}
-                                                </span>
-                                                <button
-                                                    type="button"
-                                                    className="themedBtn themedBtnDanger"
-                                                    style={{ padding: '0 4px', fontSize: '12px' }}
-                                                    onClick={() => setSelectedReferenceTasks(prev => prev.filter(t => t.id !== rt.id))}
-                                                    title="Remove reference"
-                                                >
-                                                    ×
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="themedFormHint">No reference tasks. Use "+ ref tasks" above to add.</div>
+                                {form.activeTab === 'sessions' && isEditMode && (
+                                    <SessionsTab
+                                        taskId={task!.id}
+                                        tasks={tasks}
+                                        onJumpToSession={onJumpToSession}
+                                    />
                                 )}
-                            </div>
-                        )}
-
-                        {/* Generated Docs Tab */}
-                        {activeTab === 'gen-docs' && isEditMode && (
-                            <div>
-                                {taskDocs.length > 0 ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        {taskDocs.map(doc => (
-                                            <div
-                                                key={doc.id}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    padding: '4px 0',
-                                                    borderBottom: '1px solid var(--theme-border)',
-                                                    fontSize: '11px',
-                                                }}
-                                            >
-                                                <span style={{ opacity: 0.5, flexShrink: 0 }}>doc</span>
-                                                <span style={{ flex: 1, color: 'var(--theme-primary)' }}>
-                                                    {doc.title}
-                                                </span>
-                                                <span className="themedFormHint" style={{ flexShrink: 0, fontSize: '10px' }}>
-                                                    {doc.filePath}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="themedFormHint">No generated docs yet</div>
+                                {form.activeTab === 'ref-docs' && (
+                                    <RefDocsTab
+                                        selectedReferenceTasks={refPicker.selectedReferenceTasks}
+                                        onRemoveTask={refPicker.removeTask}
+                                    />
                                 )}
-                            </div>
-                        )}
-
-                        {/* Timeline Tab */}
-                        {activeTab === 'timeline' && isEditMode && task && (
-                            <div className="terminalTabPane terminalTabPane--timeline">
-                                {sessions.length === 0 ? (
-                                    <div className="themedFormHint">No sessions to show timeline for</div>
-                                ) : !hasTimelineEvents ? (
-                                    <div className="themedFormHint">No timeline events recorded yet</div>
-                                ) : (
-                                    <AggregatedTimeline
-                                        sessionEvents={aggregatedTimelineData}
-                                        taskId={task.id}
-                                        compact
-                                        maxEvents={15}
+                                {form.activeTab === 'gen-docs' && isEditMode && (
+                                    <GeneratedDocsTab taskDocs={form.taskDocs} />
+                                )}
+                                {form.activeTab === 'timeline' && isEditMode && task && (
+                                    <TimelineTab taskId={task.id} />
+                                )}
+                                {form.activeTab === 'details' && (
+                                    <DetailsTab
+                                        priority={form.priority}
+                                        onPriorityChange={form.setPriority}
+                                        isEditMode={isEditMode}
+                                        task={task}
                                     />
                                 )}
                             </div>
                         )}
 
-                        {/* Details Tab */}
-                        {activeTab === 'details' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                <div className="themedFormRow" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
-                                    <div className="themedFormLabel" style={{ marginBottom: 0, flexShrink: 0 }}>Priority</div>
-                                    <div className="themedSegmentedControl" style={{ margin: 0 }}>
-                                        <button
-                                            type="button"
-                                            className={`themedSegmentedBtn ${priority === "low" ? "active" : ""}`}
-                                            onClick={() => setPriority("low")}
-                                        >
-                                            Low
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={`themedSegmentedBtn ${priority === "medium" ? "active" : ""}`}
-                                            onClick={() => setPriority("medium")}
-                                        >
-                                            Medium
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={`themedSegmentedBtn ${priority === "high" ? "active" : ""}`}
-                                            onClick={() => setPriority("high")}
-                                        >
-                                            High
-                                        </button>
-                                    </div>
-                                </div>
-                                {isEditMode && task && (
-                                    <div style={{ display: 'flex', gap: '16px', fontSize: '11px' }}>
-                                        <span>
-                                            <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)' }}>status:</span>{' '}
-                                            <span className="themedTaskStatusBadge" data-status={task.status}>
-                                                {STATUS_LABELS[task.status] || task.status}
-                                            </span>
-                                        </span>
-                                        <span>
-                                            <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)' }}>id:</span>{' '}
-                                            <span style={{ color: 'var(--theme-primary)', fontSize: '10px' }}>{task.id}</span>
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                        <TaskTabBar
+                            activeTab={form.activeTab}
+                            onToggleTab={form.toggleTab}
+                            onCloseTab={() => form.setActiveTab(null)}
+                            isEditMode={isEditMode}
+                            taskId={task?.id}
+                            selectedSkillsCount={form.selectedSkills.length}
+                            selectedRefTasksCount={refPicker.selectedReferenceTasks.length}
+                            taskDocsCount={form.taskDocs.length}
+                        />
+                    </>
                 )}
 
-                {/* Tab Bar - attached to footer */}
-                <div className="themedModalTabBar" style={{ borderTop: '1px solid var(--theme-border)', marginTop: 'auto' }}>
-                    {isEditMode && (
-                        <button
-                            type="button"
-                            className={`themedModalTab ${activeTab === 'subtasks' ? 'themedModalTab--active' : ''}`}
-                            onClick={() => toggleTab('subtasks')}
-                        >
-                            Subtasks
-                            {subtaskProgress.total > 0 && (
-                                <span className="themedModalTabBadge">
-                                    {subtaskProgress.completed}/{subtaskProgress.total}
-                                </span>
-                            )}
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        className={`themedModalTab ${activeTab === 'skills' ? 'themedModalTab--active' : ''}`}
-                        onClick={() => toggleTab('skills')}
-                    >
-                        Skills
-                        {selectedSkills.length > 0 && (
-                            <span className="themedModalTabBadge">{selectedSkills.length}</span>
-                        )}
-                    </button>
-                    {isEditMode && sessions.length > 0 && (
-                        <button
-                            type="button"
-                            className={`themedModalTab ${activeTab === 'sessions' ? 'themedModalTab--active' : ''}`}
-                            onClick={() => toggleTab('sessions')}
-                        >
-                            Sessions
-                            <span className="themedModalTabBadge">{sessions.length}</span>
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        className={`themedModalTab ${activeTab === 'ref-docs' ? 'themedModalTab--active' : ''}`}
-                        onClick={() => toggleTab('ref-docs')}
-                    >
-                        Ref Tasks
-                        {selectedReferenceTasks.length > 0 && (
-                            <span className="themedModalTabBadge">{selectedReferenceTasks.length}</span>
-                        )}
-                    </button>
-                    {isEditMode && (
-                        <button
-                            type="button"
-                            className={`themedModalTab ${activeTab === 'gen-docs' ? 'themedModalTab--active' : ''}`}
-                            onClick={() => toggleTab('gen-docs')}
-                        >
-                            Gen Docs
-                            {taskDocs.length > 0 && (
-                                <span className="themedModalTabBadge">{taskDocs.length}</span>
-                            )}
-                        </button>
-                    )}
-                    {isEditMode && (
-                        <button
-                            type="button"
-                            className={`themedModalTab ${activeTab === 'timeline' ? 'themedModalTab--active' : ''}`}
-                            onClick={() => toggleTab('timeline')}
-                        >
-                            Timeline
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        className={`themedModalTab ${activeTab === 'details' ? 'themedModalTab--active' : ''}`}
-                        onClick={() => toggleTab('details')}
-                    >
-                        Details
-                    </button>
-                    {activeTab && (
-                        <button
-                            type="button"
-                            className="themedModalTab themedModalTabClose"
-                            onClick={() => setActiveTab(null)}
-                            title="Collapse tab panel"
-                        >
-                            ×
-                        </button>
-                    )}
-                </div>
-
-                <div className="themedFormActions" style={{ flexWrap: 'wrap' }}>
-                    {isEditMode ? (
-                        <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, flexWrap: 'wrap' }}>
-                                <div className="themedDropdownPicker" style={{ position: 'relative' }}>
-                                    <button
-                                        ref={teamMemberBtnRef}
-                                        type="button"
-                                        className={`themedDropdownButton ${showTeamMemberDropdown ? 'themedDropdownButton--open' : ''}`}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setShowTeamMemberDropdown(!showTeamMemberDropdown);
-                                        }}
-                                    >
-                                        {selectedTeamMembers.length > 0 ? (
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <span>{selectedTeamMembers.map(m => m.avatar).join('')}</span>
-                                                <span>{selectedTeamMembers.length === 1 ? selectedTeamMembers[0].name : `${selectedTeamMembers.length} members`}</span>
-                                            </span>
-                                        ) : (
-                                            <span style={{ opacity: 0.6 }}>Select Team Members</span>
-                                        )}
-                                        <span className="themedDropdownCaret">{showTeamMemberDropdown ? '\u25B4' : '\u25BE'}</span>
-                                    </button>
-                                    {showTeamMemberDropdown && teamMemberDropdownPos && createPortal(
-                                        <>
-                                            <div
-                                                className="themedDropdownOverlay"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setShowTeamMemberDropdown(false);
-                                                }}
-                                            />
-                                            <div
-                                                className="themedDropdownMenu"
-                                                style={{ top: 'auto', bottom: teamMemberDropdownPos.bottom, left: teamMemberDropdownPos.left, minWidth: '240px', maxHeight: `${Math.min(window.innerHeight - 40, 320)}px`, overflowY: 'auto' }}
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                <div style={{ padding: '4px 8px', fontSize: '10px', opacity: 0.5, borderBottom: '1px solid var(--theme-border)', position: 'sticky', top: 0, backgroundColor: 'var(--theme-bg)', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span>Select team members</span>
-                                                    {selectedTeamMemberIds.length > 0 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => { e.stopPropagation(); setSelectedTeamMemberIds([]); }}
-                                                            style={{ background: 'none', border: 'none', color: 'var(--theme-primary)', cursor: 'pointer', padding: '0 2px', fontSize: '10px', opacity: 0.7 }}
-                                                        >
-                                                            clear
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                {teamMembers.map(member => {
-                                                    const isSelected = selectedTeamMemberIds.includes(member.id);
-                                                    return (
-                                                        <button
-                                                            key={member.id}
-                                                            className={`themedDropdownOption ${isSelected ? 'themedDropdownOption--current' : ''}`}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setSelectedTeamMemberIds(prev =>
-                                                                    isSelected
-                                                                        ? prev.filter(id => id !== member.id)
-                                                                        : [...prev, member.id]
-                                                                );
-                                                            }}
-                                                            style={{ textAlign: 'left' }}
-                                                        >
-                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                                                                <span style={{ fontSize: '14px', flexShrink: 0 }}>{member.avatar}</span>
-                                                                <span style={{ flex: 1, minWidth: 0 }}>
-                                                                    <span className="themedDropdownLabel">{member.name}</span>
-                                                                    <span style={{ display: 'block', fontSize: '9px', opacity: 0.5 }}>
-                                                                        {[
-                                                                            member.role,
-                                                                            member.agentTool ? AGENT_TOOL_LABELS[member.agentTool] || member.agentTool : null,
-                                                                            member.model,
-                                                                        ].filter(Boolean).join(' · ')}
-                                                                    </span>
-                                                                </span>
-                                                                {isSelected && (
-                                                                    <span className="themedDropdownCheck">{'\u2713'}</span>
-                                                                )}
-                                                            </span>
-                                                        </button>
-                                                    );
-                                                })}
-                                                {teamMembers.length === 0 && (
-                                                    <div style={{ padding: '8px 12px', fontSize: '11px', opacity: 0.5 }}>
-                                                        No team members configured
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </>,
-                                        document.body
-                                    )}
-                                </div>
-                                {selectedTeamMembers.length === 1 && (
-                                    <span style={{ fontSize: '10px', opacity: 0.5 }}>
-                                        {[
-                                            selectedTeamMembers[0].agentTool ? AGENT_TOOL_LABELS[selectedTeamMembers[0].agentTool] : null,
-                                            selectedTeamMembers[0].model,
-                                        ].filter(Boolean).join(' / ')}
-                                    </span>
-                                )}
-                                {selectedTeamMembers.length > 1 && (
-                                    <span style={{ fontSize: '10px', opacity: 0.5 }}>
-                                        {selectedTeamMembers.map(m => m.avatar).join(' ')}
-                                    </span>
-                                )}
-                            </div>
-                            <button type="button" className="themedBtn" onClick={handleClose}>
-                                Close
-                            </button>
-                            <button type="button" className="themedBtn themedBtnPrimary" onClick={handleSave}>
-                                Save
-                            </button>
-                            <button
-                                type="button"
-                                className="themedBtn themedBtnSuccess"
-                                onClick={() => {
-                                    onWorkOn?.();
-                                    onClose();
-                                }}
-                            >
-                                $ exec
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, flexWrap: 'wrap' }}>
-                                <div className="themedDropdownPicker" style={{ position: 'relative' }}>
-                                    <button
-                                        ref={teamMemberBtnRef}
-                                        type="button"
-                                        className={`themedDropdownButton ${showTeamMemberDropdown ? 'themedDropdownButton--open' : ''}`}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setShowTeamMemberDropdown(!showTeamMemberDropdown);
-                                        }}
-                                    >
-                                        {selectedTeamMembers.length > 0 ? (
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <span>{selectedTeamMembers.map(m => m.avatar).join('')}</span>
-                                                <span>{selectedTeamMembers.length === 1 ? selectedTeamMembers[0].name : `${selectedTeamMembers.length} members`}</span>
-                                            </span>
-                                        ) : (
-                                            <span style={{ opacity: 0.6 }}>Select Team Members</span>
-                                        )}
-                                        <span className="themedDropdownCaret">{showTeamMemberDropdown ? '\u25B4' : '\u25BE'}</span>
-                                    </button>
-                                    {showTeamMemberDropdown && teamMemberDropdownPos && createPortal(
-                                        <>
-                                            <div
-                                                className="themedDropdownOverlay"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setShowTeamMemberDropdown(false);
-                                                }}
-                                            />
-                                            <div
-                                                className="themedDropdownMenu"
-                                                style={{ top: 'auto', bottom: teamMemberDropdownPos.bottom, left: teamMemberDropdownPos.left, minWidth: '240px', maxHeight: `${Math.min(window.innerHeight - 40, 320)}px`, overflowY: 'auto' }}
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                <div style={{ padding: '4px 8px', fontSize: '10px', opacity: 0.5, borderBottom: '1px solid var(--theme-border)', position: 'sticky', top: 0, backgroundColor: 'var(--theme-bg)', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span>Select team members</span>
-                                                    {selectedTeamMemberIds.length > 0 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => { e.stopPropagation(); setSelectedTeamMemberIds([]); }}
-                                                            style={{ background: 'none', border: 'none', color: 'var(--theme-primary)', cursor: 'pointer', padding: '0 2px', fontSize: '10px', opacity: 0.7 }}
-                                                        >
-                                                            clear
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                {teamMembers.map(member => {
-                                                    const isSelected = selectedTeamMemberIds.includes(member.id);
-                                                    return (
-                                                        <button
-                                                            key={member.id}
-                                                            className={`themedDropdownOption ${isSelected ? 'themedDropdownOption--current' : ''}`}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setSelectedTeamMemberIds(prev =>
-                                                                    isSelected
-                                                                        ? prev.filter(id => id !== member.id)
-                                                                        : [...prev, member.id]
-                                                                );
-                                                            }}
-                                                            style={{ textAlign: 'left' }}
-                                                        >
-                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                                                                <span style={{ fontSize: '14px', flexShrink: 0 }}>{member.avatar}</span>
-                                                                <span style={{ flex: 1, minWidth: 0 }}>
-                                                                    <span className="themedDropdownLabel">{member.name}</span>
-                                                                    <span style={{ display: 'block', fontSize: '9px', opacity: 0.5 }}>
-                                                                        {[
-                                                                            member.role,
-                                                                            member.agentTool ? AGENT_TOOL_LABELS[member.agentTool] || member.agentTool : null,
-                                                                            member.model,
-                                                                        ].filter(Boolean).join(' · ')}
-                                                                    </span>
-                                                                </span>
-                                                                {isSelected && (
-                                                                    <span className="themedDropdownCheck">{'\u2713'}</span>
-                                                                )}
-                                                            </span>
-                                                        </button>
-                                                    );
-                                                })}
-                                                {teamMembers.length === 0 && (
-                                                    <div style={{ padding: '8px 12px', fontSize: '11px', opacity: 0.5 }}>
-                                                        No team members configured
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </>,
-                                        document.body
-                                    )}
-                                </div>
-                                {selectedTeamMembers.length === 1 && (
-                                    <span style={{ fontSize: '10px', opacity: 0.5 }}>
-                                        {[
-                                            selectedTeamMembers[0].agentTool ? AGENT_TOOL_LABELS[selectedTeamMembers[0].agentTool] : null,
-                                            selectedTeamMembers[0].model,
-                                        ].filter(Boolean).join(' / ')}
-                                    </span>
-                                )}
-                                {selectedTeamMembers.length > 1 && (
-                                    <span style={{ fontSize: '10px', opacity: 0.5 }}>
-                                        {selectedTeamMembers.map(m => m.avatar).join(' ')}
-                                    </span>
-                                )}
-                            </div>
-                            <button type="button" className="themedBtn" onClick={handleClose}>
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                className="themedBtn themedBtnPrimary"
-                                onClick={() => handleSubmit(false)}
-                                disabled={isTeamMemberMode ? !title.trim() : (!title.trim() || !prompt.trim())}
-                            >
-                                {isTeamMemberMode ? 'Create Team Member' : 'Create Task'}
-                            </button>
-                            {!isTeamMemberMode && (
-                                <button
-                                    type="button"
-                                    className="themedBtn themedBtnSuccess"
-                                    onClick={() => handleSubmit(true)}
-                                    disabled={!title.trim() || !prompt.trim()}
-                                >
-                                    Create &amp; Run
-                                </button>
-                            )}
-                        </>
-                    )}
-                </div>
+                <TaskModalFooter
+                    isEditMode={isEditMode}
+                    isValid={form.isValid}
+                    selectedTeamMemberIds={form.selectedTeamMemberIds}
+                    onTeamMemberSelectionChange={form.setSelectedTeamMemberIds}
+                    teamMembers={teamMembers}
+                    onClose={handleClose}
+                    onSave={handleSave}
+                    onSubmit={handleSubmit}
+                    onWorkOn={onWorkOn}
+                    showLaunchConfig={form.showLaunchConfig}
+                    onToggleLaunchConfig={handleToggleLaunchConfig}
+                />
             </div>
 
-            {/* Confirmation Dialog */}
-            {showConfirmDialog && (
-                <div className="themedModalBackdrop" onClick={handleCancelDiscard}>
-                    <div className="themedModal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-                        <div className="themedModalHeader">
-                            <span className="themedModalTitle">[ UNSAVED CHANGES ]</span>
-                        </div>
-                        <div className="themedModalContent">
-                            <p style={{ margin: 0, fontSize: '12px', color: 'rgba(var(--theme-primary-rgb), 0.7)' }}>
-                                You have unsaved task details. Are you sure you want to discard them?
-                            </p>
-                        </div>
-                        <div className="themedFormActions">
-                            <button type="button" className="themedBtn" onClick={handleCancelDiscard}>
-                                Keep Editing
-                            </button>
-                            <button type="button" className="themedBtn themedBtnDanger" onClick={handleConfirmDiscard}>
-                                Discard
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ConfirmDiscardDialog
+                isOpen={form.showConfirmDialog}
+                onConfirm={handleConfirmDiscard}
+                onCancel={() => form.setShowConfirmDialog(false)}
+            />
         </>
     );
 
