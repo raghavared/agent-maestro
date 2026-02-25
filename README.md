@@ -417,3 +417,4 @@ Built with [Tauri](https://tauri.app/), [React](https://react.dev/), [xterm.js](
 
 Built for [Claude](https://anthropic.com/) by [Anthropic](https://anthropic.com/).
 
+
