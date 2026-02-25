@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import type { TeamGroup } from '../../utils/teamGrouping';
 import type { MaestroSession, MaestroTask, Team } from '../../app/types/maestro';
+import { useUIStore } from '../../stores/useUIStore';
 
 interface TeamSessionGroupProps {
   group: TeamGroup;
@@ -47,7 +48,7 @@ export function TeamSessionGroup({
       return {
         msId,
         name: snap?.name || ms?.name || 'Worker',
-        avatar: snap?.avatar || '⚡',
+        avatar: snap?.avatar || '\u26A1',
         status: ms?.status || 'idle',
       };
     });
@@ -81,6 +82,12 @@ export function TeamSessionGroup({
   const statusLabel = group.status === 'active' ? 'Active' : group.status === 'done' ? 'Done' : 'Idle';
   const totalMembers = 1 + group.workerMaestroSessionIds.length; // coordinator + workers
 
+  // Team view button handler
+  const handleOpenTeamView = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    useUIStore.getState().setTeamViewGroupId(group.teamSessionId);
+  }, [group.teamSessionId]);
+
   return (
     <div
       className="tsGroup"
@@ -96,7 +103,7 @@ export function TeamSessionGroup({
       >
         <span className="tsGroupHeader__dot" />
         <span className={`tsGroupHeader__arrow ${collapsed ? 'tsGroupHeader__arrow--collapsed' : ''}`}>
-          ▾
+          \u25BE
         </span>
         <span className="tsGroupHeader__label">{groupLabel}</span>
         <span className={`tsGroupHeader__statusBadge tsGroupHeader__statusBadge--${group.status}`}>
@@ -105,6 +112,13 @@ export function TeamSessionGroup({
         <span className="tsGroupHeader__workerCount">
           {totalMembers} {totalMembers === 1 ? 'member' : 'members'}
         </span>
+        <button
+          className="tsGroupHeader__teamViewBtn"
+          onClick={handleOpenTeamView}
+          title="Open team view"
+        >
+          \u229E
+        </button>
       </div>
 
       {/* Member chips strip (expanded only) */}

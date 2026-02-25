@@ -7,6 +7,7 @@ import { SoundSettingsContent } from "./modals/SoundSettingsModal";
 import { ProjectSoundSettings } from "./modals/ProjectSoundSettings";
 import { soundManager } from "../services/soundManager";
 import { useProjectStore } from "../stores/useProjectStore";
+import { useUIStore } from "../stores/useUIStore";
 
 type SavedProject = {
   id: string;
@@ -28,6 +29,7 @@ type ProjectTabBarProps = {
   onReopenProject: (projectId: string) => void;
   onMoveProject: (projectId: string, targetProjectId: string, position: 'before' | 'after') => void;
   onOpenMultiProjectBoard?: () => void;
+  onOpenWhiteboard?: () => void;
 };
 
 type SettingsDialogProps = {
@@ -57,6 +59,7 @@ const SHORTCUT_ROWS: ShortcutRow[] = [
   { action: "Toggle prompts panel", mac: "Cmd + Shift + P", windowsLinux: "Ctrl + Shift + P" },
   { action: "Toggle recordings panel", mac: "Cmd + Shift + R", windowsLinux: "Ctrl + Shift + R" },
   { action: "Toggle assets panel", mac: "Cmd + Shift + A", windowsLinux: "Ctrl + Shift + A" },
+  { action: "Toggle whiteboard", mac: "Cmd + Shift + X", windowsLinux: "Ctrl + Shift + X" },
   { action: "Send quick prompt (pinned)", mac: "Cmd + 1..5", windowsLinux: "Ctrl + 1..5" },
   { action: "Close open modal/panel", mac: "Esc", windowsLinux: "Esc" },
 ];
@@ -153,6 +156,7 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
 function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete, onCloseProject }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = useState<ProjectSettingsTab>('info');
   const setProjects = useProjectStore((s) => s.setProjects);
+  const toggleMasterProject = useProjectStore((s) => s.toggleMasterProject);
 
   const handleSoundConfigChange = (config: ProjectSoundConfig | undefined) => {
     setProjects((prev) =>
@@ -226,6 +230,27 @@ function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete, onClo
                       {new Date(project.createdAt).toLocaleDateString()}
                     </span>
                   </div>
+
+                  <div className="projectSettingsRow projectSettingsMasterRow">
+                    <span className="projectSettingsLabel">MASTER PROJECT:</span>
+                    <label
+                      className="projectSettingsMasterToggle"
+                      title="Sessions in this project can access all other projects"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={project.isMaster ?? false}
+                        onChange={() => void toggleMasterProject(project.id)}
+                      />
+                      <span className="projectSettingsMasterSwitch" />
+                      <span className="projectSettingsMasterLabel">
+                        {project.isMaster ? '★ Enabled' : 'Disabled'}
+                      </span>
+                    </label>
+                    <div className="projectSettingsMasterHint">
+                      Sessions in this project can access all other projects
+                    </div>
+                  </div>
                 </div>
 
                 <div className="projectSettingsDivider" />
@@ -283,12 +308,15 @@ export function ProjectTabBar({
   onReopenProject,
   onMoveProject,
   onOpenMultiProjectBoard,
+  onOpenWhiteboard,
 }: ProjectTabBarProps) {
   const [settingsProjectId, setSettingsProjectId] = useState<string | null>(null);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(soundManager.isEnabled());
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ projectId: string; position: 'before' | 'after' } | null>(null);
+  const vsCodeMode = useUIStore((s) => s.vsCodeMode);
+  const toggleVsCodeMode = useUIStore((s) => s.toggleVsCodeMode);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
   const [savedProjectsLoading, setSavedProjectsLoading] = useState(false);
@@ -395,6 +423,10 @@ export function ProjectTabBar({
   const handleTabPointerDown = (e: React.PointerEvent, project: MaestroProject) => {
     if (projects.length <= 1) return;
     if (e.button !== 0) return;
+
+    // Don't intercept clicks on the settings button
+    const clickTarget = e.target as HTMLElement;
+    if (clickTarget.closest('.projectTabSettingsBtn')) return;
 
     const pointerId = e.pointerId;
     const target = e.currentTarget as HTMLElement;
@@ -545,6 +577,7 @@ export function ProjectTabBar({
                   onClick={() => onSelectProject(p.id)}
                   title={p.basePath || p.name}
                 >
+                  {p.isMaster && <span className="projectTabMasterIcon" title="Master Project">★</span>}
                   <span className="projectTabName">{p.name}</span>
                   {workingCount > 0 && (
                     <span className="projectTabWorking">
@@ -610,11 +643,29 @@ export function ProjectTabBar({
               type="button"
               className="projectTabBarBtn"
               onClick={onOpenMultiProjectBoard}
-              title="Multi-Project Board (Cmd+Shift+B)"
+              title="Multi-Project Board (Cmd/Ctrl+Shift+B)"
             >
               <Icon name="layers" size={14} />
             </button>
           )}
+          {onOpenWhiteboard && (
+            <button
+              type="button"
+              className="projectTabBarBtn"
+              onClick={onOpenWhiteboard}
+              title="Whiteboard (Cmd/Ctrl+Shift+X)"
+            >
+              <Icon name="edit" size={14} />
+            </button>
+          )}
+          <button
+            type="button"
+            className={`projectTabBarBtn ${vsCodeMode ? "projectTabBarBtnActive" : ""}`}
+            onClick={toggleVsCodeMode}
+            title={vsCodeMode ? "Close VS Code" : "Open VS Code"}
+          >
+            <Icon name="code" size={14} />
+          </button>
           <button
             type="button"
             className="projectTabBarBtn"

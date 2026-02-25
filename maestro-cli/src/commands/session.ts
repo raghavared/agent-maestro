@@ -6,6 +6,7 @@ import { validateRequired, validateTaskId } from '../utils/validation.js';
 import { handleError } from '../utils/errors.js';
 import { guardCommand } from '../services/command-permissions.js';
 import { executeReport } from './report.js';
+import { resolveSpawnModeFromSkillAndTeamMemberMode } from './session-spawn-mode.js';
 import ora from 'ora';
 import { readFileSync } from 'fs';
 import WebSocket from 'ws';
@@ -549,7 +550,7 @@ export function registerSessionCommands(program: Command) {
 
             try {
                 const taskId = validateTaskId(cmdOpts.task, config.taskIds);
-                const skill = cmdOpts.skill;
+                let skill = cmdOpts.skill;
 
                 const spinner = !isJson ? ora('Fetching task details...').start() : null;
 
@@ -561,6 +562,28 @@ export function registerSessionCommands(program: Command) {
                 if (!projectId) {
                     throw new Error('Task does not have an associated projectId');
                 }
+
+                const taskTeamMemberIds = Array.isArray(task.teamMemberIds)
+                    ? task.teamMemberIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
+                    : [];
+                const inferredTaskTeamMemberId = typeof task.teamMemberId === 'string' && task.teamMemberId.length > 0
+                    ? task.teamMemberId
+                    : (taskTeamMemberIds.length === 1 ? taskTeamMemberIds[0] : undefined);
+                const resolvedTeamMemberId = cmdOpts.teamMemberId || inferredTaskTeamMemberId;
+
+                let resolvedTeamMemberMode: string | undefined;
+                if (resolvedTeamMemberId) {
+                    try {
+                        const teamMember: any = await api.get(`/api/team-members/${resolvedTeamMemberId}?projectId=${projectId}`);
+                        resolvedTeamMemberMode = teamMember?.mode;
+                    } catch {
+                        // Keep skill-based fallback mode if team member lookup fails.
+                    }
+                }
+
+                const modeResolution = resolveSpawnModeFromSkillAndTeamMemberMode(skill, resolvedTeamMemberMode);
+                const mode = modeResolution.mode;
+                skill = modeResolution.adjustedSkill;
 
                 // Build session context
                 const spinner2 = !isJson ? ora('Building session context...').start() : null;
@@ -580,7 +603,6 @@ export function registerSessionCommands(program: Command) {
                 }
 
                 // Prepare spawn request with spawnSource and mode
-                const mode = skill === 'maestro-orchestrator' ? 'coordinate' : 'execute';
                 const spawnRequest: any = {
                     projectId,
                     taskIds: [taskId],
@@ -591,7 +613,7 @@ export function registerSessionCommands(program: Command) {
                     sessionName: sessionName,
                     context: {
                         ...context,
-                        reason: cmdOpts.reason || `Execute task: ${task.title}`  // Move reason into context
+                        reason: cmdOpts.reason || `${mode === 'coordinator' ? 'Coordinate' : 'Execute'} task: ${task.title}`  // Move reason into context
                     }
                 };
 
@@ -605,8 +627,8 @@ export function registerSessionCommands(program: Command) {
                 }
 
                 // Include team member ID if specified
-                if (cmdOpts.teamMemberId) {
-                    spawnRequest.teamMemberId = cmdOpts.teamMemberId;
+                if (resolvedTeamMemberId) {
+                    spawnRequest.teamMemberId = resolvedTeamMemberId;
                 }
 
                 // Include agent tool if specified
@@ -655,7 +677,7 @@ export function registerSessionCommands(program: Command) {
             const isJson = globalOpts.json;
             const sessionId = config.sessionId;
             const projectId = config.projectId;
-            const mode = process.env.MAESTRO_MODE || 'execute';
+            const mode = process.env.MAESTRO_MODE || 'worker';
             const taskIds = config.taskIds;
 
             if (!sessionId) {

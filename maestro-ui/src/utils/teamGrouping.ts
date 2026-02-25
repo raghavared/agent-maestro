@@ -72,7 +72,7 @@ export function buildTeamGroups(
   const fallbackCoordinators: string[] = [];
   for (const [msId, ms] of maestroSessions) {
     if (assignedByTeamSessionId.has(msId)) continue;
-    if (ms.mode === 'coordinate') {
+    if (ms.mode === 'coordinator' || ms.mode === 'coordinated-coordinator' || (ms.mode as string) === 'coordinate') {
       fallbackCoordinators.push(msId);
     }
   }

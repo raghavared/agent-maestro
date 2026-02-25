@@ -2,9 +2,8 @@ import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
 import type { MaestroManifest } from '../types/manifest.js';
 import type { SpawnResult, SpawnOptions } from './claude-spawner.js';
-import { WhoamiRenderer } from './whoami-renderer.js';
-import { getPermissionsFromManifest } from './command-permissions.js';
 import { prepareSpawnerEnvironment } from './spawner-env.js';
+import { PromptComposer, type PromptEnvelope } from '../prompting/prompt-composer.js';
 import { buildGeminiStructuredPrompt } from '../prompts/index.js';
 
 /**
@@ -15,6 +14,12 @@ import { buildGeminiStructuredPrompt } from '../prompts/index.js';
  * - Gemini CLI process spawning
  */
 export class GeminiSpawner {
+  private promptComposer: PromptComposer;
+
+  constructor() {
+    this.promptComposer = new PromptComposer();
+  }
+
   /**
    * Prepare environment variables for Gemini session
    */
@@ -62,6 +67,9 @@ export class GeminiSpawner {
    */
   private mapApprovalMode(permissionMode: string): string {
     switch (permissionMode) {
+      case 'bypassPermissions':
+        // Gemini's 'yolo' mode auto-approves all tool calls
+        return 'yolo';
       case 'acceptEdits':
         return 'yolo';
       case 'readOnly':
@@ -89,6 +97,13 @@ export class GeminiSpawner {
     return args;
   }
 
+  buildPromptEnvelope(
+    manifest: MaestroManifest,
+    sessionId: string,
+  ): PromptEnvelope {
+    return this.promptComposer.compose(manifest, { sessionId });
+  }
+
   /**
    * Spawn Gemini CLI session with manifest
    */
@@ -97,11 +112,9 @@ export class GeminiSpawner {
     sessionId: string,
     options: SpawnOptions = {}
   ): Promise<SpawnResult> {
-    // Split prompt into system (static) and task (dynamic) layers
-    const renderer = new WhoamiRenderer();
-    const permissions = getPermissionsFromManifest(manifest);
-    const systemPrompt = renderer.renderSystemPrompt(manifest, permissions);
-    const taskContext = await renderer.renderTaskContext(manifest, sessionId);
+    const envelope = this.buildPromptEnvelope(manifest, sessionId);
+    const systemPrompt = envelope.system;
+    const taskContext = envelope.task;
 
     const env = {
       ...this.prepareEnvironment(manifest, sessionId),

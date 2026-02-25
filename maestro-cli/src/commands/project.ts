@@ -123,4 +123,56 @@ export function registerProjectCommands(program: Command) {
                 handleError(err, isJson);
             }
         });
+
+    project.command('set-master <id>')
+        .description('Designate a project as a master project')
+        .action(async (id) => {
+            await guardCommand('project:set-master');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const spinner = !isJson ? ora('Setting master status...').start() : null;
+
+            try {
+                const updated: any = await api.put(`/api/projects/${id}/master`, { isMaster: true });
+
+                spinner?.succeed('Project set as master');
+
+                if (isJson) {
+                    outputJSON(updated);
+                } else {
+                    outputKeyValue('ID', updated.id);
+                    outputKeyValue('Name', updated.name);
+                    outputKeyValue('Master', 'true');
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
+
+    project.command('unset-master <id>')
+        .description('Remove master designation from a project')
+        .action(async (id) => {
+            await guardCommand('project:unset-master');
+            const globalOpts = program.opts();
+            const isJson = globalOpts.json;
+            const spinner = !isJson ? ora('Removing master status...').start() : null;
+
+            try {
+                const updated: any = await api.put(`/api/projects/${id}/master`, { isMaster: false });
+
+                spinner?.succeed('Project master status removed');
+
+                if (isJson) {
+                    outputJSON(updated);
+                } else {
+                    outputKeyValue('ID', updated.id);
+                    outputKeyValue('Name', updated.name);
+                    outputKeyValue('Master', 'false');
+                }
+            } catch (err) {
+                spinner?.stop();
+                handleError(err, isJson);
+            }
+        });
 }

@@ -1,4 +1,5 @@
 import type { MaestroManifest } from '../types/manifest.js';
+import { isCoordinatorMode } from '../types/manifest.js';
 import {
   MODE_TITLE_EXECUTE,
   MODE_TITLE_COORDINATE,
@@ -25,7 +26,7 @@ export class SessionBriefGenerator {
    * Generate complete session brief
    */
   generate(manifest: MaestroManifest): string {
-    const modeTitle = manifest.mode === 'execute' ? MODE_TITLE_EXECUTE : MODE_TITLE_COORDINATE;
+    const modeTitle = isCoordinatorMode(manifest.mode) ? MODE_TITLE_COORDINATE : MODE_TITLE_EXECUTE;
     const primaryTask = manifest.tasks[0];
     const isMultiTask = manifest.tasks.length > 1;
 

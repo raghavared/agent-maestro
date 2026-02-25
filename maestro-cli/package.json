@@ -12,10 +12,10 @@
     "test": "vitest",
     "prepublishOnly": "bun run build",
     "bundle": "node scripts/bundle.mjs",
-    "build:binary:darwin-arm64": "bun run bundle && npx @yao-pkg/pkg dist/bundle.cjs --targets node20-macos-arm64 --output dist/bin/maestro",
-    "build:binary:darwin-x64": "bun run bundle && npx @yao-pkg/pkg dist/bundle.cjs --targets node20-macos-x64 --output dist/bin/maestro",
-    "build:binary:linux-x64": "bun run bundle && npx @yao-pkg/pkg dist/bundle.cjs --targets node20-linux-x64 --output dist/bin/maestro",
-    "build:binary:win-x64": "bun run bundle && npx @yao-pkg/pkg dist/bundle.cjs --targets node20-win-x64 --output dist/bin/maestro.exe"
+    "build:binary:darwin-arm64": "bun run bundle && bunx @yao-pkg/pkg dist/bundle.cjs --targets node20-macos-arm64 --output dist/bin/maestro",
+    "build:binary:darwin-x64": "bun run bundle && bunx @yao-pkg/pkg dist/bundle.cjs --targets node20-macos-x64 --output dist/bin/maestro",
+    "build:binary:linux-x64": "bun run bundle && bunx @yao-pkg/pkg dist/bundle.cjs --targets node20-linux-x64 --output dist/bin/maestro",
+    "build:binary:win-x64": "bun run bundle && bunx @yao-pkg/pkg dist/bundle.cjs --targets node20-win-x64 --output dist/bin/maestro.exe"
   },
   "keywords": [
     "maestro",

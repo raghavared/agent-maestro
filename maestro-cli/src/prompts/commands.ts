@@ -5,6 +5,8 @@
  * and the static commands reference block used in prompts.
  */
 
+import { AgentMode } from "../types/manifest.js";
+
 // ── Command group metadata (for compact command briefs) ─────
 
 export const COMMAND_GROUP_META: Record<string, { prefix: string; description: string }> = {
@@ -12,6 +14,7 @@ export const COMMAND_GROUP_META: Record<string, { prefix: string; description: s
   task: { prefix: 'maestro task', description: 'Task management' },
   session: { prefix: 'maestro session', description: 'Session management' },
   project: { prefix: 'maestro project', description: 'Project management' },
+  master: { prefix: 'maestro master', description: 'Cross-project workspace commands (master sessions only)' },
   'team-member': { prefix: 'maestro team-member', description: 'Team member management' },
   'team': { prefix: 'maestro team', description: 'Team management' },
   worker: { prefix: 'maestro worker', description: 'Worker initialization' },
@@ -20,9 +23,9 @@ export const COMMAND_GROUP_META: Record<string, { prefix: string; description: s
   modal: { prefix: 'maestro modal', description: 'Modal interaction' },
 };
 
-// ── Static commands reference (used in WhoamiRenderer via generateCompactCommandBrief) ──
+// ── Static commands reference ──
 
-export const COMMANDS_REFERENCE_HEADER = '## Maestro Commands';
+export const COMMANDS_REFERENCE_HEADER = (mode: AgentMode) => `## Maestro ${mode} Commands`;
 
 export const COMMANDS_REFERENCE_CORE = 'maestro {whoami|status|commands} — Core utilities';
 
@@ -104,10 +107,18 @@ export const CMD_DESC = {
   'project:get': 'Get project details',
   'project:create': 'Create project',
   'project:delete': 'Delete project',
+  'project:set-master': 'Designate project as master',
+  'project:unset-master': 'Remove master designation from project',
+
+  // Master (cross-project, master sessions only)
+  'master:projects': 'List all projects across workspace',
+  'master:tasks': 'List tasks across all projects',
+  'master:sessions': 'List sessions across all projects',
+  'master:context': 'Full workspace overview',
 
   // Init
-  'worker:init': 'Initialize execute-mode session',
-  'orchestrator:init': 'Initialize coordinate-mode session',
+  'worker:init': 'Initialize worker-mode session',
+  'orchestrator:init': 'Initialize coordinator-mode session',
 
   // Team member
   'team-member:create': 'Create a new team member',
@@ -143,7 +154,7 @@ export const CMD_DESC = {
 
   // Utility
   'track-file': 'Track file modification',
-  'debug-prompt': 'Show system and initial prompts sent to agent',
+  'debug-prompt': 'Show system and task prompts sent to agent',
 } as const;
 
 // ── Command syntax (used for help and prompt generation) ────
@@ -198,11 +209,18 @@ export const CMD_SYNTAX: Record<string, string> = {
   'project:get': 'maestro project get <projectId>',
   'project:create': 'maestro project create "<name>"',
   'project:delete': 'maestro project delete <projectId>',
+  'project:set-master': 'maestro project set-master <projectId>',
+  'project:unset-master': 'maestro project unset-master <projectId>',
+  // Master commands (master sessions only)
+  'master:projects': 'maestro master projects',
+  'master:tasks': 'maestro master tasks [--project <id>]',
+  'master:sessions': 'maestro master sessions [--project <id>]',
+  'master:context': 'maestro master context',
   // Team member commands
-  'team-member:create': 'maestro team-member create "<name>" --role "<role>" --avatar "<emoji>" --mode <execute|coordinate> [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"] [--workflow-template <templateId>] [--custom-workflow "<workflow>"]',
-  'team-member:list': 'maestro team-member list [--all] [--status <active|archived>] [--mode <execute|coordinate>]',
+  'team-member:create': 'maestro team-member create "<name>" --role "<role>" --avatar "<emoji>" --mode <worker|coordinator|coordinated-worker|coordinated-coordinator> [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"]',
+  'team-member:list': 'maestro team-member list [--all] [--status <active|archived>] [--mode <worker|coordinator|coordinated-worker|coordinated-coordinator>]',
   'team-member:get': 'maestro team-member get <teamMemberId>',
-  'team-member:edit': 'maestro team-member edit <teamMemberId> [--name "<name>"] [--role "<role>"] [--avatar "<emoji>"] [--mode <execute|coordinate>] [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"] [--workflow-template <templateId>] [--custom-workflow "<workflow>"]',
+  'team-member:edit': 'maestro team-member edit <teamMemberId> [--name "<name>"] [--role "<role>"] [--avatar "<emoji>"] [--mode <worker|coordinator|coordinated-worker|coordinated-coordinator>] [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"]',
   'team-member:archive': 'maestro team-member archive <teamMemberId>',
   'team-member:unarchive': 'maestro team-member unarchive <teamMemberId>',
   'team-member:delete': 'maestro team-member delete <teamMemberId>',
@@ -224,6 +242,7 @@ export const CMD_SYNTAX: Record<string, string> = {
   'team:add-sub-team': 'maestro team add-sub-team <teamId> <subTeamId>',
   'team:remove-sub-team': 'maestro team remove-sub-team <teamId> <subTeamId>',
   'team:tree': 'maestro team tree <teamId>',
+  'debug-prompt': 'maestro debug-prompt [--manifest <path>] [--session <id>] [--system-only] [--task-only|--initial-only] [--raw]',
   'worker:init': 'maestro worker init',
   'orchestrator:init': 'maestro orchestrator init',
 };
@@ -240,6 +259,6 @@ export function formatCommandNotAllowed(commandName: string, mode: string): stri
 
 // ── CLI output labels ───────────────────────────────────────
 
-export const AVAILABLE_COMMANDS_HEADER = '\nAvailable Commands:';
+export const AVAILABLE_COMMANDS_HEADER = (mode: AgentMode) => `\nAvailable ${mode} Commands:`;
 export const AVAILABLE_COMMANDS_SEPARATOR = '-------------------';
 export const HIDDEN_COMMANDS_LABEL = (count: number) => `(${count} commands hidden based on mode)`;

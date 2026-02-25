@@ -124,10 +124,11 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
     try {
       const mode = req.params.mode as string;
 
-      if (mode !== 'execute' && mode !== 'coordinate') {
+      const validModes = ['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'];
+      if (!validModes.includes(mode)) {
         return res.status(400).json({
           error: true,
-          message: 'Mode must be "execute" or "coordinate"',
+          message: `Mode must be one of: ${validModes.join(', ')}`,
           code: 'VALIDATION_ERROR'
         });
       }

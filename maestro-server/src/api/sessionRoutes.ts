@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { spawn as spawnProcess } from 'child_process';
 import { readFile, mkdir, writeFile } from 'fs/promises';
-import { join, resolve as resolvePath } from 'path';
+import { join, resolve as resolvePath, delimiter as pathDelimiter } from 'path';
 import { homedir } from 'os';
 import { SessionService } from '../application/services/SessionService';
 import { LogDigestService } from '../application/services/LogDigestService';
@@ -10,9 +10,32 @@ import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
 import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
-import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot } from '../types';
+import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, MemberLaunchOverride, isCoordinatorMode, normalizeMode } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
 import { MailService } from '../application/services/MailService';
+
+function resolveMaestroCliRuntime(): { maestroBin: string; monorepoRoot: string | null } {
+  const isPkg = __dirname.startsWith('/snapshot');
+  if (process.env.MAESTRO_CLI_PATH) {
+    return { maestroBin: process.env.MAESTRO_CLI_PATH, monorepoRoot: null };
+  }
+  if (!isPkg) {
+    const monorepoRoot = resolvePath(__dirname, '..', '..', '..');
+    return {
+      maestroBin: join(monorepoRoot, 'node_modules', '.bin', 'maestro'),
+      monorepoRoot,
+    };
+  }
+  return { maestroBin: 'maestro', monorepoRoot: null };
+}
+
+function prependNodeModulesBin(pathValue: string | undefined, monorepoRoot: string | null): string | undefined {
+  if (!monorepoRoot) {
+    return pathValue;
+  }
+  const nodeModulesBin = join(monorepoRoot, 'node_modules', '.bin');
+  return `${nodeModulesBin}${pathDelimiter}${pathValue || ''}`;
+}
 
 /**
  * Generate manifest via CLI command
@@ -31,8 +54,10 @@ async function generateManifestViaCLI(options: {
   serverUrl?: string;
   initialDirective?: { subject: string; message: string; fromSessionId?: string };
   coordinatorSessionId?: string;
+  isMaster?: boolean;
+  memberOverrides?: Record<string, MemberLaunchOverride>;
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective } = options;
+  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective, memberOverrides } = options;
 
   const sessionDir = process.env.SESSION_DIR
     ? (process.env.SESSION_DIR.startsWith('~') ? join(homedir(), process.env.SESSION_DIR.slice(1)) : process.env.SESSION_DIR)
@@ -56,27 +81,16 @@ async function generateManifestViaCLI(options: {
     ...(teamMemberId ? ['--team-member-id', teamMemberId] : []),
   ];
 
-  // Resolve maestro binary: use env var, monorepo path, or fall back to PATH
-  let maestroBin: string;
-  const isPkg = __dirname.startsWith('/snapshot');
-  if (process.env.MAESTRO_CLI_PATH) {
-    maestroBin = process.env.MAESTRO_CLI_PATH;
-  } else if (!isPkg) {
-    const monorepoRoot = resolvePath(__dirname, '..', '..', '..');
-    maestroBin = join(monorepoRoot, 'node_modules', '.bin', 'maestro');
-  } else {
-    maestroBin = 'maestro';
-  }
+  const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime();
 
   const spawnEnv: Record<string, string | undefined> = { ...process.env };
   // Ensure CLI subprocess can reach the server API (CLI reads MAESTRO_SERVER_URL, not SERVER_URL)
   if (serverUrl) {
     spawnEnv.MAESTRO_SERVER_URL = serverUrl;
   }
-  if (!isPkg) {
-    const monorepoRoot = resolvePath(__dirname, '..', '..', '..');
-    const nodeModulesBin = join(monorepoRoot, 'node_modules', '.bin');
-    spawnEnv.PATH = `${nodeModulesBin}:${spawnEnv.PATH || ''}`;
+  const runtimePath = prependNodeModulesBin(spawnEnv.PATH, monorepoRoot);
+  if (runtimePath) {
+    spawnEnv.PATH = runtimePath;
   }
 
   // Pass initial directive as env var for manifest generation
@@ -86,6 +100,14 @@ async function generateManifestViaCLI(options: {
 
   if (options.coordinatorSessionId) {
     spawnEnv.MAESTRO_COORDINATOR_SESSION_ID = options.coordinatorSessionId;
+  }
+
+  if (options.isMaster) {
+    spawnEnv.MAESTRO_IS_MASTER = 'true';
+  }
+
+  if (memberOverrides && Object.keys(memberOverrides).length > 0) {
+    spawnEnv.MAESTRO_MEMBER_OVERRIDES = JSON.stringify(memberOverrides);
   }
 
   return new Promise((resolve, reject) => {
@@ -152,6 +174,53 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       message: err.message,
       code: 'INTERNAL_ERROR'
     });
+  };
+
+  const resolveSessionMode = (session: any): string => {
+    const metadataMode = session?.metadata?.mode;
+    const envMode = session?.env?.MAESTRO_MODE;
+    return String(metadataMode || envMode || '').trim();
+  };
+
+  const canCommunicateWithinTeamBoundary = (sender: any, target: any): boolean => {
+    if (!sender || !target) return false;
+    if (sender.id === target.id) return false;
+
+    // Spawned sessions can message their parent coordinator and siblings (same parent).
+    if (sender.parentSessionId) {
+      if (target.id === sender.parentSessionId) {
+        return true;
+      }
+      return Boolean(target.parentSessionId && target.parentSessionId === sender.parentSessionId);
+    }
+
+    // Root coordinators can message their direct team sessions.
+    return Boolean(target.parentSessionId && target.parentSessionId === sender.id);
+  };
+
+  const resolveSenderName = (session: any): string => {
+    const fromPrimarySnapshot = session?.teamMemberSnapshot?.name;
+    const fromMultiSnapshot = Array.isArray(session?.teamMemberSnapshots) ? session.teamMemberSnapshots[0]?.name : undefined;
+    const fromMetadataSnapshot = session?.metadata?.teamMemberSnapshot?.name;
+    const fromMetadata = session?.metadata?.teamMemberName;
+    const fromSessionName = session?.name;
+    return String(
+      fromPrimarySnapshot ||
+      fromMultiSnapshot ||
+      fromMetadataSnapshot ||
+      fromMetadata ||
+      fromSessionName ||
+      'Unknown'
+    ).trim();
+  };
+
+  const prependSenderIdentity = (content: string, senderName: string, senderSessionId: string): string => {
+    const prefix = `[From: ${senderName} (${senderSessionId})]`;
+    const trimmedLeading = content.trimStart();
+    if (trimmedLeading.startsWith(prefix)) {
+      return content;
+    }
+    return `${prefix} ${content}`;
   };
 
   // Create session
@@ -221,6 +290,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
       if (req.query.parentSessionId) {
         filter.parentSessionId = req.query.parentSessionId as string;
+      }
+      if (req.query.rootSessionId) {
+        filter.rootSessionId = req.query.rootSessionId as string;
       }
       if (req.query.teamSessionId) {
         filter.teamSessionId = req.query.teamSessionId as string;
@@ -537,7 +609,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     }
   });
 
-  // Send a prompt to a session's terminal (allowed for any existing session; UI-side gating handles terminal availability)
+  // Send a prompt to a session's terminal
   router.post('/sessions/:id/prompt', async (req: Request, res: Response) => {
     try {
       const { content, mode = 'send', senderSessionId } = req.body;
@@ -548,26 +620,41 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       if (!['send', 'paste'].includes(mode)) {
         return res.status(400).json({ error: 'mode must be "send" or "paste"' });
       }
+      if (!senderSessionId || typeof senderSessionId !== 'string') {
+        return res.status(400).json({ error: 'senderSessionId is required and must be a string' });
+      }
 
       const sessionId = req.params.id as string;
       const session = await sessionService.getSession(sessionId);
+      const senderSession = await sessionService.getSession(senderSessionId);
 
-      // Allow prompts to any existing session — the UI-side gating (!s.exited)
-      // determines whether the terminal is still open. A session can be "completed"
-      // in maestro status but still have its terminal running in the UI.
+      if (!canCommunicateWithinTeamBoundary(senderSession, session)) {
+        return res.status(403).json({
+          error: true,
+          code: 'prompt_scope_violation',
+          message: 'Session prompt is limited to parent/sibling sessions (or direct team sessions for a root coordinator).',
+          details: {
+            senderSessionId,
+            targetSessionId: sessionId,
+          },
+        });
+      }
+
+      const senderName = resolveSenderName(senderSession);
+      const contentWithSender = prependSenderIdentity(content, senderName, senderSessionId);
 
       await eventBus.emit('session:prompt_send', {
         sessionId,
-        content,
+        content: contentWithSender,
         mode,
-        senderSessionId: senderSessionId || null,
+        senderSessionId,
         timestamp: Date.now(),
       });
 
       await sessionService.addTimelineEvent(
         sessionId,
         'prompt_received',
-        `Received prompt from session ${senderSessionId || 'unknown'}: "${content.substring(0, 100)}${content.length > 100 ? '...' : ''}"`,
+        `Received prompt from session ${senderSessionId}: "${contentWithSender.substring(0, 100)}${contentWithSender.length > 100 ? '...' : ''}"`,
         undefined,
         { senderSessionId, mode }
       );
@@ -582,9 +669,23 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   router.post('/sessions/:id/mail', async (req: Request, res: Response) => {
     try {
       const toSessionId = req.params.id as string;
-      const { fromSessionId, fromName, message, detail } = req.body;
-      if (!fromSessionId || !fromName || !message) {
-        return res.status(400).json({ error: true, message: 'fromSessionId, fromName, and message are required' });
+      const { fromSessionId, message, detail } = req.body;
+      if (!fromSessionId || !message) {
+        return res.status(400).json({ error: true, message: 'fromSessionId and message are required' });
+      }
+      const toSession = await sessionService.getSession(toSessionId);
+      const fromSession = await sessionService.getSession(fromSessionId);
+      const fromName = resolveSenderName(fromSession);
+      if (!canCommunicateWithinTeamBoundary(fromSession, toSession)) {
+        return res.status(403).json({
+          error: true,
+          code: 'mail_scope_violation',
+          message: 'Session notify/mail is limited to parent/sibling sessions (or direct team sessions for a root coordinator).',
+          details: {
+            fromSessionId,
+            toSessionId,
+          },
+        });
       }
       const mail = await mailService.notify({ fromSessionId, fromName, toSessionId, message, detail });
       res.json({ success: true, mailId: mail.id });
@@ -618,7 +719,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         skills,
         sessionId,              // Parent session ID when spawnSource === 'session'
         spawnSource = 'ui',     // 'ui' or 'session'
-        mode: requestedMode,    // Three-axis model: 'execute' or 'coordinate'
+        mode: requestedMode,    // Four-mode model: worker, coordinator, coordinated-worker, coordinated-coordinator
         context,
         teamMemberIds,          // Multiple team member identities for this session
         delegateTeamMemberIds,  // Team member IDs for coordination delegation pool
@@ -629,10 +730,42 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         memberOverrides,                 // Per-member launch overrides: Record<string, MemberLaunchOverride>
       } = req.body;
 
-      // Resolve effective team member IDs from request params
-      let effectiveTeamMemberIds: string[] = teamMemberIds && teamMemberIds.length > 0
-        ? teamMemberIds
-        : (teamMemberId ? [teamMemberId] : []);
+      let normalizedMemberOverrides: Record<string, MemberLaunchOverride> | undefined =
+        memberOverrides && typeof memberOverrides === 'object' && !Array.isArray(memberOverrides)
+          ? memberOverrides
+          : undefined;
+
+      const requestedModeInput = String(requestedMode || 'worker');
+      const requestedCoordinatorMode =
+        requestedModeInput === 'coordinator' ||
+        requestedModeInput === 'coordinated-coordinator' ||
+        requestedModeInput === 'coordinate';
+
+      // Resolve identity/self + delegation as separate concepts for coordinator modes.
+      let effectiveTeamMemberIds: string[] = [];
+      let effectiveDelegateTeamMemberIds: string[] = [];
+
+      if (requestedCoordinatorMode) {
+        if (teamMemberId) {
+          effectiveTeamMemberIds = [teamMemberId];
+        } else if (teamMemberIds && teamMemberIds.length > 0) {
+          // Backward compat: old payloads overloaded teamMemberIds; deterministic first is self.
+          effectiveTeamMemberIds = [teamMemberIds[0]];
+        }
+
+        if (delegateTeamMemberIds && delegateTeamMemberIds.length > 0) {
+          effectiveDelegateTeamMemberIds = delegateTeamMemberIds;
+        } else if (teamMemberIds && teamMemberIds.length > 0) {
+          // Backward compat:
+          // - if explicit self exists, treat teamMemberIds as delegate roster
+          // - otherwise, consume remainder after deterministic self
+          effectiveDelegateTeamMemberIds = teamMemberId ? teamMemberIds : teamMemberIds.slice(1);
+        }
+      } else {
+        effectiveTeamMemberIds = teamMemberIds && teamMemberIds.length > 0
+          ? teamMemberIds
+          : (teamMemberId ? [teamMemberId] : []);
+      }
 
       // Validation
       if (!projectId) {
@@ -659,6 +792,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         });
       }
 
+      let parentSession: any | null = null;
+
       // Validate sessionId when spawnSource === 'session'
       if (spawnSource === 'session') {
         if (!sessionId) {
@@ -671,7 +806,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
         // Verify parent session exists
         try {
-          const parentSession = await sessionService.getSession(sessionId);
+          parentSession = await sessionService.getSession(sessionId);
           if (!parentSession) {
             return res.status(404).json({
               error: true,
@@ -684,6 +819,37 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
             error: true,
             code: 'parent_session_not_found',
             message: `Parent session ${sessionId} not found`
+          });
+        }
+      }
+
+      // Inherit memberOverrides from parent session when coordinator spawns workers
+      // This ensures launch-time overrides (model, permissionMode, etc.) propagate to child sessions
+      if (spawnSource === 'session' && parentSession && !normalizedMemberOverrides) {
+        const parentOverrides = parentSession.metadata?.memberOverrides;
+        if (parentOverrides && typeof parentOverrides === 'object' && !Array.isArray(parentOverrides)) {
+          normalizedMemberOverrides = parentOverrides;
+        }
+      }
+
+      const resolvedParentSessionId = spawnSource === 'session' && parentSession
+        ? parentSession.id
+        : null;
+      const resolvedRootSessionId = resolvedParentSessionId
+        ? (parentSession?.rootSessionId || parentSession?.id)
+        : null;
+
+      if (resolvedParentSessionId) {
+        const parentMode = resolveSessionMode(parentSession);
+        if (parentMode === 'coordinated-coordinator') {
+          return res.status(403).json({
+            error: true,
+            code: 'spawn_forbidden_for_mode',
+            message: 'coordinated-coordinator sessions cannot spawn new sessions. Coordinate only with existing team members.',
+            details: {
+              parentSessionId: resolvedParentSessionId,
+              parentMode,
+            },
           });
         }
       }
@@ -718,8 +884,41 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           }
         }
         if (taskTeamMemberIds.length > 0) {
-          effectiveTeamMemberIds = taskTeamMemberIds;
+          if (requestedCoordinatorMode) {
+            effectiveTeamMemberIds = [taskTeamMemberIds[0]];
+            if (effectiveDelegateTeamMemberIds.length === 0 && taskTeamMemberIds.length > 1) {
+              effectiveDelegateTeamMemberIds = taskTeamMemberIds.slice(1);
+            }
+          } else {
+            effectiveTeamMemberIds = taskTeamMemberIds;
+          }
         }
+      }
+
+      if (requestedCoordinatorMode && effectiveTeamMemberIds.length > 0 && effectiveDelegateTeamMemberIds.length > 0) {
+        const selfId = effectiveTeamMemberIds[0];
+        effectiveDelegateTeamMemberIds = effectiveDelegateTeamMemberIds.filter((id) => id !== selfId);
+      }
+
+      // Coordinator modes must include exactly one self identity profile for prompt normalization.
+      // If none was provided/resolved, pick a deterministic active coordinator member from the project.
+      if (requestedCoordinatorMode && effectiveTeamMemberIds.length === 0) {
+        const projectTeamMembers = await teamMemberRepo.findByProjectId(projectId);
+        const activeTeamMembers = projectTeamMembers.filter((member) => member.status !== 'archived');
+        const coordinatorSelf =
+          activeTeamMembers.find((member) => isCoordinatorMode(String(member.mode || ''))) ||
+          activeTeamMembers.find((member) => member.capabilities?.can_spawn_sessions) ||
+          activeTeamMembers[0];
+
+        if (!coordinatorSelf) {
+          return res.status(400).json({
+            error: true,
+            code: 'missing_coordinator_self_identity',
+            message: 'Coordinator mode requires one self team member profile. Provide teamMemberId or create an active coordinator team member.',
+          });
+        }
+
+        effectiveTeamMemberIds = [coordinatorSelf.id];
       }
 
       // Fetch team member defaults from the effective members (after task-level fallback)
@@ -734,7 +933,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
             const teamMember = await teamMemberRepo.findById(projectId, tmId);
             if (teamMember && teamMember.status !== 'archived') {
               // Apply per-member overrides if provided
-              const override = memberOverrides && memberOverrides[tmId];
+              const override = normalizedMemberOverrides && normalizedMemberOverrides[tmId];
               const effectiveModel = override?.model || teamMember.model;
               const effectiveAgentTool = override?.agentTool || teamMember.agentTool;
               const effectivePermissionMode = override?.permissionMode || teamMember.permissionMode;
@@ -776,16 +975,19 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         }
       }
 
-      // Resolve mode (defaults to team member's mode, then 'execute')
-      const resolvedMode: AgentMode = (requestedMode as AgentMode) || teamMemberDefaults.mode || 'execute';
-
-      if (resolvedMode !== 'execute' && resolvedMode !== 'coordinate') {
+      // Resolve mode with four-mode normalization
+      const rawMode = (requestedMode as string) || teamMemberDefaults.mode || 'worker';
+      const validModes = ['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'];
+      if (!validModes.includes(rawMode)) {
         return res.status(400).json({
           error: true,
           code: 'invalid_mode',
-          message: 'mode must be "execute" or "coordinate"'
+          message: `mode must be one of: ${validModes.join(', ')}`
         });
       }
+      // Auto-derive coordinated modes when spawned by a session
+      const hasCoordinator = !!resolvedParentSessionId;
+      const resolvedMode: AgentMode = normalizeMode(rawMode, hasCoordinator);
 
       // Resolve model and agentTool: request overrides > team member defaults
       const resolvedModel = requestedModel || teamMemberDefaults.model;
@@ -804,12 +1006,12 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const skillsToUse = skills && Array.isArray(skills) ? skills : [];
 
       // Create session with suppressed created event
-      const modeLabel = resolvedMode === 'coordinate' ? 'Coordinate' : 'Execute';
+      const modeLabel = isCoordinatorMode(resolvedMode) ? 'Coordinate' : 'Execute';
 
       // Determine teamSessionId:
       // Workers inherit the coordinator's session ID as teamSessionId.
       // Coordinator gets teamSessionId = its own ID (set after creation).
-      const isSessionSpawned = spawnSource === 'session' && sessionId;
+      const isSessionSpawned = !!resolvedParentSessionId;
 
       const session = await sessionService.createSession({
         projectId,
@@ -819,23 +1021,26 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         env: {},
         metadata: {
           skills: skillsToUse,
-          spawnedBy: sessionId || null,
+          spawnedBy: resolvedParentSessionId,
           spawnSource,
           mode: resolvedMode,
+          agentTool: resolvedAgentToolFromMember || 'claude-code',
+          model: resolvedModel || null,
           teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : null,
           teamMemberIds: effectiveTeamMemberIds.length > 0 ? effectiveTeamMemberIds : null,
           context: context || {},
-          ...(memberOverrides && Object.keys(memberOverrides).length > 0 ? { memberOverrides } : {}),
+          ...(normalizedMemberOverrides && Object.keys(normalizedMemberOverrides).length > 0 ? { memberOverrides: normalizedMemberOverrides } : {}),
         },
-        parentSessionId: sessionId || null,
-        teamSessionId: isSessionSpawned ? sessionId! : null,
+        parentSessionId: resolvedParentSessionId,
+        rootSessionId: resolvedRootSessionId,
+        teamSessionId: isSessionSpawned ? resolvedParentSessionId! : null,
         _suppressCreatedEvent: true
       });
 
       // Ensure coordinator session has teamSessionId = its own ID on first spawn
       if (isSessionSpawned) {
         try {
-          const coordinatorSession = await sessionService.getSession(sessionId!);
+          const coordinatorSession = await sessionService.getSession(resolvedParentSessionId!);
           if (coordinatorSession && !coordinatorSession.teamSessionId) {
             await sessionService.updateSession(coordinatorSession.id, { teamSessionId: coordinatorSession.id });
           }
@@ -880,14 +1085,22 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           agentTool: resolvedAgentToolFromMember,
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
           // Multi-identity: pass teamMemberIds for multi-member sessions
-          teamMemberIds: effectiveTeamMemberIds.length > 1 ? effectiveTeamMemberIds : (delegateTeamMemberIds && delegateTeamMemberIds.length > 0 ? delegateTeamMemberIds : undefined),
+          teamMemberIds: effectiveTeamMemberIds.length > 1
+            ? effectiveTeamMemberIds
+            : (effectiveDelegateTeamMemberIds.length > 0 ? effectiveDelegateTeamMemberIds : undefined),
           // Single identity: backward compat
           teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : undefined,
           // Pass server URL so CLI subprocess can reach the API
           serverUrl: config.serverUrl,
           // Pass initial directive for guaranteed delivery in manifest
           initialDirective: initialDirective || undefined,
-          coordinatorSessionId: sessionId || undefined,
+          coordinatorSessionId: resolvedParentSessionId || undefined,
+          // Pass master flag so CLI includes cross-project data in manifest
+          isMaster: project.isMaster === true,
+          // Pass per-member launch overrides so CLI manifest reflects effective identity config
+          memberOverrides: normalizedMemberOverrides && Object.keys(normalizedMemberOverrides).length > 0
+            ? normalizedMemberOverrides
+            : undefined,
         });
         manifestPath = result.manifestPath;
         manifest = result.manifest;
@@ -902,9 +1115,10 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       // Prepare spawn data
       const resolvedAgentTool = resolvedAgentToolFromMember || 'claude-code';
-      const initCommand = resolvedMode === 'coordinate' ? 'orchestrator' : 'worker';
+      const initCommand = isCoordinatorMode(resolvedMode) ? 'orchestrator' : 'worker';
       const command = `maestro ${initCommand} init`;
       const cwd = project.workingDir;
+      const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime();
 
       // Pass through auth-related API keys from server environment
       const authEnvKeys = [
@@ -926,18 +1140,31 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         authEnvVars['GOOGLE_GENAI_USE_GCA'] = 'true';
       }
 
-      const finalEnvVars = {
+      const finalEnvVars: Record<string, string> = {
         MAESTRO_SESSION_ID: session.id,
         MAESTRO_MANIFEST_PATH: manifestPath,
         MAESTRO_SERVER_URL: config.serverUrl,
         MAESTRO_MODE: resolvedMode,
-        MAESTRO_COORDINATOR_SESSION_ID: sessionId || '',
+        MAESTRO_COORDINATOR_SESSION_ID: resolvedParentSessionId || '',
+        MAESTRO_ROOT_SESSION_ID: session.rootSessionId || '',
         // Pass storage paths so CLI reads/writes to the correct environment directories
         DATA_DIR: config.dataDir,
         SESSION_DIR: config.sessionDir,
         // Pass through auth API keys so spawned agents can authenticate
         ...authEnvVars,
       };
+
+      // Ensure the init command resolves to the same CLI runtime used for manifest generation.
+      const runtimePathForInit = prependNodeModulesBin(process.env.PATH, monorepoRoot);
+      if (runtimePathForInit) {
+        finalEnvVars.PATH = runtimePathForInit;
+      }
+      finalEnvVars.MAESTRO_CLI_PATH = maestroBin;
+
+      // Propagate master session flag to spawned agent environment
+      if (project.isMaster === true) {
+        finalEnvVars.MAESTRO_IS_MASTER = 'true';
+      }
 
       // Update session env
       await sessionService.updateSession(session.id, { env: finalEnvVars });
@@ -952,7 +1179,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         projectId,
         taskIds,
         spawnSource,                        // NEW: 'ui' or 'session'
-        parentSessionId: sessionId || null, // NEW: parent session ID if session-initiated
+        parentSessionId: resolvedParentSessionId || null, // NEW: parent session ID if session-initiated
+        rootSessionId: session.rootSessionId || undefined, // NEW: root session ID for nested spawn chains
         _isSpawnCreated: true               // Keep for backward compatibility
       };
 

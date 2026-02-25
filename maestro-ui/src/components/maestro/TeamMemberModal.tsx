@@ -7,6 +7,11 @@ import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
 import { soundManager, getNotesForDisplay } from "../../services/soundManager";
 import type { SoundCategory } from "../../services/soundManager";
 import { assignRandomInstrument, getInstrumentEmoji, getInstrumentRole } from "../../services/soundTemplates";
+import {
+    getEffectiveCommandEnabled,
+    isCommandAllowedForMode,
+    toggleCommandOverride,
+} from "../../utils/commandPermissions";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -55,37 +60,55 @@ const DEFAULT_MODEL: Record<string, string> = {
     "gemini": "gemini-3-pro-preview",
 };
 
-const DEFAULT_CONFIGS: Record<string, { name: string; role: string; avatar: string; identity: string; agentTool: AgentTool; model: ModelType; mode: AgentMode }> = {
+const DEFAULT_CONFIGS: Record<string, {
+    name: string;
+    role: string;
+    avatar: string;
+    identity: string;
+    agentTool: AgentTool;
+    model: ModelType;
+    mode: AgentMode;
+    commandPermissions?: {
+        commands?: Record<string, boolean>;
+    };
+}> = {
     simple_worker: {
         name: "Simple Worker", role: "Default executor", avatar: "\u26A1",
         identity: "You are a worker agent. You implement tasks directly \u2014 write code, run tests, fix bugs.",
-        agentTool: "claude-code", model: "sonnet", mode: "execute",
+        agentTool: "claude-code", model: "sonnet", mode: "worker",
     },
     coordinator: {
         name: "Coordinator", role: "Task orchestrator", avatar: "\u{1F3AF}",
         identity: "You are a coordinator agent. You break down complex tasks, assign work to team members, and track progress.",
-        agentTool: "claude-code", model: "sonnet", mode: "coordinate",
+        agentTool: "claude-code", model: "sonnet", mode: "coordinator",
     },
     batch_coordinator: {
         name: "Batch Coordinator", role: "Intelligent batch orchestrator", avatar: "\u{1F4E6}",
         identity: "You are a batch coordinator agent. You group related tasks into intelligent batches.",
-        agentTool: "claude-code", model: "sonnet", mode: "coordinate",
+        agentTool: "claude-code", model: "sonnet", mode: "coordinator",
     },
     dag_coordinator: {
         name: "DAG Coordinator", role: "DAG-based orchestrator", avatar: "\u{1F500}",
         identity: "You are a DAG coordinator agent. You model task dependencies as a directed acyclic graph.",
-        agentTool: "claude-code", model: "sonnet", mode: "coordinate",
+        agentTool: "claude-code", model: "sonnet", mode: "coordinator",
     },
     recruiter: {
         name: "Recruiter", role: "Team member recruiter with skill discovery", avatar: "\u{1F50D}",
         identity: "You are a recruiter agent. You analyze task requirements, discover and install relevant skills from the ecosystem using the find-skills skill (npx skills find/add), and create appropriately configured team members with matched skills. You present a detailed recruitment plan for approval before creating any team members.",
-        agentTool: "claude-code", model: "sonnet", mode: "execute",
+        agentTool: "claude-code", model: "sonnet", mode: "worker",
+        commandPermissions: {
+            commands: {
+                "team-member:create": true,
+                "team-member:list": true,
+                "team-member:get": true,
+            },
+        },
     },
 };
 
 function getDefaultCapabilities(mode: AgentMode): Record<string, boolean> {
     return {
-        can_spawn_sessions: mode === 'coordinate',
+        can_spawn_sessions: mode === 'coordinator' || mode === 'coordinated-coordinator' || mode === 'coordinate' as any,
         can_edit_tasks: true,
         can_report_task_level: true,
         can_report_session_level: true,
@@ -261,12 +284,12 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
     const [identity, setIdentity] = useState("");
     const [agentTool, setAgentTool] = useState<AgentTool>("claude-code");
     const [model, setModel] = useState<ModelType>("sonnet");
-    const [mode, setMode] = useState<AgentMode>("execute");
+    const [mode, setMode] = useState<AgentMode>("worker");
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<string | null>(null);
     const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
-    const [capabilities, setCapabilities] = useState<Record<string, boolean>>(() => getDefaultCapabilities('execute'));
+    const [capabilities, setCapabilities] = useState<Record<string, boolean>>(() => getDefaultCapabilities('worker'));
     const [commandOverrides, setCommandOverrides] = useState<Record<string, boolean>>({});
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const [workflowTemplateId, setWorkflowTemplateId] = useState<string>('');
@@ -314,10 +337,10 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
             setIdentity(teamMember.identity);
             setAgentTool(teamMember.agentTool || "claude-code");
             setModel((teamMember.model || "sonnet") as ModelType);
-            setMode(teamMember.mode || "execute");
+            setMode(teamMember.mode || "worker");
             setPermissionMode(teamMember.permissionMode || "acceptEdits");
             setSelectedSkills(teamMember.skillIds || []);
-            const memberMode = teamMember.mode || 'execute';
+            const memberMode = teamMember.mode || 'worker';
             setCapabilities(
                 teamMember.capabilities
                     ? { ...getDefaultCapabilities(memberMode), ...teamMember.capabilities }
@@ -342,10 +365,10 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
             setIdentity("");
             setAgentTool("claude-code");
             setModel("sonnet");
-            setMode("execute");
+            setMode("worker");
             setPermissionMode("acceptEdits");
             setSelectedSkills([]);
-            setCapabilities(getDefaultCapabilities('execute'));
+            setCapabilities(getDefaultCapabilities('worker'));
             setCommandOverrides({});
             setWorkflowTemplateId('');
             setUseCustomWorkflow(false);
@@ -369,13 +392,8 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
     }, []);
 
     const handleCommandToggle = useCallback((cmd: string) => {
-        setCommandOverrides(prev => {
-            const next = { ...prev };
-            if (cmd in next) delete next[cmd];
-            else next[cmd] = false;
-            return next;
-        });
-    }, []);
+        setCommandOverrides(prev => toggleCommandOverride(prev, cmd, mode));
+    }, [mode]);
 
     const toggleGroupExpanded = useCallback((group: string) => {
         setExpandedGroups(prev => {
@@ -405,7 +423,7 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
         setMode(defaults.mode);
         setPermissionMode('acceptEdits');
         setCapabilities(getDefaultCapabilities(defaults.mode));
-        setCommandOverrides({});
+        setCommandOverrides(defaults.commandPermissions?.commands ? { ...defaults.commandPermissions.commands } : {});
         setSelectedSkills([]);
         setWorkflowTemplateId('');
         setUseCustomWorkflow(false);
@@ -565,16 +583,16 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                                 <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Mode</div>
                                 {isEditMode && isDefault ? (
                                     <span className={`splitPlayDropdown__modeBadge splitPlayDropdown__modeBadge--${mode}`} style={{ fontSize: '11px' }}>
-                                        {mode === 'execute' ? 'Worker' : 'Orchestrator'}
+                                        {mode === 'worker' || mode === 'coordinated-worker' || (mode as string) === 'execute' ? 'Worker' : 'Orchestrator'}
                                     </span>
                                 ) : (
                                     <div className="themedSegmentedControl" style={{ margin: 0 }}>
                                         <button
                                             type="button"
-                                            className={`themedSegmentedBtn ${mode === 'execute' ? 'active' : ''}`}
+                                            className={`themedSegmentedBtn ${mode === 'worker' ? 'active' : ''}`}
                                             onClick={() => {
-                                                setMode('execute');
-                                                setCapabilities(getDefaultCapabilities('execute'));
+                                                setMode('worker');
+                                                setCapabilities(getDefaultCapabilities('worker'));
                                                 setWorkflowTemplateId('');
                                             }}
                                             style={{ padding: '5px 12px', fontSize: '10px' }}
@@ -584,10 +602,10 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                                         </button>
                                         <button
                                             type="button"
-                                            className={`themedSegmentedBtn ${mode === 'coordinate' ? 'active' : ''}`}
+                                            className={`themedSegmentedBtn ${mode === 'coordinator' ? 'active' : ''}`}
                                             onClick={() => {
-                                                setMode('coordinate');
-                                                setCapabilities(getDefaultCapabilities('coordinate'));
+                                                setMode('coordinator');
+                                                setCapabilities(getDefaultCapabilities('coordinator'));
                                                 setWorkflowTemplateId('');
                                             }}
                                             style={{ padding: '5px 12px', fontSize: '10px' }}
@@ -824,11 +842,12 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                                 <div className="tmModal__permCard">
                                     <div className="tmModal__permCardLabel">Command Permissions</div>
                                     <div className="themedFormHint" style={{ marginBottom: '6px' }}>
-                                        All commands enabled by default. Toggle off to restrict.
+                                        Defaults depend on mode. Toggle to restrict or explicitly grant mode-supported commands.
                                     </div>
                                     {COMMAND_GROUPS.map(group => {
                                         const isExpanded = expandedGroups.has(group.key);
-                                        const disabledCount = group.commands.filter(c => commandOverrides[c] === false).length;
+                                        const supportedCommands = group.commands.filter(c => isCommandAllowedForMode(c, mode));
+                                        const enabledCount = supportedCommands.filter(c => getEffectiveCommandEnabled(c, mode, commandOverrides)).length;
                                         return (
                                             <div key={group.key} style={{ marginBottom: '2px' }}>
                                                 <button
@@ -846,23 +865,29 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                                                     </span>
                                                     <span style={{ fontWeight: 500 }}>{group.label}</span>
                                                     <span style={{ opacity: 0.5, fontSize: '10px' }}>
-                                                        ({group.commands.length - disabledCount}/{group.commands.length})
+                                                        ({enabledCount}/{supportedCommands.length})
                                                     </span>
                                                 </button>
                                                 {isExpanded && (
                                                     <div style={{ paddingLeft: '20px', display: 'flex', flexWrap: 'wrap', gap: '4px 16px', paddingTop: '4px', paddingBottom: '4px' }}>
                                                         {group.commands.map(cmd => {
-                                                            const isDisabled = commandOverrides[cmd] === false;
-                                                            const isChecked = !isDisabled;
+                                                            const modeSupported = isCommandAllowedForMode(cmd, mode);
+                                                            const isChecked = getEffectiveCommandEnabled(cmd, mode, commandOverrides);
                                                             return (
                                                                 <label
                                                                     key={cmd}
                                                                     className="terminalTaskCheckbox"
+                                                                    title={modeSupported ? undefined : 'Not available for current mode'}
                                                                     style={{
                                                                         display: 'flex', alignItems: 'center', gap: '5px',
-                                                                        cursor: 'pointer', opacity: isDisabled ? 0.5 : 1, marginRight: 0,
+                                                                        cursor: modeSupported ? 'pointer' : 'not-allowed',
+                                                                        opacity: modeSupported ? (isChecked ? 1 : 0.6) : 0.35,
+                                                                        marginRight: 0,
                                                                     }}
-                                                                    onClick={(e) => { e.preventDefault(); if (!isSaving) handleCommandToggle(cmd); }}
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        if (!isSaving && modeSupported) handleCommandToggle(cmd);
+                                                                    }}
                                                                 >
                                                                     <input type="checkbox" checked={isChecked} readOnly />
                                                                     <span className={`terminalTaskCheckmark ${isChecked ? 'terminalTaskCheckmark--checked' : ''}`} style={{ width: '14px', height: '14px', fontSize: '9px' }}>

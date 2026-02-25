@@ -57,6 +57,7 @@ export class FileSystemSessionRepository implements ISessionRepository {
           if (!session.events) { session.events = []; needsSave = true; }
           if (!session.timeline) { session.timeline = []; needsSave = true; }
           if (!session.docs) { session.docs = []; needsSave = true; }
+          if (!session.rootSessionId) { session.rootSessionId = session.id; needsSave = true; }
           // Remove deprecated strategy field if present
           if (session.strategy) { delete session.strategy; needsSave = true; }
 
@@ -130,6 +131,7 @@ export class FileSystemSessionRepository implements ISessionRepository {
       docs: [],
       metadata: input.metadata,
       parentSessionId: input.parentSessionId || null,
+      rootSessionId: input.rootSessionId || sessionId,
       teamSessionId: input.teamSessionId || null,
       teamId: input.teamId || null,
     };
@@ -178,6 +180,9 @@ export class FileSystemSessionRepository implements ISessionRepository {
       if (filter.parentSessionId) {
         sessions = sessions.filter(s => (s as any).parentSessionId === filter.parentSessionId);
       }
+      if (filter.rootSessionId) {
+        sessions = sessions.filter(s => (s as any).rootSessionId === filter.rootSessionId);
+      }
       if (filter.teamSessionId) {
         sessions = sessions.filter(s => s.teamSessionId === filter.teamSessionId);
       }
@@ -213,6 +218,9 @@ export class FileSystemSessionRepository implements ISessionRepository {
     if (updates.timeline !== undefined) session.timeline = [...session.timeline, ...updates.timeline];
     if (updates.needsInput !== undefined) {
       session.needsInput = updates.needsInput;
+    }
+    if (updates.rootSessionId !== undefined) {
+      session.rootSessionId = updates.rootSessionId;
     }
     if (updates.teamSessionId !== undefined) {
       session.teamSessionId = updates.teamSessionId;

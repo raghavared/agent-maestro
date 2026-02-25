@@ -1,0 +1,60 @@
+{
+  "manifestVersion": "1.0",
+  "mode": "coordinated-worker",
+  "tasks": [
+    {
+      "id": "task-v2-coordinated-worker",
+      "title": "Implement delegated task",
+      "description": "Use full expertise lens while honoring parent coordinator directive.",
+      "acceptanceCriteria": [
+        "Prompt includes coordination context",
+        "Prompt includes directive payload"
+      ],
+      "projectId": "proj-v2",
+      "createdAt": "2026-02-21T00:00:00Z"
+    }
+  ],
+  "session": {
+    "model": "sonnet",
+    "permissionMode": "acceptEdits"
+  },
+  "coordinatorSessionId": "sess-parent",
+  "initialDirective": {
+    "subject": "Start Phase 1",
+    "message": "Implement API scaffolding and report first milestone.",
+    "fromSessionId": "sess-parent"
+  },
+  "teamMemberProfiles": [
+    {
+      "id": "tm-self",
+      "name": "Self Worker",
+      "role": "Engineer",
+      "avatar": "S",
+      "identity": "Execute delegated implementation tasks"
+    }
+  ],
+  "availableTeamMembers": [
+    {
+      "id": "tm-peer-a",
+      "name": "Peer A",
+      "role": "Backend Engineer",
+      "identity": "Build backend implementation",
+      "avatar": "A",
+      "mode": "worker",
+      "permissionMode": "acceptEdits",
+      "model": "sonnet",
+      "agentTool": "claude-code"
+    },
+    {
+      "id": "tm-peer-b",
+      "name": "Peer B",
+      "role": "QA Engineer",
+      "identity": "Build test plan and validation",
+      "avatar": "B",
+      "mode": "worker",
+      "permissionMode": "readOnly",
+      "model": "opus",
+      "agentTool": "codex"
+    }
+  ]
+}

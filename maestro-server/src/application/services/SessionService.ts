@@ -34,6 +34,12 @@ export class SessionService {
       throw new NotFoundError('Project', input.projectId);
     }
 
+    // Inherit master session flag from project
+    if (project.isMaster) {
+      input.isMasterSession = true;
+      input.env = { ...input.env, MAESTRO_IS_MASTER: 'true' };
+    }
+
     // Verify all tasks exist
     if (input.taskIds && input.taskIds.length > 0) {
       for (const taskId of input.taskIds) {

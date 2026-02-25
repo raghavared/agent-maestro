@@ -1,4 +1,14 @@
-import type { MaestroManifest, AdditionalContext, AgentTool, AgentMode, TeamMemberData, TeamMemberProfile } from '../types/manifest.js';
+import type {
+  MaestroManifest,
+  AdditionalContext,
+  AgentTool,
+  AgentModeInput,
+  TeamMemberData,
+  TeamMemberProfile,
+  MasterProjectInfo,
+  AgentMode,
+} from '../types/manifest.js';
+import { normalizeMode, isCoordinatorMode } from '../types/manifest.js';
 import { DEFAULT_ACCEPTANCE_CRITERIA, MODE_VALIDATION_ERROR, AGENT_TOOL_VALIDATION_PREFIX } from '../prompts/index.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
@@ -33,6 +43,136 @@ export interface SessionOptions {
   timeout?: number;
   workingDirectory?: string;
   context?: AdditionalContext;
+}
+
+export function resolveSelfIdentityMemberIds(
+  mode: AgentMode,
+  teamMemberId?: string,
+  teamMemberIds?: string[],
+): string[] {
+  if (teamMemberId) {
+    return [teamMemberId];
+  }
+
+  const ids = (teamMemberIds || []).filter(Boolean);
+  if (ids.length === 0) {
+    return [];
+  }
+
+  if (isCoordinatorMode(mode)) {
+    return [ids[0]];
+  }
+
+  return ids;
+}
+
+type MemberPermissionMode = SessionOptions['permissionMode'];
+type MemberCommandPermissions = NonNullable<MaestroManifest['teamMemberCommandPermissions']>;
+
+interface MemberLaunchOverride {
+  agentTool?: AgentTool;
+  model?: string;
+  permissionMode?: MemberPermissionMode;
+  skillIds?: string[];
+  commandPermissions?: MemberCommandPermissions;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readBooleanRecord(value: unknown): Record<string, boolean> {
+  if (!isRecord(value)) return {};
+  const filtered: Record<string, boolean> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === 'boolean') {
+      filtered[key] = entry;
+    }
+  }
+  return filtered;
+}
+
+function mergeCommandPermissions(
+  base: MemberCommandPermissions | undefined,
+  override: MemberCommandPermissions | undefined,
+): MemberCommandPermissions | undefined {
+  if (!base && !override) return undefined;
+
+  const hasOverrideGroups = !!override && Object.prototype.hasOwnProperty.call(override, 'groups');
+  const hasOverrideCommands = !!override && Object.prototype.hasOwnProperty.call(override, 'commands');
+
+  const result: MemberCommandPermissions = {};
+  if (hasOverrideGroups || base?.groups) {
+    result.groups = hasOverrideGroups ? (override?.groups || {}) : (base?.groups || {});
+  }
+  if (hasOverrideCommands || base?.commands) {
+    result.commands = hasOverrideCommands ? (override?.commands || {}) : (base?.commands || {});
+  }
+
+  if (!('groups' in result) && !('commands' in result)) {
+    return undefined;
+  }
+
+  return result;
+}
+
+function parseMemberOverrides(raw: string | undefined): Record<string, MemberLaunchOverride> {
+  if (!raw) return {};
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!isRecord(parsed)) return {};
+
+    const overrides: Record<string, MemberLaunchOverride> = {};
+    for (const [memberId, value] of Object.entries(parsed)) {
+      if (!isRecord(value)) continue;
+
+      let commandPermissions: MemberCommandPermissions | undefined;
+      if (isRecord(value.commandPermissions)) {
+        const hasGroups = Object.prototype.hasOwnProperty.call(value.commandPermissions, 'groups');
+        const hasCommands = Object.prototype.hasOwnProperty.call(value.commandPermissions, 'commands');
+        if (hasGroups || hasCommands) {
+          commandPermissions = {
+            ...(hasGroups ? { groups: readBooleanRecord(value.commandPermissions.groups) } : {}),
+            ...(hasCommands ? { commands: readBooleanRecord(value.commandPermissions.commands) } : {}),
+          };
+        }
+      }
+
+      const override: MemberLaunchOverride = {
+        ...(typeof value.agentTool === 'string' ? { agentTool: value.agentTool as AgentTool } : {}),
+        ...(typeof value.model === 'string' ? { model: value.model } : {}),
+        ...(typeof value.permissionMode === 'string' ? { permissionMode: value.permissionMode as MemberPermissionMode } : {}),
+        ...(Array.isArray(value.skillIds)
+          ? { skillIds: value.skillIds.filter((entry): entry is string => typeof entry === 'string') }
+          : {}),
+        ...(commandPermissions && Object.keys(commandPermissions).length > 0 ? { commandPermissions } : {}),
+      };
+
+      if (Object.keys(override).length > 0) {
+        overrides[memberId] = override;
+      }
+    }
+
+    return overrides;
+  } catch {
+    return {};
+  }
+}
+
+function applyMemberOverride(teamMember: any, override: MemberLaunchOverride | undefined): any {
+  if (!override) return teamMember;
+
+  const mergedCommandPermissions = mergeCommandPermissions(teamMember.commandPermissions, override.commandPermissions);
+
+  return {
+    ...teamMember,
+    ...(override.agentTool !== undefined ? { agentTool: override.agentTool } : {}),
+    ...(override.model !== undefined ? { model: override.model } : {}),
+    ...(override.permissionMode !== undefined ? { permissionMode: override.permissionMode } : {}),
+    ...(override.skillIds !== undefined ? { skillIds: override.skillIds } : {}),
+    ...(mergedCommandPermissions ? { commandPermissions: mergedCommandPermissions } : {}),
+  };
 }
 
 /**
@@ -101,7 +241,7 @@ export class ManifestGeneratorCLICommand {
    * Execute the CLI command
    */
   async execute(options: {
-    mode: AgentMode;
+    mode: AgentModeInput;
     projectId: string;
     taskIds: string[];
     skills?: string[];
@@ -124,6 +264,8 @@ export class ManifestGeneratorCLICommand {
       const project = await this.fetchProject(options.projectId);
 
       // 3. Resolve model from CLI option (set by team member via server) or default to 'sonnet'
+      // Track whether the model was explicitly set vs defaulted, so team member overrides can take precedence
+      const hasExplicitModel = !!options.model;
       const resolvedModel = options.model || 'sonnet';
 
       // 4. Build session options
@@ -138,6 +280,7 @@ export class ManifestGeneratorCLICommand {
           },
         },
       };
+      const memberOverrides = parseMemberOverrides(process.env.MAESTRO_MEMBER_OVERRIDES);
 
       // 4. Generate manifest with all tasks
       const manifest = this.generator.generateManifest(
@@ -146,10 +289,12 @@ export class ManifestGeneratorCLICommand {
         sessionOptions
       );
 
-      // Add coordinator session ID from environment
+      // Add coordinator session ID from environment and normalize mode
       const coordinatorSessionId = process.env.MAESTRO_COORDINATOR_SESSION_ID;
       if (coordinatorSessionId) {
         manifest.coordinatorSessionId = coordinatorSessionId;
+        // Auto-derive coordinated mode when spawned by a coordinator.
+        manifest.mode = normalizeMode(manifest.mode as AgentModeInput, true);
       }
 
       // Add initial directive from environment (passed via spawn flow)
@@ -159,6 +304,28 @@ export class ManifestGeneratorCLICommand {
           manifest.initialDirective = JSON.parse(initialDirectiveEnv);
         } catch {
           // ignore parse error
+        }
+      }
+
+      // If this is a master session, fetch all projects and embed in manifest
+      if (process.env.MAESTRO_IS_MASTER === 'true') {
+        manifest.isMaster = true;
+        try {
+          const projectsData: any = await api.get('/api/master/projects');
+          const projects: MasterProjectInfo[] = Array.isArray(projectsData)
+            ? projectsData.map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                workingDir: p.workingDir,
+                ...(p.description ? { description: p.description } : {}),
+                ...(p.isMaster ? { isMaster: p.isMaster } : {}),
+              }))
+            : [];
+          if (projects.length > 0) {
+            manifest.masterProjects = projects;
+          }
+        } catch {
+          // non-fatal: master context will be partial
         }
       }
 
@@ -177,14 +344,17 @@ export class ManifestGeneratorCLICommand {
 
       // Add team member identity for this session
       // Multi-identity: if teamMemberIds (array) is provided, build profiles array
-      const effectiveTeamMemberIds = options.teamMemberIds && options.teamMemberIds.length > 0
-        ? options.teamMemberIds
-        : (options.teamMemberId ? [options.teamMemberId] : []);
+      const effectiveTeamMemberIds = resolveSelfIdentityMemberIds(
+        manifest.mode,
+        options.teamMemberId,
+        options.teamMemberIds,
+      );
 
       if (effectiveTeamMemberIds.length === 1 && !options.teamMemberIds?.length) {
         // Single team member — backward compat: use singular fields
         try {
-          const teamMember: any = await api.get(`/api/team-members/${effectiveTeamMemberIds[0]}?projectId=${options.projectId}`);
+          const teamMemberRaw: any = await api.get(`/api/team-members/${effectiveTeamMemberIds[0]}?projectId=${options.projectId}`);
+          const teamMember = applyMemberOverride(teamMemberRaw, memberOverrides[effectiveTeamMemberIds[0]]);
           manifest.teamMemberId = teamMember.id;
           manifest.teamMemberName = teamMember.name;
           manifest.teamMemberAvatar = teamMember.avatar;
@@ -197,12 +367,6 @@ export class ManifestGeneratorCLICommand {
           }
           if (teamMember.commandPermissions) {
             manifest.teamMemberCommandPermissions = teamMember.commandPermissions;
-          }
-          if (teamMember.workflowTemplateId) {
-            manifest.teamMemberWorkflowTemplateId = teamMember.workflowTemplateId;
-          }
-          if (teamMember.customWorkflow) {
-            manifest.teamMemberCustomWorkflow = teamMember.customWorkflow;
           }
           if (teamMember.permissionMode) {
             manifest.session.permissionMode = teamMember.permissionMode;
@@ -221,7 +385,8 @@ export class ManifestGeneratorCLICommand {
 
         for (const memberId of effectiveTeamMemberIds) {
           try {
-            const tm: any = await api.get(`/api/team-members/${memberId}?projectId=${options.projectId}`);
+            const tmRaw: any = await api.get(`/api/team-members/${memberId}?projectId=${options.projectId}`);
+            const tm = applyMemberOverride(tmRaw, memberOverrides[memberId]);
             profiles.push({
               id: tm.id,
               name: tm.name,
@@ -229,8 +394,6 @@ export class ManifestGeneratorCLICommand {
               identity: tm.identity,
               capabilities: tm.capabilities,
               commandPermissions: tm.commandPermissions,
-              workflowTemplateId: tm.workflowTemplateId,
-              customWorkflow: tm.customWorkflow,
               model: tm.model,
               agentTool: tm.agentTool,
               memory: tm.memory,
@@ -261,8 +424,8 @@ export class ManifestGeneratorCLICommand {
         if (profiles.length > 0) {
           manifest.teamMemberProfiles = profiles;
 
-          // Override model with most powerful from profiles (if not already set by launch settings)
-          if (resolvedModelFromProfiles && !options.model) {
+          // Override model with most powerful from profiles (if not explicitly set by launch settings)
+          if (resolvedModelFromProfiles && !hasExplicitModel) {
             manifest.session.model = resolvedModelFromProfiles;
           }
 
@@ -322,23 +485,29 @@ export class ManifestGeneratorCLICommand {
         for (const memberId of options.teamMemberIds) {
           try {
             // Fetch team member from new API instead of task storage
-            const teamMember: any = await api.get(`/api/team-members/${memberId}?projectId=${options.projectId}`);
+            const teamMemberRaw: any = await api.get(`/api/team-members/${memberId}?projectId=${options.projectId}`);
+            const teamMember = applyMemberOverride(teamMemberRaw, memberOverrides[memberId]);
             teamMembers.push({
               id: teamMember.id,
               name: teamMember.name,
               role: teamMember.role,
               identity: teamMember.identity,
               avatar: teamMember.avatar,
+              mode: teamMember.mode,
+              permissionMode: teamMember.permissionMode,
               skillIds: teamMember.skillIds,
               model: teamMember.model,
               agentTool: teamMember.agentTool,
+              capabilities: teamMember.capabilities,
+              commandPermissions: teamMember.commandPermissions,
+              memory: teamMember.memory,
             });
           } catch {
             // ignore team member load error
           }
         }
         if (teamMembers.length > 0) {
-          manifest.teamMembers = teamMembers;
+          manifest.availableTeamMembers = teamMembers;
         }
       }
 
@@ -359,7 +528,14 @@ export class ManifestGeneratorCLICommand {
       await writeFile(options.output, json, 'utf-8');
 
       process.exit(0);
-    } catch {
+    } catch (error: any) {
+      const message = error instanceof Error ? error.message : String(error || 'Manifest generation failed');
+      if (message) {
+        console.error(message);
+      }
+      if (process.env.MAESTRO_DEBUG === 'true' && error instanceof Error && error.stack) {
+        console.error(error.stack);
+      }
       process.exit(1);
     }
   }
@@ -374,13 +550,13 @@ export class ManifestGenerator {
   /**
    * Generate a manifest from task data
    *
-   * @param mode - Agent mode (execute or coordinate)
+   * @param mode - Agent mode (canonical modes plus legacy aliases accepted)
    * @param tasksData - Array of task information (supports multi-task sessions)
    * @param options - Session configuration
    * @returns Generated manifest
    */
   generateManifest(
-    mode: AgentMode,
+    mode: AgentModeInput,
     tasksData: TaskInput | TaskInput[],
     options: SessionOptions
   ): MaestroManifest {
@@ -403,7 +579,7 @@ export class ManifestGenerator {
 
     const manifest: MaestroManifest = {
       manifestVersion: '1.0',
-      mode,
+      mode: normalizeMode(mode, false),
       tasks: taskDataArray,
       session: {
         model: options.model,
@@ -465,7 +641,7 @@ export class ManifestGenerator {
    * @param outputPath - File path to save manifest
    */
   async generateAndSave(
-    mode: AgentMode,
+    mode: AgentModeInput,
     taskData: TaskInput,
     options: SessionOptions,
     outputPath: string
@@ -493,7 +669,7 @@ export function registerManifestCommands(program: any): void {
   manifest
     .command('generate')
     .description('Generate a manifest file from task and project data')
-    .requiredOption('--mode <mode>', 'Agent mode (execute or coordinate)')
+    .requiredOption('--mode <mode>', 'Agent mode (worker, coordinator, coordinated-worker, coordinated-coordinator, or legacy execute/coordinate)')
     .requiredOption('--project-id <id>', 'Project ID')
     .requiredOption('--task-ids <ids>', 'Comma-separated task IDs')
     .option('--skills <skills>', 'Comma-separated skills', 'maestro-worker')
@@ -508,8 +684,10 @@ export function registerManifestCommands(program: any): void {
       const taskIds = options.taskIds.split(',').map((id: string) => id.trim());
       const skills = options.skills.split(',').map((skill: string) => skill.trim());
 
-      // Validate mode
-      if (options.mode !== 'execute' && options.mode !== 'coordinate') {
+      // Validate mode (accept both new and legacy values)
+      const validModes = ['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'];
+      if (!validModes.includes(options.mode)) {
+        console.error(`Invalid mode: ${options.mode}. Must be one of: ${validModes.join(', ')}`);
         process.exit(1);
       }
 

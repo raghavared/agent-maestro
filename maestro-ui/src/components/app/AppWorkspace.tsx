@@ -1,10 +1,13 @@
-import React, { MutableRefObject, useCallback, useRef, useState } from "react";
+import React, { MutableRefObject, useCallback, useMemo, useRef, useState } from "react";
 import SessionTerminal, { TerminalRegistry } from "../../SessionTerminal";
 import { PendingDataBuffer } from "../../app/types/app-state";
 import { FileExplorerPanel } from "../FileExplorerPanel";
 import { Icon } from "../Icon";
 import { useSessionStore } from "../../stores/useSessionStore";
 import { useProjectStore } from "../../stores/useProjectStore";
+import { useMaestroStore } from "../../stores/useMaestroStore";
+import { useUIStore } from "../../stores/useUIStore";
+import { useSpacesStore } from "../../stores/useSpacesStore";
 import {
   useWorkspaceStore,
   getActiveWorkspaceKey,
@@ -12,6 +15,10 @@ import {
 } from "../../stores/useWorkspaceStore";
 import { isSshCommandLine, sshTargetFromCommandLine } from "../../app/utils/ssh";
 import { SessionLogStrip } from "../session-log/SessionLogStrip";
+import { isWhiteboardId, isDocumentId } from "../../app/types/space";
+import type { WhiteboardSpace, DocumentSpace } from "../../app/types/space";
+import { ExcalidrawBoard } from "../ExcalidrawBoard";
+import { DocViewer } from "../maestro/DocViewer";
 
 const LazyCodeEditorPanel = React.lazy(() => import("../CodeEditorPanel"));
 
@@ -33,6 +40,34 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
   const handleOpenTerminalAtPath = useSessionStore((s) => s.handleOpenTerminalAtPath);
   const sendPromptToActive = useSessionStore((s) => s.sendPromptToActive);
   const active = sessions.find((s) => s.id === activeId) ?? null;
+  const maestroSessions = useMaestroStore((s) => s.sessions);
+  const teamViewOpen = useUIStore((s) => s.teamViewGroupId) !== null;
+
+  // --- Spaces store (whiteboards & documents) ---
+  const allSpaces = useSpacesStore((s) => s.spaces);
+  const activeSpace = useMemo(
+    () => activeId ? allSpaces.find((s) => s.id === activeId) : undefined,
+    [allSpaces, activeId],
+  );
+  const closeWhiteboard = useSpacesStore((s) => s.closeWhiteboard);
+  const closeDocument = useSpacesStore((s) => s.closeDocument);
+
+  // Determine if we're showing a non-session space
+  const isActiveWhiteboard = activeId ? isWhiteboardId(activeId) : false;
+  const isActiveDocument = activeId ? isDocumentId(activeId) : false;
+  const isActiveSession = !isActiveWhiteboard && !isActiveDocument;
+
+  const activeLogAgentTool = (() => {
+    if (!active?.maestroSessionId) return active?.effectId ?? null;
+    const maestroSession = maestroSessions.get(active.maestroSessionId);
+    const snapshots = maestroSession?.teamMemberSnapshots?.length
+      ? maestroSession.teamMemberSnapshots
+      : maestroSession?.teamMemberSnapshot
+        ? [maestroSession.teamMemberSnapshot]
+        : [];
+    const metadataAgentTool = (maestroSession?.metadata as { agentTool?: string } | undefined)?.agentTool ?? null;
+    return snapshots[0]?.agentTool ?? metadataAgentTool ?? active.effectId ?? null;
+  })();
 
   // --- Project store ---
   const projects = useProjectStore((s) => s.projects);
@@ -121,9 +156,31 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
         } as React.CSSProperties
       }
     >
+      {/* Inline whiteboard space */}
+      {isActiveWhiteboard && activeSpace?.type === "whiteboard" && (
+        <ExcalidrawBoard
+          key={activeSpace.id}
+          inline
+          storageKey={(activeSpace as WhiteboardSpace).storageKey}
+          name={activeSpace.name}
+          onClose={() => closeWhiteboard(activeSpace.id)}
+        />
+      )}
+
+      {/* Inline document space */}
+      {isActiveDocument && activeSpace?.type === "document" && (
+        <DocViewer
+          key={activeSpace.id}
+          inline
+          doc={(activeSpace as DocumentSpace).doc}
+          onClose={() => closeDocument(activeSpace.id)}
+        />
+      )}
+
       <div
-        className={`terminalPane ${terminalDragOver ? "terminalPane--dragOver" : ""}`}
+        className={`terminalPane ${terminalDragOver ? "terminalPane--dragOver" : ""} ${teamViewOpen ? "terminalPane--teamView" : ""}`}
         aria-label="Terminal"
+        style={!isActiveSession ? { display: "none" } : undefined}
         onDragOver={handleTerminalDragOver}
         onDragEnter={handleTerminalDragEnter}
         onDragLeave={handleTerminalDragLeave}
@@ -135,6 +192,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
             key={active.id}
             cwd={active.cwd}
             maestroSessionId={active.maestroSessionId}
+            agentTool={activeLogAgentTool}
           />
         )}
         {sessions.length === 0 && (

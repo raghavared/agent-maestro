@@ -32,11 +32,13 @@ export interface TextOnlyDigest {
 
 interface PathCacheEntry {
   path: string;
+  source: 'claude' | 'codex';
   resolvedAt: number;
 }
 
 const PATH_CACHE_TTL_MS = 60_000; // 60s
 const TAIL_BYTES = 100 * 1024;    // 100KB tail
+const MAX_TAIL_BYTES = 1024 * 1024; // 1MB fallback tail for large tool outputs
 const MAX_TEXT_LENGTH = 150;
 
 // ── Tags & patterns to filter out ────────────────────────────
@@ -49,6 +51,19 @@ const NOISE_TAG_PATTERNS = [
 ];
 
 const SESSION_ID_REGEX = /<session_id>(sess_[^<]+)<\/session_id>/;
+const CODEX_EVENT_NOISE_TYPES = new Set([
+  'agent_reasoning',
+  'token_count',
+  'task_started',
+  'turn_context',
+  'user_message',
+]);
+const CODEX_MESSAGE_TEXT_TYPES = new Set([
+  'output_text',
+  'input_text',
+  'text',
+  'summary_text',
+]);
 
 /**
  * Stateless, on-demand service for reading Claude session JSONL logs
@@ -163,8 +178,8 @@ export class LogDigestService {
       }
     }
 
-    // Scan for JSONL files
-    const projectsDirs = await this.getProjectsDirs(workingDir);
+    // Scan Claude JSONL files
+    const projectsDirs = await this.getClaudeProjectsDirs(workingDir);
 
     for (const dir of projectsDirs) {
       try {
@@ -174,11 +189,11 @@ export class LogDigestService {
         for (const file of jsonlFiles) {
           const filePath = join(dir, file);
           try {
-            // Read first 8KB to find session ID
-            const header = await this.readHead(filePath, 8192);
+            // Read first 256KB to find session ID
+            const header = await this.readHead(filePath, 256 * 1024);
             const match = header.match(SESSION_ID_REGEX);
             if (match && match[1] === sessionId) {
-              this.pathCache.set(sessionId, { path: filePath, resolvedAt: Date.now() });
+              this.pathCache.set(sessionId, { path: filePath, source: 'claude', resolvedAt: Date.now() });
               return filePath;
             }
           } catch {
@@ -190,6 +205,30 @@ export class LogDigestService {
       }
     }
 
+    // Scan Codex JSONL files
+    const codexFiles = await this.getCodexSessionFiles();
+    for (const filePath of codexFiles) {
+      try {
+        // Read first 256KB to find session ID
+        const header = await this.readHead(filePath, 256 * 1024);
+        let match = header.match(SESSION_ID_REGEX);
+
+        // New Codex sessions can contain long instruction payloads before session_id.
+        // If needed, retry with a larger header window.
+        if (!match && header.includes('"type":"session_meta"')) {
+          const extendedHeader = await this.readHead(filePath, 1024 * 1024);
+          match = extendedHeader.match(SESSION_ID_REGEX);
+        }
+
+        if (match && match[1] === sessionId) {
+          this.pathCache.set(sessionId, { path: filePath, source: 'codex', resolvedAt: Date.now() });
+          return filePath;
+        }
+      } catch {
+        // Skip unreadable files
+      }
+    }
+
     return null;
   }
 
@@ -197,7 +236,7 @@ export class LogDigestService {
    * Get possible Claude projects directories to scan.
    * Encodes the working directory path: / → -
    */
-  private async getProjectsDirs(workingDir?: string | null): Promise<string[]> {
+  private async getClaudeProjectsDirs(workingDir?: string | null): Promise<string[]> {
     const claudeProjectsBase = join(homedir(), '.claude', 'projects');
     const dirs: string[] = [];
 
@@ -230,6 +269,42 @@ export class LogDigestService {
     return dirs;
   }
 
+  /**
+   * Enumerate Codex JSONL session files recursively from ~/.codex/sessions.
+   */
+  private async getCodexSessionFiles(): Promise<string[]> {
+    const root = join(homedir(), '.codex', 'sessions');
+    const files: string[] = [];
+
+    const walk = async (dir: string): Promise<void> => {
+      let entries: string[] = [];
+      try {
+        entries = await readdir(dir);
+      } catch {
+        return;
+      }
+
+      await Promise.all(entries.map(async (name) => {
+        const fullPath = join(dir, name);
+        try {
+          const s = await stat(fullPath);
+          if (s.isDirectory()) {
+            await walk(fullPath);
+            return;
+          }
+          if (s.isFile() && name.endsWith('.jsonl')) {
+            files.push(fullPath);
+          }
+        } catch {
+          // skip
+        }
+      }));
+    };
+
+    await walk(root);
+    return files;
+  }
+
   // ── File Reading ─────────────────────────────────────────
 
   /**
@@ -247,15 +322,30 @@ export class LogDigestService {
   }
 
   /**
-   * Read the tail of a JSONL file (last ~100KB).
+   * Read the tail of a JSONL file (last ~100KB, then up to 1MB fallback).
    * Returns parsed JSONL lines (drops first potentially truncated line).
    */
   private async readTail(filePath: string): Promise<any[]> {
     const fileStats = await stat(filePath);
     const fileSize = fileStats.size;
 
+    let windowBytes = Math.min(TAIL_BYTES, fileSize || TAIL_BYTES);
+    let parsed: any[] = [];
+
+    // Retry with larger windows when tail is dominated by oversized tool output lines.
+    while (true) {
+      parsed = await this.readTailWindow(filePath, fileSize, windowBytes);
+      const reachedLimit = windowBytes >= MAX_TAIL_BYTES || windowBytes >= fileSize;
+      if (parsed.length > 0 || reachedLimit) {
+        return parsed;
+      }
+      windowBytes = Math.min(fileSize, windowBytes * 2, MAX_TAIL_BYTES);
+    }
+  }
+
+  private async readTailWindow(filePath: string, fileSize: number, windowBytes: number): Promise<any[]> {
     let content: string;
-    const offset = Math.max(0, fileSize - TAIL_BYTES);
+    const offset = Math.max(0, fileSize - windowBytes);
 
     if (offset === 0) {
       // File is small enough to read entirely
@@ -263,8 +353,8 @@ export class LogDigestService {
     } else {
       const fh = await open(filePath, 'r');
       try {
-        const buf = Buffer.alloc(TAIL_BYTES);
-        const { bytesRead } = await fh.read(buf, 0, TAIL_BYTES, offset);
+        const buf = Buffer.alloc(windowBytes);
+        const { bytesRead } = await fh.read(buf, 0, windowBytes, offset);
         content = buf.toString('utf-8', 0, bytesRead);
       } finally {
         await fh.close();
@@ -296,6 +386,11 @@ export class LogDigestService {
    * @param maxLength - 0 for unlimited, positive number for max chars per entry
    */
   private extractTextEntries(lines: any[], maxLength: number = MAX_TEXT_LENGTH): TextEntry[] {
+    if (this.isCodexLog(lines)) {
+      return this.extractCodexTextEntries(lines, maxLength);
+    }
+
+    // Claude format
     const entries: TextEntry[] = [];
 
     for (const line of lines) {
@@ -318,6 +413,151 @@ export class LogDigestService {
     }
 
     return entries;
+  }
+
+  /**
+   * Extract human-readable text entries from Codex JSONL.
+   */
+  private extractCodexTextEntries(lines: any[], maxLength: number = MAX_TEXT_LENGTH): TextEntry[] {
+    const entries: TextEntry[] = [];
+
+    for (const line of lines) {
+      const timestamp = this.parseTimestamp(line, Date.now());
+      const lineType = line?.type;
+
+      if (lineType === 'event_msg') {
+        const eventText = this.extractCodexEventText(line?.payload);
+        if (!eventText) continue;
+
+        const cleaned = this.cleanText(eventText);
+        if (!cleaned) continue;
+
+        this.pushEntry(entries, {
+          timestamp,
+          text: this.truncateText(cleaned, maxLength),
+          source: 'assistant',
+        });
+        continue;
+      }
+
+      const message = this.getCodexMessage(line);
+      if (!message) continue;
+
+      const role = message.role;
+      const text = this.extractCodexMessageText(message.content);
+
+      if (!text) continue;
+
+      if (role === 'assistant') {
+        const cleaned = this.cleanText(text);
+        if (cleaned) {
+          this.pushEntry(entries, {
+            timestamp,
+            text: this.truncateText(cleaned, maxLength),
+            source: 'assistant',
+          });
+        }
+      } else if (role === 'user') {
+        const cleaned = this.cleanText(text);
+        if (cleaned && cleaned.length >= 3) {
+          this.pushEntry(entries, {
+            timestamp,
+            text: `[PROMPT] ${this.truncateText(cleaned, maxLength)}`,
+            source: 'user',
+          });
+        }
+      }
+    }
+
+    return entries;
+  }
+
+  private isCodexLog(lines: any[]): boolean {
+    return lines.some((line) => this.isCodexLine(line));
+  }
+
+  private isCodexLine(line: any): boolean {
+    if (!line || typeof line !== 'object') return false;
+
+    const type = line.type;
+    if (
+      type === 'response_item'
+      || type === 'session_meta'
+      || type === 'event_msg'
+      || type === 'function_call'
+      || type === 'function_call_output'
+      || type === 'reasoning'
+    ) {
+      return true;
+    }
+
+    if (type === 'message' && (line.role === 'assistant' || line.role === 'user')) {
+      return true;
+    }
+
+    return line.record_type === 'state';
+  }
+
+  private getCodexMessage(line: any): { role: string; content: any } | null {
+    if (!line || typeof line !== 'object') return null;
+
+    if (line.type === 'response_item') {
+      const payload = line.payload || {};
+      if (payload.type === 'message' && payload.role) {
+        return { role: payload.role, content: payload.content };
+      }
+      return null;
+    }
+
+    if (line.type === 'message' && line.role) {
+      return { role: line.role, content: line.content };
+    }
+
+    return null;
+  }
+
+  private extractCodexMessageText(content: any): string {
+    if (!content) return '';
+    if (typeof content === 'string') return content.trim();
+    if (!Array.isArray(content)) return '';
+
+    return content
+      .filter((block: any) => CODEX_MESSAGE_TEXT_TYPES.has(String(block?.type ?? '')))
+      .map((block: any) => String(block?.text ?? '').trim())
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+  }
+
+  private extractCodexEventText(payload: any): string | null {
+    if (!payload || typeof payload !== 'object') return null;
+    const eventType = String(payload.type ?? '');
+    if (CODEX_EVENT_NOISE_TYPES.has(eventType)) return null;
+
+    if (typeof payload.message === 'string' && payload.message.trim()) {
+      return payload.message.trim();
+    }
+
+    return null;
+  }
+
+  private parseTimestamp(line: any, fallback: number): number {
+    if (!line?.timestamp) return fallback;
+    const parsed = new Date(line.timestamp).getTime();
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  private pushEntry(entries: TextEntry[], entry: TextEntry): void {
+    const prev = entries.length > 0 ? entries[entries.length - 1] : null;
+    if (
+      prev
+      && prev.source === entry.source
+      && prev.text === entry.text
+      && Math.abs(prev.timestamp - entry.timestamp) <= 1000
+    ) {
+      return;
+    }
+    entries.push(entry);
   }
 
   /**
@@ -438,6 +678,10 @@ export class LogDigestService {
    * detected as stuck.
    */
   private detectStuck(lines: any[]): StuckSignal | null {
+    if (this.isCodexLog(lines)) {
+      return this.detectCodexStuck(lines);
+    }
+
     const STUCK_TOOL_CALL_THRESHOLD = 5;
     const STUCK_SILENCE_MS = 30_000; // 30 seconds
 
@@ -476,6 +720,63 @@ export class LogDigestService {
 
     if (lastTextTimestamp > 0 && silentDurationMs < STUCK_SILENCE_MS) {
       return null; // Recent text found — not stuck yet
+    }
+
+    return {
+      silentDurationMs,
+      toolCallsSinceLastText,
+      warning: `Worker has made ${toolCallsSinceLastText} tool calls without printing status text.`,
+    };
+  }
+
+  /**
+   * Detect stuck signal for Codex JSONL.
+   */
+  private detectCodexStuck(lines: any[]): StuckSignal | null {
+    const STUCK_TOOL_CALL_THRESHOLD = 5;
+    const STUCK_SILENCE_MS = 30_000; // 30 seconds
+
+    let toolCallsSinceLastText = 0;
+    let lastTextTimestamp = 0;
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i];
+
+      if (line?.type === 'event_msg') {
+        const eventText = this.extractCodexEventText(line?.payload);
+        if (eventText) {
+          lastTextTimestamp = this.parseTimestamp(line, 0);
+          break;
+        }
+        continue;
+      }
+
+      const message = this.getCodexMessage(line);
+      if (message?.role === 'assistant') {
+        const text = this.cleanText(this.extractCodexMessageText(message.content));
+        if (text) {
+          lastTextTimestamp = this.parseTimestamp(line, 0);
+          break;
+        }
+      }
+
+      if (line?.type === 'function_call') {
+        toolCallsSinceLastText++;
+        continue;
+      }
+
+      if (line?.type === 'response_item' && line?.payload?.type === 'function_call') {
+        toolCallsSinceLastText++;
+      }
+    }
+
+    if (toolCallsSinceLastText <= STUCK_TOOL_CALL_THRESHOLD) {
+      return null;
+    }
+
+    const silentDurationMs = lastTextTimestamp > 0 ? Date.now() - lastTextTimestamp : 0;
+    if (lastTextTimestamp > 0 && silentDurationMs < STUCK_SILENCE_MS) {
+      return null;
     }
 
     return {

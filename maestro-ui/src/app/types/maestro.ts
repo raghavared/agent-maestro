@@ -6,8 +6,11 @@ export type TaskPriority = 'low' | 'medium' | 'high';
 export type MaestroSessionStatus = 'spawning' | 'idle' | 'working' | 'completed' | 'failed' | 'stopped';
 export type SpawnSource = 'ui' | 'session';
 export type TaskSessionStatus = 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'skipped';
-// Three-axis model
-export type AgentMode = 'execute' | 'coordinate';
+// Four-mode model
+export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coordinated-coordinator';
+/** Legacy mode aliases for backward compatibility */
+export type LegacyAgentMode = 'execute' | 'coordinate';
+export type AgentModeInput = AgentMode | LegacyAgentMode;
 // Claude models
 export type ClaudeModel = 'haiku' | 'sonnet' | 'opus';
 // Codex models
@@ -231,6 +234,7 @@ export interface MaestroProject {
   name: string;
   workingDir: string;
   description?: string;
+  isMaster?: boolean;
   createdAt: number;
   updatedAt: number;
   // UI specific fields that might come from API or be computed
@@ -305,6 +309,12 @@ export interface MaestroTask {
   // Multiple team member identities for this task
   teamMemberIds?: string[];
 
+  // Per-member launch overrides saved on the task
+  memberOverrides?: Record<string, MemberLaunchOverride>;
+
+  // Docs attached to this task
+  docs?: DocEntry[];
+
   // UI/Populated Fields (Optional)
   subtasks?: MaestroTask[];
   sessionCount?: number; // UI computed field
@@ -321,6 +331,7 @@ export interface MaestroSession {
   name: string;
   agentId?: string;
   env: Record<string, string>;
+  metadata?: Record<string, any>;
   status: MaestroSessionStatus;
   startedAt: number;
   lastActivity: number;
@@ -367,6 +378,7 @@ export interface CreateTaskPayload {
   referenceTaskIds?: string[];
   teamMemberId?: string;
   teamMemberIds?: string[];
+  memberOverrides?: Record<string, MemberLaunchOverride>;
 }
 
 export interface UpdateTaskPayload {
@@ -386,6 +398,29 @@ export interface UpdateTaskPayload {
   teamMemberIds?: string[];
   // NOTE: timeline moved to Session - use addTimelineEvent on session
   completedAt?: number | null;
+}
+
+export interface TaskList {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string;
+  orderedTaskIds: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CreateTaskListPayload {
+  projectId: string;
+  name: string;
+  description?: string;
+  orderedTaskIds?: string[];
+}
+
+export interface UpdateTaskListPayload {
+  name?: string;
+  description?: string;
+  orderedTaskIds?: string[];
 }
 
 export interface CreateSessionPayload {
@@ -487,3 +522,8 @@ export interface Ordering {
   updatedAt: number;
 }
 
+export interface TaskListOrdering {
+  projectId: string;
+  orderedIds: string[];
+  updatedAt: number;
+}

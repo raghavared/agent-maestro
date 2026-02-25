@@ -1,7 +1,7 @@
 // Ordering types (separate from task/session models - UI ordering only)
 export interface Ordering {
   projectId: string;
-  entityType: 'task' | 'session';
+  entityType: string;
   orderedIds: string[];  // Ordered array of entity IDs
   updatedAt: number;
 }
@@ -10,13 +10,56 @@ export interface UpdateOrderingPayload {
   orderedIds: string[];
 }
 
+// Task list types (first-class entity)
+export interface TaskList {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string;
+  orderedTaskIds: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CreateTaskListPayload {
+  projectId: string;
+  name: string;
+  description?: string;
+  orderedTaskIds?: string[];
+}
+
+export interface UpdateTaskListPayload {
+  name?: string;
+  description?: string;
+  orderedTaskIds?: string[];
+}
+
 // Worker strategy types
 export type WorkerStrategy = 'simple' | 'tree';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 export type AgentTool = 'claude-code' | 'codex' | 'gemini';
 
-// Three-axis model types
-export type AgentMode = 'execute' | 'coordinate';
+// Four-mode model types
+export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coordinated-coordinator';
+/** Legacy mode aliases for backward compatibility */
+export type LegacyAgentMode = 'execute' | 'coordinate';
+/** All accepted mode values (includes legacy aliases) */
+export type AgentModeInput = AgentMode | LegacyAgentMode;
+
+/** Helper: is this a worker-type mode? */
+export function isWorkerMode(mode: string): boolean {
+  return mode === 'worker' || mode === 'coordinated-worker' || mode === 'execute';
+}
+/** Helper: is this a coordinator-type mode? */
+export function isCoordinatorMode(mode: string): boolean {
+  return mode === 'coordinator' || mode === 'coordinated-coordinator' || mode === 'coordinate';
+}
+/** Normalize legacy mode values to the four-mode model */
+export function normalizeMode(mode: string, hasCoordinator?: boolean): AgentMode {
+  if (mode === 'execute' || mode === 'worker') return hasCoordinator ? 'coordinated-worker' : 'worker';
+  if (mode === 'coordinate' || mode === 'coordinator') return hasCoordinator ? 'coordinated-coordinator' : 'coordinator';
+  return mode as AgentMode;
+}
 
 // Per-member launch override for team launch configuration
 export interface MemberLaunchOverride {
@@ -36,6 +79,7 @@ export interface Project {
   name: string;
   workingDir: string;
   description?: string;
+  isMaster?: boolean;        // Marks this as a master project with cross-project access
   createdAt: number;
   updatedAt: number;
 }
@@ -218,6 +262,9 @@ export interface Task {
 
   // Multiple team member identities for this task (takes precedence over teamMemberId)
   teamMemberIds?: string[];
+
+  // Per-member launch overrides saved on the task
+  memberOverrides?: Record<string, MemberLaunchOverride>;
 }
 
 export interface Session {
@@ -254,8 +301,10 @@ export interface Session {
   teamMemberIds?: string[];
   teamMemberSnapshots?: TeamMemberSnapshot[];
   parentSessionId?: string | null;
+  rootSessionId?: string | null;   // Top-most session in a spawn chain
   teamSessionId?: string | null;   // Shared ID linking coordinator + workers (= coordinator's session ID)
   teamId?: string | null;          // Optional saved Team reference
+  isMasterSession?: boolean;       // Derived from project.isMaster at spawn time
 }
 
 // Supporting types
@@ -319,6 +368,7 @@ export interface CreateTaskPayload {
   referenceTaskIds?: string[];
   teamMemberId?: string;
   teamMemberIds?: string[];
+  memberOverrides?: Record<string, MemberLaunchOverride>;
 }
 
 export type UpdateSource = 'user' | 'session';
@@ -354,8 +404,10 @@ export interface CreateSessionPayload {
   env?: Record<string, string>;
   metadata?: Record<string, any>;
   parentSessionId?: string | null;
+  rootSessionId?: string | null;
   teamSessionId?: string | null;
   teamId?: string | null;
+  isMasterSession?: boolean;       // Set when spawned in a master project
   _suppressCreatedEvent?: boolean;  // Internal: suppress session:created event
 }
 
@@ -371,6 +423,7 @@ export interface UpdateSessionPayload {
     message?: string;
     since?: number;
   };
+  rootSessionId?: string | null;
   teamSessionId?: string | null;
   teamId?: string | null;
 }
@@ -379,7 +432,7 @@ export interface UpdateSessionPayload {
 export interface SpawnSessionPayload {
   projectId: string;
   taskIds: string[];
-  mode?: AgentMode;                     // Three-axis model: 'execute' or 'coordinate'
+  mode?: AgentMode;                     // Four-mode model: worker/coordinator/coordinated-worker/coordinated-coordinator
   strategy?: string;                    // Deprecated: kept for backward compatibility
   spawnSource?: 'ui' | 'session';      // Who is calling (ui or session)
   sessionId?: string;                   // Required when spawnSource === 'session' (parent session ID)
@@ -389,6 +442,14 @@ export interface SpawnSessionPayload {
   teamMemberId?: string;                // Team member running this session (backward compat)
   teamMemberIds?: string[];             // Multiple team member identities for this session
   delegateTeamMemberIds?: string[];     // Team member IDs for coordination delegation pool
+  agentTool?: AgentTool;                // Override agent tool for this run
+  model?: string;                       // Override model for this run
+  initialDirective?: {
+    subject: string;
+    message: string;
+    fromSessionId?: string;
+  };
+  memberOverrides?: Record<string, MemberLaunchOverride>; // Per-member launch overrides
 }
 
 // Spawn request event (emitted by server to UI)
@@ -402,6 +463,7 @@ export interface SpawnRequestEvent {
   manifest?: any;
   spawnSource: 'ui' | 'session';        // Who initiated the spawn
   parentSessionId?: string;              // Parent session ID if session-initiated
+  rootSessionId?: string;                // Top-most session ID in the spawn chain
   _isSpawnCreated?: boolean;             // Backward compatibility flag
 }
 
@@ -424,4 +486,3 @@ export interface CreateMailPayload {
   message: string;
   detail?: string;
 }
-

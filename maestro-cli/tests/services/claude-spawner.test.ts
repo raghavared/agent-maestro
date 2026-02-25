@@ -3,7 +3,7 @@ import { ClaudeSpawner, type SpawnResult } from '../../src/services/claude-spawn
 import { SkillLoader } from '../../src/services/skill-loader.js';
 import type { MaestroManifest } from '../../src/types/manifest.js';
 import { existsSync, unlinkSync } from 'fs';
-import { mkdir, writeFile, rmdir } from 'fs/promises';
+import { mkdir, writeFile, rm } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
@@ -18,7 +18,7 @@ describe('ClaudeSpawner', () => {
 
     workerManifest = {
       manifestVersion: '1.0',
-      mode: 'execute',
+      mode: 'worker',
       tasks: [{
         id: 'task-123',
         title: 'Test task',
@@ -50,7 +50,7 @@ describe('ClaudeSpawner', () => {
       expect(env.MAESTRO_SESSION_ID).toBe('session-123');
       expect(env.MAESTRO_TASK_IDS).toBe('task-123');
       expect(env.MAESTRO_PROJECT_ID).toBe('proj-1');
-      expect(env.MAESTRO_MODE).toBe('execute');
+      expect(env.MAESTRO_MODE).toBe('worker');
     });
 
     it('should preserve existing environment variables', () => {
@@ -63,7 +63,7 @@ describe('ClaudeSpawner', () => {
     it('should handle optional fields', () => {
       const minimalManifest: MaestroManifest = {
         manifestVersion: '1.0',
-        mode: 'execute',
+        mode: 'worker',
         tasks: [{
           id: 'task-1',
           title: 'Test',
@@ -104,8 +104,8 @@ describe('ClaudeSpawner', () => {
   });
 
   describe('getPluginDir', () => {
-    it('should return plugin directory for execute mode', () => {
-      const pluginDir = spawner.getPluginDir('execute');
+    it('should return plugin directory for worker mode', () => {
+      const pluginDir = spawner.getPluginDir('worker');
 
       if (pluginDir) {
         expect(pluginDir).toContain('maestro-worker');
@@ -115,8 +115,8 @@ describe('ClaudeSpawner', () => {
       }
     });
 
-    it('should return plugin directory for coordinate mode', () => {
-      const pluginDir = spawner.getPluginDir('coordinate');
+    it('should return plugin directory for coordinator mode', () => {
+      const pluginDir = spawner.getPluginDir('coordinator');
 
       if (pluginDir) {
         expect(pluginDir).toContain('maestro-orchestrator');
@@ -128,7 +128,7 @@ describe('ClaudeSpawner', () => {
 
     it('should return null if plugin directory does not exist', () => {
       // In test environment, plugins may not exist
-      const pluginDir = spawner.getPluginDir('execute');
+      const pluginDir = spawner.getPluginDir('worker');
 
       // Should either exist or be null
       expect(pluginDir === null || typeof pluginDir === 'string').toBe(true);
@@ -136,7 +136,7 @@ describe('ClaudeSpawner', () => {
   });
 
   describe('buildClaudeArgs', () => {
-    it('should include --plugin-dir for execute mode', async () => {
+    it('should include --plugin-dir for worker mode', async () => {
       const args = await spawner.buildClaudeArgs(workerManifest);
 
       // Should include --plugin-dir if plugin directory exists
@@ -146,10 +146,10 @@ describe('ClaudeSpawner', () => {
       expect(typeof hasPluginDir).toBe('boolean');
     });
 
-    it('should include --plugin-dir for coordinate mode', async () => {
+    it('should include --plugin-dir for coordinator mode', async () => {
       const orchestratorManifest: MaestroManifest = {
         ...workerManifest,
-        mode: 'coordinate',
+        mode: 'coordinator',
       };
 
       const args = await spawner.buildClaudeArgs(orchestratorManifest);
@@ -192,20 +192,23 @@ describe('ClaudeSpawner', () => {
     });
 
     it('should include skill plugin directories when skills specified', async () => {
-      let testSkillsDir: string = '';
+      let testProjectDir = '';
 
       try {
-        // Create test skills directory
-        testSkillsDir = join(tmpdir(), `maestro-skills-test-${randomBytes(4).toString('hex')}`);
-        await mkdir(testSkillsDir, { recursive: true });
+        // Create isolated project-scoped skills directory tree
+        testProjectDir = join(tmpdir(), `maestro-skills-test-${randomBytes(4).toString('hex')}`);
+        const skillsDir = join(testProjectDir, '.claude', 'skills');
+        await mkdir(skillsDir, { recursive: true });
 
         // Create a test skill
-        const skillDir = join(testSkillsDir, 'test-skill');
+        const skillDir = join(skillsDir, 'test-skill');
         await mkdir(skillDir, { recursive: true });
         await writeFile(join(skillDir, 'skill.md'), '# Test Skill\n');
 
         // Create spawner with custom skill loader
-        const customSpawner = new ClaudeSpawner(new SkillLoader(testSkillsDir));
+        const customSpawner = new ClaudeSpawner(
+          new SkillLoader(testProjectDir, { includeGlobal: false }),
+        );
 
         // Create manifest with skills
         const manifestWithSkills: MaestroManifest = {
@@ -219,28 +222,7 @@ describe('ClaudeSpawner', () => {
         expect(args).toContain('--plugin-dir');
         expect(args).toContain(skillDir);
       } finally {
-        // Clean up
-        if (testSkillsDir && existsSync(testSkillsDir)) {
-          try {
-            const fs = await import('fs/promises');
-            const entries = await fs.readdir(testSkillsDir, { withFileTypes: true });
-            for (const entry of entries) {
-              const fullPath = join(testSkillsDir, entry.name);
-              if (entry.isDirectory()) {
-                const subEntries = await fs.readdir(fullPath);
-                for (const subEntry of subEntries) {
-                  await fs.unlink(join(fullPath, subEntry));
-                }
-                await fs.rmdir(fullPath);
-              } else {
-                await fs.unlink(fullPath);
-              }
-            }
-            await rmdir(testSkillsDir);
-          } catch (error) {
-            // Ignore cleanup errors
-          }
-        }
+        await rm(testProjectDir, { recursive: true, force: true });
       }
     });
 

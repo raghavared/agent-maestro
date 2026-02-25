@@ -10,11 +10,11 @@ export class OrderingService {
     private orderingRepo: IOrderingRepository
   ) {}
 
-  async getOrdering(projectId: string, entityType: 'task' | 'session'): Promise<Ordering | null> {
+  async getOrdering(projectId: string, entityType: string): Promise<Ordering | null> {
     return this.orderingRepo.findByProjectAndType(projectId, entityType);
   }
 
-  async saveOrdering(projectId: string, entityType: 'task' | 'session', orderedIds: string[]): Promise<Ordering> {
+  async saveOrdering(projectId: string, entityType: string, orderedIds: string[]): Promise<Ordering> {
     return this.orderingRepo.save(projectId, entityType, orderedIds);
   }
 

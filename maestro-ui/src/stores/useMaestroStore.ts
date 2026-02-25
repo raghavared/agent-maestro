@@ -6,6 +6,9 @@ import type {
   MaestroSession,
   CreateTaskPayload,
   UpdateTaskPayload,
+  TaskList,
+  CreateTaskListPayload,
+  UpdateTaskListPayload,
   CreateSessionPayload,
   UpdateSessionPayload,
   Ordering,
@@ -39,6 +42,7 @@ export interface AgentModal {
 
 interface MaestroState {
   tasks: Map<string, MaestroTask>;
+  taskLists: Map<string, TaskList>;
   sessions: Map<string, MaestroSession>;
   teamMembers: Map<string, TeamMember>;
   teams: Map<string, Team>;
@@ -50,17 +54,26 @@ interface MaestroState {
   // Ordering state
   taskOrdering: Map<string, string[]>;    // projectId -> orderedIds
   sessionOrdering: Map<string, string[]>; // projectId -> orderedIds
+  taskListOrdering: Map<string, string[]>; // projectId -> ordered list ids
   // Workflow templates
   workflowTemplates: WorkflowTemplate[];
   // Last used team member per task (persisted to localStorage)
   lastUsedTeamMember: Record<string, string>;
   fetchTasks: (projectId: string) => Promise<void>;
   fetchTask: (taskId: string) => Promise<void>;
+  fetchTaskLists: (projectId: string) => Promise<void>;
+  fetchTaskList: (listId: string) => Promise<void>;
   fetchSessions: (taskId?: string) => Promise<void>;
   fetchSession: (sessionId: string) => Promise<void>;
   createTask: (data: CreateTaskPayload) => Promise<MaestroTask>;
   updateTask: (taskId: string, updates: UpdateTaskPayload) => Promise<MaestroTask>;
   deleteTask: (taskId: string) => Promise<void>;
+  createTaskList: (data: CreateTaskListPayload) => Promise<TaskList>;
+  updateTaskList: (listId: string, updates: UpdateTaskListPayload) => Promise<TaskList>;
+  deleteTaskList: (listId: string) => Promise<void>;
+  addTaskToList: (listId: string, taskId: string) => Promise<void>;
+  removeTaskFromList: (listId: string, taskId: string) => Promise<void>;
+  reorderTaskListTasks: (listId: string, orderedTaskIds: string[]) => Promise<void>;
   createMaestroSession: (data: CreateSessionPayload) => Promise<MaestroSession>;
   updateMaestroSession: (sessionId: string, updates: UpdateSessionPayload) => Promise<MaestroSession>;
   deleteMaestroSession: (sessionId: string) => Promise<void>;
@@ -79,6 +92,8 @@ interface MaestroState {
   fetchSessionOrdering: (projectId: string) => Promise<void>;
   saveTaskOrdering: (projectId: string, orderedIds: string[]) => Promise<void>;
   saveSessionOrdering: (projectId: string, orderedIds: string[]) => Promise<void>;
+  fetchTaskListOrdering: (projectId: string) => Promise<void>;
+  saveTaskListOrdering: (projectId: string, orderedIds: string[]) => Promise<void>;
   // Team member actions
   fetchTeamMembers: (projectId: string) => Promise<void>;
   createTeamMember: (data: CreateTeamMemberPayload) => Promise<TeamMember>;
@@ -311,6 +326,21 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           playEventSound(message.event as any);
           break;
         }
+        case 'task_list:created':
+        case 'task_list:updated':
+        case 'task_list:reordered': {
+          const taskList = message.data;
+          set((prev) => ({ taskLists: new Map(prev.taskLists).set(taskList.id, taskList) }));
+          break;
+        }
+        case 'task_list:deleted': {
+          set((prev) => {
+            const taskLists = new Map(prev.taskLists);
+            taskLists.delete(message.data.id);
+            return { taskLists };
+          });
+          break;
+        }
         case 'team:created':
         case 'team:updated':
         case 'team:archived': {
@@ -354,6 +384,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           get().fetchSessions();
           get().fetchTeamMembers(activeProjectIdRef);
           get().fetchTeams(activeProjectIdRef);
+          get().fetchTaskLists(activeProjectIdRef);
         }
       };
 
@@ -398,6 +429,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
 
   return {
     tasks: new Map(),
+    taskLists: new Map(),
     sessions: new Map(),
     teamMembers: new Map(),
     teams: new Map(),
@@ -408,6 +440,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     activeProjectIdRef: null,
     taskOrdering: new Map(),
     sessionOrdering: new Map(),
+    taskListOrdering: new Map(),
     workflowTemplates: [],
     lastUsedTeamMember: loadLastUsedTeamMember(),
 
@@ -445,6 +478,56 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           task.taskSessionStatuses = {};
         }
         set((prev) => ({ tasks: new Map(prev.tasks).set(task.id, task) }));
+      } catch (err) {
+        setError(key, err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(key, false);
+      }
+    },
+
+    fetchTaskLists: async (projectId) => {
+      const key = `taskLists:${projectId}`;
+      setLoading(key, true);
+      setError(key, null);
+      try {
+        const lists = await maestroClient.getTaskLists(projectId);
+        set((prev) => {
+          const taskLists = new Map(prev.taskLists);
+          // Remove old entries for this project
+          for (const [id, list] of taskLists) {
+            if (list.projectId === projectId) {
+              taskLists.delete(id);
+            }
+          }
+          lists.forEach((list) => taskLists.set(list.id, list));
+          const nextOrdering = new Map(prev.taskListOrdering);
+          const existing = nextOrdering.get(projectId);
+          if (!existing || existing.length === 0) {
+            nextOrdering.set(projectId, lists.map((list) => list.id));
+          } else {
+            const listIds = lists.map((list) => list.id);
+            const merged = [
+              ...existing.filter((id) => listIds.includes(id)),
+              ...listIds.filter((id) => !existing.includes(id)),
+            ];
+            nextOrdering.set(projectId, merged);
+          }
+          return { taskLists, taskListOrdering: nextOrdering };
+        });
+      } catch (err) {
+        setError(key, err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(key, false);
+      }
+    },
+
+    fetchTaskList: async (listId) => {
+      const key = `taskList:${listId}`;
+      setLoading(key, true);
+      setError(key, null);
+      try {
+        const list = await maestroClient.getTaskList(listId);
+        set((prev) => ({ taskLists: new Map(prev.taskLists).set(list.id, list) }));
       } catch (err) {
         setError(key, err instanceof Error ? err.message : String(err));
       } finally {
@@ -510,6 +593,126 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       // Optimistic update — remove from store immediately instead of waiting for WebSocket event
       set((prev) => { const tasks = new Map(prev.tasks); tasks.delete(taskId); return { tasks }; });
     },
+    createTaskList: async (data) => {
+      const list = await maestroClient.createTaskList(data);
+      set((prev) => {
+        const taskLists = new Map(prev.taskLists).set(list.id, list);
+        const taskListOrdering = new Map(prev.taskListOrdering);
+        const existing = taskListOrdering.get(list.projectId) || [];
+        if (!existing.includes(list.id)) {
+          taskListOrdering.set(list.projectId, [...existing, list.id]);
+        }
+        return { taskLists, taskListOrdering };
+      });
+      return list;
+    },
+    updateTaskList: async (listId, updates) => {
+      const prevList = get().taskLists.get(listId);
+      if (prevList) {
+        set((prev) => {
+          const taskLists = new Map(prev.taskLists);
+          taskLists.set(listId, { ...prevList, ...updates });
+          return { taskLists };
+        });
+      }
+      try {
+        const list = await maestroClient.updateTaskList(listId, updates);
+        set((prev) => ({ taskLists: new Map(prev.taskLists).set(list.id, list) }));
+        return list;
+      } catch (err) {
+        if (prevList) {
+          set((prev) => ({ taskLists: new Map(prev.taskLists).set(listId, prevList) }));
+        }
+        throw err;
+      }
+    },
+    deleteTaskList: async (listId) => {
+      const prevList = get().taskLists.get(listId);
+      if (prevList) {
+        set((prev) => {
+          const taskLists = new Map(prev.taskLists);
+          taskLists.delete(listId);
+          const taskListOrdering = new Map(prev.taskListOrdering);
+          const existing = taskListOrdering.get(prevList.projectId) || [];
+          taskListOrdering.set(prevList.projectId, existing.filter((id) => id !== listId));
+          return { taskLists, taskListOrdering };
+        });
+      }
+      try {
+        await maestroClient.deleteTaskList(listId);
+      } catch (err) {
+        if (prevList) {
+          set((prev) => {
+            const taskLists = new Map(prev.taskLists).set(listId, prevList);
+            const taskListOrdering = new Map(prev.taskListOrdering);
+            const existing = taskListOrdering.get(prevList.projectId) || [];
+            if (!existing.includes(listId)) {
+              taskListOrdering.set(prevList.projectId, [...existing, listId]);
+            }
+            return { taskLists, taskListOrdering };
+          });
+        }
+        throw err;
+      }
+    },
+    addTaskToList: async (listId, taskId) => {
+      const prevList = get().taskLists.get(listId);
+      if (!prevList) {
+        throw new Error('Task list not found');
+      }
+      if (!prevList.orderedTaskIds.includes(taskId)) {
+        set((prev) => {
+          const taskLists = new Map(prev.taskLists);
+          taskLists.set(listId, { ...prevList, orderedTaskIds: [...prevList.orderedTaskIds, taskId] });
+          return { taskLists };
+        });
+      }
+      try {
+        const list = await maestroClient.addTaskToList(listId, taskId);
+        set((prev) => ({ taskLists: new Map(prev.taskLists).set(list.id, list) }));
+      } catch (err) {
+        if (prevList) {
+          set((prev) => ({ taskLists: new Map(prev.taskLists).set(listId, prevList) }));
+        }
+        throw err;
+      }
+    },
+    removeTaskFromList: async (listId, taskId) => {
+      const prevList = get().taskLists.get(listId);
+      if (!prevList) {
+        throw new Error('Task list not found');
+      }
+      set((prev) => {
+        const taskLists = new Map(prev.taskLists);
+        taskLists.set(listId, { ...prevList, orderedTaskIds: prevList.orderedTaskIds.filter((id) => id !== taskId) });
+        return { taskLists };
+      });
+      try {
+        const list = await maestroClient.removeTaskFromList(listId, taskId);
+        set((prev) => ({ taskLists: new Map(prev.taskLists).set(list.id, list) }));
+      } catch (err) {
+        set((prev) => ({ taskLists: new Map(prev.taskLists).set(listId, prevList) }));
+        throw err;
+      }
+    },
+    reorderTaskListTasks: async (listId, orderedTaskIds) => {
+      const prevList = get().taskLists.get(listId);
+      if (!prevList) {
+        throw new Error('Task list not found');
+      }
+      set((prev) => {
+        const taskLists = new Map(prev.taskLists);
+        taskLists.set(listId, { ...prevList, orderedTaskIds });
+        return { taskLists };
+      });
+      try {
+        const list = await maestroClient.reorderTaskListTasks(listId, orderedTaskIds);
+        set((prev) => ({ taskLists: new Map(prev.taskLists).set(list.id, list) }));
+      } catch (err) {
+        set((prev) => ({ taskLists: new Map(prev.taskLists).set(listId, prevList) }));
+        throw err;
+      }
+    },
     createMaestroSession: async (data) => await maestroClient.createSession(data),
     updateMaestroSession: async (sessionId, updates) => await maestroClient.updateSession(sessionId, updates),
     deleteMaestroSession: async (sessionId) => { await maestroClient.deleteSession(sessionId); },
@@ -558,13 +761,28 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       }));
     },
 
-    clearCache: () => set({ tasks: new Map(), sessions: new Map(), teamMembers: new Map(), teams: new Map(), activeModals: [], loading: new Set(), errors: new Map(), taskOrdering: new Map(), sessionOrdering: new Map(), workflowTemplates: [] }),
+    clearCache: () => set({
+      tasks: new Map(),
+      taskLists: new Map(),
+      sessions: new Map(),
+      teamMembers: new Map(),
+      teams: new Map(),
+      activeModals: [],
+      loading: new Set(),
+      errors: new Map(),
+      taskOrdering: new Map(),
+      sessionOrdering: new Map(),
+      taskListOrdering: new Map(),
+      workflowTemplates: [],
+    }),
 
     hardRefresh: async (projectId) => {
       get().clearCache();
       if (projectId) {
         await Promise.all([
           get().fetchTasks(projectId),
+          get().fetchTaskLists(projectId),
+          get().fetchTaskListOrdering(projectId),
           get().fetchSessions(),
           get().fetchTeamMembers(projectId),
           get().fetchTeams(projectId),
@@ -618,6 +836,30 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       });
       try {
         await maestroClient.saveOrdering(projectId, 'session', orderedIds);
+      } catch {
+      }
+    },
+
+    fetchTaskListOrdering: async (projectId) => {
+      try {
+        const ordering = await maestroClient.getTaskListOrdering(projectId);
+        set((prev) => {
+          const taskListOrdering = new Map(prev.taskListOrdering);
+          taskListOrdering.set(projectId, ordering.orderedIds);
+          return { taskListOrdering };
+        });
+      } catch {
+      }
+    },
+
+    saveTaskListOrdering: async (projectId, orderedIds) => {
+      set((prev) => {
+        const taskListOrdering = new Map(prev.taskListOrdering);
+        taskListOrdering.set(projectId, orderedIds);
+        return { taskListOrdering };
+      });
+      try {
+        await maestroClient.saveTaskListOrdering(projectId, orderedIds);
       } catch {
       }
     },

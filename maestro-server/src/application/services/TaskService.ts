@@ -1,5 +1,6 @@
 import { Task, TaskStatus, CreateTaskPayload, UpdateTaskPayload } from '../../types';
 import { ITaskRepository, TaskFilter } from '../../domain/repositories/ITaskRepository';
+import { ITaskListRepository } from '../../domain/repositories/ITaskListRepository';
 import { IProjectRepository } from '../../domain/repositories/IProjectRepository';
 import { IEventBus } from '../../domain/events/IEventBus';
 import { IIdGenerator } from '../../domain/common/IIdGenerator';
@@ -14,7 +15,8 @@ export class TaskService {
     private taskRepo: ITaskRepository,
     private projectRepo: IProjectRepository,
     private eventBus: IEventBus,
-    private idGenerator: IIdGenerator
+    private idGenerator: IIdGenerator,
+    private taskListRepo: ITaskListRepository
   ) {}
 
   /**
@@ -197,11 +199,13 @@ export class TaskService {
     // Delete descendants bottom-up (children first)
     for (const descendantId of descendantIds.reverse()) {
       await this.taskRepo.delete(descendantId);
+      await this.taskListRepo.removeTaskReferences(descendantId);
       await this.eventBus.emit('task:deleted', { id: descendantId });
     }
 
     // Delete the task itself
     await this.taskRepo.delete(id);
+    await this.taskListRepo.removeTaskReferences(id);
     await this.eventBus.emit('task:deleted', { id });
   }
 

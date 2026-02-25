@@ -1,68 +1,64 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { SkillLoader, type SkillInfo, type SkillLoadResult } from '../../src/services/skill-loader.js';
+import { SkillLoader } from '../../src/services/skill-loader.js';
 import { join } from 'path';
-import { mkdir, writeFile, rmdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import { tmpdir } from 'os';
+import { mkdir, writeFile, rm } from 'fs/promises';
+import { tmpdir, homedir } from 'os';
 import { randomBytes } from 'crypto';
 
 describe('SkillLoader', () => {
-  let testSkillsDir: string;
+  let testProjectDir: string;
+  let projectClaudeSkillsDir: string;
+  let projectAgentsSkillsDir: string;
+
+  const createLoader = (projectPath = testProjectDir): SkillLoader =>
+    new SkillLoader(projectPath, { includeGlobal: false });
+
+  const createSkill = async (
+    source: 'claude' | 'agents',
+    name: string,
+    content?: string,
+    filename: 'skill.md' | 'SKILL.md' = 'skill.md'
+  ): Promise<string> => {
+    const baseDir = source === 'claude' ? projectClaudeSkillsDir : projectAgentsSkillsDir;
+    const skillDir = join(baseDir, name);
+    await mkdir(skillDir, { recursive: true });
+    if (content !== undefined) {
+      await writeFile(join(skillDir, filename), content);
+    }
+    return skillDir;
+  };
 
   beforeEach(async () => {
-    // Create a temporary directory for testing
-    testSkillsDir = join(tmpdir(), `maestro-skills-test-${randomBytes(4).toString('hex')}`);
-    await mkdir(testSkillsDir, { recursive: true });
+    testProjectDir = join(tmpdir(), `maestro-skills-test-${randomBytes(4).toString('hex')}`);
+    projectClaudeSkillsDir = join(testProjectDir, '.claude', 'skills');
+    projectAgentsSkillsDir = join(testProjectDir, '.agents', 'skills');
+    await mkdir(projectClaudeSkillsDir, { recursive: true });
+    await mkdir(projectAgentsSkillsDir, { recursive: true });
   });
 
   afterEach(async () => {
-    // Clean up test directory
-    if (existsSync(testSkillsDir)) {
-      try {
-        // Remove all files first
-        const fs = await import('fs/promises');
-        const entries = await fs.readdir(testSkillsDir, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = join(testSkillsDir, entry.name);
-          if (entry.isDirectory()) {
-            const subEntries = await fs.readdir(fullPath);
-            for (const subEntry of subEntries) {
-              await fs.unlink(join(fullPath, subEntry));
-            }
-            await fs.rmdir(fullPath);
-          } else {
-            await fs.unlink(fullPath);
-          }
-        }
-        await rmdir(testSkillsDir);
-      } catch (error) {
-        // Ignore cleanup errors
-      }
-    }
+    await rm(testProjectDir, { recursive: true, force: true });
   });
 
   describe('discover()', () => {
-    it('should return empty array when skills directory does not exist', async () => {
-      const loader = new SkillLoader(join(testSkillsDir, 'nonexistent'));
+    it('returns empty array when project path does not exist', async () => {
+      const loader = new SkillLoader(join(testProjectDir, 'nonexistent'), { includeGlobal: false });
       const skills = await loader.discover();
 
       expect(skills).toEqual([]);
     });
 
-    it('should return empty array when skills directory is empty', async () => {
-      const loader = new SkillLoader(testSkillsDir);
+    it('returns empty array when project skills directories are empty', async () => {
+      const loader = createLoader();
       const skills = await loader.discover();
 
       expect(skills).toEqual([]);
     });
 
-    it('should discover valid skills with skill.md', async () => {
-      // Create a valid skill
-      const validSkillDir = join(testSkillsDir, 'valid-skill');
-      await mkdir(validSkillDir, { recursive: true });
-      await writeFile(join(validSkillDir, 'skill.md'), '# Valid Skill\n');
+    it('discovers valid skills with lowercase skill.md', async () => {
+      const validSkillDir = await createSkill('claude', 'valid-skill', '# Valid Skill\n');
 
-      const loader = new SkillLoader(testSkillsDir);
+      const loader = createLoader();
       const skills = await loader.discover();
 
       expect(skills).toHaveLength(1);
@@ -70,15 +66,26 @@ describe('SkillLoader', () => {
         name: 'valid-skill',
         valid: true,
         path: validSkillDir,
+        scope: 'project',
+        source: 'claude',
       });
     });
 
-    it('should mark invalid skills without skill.md', async () => {
-      // Create a skill without skill.md
-      const invalidSkillDir = join(testSkillsDir, 'invalid-skill');
-      await mkdir(invalidSkillDir, { recursive: true });
+    it('accepts uppercase SKILL.md files', async () => {
+      await createSkill('claude', 'uppercase-skill', '# Uppercase Skill\n', 'SKILL.md');
 
-      const loader = new SkillLoader(testSkillsDir);
+      const loader = createLoader();
+      const skills = await loader.discover();
+
+      expect(skills).toHaveLength(1);
+      expect(skills[0].name).toBe('uppercase-skill');
+      expect(skills[0].valid).toBe(true);
+    });
+
+    it('marks skill directories without markdown file as invalid', async () => {
+      const invalidSkillDir = await createSkill('agents', 'invalid-skill');
+
+      const loader = createLoader();
       const skills = await loader.discover();
 
       expect(skills).toHaveLength(1);
@@ -86,54 +93,67 @@ describe('SkillLoader', () => {
         name: 'invalid-skill',
         valid: false,
         path: invalidSkillDir,
+        scope: 'project',
+        source: 'agents',
       });
     });
 
-    it('should discover multiple skills and categorize them correctly', async () => {
-      // Create valid skills
-      const skill1Dir = join(testSkillsDir, 'skill-1');
-      await mkdir(skill1Dir, { recursive: true });
-      await writeFile(join(skill1Dir, 'skill.md'), '# Skill 1\n');
+    it('discovers skills across both project sources', async () => {
+      await createSkill('claude', 'skill-1', '# Skill 1\n');
+      await createSkill('agents', 'skill-2', '# Skill 2\n');
+      await createSkill('agents', 'skill-3');
 
-      const skill2Dir = join(testSkillsDir, 'skill-2');
-      await mkdir(skill2Dir, { recursive: true });
-      await writeFile(join(skill2Dir, 'skill.md'), '# Skill 2\n');
-
-      // Create invalid skill
-      const skill3Dir = join(testSkillsDir, 'skill-3');
-      await mkdir(skill3Dir, { recursive: true });
-
-      const loader = new SkillLoader(testSkillsDir);
+      const loader = createLoader();
       const skills = await loader.discover();
 
       expect(skills).toHaveLength(3);
-      const validSkills = skills.filter((s) => s.valid);
-      const invalidSkills = skills.filter((s) => !s.valid);
-
-      expect(validSkills).toHaveLength(2);
-      expect(invalidSkills).toHaveLength(1);
+      expect(skills.filter((s) => s.valid)).toHaveLength(2);
+      expect(skills.filter((s) => !s.valid)).toHaveLength(1);
     });
 
-    it('should ignore non-directory entries', async () => {
-      // Create a skill directory
-      const skillDir = join(testSkillsDir, 'valid-skill');
-      await mkdir(skillDir, { recursive: true });
-      await writeFile(join(skillDir, 'skill.md'), '# Valid Skill\n');
+    it('ignores non-directory entries inside skills directories', async () => {
+      await createSkill('claude', 'valid-skill', '# Valid Skill\n');
+      await writeFile(join(projectClaudeSkillsDir, 'readme.txt'), 'not a skill');
 
-      // Create a file in the skills directory (should be ignored)
-      await writeFile(join(testSkillsDir, 'readme.txt'), 'This is not a skill');
-
-      const loader = new SkillLoader(testSkillsDir);
+      const loader = createLoader();
       const skills = await loader.discover();
 
       expect(skills).toHaveLength(1);
       expect(skills[0].name).toBe('valid-skill');
     });
+
+    it('de-duplicates same-name project skills and keeps claude source first', async () => {
+      const claudeSkillDir = await createSkill('claude', 'shared-skill', '# Claude Skill\n');
+      await createSkill('agents', 'shared-skill', '# Agents Skill\n');
+
+      const loader = createLoader();
+      const skills = await loader.discover();
+
+      expect(skills).toHaveLength(1);
+      expect(skills[0]).toMatchObject({
+        name: 'shared-skill',
+        path: claudeSkillDir,
+        source: 'claude',
+      });
+    });
+  });
+
+  describe('discoverAll()', () => {
+    it('returns duplicate names across sources for validation workflows', async () => {
+      await createSkill('claude', 'shared-skill', '# Claude Skill\n');
+      await createSkill('agents', 'shared-skill', '# Agents Skill\n');
+
+      const loader = createLoader();
+      const skills = await loader.discoverAll();
+
+      expect(skills.filter((s) => s.name === 'shared-skill')).toHaveLength(2);
+      expect(skills.map((s) => s.source).sort()).toEqual(['agents', 'claude']);
+    });
   });
 
   describe('load()', () => {
-    it('should return empty result for empty skill names array', async () => {
-      const loader = new SkillLoader(testSkillsDir);
+    it('returns empty result for empty skill list', async () => {
+      const loader = createLoader();
       const result = await loader.load([]);
 
       expect(result).toEqual({
@@ -143,8 +163,8 @@ describe('SkillLoader', () => {
       });
     });
 
-    it('should categorize missing skills', async () => {
-      const loader = new SkillLoader(testSkillsDir);
+    it('categorizes missing skills', async () => {
+      const loader = createLoader();
       const result = await loader.load(['nonexistent-skill']);
 
       expect(result.missing).toContain('nonexistent-skill');
@@ -152,12 +172,10 @@ describe('SkillLoader', () => {
       expect(result.invalid).toEqual([]);
     });
 
-    it('should categorize invalid skills (no skill.md)', async () => {
-      // Create invalid skill
-      const invalidSkillDir = join(testSkillsDir, 'invalid-skill');
-      await mkdir(invalidSkillDir, { recursive: true });
+    it('categorizes invalid skills', async () => {
+      await createSkill('agents', 'invalid-skill');
 
-      const loader = new SkillLoader(testSkillsDir);
+      const loader = createLoader();
       const result = await loader.load(['invalid-skill']);
 
       expect(result.invalid).toContain('invalid-skill');
@@ -165,137 +183,114 @@ describe('SkillLoader', () => {
       expect(result.missing).toEqual([]);
     });
 
-    it('should load valid skills', async () => {
-      // Create valid skill
-      const validSkillDir = join(testSkillsDir, 'valid-skill');
-      await mkdir(validSkillDir, { recursive: true });
-      await writeFile(join(validSkillDir, 'skill.md'), '# Valid Skill\n');
+    it('loads valid skills and returns full paths', async () => {
+      const validSkillDir = await createSkill('claude', 'valid-skill', '# Valid Skill\n');
 
-      const loader = new SkillLoader(testSkillsDir);
+      const loader = createLoader();
       const result = await loader.load(['valid-skill']);
 
-      expect(result.loaded).toContain(validSkillDir);
+      expect(result.loaded).toEqual([validSkillDir]);
       expect(result.missing).toEqual([]);
       expect(result.invalid).toEqual([]);
     });
 
-    it('should handle mixed valid, invalid, and missing skills', async () => {
-      // Create valid skill
-      const validSkillDir = join(testSkillsDir, 'valid-skill');
-      await mkdir(validSkillDir, { recursive: true });
-      await writeFile(join(validSkillDir, 'skill.md'), '# Valid Skill\n');
+    it('handles mixed valid, invalid, and missing skills', async () => {
+      const validSkillDir = await createSkill('claude', 'valid-skill', '# Valid Skill\n');
+      await createSkill('agents', 'invalid-skill');
 
-      // Create invalid skill
-      const invalidSkillDir = join(testSkillsDir, 'invalid-skill');
-      await mkdir(invalidSkillDir, { recursive: true });
-
-      const loader = new SkillLoader(testSkillsDir);
+      const loader = createLoader();
       const result = await loader.load(['valid-skill', 'invalid-skill', 'missing-skill']);
 
       expect(result.loaded).toContain(validSkillDir);
       expect(result.invalid).toContain('invalid-skill');
       expect(result.missing).toContain('missing-skill');
     });
-
-    it('should return full paths for loaded skills', async () => {
-      const validSkillDir = join(testSkillsDir, 'test-skill');
-      await mkdir(validSkillDir, { recursive: true });
-      await writeFile(join(validSkillDir, 'skill.md'), '# Test Skill\n');
-
-      const loader = new SkillLoader(testSkillsDir);
-      const result = await loader.load(['test-skill']);
-
-      expect(result.loaded).toHaveLength(1);
-      expect(result.loaded[0]).toBe(validSkillDir);
-    });
   });
 
   describe('getSkillInfo()', () => {
-    it('should return null for nonexistent skill', async () => {
-      const loader = new SkillLoader(testSkillsDir);
+    it('returns null for nonexistent skills', async () => {
+      const loader = createLoader();
       const info = await loader.getSkillInfo('nonexistent');
 
       expect(info).toBeNull();
     });
 
-    it('should return SkillInfo for valid skill', async () => {
-      const validSkillDir = join(testSkillsDir, 'valid-skill');
-      await mkdir(validSkillDir, { recursive: true });
-      await writeFile(join(validSkillDir, 'skill.md'), '# Valid Skill\n');
+    it('returns metadata for valid skills', async () => {
+      const validSkillDir = await createSkill('claude', 'valid-skill', '# Valid Skill\n');
 
-      const loader = new SkillLoader(testSkillsDir);
+      const loader = createLoader();
       const info = await loader.getSkillInfo('valid-skill');
 
       expect(info).toMatchObject({
         name: 'valid-skill',
         path: validSkillDir,
         valid: true,
+        scope: 'project',
+        source: 'claude',
       });
     });
 
-    it('should return SkillInfo for invalid skill (missing skill.md)', async () => {
-      const invalidSkillDir = join(testSkillsDir, 'invalid-skill');
-      await mkdir(invalidSkillDir, { recursive: true });
+    it('returns metadata for invalid skills', async () => {
+      const invalidSkillDir = await createSkill('agents', 'invalid-skill');
 
-      const loader = new SkillLoader(testSkillsDir);
+      const loader = createLoader();
       const info = await loader.getSkillInfo('invalid-skill');
 
       expect(info).toMatchObject({
         name: 'invalid-skill',
         path: invalidSkillDir,
         valid: false,
+        scope: 'project',
+        source: 'agents',
       });
     });
 
-    it('should include description if available', async () => {
-      const skillDir = join(testSkillsDir, 'described-skill');
-      await mkdir(skillDir, { recursive: true });
-      await writeFile(join(skillDir, 'skill.md'), '# Described Skill\nThis is a description');
+    it('extracts a description from non-heading content', async () => {
+      await createSkill('claude', 'described-skill', '# Heading\nThis is a description\n');
 
-      const loader = new SkillLoader(testSkillsDir);
+      const loader = createLoader();
       const info = await loader.getSkillInfo('described-skill');
 
       expect(info?.valid).toBe(true);
-      expect(info?.name).toBe('described-skill');
+      expect(info?.description).toBe('This is a description');
     });
   });
 
-  describe('custom skills directory', () => {
-    it('should use custom skills directory when provided', async () => {
-      const customDir = join(testSkillsDir, 'custom-skills');
-      await mkdir(customDir, { recursive: true });
+  describe('getInstallDir()', () => {
+    it('returns project install directories for project scope', () => {
+      const loader = createLoader();
 
-      const skillDir = join(customDir, 'custom-skill');
-      await mkdir(skillDir, { recursive: true });
-      await writeFile(join(skillDir, 'skill.md'), '# Custom Skill\n');
+      expect(loader.getInstallDir('project', 'claude')).toBe(join(testProjectDir, '.claude', 'skills'));
+      expect(loader.getInstallDir('project', 'agents')).toBe(join(testProjectDir, '.agents', 'skills'));
+    });
 
-      const loader = new SkillLoader(customDir);
-      const skills = await loader.discover();
+    it('returns home-scoped install directories for global scope', () => {
+      const loader = createLoader();
 
-      expect(skills).toHaveLength(1);
-      expect(skills[0].name).toBe('custom-skill');
+      expect(loader.getInstallDir('global', 'claude')).toBe(join(homedir(), '.claude', 'skills'));
+      expect(loader.getInstallDir('global', 'agents')).toBe(join(homedir(), '.agents', 'skills'));
     });
   });
 
   describe('graceful error handling', () => {
-    it('should return empty array instead of throwing on discover error', async () => {
-      const loader = new SkillLoader('/nonexistent/path/that/should/not/exist');
+    it('returns empty array instead of throwing on discover errors', async () => {
+      const loader = new SkillLoader('/nonexistent/path/that/should/not/exist', { includeGlobal: false });
       const skills = await loader.discover();
 
       expect(skills).toEqual([]);
     });
 
-    it('should categorize errors in load as invalid skills', async () => {
-      const loader = new SkillLoader(testSkillsDir);
+    it('categorizes unresolved skills as missing in load()', async () => {
+      const loader = createLoader();
       const result = await loader.load(['skill-1', 'skill-2']);
 
-      // Should categorize as missing, not throw
       expect(result.missing).toEqual(['skill-1', 'skill-2']);
       expect(result.loaded).toEqual([]);
+      expect(result.invalid).toEqual([]);
     });
 
-    it('should return null instead of throwing on getSkillInfo error', async () => {
-      const loader = new SkillLoader('/nonexistent/path/that/should/not/exist');
+    it('returns null instead of throwing on getSkillInfo errors', async () => {
+      const loader = new SkillLoader('/nonexistent/path/that/should/not/exist', { includeGlobal: false });
       const info = await loader.getSkillInfo('any-skill');
 
       expect(info).toBeNull();

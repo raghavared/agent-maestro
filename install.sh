@@ -42,6 +42,7 @@ APP_NAME="Maestro"
 APP_BUNDLE="${APP_NAME}.app"
 APP_BUNDLE_DIR="maestro-ui/src-tauri/target/release/bundle/macos"
 SIDE_CAR_BIN="maestro-ui/src-tauri/binaries/maestro-server-aarch64-apple-darwin"
+CODE_SERVER_BIN="maestro-ui/src-tauri/binaries/code-server-aarch64-apple-darwin"
 SERVER_BIN="maestro-server/dist/bin/maestro-server"
 CLI_BUNDLE="maestro-cli/dist/bundle.cjs"
 
@@ -57,31 +58,59 @@ require_dir() {
   [ -d "$1" ] || die "Expected directory not found: $1"
 }
 
-# ── Check dependencies ────────────────────────────────────
+# ── Check/Install Xcode Command Line Tools ────────────────
 
-info "Checking build dependencies..."
-
-MISSING=""
-
-if ! command -v bun >/dev/null 2>&1; then
-  MISSING="${MISSING}  - bun (https://bun.sh)\n"
-fi
-
-if ! command -v cargo >/dev/null 2>&1; then
-  MISSING="${MISSING}  - cargo/rustc (https://rustup.rs)\n"
-fi
-
-if ! command -v node >/dev/null 2>&1; then
-  MISSING="${MISSING}  - node (https://nodejs.org)\n"
-fi
-
-if [ -n "$MISSING" ]; then
-  error "Missing required build tools:"
-  printf "$MISSING"
+info "Checking for Xcode Command Line Tools..."
+if ! xcode-select -p &>/dev/null; then
+  warn "Xcode Command Line Tools not found."
+  info "Triggering installation dialog — complete it, then re-run this script."
+  xcode-select --install 2>/dev/null || true
   exit 1
 fi
+success "Xcode Command Line Tools found"
 
-success "All build dependencies found"
+# ── Install bun if missing ────────────────────────────────
+
+info "Checking for bun..."
+if ! command -v bun >/dev/null 2>&1; then
+  info "bun not found — installing..."
+  curl -fsSL https://bun.sh/install | bash
+  # Make bun available in the current shell session
+  export BUN_INSTALL="${HOME}/.bun"
+  export PATH="${BUN_INSTALL}/bin:${PATH}"
+  command -v bun >/dev/null 2>&1 || die "bun installation failed. Install manually: https://bun.sh"
+  success "bun installed: $(bun --version)"
+else
+  # Ensure bun home is in PATH in case the shell rc wasn't sourced
+  if [ -d "${HOME}/.bun/bin" ]; then
+    export PATH="${HOME}/.bun/bin:${PATH}"
+  fi
+  success "bun found: $(bun --version)"
+fi
+
+# ── Install Rust/Cargo if missing (required for Tauri) ────
+
+info "Checking for Rust/Cargo..."
+# Source cargo env in case Rust is installed but not in the current PATH
+if [ -f "${HOME}/.cargo/env" ]; then
+  # shellcheck disable=SC1091
+  source "${HOME}/.cargo/env"
+fi
+if ! command -v cargo >/dev/null 2>&1; then
+  info "Rust/Cargo not found — installing via rustup..."
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  # shellcheck disable=SC1091
+  source "${HOME}/.cargo/env"
+  command -v cargo >/dev/null 2>&1 || die "Rust installation failed. Install manually: https://rustup.rs"
+  success "Rust installed: $(rustc --version)"
+else
+  success "Rust found: $(rustc --version)"
+fi
+
+# Ensure the Apple Silicon target is present (required for Tauri on ARM Macs)
+info "Ensuring Rust target aarch64-apple-darwin..."
+rustup target add aarch64-apple-darwin 2>/dev/null || true
+success "Rust target aarch64-apple-darwin ready"
 
 # ── Clean stale build outputs ─────────────────────────────
 
@@ -90,6 +119,7 @@ info "Cleaning stale build outputs..."
 rm -rf maestro-ui/dist
 rm -rf maestro-ui/src-tauri/target/release/bundle
 rm -f maestro-ui/src-tauri/binaries/maestro-server-*
+rm -f maestro-ui/src-tauri/binaries/code-server-*
 rm -rf maestro-server/dist
 rm -rf maestro-cli/dist
 success "Stale outputs removed"
@@ -108,6 +138,52 @@ if [ "${1:-}" != "-y" ] && [ "${1:-}" != "--yes" ]; then
   case "$REPLY" in
     [nN]*) info "Cancelled."; exit 0 ;;
   esac
+fi
+
+# ── VS Code integration prompt ───────────────────────────
+
+INCLUDE_VSCODE="y"
+if [ "${1:-}" != "-y" ] && [ "${1:-}" != "--yes" ]; then
+  printf "\n"
+  info "VS Code integration embeds a code-server instance in the app."
+  printf "  Include VS Code integration? [Y/n] "
+  read -r VS_REPLY </dev/tty || VS_REPLY="y"
+  case "$VS_REPLY" in
+    [nN]*) INCLUDE_VSCODE="n" ;;
+  esac
+fi
+
+if [ "$INCLUDE_VSCODE" = "y" ]; then
+  info "VS Code integration: enabled"
+
+  # Detect architecture
+  ARCH="$(uname -m)"
+  case "$ARCH" in
+    arm64|aarch64) CS_ARCH="arm64" ; RUST_TRIPLE="aarch64-apple-darwin" ;;
+    x86_64)        CS_ARCH="amd64" ; RUST_TRIPLE="x86_64-apple-darwin" ;;
+    *)             die "Unsupported architecture for code-server: $ARCH" ;;
+  esac
+
+  CS_VERSION="4.96.4"
+  CS_TARBALL="code-server-${CS_VERSION}-macos-${CS_ARCH}.tar.gz"
+  CS_URL="https://github.com/coder/code-server/releases/download/v${CS_VERSION}/${CS_TARBALL}"
+  CS_DEST="maestro-ui/src-tauri/binaries/code-server-${RUST_TRIPLE}"
+
+  if [ ! -f "$CS_DEST" ]; then
+    info "Downloading code-server v${CS_VERSION} for ${CS_ARCH}..."
+    TMP_DIR="$(mktemp -d)"
+    curl -fSL "$CS_URL" -o "${TMP_DIR}/${CS_TARBALL}"
+    tar -xzf "${TMP_DIR}/${CS_TARBALL}" -C "$TMP_DIR"
+    CS_EXTRACTED="${TMP_DIR}/code-server-${CS_VERSION}-macos-${CS_ARCH}"
+    cp "${CS_EXTRACTED}/lib/node" "$CS_DEST" 2>/dev/null || cp "${CS_EXTRACTED}/bin/code-server" "$CS_DEST"
+    chmod +x "$CS_DEST"
+    rm -rf "$TMP_DIR"
+    success "code-server binary placed at $CS_DEST"
+  else
+    success "code-server binary already exists at $CS_DEST"
+  fi
+else
+  info "VS Code integration: disabled"
 fi
 
 # ── Step 1: Install dependencies ──────────────────────────
@@ -140,8 +216,13 @@ printf "\n"
 info "[4/6] Building UI and desktop app (Tauri)..."
 bun run build:ui
 cd maestro-ui
-VITE_API_URL=http://localhost:2357/api VITE_WS_URL=ws://localhost:2357 \
-  bunx tauri build --features custom-protocol --config src-tauri/tauri.conf.prod.json
+if [ "$INCLUDE_VSCODE" = "y" ]; then
+  VITE_API_URL=http://localhost:2357/api VITE_WS_URL=ws://localhost:2357 \
+    bunx tauri build --features custom-protocol,vscode --config src-tauri/tauri.conf.prod.json
+else
+  VITE_API_URL=http://localhost:2357/api VITE_WS_URL=ws://localhost:2357 \
+    bunx tauri build --features custom-protocol --config src-tauri/tauri.conf.prod-novscode.json
+fi
 cd "$REPO_DIR"
 success "Desktop app built"
 
@@ -161,7 +242,15 @@ require_file "$CLI_BUNDLE"
 cp "$CLI_BUNDLE" "${INSTALL_DIR}/cli/bundle.cjs"
 cat > "${INSTALL_DIR}/bin/maestro" << 'WRAPPER'
 #!/bin/bash
-exec node "$HOME/.maestro/cli/bundle.cjs" "$@"
+# Use bun if available, fall back to node
+if command -v bun >/dev/null 2>&1; then
+  exec bun "$HOME/.maestro/cli/bundle.cjs" "$@"
+elif command -v node >/dev/null 2>&1; then
+  exec node "$HOME/.maestro/cli/bundle.cjs" "$@"
+else
+  echo "Error: neither bun nor node found in PATH" >&2
+  exit 1
+fi
 WRAPPER
 
 chmod +x "${INSTALL_DIR}/bin/"* 2>/dev/null || true
@@ -207,6 +296,22 @@ BUILD_APP_EXEC="${TAURI_APP}/Contents/MacOS/${APP_EXEC}"
 INSTALLED_APP_EXEC="${APP_DEST}/Contents/MacOS/${APP_EXEC}"
 require_file "$BUILD_APP_EXEC"
 require_file "$INSTALLED_APP_EXEC"
+
+# ── Clear stale WebView cache ─────────────────────────────
+# macOS WKWebView aggressively caches frontend assets; without
+# clearing, the app may render an older UI after a rebuild.
+
+APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "${TAURI_APP}/Contents/Info.plist" 2>/dev/null || true)"
+if [ -n "$APP_ID" ]; then
+  for CACHE_DIR in \
+    "$HOME/Library/WebKit/${APP_ID}" \
+    "$HOME/Library/Caches/${APP_ID}"; do
+    if [ -d "$CACHE_DIR" ]; then
+      rm -rf "$CACHE_DIR"
+    fi
+  done
+  success "Cleared WebView cache for ${APP_ID}"
+fi
 
 # ── Create config ──────────────────────────────────────────
 

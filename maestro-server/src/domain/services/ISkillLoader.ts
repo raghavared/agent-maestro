@@ -40,7 +40,7 @@ export interface ISkillLoader {
    * @param mode - Agent mode (execute or coordinate)
    * @returns Array of skills for the mode
    */
-  loadForMode(mode: 'execute' | 'coordinate'): Promise<Skill[]>;
+  loadForMode(mode: string): Promise<Skill[]>;
 
   /**
    * List all available skill names.

@@ -16,7 +16,7 @@ describe('ManifestReader', () => {
 
       expect(result.success).toBe(true);
       expect(result.manifest).toBeDefined();
-      expect(result.manifest?.mode).toBe('execute');
+      expect(result.manifest?.mode).toBe('worker');
       expect(result.manifest?.tasks[0].id).toBe('task-123');
       expect(result.manifest?.tasks[0].title).toBe('Implement user authentication');
       expect(result.manifest?.session.model).toBe('sonnet');
@@ -28,7 +28,7 @@ describe('ManifestReader', () => {
 
       expect(result.success).toBe(true);
       expect(result.manifest).toBeDefined();
-      expect(result.manifest?.mode).toBe('coordinate');
+      expect(result.manifest?.mode).toBe('coordinator');
       expect(result.manifest?.tasks[0].id).toBe('task-100');
       expect(result.manifest?.session.model).toBe('opus');
     });
@@ -97,7 +97,7 @@ describe('ManifestReader', () => {
 
       expect(result.success).toBe(true);
       expect(result.manifest).toBeDefined();
-      expect(result.manifest?.mode).toBe('execute');
+      expect(result.manifest?.mode).toBe('worker');
     });
 
     it('should return error for non-existent file (sync)', () => {

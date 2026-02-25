@@ -1,4 +1,5 @@
 import type { MaestroManifest } from '../types/manifest.js';
+import { isWorkerMode } from '../types/manifest.js';
 import { readManifestFromEnv } from '../services/manifest-reader.js';
 import { AgentSpawner } from '../services/agent-spawner.js';
 import { api } from '../api.js';
@@ -17,6 +18,7 @@ import {
   WRONG_MODE_WORKER_PREFIX,
   WRONG_MODE_WORKER_HINT,
 } from '../prompts/index.js';
+import { displayInitUI } from '../ui/init-display.js';
 
 /**
  * WorkerInitCommand - Initialize a worker session from a manifest
@@ -59,10 +61,10 @@ export class WorkerInitCommand {
   }
 
   /**
-   * Validate that manifest is for execute mode
+   * Validate that manifest is for worker mode
    */
   validateWorkerManifest(manifest: MaestroManifest): boolean {
-    return manifest.mode === 'execute';
+    return isWorkerMode(manifest.mode);
   }
 
   /**
@@ -82,6 +84,23 @@ export class WorkerInitCommand {
       default:
         return `Error: ${details}`;
     }
+  }
+
+  private resolveManifestReadErrorType(errorMessage?: string): 'manifest_not_found' | 'invalid_manifest' {
+    if (!errorMessage) {
+      return 'manifest_not_found';
+    }
+
+    const lower = errorMessage.toLowerCase();
+    if (lower.includes('not found or not readable') || lower.includes('environment variable not set')) {
+      return 'manifest_not_found';
+    }
+
+    if (lower.includes('validation failed') || lower.includes('parse') || lower.includes('normalization failed')) {
+      return 'invalid_manifest';
+    }
+
+    return 'invalid_manifest';
   }
 
   /**
@@ -132,7 +151,9 @@ export class WorkerInitCommand {
       const result = await readManifestFromEnv();
 
       if (!result.success || !result.manifest) {
-        throw new Error(this.formatError('manifest_not_found', manifestPath));
+        const details = result.error || manifestPath;
+        const errorType = this.resolveManifestReadErrorType(result.error);
+        throw new Error(this.formatError(errorType, details));
       }
 
       const manifest = result.manifest;
@@ -149,10 +170,13 @@ export class WorkerInitCommand {
       // Get session ID
       const sessionId = this.getSessionId();
 
+      // Display init UI
+      displayInitUI(manifest, sessionId);
+
       // Register session with server
       await this.autoUpdateSessionStatus(manifest, sessionId);
 
-      // Spawn Claude
+      // Spawn agent
       const spawnResult = await this.spawner.spawn(manifest, sessionId, {
         interactive: true,
       });
@@ -164,6 +188,13 @@ export class WorkerInitCommand {
       });
 
     } catch (error: any) {
+      const message = error instanceof Error ? error.message : String(error || 'Unknown worker init error');
+      if (message) {
+        console.error(message);
+      }
+      if (process.env.MAESTRO_DEBUG === 'true' && error instanceof Error && error.stack) {
+        console.error(error.stack);
+      }
       process.exit(1);
     }
   }

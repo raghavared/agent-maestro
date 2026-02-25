@@ -14,8 +14,8 @@ export function createOrderingRoutes(orderingService: OrderingService) {
     try {
       const entityType = req.params.entityType as string;
       const projectId = req.params.projectId as string;
-      if (entityType !== 'task' && entityType !== 'session') {
-        return res.status(400).json({ error: true, message: 'entityType must be "task" or "session"' });
+      if (entityType !== 'task' && entityType !== 'session' && entityType !== 'task-list') {
+        return res.status(400).json({ error: true, message: 'entityType must be "task", "session", or "task-list"' });
       }
 
       const ordering = await orderingService.getOrdering(projectId, entityType);
@@ -33,8 +33,8 @@ export function createOrderingRoutes(orderingService: OrderingService) {
     try {
       const entityType = req.params.entityType as string;
       const projectId = req.params.projectId as string;
-      if (entityType !== 'task' && entityType !== 'session') {
-        return res.status(400).json({ error: true, message: 'entityType must be "task" or "session"' });
+      if (entityType !== 'task' && entityType !== 'session' && entityType !== 'task-list') {
+        return res.status(400).json({ error: true, message: 'entityType must be "task", "session", or "task-list"' });
       }
 
       const { orderedIds } = req.body;

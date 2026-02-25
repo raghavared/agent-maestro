@@ -146,9 +146,10 @@ export class ClaudeCodeSkillLoader implements ISkillLoader {
   /**
    * Load all skills appropriate for a mode.
    */
-  async loadForMode(mode: 'execute' | 'coordinate'): Promise<Skill[]> {
+  async loadForMode(mode: string): Promise<Skill[]> {
     const allSkills = await this.listAvailable();
     const skills: Skill[] = [];
+    const isCoord = mode === 'coordinator' || mode === 'coordinated-coordinator' || mode === 'coordinate';
 
     for (const skillName of allSkills) {
       const skill = await this.load(skillName);
@@ -156,9 +157,9 @@ export class ClaudeCodeSkillLoader implements ISkillLoader {
 
       // Check if skill matches the requested mode
       const skillRole = skill.manifest.config?.role;
-      if (mode === 'coordinate' && skillRole === 'orchestrator') {
+      if (isCoord && skillRole === 'orchestrator') {
         skills.push(skill);
-      } else if (mode === 'execute' && skillRole !== 'orchestrator') {
+      } else if (!isCoord && skillRole !== 'orchestrator') {
         skills.push(skill);
       }
     }

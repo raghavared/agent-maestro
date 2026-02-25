@@ -1,0 +1,57 @@
+{
+  "manifestVersion": "1.0",
+  "mode": "worker",
+  "tasks": [
+    {
+      "id": "task-v2-worker",
+      "title": "Implement worker path",
+      "description": "Use identity kernel and full expertise context lens.",
+      "acceptanceCriteria": [
+        "Prompt renders identity kernel",
+        "Prompt renders full expertise lens"
+      ],
+      "projectId": "proj-v2",
+      "createdAt": "2026-02-21T00:00:00Z"
+    }
+  ],
+  "session": {
+    "model": "sonnet",
+    "permissionMode": "acceptEdits"
+  },
+  "teamMemberProfiles": [
+    {
+      "id": "tm-self",
+      "name": "Self Worker",
+      "role": "Engineer",
+      "avatar": "S",
+      "identity": "Execute and report milestones",
+      "memory": [
+        "Prefer deterministic tests"
+      ]
+    }
+  ],
+  "availableTeamMembers": [
+    {
+      "id": "tm-alpha",
+      "name": "Alpha",
+      "role": "Backend Engineer",
+      "identity": "Build backend services",
+      "avatar": "A",
+      "mode": "worker",
+      "permissionMode": "readOnly",
+      "model": "sonnet",
+      "agentTool": "codex"
+    },
+    {
+      "id": "tm-beta",
+      "name": "Beta",
+      "role": "QA Engineer",
+      "identity": "Build tests and validation plans",
+      "avatar": "B",
+      "mode": "worker",
+      "permissionMode": "acceptEdits",
+      "model": "opus",
+      "agentTool": "claude-code"
+    }
+  ]
+}
