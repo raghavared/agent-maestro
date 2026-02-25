@@ -416,3 +416,4 @@ AGPL-3.0-only. See [LICENSE](./LICENSE) for details.
 Built with [Tauri](https://tauri.app/), [React](https://react.dev/), [xterm.js](https://xtermjs.org/), [Monaco Editor](https://microsoft.github.io/monaco-editor/), and [tmux](https://github.com/tmux/tmux).
 
 Built for [Claude](https://anthropic.com/) by [Anthropic](https://anthropic.com/).
+
