@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import Fuse from "fuse.js";
 import type { MaestroTask, TaskList } from "../../app/types/maestro";
 
 type TaskListAddTasksModalProps = {
@@ -23,12 +24,22 @@ export function TaskListAddTasksModal({
 
   const availableTasks = useMemo(() => {
     if (!list) return [];
-    const lower = search.trim().toLowerCase();
-    return tasks.filter(task => {
-      if (list.orderedTaskIds.includes(task.id)) return false;
-      if (!lower) return true;
-      return task.title.toLowerCase().includes(lower) || task.description.toLowerCase().includes(lower);
+    const pool = tasks.filter(task => !list.orderedTaskIds.includes(task.id));
+    const trimmed = search.trim();
+    if (!trimmed) return pool;
+
+    const fuse = new Fuse(pool, {
+      keys: [
+        { name: "title", weight: 0.4 },
+        { name: "description", weight: 0.3 },
+        { name: "initialPrompt", weight: 0.15 },
+        { name: "status", weight: 0.1 },
+        { name: "priority", weight: 0.05 },
+      ],
+      threshold: 0.4,
+      ignoreLocation: true,
     });
+    return fuse.search(trimmed).map(r => r.item);
   }, [tasks, list, search]);
 
   useEffect(() => {

@@ -262,6 +262,9 @@ export interface Task {
 
   // Multiple team member identities for this task (takes precedence over teamMemberId)
   teamMemberIds?: string[];
+
+  // Per-member launch overrides saved on the task
+  memberOverrides?: Record<string, MemberLaunchOverride>;
 }
 
 export interface Session {
@@ -365,6 +368,7 @@ export interface CreateTaskPayload {
   referenceTaskIds?: string[];
   teamMemberId?: string;
   teamMemberIds?: string[];
+  memberOverrides?: Record<string, MemberLaunchOverride>;
 }
 
 export type UpdateSource = 'user' | 'session';

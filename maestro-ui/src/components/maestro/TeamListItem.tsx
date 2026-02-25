@@ -107,47 +107,17 @@ export function TeamListItem({
                 className={`terminalTaskRow ${isArchived ? 'terminalTaskRow--cancelled' : 'terminalTaskRow--in_progress'} ${depth > 0 ? 'terminalTaskRow--subtask' : ''}`}
                 style={depth > 0 ? { marginLeft: `${depth * 16}px` } : undefined}
             >
-                <div className="terminalTaskMain" onClick={() => setIsExpanded(!isExpanded)}>
-                    <div className="terminalTaskPrimaryContent">
-                        <div className="terminalTaskTitleRow">
-                            <span style={{ fontSize: '14px', marginRight: '6px', flexShrink: 0 }}>
-                                {team.avatar || '\u{1F46A}'}
-                            </span>
-                            <span className="terminalTaskTitle">{team.name}</span>
-                        </div>
-
-                        <div className="terminalTaskMeta">
-                            {/* Status badge */}
-                            <span className={`terminalMetaBadge terminalMetaBadge--status terminalMetaBadge--status-${isArchived ? 'archived' : 'in_progress'}`}>
-                                {isArchived ? '▫ Archived' : '◉ Active'}
-                            </span>
-
-                            {/* Member count badge */}
-                            <span className="terminalMetaBadge">
-                                {team.memberIds.length} member{team.memberIds.length !== 1 ? 's' : ''}
-                            </span>
-
-                            {/* Leader badge */}
-                            {leader && (
-                                <span className="terminalMetaBadge terminalMetaBadge--agent">
-                                    {leader.avatar} {leader.name}
-                                </span>
-                            )}
-
-                            {/* Sub-team count */}
-                            {subTeams.length > 0 && (
-                                <span className="terminalMetaBadge">
-                                    {subTeams.length} sub-team{subTeams.length !== 1 ? 's' : ''}
-                                </span>
-                            )}
-
-                            {/* Time ago */}
-                            <span className="terminalTimeAgo">{formatTimeAgo(team.updatedAt)}</span>
-                        </div>
+                <div className="terminalTeamMain" onClick={() => setIsExpanded(!isExpanded)}>
+                    {/* Row 1: Avatar + Team name (bold) */}
+                    <div className="terminalTeamMain__titleRow">
+                        <span className="terminalTeamAvatar">
+                            {team.avatar || '\u{1F46A}'}
+                        </span>
+                        <span className="terminalTeamName" title={team.name}>{team.name}</span>
                     </div>
 
-                    {/* Right-side action buttons */}
-                    <div className="terminalTaskActions">
+                    {/* Row 2: Meta badges + action buttons */}
+                    <div className="terminalTeamMain__metaRow">
                         {/* Sub-team expand/collapse button */}
                         <button
                             className={`terminalSubtaskBtn ${hasSubTeams ? (childrenCollapsed ? 'terminalSubtaskBtn--collapsed' : 'terminalSubtaskBtn--expanded') : 'terminalSubtaskBtn--empty'}`}
@@ -165,30 +135,49 @@ export function TeamListItem({
                             )}
                         </button>
 
-                        {/* Edit button */}
-                        <button
-                            className="terminalEditBtn"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onEdit(team);
-                            }}
-                            title="Edit team"
-                            style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', background: 'none', border: '1px solid var(--theme-border)', color: 'var(--theme-text-muted)', borderRadius: '3px' }}
-                        >
-                            Edit
-                        </button>
+                        <span className={`terminalMetaBadge terminalMetaBadge--status terminalMetaBadge--status-${isArchived ? 'archived' : 'in_progress'}`}>
+                            {isArchived ? '▫ Archived' : '◉ Active'}
+                        </span>
 
-                        {/* Run button */}
-                        <button
-                            className="terminalSplitPlay__play"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onRun(team);
-                            }}
-                            title="Run team (spawn coordinator session)"
-                        >
-                            &#9654;
-                        </button>
+                        <span className="terminalMetaBadge">
+                            {team.memberIds.length} member{team.memberIds.length !== 1 ? 's' : ''}
+                        </span>
+
+                        {leader && (
+                            <span className="terminalMetaBadge terminalMetaBadge--agent terminalTeamInlineBadge">
+                                {leader.avatar} {leader.name}
+                            </span>
+                        )}
+
+                        <span className="terminalTimeAgo">{formatTimeAgo(team.updatedAt)}</span>
+
+                        {/* Spacer to push actions right */}
+                        <span className="terminalTeamMain__spacer" />
+
+                        {/* Action buttons */}
+                        <div className="terminalTaskActions">
+                            <button
+                                className="terminalEditBtn terminalTeamEditBtn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(team);
+                                }}
+                                title="Edit team"
+                            >
+                                Edit
+                            </button>
+
+                            <button
+                                className="terminalSplitPlay__play"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRun(team);
+                                }}
+                                title="Run team (spawn coordinator session)"
+                            >
+                                &#9654;
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -233,40 +222,31 @@ export function TeamListItem({
                                                     <div
                                                         key={member.id}
                                                         className="terminalTeamMemberRow"
-                                                        style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '8px',
-                                                            padding: '6px 10px',
-                                                            borderBottom: '1px solid var(--theme-border)',
-                                                            fontSize: '11px',
-                                                            fontFamily: '"JetBrains Mono", monospace',
-                                                        }}
                                                     >
-                                                        <span style={{ fontSize: '14px', flexShrink: 0 }}>{member.avatar}</span>
-                                                        <span style={{ color: 'var(--theme-text)', fontWeight: isLeader ? 600 : 400, flex: 1, minWidth: 0 }}>
+                                                        <span className="terminalTeamMemberRow__avatar">{member.avatar}</span>
+                                                        <span className={`terminalTeamMemberRow__name ${isLeader ? 'terminalTeamMemberRow__name--leader' : ''}`}>
                                                             {member.name}
                                                         </span>
-                                                        <span className="terminalMetaBadge" style={{ fontSize: '9px' }}>
+                                                        <span className="terminalMetaBadge terminalTeamMemberRow__badge">
                                                             {member.role}
                                                         </span>
                                                         {member.mode && (
-                                                            <span className={`terminalMetaBadge terminalMetaBadge--status-${member.mode === 'coordinator' || member.mode === 'coordinated-coordinator' || (member.mode as string) === 'coordinate' ? 'in_review' : 'in_progress'}`} style={{ fontSize: '9px' }}>
+                                                            <span className={`terminalMetaBadge terminalTeamMemberRow__badge terminalMetaBadge--status-${member.mode === 'coordinator' || member.mode === 'coordinated-coordinator' || (member.mode as string) === 'coordinate' ? 'in_review' : 'in_progress'}`}>
                                                                 {member.mode}
                                                             </span>
                                                         )}
                                                         {isLeader && (
-                                                            <span className="terminalMetaBadge terminalMetaBadge--priority terminalMetaBadge--priority-high" style={{ fontSize: '9px' }}>
+                                                            <span className="terminalMetaBadge terminalTeamMemberRow__badge terminalMetaBadge--priority terminalMetaBadge--priority-high">
                                                                 &#9733; Leader
                                                             </span>
                                                         )}
                                                         {member.agentTool && (
-                                                            <span className="terminalMetaBadge" style={{ fontSize: '9px', opacity: 0.7 }}>
+                                                            <span className="terminalMetaBadge terminalTeamMemberRow__badge terminalTeamMemberRow__badge--dim">
                                                                 {member.agentTool}
                                                             </span>
                                                         )}
                                                         {member.model && (
-                                                            <span className="terminalMetaBadge terminalMetaBadge--model" style={{ fontSize: '9px' }}>
+                                                            <span className="terminalMetaBadge terminalTeamMemberRow__badge terminalMetaBadge--model">
                                                                 {member.model}
                                                             </span>
                                                         )}
@@ -284,7 +264,7 @@ export function TeamListItem({
                                     {subTeams.length === 0 ? (
                                         <div className="terminalEmptyState">No sub-teams</div>
                                     ) : (
-                                        <div className="terminalTaskList" style={{ margin: '0 -12px' }}>
+                                        <div className="terminalTaskList terminalTeamSubTeamsList">
                                             {subTeams.map(subTeam => (
                                                 <TeamListItem
                                                     key={subTeam.id}

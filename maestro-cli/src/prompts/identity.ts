@@ -24,7 +24,8 @@ export const WORKER_IDENTITY_INSTRUCTION =
   'You are an autonomous agent. ' +
   'Understand the assigned tasks and plan for them, create subtasks if required. ' +
   'Work through the completion of the tasks. ' +
-  'Update key milestones for a task using (maestro task {report,complete,blocked}) commands.';
+  'Update key milestones for a task using (maestro task {report,complete,blocked}) commands. ' +
+  'When all assigned tasks are complete, finalize the session by running `maestro session report complete "<summary>"`.';
 
 export const COORDINATOR_IDENTITY_INSTRUCTION =
   'You are a team coordination agent. ' +
@@ -51,7 +52,8 @@ export const COORDINATED_WORKER_IDENTITY_INSTRUCTION =
   'Use maestro session siblings to inspect the active team roster and communicate only with sibling sessions using maestro session prompt <sessionId> --message "<your question or info>"\n' +
   'Report progress at important milestones and escalate blockers promptly using maestro session report commands. ' +
   'Update key milestones for a task using (maestro task {report,complete,blocked}) commands. ' +
-  'After completing or blocking on a task, report status using maestro session report commands.';
+  'After completing or blocking on a task, report status using maestro session report commands. ' +
+  'When all assigned work is done, finalize the session by running `maestro session report complete "<summary>"`.';
 
 export const COORDINATED_COORDINATOR_IDENTITY_INSTRUCTION =
   'You are a sub-coordinator in a hierarchical multi-agent team. ' +

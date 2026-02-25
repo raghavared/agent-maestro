@@ -224,8 +224,8 @@ body {
 
 .projectTabs {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: stretch;
+  gap: 4px;
   flex: 1;
   min-width: 0;
   overflow-x: auto;
@@ -240,6 +240,8 @@ body {
 .projectTab {
   display: flex;
   align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
   border: 1px solid var(--theme-border);
   background: rgba(var(--theme-primary-rgb), 0.03);
   color: rgba(var(--theme-primary-rgb), 0.6);
@@ -303,7 +305,10 @@ body {
 .projectTabMain {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
   padding: 8px 14px;
   border: none;
   background: transparent;
@@ -315,7 +320,6 @@ body {
 }
 
 .projectTabName {
-  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -388,6 +392,23 @@ body {
   border-color: var(--theme-primary);
   background: rgba(var(--theme-primary-rgb), 0.1);
   box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.2);
+}
+
+.projectTabBarBtn.projectTabBarBtnActive {
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  border-color: var(--theme-primary);
+}
+
+/* VS Code Panel */
+.vsCodePanel { flex: 1; display: flex; align-items: center; justify-content: center; background: #1e1e1e; min-height: 0; }
+.vsCodeIframe { width: 100%; height: 100%; border: none; }
+.vsCodePanelLoading, .vsCodePanelError {
+  color: var(--muted);
+  font-family: var(--style-font-ui);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px;
 }
 
 /* Add Project Menu */
@@ -477,14 +498,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border: 1px solid transparent;
   background: transparent;
   color: rgba(var(--theme-primary-rgb), 0.5);
   cursor: pointer;
   transition: all 0.2s ease;
+  margin-right: 4px;
   margin-left: -4px;
+  flex-shrink: 0;
 }
 
 .projectTabSettingsBtn:hover {
@@ -19157,12 +19180,10 @@ body.dragging-active * {
   pointer-events: auto !important;
 }
 
-/* Terminal positioned over TeamView slot (not reparented — stays in AppWorkspace) */
+/* Terminal reparented into TeamView slot host */
 .terminalInTeamView {
-  /* Reset inset from .terminalContainer so position:fixed + explicit top/left/width/height work */
-  inset: auto !important;
-  right: auto !important;
-  bottom: auto !important;
+  position: absolute !important;
+  inset: 0 !important;
   visibility: visible !important;
   pointer-events: auto !important;
   border-radius: 0 0 4px 4px;
@@ -21272,6 +21293,205 @@ html[data-style="minimal"] * {
   color: var(--terminal-amber, #ffab00);
 }
 
+/* ─── Inline Launch Config Panel (Task Modal) ──────────────────────────────── */
+
+.launchConfigGearBtn {
+  background: none;
+  border: 1px solid var(--theme-border);
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  font-size: 15px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.launchConfigGearBtn:hover {
+  border-color: var(--theme-primary);
+  color: var(--theme-primary);
+}
+
+.launchConfigGearBtn--active {
+  border-color: var(--terminal-amber, #ffab00);
+  color: var(--terminal-amber, #ffab00);
+  background: rgba(255, 171, 0, 0.08);
+}
+
+.launchConfigInline {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 120px;
+}
+
+.launchConfigInline__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--theme-border);
+  flex-shrink: 0;
+}
+
+.launchConfigInline__title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--terminal-amber, #ffab00);
+  font-family: var(--style-font-ui);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.launchConfigInline__headerMember {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--theme-text);
+  opacity: 0.7;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.launchConfigInline__closeBtn {
+  background: none;
+  border: none;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.launchConfigInline__closeBtn:hover {
+  color: var(--theme-primary);
+}
+
+.launchConfigInline__body {
+  padding: 10px 12px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.launchConfigInline__card {
+  border: 1px solid var(--theme-border);
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  padding: 10px 12px;
+}
+
+.launchConfigInline__cardIdentity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+}
+
+.launchConfigInline__avatar {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.launchConfigInline__name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-text);
+}
+
+.launchConfigInline__role {
+  font-size: 10px;
+  opacity: 0.5;
+  margin-left: 6px;
+}
+
+.launchConfigInline__controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.launchConfigInline__field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.launchConfigInline__label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.4;
+  font-family: var(--style-font-ui);
+}
+
+.launchConfigSelect--compact {
+  padding: 4px 6px !important;
+  font-size: 11px !important;
+  min-width: 100px;
+}
+
+.launchConfigToggle--compact {
+  padding: 4px 8px !important;
+  font-size: 10px !important;
+  height: auto !important;
+}
+
+.launchConfigInline__advancedToggle {
+  background: none;
+  border: none;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 6px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--style-font-ui);
+  transition: color 0.15s ease;
+}
+
+.launchConfigInline__advancedToggle:hover {
+  color: var(--theme-primary);
+}
+
+.launchConfigInline__badge {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  color: var(--theme-primary);
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.launchConfigInline__advanced {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  animation: themedTabSlideDown 0.15s ease;
+}
+
+.launchConfigInline__section {
+  margin-bottom: 8px;
+}
+
+.launchConfigInline__section:last-child {
+  margin-bottom: 0;
+}
+
 /* ================================================================== */
 /*  Master Project Indicators                                           */
 /* ================================================================== */
@@ -21754,20 +21974,27 @@ html[data-style="minimal"] * {
 .themedModal--overlay .mentionsInput > div {
   flex: 1 1 0;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  position: relative;
 }
 
 .themedModal--overlay .mentionsInput > div > div {
-  flex: 1 1 0;
-  min-height: 0;
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .themedModal--overlay .mentionsInput textarea {
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   height: 100% !important;
   max-height: none !important;
   min-height: 0 !important;
-  flex: 1 1 0;
+  overflow-y: auto !important;
 }
 
 .themedModal--overlay .themedModalHeader {
@@ -21776,6 +22003,7 @@ html[data-style="minimal"] * {
 
 .themedModal--overlay .themedModalTabBar {
   flex-shrink: 0;
+  margin-top: 0 !important;
 }
 
 .themedModal--overlay .themedModalTabContent {
@@ -21803,4 +22031,148 @@ html[data-style="minimal"] * {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Team card responsiveness                                           */
+/* ------------------------------------------------------------------ */
+
+/* Team card header — two-row layout: title on top, meta + actions below */
+.terminalTeamMain {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px;
+  cursor: pointer;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  height: auto;
+  gap: 2px;
+  overflow: hidden;
+}
+
+/* Row 1: avatar + bold team name */
+.terminalTeamMain__titleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.terminalTeamAvatar {
+  font-size: 14px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.terminalTeamName {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--terminal-text);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+/* Row 2: badges + actions */
+.terminalTeamMain__metaRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.terminalTeamMain__spacer {
+  flex: 1;
+  min-width: 4px;
+}
+
+/* Hide leader badge at narrow widths */
+.terminalTeamInlineBadge {
+  flex-shrink: 0;
+}
+
+.terminalTeamEditBtn {
+  padding: 2px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  background: none;
+  border: 1px solid var(--theme-border);
+  color: var(--theme-text-muted);
+  border-radius: 3px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.terminalTeamEditBtn:hover {
+  border-color: var(--terminal-cyan);
+  color: var(--terminal-cyan);
+}
+
+/* Team member rows inside expanded TeamListItem */
+.terminalTeamMemberRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--theme-border);
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.terminalTeamMemberRow__avatar {
+  font-size: 14px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.terminalTeamMemberRow__name {
+  color: var(--theme-text);
+  font-weight: 400;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminalTeamMemberRow__name--leader {
+  font-weight: 600;
+}
+
+.terminalTeamMemberRow__badge {
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.terminalTeamMemberRow__badge--dim {
+  opacity: 0.7;
+}
+
+/* Sub-teams list inside expanded card */
+.terminalTeamSubTeamsList {
+  margin: 0 -12px;
+}
+
+/* Hide less important badges at narrow widths */
+@container maestro-panel (max-width: 380px) {
+  .terminalTeamMain .terminalMetaBadge--agent {
+    display: none;
+  }
+}
+
+@container maestro-panel (max-width: 320px) {
+  .terminalTeamEditBtn {
+    display: none;
+  }
+  .terminalTeamMain .terminalTimeAgo {
+    display: none;
+  }
 }

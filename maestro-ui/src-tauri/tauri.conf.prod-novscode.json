@@ -1,0 +1,12 @@
+{
+  "productName": "Maestro",
+  "identifier": "com.maestro.prod",
+  "app": {
+    "windows": [{ "label": "main", "title": "Maestro", "devtools": true }]
+  },
+  "bundle": {
+    "homepage": "https://github.com/subhangR/agent-maestro",
+    "targets": ["app"],
+    "externalBin": ["binaries/maestro-server"]
+  }
+}
