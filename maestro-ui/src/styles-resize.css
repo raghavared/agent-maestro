@@ -1,0 +1,73 @@
+/* ------------------------------------------------------------------ */
+/*  Panel resize performance optimizations                             */
+/* ------------------------------------------------------------------ */
+
+/* During sidebar resize: use live CSS variable, optimize for performance */
+:root.sidebar-resizing .sidebar {
+  width: var(--sidebar-width-live) !important;
+  will-change: width;
+  transition: none !important;
+}
+
+:root.sidebar-resizing .terminalPane {
+  pointer-events: none;
+}
+
+:root.sidebar-resizing .main {
+  /* Hint browser that main area will change size */
+  will-change: width;
+}
+
+/* During maestro sidebar resize */
+:root.maestro-sidebar-resizing .appLeftPanel {
+  width: calc(48px + var(--maestro-sidebar-width-live)) !important;
+  will-change: width;
+  transition: none !important;
+}
+
+:root.maestro-sidebar-resizing .appLeftPanelContent {
+  width: var(--maestro-sidebar-width-live) !important;
+  will-change: width;
+  transition: none !important;
+}
+
+:root.maestro-sidebar-resizing .terminalPane {
+  pointer-events: none;
+}
+
+:root.maestro-sidebar-resizing .main {
+  will-change: width;
+}
+
+/* During right panel resize: use live CSS variable, optimize for performance */
+:root.right-panel-resizing .rightPanel,
+:root.right-panel-resizing .spacesPanel {
+  width: var(--right-panel-width-live) !important;
+  max-width: var(--right-panel-width-live) !important;
+  will-change: width;
+  transition: none !important;
+}
+
+:root.right-panel-resizing .spacesPanelContent {
+  width: var(--right-panel-width-live) !important;
+  will-change: width;
+  transition: none !important;
+}
+
+:root.right-panel-resizing .terminalPane {
+  pointer-events: none;
+}
+
+:root.right-panel-resizing .main {
+  /* Hint browser that main area will change size */
+  will-change: width;
+}
+
+/* GPU acceleration during any resize */
+:root.sidebar-resizing,
+:root.maestro-sidebar-resizing,
+:root.right-panel-resizing {
+  /* Prevent text selection during drag */
+  user-select: none;
+}
+

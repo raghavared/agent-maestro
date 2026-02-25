@@ -1,0 +1,80 @@
+/* ------------------------------------------------------------------ */
+/*  Icon Rail                                                          */
+/* ------------------------------------------------------------------ */
+
+.iconRail {
+  width: 48px;
+  min-width: 48px;
+  height: 100%;
+  background: #080a0f;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 2px;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.iconRailButton {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(240, 244, 248, 0.45);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.iconRailButton:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(240, 244, 248, 0.8);
+}
+
+.iconRailButton--active {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+}
+
+.iconRailButton--active:hover {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+}
+
+.iconRailActiveIndicator {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--theme-primary);
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 6px rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.iconRailBadge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--theme-primary);
+  color: #000;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 8px;
+  font-family: var(--style-font-ui);
+}
+
+.iconRailSpacer {
+  flex: 1 1 0;
+}
+

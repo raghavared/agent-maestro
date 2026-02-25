@@ -1,0 +1,425 @@
+/* ===================================
+   SIDEBAR REDESIGN - CYBERPUNK TERMINAL
+   Matching the Maestro Panel Aesthetic
+   =================================== */
+
+.sidebar {
+  /* Terminal Theme Variables - aliased to dynamic theme vars */
+  --terminal-green: var(--theme-primary);
+  --terminal-green-dim: var(--theme-primary-dim);
+  --terminal-amber: #ffb000;
+  --terminal-cyan: #00d9ff;
+  --terminal-blue: #6b8afd;
+  --terminal-red: #ff3b3b;
+  --terminal-gray: #888888;
+  --terminal-bg: #000000;
+  --terminal-bg-alt: #0a0a0a;
+  --terminal-border: var(--theme-border);
+  --terminal-text: var(--theme-text);
+  --terminal-text-dim: var(--theme-text-dim);
+  
+  /* Overrides */
+  --text: var(--terminal-text);
+  --muted: var(--terminal-text-dim);
+  --border: var(--terminal-border);
+  --panel: var(--terminal-bg);
+  --panel-2: var(--terminal-bg-alt);
+  --accent: var(--terminal-green);
+  --accent-2: var(--terminal-cyan);
+  
+  /* Base Sidebar Styles */
+  background: var(--terminal-bg) !important;
+  border-right: 1px solid var(--terminal-border) !important;
+  font-family: var(--style-font-ui);
+  position: relative;
+  overflow: hidden; /* For scanlines */
+}
+
+/* Scanline Overlay for Sidebar */
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.15) 0px,
+      rgba(0, 0, 0, 0.15) 1px,
+      transparent 1px,
+      transparent 2px
+  );
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.2;
+}
+
+/* CRT Glow for Sidebar */
+.sidebar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+      ellipse at top left,
+      rgba(var(--theme-primary-rgb), 0.05) 0%,
+      transparent 60%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Ensure content is above effects */
+.sidebar > * {
+  position: relative;
+  z-index: 3;
+}
+
+.sidebarHeader {
+  border-bottom: 1px solid var(--terminal-border) !important;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+.sidebarHeader .title {
+  font-family: var(--style-font-ui);
+  color: var(--terminal-green) !important;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 4px rgba(var(--theme-primary-rgb), 0.4);
+}
+
+/* Sidebar Buttons */
+.sidebar .btnSmall {
+  border: 1px solid var(--terminal-border);
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  color: var(--terminal-green-dim);
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.sidebar .btnSmall:hover {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.2);
+}
+
+.sidebar .btnSmall.btnIconActive {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  border-color: var(--terminal-green);
+  color: var(--terminal-text);
+  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+/* Project Items */
+.projectList {
+  gap: 4px; /* Tighter spacing */
+}
+
+.projectItem {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--terminal-text-dim);
+  border-radius: 2px;
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+}
+
+.projectItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  border-color: rgba(var(--theme-primary-rgb), 0.3);
+  color: var(--terminal-text);
+}
+
+.projectItemActive {
+  background: rgba(var(--theme-primary-rgb), 0.1) !important;
+  border-color: var(--terminal-green) !important;
+  color: var(--terminal-text) !important;
+  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.15), inset 0 0 12px rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.projectTitle {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.projectCount {
+  color: var(--terminal-text-dim);
+  border: 1px solid var(--terminal-border);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+
+.projectAgentsBadge {
+  border: 1px solid var(--terminal-border);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--terminal-green);
+  border-radius: 2px;
+}
+
+.projectAgentsDot {
+  background: var(--terminal-green);
+  box-shadow: 0 0 4px var(--terminal-green);
+  animation: pulseGlow 2s infinite;
+}
+
+/* Session Items (Left Panel) */
+.sessionList {
+  gap: 4px;
+}
+
+.sessionItem {
+  border-radius: 2px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: var(--style-font-ui);
+  color: var(--terminal-text-dim);
+}
+
+.sessionItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  border-color: rgba(var(--theme-primary-rgb), 0.3);
+  color: var(--terminal-text);
+}
+
+.sessionItemActive {
+  background: rgba(var(--theme-primary-rgb), 0.1) !important;
+  border-color: var(--terminal-green) !important;
+  color: var(--terminal-text) !important;
+  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.15);
+}
+
+.sessionNameText {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.sessionCmd {
+  color: #008f11; /* Darker green for dim text */
+  font-family: var(--style-font-ui);
+  opacity: 0.8;
+}
+
+.sessionStatus {
+  color: var(--terminal-amber);
+}
+
+/* Dots */
+.dot {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  border: 1px solid var(--terminal-border);
+}
+
+.dotActive {
+  background: var(--terminal-green);
+  box-shadow: 0 0 4px var(--terminal-green);
+}
+
+/* Agent Shortcuts */
+.agentShortcutRow {
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--terminal-border);
+  margin-bottom: 8px;
+}
+
+.agentShortcutBtn {
+  border: 1px solid var(--terminal-border);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--terminal-text-dim);
+  border-radius: 2px;
+  font-family: var(--style-font-ui);
+}
+
+.agentShortcutBtn:hover {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  border-color: var(--terminal-green);
+  color: var(--terminal-text);
+  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.15);
+}
+
+/* Resize Handle */
+.sidebarResizeHandle::before {
+  background: var(--terminal-border);
+}
+
+.sidebarResizeHandle:hover::before {
+  background: var(--terminal-green);
+  box-shadow: 0 0 4px var(--terminal-green);
+}
+
+/* Dropdowns in Sidebar */
+.sidebarActionMenuDropdown {
+  background: var(--terminal-bg, var(--panel, #10151e));
+  border: 1px solid var(--terminal-green, var(--theme-primary, #6b8afd));
+  border-radius: 2px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 4px 20px rgba(var(--theme-primary-rgb, 107, 138, 253), 0.15);
+}
+
+.sidebarActionMenuDropdown--fixed {
+  position: fixed;
+  z-index: 10000;
+}
+
+.sidebarActionMenuItem {
+  color: var(--terminal-text, var(--text, #f0f4f8));
+  font-family: var(--style-font-ui);
+  border-radius: 2px;
+}
+
+.sidebarActionMenuItem:hover {
+  background: rgba(var(--theme-primary-rgb, 107, 138, 253), 0.1);
+  border-color: var(--terminal-green-dim, var(--theme-primary-dim, #4a6afd));
+}
+
+/* Scrollbars */
+.projectList::-webkit-scrollbar,
+.sessionList::-webkit-scrollbar {
+  width: 4px;
+}
+
+.projectList::-webkit-scrollbar-thumb,
+.sessionList::-webkit-scrollbar-thumb {
+  background: var(--terminal-border);
+  border-radius: 2px;
+}
+
+.projectList::-webkit-scrollbar-thumb:hover,
+.sessionList::-webkit-scrollbar-thumb:hover {
+  background: var(--terminal-green-dim);
+}
+
+/* Skills Selector Styles */
+.createTaskAdvancedSection {
+  padding: 12px 0;
+  border-top: 1px solid var(--terminal-border);
+}
+
+.createTaskAdvancedLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--terminal-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+  font-family: var(--style-font-ui);
+}
+
+.createTaskSkillsLoading,
+.createTaskSkillsError,
+.createTaskSkillsEmpty {
+  padding: 12px;
+  border-radius: 2px;
+  font-family: var(--style-font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.createTaskSkillsLoading {
+  color: var(--terminal-amber);
+  background: rgba(180, 83, 9, 0.1);
+  border: 1px solid rgba(180, 83, 9, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.createTaskSkillsSpinner {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.createTaskSkillsError {
+  color: #ff4444;
+  background: rgba(255, 68, 68, 0.1);
+  border: 1px solid rgba(255, 68, 68, 0.3);
+}
+
+.createTaskSkillsEmpty {
+  color: var(--terminal-text-dim);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--terminal-border);
+}
+
+.createTaskSkillsEmpty code {
+  background: rgba(0, 255, 0, 0.1);
+  color: var(--terminal-green);
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-family: var(--style-font-ui);
+}
+
+.createTaskSkillsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px;
+}
+
+.createTaskSkillCheckbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--terminal-border);
+  border-radius: 2px;
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--style-font-ui);
+}
+
+.createTaskSkillCheckbox:hover {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border-color: var(--terminal-green-dim);
+  box-shadow: 0 0 4px rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.createTaskSkillCheckbox input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: var(--terminal-green);
+}
+
+.createTaskSkillInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.createTaskSkillName {
+  font-weight: 500;
+  color: var(--terminal-text);
+  font-size: 13px;
+}
+
+.createTaskSkillDescription {
+  font-size: 12px;
+  color: var(--terminal-text-dim);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.createTaskSkillType {
+  font-size: 11px;
+  color: var(--terminal-amber);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+

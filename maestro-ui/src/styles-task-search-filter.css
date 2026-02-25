@@ -1,0 +1,893 @@
+/* ========== Task Search Bar ========== */
+
+.taskSearchBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--terminal-border);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.taskSearchBar__icon {
+  color: var(--terminal-text-dim);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.taskSearchBar__input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--terminal-border);
+  border-radius: 4px;
+  padding: 5px 10px;
+  color: var(--terminal-text);
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.taskSearchBar__input::placeholder {
+  color: var(--terminal-text-dim);
+  opacity: 0.6;
+}
+
+.taskSearchBar__input:focus {
+  border-color: var(--terminal-accent, #58a6ff);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.taskSearchBar__clear {
+  background: none;
+  border: none;
+  color: var(--terminal-text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.taskSearchBar__clear:hover {
+  color: var(--terminal-text);
+}
+
+/* ========== Filter Bar (Redesigned) ========== */
+
+.filterBar {
+  padding: 0 16px;
+  border-bottom: 1px solid var(--terminal-border);
+  background: rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 1001;
+}
+
+.filterBar--expanded {
+  padding-bottom: 12px;
+}
+
+/* Header row: toggle + active chips on the same line */
+.filterBar__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+}
+
+/* Toggle button */
+.filterBar__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  color: var(--terminal-text-dim);
+  font-size: 11px;
+  font-family: var(--style-font-ui);
+  cursor: pointer;
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.filterBar__toggle:hover {
+  color: var(--terminal-text);
+}
+
+.filterBar__toggleIcon {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.filterBar__toggleLabel {
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+.filterBar__badge {
+  background: var(--terminal-green);
+  color: #000;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.filterBar__arrow {
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+
+.filterBar__arrow--open {
+  transform: rotate(180deg);
+}
+
+/* Active filter summary (collapsed state) — inline with toggle */
+.filterBar__activeSummary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+}
+
+/* Expanded panel */
+.filterBar__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+/* Filter groups */
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filterGroup__label {
+  font-size: 10px;
+  font-family: var(--style-font-ui);
+  font-weight: 600;
+  color: var(--terminal-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 56px;
+  flex-shrink: 0;
+}
+
+.filterGroup__chips {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+/* Filter chips (pill buttons) */
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--terminal-border);
+  background: transparent;
+  color: var(--terminal-text-dim);
+  font-size: 10px;
+  font-family: var(--style-font-ui);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.filterChip:hover {
+  border-color: var(--terminal-text-dim);
+  color: var(--terminal-text);
+}
+
+.filterChip__icon {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.filterChip__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.filterChip__remove {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 0 0 2px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.filterChip__remove:hover {
+  opacity: 1;
+}
+
+/* Status semantic colors */
+.filterChip--todo:hover,
+.filterChip--todo.filterChip--active {
+  border-color: var(--terminal-amber);
+  color: var(--terminal-amber);
+}
+.filterChip--todo.filterChip--active {
+  background: rgba(255, 176, 0, 0.15);
+}
+
+.filterChip--inProgress:hover,
+.filterChip--inProgress.filterChip--active {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+}
+.filterChip--inProgress.filterChip--active {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+}
+
+.filterChip--inReview:hover,
+.filterChip--inReview.filterChip--active {
+  border-color: #a855f7;
+  color: #a855f7;
+}
+.filterChip--inReview.filterChip--active {
+  background: rgba(168, 85, 247, 0.12);
+}
+
+.filterChip--completed:hover,
+.filterChip--completed.filterChip--active {
+  border-color: var(--terminal-cyan);
+  color: var(--terminal-cyan);
+}
+.filterChip--completed.filterChip--active {
+  background: rgba(0, 217, 255, 0.12);
+}
+
+.filterChip--blocked:hover,
+.filterChip--blocked.filterChip--active {
+  border-color: var(--terminal-red);
+  color: var(--terminal-red);
+}
+.filterChip--blocked.filterChip--active {
+  background: rgba(255, 59, 59, 0.12);
+}
+
+.filterChip--cancelled:hover,
+.filterChip--cancelled.filterChip--active {
+  border-color: var(--terminal-text-dim);
+  color: var(--terminal-text-dim);
+}
+.filterChip--cancelled.filterChip--active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Priority semantic colors */
+.filterChip--high:hover,
+.filterChip--high.filterChip--active {
+  border-color: var(--terminal-red);
+  color: var(--terminal-red);
+}
+.filterChip--high.filterChip--active {
+  background: rgba(255, 59, 59, 0.12);
+}
+
+.filterChip--medium:hover,
+.filterChip--medium.filterChip--active {
+  border-color: var(--terminal-amber);
+  color: var(--terminal-amber);
+}
+.filterChip--medium.filterChip--active {
+  background: rgba(255, 176, 0, 0.12);
+}
+
+.filterChip--low:hover,
+.filterChip--low.filterChip--active {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+}
+.filterChip--low.filterChip--active {
+  background: rgba(var(--theme-primary-rgb), 0.12);
+}
+
+/* Sort chip */
+.filterChip--sort:hover,
+.filterChip--sort.filterChip--active {
+  border-color: var(--terminal-blue);
+  color: var(--terminal-blue);
+}
+.filterChip--sort.filterChip--active {
+  background: rgba(107, 138, 253, 0.12);
+}
+
+/* Segmented control for sort */
+.filterGroup__segmented {
+  display: flex;
+  border: 1px solid var(--terminal-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.filterSegment {
+  padding: 4px 12px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--terminal-border);
+  color: var(--terminal-text-dim);
+  font-size: 10px;
+  font-family: var(--style-font-ui);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filterSegment:last-child {
+  border-right: none;
+}
+
+.filterSegment:hover {
+  color: var(--terminal-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.filterSegment--active {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  color: var(--terminal-green);
+  font-weight: 600;
+}
+
+/* Clear all button */
+.filterBar__clearAll {
+  background: none;
+  border: none;
+  color: var(--terminal-text-dim);
+  font-size: 10px;
+  font-family: var(--style-font-ui);
+  cursor: pointer;
+  padding: 2px 6px;
+  transition: color 0.15s ease;
+  opacity: 0.7;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.filterBar__clearAll:hover {
+  color: var(--terminal-red);
+  opacity: 1;
+}
+
+/* Terminal Modal Styles */
+.maestroModal.terminalModal {
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(8px);
+}
+
+.maestroModal.terminalModal .maestroModalContainer {
+  background: #000000;
+  border: 2px solid var(--terminal-green);
+  box-shadow:
+    0 0 40px rgba(var(--theme-primary-rgb), 0.4),
+    0 20px 60px rgba(0, 0, 0, 0.9);
+  max-width: 600px;
+  position: relative;
+}
+
+/* Scanline effect for modals */
+.maestroModal.terminalModal .maestroModalContainer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(0deg,
+      rgba(0, 0, 0, 0.15) 0px,
+      rgba(0, 0, 0, 0.15) 1px,
+      transparent 1px,
+      transparent 2px);
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0.3;
+}
+
+.maestroModal.terminalModal .maestroModalHeader {
+  background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+  border-bottom: 1px solid var(--terminal-border);
+}
+
+.maestroModal.terminalModal .maestroModalTitle {
+  color: var(--terminal-green);
+  font-family: var(--style-font-ui);
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.maestroModal.terminalModal .maestroModalTitle::before {
+  content: '$ ';
+  color: var(--terminal-amber);
+}
+
+.maestroModal.terminalModal .maestroModalContent {
+  background: rgba(var(--theme-primary-rgb), 0.02);
+}
+
+.maestroModal.terminalModal .maestroFormLabel {
+  color: var(--terminal-amber);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+}
+
+.maestroModal.terminalModal .maestroFormLabel::before {
+  content: '--';
+  margin-right: 4px;
+}
+
+.maestroModal.terminalModal .maestroFormInput,
+.maestroModal.terminalModal .maestroFormTextarea,
+.maestroModal.terminalModal .maestroFormSelect {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  border: 1px solid var(--terminal-border);
+  color: var(--terminal-text);
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+}
+
+.maestroModal.terminalModal .maestroFormInput:focus,
+.maestroModal.terminalModal .maestroFormTextarea:focus,
+.maestroModal.terminalModal .maestroFormSelect:focus {
+  outline: none;
+  border-color: var(--terminal-green);
+  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.3);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+}
+
+.maestroModal.terminalModal .maestroButton {
+  font-family: var(--style-font-ui);
+  font-weight: 600;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+}
+
+.maestroModal.terminalModal .maestroButtonPrimary {
+  background: transparent;
+  border: 1px solid var(--terminal-green);
+  color: var(--terminal-green);
+}
+
+.maestroModal.terminalModal .maestroButtonPrimary::before {
+  content: '$ ';
+  color: var(--terminal-amber);
+  margin-right: 4px;
+}
+
+.maestroModal.terminalModal .maestroButtonPrimary:hover {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  box-shadow: 0 0 16px rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.maestroModal.terminalModal .maestroButtonSecondary {
+  background: transparent;
+  border: 1px solid var(--terminal-border);
+  color: var(--terminal-text-dim);
+}
+
+.maestroModal.terminalModal .maestroButtonSecondary:hover {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+}
+
+/* Terminal checkbox styling */
+.maestroModal.terminalModal input[type="checkbox"] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--terminal-border);
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.maestroModal.terminalModal input[type="checkbox"]:checked {
+  border-color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.maestroModal.terminalModal input[type="checkbox"]:checked::before {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--terminal-green);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.maestroModal.terminalModal input[type="checkbox"]:hover {
+  border-color: var(--terminal-green);
+  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+/* Terminal-themed CreateTaskModal */
+.createTaskModal.terminalTheme {
+  background: #000000;
+  border: 2px solid var(--terminal-green);
+  box-shadow:
+    0 0 40px rgba(var(--theme-primary-rgb), 0.5),
+    0 20px 80px rgba(0, 0, 0, 0.9);
+}
+
+.createTaskModal.terminalTheme::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(0deg,
+      rgba(0, 0, 0, 0.15) 0px,
+      rgba(0, 0, 0, 0.15) 1px,
+      transparent 1px,
+      transparent 2px);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.3;
+}
+
+.createTaskModal.terminalTheme .createTaskModalHeader {
+  background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+  border-bottom: 1px solid var(--terminal-border);
+  position: relative;
+  z-index: 2;
+}
+
+.createTaskModal.terminalTheme .createTaskModalIcon {
+  color: var(--terminal-green);
+  text-shadow: 0 0 10px var(--terminal-green);
+}
+
+.createTaskModal.terminalTheme .createTaskModalTitle {
+  color: var(--terminal-green);
+  font-family: var(--style-font-ui);
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.createTaskModal.terminalTheme .createTaskModalTitle::before {
+  content: '$ ';
+  color: var(--terminal-amber);
+  margin-right: 6px;
+}
+
+.createTaskModal.terminalTheme .createTaskModalSubtitle {
+  color: var(--terminal-text-dim);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+}
+
+.createTaskModal.terminalTheme .createTaskModalBody {
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  position: relative;
+  z-index: 2;
+}
+
+.createTaskModal.terminalTheme .createTaskLabel {
+  color: var(--terminal-amber);
+  font-family: var(--style-font-ui);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+}
+
+.createTaskModal.terminalTheme .createTaskLabel::before {
+  content: '--';
+  margin-right: 4px;
+  color: var(--terminal-text-dim);
+}
+
+.createTaskModal.terminalTheme .createTaskTitleInput {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  border: 1px solid var(--terminal-border);
+  color: var(--terminal-text);
+  font-family: var(--style-font-ui);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.createTaskModal.terminalTheme .createTaskTitleInput:focus {
+  outline: none;
+  border-color: var(--terminal-green);
+  box-shadow: 0 0 16px rgba(var(--theme-primary-rgb), 0.4);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+}
+
+.createTaskModal.terminalTheme .createTaskTitleInput::placeholder {
+  color: var(--terminal-text-dim);
+  opacity: 0.5;
+}
+
+.createTaskModal.terminalTheme .createTaskPromptArea {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  border: 1px solid var(--terminal-border);
+  color: var(--terminal-text);
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.createTaskModal.terminalTheme .createTaskPromptArea:focus {
+  outline: none;
+  border-color: var(--terminal-green);
+  box-shadow: 0 0 16px rgba(var(--theme-primary-rgb), 0.4);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+}
+
+.createTaskModal.terminalTheme .createTaskPromptArea::placeholder {
+  color: var(--terminal-text-dim);
+  opacity: 0.5;
+}
+
+.createTaskModal.terminalTheme .createTaskPromptHint {
+  color: var(--terminal-cyan);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+}
+
+.createTaskModal.terminalTheme .createTaskOptionLabel {
+  color: var(--terminal-amber);
+  font-family: var(--style-font-ui);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.createTaskModal.terminalTheme .createTaskPriorityBtn {
+  background: transparent;
+  border: 1px solid var(--terminal-border);
+  color: var(--terminal-text-dim);
+  font-family: var(--style-font-ui);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: lowercase;
+}
+
+.createTaskModal.terminalTheme .createTaskPriorityBtn:hover {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+}
+
+.createTaskModal.terminalTheme .createTaskPriorityBtn.active {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.3);
+  font-weight: 700;
+}
+
+.createTaskModal.terminalTheme .createTaskAdvancedToggle {
+  color: var(--terminal-cyan);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+}
+
+.createTaskModal.terminalTheme .createTaskAdvancedToggle:hover {
+  color: var(--terminal-green);
+}
+
+.createTaskModal.terminalTheme .createTaskModalFooter {
+  background: linear-gradient(180deg, #0d0d0d 0%, #000000 100%);
+  border-top: 1px solid var(--terminal-border);
+  position: relative;
+  z-index: 2;
+}
+
+.createTaskModal.terminalTheme .createTaskModalKeyboardHint {
+  color: var(--terminal-text-dim);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  padding: 4px 8px;
+  border: 1px solid var(--terminal-border);
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.createTaskModal.terminalTheme .createTaskBtn {
+  font-family: var(--style-font-ui);
+  font-weight: 600;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+  font-size: 12px;
+}
+
+.createTaskModal.terminalTheme .createTaskBtnSecondary {
+  background: transparent;
+  border: 1px solid var(--terminal-border);
+  color: var(--terminal-text-dim);
+}
+
+.createTaskModal.terminalTheme .createTaskBtnSecondary:hover:not(:disabled) {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+}
+
+.createTaskModal.terminalTheme .createTaskBtnPrimary {
+  background: transparent;
+  border: 1px solid var(--terminal-green);
+  color: var(--terminal-green);
+}
+
+.createTaskModal.terminalTheme .createTaskBtnPrimary::before {
+  content: '$ ';
+  color: var(--terminal-amber);
+  margin-right: 4px;
+}
+
+.createTaskModal.terminalTheme .createTaskBtnPrimary:hover:not(:disabled) {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  box-shadow: 0 0 20px rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.createTaskModal.terminalTheme .createTaskBtnSuccess {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  border: 1px solid var(--terminal-green);
+  color: var(--terminal-green);
+  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.createTaskModal.terminalTheme .createTaskBtnSuccess::before {
+  content: '▶ ';
+  margin-right: 4px;
+}
+
+.createTaskModal.terminalTheme .createTaskBtnSuccess:hover:not(:disabled) {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  box-shadow: 0 0 24px rgba(var(--theme-primary-rgb), 0.6);
+  transform: scale(1.02);
+}
+
+.createTaskModal.terminalTheme .createTaskBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  border-color: var(--terminal-border);
+}
+
+.createTaskModal.terminalTheme .createTaskBtnDanger {
+  background: rgba(255, 80, 80, 0.1);
+  border: 1px solid rgba(255, 80, 80, 0.6);
+  color: #ff5050;
+}
+
+.createTaskModal.terminalTheme .createTaskBtnDanger:hover:not(:disabled) {
+  background: rgba(255, 80, 80, 0.2);
+  box-shadow: 0 0 20px rgba(255, 80, 80, 0.4);
+}
+
+/* Confirmation Dialog */
+.confirmDialogOverlay {
+  z-index: 10001;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.confirmDialog {
+  width: 90%;
+  max-width: 400px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.confirmDialog.terminalTheme {
+  background: #000000;
+  border: 2px solid var(--terminal-amber);
+  box-shadow: 0 0 30px rgba(255, 191, 0, 0.3);
+}
+
+.confirmDialogHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+  border-bottom: 1px solid var(--terminal-border);
+  color: var(--terminal-amber);
+  font-family: var(--style-font-ui);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.confirmDialogIcon {
+  font-size: 18px;
+  text-shadow: 0 0 8px rgba(255, 191, 0, 0.5);
+}
+
+.confirmDialogBody {
+  padding: 20px;
+  color: var(--terminal-text);
+  font-family: var(--style-font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.confirmDialogFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, #0d0d0d 0%, #000000 100%);
+  border-top: 1px solid var(--terminal-border);
+}
+
+/* Terminal input cursor animation */
+.terminalTheme input:focus,
+.terminalTheme textarea:focus {
+  caret-color: var(--terminal-green);
+}
+
+/* Glowing text selection */
+.terminalTheme ::selection {
+  background: rgba(var(--theme-primary-rgb), 0.3);
+  color: var(--terminal-text);
+}
+
+/* Additional terminal effects */
+@keyframes terminalFlicker {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.97;
+  }
+}
+
+.terminalTheme {
+  animation: terminalFlicker 0.15s infinite;
+}
+
+/* Phosphor glow on hover for interactive elements */
+.terminalTheme button:not(:disabled):hover,
+.terminalTheme select:hover,
+.terminalTheme input:hover {
+  position: relative;
+}
+
+.terminalTheme button:not(:disabled):hover::after,
+.terminalTheme select:hover::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center,
+      rgba(var(--theme-primary-rgb), 0.1) 0%,
+      transparent 70%);
+  pointer-events: none;
+}

@@ -1,0 +1,137 @@
+/* ---- Update Banner ---- */
+.updateBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.10);
+  padding: 6px 12px;
+  margin: 0 8px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.updateBannerText {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.35;
+  flex: 1;
+  min-width: 0;
+}
+
+.updateBannerBtn {
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  padding: 3px 10px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.updateBannerBtn:hover {
+  background: rgba(34, 197, 94, 0.25);
+  color: #86efac;
+}
+
+.updateBannerClose {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 2px 6px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.updateBannerClose:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.terminalArea {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspaceRow {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.workspaceResizing {
+  user-select: none;
+}
+
+.workspaceResize {
+  flex: 0 0 6px;
+  width: 6px;
+  cursor: ew-resize;
+  position: relative;
+  z-index: 5;
+}
+
+.workspaceResize::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.workspaceResize:hover::before,
+.workspaceResizing .workspaceResize::before {
+  background: rgba(107, 138, 253, 0.35);
+}
+
+.terminalPane {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  /* Performance: strictest containment for terminal */
+  contain: strict;
+  /* GPU layer for smooth compositing */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  transition: box-shadow 0.15s ease;
+}
+
+.terminalPane--dragOver {
+  box-shadow: inset 0 0 0 2px rgba(0, 187, 255, 0.5);
+}
+
+/* When TeamView is open, remove all containment and transform so
+   position:fixed children escape to the viewport correctly. */
+.terminalPane--teamView {
+  contain: none;
+  transform: none;
+  overflow: visible;
+}
+
+.terminalContainer {
+  position: absolute;
+  inset: 0;
+  padding: 10px 0 10px 10px;
+  /* Neutralize body CSS zoom so xterm.js mouse coordinates match correctly.
+     Without this, selection/highlight is offset from the actual cursor position. */
+  zoom: calc(1 / var(--app-zoom-scale));
+}
+
+.terminalHidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+

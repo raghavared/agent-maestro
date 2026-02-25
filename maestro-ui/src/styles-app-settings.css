@@ -1,0 +1,601 @@
+/* App Settings Dialog */
+.appSettingsDialog {
+  background: #000000;
+  border: 2px solid var(--theme-primary);
+  min-width: 520px;
+  max-width: 600px;
+  box-shadow: 0 0 30px rgba(var(--theme-primary-rgb), 0.3), inset 0 0 60px rgba(var(--theme-primary-rgb), 0.03);
+  font-family: var(--style-font-ui);
+}
+
+.appSettingsBody {
+  display: flex;
+  flex-direction: row;
+  min-height: 320px;
+}
+
+.appSettingsSidebar {
+  display: flex;
+  flex-direction: column;
+  width: 120px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--theme-border);
+  padding: 8px 0;
+}
+
+.appSettingsTabBtn {
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-align: left;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.appSettingsTabBtn:hover {
+  color: rgba(var(--theme-primary-rgb), 0.8);
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.appSettingsTabBtnActive {
+  color: var(--theme-primary);
+  border-left-color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+}
+
+.appSettingsTabContent {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 480px;
+}
+
+.appSettingsContent {
+  padding: 16px;
+}
+
+.appSettingsContent .themeSwitcher {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.appSettingsContent .themeSwitcherLabel {
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 14px;
+}
+
+.appSettingsContent .themeSwitcherGrid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.appSettingsContent .themeSwitcherOption {
+  border-color: var(--theme-border);
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  padding: 12px 14px;
+}
+
+.appSettingsContent .themeSwitcherOption:hover {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border-color: rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.appSettingsContent .themeSwitcherOptionActive {
+  border-color: var(--swatch-color);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.2);
+}
+
+.appSettingsContent .themeSwitcherName {
+  font-size: 11px;
+}
+
+/* ---- Display Settings ---- */
+
+.displaySettings {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.displaySettingsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.displaySettingsLabel {
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.displaySettingsHint {
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.displaySettingsOptions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.displaySettingsOption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  border: 1px solid var(--theme-border);
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  font-family: var(--style-font-ui);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.displaySettingsOption:hover {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border-color: rgba(var(--theme-primary-rgb), 0.4);
+  color: var(--theme-primary);
+}
+
+.displaySettingsOptionActive {
+  border-color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.2);
+}
+
+.displaySettingsOptionLabel {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.displaySettingsOptionScale {
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+.displaySettingsPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.displaySettingsPreviewLabel {
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.displaySettingsPreviewBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--theme-border);
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  font-family: var(--style-font-ui);
+  color: var(--theme-primary);
+}
+
+.displaySettingsReset {
+  align-self: flex-start;
+  padding: 6px 14px;
+  border: 1px solid var(--theme-border);
+  background: transparent;
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.displaySettingsReset:hover {
+  border-color: rgba(var(--theme-primary-rgb), 0.4);
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.appShortcutsHeader {
+  color: rgba(var(--theme-primary-rgb), 0.72);
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.appShortcutsTable {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--theme-border);
+  background: rgba(var(--theme-primary-rgb), 0.03);
+}
+
+.appShortcutsRow {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1.1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.12);
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.85);
+}
+
+.appShortcutsRow:last-child {
+  border-bottom: none;
+}
+
+.appShortcutsRow span {
+  overflow-wrap: anywhere;
+}
+
+.appShortcutsRowHeader {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  color: var(--theme-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-size: 10px;
+}
+
+/* Sound Settings (inside app settings tab) */
+.soundSettingsContent {
+  padding: 16px;
+}
+
+.soundSettingSection {
+  margin-bottom: 16px;
+}
+
+.soundSettingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+}
+
+.soundSettingLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+
+.soundSettingLabel input[type="checkbox"] {
+  margin-top: 2px;
+  accent-color: var(--theme-primary);
+  flex-shrink: 0;
+}
+
+.soundSettingInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.soundSettingTitle {
+  color: var(--theme-primary);
+  font-size: 12px;
+  font-family: var(--style-font-ui);
+}
+
+.soundSettingDescription {
+  color: rgba(var(--theme-primary-rgb), 0.45);
+  font-size: 10px;
+  font-family: var(--style-font-ui);
+  line-height: 1.3;
+}
+
+.soundSettingGroupTitle {
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 8px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  font-weight: normal;
+}
+
+.soundSettingVolume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.soundVolumeSlider {
+  width: 140px;
+  accent-color: var(--theme-primary);
+}
+
+.soundVolumeValue {
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  font-size: 11px;
+  font-family: var(--style-font-ui);
+  min-width: 36px;
+}
+
+.soundMasterToggle .soundSettingTitle {
+  font-size: 13px;
+}
+
+.soundBulkActions {
+  display: flex;
+  gap: 8px;
+}
+
+.soundBulkBtn {
+  background: none;
+  border: 1px solid var(--theme-border);
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.soundBulkBtn:hover:not(:disabled) {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+}
+
+.soundBulkBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.soundTestBtn {
+  background: none;
+  border: 1px solid var(--theme-border);
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  font-size: 10px;
+  padding: 3px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.soundTestBtn:hover:not(:disabled) {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+}
+
+.soundTestBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* Global Sound Toggle */
+.globalSoundToggle {
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.globalSoundToggle:hover {
+  opacity: 1;
+}
+
+/* Project Sound Settings */
+.projectSoundSettings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.projectSoundRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.projectSoundLabel {
+  font-size: 11px;
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: var(--style-font-ui);
+}
+
+.projectSoundSettings select {
+  background: #000;
+  border: 1px solid var(--theme-border);
+  color: var(--theme-primary);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.projectSoundSettings select:focus {
+  outline: none;
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 6px rgba(var(--theme-primary-rgb), 0.2);
+}
+
+.projectSoundInstruments {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.projectSoundInstrumentOption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: var(--style-font-ui);
+  transition: color 0.15s;
+}
+
+.projectSoundInstrumentOption:hover {
+  color: var(--theme-primary);
+}
+
+.projectSoundInstrumentOption input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--theme-primary);
+  cursor: pointer;
+}
+
+.projectSoundOverrides {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.projectSoundGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.projectSoundGroupTitle {
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 6px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  font-weight: normal;
+  font-family: var(--style-font-ui);
+}
+
+.projectSoundCategoryRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.projectSoundCategoryToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  font-size: 12px;
+  cursor: pointer;
+  min-width: 0;
+  color: var(--theme-primary);
+  font-family: var(--style-font-ui);
+}
+
+.projectSoundCategoryToggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--theme-primary);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.projectSoundCategoryToggle span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projectSoundCategoryInstrument {
+  font-size: 10px;
+  padding: 3px 6px;
+  border: 1px solid var(--theme-border);
+  background: #000;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: var(--style-font-ui);
+  max-width: 130px;
+  cursor: pointer;
+}
+
+.projectSoundCategoryInstrument:focus {
+  outline: none;
+  border-color: var(--theme-primary);
+}
+
+.projectSoundActions {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.projectSoundActions .themedBtn {
+  font-size: 10px;
+}
+
+.projectSoundSaveTemplate {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.projectSoundSaveTemplate .themedFormInput {
+  flex: 1;
+}
+
+.projectSoundCustomTemplates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+}
+
+.projectSoundCustomTemplateRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-family: var(--style-font-ui);
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  padding: 3px 0;
+}
+
+.projectSoundDeleteBtn {
+  background: none;
+  border: 1px solid var(--theme-border);
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.projectSoundDeleteBtn:hover {
+  background: rgba(255, 60, 60, 0.1);
+  color: #ff4444;
+  border-color: #ff4444;
+}
+
