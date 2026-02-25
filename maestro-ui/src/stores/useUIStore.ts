@@ -187,6 +187,11 @@ interface UIState {
   setResponsiveMode: (mode: boolean) => void;
   setActiveMobilePanel: (panel: 'sidebar' | 'terminal' | 'maestro') => void;
 
+  // VS Code mode
+  vsCodeMode: boolean;
+  setVsCodeMode: (mode: boolean) => void;
+  toggleVsCodeMode: () => void;
+
   // Home directory
   homeDir: string | null;
   setHomeDir: (dir: string | null) => void;
@@ -446,6 +451,11 @@ export const useUIStore = create<UIState>((set, get) => ({
   activeMobilePanel: 'terminal',
   setResponsiveMode: (mode) => set({ responsiveMode: mode }),
   setActiveMobilePanel: (panel) => set({ activeMobilePanel: panel }),
+
+  // -- VS Code mode --
+  vsCodeMode: false,
+  setVsCodeMode: (mode) => set({ vsCodeMode: mode }),
+  toggleVsCodeMode: () => set((s) => ({ vsCodeMode: !s.vsCodeMode })),
 
   // -- Home directory --
   homeDir: null,

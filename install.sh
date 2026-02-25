@@ -42,6 +42,7 @@ APP_NAME="Maestro"
 APP_BUNDLE="${APP_NAME}.app"
 APP_BUNDLE_DIR="maestro-ui/src-tauri/target/release/bundle/macos"
 SIDE_CAR_BIN="maestro-ui/src-tauri/binaries/maestro-server-aarch64-apple-darwin"
+CODE_SERVER_BIN="maestro-ui/src-tauri/binaries/code-server-aarch64-apple-darwin"
 SERVER_BIN="maestro-server/dist/bin/maestro-server"
 CLI_BUNDLE="maestro-cli/dist/bundle.cjs"
 
@@ -118,6 +119,7 @@ info "Cleaning stale build outputs..."
 rm -rf maestro-ui/dist
 rm -rf maestro-ui/src-tauri/target/release/bundle
 rm -f maestro-ui/src-tauri/binaries/maestro-server-*
+rm -f maestro-ui/src-tauri/binaries/code-server-*
 rm -rf maestro-server/dist
 rm -rf maestro-cli/dist
 success "Stale outputs removed"
@@ -136,6 +138,52 @@ if [ "${1:-}" != "-y" ] && [ "${1:-}" != "--yes" ]; then
   case "$REPLY" in
     [nN]*) info "Cancelled."; exit 0 ;;
   esac
+fi
+
+# ── VS Code integration prompt ───────────────────────────
+
+INCLUDE_VSCODE="y"
+if [ "${1:-}" != "-y" ] && [ "${1:-}" != "--yes" ]; then
+  printf "\n"
+  info "VS Code integration embeds a code-server instance in the app."
+  printf "  Include VS Code integration? [Y/n] "
+  read -r VS_REPLY </dev/tty || VS_REPLY="y"
+  case "$VS_REPLY" in
+    [nN]*) INCLUDE_VSCODE="n" ;;
+  esac
+fi
+
+if [ "$INCLUDE_VSCODE" = "y" ]; then
+  info "VS Code integration: enabled"
+
+  # Detect architecture
+  ARCH="$(uname -m)"
+  case "$ARCH" in
+    arm64|aarch64) CS_ARCH="arm64" ; RUST_TRIPLE="aarch64-apple-darwin" ;;
+    x86_64)        CS_ARCH="amd64" ; RUST_TRIPLE="x86_64-apple-darwin" ;;
+    *)             die "Unsupported architecture for code-server: $ARCH" ;;
+  esac
+
+  CS_VERSION="4.96.4"
+  CS_TARBALL="code-server-${CS_VERSION}-macos-${CS_ARCH}.tar.gz"
+  CS_URL="https://github.com/coder/code-server/releases/download/v${CS_VERSION}/${CS_TARBALL}"
+  CS_DEST="maestro-ui/src-tauri/binaries/code-server-${RUST_TRIPLE}"
+
+  if [ ! -f "$CS_DEST" ]; then
+    info "Downloading code-server v${CS_VERSION} for ${CS_ARCH}..."
+    TMP_DIR="$(mktemp -d)"
+    curl -fSL "$CS_URL" -o "${TMP_DIR}/${CS_TARBALL}"
+    tar -xzf "${TMP_DIR}/${CS_TARBALL}" -C "$TMP_DIR"
+    CS_EXTRACTED="${TMP_DIR}/code-server-${CS_VERSION}-macos-${CS_ARCH}"
+    cp "${CS_EXTRACTED}/lib/node" "$CS_DEST" 2>/dev/null || cp "${CS_EXTRACTED}/bin/code-server" "$CS_DEST"
+    chmod +x "$CS_DEST"
+    rm -rf "$TMP_DIR"
+    success "code-server binary placed at $CS_DEST"
+  else
+    success "code-server binary already exists at $CS_DEST"
+  fi
+else
+  info "VS Code integration: disabled"
 fi
 
 # ── Step 1: Install dependencies ──────────────────────────
@@ -168,8 +216,13 @@ printf "\n"
 info "[4/6] Building UI and desktop app (Tauri)..."
 bun run build:ui
 cd maestro-ui
-VITE_API_URL=http://localhost:2357/api VITE_WS_URL=ws://localhost:2357 \
-  bunx tauri build --features custom-protocol --config src-tauri/tauri.conf.prod.json
+if [ "$INCLUDE_VSCODE" = "y" ]; then
+  VITE_API_URL=http://localhost:2357/api VITE_WS_URL=ws://localhost:2357 \
+    bunx tauri build --features custom-protocol,vscode --config src-tauri/tauri.conf.prod.json
+else
+  VITE_API_URL=http://localhost:2357/api VITE_WS_URL=ws://localhost:2357 \
+    bunx tauri build --features custom-protocol --config src-tauri/tauri.conf.prod-novscode.json
+fi
 cd "$REPO_DIR"
 success "Desktop app built"
 

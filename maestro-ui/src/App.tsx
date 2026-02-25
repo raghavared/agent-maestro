@@ -46,6 +46,7 @@ import { UpdateBanner } from "./components/UpdateBanner";
 import { PromptSendAnimationLayer } from "./components/PromptSendAnimation";
 import { createMaestroSession } from "./services/maestroService";
 import { TaskDetailOverlay } from "./components/maestro/TaskDetailOverlay";
+import { VSCodePanel } from "./components/VSCodePanel";
 import { STORAGE_SETUP_COMPLETE_KEY } from "./app/constants/defaults";
 
 // ---------------------------------------------------------------------------
@@ -183,6 +184,7 @@ export default function App() {
   const spacesRailActiveSection = useUIStore((s) => s.spacesRailActiveSection);
   const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
   const toggleSpacesPanel = useUIStore((s) => s.toggleSpacesPanel);
+  const vsCodeMode = useUIStore((s) => s.vsCodeMode);
 
   // ---------- projects ----------
   const projects = useProjectStore((s) => s.projects);
@@ -512,71 +514,77 @@ export default function App() {
         <>
           {/* -------- App Content -------- */}
           <div className="appContent">
-            {/* -------- Left Panel (Icon Rail + Maestro Sidebar) -------- */}
-            <AppLeftPanel />
+            {vsCodeMode ? (
+              <VSCodePanel basePath={activeProject?.basePath} />
+            ) : (
+              <>
+                {/* -------- Left Panel (Icon Rail + Maestro Sidebar) -------- */}
+                <AppLeftPanel />
 
-            {/* -------- Left panel resize handle -------- */}
-            {iconRailActiveSection !== null && (
-              <div
-                className="sidebarRightResizeHandle"
-                role="separator"
-                aria-label="Resize Maestro Sidebar"
-                aria-orientation="vertical"
-                aria-valuemin={DEFAULTS.MIN_MAESTRO_SIDEBAR_WIDTH}
-                aria-valuemax={DEFAULTS.MAX_MAESTRO_SIDEBAR_WIDTH}
-                tabIndex={0}
-                onPointerDown={handleMaestroSidebarResizePointerDown}
-                title="Drag to resize"
-              />
+                {/* -------- Left panel resize handle -------- */}
+                {iconRailActiveSection !== null && (
+                  <div
+                    className="sidebarRightResizeHandle"
+                    role="separator"
+                    aria-label="Resize Maestro Sidebar"
+                    aria-orientation="vertical"
+                    aria-valuemin={DEFAULTS.MIN_MAESTRO_SIDEBAR_WIDTH}
+                    aria-valuemax={DEFAULTS.MAX_MAESTRO_SIDEBAR_WIDTH}
+                    tabIndex={0}
+                    onPointerDown={handleMaestroSidebarResizePointerDown}
+                    title="Drag to resize"
+                  />
+                )}
+
+                {/* -------- Main content -------- */}
+                <main className="main">
+                  <div className="terminalArea">
+                    <AppWorkspace registry={registry} pendingData={pendingData} />
+                    <TaskDetailOverlay />
+                    <AppModals />
+                    <AppSlidePanel />
+                  </div>
+                </main>
+
+                {/* -------- Right panel resize handle -------- */}
+                {spacesRailActiveSection !== null && (
+                  <div
+                    className="sidebarLeftResizeHandle"
+                    role="separator"
+                    aria-label="Resize Spaces Panel"
+                    aria-orientation="vertical"
+                    aria-valuemin={DEFAULTS.MIN_RIGHT_PANEL_WIDTH}
+                    aria-valuemax={DEFAULTS.MAX_RIGHT_PANEL_WIDTH}
+                    aria-valuenow={rightPanelWidth}
+                    tabIndex={0}
+                    onPointerDown={handleRightPanelResizePointerDown}
+                    title="Drag to resize"
+                  />
+                )}
+
+                {/* -------- Spaces Panel (Sessions on right) -------- */}
+                <SpacesPanel
+                  agentShortcuts={agentShortcuts}
+                  sessions={projectSessions}
+                  activeSessionId={activeId}
+                  activeProjectId={activeProjectId}
+                  projectName={activeProject?.name ?? null}
+                  projectBasePath={activeProject?.basePath ?? null}
+                  onSelectSession={handleSelectSession}
+                  onCloseSession={handleCloseSession}
+                  onReorderSessions={reorderSessions}
+                  onQuickStart={handleQuickStart}
+                  onOpenNewSession={handleOpenNewSession}
+                  onOpenPersistentSessions={handleOpenPersistentSessions}
+                  onOpenSshManager={openSshManager}
+                  onOpenAgentShortcuts={handleOpenAgentShortcuts}
+                  onOpenManageTerminals={handleOpenManageTerminals}
+                  contentWidth={rightPanelWidth}
+                  activeSection={spacesRailActiveSection}
+                  onToggle={toggleSpacesPanel}
+                />
+              </>
             )}
-
-            {/* -------- Main content -------- */}
-            <main className="main">
-              <div className="terminalArea">
-                <AppWorkspace registry={registry} pendingData={pendingData} />
-                <TaskDetailOverlay />
-                <AppModals />
-                <AppSlidePanel />
-              </div>
-            </main>
-
-            {/* -------- Right panel resize handle -------- */}
-            {spacesRailActiveSection !== null && (
-              <div
-                className="sidebarLeftResizeHandle"
-                role="separator"
-                aria-label="Resize Spaces Panel"
-                aria-orientation="vertical"
-                aria-valuemin={DEFAULTS.MIN_RIGHT_PANEL_WIDTH}
-                aria-valuemax={DEFAULTS.MAX_RIGHT_PANEL_WIDTH}
-                aria-valuenow={rightPanelWidth}
-                tabIndex={0}
-                onPointerDown={handleRightPanelResizePointerDown}
-                title="Drag to resize"
-              />
-            )}
-
-            {/* -------- Spaces Panel (Sessions on right) -------- */}
-            <SpacesPanel
-              agentShortcuts={agentShortcuts}
-              sessions={projectSessions}
-              activeSessionId={activeId}
-              activeProjectId={activeProjectId}
-              projectName={activeProject?.name ?? null}
-              projectBasePath={activeProject?.basePath ?? null}
-              onSelectSession={handleSelectSession}
-              onCloseSession={handleCloseSession}
-              onReorderSessions={reorderSessions}
-              onQuickStart={handleQuickStart}
-              onOpenNewSession={handleOpenNewSession}
-              onOpenPersistentSessions={handleOpenPersistentSessions}
-              onOpenSshManager={openSshManager}
-              onOpenAgentShortcuts={handleOpenAgentShortcuts}
-              onOpenManageTerminals={handleOpenManageTerminals}
-              contentWidth={rightPanelWidth}
-              activeSection={spacesRailActiveSection}
-              onToggle={toggleSpacesPanel}
-            />
           </div>
         </>
       )}

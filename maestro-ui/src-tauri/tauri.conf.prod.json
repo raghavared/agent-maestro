@@ -7,6 +7,6 @@
   "bundle": {
     "homepage": "https://github.com/subhangR/agent-maestro",
     "targets": ["app"],
-    "externalBin": ["binaries/maestro-server"]
+    "externalBin": ["binaries/maestro-server", "binaries/code-server"]
   }
 }

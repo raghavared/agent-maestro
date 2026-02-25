@@ -7,6 +7,7 @@ import { SoundSettingsContent } from "./modals/SoundSettingsModal";
 import { ProjectSoundSettings } from "./modals/ProjectSoundSettings";
 import { soundManager } from "../services/soundManager";
 import { useProjectStore } from "../stores/useProjectStore";
+import { useUIStore } from "../stores/useUIStore";
 
 type SavedProject = {
   id: string;
@@ -314,6 +315,8 @@ export function ProjectTabBar({
   const [soundEnabled, setSoundEnabled] = useState(soundManager.isEnabled());
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ projectId: string; position: 'before' | 'after' } | null>(null);
+  const vsCodeMode = useUIStore((s) => s.vsCodeMode);
+  const toggleVsCodeMode = useUIStore((s) => s.toggleVsCodeMode);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
   const [savedProjectsLoading, setSavedProjectsLoading] = useState(false);
@@ -651,6 +654,14 @@ export function ProjectTabBar({
               <Icon name="edit" size={14} />
             </button>
           )}
+          <button
+            type="button"
+            className={`projectTabBarBtn ${vsCodeMode ? "projectTabBarBtnActive" : ""}`}
+            onClick={toggleVsCodeMode}
+            title={vsCodeMode ? "Close VS Code" : "Open VS Code"}
+          >
+            <Icon name="code" size={14} />
+          </button>
           <button
             type="button"
             className="projectTabBarBtn"

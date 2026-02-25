@@ -695,7 +695,7 @@
     position: fixed;
     inset: 0;
     pointer-events: none;
-    z-index: 9999;
+    z-index: 10100;
 }
 
 /* Flying dot: animates from sender to target along a curved path */
@@ -714,7 +714,7 @@
     transform: translate(-50%, -50%);
     animation: promptFly 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     pointer-events: none;
-    z-index: 10000;
+    z-index: 10101;
 }
 
 /* Trail behind the dot */
@@ -768,7 +768,7 @@
     box-shadow: 0 0 8px var(--theme-primary, #00ff41);
     animation: promptPulseRing 0.7s ease-out forwards;
     pointer-events: none;
-    z-index: 10000;
+    z-index: 10101;
 }
 
 @keyframes promptPulseRing {
@@ -831,12 +831,12 @@
     background: rgba(0, 0, 0, 0.92);
     display: flex;
     flex-direction: column;
-    animation: teamViewFadeIn 0.15s ease;
+    animation: teamViewOverlayIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-@keyframes teamViewFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+@keyframes teamViewOverlayIn {
+    from { opacity: 0; backdrop-filter: blur(0); }
+    to { opacity: 1; backdrop-filter: blur(8px); }
 }
 
 .teamViewContainer {
@@ -845,6 +845,12 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
+    animation: teamViewContainerIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+}
+
+@keyframes teamViewContainerIn {
+    from { opacity: 0; transform: scale(0.97); }
+    to { opacity: 1; transform: scale(1); }
 }
 
 /* Header */
@@ -856,6 +862,12 @@
     background: rgba(10, 14, 22, 0.95);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex-shrink: 0;
+    animation: teamViewSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
+}
+
+@keyframes teamViewSlideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .teamViewHeaderLeft {
@@ -952,6 +964,7 @@
     overflow: hidden;
     background: rgba(10, 14, 22, 0.6);
     min-width: 0;
+    animation: teamViewSlotIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
 }
 
 /* Workers column - right side */
@@ -974,6 +987,20 @@
     overflow: hidden;
     background: rgba(10, 14, 22, 0.6);
     min-height: 0;
+    animation: teamViewSlotIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Stagger worker slot entrance */
+.teamViewWorkerSlot:nth-child(1) { animation-delay: 0.15s; }
+.teamViewWorkerSlot:nth-child(2) { animation-delay: 0.2s; }
+.teamViewWorkerSlot:nth-child(3) { animation-delay: 0.25s; }
+.teamViewWorkerSlot:nth-child(4) { animation-delay: 0.3s; }
+.teamViewWorkerSlot:nth-child(5) { animation-delay: 0.35s; }
+.teamViewWorkerSlot:nth-child(6) { animation-delay: 0.4s; }
+
+@keyframes teamViewSlotIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* Slot header (name, avatar, status) */
@@ -1073,15 +1100,21 @@
     background: rgba(255, 255, 255, 0.4);
 }
 
-/* Terminal slot placeholder — the real terminal floats over this via position:fixed.
-   pointer-events:none so clicks pass through to the terminal above. */
+/* Terminal slot host — terminals are reparented (appendChild) into this div. */
 .teamViewSlotTerminal {
     flex: 1;
     min-height: 0;
     position: relative;
     overflow: hidden;
-    pointer-events: none;
     background: rgba(10, 14, 22, 0.95);
+}
+
+/* When used as a reparenting host, ensure the terminal container fills it */
+.teamViewSlotTerminal--host .terminalContainer {
+    position: absolute;
+    inset: 0;
+    visibility: visible !important;
+    pointer-events: auto !important;
 }
 
 /* ------------------------------------------------------------------ */

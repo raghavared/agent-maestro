@@ -13,6 +13,7 @@ import { TeamListItem } from "./TeamListItem";
 import { PanelIconBar, PrimaryTab, TaskSubTab, SkillSubTab, TeamSubTab } from "./PanelIconBar";
 import { TaskTabContent } from "./TaskTabContent";
 import { PanelErrorState, NoProjectState } from "./PanelErrorState";
+import { useTaskSearch } from "../../hooks/useTaskSearch";
 import { useTasks } from "../../hooks/useTasks";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useSessionStore } from "../../stores/useSessionStore";
@@ -264,19 +265,20 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     // IMPORTANT: all hooks must be called before any early returns to obey rules of hooks
     const { roots } = useTaskTree(regularTasks);
 
-    // Search filter helper: recursively filters tree nodes by search query
+    // Fuzzy search using Fuse.js — returns null when no query (show all)
+    const searchMatchIds = useTaskSearch(regularTasks, searchQuery);
+
+    // Search filter helper: filters tree nodes by fuzzy search results
     const filterBySearch = useCallback((nodes: TaskTreeNode[]): TaskTreeNode[] => {
-        if (!searchQuery.trim()) return nodes;
-        const query = searchQuery.toLowerCase().trim();
+        if (!searchMatchIds) return nodes; // no query, show all
 
         const matches = (node: TaskTreeNode): boolean => {
-            if (node.title.toLowerCase().includes(query)) return true;
-            if (node.description?.toLowerCase().includes(query)) return true;
+            if (searchMatchIds.has(node.id)) return true;
             return node.children.some(child => matches(child));
         };
 
         return nodes.filter(node => matches(node));
-    }, [searchQuery]);
+    }, [searchMatchIds]);
 
     const handleTaskReorder = useCallback((orderedIds: string[]) => {
         saveTaskOrdering(projectId, orderedIds);
@@ -757,7 +759,10 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         onSkillSubTabChange={setSkillSubTab}
                         teamSubTab={teamSubTab}
                         onTeamSubTabChange={setTeamSubTab}
-                        roots={roots}
+                        activeCount={activeRoots.length}
+                        pinnedCount={pinnedRoots.length}
+                        completedCount={completedRoots.length}
+                        archivedCount={archivedRoots.length}
                         teamMembers={teamMembers}
                         loading={loading}
                         projectId={projectId}
@@ -779,7 +784,10 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                         onSkillSubTabChange={setSkillSubTab}
                         teamSubTab={teamSubTab}
                         onTeamSubTabChange={setTeamSubTab}
-                        roots={roots}
+                        activeCount={activeRoots.length}
+                        pinnedCount={pinnedRoots.length}
+                        completedCount={completedRoots.length}
+                        archivedCount={archivedRoots.length}
                         teamMembers={teamMembers}
                         loading={loading}
                         projectId={projectId}
@@ -1030,41 +1038,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                             </div>
                         )}
 
-                        {/* Pinned team sub-tab - TODO: implement pinned feature */}
-                        {teamSubTab === "pinned" && (
-                            <div className="terminalContent">
-                                <div className="terminalEmptyState">
-                                    <pre className="terminalAsciiArt">{`
-    ╔═══════════════════════════════════════╗
-    ║                                       ║
-    ║       PINNED COMING SOON              ║
-    ║                                       ║
-    ║    Pin team members for quick         ║
-    ║    access                             ║
-    ║                                       ║
-    ╚═══════════════════════════════════════╝
-                                    `}</pre>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Archived team sub-tab - handled by TeamMemberList component */}
-                        {teamSubTab === "archived" && (
-                            <div className="terminalContent">
-                                <div className="terminalEmptyState">
-                                    <pre className="terminalAsciiArt">{`
-    ╔═══════════════════════════════════════╗
-    ║                                       ║
-    ║       ARCHIVED TAB DEPRECATED         ║
-    ║                                       ║
-    ║    Archived members now appear        ║
-    ║    in the Members tab                 ║
-    ║                                       ║
-    ╚═══════════════════════════════════════╝
-                                    `}</pre>
-                                </div>
-                            </div>
-                        )}
                     </>
                 )}
             </div>

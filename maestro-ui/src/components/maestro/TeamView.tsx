@@ -22,11 +22,10 @@ interface SlotInfo {
 }
 
 /**
- * TeamView renders a full-screen overlay that visually positions
- * existing terminal containers over placeholder slots using CSS
- * `position: fixed`. Terminals are NEVER moved in the DOM — they
- * remain children of AppWorkspace's terminalPane so React can
- * freely mount/unmount them without crashing.
+ * TeamView renders a full-screen overlay with terminal slots.
+ * Terminals are reparented (DOM appendChild) into slot host divs
+ * so they escape stacking contexts. On unmount, terminals are
+ * moved back to their original parent.
  */
 export const TeamView = React.memo(function TeamView({
   group,
@@ -37,18 +36,13 @@ export const TeamView = React.memo(function TeamView({
   const maestroSessions = useMaestroStore((s) => s.sessions);
   const setActiveId = useSessionStore((s) => s.setActiveId);
 
-  // Slot placeholder refs (used to measure positions)
-  const slotsRef = useRef<Map<string, HTMLDivElement>>(new Map());
-  // Track which terminals we've styled so cleanup is safe
-  const styledSessionsRef = useRef<Set<string>>(new Set());
-  // Stable ref for the registry (never changes)
+  // Stable ref for the registry
   const registryRef = useRef(registry);
   registryRef.current = registry;
   // Overlay body ref for ResizeObserver
   const bodyRef = useRef<HTMLDivElement>(null);
 
   // --- Resizable split state ---
-  // coordinatorFraction: 0..1 — fraction of body width for coordinator panel
   const [coordFraction, setCoordFraction] = useState(0.5);
   const resizingRef = useRef(false);
   const resizeStartXRef = useRef(0);
@@ -58,18 +52,8 @@ export const TeamView = React.memo(function TeamView({
   const slots: SlotInfo[] = useMemo(() => {
     const result: SlotInfo[] = [];
 
-    console.log('[TeamView] Building slots from group:', {
-      coordinatorMaestroSessionId: group.coordinatorMaestroSessionId,
-      coordinatorLocalSessionId: group.coordinatorLocalSessionId,
-      workerMaestroSessionIds: group.workerMaestroSessionIds,
-      workerLocalSessionIds: group.workerLocalSessionIds,
-      teamSessionId: group.teamSessionId,
-    });
-
     const coordMs = maestroSessions.get(group.coordinatorMaestroSessionId);
     const coordSnap = coordMs?.teamMemberSnapshots?.[0] || (coordMs as any)?.teamMemberSnapshot;
-    console.log('[TeamView] Coordinator maestro session:', coordMs ? { id: coordMs.id, status: coordMs.status, name: coordMs.name } : 'NOT FOUND');
-
     if (group.coordinatorLocalSessionId) {
       result.push({
         localSessionId: group.coordinatorLocalSessionId,
@@ -79,17 +63,12 @@ export const TeamView = React.memo(function TeamView({
         status: coordMs?.status || 'idle',
         isCoordinator: true,
       });
-    } else {
-      console.warn('[TeamView] No coordinatorLocalSessionId — coordinator terminal won\'t appear');
     }
 
     for (let i = 0; i < group.workerMaestroSessionIds.length; i++) {
       const msId = group.workerMaestroSessionIds[i];
       const localId = group.workerLocalSessionIds[i];
-      if (!localId) {
-        console.warn(`[TeamView] Worker ${i} (maestro=${msId}) has no localId — skipping`);
-        continue;
-      }
+      if (!localId) continue;
 
       const ms = maestroSessions.get(msId);
       const snap = ms?.teamMemberSnapshots?.[0] || (ms as any)?.teamMemberSnapshot;
@@ -103,7 +82,6 @@ export const TeamView = React.memo(function TeamView({
       });
     }
 
-    console.log('[TeamView] Final slots:', result.map(s => ({ local: s.localSessionId, maestro: s.maestroSessionId, label: s.label, isCoord: s.isCoordinator })));
     return result;
   }, [group, maestroSessions]);
 
@@ -111,186 +89,6 @@ export const TeamView = React.memo(function TeamView({
   const workerSlots = slots.filter((s) => !s.isCoordinator);
   const hasCoordinator = coordinatorSlot !== null;
   const hasWorkers = workerSlots.length > 0;
-
-  // Stable string key of session IDs — only changes when members join/leave
-  const slotIdsKey = useMemo(() => {
-    const ids: string[] = [];
-    if (group.coordinatorLocalSessionId) ids.push(group.coordinatorLocalSessionId);
-    for (const id of group.workerLocalSessionIds) {
-      if (id) ids.push(id);
-    }
-    return ids.join(',');
-  }, [group.coordinatorLocalSessionId, group.workerLocalSessionIds]);
-
-  // --- Core positioning logic (runs via RAF, reads refs) ---
-
-  const positionAll = useCallback(() => {
-    const styled = styledSessionsRef.current;
-    const ids = slotIdsKey.split(',').filter(Boolean);
-    const reg = registryRef.current.current;
-
-    console.log('[TeamView] positionAll called. Session IDs:', ids);
-    console.log('[TeamView] Registry has entries:', Array.from(reg.keys()));
-    console.log('[TeamView] Slot refs registered:', Array.from(slotsRef.current.keys()));
-
-    // Debug: list all data-terminal-id elements in DOM
-    const allTerminals = document.querySelectorAll('[data-terminal-id]');
-    console.log('[TeamView] All terminal elements in DOM:', Array.from(allTerminals).map(el => ({
-      id: el.getAttribute('data-terminal-id'),
-      classes: el.className,
-      parentTag: el.parentElement?.className?.slice(0, 40),
-      rect: el.getBoundingClientRect(),
-    })));
-
-    for (const sessionId of ids) {
-      const slotEl = slotsRef.current.get(sessionId);
-      const termContainer = document.querySelector(
-        `[data-terminal-id="${sessionId}"]`,
-      ) as HTMLElement | null;
-
-      console.log(`[TeamView] Session ${sessionId}: slotEl=${!!slotEl}, termContainer=${!!termContainer}`);
-
-      if (!slotEl || !termContainer) {
-        console.warn(`[TeamView] SKIP ${sessionId}: missing ${!slotEl ? 'slotEl' : 'termContainer'}`);
-        continue;
-      }
-
-      const rect = slotEl.getBoundingClientRect();
-      console.log(`[TeamView] Slot rect for ${sessionId}:`, { top: rect.top, left: rect.left, width: rect.width, height: rect.height });
-
-      if (rect.width === 0 || rect.height === 0) {
-        console.warn(`[TeamView] SKIP ${sessionId}: slot has zero dimensions`);
-        continue;
-      }
-
-      termContainer.classList.remove('terminalHidden');
-      termContainer.classList.add('terminalInTeamView');
-      termContainer.style.position = 'fixed';
-      termContainer.style.zIndex = '10001';
-      termContainer.style.top = `${rect.top}px`;
-      termContainer.style.left = `${rect.left}px`;
-      termContainer.style.width = `${rect.width}px`;
-      termContainer.style.height = `${rect.height}px`;
-      styled.add(sessionId);
-
-      console.log(`[TeamView] Positioned ${sessionId} at`, { top: rect.top, left: rect.left, width: rect.width, height: rect.height });
-
-      // Check computed style of termContainer to verify it's actually visible
-      const computed = window.getComputedStyle(termContainer);
-      console.log(`[TeamView] Computed style for ${sessionId}:`, {
-        position: computed.position,
-        visibility: computed.visibility,
-        display: computed.display,
-        zIndex: computed.zIndex,
-        opacity: computed.opacity,
-        transform: computed.transform,
-      });
-
-      // Also check the terminalPane parent
-      const terminalPane = document.querySelector('.terminalPane');
-      if (terminalPane) {
-        const paneComputed = window.getComputedStyle(terminalPane);
-        console.log(`[TeamView] terminalPane computed:`, {
-          contain: paneComputed.contain,
-          transform: paneComputed.transform,
-          overflow: paneComputed.overflow,
-          zoom: paneComputed.zoom,
-        });
-      }
-
-      const entry = reg.get(sessionId);
-      if (entry) {
-        console.log(`[TeamView] Fitting terminal for ${sessionId}`);
-        try {
-          entry.fit.fit();
-          entry.term.refresh(0, entry.term.rows - 1);
-        } catch (err) {
-          console.error(`[TeamView] Fit/refresh error for ${sessionId}:`, err);
-        }
-      } else {
-        console.warn(`[TeamView] No registry entry for ${sessionId}`);
-      }
-    }
-  }, [slotIdsKey]);
-
-  const scrollAllToBottom = useCallback(() => {
-    const ids = slotIdsKey.split(',').filter(Boolean);
-    const reg = registryRef.current.current;
-
-    for (const sessionId of ids) {
-      const entry = reg.get(sessionId);
-      if (entry) {
-        try {
-          entry.term.scrollToBottom();
-        } catch { /* ignore */ }
-      }
-    }
-  }, [slotIdsKey]);
-
-  const restoreAll = useCallback(() => {
-    const styled = styledSessionsRef.current;
-    const activeId = useSessionStore.getState().activeId;
-    const reg = registryRef.current.current;
-
-    for (const sessionId of styled) {
-      const termContainer = document.querySelector(
-        `[data-terminal-id="${sessionId}"]`,
-      ) as HTMLElement | null;
-      if (!termContainer) continue;
-
-      termContainer.classList.remove('terminalInTeamView');
-      termContainer.style.position = '';
-      termContainer.style.zIndex = '';
-      termContainer.style.top = '';
-      termContainer.style.left = '';
-      termContainer.style.width = '';
-      termContainer.style.height = '';
-
-      if (sessionId !== activeId) {
-        termContainer.classList.add('terminalHidden');
-      }
-
-      const entry = reg.get(sessionId);
-      if (entry) {
-        requestAnimationFrame(() => {
-          try { entry.fit.fit(); } catch { /* ignore */ }
-        });
-      }
-    }
-    styled.clear();
-  }, []);
-
-  // --- Main effect: position on mount, observe resize, restore on unmount ---
-  useEffect(() => {
-    let rafId = requestAnimationFrame(() => {
-      positionAll();
-      // Scroll all terminals to bottom after initial positioning
-      requestAnimationFrame(() => scrollAllToBottom());
-    });
-
-    const handleReposition = () => {
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => positionAll());
-    };
-
-    const observer = new ResizeObserver(handleReposition);
-    if (bodyRef.current) observer.observe(bodyRef.current);
-
-    window.addEventListener('resize', handleReposition);
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      observer.disconnect();
-      window.removeEventListener('resize', handleReposition);
-      restoreAll();
-    };
-  }, [slotIdsKey, positionAll, restoreAll, scrollAllToBottom]);
-
-  // --- Reposition when coordFraction changes (resize handle drag) ---
-  useEffect(() => {
-    const rafId = requestAnimationFrame(() => positionAll());
-    return () => cancelAnimationFrame(rafId);
-  }, [coordFraction, positionAll]);
 
   // --- Close on Escape ---
   useEffect(() => {
@@ -324,7 +122,6 @@ export const TeamView = React.memo(function TeamView({
       const bodyRect = bodyRef.current.getBoundingClientRect();
       const dx = e.clientX - resizeStartXRef.current;
       const newFraction = resizeStartFractionRef.current + dx / bodyRect.width;
-      // Clamp between 20% and 80%
       setCoordFraction(Math.max(0.2, Math.min(0.8, newFraction)));
     };
 
@@ -343,15 +140,7 @@ export const TeamView = React.memo(function TeamView({
     };
   }, []);
 
-  // --- Click/double-click on slot → focus/open ---
-  const handleSlotClick = useCallback(
-    (localSessionId: string) => {
-      setActiveId(localSessionId);
-      onSelectSession(localSessionId);
-    },
-    [setActiveId, onSelectSession],
-  );
-
+  // --- Click/double-click on slot ---
   const handleSlotDoubleClick = useCallback(
     (localSessionId: string) => {
       setActiveId(localSessionId);
@@ -373,15 +162,7 @@ export const TeamView = React.memo(function TeamView({
   const statusLabel =
     group.status === 'active' ? 'Active' : group.status === 'done' ? 'Done' : 'Idle';
 
-  const registerSlotRef = useCallback((sessionId: string, el: HTMLDivElement | null) => {
-    if (el) {
-      slotsRef.current.set(sessionId, el);
-    } else {
-      slotsRef.current.delete(sessionId);
-    }
-  }, []);
-
-  // Compute flex styles for the split — only relevant when both panels exist
+  // Compute flex styles for the split
   const coordStyle = hasCoordinator && hasWorkers
     ? { flex: `0 0 calc(${coordFraction * 100}% - 3px)` }
     : undefined;
@@ -419,6 +200,7 @@ export const TeamView = React.memo(function TeamView({
           {coordinatorSlot && (
             <div
               className="teamViewCoordinator"
+              data-maestro-session-id={coordinatorSlot.maestroSessionId}
               style={{
                 '--team-color': group.color.primary,
                 '--team-color-dim': group.color.dim,
@@ -436,10 +218,9 @@ export const TeamView = React.memo(function TeamView({
                   {coordinatorSlot.status}
                 </span>
               </div>
-              {/* Placeholder slot — terminal floats over this via position:fixed */}
-              <div
-                className="teamViewSlotTerminal"
-                ref={(el) => registerSlotRef(coordinatorSlot.localSessionId, el)}
+              <TeamViewTerminalSlot
+                sessionId={coordinatorSlot.localSessionId}
+                registry={registry}
                 onDoubleClick={() => handleSlotDoubleClick(coordinatorSlot.localSessionId)}
               />
             </div>
@@ -460,6 +241,7 @@ export const TeamView = React.memo(function TeamView({
                 <div
                   key={worker.localSessionId}
                   className="teamViewWorkerSlot"
+                  data-maestro-session-id={worker.maestroSessionId}
                   style={{
                     '--team-color': group.color.primary,
                     '--team-color-dim': group.color.dim,
@@ -475,9 +257,9 @@ export const TeamView = React.memo(function TeamView({
                       {worker.status}
                     </span>
                   </div>
-                  <div
-                    className="teamViewSlotTerminal"
-                    ref={(el) => registerSlotRef(worker.localSessionId, el)}
+                  <TeamViewTerminalSlot
+                    sessionId={worker.localSessionId}
+                    registry={registry}
                     onDoubleClick={() => handleSlotDoubleClick(worker.localSessionId)}
                   />
                 </div>
@@ -488,5 +270,94 @@ export const TeamView = React.memo(function TeamView({
       </div>
     </div>,
     document.body,
+  );
+});
+
+/**
+ * Reparents a terminal DOM element into this slot's host div.
+ * On unmount, moves it back to its original parent.
+ * Same pattern as Board's ResizableSessionColumn.
+ */
+const TeamViewTerminalSlot = React.memo(function TeamViewTerminalSlot({
+  sessionId,
+  registry,
+  onDoubleClick,
+}: {
+  sessionId: string;
+  registry: React.MutableRefObject<TerminalRegistry>;
+  onDoubleClick: () => void;
+}) {
+  const hostRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const terminalEl = document.querySelector(
+      `[data-terminal-id="${sessionId}"]`,
+    ) as HTMLElement | null;
+    if (!terminalEl) return;
+
+    const originalParent = terminalEl.parentElement;
+    const wasHidden = terminalEl.classList.contains('terminalHidden');
+
+    // Move terminal into our host div (escapes stacking context)
+    host.appendChild(terminalEl);
+    terminalEl.classList.remove('terminalHidden');
+    terminalEl.classList.add('terminalInTeamView');
+
+    // Fit terminal to new container size
+    const reg = registry.current;
+    const entry = reg.get(sessionId);
+    const fitTerminal = () => {
+      if (entry) {
+        try {
+          entry.fit.fit();
+          entry.term.scrollToBottom();
+        } catch { /* ignore */ }
+      }
+    };
+    // Double RAF to ensure layout is settled
+    requestAnimationFrame(() => requestAnimationFrame(fitTerminal));
+
+    // Auto-scroll to bottom on new output
+    let scrollDisposable: { dispose: () => void } | null = null;
+    if (entry) {
+      scrollDisposable = entry.term.onWriteParsed(() => {
+        try { entry.term.scrollToBottom(); } catch { /* ignore */ }
+      });
+    }
+
+    return () => {
+      scrollDisposable?.dispose();
+      // Move terminal back to original parent
+      terminalEl.classList.remove('terminalInTeamView');
+      if (originalParent) {
+        originalParent.appendChild(terminalEl);
+      }
+      if (wasHidden) {
+        terminalEl.classList.add('terminalHidden');
+      } else {
+        // Restore visibility based on current active session
+        const activeId = useSessionStore.getState().activeId;
+        if (sessionId !== activeId) {
+          terminalEl.classList.add('terminalHidden');
+        }
+      }
+      // Re-fit after moving back
+      if (entry) {
+        requestAnimationFrame(() => {
+          try { entry.fit.fit(); } catch { /* ignore */ }
+        });
+      }
+    };
+  }, [sessionId, registry]);
+
+  return (
+    <div
+      className="teamViewSlotTerminal teamViewSlotTerminal--host"
+      ref={hostRef}
+      onDoubleClick={onDoubleClick}
+    />
   );
 });
