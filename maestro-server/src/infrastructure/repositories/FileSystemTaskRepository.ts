@@ -131,6 +131,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
       referenceTaskIds: input.referenceTaskIds || [],
       teamMemberId: input.teamMemberId,
       teamMemberIds: input.teamMemberIds,
+      memberOverrides: input.memberOverrides,
       // NOTE: timeline is now on Session, not Task
     };
 

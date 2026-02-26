@@ -72,7 +72,7 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
       <div className="appSettingsDialog" onClick={(e) => e.stopPropagation()}>
         <div className="projectSettingsHeader">
           <span className="projectSettingsTitle">[ SETTINGS ]</span>
-          <button className="projectSettingsClose" onClick={onClose}>×</button>
+          <button type="button" className="projectSettingsClose" onClick={onClose}>×</button>
         </div>
 
         <div className="appSettingsBody">
@@ -182,7 +182,7 @@ function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete, onClo
       <div className="appSettingsDialog" onClick={(e) => e.stopPropagation()}>
         <div className="projectSettingsHeader">
           <span className="projectSettingsTitle">[ PROJECT SETTINGS ]</span>
-          <button className="projectSettingsClose" onClick={onClose}>×</button>
+          <button type="button" className="projectSettingsClose" onClick={onClose}>×</button>
         </div>
 
         <div className="appSettingsBody">
@@ -255,7 +255,7 @@ function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete, onClo
 
                 <div className="projectSettingsDivider" />
 
-                <button
+                <button type="button"
                   className="projectSettingsCloseBtn"
                   onClick={() => {
                     onCloseProject();
@@ -266,7 +266,7 @@ function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete, onClo
                   CLOSE PROJECT
                 </button>
 
-                <button
+                <button type="button"
                   className="projectSettingsDeleteBtn"
                   onClick={() => {
                     onDelete();
@@ -704,7 +704,7 @@ export function ProjectTabBar({
           <div className="projectSettingsDialog" onClick={(e) => e.stopPropagation()}>
             <div className="projectSettingsHeader">
               <span className="projectSettingsTitle">[ SAVED PROJECTS ]</span>
-              <button className="projectSettingsClose" onClick={() => setSavedProjectsOpen(false)}>×</button>
+              <button type="button" className="projectSettingsClose" onClick={() => setSavedProjectsOpen(false)}>×</button>
             </div>
             <div className="projectSettingsContent">
               {savedProjectsLoading ? (

@@ -361,22 +361,22 @@ program.command('status')
 
     try {
       // Fetch from server
-      const tasks: any[] = await api.get(`/api/tasks?projectId=${projectId}`);
-      const sessions: any[] = await api.get(`/api/sessions?projectId=${projectId}`);
+      const tasks = await api.get<Array<{status: string; priority: string}>>(`/api/tasks?projectId=${projectId}`);
+      const sessions = await api.get<Array<{status: string}>>(`/api/sessions?projectId=${projectId}`);
 
       // Count by status
-      const statusCounts = tasks.reduce((acc: any, task: any) => {
+      const statusCounts = tasks.reduce<Record<string, number>>((acc, task) => {
         acc[task.status] = (acc[task.status] || 0) + 1;
         return acc;
       }, {});
 
       // Count by priority
-      const priorityCounts = tasks.reduce((acc: any, task: any) => {
+      const priorityCounts = tasks.reduce<Record<string, number>>((acc, task) => {
         acc[task.priority] = (acc[task.priority] || 0) + 1;
         return acc;
       }, {});
 
-      const activeSessions = sessions.filter((s: any) => s.status === 'working' || s.status === 'spawning');
+      const activeSessions = sessions.filter(s => s.status === 'working' || s.status === 'spawning');
 
       const summary = {
         project: projectId,

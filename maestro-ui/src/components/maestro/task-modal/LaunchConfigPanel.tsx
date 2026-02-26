@@ -82,6 +82,20 @@ export function buildDefaultMemberConfig(member: TeamMember): MemberConfig {
     };
 }
 
+export function buildMemberConfigFromOverride(member: TeamMember, override: MemberLaunchOverride): MemberConfig {
+    const tool = (override.agentTool || member.agentTool || 'claude-code') as AgentTool;
+    const basePerm = override.permissionMode || member.permissionMode;
+    return {
+        agentTool: tool,
+        model: (override.model || member.model || DEFAULT_MODEL[tool] || 'sonnet') as ModelType,
+        isDangerous: basePerm === 'bypassPermissions',
+        skillIds: override.skillIds ? [...override.skillIds] : (member.skillIds ? [...member.skillIds] : []),
+        commandOverrides: override.commandPermissions?.commands
+            ? { ...override.commandPermissions.commands }
+            : (member.commandPermissions?.commands ? { ...member.commandPermissions.commands } : {}),
+    };
+}
+
 export function buildOverridesFromConfigs(
     configs: Record<string, MemberConfig>,
     teamMembers: TeamMember[],
@@ -168,7 +182,7 @@ export function LaunchConfigPanel({
             <div className="launchConfigInline">
                 <div className="launchConfigInline__header">
                     <span className="launchConfigInline__title">Launch Configuration</span>
-                    <button className="launchConfigInline__closeBtn" onClick={onClose} title="Back to description">&times;</button>
+                    <button type="button" className="launchConfigInline__closeBtn" onClick={onClose} title="Back to description">&times;</button>
                 </div>
                 <div style={{ color: 'rgba(var(--theme-primary-rgb), 0.4)', textAlign: 'center', padding: '20px', fontSize: '11px' }}>
                     Select at least one team member to configure launch options.
@@ -226,7 +240,7 @@ export function LaunchConfigPanel({
 
                     <div className="launchConfigInline__field">
                         <label className="launchConfigInline__label">Permissions</label>
-                        <button
+                        <button type="button"
                             className={`launchConfigToggle launchConfigToggle--compact ${config.isDangerous ? 'launchConfigToggle--active launchConfigToggle--danger' : ''}`}
                             onClick={() => onUpdateConfig(member.id, { isDangerous: !config.isDangerous })}
                             title={config.isDangerous ? 'Dangerous mode ON (bypassPermissions)' : 'Dangerous mode OFF'}
@@ -237,7 +251,7 @@ export function LaunchConfigPanel({
                 </div>
 
                 {/* Advanced toggle */}
-                <button
+                <button type="button"
                     className="launchConfigInline__advancedToggle"
                     onClick={() => toggleAdvanced(member.id)}
                 >
@@ -354,7 +368,7 @@ export function LaunchConfigPanel({
                         </span>
                     )}
                 </span>
-                <button className="launchConfigInline__closeBtn" onClick={onClose} title="Back to description">&times;</button>
+                <button type="button" className="launchConfigInline__closeBtn" onClick={onClose} title="Back to description">&times;</button>
             </div>
             <div className="launchConfigInline__body">
                 {selectedMembers.map(renderMemberConfig)}

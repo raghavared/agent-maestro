@@ -60,7 +60,7 @@ export function QueueStatusDisplay({
 
   return (
     <div className={`queueStatusDisplay ${compact ? "queueStatusDisplay--compact" : ""}`}>
-      <button
+      <button type="button"
         className="queueStatusHeader"
         onClick={() => setIsExpanded(!isExpanded)}
       >
@@ -147,7 +147,7 @@ export function QueueStatusDisplay({
                   </div>
 
                   {onJumpToTask && (
-                    <button
+                    <button type="button"
                       className="queueStatusItemAction"
                       onClick={() => onJumpToTask(item.taskId)}
                       title="View task"

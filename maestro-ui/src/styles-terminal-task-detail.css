@@ -1,0 +1,586 @@
+/* ===================================
+   TERMINAL TASK DETAIL MODAL
+   =================================== */
+
+.terminalTaskModal {
+  width: 92%;
+  max-width: 700px;
+  max-height: 90vh;
+  background: #0a0a0a;
+  border: 2px solid var(--terminal-green);
+  box-shadow:
+    0 0 40px rgba(var(--theme-primary-rgb), 0.4),
+    0 24px 80px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(var(--theme-primary-rgb), 0.1);
+  display: flex;
+  flex-direction: column;
+  animation: terminalModalSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  font-family: var(--style-font-ui);
+}
+
+@keyframes terminalModalSlide {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.terminalModalHeader {
+  flex: 0 0 auto;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--terminal-border);
+  background: rgba(var(--theme-primary-rgb), 0.03);
+}
+
+.terminalModalHeaderContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.terminalModalTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--terminal-text);
+  letter-spacing: -0.01em;
+}
+
+.terminalModalMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.terminalModalStatusBadge,
+.terminalModalPriorityBadge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 7px;
+  border-radius: 3px;
+  border: 1px solid;
+  line-height: 1;
+}
+
+.terminalModalStatusBadge--todo {
+  background: rgba(128, 128, 128, 0.15);
+  border-color: rgba(128, 128, 128, 0.3);
+  color: var(--terminal-text-dim);
+}
+
+.terminalModalStatusBadge--in_progress {
+  background: rgba(0, 217, 255, 0.15);
+  border-color: var(--terminal-cyan);
+  color: var(--terminal-cyan);
+}
+
+.terminalModalStatusBadge--in_review {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: #a855f7;
+  color: #a855f7;
+}
+
+.terminalModalStatusBadge--completed {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+}
+
+.terminalModalStatusBadge--cancelled {
+  background: rgba(128, 128, 128, 0.15);
+  border-color: rgba(128, 128, 128, 0.3);
+  color: var(--terminal-gray);
+}
+
+.terminalModalStatusBadge--blocked {
+  background: rgba(255, 59, 59, 0.15);
+  border-color: var(--terminal-red);
+  color: var(--terminal-red);
+}
+
+.terminalModalPriorityBadge--low {
+  background: rgba(128, 128, 128, 0.15);
+  border-color: rgba(128, 128, 128, 0.3);
+  color: var(--terminal-text-dim);
+}
+
+.terminalModalPriorityBadge--medium {
+  background: rgba(255, 176, 0, 0.15);
+  border-color: var(--terminal-amber);
+  color: var(--terminal-amber);
+}
+
+.terminalModalPriorityBadge--high {
+  background: rgba(255, 59, 59, 0.15);
+  border-color: var(--terminal-red);
+  color: var(--terminal-red);
+}
+
+.terminalModalMetaItem {
+  font-size: 10px;
+  color: var(--terminal-text-dim);
+  font-weight: 500;
+}
+
+.terminalModalBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.terminalModalBody::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminalModalBody::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.terminalModalBody::-webkit-scrollbar-thumb {
+  background: rgba(var(--theme-primary-rgb), 0.3);
+  border-radius: 4px;
+}
+
+.terminalModalBody::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.terminalModalSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.terminalModalSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.terminalModalSectionTitle {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--terminal-amber);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.terminalModalSubtaskCount {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--terminal-text-dim);
+  margin-left: 6px;
+}
+
+.terminalModalPromptBox {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  border: 1px solid var(--terminal-border);
+  border-left: 3px solid var(--terminal-green);
+  padding: 14px 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--terminal-text-dim);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: var(--style-font-ui);
+}
+
+.terminalModalPromptBoxEditable {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.terminalModalPromptBoxEditable:hover {
+  border-color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+}
+
+/* Editable title styles */
+.terminalModalTitleEditable {
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.terminalModalTitleEditable:hover {
+  color: var(--terminal-green);
+}
+
+.terminalModalEditableTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.terminalModalTitleInput {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--terminal-green);
+  padding: 8px 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--terminal-text);
+  font-family: var(--style-font-ui);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.terminalModalTitleInput:focus {
+  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+/* Editable prompt styles */
+.terminalModalEditablePrompt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.terminalModalPromptTextarea {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--terminal-green);
+  border-left: 3px solid var(--terminal-green);
+  padding: 14px 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--terminal-text);
+  font-family: var(--style-font-ui);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.terminalModalPromptTextarea:focus {
+  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+/* Edit action buttons */
+.terminalModalEditActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.terminalModalEditBtn {
+  border: 1px solid var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--terminal-green);
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--style-font-ui);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.terminalModalEditBtn:hover {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.terminalModalEditBtnCancel {
+  border-color: var(--terminal-border);
+  background: transparent;
+  color: var(--terminal-text-dim);
+}
+
+.terminalModalEditBtnCancel:hover {
+  border-color: var(--terminal-text-dim);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: none;
+}
+
+.terminalModalAddBtn {
+  border: 1px solid var(--terminal-border);
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  color: var(--terminal-green);
+  padding: 4px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--style-font-ui);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.terminalModalAddBtn:hover {
+  border-color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.terminalModalSubtaskInput {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--terminal-border);
+  border-radius: 4px;
+  animation: expandDown 0.2s ease-out;
+}
+
+.terminalModalSubtaskInput input {
+  width: 100%;
+  border: 1px solid var(--terminal-border);
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--terminal-text);
+  padding: 8px 12px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: var(--style-font-ui);
+  transition: all 0.2s ease;
+}
+
+.terminalModalSubtaskInput input:focus {
+  outline: none;
+  border-color: var(--terminal-green);
+  background: rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.terminalModalSubtaskInputActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.terminalModalSubtaskList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.terminalModalSubtaskItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  border: 1px solid var(--terminal-border);
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  font-family: var(--style-font-ui);
+}
+
+.terminalModalSubtaskItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border-color: var(--terminal-green);
+  transform: translateX(4px);
+}
+
+.terminalModalSubtaskItem.completed {
+  opacity: 0.5;
+}
+
+.terminalModalSubtaskItem.completed .terminalModalSubtaskTitle {
+  text-decoration: line-through;
+}
+
+.terminalModalSubtaskCheckbox {
+  color: var(--terminal-green);
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  font-weight: 700;
+}
+
+.terminalModalSubtaskCheckbox:hover {
+  transform: scale(1.2);
+  text-shadow: 0 0 8px var(--terminal-green);
+}
+
+.terminalModalSubtaskTitle {
+  flex: 1;
+  font-size: 12px;
+  color: var(--terminal-text);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.terminalModalSubtaskTime {
+  font-size: 10px;
+  color: var(--terminal-text-dim);
+  font-weight: 500;
+}
+
+.terminalModalSubtaskDelete {
+  border: none;
+  background: transparent;
+  color: var(--terminal-red);
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.terminalModalSubtaskDelete:hover {
+  background: rgba(255, 59, 59, 0.15);
+  box-shadow: 0 0 8px rgba(255, 59, 59, 0.3);
+}
+
+.terminalModalEmptyState {
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--terminal-text-dim);
+  font-size: 11px;
+  border: 1px dashed var(--terminal-border);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.terminalModalStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.terminalModalStatItem {
+  padding: 12px 14px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  border: 1px solid var(--terminal-border);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.terminalModalStatLabel {
+  font-size: 10px;
+  color: var(--terminal-amber);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.terminalModalStatValue {
+  font-size: 14px;
+  color: var(--terminal-text);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.terminalModalFooter {
+  flex: 0 0 auto;
+  padding: 14px 20px;
+  border-top: 1px solid var(--terminal-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.terminalModalFooterLeft,
+.terminalModalFooterRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.terminalModalFooterLabel {
+  font-size: 10px;
+  color: var(--terminal-amber);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.terminalModalBtn {
+  border: 1px solid var(--terminal-border);
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  color: var(--terminal-text);
+  padding: 6px 14px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--style-font-ui);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.terminalModalBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 16px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.terminalModalBtn:active {
+  transform: translateY(0);
+}
+
+.terminalModalBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.terminalModalBtnSecondary {
+  background: rgba(0, 0, 0, 0.6);
+  border-color: var(--terminal-border);
+  color: var(--terminal-text-dim);
+}
+
+.terminalModalBtnSecondary:hover {
+  border-color: var(--terminal-text-dim);
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.terminalModalBtnPrimary {
+  border-color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--terminal-green);
+}
+
+.terminalModalBtnPrimary:hover {
+  border-color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  box-shadow: 0 0 20px rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.terminalModalBtnSuccess {
+  border-color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--terminal-green);
+}
+
+.terminalModalBtnSuccess:hover {
+  border-color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  box-shadow: 0 0 20px rgba(var(--theme-primary-rgb), 0.4);
+}
+

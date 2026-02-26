@@ -1,8 +1,9 @@
-import React, { MutableRefObject, useCallback, useMemo, useRef, useState } from "react";
+import React, { MutableRefObject, Suspense, useCallback, useMemo, useRef, useState } from "react";
 import SessionTerminal, { TerminalRegistry } from "../../SessionTerminal";
 import { PendingDataBuffer } from "../../app/types/app-state";
 import { FileExplorerPanel } from "../FileExplorerPanel";
 import { Icon } from "../Icon";
+import { ErrorBoundary } from "../ErrorBoundary";
 import { useSessionStore } from "../../stores/useSessionStore";
 import { useProjectStore } from "../../stores/useProjectStore";
 import { useMaestroStore } from "../../stores/useMaestroStore";
@@ -17,10 +18,11 @@ import { isSshCommandLine, sshTargetFromCommandLine } from "../../app/utils/ssh"
 import { SessionLogStrip } from "../session-log/SessionLogStrip";
 import { isWhiteboardId, isDocumentId } from "../../app/types/space";
 import type { WhiteboardSpace, DocumentSpace } from "../../app/types/space";
-import { ExcalidrawBoard } from "../ExcalidrawBoard";
-import { DocViewer } from "../maestro/DocViewer";
+const LazyExcalidrawBoard = React.lazy(() => import("../ExcalidrawBoard").then(m => ({ default: m.ExcalidrawBoard })));
+const LazyDocViewer = React.lazy(() => import("../maestro/DocViewer").then(m => ({ default: m.DocViewer })));
 
 const LazyCodeEditorPanel = React.lazy(() => import("../CodeEditorPanel"));
+const LazyMermaidDiagram = React.lazy(() => import("../maestro/MermaidDiagram").then(m => ({ default: m.MermaidDiagram })));
 
 export interface AppWorkspaceProps {
   registry: MutableRefObject<TerminalRegistry>;
@@ -158,23 +160,31 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
     >
       {/* Inline whiteboard space */}
       {isActiveWhiteboard && activeSpace?.type === "whiteboard" && (
-        <ExcalidrawBoard
-          key={activeSpace.id}
-          inline
-          storageKey={(activeSpace as WhiteboardSpace).storageKey}
-          name={activeSpace.name}
-          onClose={() => closeWhiteboard(activeSpace.id)}
-        />
+        <ErrorBoundary name="Excalidraw">
+          <Suspense fallback={<div style={{ padding: 20, opacity: 0.5 }}>Loading whiteboard...</div>}>
+            <LazyExcalidrawBoard
+              key={activeSpace.id}
+              inline
+              storageKey={(activeSpace as WhiteboardSpace).storageKey}
+              name={activeSpace.name}
+              onClose={() => closeWhiteboard(activeSpace.id)}
+            />
+          </Suspense>
+        </ErrorBoundary>
       )}
 
       {/* Inline document space */}
       {isActiveDocument && activeSpace?.type === "document" && (
-        <DocViewer
-          key={activeSpace.id}
-          inline
-          doc={(activeSpace as DocumentSpace).doc}
-          onClose={() => closeDocument(activeSpace.id)}
-        />
+        <ErrorBoundary name="DocViewer">
+          <Suspense fallback={<div style={{ padding: 20, opacity: 0.5 }}>Loading document...</div>}>
+            <LazyDocViewer
+              key={activeSpace.id}
+              inline
+              doc={(activeSpace as DocumentSpace).doc}
+              onClose={() => closeDocument(activeSpace.id)}
+            />
+          </Suspense>
+        </ErrorBoundary>
       )}
 
       <div
@@ -252,6 +262,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
             onMouseDown={beginWorkspaceResize("editor")}
             aria-hidden="true"
           />
+          <ErrorBoundary name="CodeEditor">
           <React.Suspense
             fallback={
               <section className="codeEditorPanel" aria-label="Editor">
@@ -294,6 +305,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
               onCloseEditor={closeCodeEditor}
             />
           </React.Suspense>
+          </ErrorBoundary>
         </>
       ) : null}
 

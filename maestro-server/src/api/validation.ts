@@ -64,6 +64,20 @@ export const masterToggleSchema = z.object({
   isMaster: z.boolean(),
 }).strict();
 
+// --- Shared schemas ---
+
+const permissionModeSchema = z.enum(['acceptEdits', 'interactive', 'readOnly', 'bypassPermissions']);
+
+const memberLaunchOverrideSchema = z.object({
+  agentTool: z.string().optional(),
+  model: z.string().optional(),
+  permissionMode: permissionModeSchema.optional(),
+  skillIds: z.array(z.string()).optional(),
+  commandPermissions: z.object({
+    commands: z.record(z.string(), z.boolean()),
+  }).optional(),
+}).strict();
+
 // --- Task schemas ---
 
 export const createTaskSchema = z.object({
@@ -77,6 +91,7 @@ export const createTaskSchema = z.object({
   model: modelSchema.optional(),
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
+  memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
 }).strict();
 
 export const updateTaskSchema = z.object({
@@ -94,6 +109,7 @@ export const updateTaskSchema = z.object({
   sessionId: safeId.optional(),
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
+  memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
 }).strict();
 
 export const taskTimelineSchema = z.object({
@@ -209,9 +225,16 @@ export const spawnSessionSchema = z.object({
   strategy: allStrategySchema.optional().default('simple'),
   context: z.record(z.string(), z.unknown()).optional(),
   model: modelSchema.optional(),
+  agentTool: z.string().optional(),
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
   delegateTeamMemberIds: z.array(safeId).optional(),
+  initialDirective: z.object({
+    subject: shortString,
+    message: longString,
+    fromSessionId: safeId.optional(),
+  }).optional(),
+  memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
 }).strict();
 
 // --- Template schemas ---

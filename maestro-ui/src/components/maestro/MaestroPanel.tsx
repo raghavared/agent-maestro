@@ -174,13 +174,14 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         normalizedTasks.forEach(task => newStatuses.set(task.id, task.status));
         prevTaskStatusesRef.current = newStatuses;
 
+        let timer: ReturnType<typeof setTimeout> | undefined;
         if (newlyCompleted.length > 0) {
             setSlidingOutTasks(prev => {
                 const next = new Set(prev);
                 newlyCompleted.forEach(id => next.add(id));
                 return next;
             });
-            setTimeout(() => {
+            timer = setTimeout(() => {
                 setSlidingOutTasks(prev => {
                     const next = new Set(prev);
                     newlyCompleted.forEach(id => next.delete(id));
@@ -188,6 +189,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 });
             }, 500);
         }
+        return () => { if (timer) clearTimeout(timer); };
     }, [normalizedTasks]);
 
     // Initialize collapsed state
@@ -237,7 +239,13 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 teamMemberIds: taskData.teamMemberIds,
                 memberOverrides: taskData.memberOverrides,
             });
-            if (taskData.startImmediately) await handleWorkOnTask(newTask);
+            if (taskData.startImmediately) {
+                // Attach memberOverrides from the form data since the server may not return them on the task object
+                if (taskData.memberOverrides && !newTask.memberOverrides) {
+                    newTask.memberOverrides = taskData.memberOverrides;
+                }
+                await handleWorkOnTask(newTask);
+            }
         } catch (err: any) {
             setError("Failed to create task");
         }
@@ -448,7 +456,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     <div className="taskSearchBar">
                         <span className="taskSearchBar__icon">⌕</span>
                         <input type="text" className="taskSearchBar__input" placeholder="Search tasks..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                        {searchQuery && <button className="taskSearchBar__clear" onClick={() => setSearchQuery("")}>×</button>}
+                        {searchQuery && <button type="button" className="taskSearchBar__clear" onClick={() => setSearchQuery("")}>×</button>}
                     </div>
                 )}
 
@@ -456,7 +464,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     <div className="terminalErrorBanner">
                         <span className="terminalErrorSymbol">[ERROR]</span>
                         <span className="terminalErrorText">{error || fetchError}</span>
-                        <button className="terminalErrorClose" onClick={() => setError(null)}>×</button>
+                        <button type="button" className="terminalErrorClose" onClick={() => setError(null)}>×</button>
                     </div>
                 )}
 

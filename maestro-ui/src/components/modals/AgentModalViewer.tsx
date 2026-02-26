@@ -134,7 +134,7 @@ export function AgentModalViewer({ modal, onClose }: AgentModalViewerProps) {
               {modal.modalId}
             </span>
           </div>
-          <button
+          <button type="button"
             onClick={handleClose}
             style={{
               background: 'none',

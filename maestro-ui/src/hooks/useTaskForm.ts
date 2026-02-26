@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { TaskPriority, MaestroTask, MemberLaunchOverride, TeamMember } from "../app/types/maestro";
 import { maestroClient } from "../utils/MaestroClient";
-import { MemberConfig, buildDefaultMemberConfig, buildOverridesFromConfigs } from "../components/maestro/task-modal/LaunchConfigPanel";
+import { MemberConfig, buildDefaultMemberConfig, buildMemberConfigFromOverride, buildOverridesFromConfigs } from "../components/maestro/task-modal/LaunchConfigPanel";
 
 export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: MaestroTask) {
     const isEditMode = mode === "edit" && !!task;
@@ -83,12 +83,16 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     };
 
     // Launch config helpers
-    const initMemberConfig = useCallback((memberId: string, teamMembers: TeamMember[]) => {
+    const initMemberConfig = useCallback((memberId: string, teamMembers: TeamMember[], savedOverrides?: Record<string, MemberLaunchOverride>) => {
         setMemberConfigs(prev => {
             if (prev[memberId]) return prev; // already initialized
             const member = teamMembers.find(m => m.id === memberId);
             if (!member) return prev;
-            return { ...prev, [memberId]: buildDefaultMemberConfig(member) };
+            const override = savedOverrides?.[memberId];
+            const config = override
+                ? buildMemberConfigFromOverride(member, override)
+                : buildDefaultMemberConfig(member);
+            return { ...prev, [memberId]: config };
         });
     }, []);
 
@@ -138,7 +142,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         teamMemberIds: selectedTeamMemberIds.length > 0 ? selectedTeamMemberIds : undefined,
     });
 
-    const getUpdateDiff = (referenceTaskIds: string[]): Partial<MaestroTask> | null => {
+    const getUpdateDiff = (referenceTaskIds: string[], teamMembers?: TeamMember[]): Partial<MaestroTask> | null => {
         if (!isEditMode || !task) return null;
         const updates: Partial<MaestroTask> = {};
         if (title.trim() && title !== task.title) updates.title = title.trim();
@@ -151,6 +155,13 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         }
         if (JSON.stringify(selectedSkills) !== JSON.stringify(task.skillIds || [])) updates.skillIds = selectedSkills;
         if (JSON.stringify(referenceTaskIds) !== JSON.stringify(task.referenceTaskIds || [])) updates.referenceTaskIds = referenceTaskIds;
+        // Include memberOverrides if launch config was modified
+        if (teamMembers && Object.keys(memberConfigs).length > 0) {
+            const overrides = buildOverridesFromConfigs(memberConfigs, teamMembers);
+            if (JSON.stringify(overrides) !== JSON.stringify(task.memberOverrides || {})) {
+                updates.memberOverrides = Object.keys(overrides).length > 0 ? overrides : undefined;
+            }
+        }
         return Object.keys(updates).length > 0 ? updates : null;
     };
 

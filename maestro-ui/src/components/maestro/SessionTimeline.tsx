@@ -88,7 +88,7 @@ export function SessionTimeline({
 
   return (
     <div className={`sessionTimeline ${compact ? "sessionTimeline--compact" : ""}`}>
-      <button
+      <button type="button"
         className="sessionTimelineHeader"
         onClick={() => setIsExpanded(!isExpanded)}
       >
@@ -104,26 +104,26 @@ export function SessionTimeline({
           {showFilters && (
             <div className="sessionTimelineFilters">
               {filterByTask && (
-                <button
+                <button type="button"
                   className={`sessionTimelineFilterBtn ${filter === "thisTask" ? "active" : ""}`}
                   onClick={() => setFilter("thisTask")}
                 >
                   This Task
                 </button>
               )}
-              <button
+              <button type="button"
                 className={`sessionTimelineFilterBtn ${filter === "all" ? "active" : ""}`}
                 onClick={() => setFilter("all")}
               >
                 All
               </button>
-              <button
+              <button type="button"
                 className={`sessionTimelineFilterBtn ${filter === "milestones" ? "active" : ""}`}
                 onClick={() => setFilter("milestones")}
               >
                 Milestones
               </button>
-              <button
+              <button type="button"
                 className={`sessionTimelineFilterBtn ${filter === "errors" ? "active" : ""}`}
                 onClick={() => setFilter("errors")}
               >
@@ -145,7 +145,7 @@ export function SessionTimeline({
           </div>
 
           {hasMoreEvents && (
-            <button
+            <button type="button"
               className="sessionTimelineShowMore"
               onClick={onShowMore}
             >
@@ -221,7 +221,7 @@ export function AggregatedTimeline({
 
   return (
     <div className={`aggregatedTimeline ${compact ? "aggregatedTimeline--compact" : ""}`}>
-      <button
+      <button type="button"
         className="aggregatedTimelineHeader"
         onClick={() => setIsExpanded(!isExpanded)}
       >
@@ -238,14 +238,14 @@ export function AggregatedTimeline({
       {isExpanded && (
         <div className="aggregatedTimelineContent">
           <div className="aggregatedTimelineFilters">
-            <button
+            <button type="button"
               className={`aggregatedTimelineFilterBtn ${filter === "all" ? "active" : ""}`}
               onClick={() => setFilter("all")}
             >
               All Sessions
             </button>
             {sessionNames.map(([sessionId, data]) => (
-              <button
+              <button type="button"
                 key={sessionId}
                 className={`aggregatedTimelineFilterBtn ${filter === sessionId ? "active" : ""}`}
                 onClick={() => setFilter(sessionId)}

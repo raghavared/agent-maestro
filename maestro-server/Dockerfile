@@ -1,21 +1,29 @@
+# Stage 1: Build
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY src/ ./src/
+COPY tsconfig.json ./
+
+RUN npm run build
+
+# Stage 2: Production
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
+COPY --from=builder /app/dist ./dist
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+RUN npm ci --omit=dev
 
-# Copy source code
-COPY . .
-
-# Build TypeScript
-RUN npm run build
-
-# Expose port
 EXPOSE 3000
 
-# Start server
-CMD ["npm", "start"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+CMD ["node", "dist/server.js"]

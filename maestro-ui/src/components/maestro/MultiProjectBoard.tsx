@@ -239,13 +239,13 @@ export const Board = React.memo(function Board({
                 <div className={isSingleProject ? "taskBoardHeader" : "mpbHeader"}>
                     <div className={isSingleProject ? "taskBoardHeaderLeft" : "mpbHeaderLeft"}>
                         <div className="taskBoardTabs">
-                            <button
+                            <button type="button"
                                 className={`taskBoardTab ${activeView === "tasks" ? "taskBoardTab--active" : ""}`}
                                 onClick={() => setActiveView("tasks")}
                             >
                                 <span className="taskBoardTabSymbol">⊞</span> Tasks
                             </button>
-                            <button
+                            <button type="button"
                                 className={`taskBoardTab ${activeView === "sessions" ? "taskBoardTab--active" : ""}`}
                                 onClick={() => setActiveView("sessions")}
                             >
@@ -259,14 +259,14 @@ export const Board = React.memo(function Board({
                                 <span className="mpbProjectCount">{headerLabel}</span>
                                 {activeView === "tasks" && (
                                     <div className="mpbLayoutToggle">
-                                        <button
+                                        <button type="button"
                                             className={`mpbLayoutBtn ${layoutMode === "grouped" ? "mpbLayoutBtn--active" : ""}`}
                                             onClick={() => setLayoutMode("grouped")}
                                             title="Grouped by project"
                                         >
                                             ≡
                                         </button>
-                                        <button
+                                        <button type="button"
                                             className={`mpbLayoutBtn ${layoutMode === "unified" ? "mpbLayoutBtn--active" : ""}`}
                                             onClick={() => setLayoutMode("unified")}
                                             title="Unified kanban"
@@ -277,14 +277,14 @@ export const Board = React.memo(function Board({
                                 )}
                                 {activeView === "sessions" && (
                                     <div className="mpbLayoutToggle">
-                                        <button
+                                        <button type="button"
                                             className={`mpbLayoutBtn ${sessionLayoutMode === "grouped" ? "mpbLayoutBtn--active" : ""}`}
                                             onClick={() => setSessionLayoutMode("grouped")}
                                             title="Grouped by project"
                                         >
                                             ≡
                                         </button>
-                                        <button
+                                        <button type="button"
                                             className={`mpbLayoutBtn ${sessionLayoutMode === "unified" ? "mpbLayoutBtn--active" : ""}`}
                                             onClick={() => setSessionLayoutMode("unified")}
                                             title="Unified view"
@@ -313,7 +313,7 @@ export const Board = React.memo(function Board({
                             </>
                         )}
                     </div>
-                    <button className="taskBoardCloseBtn" onClick={onClose} title="Close board (Esc)">
+                    <button type="button" className="taskBoardCloseBtn" onClick={onClose} title="Close board (Esc)">
                         ✕
                     </button>
                 </div>

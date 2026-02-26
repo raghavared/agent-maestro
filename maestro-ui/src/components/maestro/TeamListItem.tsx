@@ -119,7 +119,7 @@ export function TeamListItem({
                     {/* Row 2: Meta badges + action buttons */}
                     <div className="terminalTeamMain__metaRow">
                         {/* Sub-team expand/collapse button */}
-                        <button
+                        <button type="button"
                             className={`terminalSubtaskBtn ${hasSubTeams ? (childrenCollapsed ? 'terminalSubtaskBtn--collapsed' : 'terminalSubtaskBtn--expanded') : 'terminalSubtaskBtn--empty'}`}
                             onClick={handleSubTeamToggle}
                             title={hasSubTeams ? (childrenCollapsed ? `Expand ${subTeams.length} sub-team${subTeams.length !== 1 ? 's' : ''}` : `Collapse sub-teams`) : "No sub-teams"}
@@ -156,7 +156,7 @@ export function TeamListItem({
 
                         {/* Action buttons */}
                         <div className="terminalTaskActions">
-                            <button
+                            <button type="button"
                                 className="terminalEditBtn terminalTeamEditBtn"
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -167,7 +167,7 @@ export function TeamListItem({
                                 Edit
                             </button>
 
-                            <button
+                            <button type="button"
                                 className="terminalSplitPlay__play"
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -186,19 +186,19 @@ export function TeamListItem({
                     <div className="terminalTaskExpanded">
                         {/* Tab Navigation */}
                         <div className="terminalTaskTabs" onClick={(e) => e.stopPropagation()}>
-                            <button
+                            <button type="button"
                                 className={`terminalTaskTab ${activeTab === 'members' ? 'terminalTaskTab--active' : ''}`}
                                 onClick={() => setActiveTab('members')}
                             >
                                 [Members]
                             </button>
-                            <button
+                            <button type="button"
                                 className={`terminalTaskTab ${activeTab === 'subteams' ? 'terminalTaskTab--active' : ''}`}
                                 onClick={() => setActiveTab('subteams')}
                             >
                                 [Sub-Teams{subTeams.length > 0 ? ` (${subTeams.length})` : ''}]
                             </button>
-                            <button
+                            <button type="button"
                                 className={`terminalTaskTab ${activeTab === 'details' ? 'terminalTaskTab--active' : ''}`}
                                 onClick={() => setActiveTab('details')}
                             >
@@ -302,7 +302,7 @@ export function TeamListItem({
                                             <span className="terminalDetailLabel">Team ID:</span>
                                             <span className="terminalDetailValue" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 <code style={{ fontSize: '10px', opacity: 0.8 }}>{team.id}</code>
-                                                <button
+                                                <button type="button"
                                                     className="terminalCopyBtn"
                                                     onClick={() => handleCopyField('id', team.id)}
                                                     style={{ fontSize: '9px', padding: '1px 4px' }}
@@ -326,7 +326,7 @@ export function TeamListItem({
 
                         {/* Actions Bar at Bottom Right */}
                         <div className="terminalTaskActionsBar terminalTaskActionsBar--right">
-                            <button
+                            <button type="button"
                                 className="terminalCopyBtn"
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -336,7 +336,7 @@ export function TeamListItem({
                             >
                                 {copiedField === 'id' ? 'Copied!' : 'Copy ID'}
                             </button>
-                            <button
+                            <button type="button"
                                 className={isArchived ? "terminalViewDetailsBtn" : "terminalArchiveBtn"}
                                 onClick={handleArchiveToggle}
                                 title={isArchived ? "Unarchive team" : "Archive team"}
@@ -344,7 +344,7 @@ export function TeamListItem({
                                 {isArchived ? 'Unarchive' : 'Archive'}
                             </button>
                             {isArchived && (
-                                <button
+                                <button type="button"
                                     className="terminalDeleteBtn"
                                     onClick={handleDeleteClick}
                                     title="Permanently delete team"

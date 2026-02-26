@@ -1,0 +1,307 @@
+/* Slide Panel */
+.slidePanel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  bottom: 10px;
+  background: linear-gradient(180deg, rgba(15, 22, 32, 0.92), rgba(18, 27, 38, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  box-shadow: -18px 0 44px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(14px) saturate(1.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  animation: slidePanelIn 0.2s ease-out;
+}
+
+@keyframes slidePanelIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.slidePanelResizing {
+  user-select: none;
+}
+
+.slidePanelResize {
+  position: absolute;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  z-index: 10;
+}
+
+.slidePanelResize:hover,
+.slidePanelResizing .slidePanelResize {
+  background: linear-gradient(90deg, transparent, rgba(107, 138, 253, 0.2), transparent);
+}
+
+.slidePanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.12);
+  gap: 10px;
+}
+
+.slidePanelTabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 4px;
+  border-radius: var(--radius-control);
+}
+
+.slidePanelTab {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 12px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s ease;
+}
+
+.slidePanelTab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.slidePanelTabActive {
+  color: var(--text);
+  background: rgba(107, 138, 253, 0.15);
+}
+
+.slidePanelClose {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  padding: 4px 10px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.slidePanelClose:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.slidePanelContent {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Panel Search */
+.panelSearch {
+  position: relative;
+}
+
+.panelSearchInput {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  padding: 10px 12px 10px 36px;
+  border-radius: 10px;
+  outline: none;
+  font-size: 13px;
+}
+
+.panelSearchInput:focus {
+  border-color: rgba(107, 138, 253, 0.5);
+}
+
+.panelSearchInput::placeholder {
+  color: var(--muted);
+}
+
+.panelSearchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+/* Panel List */
+.panelList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panelSection {
+  margin-top: 8px;
+}
+
+.panelSectionTitle {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 0 4px;
+  margin-bottom: 8px;
+}
+
+/* Panel Cards */
+.panelCard {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.panelCard:hover {
+  border-color: rgba(107, 138, 253, 0.3);
+  background: rgba(107, 138, 253, 0.06);
+}
+
+.panelCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.panelCardPin {
+  color: rgba(255, 200, 50, 0.8);
+  font-size: 12px;
+}
+
+.panelCardTitle {
+  font-size: 13px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panelCardMeta {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panelCardPreview {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+.panelCardActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.panelCard:hover .panelCardActions,
+.panelCard:focus-within .panelCardActions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.panelCardBtn {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+}
+
+.panelCardBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.panelCardBtn:active {
+  transform: translateY(1px);
+}
+
+.panelCardBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.panelCardBtn.panelCardBtnDanger {
+  border-color: rgba(255, 80, 80, 0.35);
+  background: rgba(255, 80, 80, 0.1);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.panelCardBtn.panelCardBtnDanger:hover {
+  background: rgba(255, 80, 80, 0.14);
+}
+
+/* Panel Footer */
+.panelFooter {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+.panelFooterBtn {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.panelFooterBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Date Group Headers */
+.dateGroupHeader {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 8px 4px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+

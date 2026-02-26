@@ -85,32 +85,30 @@ export const NewSpaceDropdown: React.FC<NewSpaceDropdownProps> = ({
             style={{ position: "fixed", top: pos.top, right: pos.right }}
         >
             {onOpenNewSession && (
-                <button className="spacesRailDropdownItem" onClick={() => pick(onOpenNewSession)} type="button">
+                <button type="button" className="spacesRailDropdownItem" onClick={() => pick(onOpenNewSession)}>
                     <TerminalIcon />
                     <span>Terminal</span>
                 </button>
             )}
             {onOpenWhiteboard && (
-                <button className="spacesRailDropdownItem" onClick={() => pick(onOpenWhiteboard)} type="button">
+                <button type="button" className="spacesRailDropdownItem" onClick={() => pick(onOpenWhiteboard)}>
                     <WhiteboardIcon />
                     <span>Draw</span>
                 </button>
             )}
-            <button
+            <button type="button"
                 className="spacesRailDropdownItem"
                 onClick={() => pick(() => { /* Document — Phase 2 */ })}
-                type="button"
                 disabled
             >
                 <DocumentIcon />
                 <span>Document</span>
             </button>
             {agentShortcuts?.map((effect) => (
-                <button
+                <button type="button"
                     key={effect.id}
                     className="spacesRailDropdownItem"
                     onClick={() => pick(() => onQuickStart?.(effect))}
-                    type="button"
                 >
                     {effect.iconSrc ? (
                         <img

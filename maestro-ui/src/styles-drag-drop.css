@@ -1,0 +1,315 @@
+/* ==================== DRAG & DROP REORDERING ==================== */
+
+.sortableItemWrapper {
+  touch-action: none;
+}
+
+.sortableItemWrapper--dragging {
+  z-index: 100;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  background: var(--terminal-bg, #1a1a2e);
+}
+
+/* ==================== SPLIT PLAY BUTTON ==================== */
+
+.splitPlayButton {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+  transition: all 0.2s;
+}
+
+.splitPlayButton:hover {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  border-color: rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.splitPlayButton__play {
+  padding: 4px 10px;
+  background: transparent;
+  border: none;
+  color: var(--theme-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.splitPlayButton__play:hover {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.splitPlayButton__play:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.splitPlayButton__dropdown {
+  padding: 4px 6px;
+  background: transparent;
+  border: none;
+  border-left: 1px solid rgba(var(--theme-primary-rgb), 0.2);
+  color: var(--theme-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.splitPlayButton__dropdown:hover {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+}
+
+.splitPlayButton__dropdown:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Split play dropdown */
+.splitPlayDropdown__overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+.splitPlayDropdown {
+  position: fixed;
+  z-index: 1000;
+  min-width: 260px;
+  max-width: 320px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: #000000;
+  border: 1px solid var(--theme-primary);
+  border-radius: 4px;
+  padding: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px rgba(var(--theme-primary-rgb), 0.15);
+  isolation: isolate;
+  transform-origin: top right;
+  animation: dropdownAppearDown 0.15s ease-out;
+}
+
+.splitPlayDropdown--openUp {
+  transform-origin: bottom right;
+  animation: dropdownAppearUp 0.15s ease-out;
+}
+
+@keyframes dropdownAppearDown {
+  from {
+    opacity: 0;
+    transform: scaleY(0.92) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1) translateY(0);
+  }
+}
+
+@keyframes dropdownAppearUp {
+  from {
+    opacity: 0;
+    transform: scaleY(0.92) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1) translateY(0);
+  }
+}
+
+.splitPlayDropdown__header {
+  padding: 8px 10px 6px;
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--theme-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  margin-bottom: 4px;
+}
+
+.splitPlayDropdown__empty {
+  padding: 16px 10px;
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  color: rgba(240, 244, 248, 0.4);
+  text-align: center;
+}
+
+.splitPlayDropdown__section {
+  margin-bottom: 0;
+}
+
+.splitPlayDropdown__member {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  text-align: left;
+  gap: 10px;
+}
+
+.splitPlayDropdown__member:hover {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+}
+
+.splitPlayDropdown__avatar {
+  font-size: 16px;
+  flex-shrink: 0;
+  width: 22px;
+  text-align: center;
+}
+
+.splitPlayDropdown__memberInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.splitPlayDropdown__memberTop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.splitPlayDropdown__name {
+  font-weight: 500;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.splitPlayDropdown__memberSub {
+  font-size: 10px;
+  color: rgba(240, 244, 248, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.splitPlayDropdown__agentIcon {
+  font-size: 10px;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.splitPlayDropdown__defaultTag {
+  font-family: var(--style-font-ui);
+  font-size: 9px;
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.2);
+  border-radius: 3px;
+  padding: 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.splitPlayDropdown__separator {
+  height: 1px;
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  margin: 4px 0;
+}
+
+.splitPlayDropdown__newMember {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  text-align: left;
+  gap: 8px;
+}
+
+.splitPlayDropdown__newMember:hover {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+}
+
+.splitPlayDropdown__newIcon {
+  font-size: 14px;
+  font-weight: 600;
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* Team member avatar on play button */
+.splitPlayButton__avatar {
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* Mode badges in dropdown */
+.splitPlayDropdown__modeBadge {
+  font-family: var(--style-font-ui);
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.splitPlayDropdown__modeBadge--execute {
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+}
+
+.splitPlayDropdown__modeBadge--coordinate {
+  background: rgba(155, 89, 182, 0.15);
+  color: #9b59b6;
+}
+
+.splitPlayDropdown__modeBadge--recruit {
+  background: rgba(230, 126, 34, 0.15);
+  color: #e67e22;
+}
+
+/* Assigned member indicator */
+.splitPlayDropdown__member--assigned {
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border-left: 2px solid var(--theme-primary);
+  padding-left: 8px;
+}
+
+.splitPlayDropdown__member--assigned .splitPlayDropdown__name {
+  color: var(--theme-primary);
+}
+
+.splitPlayDropdown__assignedCheck {
+  color: var(--theme-primary);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+

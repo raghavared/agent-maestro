@@ -1,7 +1,4 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { spawn } from 'child_process';
 
 /**
  * Result of executing a hook
@@ -29,6 +26,40 @@ export interface HookOptions {
 }
 
 /**
+ * Parse a shell command string into executable and arguments array.
+ * Handles basic quoting (single and double quotes).
+ */
+function parseCommand(command: string): { exe: string; args: string[] } {
+  const parts: string[] = [];
+  let current = '';
+  let inSingle = false;
+  let inDouble = false;
+
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+
+    if (ch === "'" && !inDouble) {
+      inSingle = !inSingle;
+    } else if (ch === '"' && !inSingle) {
+      inDouble = !inDouble;
+    } else if (ch === ' ' && !inSingle && !inDouble) {
+      if (current.length > 0) {
+        parts.push(current);
+        current = '';
+      }
+    } else {
+      current += ch;
+    }
+  }
+  if (current.length > 0) {
+    parts.push(current);
+  }
+
+  const [exe, ...args] = parts;
+  return { exe: exe || '', args };
+}
+
+/**
  * HookExecutor - Executes shell commands (hooks) at lifecycle points
  *
  * Supports pre-init and post-exit hooks from skills.
@@ -52,9 +83,15 @@ export class HookExecutor {
       };
     }
 
-    try {
-      const execOptions: any = {
-        shell: '/bin/bash',
+    return new Promise<HookResult>((resolve) => {
+      // Use spawn with explicit /bin/sh -c to avoid passing unsanitized
+      // commands through exec()'s shell. The command string is passed as
+      // a single argument to sh -c, preventing argument injection.
+      const spawnOptions: {
+        cwd?: string;
+        env: NodeJS.ProcessEnv;
+        timeout?: number;
+      } = {
         env: {
           ...process.env,
           ...(options.env || {}),
@@ -62,36 +99,51 @@ export class HookExecutor {
       };
 
       if (options.cwd) {
-        execOptions.cwd = options.cwd;
+        spawnOptions.cwd = options.cwd;
       }
 
       if (options.timeout) {
-        execOptions.timeout = options.timeout;
+        spawnOptions.timeout = options.timeout;
       }
 
-      const { stdout, stderr } = await execAsync(command, execOptions);
+      const child = spawn('/bin/sh', ['-c', command.trim()], spawnOptions);
 
-      return {
-        success: true,
-        exitCode: 0,
-        stdout: stdout?.toString() || '',
-        stderr: stderr?.toString() || '',
-      };
-    } catch (error: any) {
-      // Command failed or timed out
-      const exitCode = error.code || error.signal || 1;
-      const isTimeout = error.killed && error.signal === 'SIGTERM';
+      let stdout = '';
+      let stderr = '';
 
-      return {
-        success: false,
-        exitCode: typeof exitCode === 'number' ? exitCode : 1,
-        stdout: error.stdout || '',
-        stderr: error.stderr || '',
-        error: isTimeout
-          ? 'Command execution timeout'
-          : error.message || 'Command execution failed',
-      };
-    }
+      child.stdout?.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
+
+      child.stderr?.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      child.on('error', (err: Error) => {
+        resolve({
+          success: false,
+          exitCode: 1,
+          stdout,
+          stderr,
+          error: err.message || 'Command execution failed',
+        });
+      });
+
+      child.on('close', (code: number | null, signal: string | null) => {
+        const exitCode = code ?? 1;
+        const isTimeout = signal === 'SIGTERM';
+
+        resolve({
+          success: exitCode === 0,
+          exitCode,
+          stdout,
+          stderr,
+          ...(exitCode !== 0
+            ? { error: isTimeout ? 'Command execution timeout' : `Command exited with code ${exitCode}` }
+            : {}),
+        });
+      });
+    });
   }
 
   /**

@@ -1,0 +1,1135 @@
+/* ===================================
+   MAESTRO PANEL STYLES - REDESIGNED
+   =================================== */
+
+/* Main Maestro Panel */
+.maestroPanel {
+  /* Previously fixed position, now filling parent */
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(ellipse 120% 80% at 100% 0%, rgba(107, 138, 253, 0.04), transparent 50%),
+    radial-gradient(ellipse 80% 60% at 0% 100%, rgba(34, 211, 238, 0.02), transparent 40%),
+    linear-gradient(180deg,
+      var(--style-surface-1, rgba(16, 21, 30, 0.98)),
+      var(--style-surface-1, rgba(10, 14, 22, 0.98)));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Performance: isolate layout and contain paint */
+  contain: layout style paint;
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.maestroPanelHeader {
+  flex: 0 0 auto;
+  padding: 20px 20px 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background:
+    radial-gradient(600px 300px at 90% 0%, rgba(107, 138, 253, 0.06), transparent 60%);
+  position: relative;
+}
+
+.maestroPanelTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.maestroPanelTitle svg {
+  font-size: 20px;
+  color: var(--accent);
+  filter: drop-shadow(0 2px 8px rgba(107, 138, 253, 0.3));
+}
+
+.maestroPanelTitle h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--text), rgba(240, 244, 248, 0.85));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.maestroPanelProjectName {
+  font-size: 11px;
+  color: rgba(240, 244, 248, 0.6);
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(107, 138, 253, 0.2);
+  background: linear-gradient(135deg, rgba(107, 138, 253, 0.08), rgba(34, 211, 238, 0.05));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.maestroPanelClose {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 26px;
+  line-height: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.maestroPanelClose:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Actions Section */
+.maestroPanelActions {
+  flex: 0 0 auto;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.maestroPanelStats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+  font-size: 11px;
+  color: rgba(240, 244, 248, 0.5);
+  font-weight: 500;
+}
+
+.maestroStat {
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: var(--style-radius-sm, 6px);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  letter-spacing: 0.01em;
+}
+
+/* Filters */
+.maestroFilters {
+  flex: 0 0 auto;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.maestroFiltersSection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.maestroFiltersLabel {
+  font-size: 11px;
+  color: rgba(240, 244, 248, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  min-width: 65px;
+  font-weight: 600;
+}
+
+.maestroFilterButtons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  background: rgba(0, 0, 0, 0.12);
+  padding: 4px;
+  border-radius: var(--style-radius-md, 10px);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.maestroFilterButton {
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(240, 244, 248, 0.6);
+  padding: 5px 11px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.maestroFilterButton:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.maestroFilterButtonActive {
+  background: linear-gradient(135deg, rgba(107, 138, 253, 0.12), rgba(34, 211, 238, 0.06));
+  border-color: rgba(107, 138, 253, 0.2);
+  color: var(--text);
+  box-shadow:
+    0 1px 4px rgba(107, 138, 253, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.maestroFilterSelect {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.maestroFilterSelect:hover {
+  border-color: rgba(107, 138, 253, 0.3);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.maestroFilterSelect:focus {
+  outline: none;
+  border-color: rgba(107, 138, 253, 0.5);
+  box-shadow: 0 0 0 3px rgba(107, 138, 253, 0.1);
+}
+
+/* Content Area */
+.maestroPanelContent {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 20px;
+  min-width: 0;
+}
+
+/* Custom scrollbar for maestro panel */
+.maestroPanelContent::-webkit-scrollbar {
+  width: 6px;
+}
+
+.maestroPanelContent::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.maestroPanelContent::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+.maestroPanelContent::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Task List */
+.maestroTaskList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Task Card - Redesigned */
+.maestroTaskCard {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-2, rgba(22, 27, 38, 0.95)),
+      var(--style-surface-1, rgba(14, 18, 28, 0.95)));
+  border-radius: var(--style-radius-lg, 14px);
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(8px);
+}
+
+.maestroTaskCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  opacity: 0.85;
+  transition: all 0.25s ease;
+  border-radius: 0 2px 2px 0;
+}
+
+.maestroTaskCard:hover {
+  border-color: rgba(107, 138, 253, 0.18);
+  background:
+    linear-gradient(145deg,
+      var(--style-surface-3, rgba(28, 33, 45, 0.95)),
+      var(--style-surface-2, rgba(20, 25, 36, 0.95)));
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    0 8px 24px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.maestroTaskCardActive {
+  border-color: rgba(107, 138, 253, 0.3);
+  background:
+    linear-gradient(145deg,
+      rgba(107, 138, 253, 0.08),
+      rgba(34, 211, 238, 0.03)),
+    linear-gradient(145deg,
+      var(--style-surface-2, rgba(22, 27, 38, 0.95)),
+      var(--style-surface-1, rgba(14, 18, 28, 0.95)));
+  box-shadow:
+    0 4px 16px rgba(107, 138, 253, 0.12),
+    0 8px 32px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.maestroTaskCard--in_progress::before {
+  background: linear-gradient(180deg, #6b8afd, #22d3ee);
+  box-shadow: 0 0 8px rgba(107, 138, 253, 0.35);
+}
+
+.maestroTaskCard--completed::before {
+  background: linear-gradient(180deg, #10b981, #059669);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
+}
+
+.maestroTaskCard--completed {
+  opacity: 0.7;
+}
+
+.maestroTaskCard--in_review::before {
+  background: linear-gradient(180deg, #a855f7, #8b5cf6);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
+}
+
+.maestroTaskCard--blocked::before {
+  background: linear-gradient(180deg, #ef4444, #dc2626);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
+}
+
+.maestroTaskCard--todo::before {
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.5), rgba(100, 116, 139, 0.4));
+}
+
+.maestroTaskCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.maestroTaskCardStatus {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.maestroTaskCardStatusBadge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 9px;
+  border-radius: var(--style-radius-sm, 6px);
+  border: 1px solid;
+  line-height: 1;
+}
+
+.maestroTaskCardStatusBadge--todo {
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.15);
+  color: rgba(203, 213, 225, 0.8);
+}
+
+.maestroTaskCardStatusBadge--in_progress {
+  background: rgba(107, 138, 253, 0.1);
+  border-color: rgba(107, 138, 253, 0.22);
+  color: rgba(139, 174, 255, 0.95);
+}
+
+.maestroTaskCardStatusBadge--in_review {
+  background: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.2);
+  color: rgba(192, 132, 252, 0.9);
+}
+
+.maestroTaskCardStatusBadge--completed {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: rgba(52, 211, 153, 0.9);
+}
+
+.maestroTaskCardStatusBadge--blocked {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: rgba(252, 129, 129, 0.9);
+}
+
+.maestroTaskCardPriorityBadge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 9px;
+  border-radius: var(--style-radius-sm, 6px);
+  border: 1px solid;
+  line-height: 1;
+}
+
+.maestroTaskCardPriorityBadge--low {
+  background: rgba(100, 116, 139, 0.06);
+  border-color: rgba(148, 163, 184, 0.12);
+  color: rgba(203, 213, 225, 0.7);
+}
+
+.maestroTaskCardPriorityBadge--medium {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: rgba(251, 191, 36, 0.9);
+}
+
+.maestroTaskCardPriorityBadge--high {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: rgba(252, 129, 129, 0.9);
+}
+
+.maestroTaskCardMenu {
+  position: relative;
+}
+
+.maestroTaskCardMenuButton {
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(240, 244, 248, 0.4);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--style-radius-sm, 7px);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.maestroTaskCardMenuButton:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.maestroTaskCardMenuDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 170px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg,
+    var(--style-surface-3, rgba(17, 24, 34, 0.98)),
+    var(--style-surface-2, rgba(10, 14, 20, 0.98)));
+  border-radius: var(--style-radius-lg, 12px);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
+  z-index: 200;
+  backdrop-filter: blur(16px);
+  animation: dropdownSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.maestroTaskCardMenuDropdown button {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.maestroTaskCardMenuDropdown button:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateX(2px);
+}
+
+.maestroTaskCardMenuDelete {
+  color: rgba(255, 100, 100, 0.95) !important;
+}
+
+.maestroTaskCardMenuDelete:hover {
+  border-color: rgba(255, 80, 80, 0.4) !important;
+  background: rgba(255, 80, 80, 0.15) !important;
+}
+
+.maestroTaskCardTitle {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.maestroTaskCardDescription {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(240, 244, 248, 0.65);
+}
+
+.maestroTaskCardMeta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.maestroTaskCardMetaItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: rgba(240, 244, 248, 0.45);
+  font-weight: 500;
+  padding: 3px 8px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: var(--style-radius-sm, 6px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.maestroTaskCardMetaItem svg {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.maestroTaskCardLastUpdate {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--style-radius-md, 10px);
+  background:
+    linear-gradient(135deg,
+      rgba(107, 138, 253, 0.05),
+      rgba(34, 211, 238, 0.02));
+  border: 1px solid rgba(107, 138, 253, 0.12);
+  margin-bottom: 12px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.maestroTaskCardLastUpdate svg {
+  font-size: 13px;
+  margin-top: 1px;
+  color: rgba(107, 138, 253, 0.8);
+  flex-shrink: 0;
+}
+
+.maestroTaskCardActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.maestroTaskCardActionPrimary {
+  flex: 1;
+  border: 1px solid rgba(107, 138, 253, 0.25);
+  background: linear-gradient(135deg,
+      rgba(107, 138, 253, 0.12),
+      rgba(34, 211, 238, 0.06));
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: var(--style-radius-md, 9px);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  letter-spacing: 0.01em;
+}
+
+.maestroTaskCardActionPrimary:hover {
+  border-color: rgba(107, 138, 253, 0.4);
+  background: linear-gradient(135deg,
+      rgba(107, 138, 253, 0.18),
+      rgba(34, 211, 238, 0.1));
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 12px rgba(107, 138, 253, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.maestroTaskCardActionPrimary:active {
+  transform: translateY(0);
+}
+
+/* Empty State */
+.maestroEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  text-align: center;
+  color: rgba(240, 244, 248, 0.5);
+}
+
+.maestroEmptyState svg {
+  font-size: 48px;
+  opacity: 0.3;
+  margin-bottom: 20px;
+  filter: drop-shadow(0 4px 16px rgba(107, 138, 253, 0.2));
+}
+
+.maestroEmptyState h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.maestroEmptyState p {
+  margin: 0 0 24px 0;
+  font-size: 13px;
+  color: rgba(240, 244, 248, 0.5);
+  line-height: 1.5;
+}
+
+/* Timeline */
+.maestroTimeline {
+  padding: 20px 0;
+}
+
+.maestroTimelineTitle {
+  margin: 0 0 20px 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(240, 244, 248, 0.5);
+}
+
+.maestroTimelineEvents {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.maestroTimelineEvent {
+  display: grid;
+  grid-template-columns: 12px 2px 1fr;
+  gap: 16px;
+  padding-bottom: 20px;
+}
+
+.maestroTimelineEventDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 3px rgba(107, 138, 253, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  margin-top: 4px;
+}
+
+.maestroTimelineEventLine {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.maestroTimelineEventLineBar {
+  width: 2px;
+  background: linear-gradient(180deg,
+      rgba(107, 138, 253, 0.2),
+      rgba(107, 138, 253, 0.05));
+  position: absolute;
+  top: 6px;
+  bottom: -20px;
+  border-radius: 1px;
+}
+
+.maestroTimelineEventContent {
+  padding-top: 2px;
+}
+
+.maestroTimelineEventHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.maestroTimelineEventLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.maestroTimelineEventTime {
+  font-size: 11px;
+  color: rgba(240, 244, 248, 0.45);
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.maestroTimelineEventMessage {
+  margin: 6px 0 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(240, 244, 248, 0.7);
+  padding: 8px 12px;
+  background: rgba(107, 138, 253, 0.05);
+  border-left: 2px solid rgba(107, 138, 253, 0.3);
+  border-radius: 6px;
+}
+
+.maestroTimelineEventSession {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(240, 244, 248, 0.6);
+  font-family: var(--style-font-code);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.maestroTimelineEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: rgba(240, 244, 248, 0.4);
+  text-align: center;
+}
+
+.maestroTimelineEmpty svg {
+  font-size: 32px;
+  opacity: 0.3;
+}
+
+.maestroTimelineEmpty p {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(240, 244, 248, 0.5);
+}
+
+/* Buttons */
+.maestroButton {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  padding: 9px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.maestroButton:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.maestroButton:active {
+  transform: translateY(0);
+}
+
+.maestroButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.maestroButtonPrimary {
+  border-color: rgba(107, 138, 253, 0.35);
+  background: linear-gradient(135deg,
+      rgba(107, 138, 253, 0.18),
+      rgba(34, 211, 238, 0.1));
+  box-shadow:
+    0 2px 8px rgba(107, 138, 253, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.maestroButtonPrimary:hover {
+  border-color: rgba(107, 138, 253, 0.5);
+  background: linear-gradient(135deg,
+      rgba(107, 138, 253, 0.25),
+      rgba(34, 211, 238, 0.15));
+  box-shadow:
+    0 4px 14px rgba(107, 138, 253, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.maestroButtonSecondary {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.maestroButtonSecondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.maestroButtonSuccess {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: linear-gradient(135deg,
+      rgba(16, 185, 129, 0.18),
+      rgba(5, 150, 105, 0.1));
+  box-shadow:
+    0 2px 8px rgba(16, 185, 129, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.maestroButtonSuccess:hover {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: linear-gradient(135deg,
+      rgba(16, 185, 129, 0.25),
+      rgba(5, 150, 105, 0.15));
+  box-shadow:
+    0 4px 14px rgba(16, 185, 129, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Modals */
+.maestroModalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.maestroModal {
+  width: 90%;
+  max-width: 540px;
+  max-height: 90vh;
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.65);
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.maestroModalHeader {
+  flex: 0 0 auto;
+  padding: 20px 24px 16px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.maestroModalTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.maestroModalClose {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 28px;
+  line-height: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.maestroModalClose:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.maestroModalContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.maestroModalActions {
+  flex: 0 0 auto;
+  padding: 16px 24px 20px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Form Elements */
+.maestroFormGroup {
+  margin-bottom: 20px;
+}
+
+.maestroFormLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.maestroFormRequired {
+  color: rgba(239, 68, 68, 0.9);
+}
+
+.maestroFormInput,
+.maestroFormTextarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.maestroFormInput:hover,
+.maestroFormTextarea:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.maestroFormInput:focus,
+.maestroFormTextarea:focus {
+  outline: none;
+  border-color: rgba(107, 138, 253, 0.5);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 0 3px rgba(107, 138, 253, 0.12);
+}
+
+.maestroFormTextarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.maestroFormRadioGroup {
+  display: flex;
+  gap: 16px;
+}
+
+.maestroFormRadio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.maestroFormRadio input[type="radio"] {
+  cursor: pointer;
+}
+
+/* Detail Panel */
+.maestroDetailPanel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg,
+      rgba(16, 21, 30, 0.98),
+      rgba(10, 14, 22, 0.98));
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  animation: slideInFromRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
+}
+
+.maestroDetailHeader {
+  flex: 0 0 auto;
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: radial-gradient(600px 300px at 50% 0%, rgba(107, 138, 253, 0.08), transparent 60%);
+}
+
+.maestroDetailBack {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(240, 244, 248, 0.6);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-weight: 600;
+}
+
+.maestroDetailBack:hover {
+  border-color: rgba(107, 138, 253, 0.3);
+  background: rgba(107, 138, 253, 0.1);
+  color: var(--text);
+  transform: translateX(-2px);
+}
+
+.maestroDetailHeader h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.maestroDetailContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.maestroDetailContent::-webkit-scrollbar {
+  width: 8px;
+}
+
+.maestroDetailContent::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.maestroDetailContent::-webkit-scrollbar-thumb {
+  background: rgba(107, 138, 253, 0.2);
+  border-radius: 4px;
+}
+
+.maestroDetailContent::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 138, 253, 0.3);
+}
+

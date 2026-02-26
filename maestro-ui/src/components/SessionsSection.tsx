@@ -553,7 +553,7 @@ export function SessionsSection({
             {/* Bottom action bar: expand, logs, close */}
             <div className="sessionItemBottomActions">
               {s.maestroSessionId && (
-                <button
+                <button type="button"
                   className={`sessionItemBottomBtn ${expandedSessions.has(s.id) ? 'sessionItemBottomBtn--active' : ''}`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -565,7 +565,7 @@ export function SessionsSection({
                   <span>{expandedSessions.has(s.id) ? 'Collapse' : 'Expand'}</span>
                 </button>
               )}
-              <button
+              <button type="button"
                 className="sessionItemBottomBtn"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -576,7 +576,7 @@ export function SessionsSection({
                 <Icon name="log" size={12} />
                 <span>Logs</span>
               </button>
-              <button
+              <button type="button"
                 className="sessionItemBottomBtn sessionItemBottomBtn--danger"
                 disabled={isClosing}
                 onClick={(e) => {
@@ -848,7 +848,7 @@ export function SessionsSection({
                     </div>
                     <div className="sessionItemActions">
                       {onCloseSpace && (
-                        <button
+                        <button type="button"
                           className="closeBtn"
                           onClick={(e) => {
                             e.stopPropagation();

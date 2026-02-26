@@ -15,15 +15,37 @@
     "build:binary:darwin-arm64": "bun run bundle && bunx @yao-pkg/pkg dist/bundle.cjs --targets node20-macos-arm64 --output dist/bin/maestro",
     "build:binary:darwin-x64": "bun run bundle && bunx @yao-pkg/pkg dist/bundle.cjs --targets node20-macos-x64 --output dist/bin/maestro",
     "build:binary:linux-x64": "bun run bundle && bunx @yao-pkg/pkg dist/bundle.cjs --targets node20-linux-x64 --output dist/bin/maestro",
-    "build:binary:win-x64": "bun run bundle && bunx @yao-pkg/pkg dist/bundle.cjs --targets node20-win-x64 --output dist/bin/maestro.exe"
+    "build:binary:win-x64": "bun run bundle && bunx @yao-pkg/pkg dist/bundle.cjs --targets node20-win-x64 --output dist/bin/maestro.exe",
+    "lint": "eslint src/ --ext .ts",
+    "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'"
   },
+  "files": [
+    "dist/",
+    "bin/",
+    "plugins/"
+  ],
   "keywords": [
     "maestro",
     "cli",
-    "agents"
+    "agents",
+    "multi-agent",
+    "orchestration",
+    "ai"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "Maestro Contributors",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/agent-maestro.git",
+    "directory": "maestro-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/agent-maestro/issues"
+  },
+  "homepage": "https://github.com/your-org/agent-maestro/tree/main/maestro-cli#readme",
   "dependencies": {
     "ajv": "^8.17.1",
     "chalk": "^4.1.2",
@@ -37,8 +59,13 @@
   "devDependencies": {
     "@types/node": "^20.11.16",
     "@types/ws": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
     "@yao-pkg/pkg": "^5.11.0",
     "esbuild": "^0.27.3",
+    "eslint": "^10.0.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1",
     "typescript": "^5.3.3",
     "vitest": "^1.2.2"
   },

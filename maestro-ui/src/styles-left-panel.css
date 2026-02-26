@@ -1,0 +1,29 @@
+/* ------------------------------------------------------------------ */
+/*  App Left Panel                                                     */
+/* ------------------------------------------------------------------ */
+
+.appLeftPanel {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  flex-shrink: 0;
+  overflow: hidden;
+  /* Performance: strict containment isolates layout from main content */
+  contain: strict;
+  /* No width transition — instant toggle avoids layout thrashing */
+}
+
+.appLeftPanel--expanded {
+  /* expanded state — width is set inline */
+}
+
+.appLeftPanelContent {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: #000;
+  contain: strict;
+}
+

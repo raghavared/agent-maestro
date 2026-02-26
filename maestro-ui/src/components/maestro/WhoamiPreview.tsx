@@ -261,7 +261,7 @@ export function WhoamiPreview({ mode, strategy, selectedTasks, projectId }: Whoa
 
     return (
         <div className={`whoamiPreview ${mode === 'orchestrate' ? 'whoamiPreview--orchestrate' : ''}`}>
-            <button
+            <button type="button"
                 className="whoamiPreviewToggle"
                 onClick={() => setIsExpanded(!isExpanded)}
             >

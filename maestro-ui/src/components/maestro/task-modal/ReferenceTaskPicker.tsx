@@ -123,7 +123,7 @@ export function ReferenceTaskPicker({
                                 {candidates.slice(0, displayCount).map(candidate => {
                                     const isSelected = selectedReferenceTasks.some(t => t.id === candidate.id);
                                     return (
-                                        <button
+                                        <button type="button"
                                             key={candidate.id}
                                             className={`themedDropdownOption ${isSelected ? 'themedDropdownOption--current' : ''}`}
                                             onClick={(e) => {
@@ -147,7 +147,7 @@ export function ReferenceTaskPicker({
                                     );
                                 })}
                                 {candidates.length > displayCount && (
-                                    <button
+                                    <button type="button"
                                         className="themedDropdownOption"
                                         onClick={(e) => {
                                             e.stopPropagation();

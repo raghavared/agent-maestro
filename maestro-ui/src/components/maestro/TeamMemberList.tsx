@@ -173,7 +173,7 @@ function TeamMemberRow({
                     {/* Actions bar */}
                     <div className="terminalTaskActionsBar terminalTaskActionsBar--right">
                         {!isArchived && onRun && (
-                            <button
+                            <button type="button"
                                 className="terminalCmd terminalCmdPrimary"
                                 onClick={handleRun}
                                 disabled={!!loadingAction}
@@ -185,7 +185,7 @@ function TeamMemberRow({
                         )}
 
                         {!isArchived && (
-                            <button
+                            <button type="button"
                                 className="terminalViewDetailsBtn"
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -198,7 +198,7 @@ function TeamMemberRow({
                         )}
 
                         {!isArchived && (
-                            <button
+                            <button type="button"
                                 className="terminalArchiveBtn"
                                 onClick={handleArchive}
                                 disabled={!!loadingAction}
@@ -209,14 +209,14 @@ function TeamMemberRow({
 
                         {isArchived && (
                             <>
-                                <button
+                                <button type="button"
                                     className="terminalViewDetailsBtn"
                                     onClick={handleUnarchive}
                                     disabled={!!loadingAction}
                                 >
                                     {isLoading('unarchive') ? '...' : 'Restore'}
                                 </button>
-                                <button
+                                <button type="button"
                                     className="terminalDeleteBtn"
                                     onClick={handleDelete}
                                     disabled={!!loadingAction}
@@ -283,7 +283,7 @@ export function TeamMemberList({
             {/* Archived section - collapsible */}
             {archivedMembers.length > 0 && (
                 <div>
-                    <button
+                    <button type="button"
                         className="terminalViewDetailsBtn"
                         style={{
                             width: '100%',
