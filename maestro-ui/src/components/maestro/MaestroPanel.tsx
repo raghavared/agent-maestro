@@ -94,6 +94,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [statusFilter, setStatusFilter] = React.useState<MaestroTask["status"][]>([]);
     const [priorityFilter, setPriorityFilter] = React.useState<MaestroTask["priority"][]>([]);
     const [sortBy, setSortBy] = React.useState<SortByOption>("custom");
+    const [overdueFilter, setOverdueFilter] = React.useState(false);
     const [showCreateModal, setShowCreateModal] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
     const [subtaskParentId, setSubtaskParentId] = React.useState<string | null>(null);
@@ -335,10 +336,12 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     const customOrder = taskOrdering.get(projectId) || [];
 
+    const todayStr = new Date().toISOString().split('T')[0];
     const activeRoots = filterBySearch(roots
         .filter(n => n.status !== 'completed' && n.status !== 'archived')
         .filter(n => statusFilter.length === 0 || statusFilter.includes(n.status))
         .filter(n => priorityFilter.length === 0 || priorityFilter.includes(n.priority))
+        .filter(n => !overdueFilter || (n.dueDate && n.status !== 'completed' && n.status !== 'cancelled' && n.dueDate < todayStr))
         .sort((a, b) => {
             if (sortBy === "custom") {
                 const aIdx = customOrder.indexOf(a.id);
@@ -351,6 +354,12 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             if (sortBy === "priority") {
                 const priorityOrder = { high: 0, medium: 1, low: 2 };
                 return priorityOrder[a.priority] - priorityOrder[b.priority];
+            }
+            if (sortBy === "dueDate") {
+                if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+                if (a.dueDate) return -1;
+                if (b.dueDate) return 1;
+                return b.updatedAt - a.updatedAt;
             }
             return b[sortBy] - a[sortBy];
         }));
@@ -473,7 +482,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     <>
                         {taskSubTab === "current" && (
                             <>
-                                <TaskFilters statusFilter={statusFilter} priorityFilter={priorityFilter} sortBy={sortBy} onStatusFilterChange={setStatusFilter} onPriorityFilterChange={setPriorityFilter} onSortChange={setSortBy} />
+                                <TaskFilters statusFilter={statusFilter} priorityFilter={priorityFilter} sortBy={sortBy} overdueFilter={overdueFilter} onStatusFilterChange={setStatusFilter} onPriorityFilterChange={setPriorityFilter} onSortChange={setSortBy} onOverdueFilterChange={setOverdueFilter} />
                                 <ExecutionBar
                                     isActive={execution.executionMode}
                                     activeMode={execution.activeBarMode}

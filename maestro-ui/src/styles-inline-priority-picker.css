@@ -508,6 +508,37 @@
   animation: statusPulse 2s ease-in-out infinite;
 }
 
+.terminalSessionStatusChip--needsInput {
+  color: var(--terminal-amber);
+  background: rgba(255, 176, 0, 0.15);
+  border: 1px solid rgba(255, 176, 0, 0.4);
+  animation: sessionBlink 1.5s ease-in-out infinite;
+}
+
+/* Session status indicator on task list items */
+.terminalTaskSessionIndicator {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.terminalTaskSessionIndicator--completed {
+  color: var(--terminal-green);
+}
+
+.terminalTaskSessionIndicator--failed {
+  color: var(--terminal-red);
+}
+
+.terminalTaskSessionIndicator--working {
+  color: var(--terminal-cyan);
+  animation: statusPulse 2s ease-in-out infinite;
+}
+
 .terminalSessionStatusLabel {
   font-size: 9px;
   letter-spacing: 0.5px;

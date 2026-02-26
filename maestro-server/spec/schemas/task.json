@@ -149,6 +149,12 @@
           "message": "Task created"
         }
       ]]
+    },
+    "dueDate": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Due date for the task in ISO date format (YYYY-MM-DD), or null if no due date",
+      "examples": ["2025-03-15", null]
     }
   },
   "additionalProperties": false

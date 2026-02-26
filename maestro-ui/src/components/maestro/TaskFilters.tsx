@@ -1,15 +1,17 @@
 import React, { useState } from "react";
 import { TaskStatus, TaskPriority } from "../../app/types/maestro";
 
-export type SortByOption = "updatedAt" | "createdAt" | "priority" | "custom";
+export type SortByOption = "updatedAt" | "createdAt" | "priority" | "dueDate" | "custom";
 
 type TaskFiltersProps = {
     statusFilter: TaskStatus[];
     priorityFilter: TaskPriority[];
     sortBy: SortByOption;
+    overdueFilter: boolean;
     onStatusFilterChange: (statuses: TaskStatus[]) => void;
     onPriorityFilterChange: (priorities: TaskPriority[]) => void;
     onSortChange: (sort: SortByOption) => void;
+    onOverdueFilterChange: (overdue: boolean) => void;
 };
 
 const STATUS_CONFIG: { value: TaskStatus; label: string; icon: string; colorClass: string }[] = [
@@ -32,15 +34,18 @@ const SORT_OPTIONS: { value: SortByOption; label: string }[] = [
     { value: "updatedAt", label: "Updated" },
     { value: "createdAt", label: "Created" },
     { value: "priority", label: "Priority" },
+    { value: "dueDate", label: "Due Date" },
 ];
 
 export function TaskFilters({
     statusFilter,
     priorityFilter,
     sortBy,
+    overdueFilter,
     onStatusFilterChange,
     onPriorityFilterChange,
     onSortChange,
+    onOverdueFilterChange,
 }: TaskFiltersProps) {
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -60,12 +65,13 @@ export function TaskFilters({
         }
     };
 
-    const activeFilterCount = statusFilter.length + priorityFilter.length + (sortBy !== "updatedAt" ? 1 : 0);
+    const activeFilterCount = statusFilter.length + priorityFilter.length + (sortBy !== "updatedAt" ? 1 : 0) + (overdueFilter ? 1 : 0);
 
     const handleClearAll = () => {
         onStatusFilterChange([]);
         onPriorityFilterChange([]);
         onSortChange("updatedAt");
+        onOverdueFilterChange(false);
     };
 
     return (
@@ -104,6 +110,13 @@ export function TaskFilters({
                                 </span>
                             ) : null;
                         })}
+                        {overdueFilter && (
+                            <span className="filterChip filterChip--active filterChip--overdue">
+                                <span className="filterChip__icon">⚠</span>
+                                Overdue
+                                <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); onOverdueFilterChange(false); }}>×</button>
+                            </span>
+                        )}
                         {sortBy !== "updatedAt" && (
                             <span className="filterChip filterChip--active filterChip--sort">
                                 Sort: {SORT_OPTIONS.find(o => o.value === sortBy)?.label}
@@ -152,6 +165,19 @@ export function TaskFilters({
                                     </button>
                                 );
                             })}
+                        </div>
+                    </div>
+
+                    <div className="filterGroup">
+                        <span className="filterGroup__label">Due Date</span>
+                        <div className="filterGroup__chips">
+                            <button
+                                className={`filterChip filterChip--overdue ${overdueFilter ? "filterChip--active" : ""}`}
+                                onClick={() => onOverdueFilterChange(!overdueFilter)}
+                            >
+                                <span className="filterChip__icon">⚠</span>
+                                Overdue
+                            </button>
                         </div>
                     </div>
 

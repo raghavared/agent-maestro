@@ -50,6 +50,12 @@
       "uniqueItems": true,
       "description": "Optional array of skill identifiers to assign to this task",
       "examples": [["maestro-worker", "code-review"]]
+    },
+    "dueDate": {
+      "type": "string",
+      "format": "date",
+      "description": "Optional due date for the task in ISO date format (YYYY-MM-DD)",
+      "examples": ["2025-03-15"]
     }
   },
   "additionalProperties": false

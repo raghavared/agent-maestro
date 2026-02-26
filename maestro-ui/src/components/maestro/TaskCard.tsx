@@ -27,6 +27,7 @@ export const TaskCard = React.memo(function TaskCard({
     const isBlocked = task.status === "blocked";
     const isCancelled = task.status === "cancelled";
     const isDone = task.status === "completed";
+    const isOverdue = !!(task.dueDate && task.status !== 'completed' && task.status !== 'cancelled' && new Date(task.dueDate + 'T00:00:00') < new Date(new Date().toDateString()));
 
     useEffect(() => {
         if (isDragging) {
@@ -62,7 +63,7 @@ export const TaskCard = React.memo(function TaskCard({
 
     return (
         <div
-            className={`taskBoardCard ${isDragging ? "taskBoardCard--dragging" : ""} ${isActive ? "taskBoardCard--active" : ""} ${isBlocked ? "taskBoardCard--blocked" : ""} ${isDone ? "taskBoardCard--done" : ""} ${isCancelled ? "taskBoardCard--cancelled" : ""}`}
+            className={`taskBoardCard ${isDragging ? "taskBoardCard--dragging" : ""} ${isActive ? "taskBoardCard--active" : ""} ${isBlocked ? "taskBoardCard--blocked" : ""} ${isDone ? "taskBoardCard--done" : ""} ${isCancelled ? "taskBoardCard--cancelled" : ""} ${isOverdue ? "taskBoardCard--overdue" : ""}`}
             draggable
             onDragStart={handleDragStart}
             onPointerDown={handlePointerDown}
@@ -91,6 +92,11 @@ export const TaskCard = React.memo(function TaskCard({
                     {subtaskCount > 0 && (
                         <span className="taskBoardCardSubtasks">
                             {completedSubtasks}/{subtaskCount}
+                        </span>
+                    )}
+                    {task.dueDate && (
+                        <span className={`taskBoardCardDueDate ${isOverdue ? "taskBoardCardDueDate--overdue" : ""}`}>
+                            {isOverdue ? "Overdue" : `Due ${new Date(task.dueDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
                         </span>
                     )}
                     <span className="taskBoardCardTime">

@@ -468,17 +468,41 @@ export function TaskListItem({
                         ▶
                     </button>
 
-                    {/* Expand meta button */}
-                    <button type="button"
-                        className={`terminalTaskExpandBtn ${isMetaExpanded ? 'terminalTaskExpandBtn--open' : ''}`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setIsMetaExpanded(!isMetaExpanded);
-                        }}
-                        title={isMetaExpanded ? "Collapse details" : "Expand details"}
-                    >
-                        ▾
-                    </button>
+                    {/* Session status indicator / Expand meta button */}
+                    {(() => {
+                        const statuses = Object.values(task.taskSessionStatuses || {});
+                        const hasCompleted = statuses.includes('completed');
+                        const hasFailed = statuses.includes('failed');
+                        const hasWorking = statuses.includes('working');
+
+                        if (hasCompleted || hasFailed || hasWorking) {
+                            return (
+                                <button type="button"
+                                    className={`terminalTaskSessionIndicator ${hasCompleted ? 'terminalTaskSessionIndicator--completed' : hasFailed ? 'terminalTaskSessionIndicator--failed' : 'terminalTaskSessionIndicator--working'}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsMetaExpanded(!isMetaExpanded);
+                                    }}
+                                    title={hasCompleted ? "Session completed task" : hasFailed ? "Session failed task" : "Session working on task"}
+                                >
+                                    {hasCompleted ? '✓' : hasFailed ? '✗' : '◉'}
+                                </button>
+                            );
+                        }
+
+                        return (
+                            <button type="button"
+                                className={`terminalTaskExpandBtn ${isMetaExpanded ? 'terminalTaskExpandBtn--open' : ''}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsMetaExpanded(!isMetaExpanded);
+                                }}
+                                title={isMetaExpanded ? "Collapse details" : "Expand details"}
+                            >
+                                ▾
+                            </button>
+                        );
+                    })()}
                 </div>
             </div>
 

@@ -24,6 +24,7 @@ import { GeneratedDocsTab } from "./task-modal/GeneratedDocsTab";
 import { TimelineTab } from "./task-modal/TimelineTab";
 import { DetailsTab } from "./task-modal/DetailsTab";
 import { RefDocsTab } from "./task-modal/RefDocsTab";
+import { ImagesTab } from "./task-modal/ImagesTab";
 
 type CreateTaskModalProps = {
     isOpen: boolean;
@@ -294,6 +295,13 @@ export function CreateTaskModal({
                                 {form.activeTab === 'gen-docs' && isEditMode && (
                                     <GeneratedDocsTab taskDocs={form.taskDocs} />
                                 )}
+                                {form.activeTab === 'images' && isEditMode && task && (
+                                    <ImagesTab
+                                        taskId={task.id}
+                                        images={form.taskImages}
+                                        onImagesChange={form.setTaskImages}
+                                    />
+                                )}
                                 {form.activeTab === 'timeline' && isEditMode && task && (
                                     <TimelineTab taskId={task.id} />
                                 )}
@@ -301,6 +309,8 @@ export function CreateTaskModal({
                                     <DetailsTab
                                         priority={form.priority}
                                         onPriorityChange={form.setPriority}
+                                        dueDate={form.dueDate}
+                                        onDueDateChange={form.setDueDate}
                                         isEditMode={isEditMode}
                                         task={task}
                                     />
@@ -317,6 +327,7 @@ export function CreateTaskModal({
                             selectedSkillsCount={form.selectedSkills.length}
                             selectedRefTasksCount={refPicker.selectedReferenceTasks.length}
                             taskDocsCount={form.taskDocs.length}
+                            taskImagesCount={form.taskImages.length}
                         />
                     </>
                 )}

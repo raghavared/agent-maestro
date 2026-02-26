@@ -79,6 +79,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
         delete (task as any).sessionStatus;
       }
       if (!task.taskSessionStatuses) task.taskSessionStatuses = {};
+      if (task.dueDate === undefined) task.dueDate = null;
 
       this.tasks.set(task.id, task);
     } catch (err) {
@@ -131,6 +132,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
       referenceTaskIds: input.referenceTaskIds || [],
       teamMemberId: input.teamMemberId,
       teamMemberIds: input.teamMemberIds,
+      dueDate: input.dueDate || null,
       memberOverrides: input.memberOverrides,
       // NOTE: timeline is now on Session, not Task
     };
@@ -211,6 +213,8 @@ export class FileSystemTaskRepository implements ITaskRepository {
     if (updates.pinned !== undefined) task.pinned = updates.pinned;
     if (updates.teamMemberId !== undefined) task.teamMemberId = updates.teamMemberId;
     if (updates.teamMemberIds !== undefined) task.teamMemberIds = updates.teamMemberIds;
+    if ((updates as any).images !== undefined) (task as any).images = (updates as any).images;
+    if (updates.dueDate !== undefined) task.dueDate = updates.dueDate;
 
     // Handle status changes
     if (updates.status !== undefined) {

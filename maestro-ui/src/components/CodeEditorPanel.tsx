@@ -965,7 +965,14 @@ export function CodeEditorPanel({
       ) : null}
 
       <div className="codeEditorBody">
-        {!activeTab ? <div className="empty">No file selected.</div> : null}
+        {!activeTab ? (
+          <div className="codeEditorEmptyState">
+            <div className="codeEditorEmptyIcon">
+              <Icon name="file" size={32} />
+            </div>
+            <div>Select a file to open</div>
+          </div>
+        ) : null}
 
         {tabs.length ? (
           <div className="codeEditorMonaco">

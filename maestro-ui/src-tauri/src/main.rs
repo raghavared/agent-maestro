@@ -20,7 +20,7 @@ use app_menu::{build_app_menu, handle_app_menu_event};
 use claude_logs::{list_claude_session_logs, read_claude_session_log, tail_claude_session_log};
 use codex_logs::{list_codex_session_logs, read_codex_session_log, tail_codex_session_log};
 use files::{copy_fs_entry, delete_fs_entry, list_fs_entries, list_project_files, read_text_file, rename_fs_entry, write_text_file};
-use file_manager::{open_path_in_file_manager, open_path_in_vscode};
+use file_manager::open_path_in_file_manager;
 use pty::{
     close_session, create_session, detach_session, kill_persistent_session, list_persistent_sessions,
     list_sessions, resize_session, start_session_recording, stop_session_recording, write_to_session,
@@ -48,11 +48,6 @@ struct SidecarState {
     child: Arc<Mutex<Option<CommandChild>>>,
 }
 
-struct CodeServerState {
-    child: Arc<Mutex<Option<CommandChild>>>,
-    port: u16,
-}
-
 struct AllowCloseState {
     allow: AtomicBool,
 }
@@ -60,16 +55,6 @@ struct AllowCloseState {
 #[tauri::command]
 fn allow_window_close(state: tauri::State<'_, AllowCloseState>) {
     state.allow.store(true, Ordering::SeqCst);
-}
-
-#[tauri::command]
-fn get_code_server_url(state: tauri::State<'_, CodeServerState>) -> Result<String, String> {
-    let guard = state.child.lock().map_err(|e| format!("lock error: {e}"))?;
-    if guard.is_some() {
-        Ok(format!("http://127.0.0.1:{}", state.port))
-    } else {
-        Err("code-server is not running".to_string())
-    }
 }
 
 fn main() {
@@ -177,56 +162,6 @@ fn main() {
                 });
             }
 
-            // Spawn code-server sidecar only when both custom-protocol and vscode features are enabled
-            #[cfg(all(feature = "custom-protocol", feature = "vscode"))]
-            {
-                let cs_port: u16 = 18321;
-                let cs_cmd = app.shell()
-                    .sidecar("code-server")
-                    .expect("failed to create code-server sidecar command")
-                    .args([
-                        "--port", &cs_port.to_string(),
-                        "--auth", "none",
-                        "--disable-telemetry",
-                        "--disable-update-check",
-                    ]);
-
-                let (mut cs_rx, cs_child) = cs_cmd.spawn()
-                    .expect("failed to spawn code-server sidecar");
-
-                tauri::async_runtime::spawn(async move {
-                    use tauri_plugin_shell::process::CommandEvent;
-                    while let Some(event) = cs_rx.recv().await {
-                        match event {
-                            CommandEvent::Stdout(line) => {
-                                eprintln!("[code-server] {}", String::from_utf8_lossy(&line));
-                            }
-                            CommandEvent::Stderr(line) => {
-                                eprintln!("[code-server:err] {}", String::from_utf8_lossy(&line));
-                            }
-                            CommandEvent::Terminated(payload) => {
-                                eprintln!("[code-server] terminated: {:?}", payload);
-                                break;
-                            }
-                            _ => {}
-                        }
-                    }
-                });
-
-                app.manage(CodeServerState {
-                    child: Arc::new(Mutex::new(Some(cs_child))),
-                    port: cs_port,
-                });
-            }
-
-            #[cfg(not(all(feature = "custom-protocol", feature = "vscode")))]
-            {
-                app.manage(CodeServerState {
-                    child: Arc::new(Mutex::new(None)),
-                    port: 18321,
-                });
-            }
-
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -273,10 +208,8 @@ fn main() {
             set_tray_status,
             set_tray_recent_sessions,
             open_path_in_file_manager,
-            open_path_in_vscode,
             get_app_info,
             allow_window_close,
-            get_code_server_url,
             list_claude_session_logs,
             read_claude_session_log,
             tail_claude_session_log,
@@ -321,15 +254,6 @@ fn main() {
                         if let Some(child) = guard.take() {
                             let _ = child.kill();
                             eprintln!("[maestro-server] sidecar killed on app exit");
-                        }
-                    }
-                }
-                // Kill code-server sidecar
-                if let Some(state) = app_handle.try_state::<CodeServerState>() {
-                    if let Ok(mut guard) = state.child.lock() {
-                        if let Some(child) = guard.take() {
-                            let _ = child.kill();
-                            eprintln!("[code-server] sidecar killed on app exit");
                         }
                     }
                 }
