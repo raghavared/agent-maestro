@@ -51,6 +51,14 @@ export function TaskStatusControl({
   const [error, setError] = useState<string | null>(null);
   const [successFlash, setSuccessFlash] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Clear pending timers on unmount
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+    };
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -97,12 +105,12 @@ export function TaskStatusControl({
     try {
       await onStatusChange(taskId, newStatus);
       setSuccessFlash(true);
-      setTimeout(() => setSuccessFlash(false), 500);
+      timersRef.current.push(setTimeout(() => setSuccessFlash(false), 500));
       setIsOpen(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update status";
       setError(errorMessage);
-      setTimeout(() => setError(null), 3000);
+      timersRef.current.push(setTimeout(() => setError(null), 3000));
     } finally {
       setIsUpdating(false);
     }
@@ -114,7 +122,7 @@ export function TaskStatusControl({
     <div className="terminalStatusControl">
       {/* User Status Selector */}
       <div ref={dropdownRef} className="terminalStatusSelector">
-        <button
+        <button type="button"
           className={`terminalStatusTrigger terminalStatusTrigger--${currentStatus} ${
             isOpen ? "open" : ""
           } ${isUpdating ? "loading" : ""} ${successFlash ? "success" : ""}`}
@@ -141,7 +149,7 @@ export function TaskStatusControl({
         {isOpen && !isUpdating && (
           <div className="terminalStatusDropdown" role="listbox">
             {statusOptions.map((status) => (
-              <button
+              <button type="button"
                 key={status}
                 className={`terminalStatusOption ${status === currentStatus ? "current" : ""}`}
                 onClick={(e) => {

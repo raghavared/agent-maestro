@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+import fetch, { type RequestInit } from 'node-fetch';
 import { config } from './config.js';
 
 export class APIClient {
@@ -12,7 +12,7 @@ export class APIClient {
     this.baseUrl = url;
   }
 
-  private async request<T>(endpoint: string, options?: any): Promise<T> {
+  private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     // Ensure baseUrl doesn't have trailing slash and endpoint starts with /
     const base = this.baseUrl.replace(/\/$/, '');
     const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
@@ -20,7 +20,7 @@ export class APIClient {
 
     const maxRetries = config.retries || 3;
     const retryDelay = config.retryDelay || 1000;
-    let lastError: any;
+    let lastError: Error | undefined;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -37,14 +37,16 @@ export class APIClient {
           const errorText = await response.text();
 
           // Try to parse as JSON
-          let errorData: any = {};
+          let errorData: Record<string, string> = {};
           try {
             errorData = JSON.parse(errorText);
-          } catch (e) {
+          } catch (_e) {
             errorData = { message: errorText || `HTTP ${response.status}` };
           }
 
-          const error: any = new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
+          const error = new Error(errorData.message || errorData.error || `HTTP ${response.status}`) as Error & {
+            response: { status: number; data: Record<string, string>; config: { url: string } };
+          };
           error.response = {
             status: response.status,
             data: errorData,
@@ -71,11 +73,12 @@ export class APIClient {
         }
 
         return await response.json() as T;
-      } catch (error: any) {
-        lastError = error;
+      } catch (error: unknown) {
+        const err = error as Error & { code?: string; response?: unknown };
+        lastError = err;
 
         // Retry on network errors
-        if (attempt < maxRetries && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND' || !error.response)) {
+        if (attempt < maxRetries && (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'ENOTFOUND' || !err.response)) {
           const delay = retryDelay * Math.pow(2, attempt);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
@@ -94,21 +97,21 @@ export class APIClient {
     return this.request<T>(endpoint);
   }
 
-  post<T>(endpoint: string, body: any) {
+  post<T>(endpoint: string, body: Record<string, unknown>) {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: JSON.stringify(body),
     });
   }
 
-  patch<T>(endpoint: string, body: any) {
+  patch<T>(endpoint: string, body: Record<string, unknown>) {
     return this.request<T>(endpoint, {
       method: 'PATCH',
       body: JSON.stringify(body),
     });
   }
 
-  put<T>(endpoint: string, body: any) {
+  put<T>(endpoint: string, body: Record<string, unknown>) {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: JSON.stringify(body),

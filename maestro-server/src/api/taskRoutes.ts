@@ -1,8 +1,19 @@
 import express, { Request, Response } from 'express';
 import { TaskService } from '../application/services/TaskService';
 import { SessionService } from '../application/services/SessionService';
-import { TaskStatus } from '../types';
-import { AppError } from '../domain/common/Errors';
+import { TaskFilter } from '../domain/repositories/ITaskRepository';
+import { handleRouteError } from './middleware/errorHandler';
+import {
+  validateBody,
+  validateParams,
+  validateQuery,
+  createTaskSchema,
+  updateTaskSchema,
+  taskTimelineSchema,
+  listTasksQuerySchema,
+  idParamSchema,
+  idAndTaskIdParamSchema,
+} from './validation';
 
 /**
  * Create task routes using the TaskService.
@@ -10,29 +21,17 @@ import { AppError } from '../domain/common/Errors';
 export function createTaskRoutes(taskService: TaskService, sessionService?: SessionService) {
   const router = express.Router();
 
-  // Error handler helper
-  const handleError = (err: any, res: Response) => {
-    if (err instanceof AppError) {
-      return res.status(err.statusCode).json(err.toJSON());
-    }
-    return res.status(500).json({
-      error: true,
-      message: err.message,
-      code: 'INTERNAL_ERROR'
-    });
-  };
-
   // List tasks
-  router.get('/tasks', async (req: Request, res: Response) => {
+  router.get('/tasks', validateQuery(listTasksQuerySchema), async (req: Request, res: Response) => {
     try {
-      const filter: any = {};
+      const filter: TaskFilter = {};
 
       if (req.query.projectId) {
         filter.projectId = req.query.projectId as string;
       }
 
       if (req.query.status) {
-        filter.status = req.query.status as TaskStatus;
+        filter.status = req.query.status as TaskFilter['status'];
       }
 
       if (req.query.parentId !== undefined) {
@@ -41,34 +40,34 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
 
       const tasks = await taskService.listTasks(filter);
       res.json(tasks);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Create task
-  router.post('/tasks', async (req: Request, res: Response) => {
+  router.post('/tasks', validateBody(createTaskSchema), async (req: Request, res: Response) => {
     try {
       const task = await taskService.createTask(req.body);
       res.status(201).json(task);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Get task by ID
-  router.get('/tasks/:id', async (req: Request, res: Response) => {
+  router.get('/tasks/:id', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
       const task = await taskService.getTask(id);
       res.json(task);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Update task
-  router.patch('/tasks/:id', async (req: Request, res: Response) => {
+  router.patch('/tasks/:id', validateParams(idParamSchema), validateBody(updateTaskSchema), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
 
@@ -84,32 +83,16 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
 
       const task = await taskService.updateTask(id, req.body);
       res.json(task);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Add timeline event to task (proxies to session timeline)
-  router.post('/tasks/:id/timeline', async (req: Request, res: Response) => {
+  router.post('/tasks/:id/timeline', validateParams(idParamSchema), validateBody(taskTimelineSchema), async (req: Request, res: Response) => {
     try {
       const taskId = req.params.id as string;
       const { type = 'progress', message, sessionId } = req.body;
-
-      if (!message) {
-        return res.status(400).json({
-          error: true,
-          message: 'message is required',
-          code: 'VALIDATION_ERROR'
-        });
-      }
-
-      if (!sessionId) {
-        return res.status(400).json({
-          error: true,
-          message: 'sessionId is required',
-          code: 'VALIDATION_ERROR'
-        });
-      }
 
       // Verify task exists
       await taskService.getTask(taskId);
@@ -127,13 +110,13 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
         // No session service available, return success without persisting
         res.json({ success: true, taskId, message, type });
       }
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Get docs for a task (aggregated from all sessions working on this task)
-  router.get('/tasks/:id/docs', async (req: Request, res: Response) => {
+  router.get('/tasks/:id/docs', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const taskId = req.params.id as string;
 
@@ -141,7 +124,7 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
       await taskService.getTask(taskId);
 
       // Get all sessions for this task and aggregate docs
-      const docs: any[] = [];
+      const docs: Array<Record<string, unknown>> = [];
       if (sessionService) {
         const sessions = await sessionService.listSessionsByTask(taskId);
         for (const session of sessions) {
@@ -156,15 +139,15 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
       }
 
       // Sort by addedAt
-      docs.sort((a, b) => a.addedAt - b.addedAt);
+      docs.sort((a, b) => (a.addedAt as number) - (b.addedAt as number));
       res.json(docs);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Add doc to a task (validates task exists, stores in session, links session to task)
-  router.post('/tasks/:id/docs', async (req: Request, res: Response) => {
+  router.post('/tasks/:id/docs', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const taskId = req.params.id as string;
       const { title, filePath, content, sessionId } = req.body;
@@ -221,24 +204,24 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
         filePath,
         addedAt: Date.now(),
       });
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Delete task
-  router.delete('/tasks/:id', async (req: Request, res: Response) => {
+  router.delete('/tasks/:id', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
       await taskService.deleteTask(id);
       res.json({ success: true, id });
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Get child tasks
-  router.get('/tasks/:id/children', async (req: Request, res: Response) => {
+  router.get('/tasks/:id/children', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
       // First verify parent exists
@@ -246,8 +229,8 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
 
       const childTasks = await taskService.listChildTasks(id);
       res.json(childTasks);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 

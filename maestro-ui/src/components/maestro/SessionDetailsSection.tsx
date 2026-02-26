@@ -63,7 +63,7 @@ export function SessionDetailsSection({
 
   return (
     <div className={`sessionDetailsSection ${compact ? "sessionDetailsSection--compact" : ""}`}>
-      <button
+      <button type="button"
         className="sessionDetailsSectionHeader"
         onClick={() => setIsExpanded(!isExpanded)}
       >
@@ -147,7 +147,7 @@ export function SessionDetailsSection({
                 <span className="sessionDetailsGroupTitle">
                   Environment ({envVars.length} variable{envVars.length !== 1 ? "s" : ""})
                 </span>
-                <button
+                <button type="button"
                   className="sessionDetailsShowBtn"
                   onClick={() => setShowFullEnv(!showFullEnv)}
                 >

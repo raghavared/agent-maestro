@@ -13,6 +13,21 @@ import { AppError } from '../domain/common/Errors';
 import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, MemberLaunchOverride, isCoordinatorMode, normalizeMode } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
 import { MailService } from '../application/services/MailService';
+import { SessionFilter } from '../domain/repositories/ISessionRepository';
+import { handleRouteError } from './middleware/errorHandler';
+import {
+  validateBody,
+  validateParams,
+  validateQuery,
+  createSessionSchema,
+  updateSessionSchema,
+  sessionEventSchema,
+  sessionTimelineSchema,
+  listSessionsQuerySchema,
+  spawnSessionSchema,
+  idParamSchema,
+  idAndTaskIdParamSchema,
+} from './validation';
 
 function resolveMaestroCliRuntime(): { maestroBin: string; monorepoRoot: string | null } {
   const isPkg = __dirname.startsWith('/snapshot');
@@ -128,8 +143,9 @@ async function generateManifestViaCLI(options: {
           const manifestContent = await readFile(manifestPath, 'utf-8');
           const manifest = JSON.parse(manifestContent);
           resolve({ manifestPath, manifest });
-        } catch (error: any) {
-          reject(new Error(`Failed to read manifest: ${error.message}`));
+        } catch (error: unknown) {
+          const msg = error instanceof Error ? error.message : 'Unknown error';
+          reject(new Error(`Failed to read manifest: ${msg}`));
         }
       } else {
         if (stderr.includes('command not found') || stderr.includes('ENOENT')) {
@@ -163,18 +179,6 @@ interface SessionRouteDependencies {
 export function createSessionRoutes(deps: SessionRouteDependencies) {
   const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, mailService, eventBus, config } = deps;
   const router = express.Router();
-
-  // Error handler helper
-  const handleError = (err: any, res: Response) => {
-    if (err instanceof AppError) {
-      return res.status(err.statusCode).json(err.toJSON());
-    }
-    return res.status(500).json({
-      error: true,
-      message: err.message,
-      code: 'INTERNAL_ERROR'
-    });
-  };
 
   const resolveSessionMode = (session: any): string => {
     const metadataMode = session?.metadata?.mode;
@@ -224,7 +228,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   };
 
   // Create session
-  router.post('/sessions', async (req: Request, res: Response) => {
+  router.post('/sessions', validateBody(createSessionSchema), async (req: Request, res: Response) => {
     try {
       // Backward compatibility: convert taskId to taskIds
       if (req.body.taskId && !req.body.taskIds) {
@@ -241,8 +245,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       const session = await sessionService.createSession(req.body);
       res.status(201).json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -275,9 +279,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     }
   }
 
-  router.get('/sessions', async (req: Request, res: Response) => {
+  router.get('/sessions', validateQuery(listSessionsQuerySchema), async (req: Request, res: Response) => {
     try {
-      const filter: any = {};
+      const filter: SessionFilter = {};
 
       if (req.query.projectId) {
         filter.projectId = req.query.projectId as string;
@@ -308,8 +312,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       await Promise.all(sessions.map(s => enrichSessionWithSnapshots(s)));
 
       res.json(sessions);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -333,8 +337,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
 
       return res.json([]);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -346,47 +350,47 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const maxLength = req.query.maxLength !== undefined ? parseInt(req.query.maxLength as string, 10) : undefined;
       const digest = await logDigestService.getDigest(sessionId, { last, maxLength });
       res.json(digest);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Get session by ID
-  router.get('/sessions/:id', async (req: Request, res: Response) => {
+  router.get('/sessions/:id', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
       const session = await sessionService.getSession(id);
       await enrichSessionWithSnapshots(session);
       res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Update session
-  router.patch('/sessions/:id', async (req: Request, res: Response) => {
+  router.patch('/sessions/:id', validateParams(idParamSchema), validateBody(updateSessionSchema), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
       const session = await sessionService.updateSession(id, req.body);
       res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Delete session
-  router.delete('/sessions/:id', async (req: Request, res: Response) => {
+  router.delete('/sessions/:id', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
       await sessionService.deleteSession(id);
       res.json({ success: true, id });
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Add event to session
-  router.post('/sessions/:id/events', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/events', validateParams(idParamSchema), validateBody(sessionEventSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const { type, data } = req.body;
@@ -401,13 +405,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       const session = await sessionService.addEventToSession(sessionId, { type, data });
       res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Add timeline event to session
-  router.post('/sessions/:id/timeline', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/timeline', validateParams(idParamSchema), validateBody(sessionTimelineSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const { type = 'progress', message, taskId, metadata } = req.body;
@@ -428,8 +432,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         metadata
       );
       res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -463,8 +467,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         taskId,
       );
       res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -474,34 +478,34 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const sessionId = req.params.id as string;
       const session = await sessionService.getSession(sessionId);
       res.json(session.docs || []);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Add task to session
-  router.post('/sessions/:id/tasks/:taskId', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/tasks/:taskId', validateParams(idAndTaskIdParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const taskId = req.params.taskId as string;
       await sessionService.addTaskToSession(sessionId, taskId);
       const session = await sessionService.getSession(sessionId);
       res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Remove task from session
-  router.delete('/sessions/:id/tasks/:taskId', async (req: Request, res: Response) => {
+  router.delete('/sessions/:id/tasks/:taskId', validateParams(idAndTaskIdParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const taskId = req.params.taskId as string;
       await sessionService.removeTaskFromSession(sessionId, taskId);
       const session = await sessionService.getSession(sessionId);
       res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -554,8 +558,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         sessionId,
         message: 'Modal sent to UI',
       });
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -586,8 +590,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       await eventBus.emit('session:modal_action', actionEvent);
 
       res.json({ success: true, modalId, action });
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -604,8 +608,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       });
 
       res.json({ success: true, modalId });
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -660,8 +664,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       );
 
       res.json({ success: true });
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -689,9 +693,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
       const mail = await mailService.notify({ fromSessionId, fromName, toSessionId, message, detail });
       res.json({ success: true, mailId: mail.id });
-    } catch (err: any) {
-      if (err.code === 'NOT_FOUND') return res.status(404).json({ error: true, message: err.message });
-      handleError(err, res);
+    } catch (err: unknown) {
+      if (err instanceof AppError && err.code === 'NOT_FOUND') return res.status(404).json({ error: true, message: err.message });
+      handleRouteError(err, res);
     }
   });
 
@@ -703,14 +707,14 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const parentSessionId = targetSession.parentSessionId || toSessionId;
       const messages = await mailService.readMail(toSessionId, parentSessionId);
       res.json(messages);
-    } catch (err: any) {
-      if (err.code === 'NOT_FOUND') return res.status(404).json({ error: true, message: err.message });
-      handleError(err, res);
+    } catch (err: unknown) {
+      if (err instanceof AppError && err.code === 'NOT_FOUND') return res.status(404).json({ error: true, message: err.message });
+      handleRouteError(err, res);
     }
   });
 
   // Spawn session (complex endpoint - uses CLI for manifest generation)
-  router.post('/sessions/spawn', async (req: Request, res: Response) => {
+  router.post('/sessions/spawn', validateBody(spawnSessionSchema), async (req: Request, res: Response) => {
     try {
       const {
         projectId,
@@ -814,7 +818,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
               message: `Parent session ${sessionId} not found`
             });
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           return res.status(404).json({
             error: true,
             code: 'parent_session_not_found',
@@ -1105,11 +1109,12 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         manifestPath = result.manifestPath;
         manifest = result.manifest;
 
-      } catch (manifestError: any) {
+      } catch (manifestError: unknown) {
+        const msg = manifestError instanceof Error ? manifestError.message : 'Unknown error';
         return res.status(500).json({
           error: true,
           code: 'manifest_generation_failed',
-          message: `Failed to generate manifest: ${manifestError.message}`
+          message: `Failed to generate manifest: ${msg}`
         });
       }
 
@@ -1198,11 +1203,12 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         message: 'Spawn request sent to Agent Maestro',
         session: { ...session, env: finalEnvVars }
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({
         error: true,
         code: 'spawn_error',
-        message: err.message
+        message
       });
     }
   });

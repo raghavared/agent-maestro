@@ -36,7 +36,7 @@ export function ConfirmActionModal({
       <div className="themedModal" onClick={(e) => e.stopPropagation()}>
         <div className="themedModalHeader">
           <span className="themedModalTitle">{title}</span>
-          <button className="themedModalClose" onClick={onClose} disabled={busy}>×</button>
+          <button type="button" className="themedModalClose" onClick={onClose} disabled={busy}>×</button>
         </div>
         <div className="themedModalContent">
           <div className="themedFormHint">

@@ -26,7 +26,7 @@ export function BashOutputBlock({ command, output, isError }: BashOutputBlockPro
             <div key={i}>{line || ' '}</div>
           ))}
           {truncated && (
-            <button
+            <button type="button"
               className="sessionLogShowMore"
               onClick={() => setShowAll(true)}
             >

@@ -397,7 +397,7 @@ export function TaskListItem({
                 )}
 
                 {/* Subtask arrow (leftmost) */}
-                <button
+                <button type="button"
                     className={`terminalTaskSubtaskArrow ${hasChildren ? (isChildrenCollapsed ? 'terminalTaskSubtaskArrow--collapsed' : 'terminalTaskSubtaskArrow--expanded') : (isAddingSubtask ? 'terminalTaskSubtaskArrow--adding' : 'terminalTaskSubtaskArrow--empty')}`}
                     onClick={handleSubtaskAction}
                     title={hasChildren ? (isChildrenCollapsed ? `Expand ${subtaskCount} subtasks` : `Collapse subtasks`) : "Add subtask"}
@@ -411,7 +411,7 @@ export function TaskListItem({
                 </button>
 
                 {/* Radio status button */}
-                <button
+                <button type="button"
                     className={`terminalTaskRadioStatus terminalTaskRadioStatus--${task.status}`}
                     onClick={handleRadioStatusClick}
                     title={`${STATUS_LABELS[task.status]} — click to toggle complete`}
@@ -453,7 +453,7 @@ export function TaskListItem({
                 {/* Right-side action buttons */}
                 <div className="terminalTaskActions">
                     {/* Play button */}
-                    <button
+                    <button type="button"
                         className="terminalTaskPlayBtn"
                         onClick={(e) => {
                             e.stopPropagation();
@@ -469,7 +469,7 @@ export function TaskListItem({
                     </button>
 
                     {/* Expand meta button */}
-                    <button
+                    <button type="button"
                         className={`terminalTaskExpandBtn ${isMetaExpanded ? 'terminalTaskExpandBtn--open' : ''}`}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -488,7 +488,7 @@ export function TaskListItem({
                     {/* Row 1: Status + Priority + Time */}
                     <div className="terminalTaskMetaRow">
                         <div className="terminalInlineStatusPicker" ref={statusDropdownRef}>
-                            <button
+                            <button type="button"
                                 ref={statusBtnRef}
                                 className={`terminalMetaBadge terminalMetaBadge--status terminalMetaBadge--status-${task.status} terminalMetaBadge--clickable ${showStatusDropdown ? 'terminalMetaBadge--open' : ''} ${isUpdatingStatus ? 'terminalMetaBadge--updating' : ''}`}
                                 onClick={(e) => {
@@ -519,7 +519,7 @@ export function TaskListItem({
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         {statusOptions.map((status) => (
-                                            <button
+                                            <button type="button"
                                                 key={status}
                                                 className={`terminalInlineStatusOption terminalInlineStatusOption--${status} ${status === task.status ? 'terminalInlineStatusOption--current' : ''}`}
                                                 onClick={(e) => { e.stopPropagation(); handleInlineStatusChange(status); }}
@@ -536,7 +536,7 @@ export function TaskListItem({
                         </div>
 
                         <div className="terminalInlinePriorityPicker" ref={priorityDropdownRef}>
-                            <button
+                            <button type="button"
                                 ref={priorityBtnRef}
                                 className={`terminalMetaBadge terminalMetaBadge--priority terminalMetaBadge--priority-${task.priority} terminalMetaBadge--clickable ${showPriorityDropdown ? 'terminalMetaBadge--open' : ''} ${isUpdatingPriority ? 'terminalMetaBadge--updating' : ''}`}
                                 onClick={(e) => {
@@ -567,7 +567,7 @@ export function TaskListItem({
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         {priorityOptions.map((priority) => (
-                                            <button
+                                            <button type="button"
                                                 key={priority}
                                                 className={`terminalInlinePriorityOption terminalInlinePriorityOption--${priority} ${priority === task.priority ? 'terminalInlinePriorityOption--current' : ''}`}
                                                 onClick={(e) => { e.stopPropagation(); handleInlinePriorityChange(priority); }}
@@ -583,7 +583,7 @@ export function TaskListItem({
                         </div>
 
                         <div className="terminalInlineTeamMemberPicker" ref={teamMemberDropdownRef}>
-                            <button
+                            <button type="button"
                                 ref={teamMemberBtnRef}
                                 className={`terminalMetaBadge terminalMetaBadge--agent terminalMetaBadge--clickable ${showTeamMemberDropdown ? 'terminalMetaBadge--open' : ''} ${isUpdatingTeamMember ? 'terminalMetaBadge--updating' : ''}`}
                                 onClick={(e) => {
@@ -618,7 +618,7 @@ export function TaskListItem({
                                         {teamMembers.filter(m => m.status === 'active' && m.projectId === task.projectId).map((member) => {
                                             const isSel = effectiveTeamMemberIds.includes(member.id);
                                             return (
-                                                <button
+                                                <button type="button"
                                                     key={member.id}
                                                     className={`terminalInlineTeamMemberOption ${isSel ? 'terminalInlineTeamMemberOption--current' : ''} ${isUpdatingTeamMember ? 'terminalInlineTeamMemberOption--disabled' : ''}`}
                                                     onClick={(e) => { e.stopPropagation(); if (!isUpdatingTeamMember) handleInlineTeamMemberToggle(member.id); }}
@@ -631,7 +631,7 @@ export function TaskListItem({
                                             );
                                         })}
                                         {onOpenCreateTeamMember && (
-                                            <button
+                                            <button type="button"
                                                 className="terminalInlineTeamMemberOption terminalInlineTeamMemberOption--create"
                                                 onClick={(e) => { e.stopPropagation(); setShowTeamMemberDropdown(false); onOpenCreateTeamMember(); }}
                                             >
@@ -646,7 +646,7 @@ export function TaskListItem({
                         </div>
 
                         <div className="terminalSplitPlay terminalSplitPlay--meta" ref={launchDropdownRef}>
-                            <button
+                            <button type="button"
                                 ref={launchBtnRef}
                                 className={`terminalMetaBadge terminalMetaBadge--model terminalMetaBadge--clickable ${launchOverride ? 'terminalMetaBadge--model-override' : ''} ${showLaunchDropdown ? 'terminalMetaBadge--open' : ''}`}
                                 onClick={(e) => {
@@ -673,7 +673,7 @@ export function TaskListItem({
                                         <div className="terminalLaunchDropdown__header">Launch With</div>
                                         {AGENT_TOOLS.map((tool) => (
                                             <div key={tool.id} className="terminalLaunchDropdown__toolGroup">
-                                                <button
+                                                <button type="button"
                                                     className={`terminalLaunchDropdown__tool ${expandedTool === tool.id ? 'terminalLaunchDropdown__tool--expanded' : ''}`}
                                                     onClick={() => setExpandedTool(expandedTool === tool.id ? null : tool.id)}
                                                 >
@@ -684,7 +684,7 @@ export function TaskListItem({
                                                 {expandedTool === tool.id && (
                                                     <div className="terminalLaunchDropdown__models">
                                                         {tool.models.map((model) => (
-                                                            <button
+                                                            <button type="button"
                                                                 key={model.id}
                                                                 className={`terminalLaunchDropdown__model ${launchOverride?.model === model.id && launchOverride?.agentTool === tool.id ? 'terminalLaunchDropdown__model--selected' : ''}`}
                                                                 onClick={() => {
@@ -750,7 +750,7 @@ export function TaskListItem({
                                     const ext = doc.filePath.split('.').pop()?.toLowerCase() || '';
                                     const isMarkdown = ['md', 'mdx', 'markdown'].includes(ext);
                                     return (
-                                        <button
+                                        <button type="button"
                                             key={doc.id}
                                             className="terminalTaskDocItem"
                                             title={doc.filePath}

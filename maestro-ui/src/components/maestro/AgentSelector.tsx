@@ -61,13 +61,12 @@ export function AgentSelector({ selectedAgentId, onSelectAgent, compact = false 
             className="maestroAgentSelector"
             onClick={(e) => e.stopPropagation()}
         >
-            <button
+            <button type="button"
                 className="maestroAgentSelectorTrigger"
                 onClick={(e) => {
                     e.stopPropagation();
                     setIsOpen(!isOpen);
                 }}
-                type="button"
             >
                 <span className="maestroAgentIcon">{AGENT_ICONS[selectedAgent.id] || '◉'}</span>
                 <span className="maestroAgentLabel">{selectedAgent.label}</span>
@@ -77,14 +76,13 @@ export function AgentSelector({ selectedAgentId, onSelectAgent, compact = false 
             {isOpen && (
                 <div className="maestroAgentDropdown">
                     {MAESTRO_AGENTS.map((agent) => (
-                        <button
+                        <button type="button"
                             key={agent.id}
                             className={`maestroAgentOption ${agent.id === selectedAgentId ? 'selected' : ''}`}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 handleSelect(agent.id);
                             }}
-                            type="button"
                         >
                             <span className="maestroAgentIcon">{AGENT_ICONS[agent.id] || '◉'}</span>
                             <div className="maestroAgentOptionContent">

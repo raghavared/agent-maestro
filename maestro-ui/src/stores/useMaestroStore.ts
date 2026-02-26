@@ -1005,7 +1005,6 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     },
 
     initWebSocket: () => {
-      console.log('[useMaestroStore.initWebSocket] Called - initiating WebSocket connection');
       connectGlobal();
     },
     destroyWebSocket: () => {

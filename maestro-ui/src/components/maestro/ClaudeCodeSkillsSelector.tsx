@@ -150,7 +150,7 @@ export function ClaudeCodeSkillsSelector({ selectedSkills, onSelectionChange, pr
         return (
             <div className="claudeCodeSkillsError">
                 <div>{error}</div>
-                <button onClick={loadSkills} className="claudeCodeSkillsRetry">
+                <button type="button" onClick={loadSkills} className="claudeCodeSkillsRetry">
                     Retry
                 </button>
             </div>
@@ -192,7 +192,7 @@ export function ClaudeCodeSkillsSelector({ selectedSkills, onSelectionChange, pr
                                 className="claudeCodeSkillsSearchInput"
                             />
                             {searchQuery && (
-                                <button
+                                <button type="button"
                                     className="claudeCodeSkillsSearchClear"
                                     onClick={() => setSearchQuery("")}
                                     title="Clear search"

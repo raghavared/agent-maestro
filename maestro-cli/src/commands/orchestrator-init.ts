@@ -109,8 +109,11 @@ export class OrchestratorInitCommand {
           await api.patch(`/api/tasks/${task.id}`, {
             status: 'in_progress',
           });
-        } catch {
-          // Task might not exist on server yet, skip
+        } catch (err: unknown) {
+          if (process.env.MAESTRO_DEBUG === 'true') {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`[orchestrator-init] Failed to update task ${task.id} status: ${message}`);
+          }
         }
 
         // Update task's per-session status to working
@@ -120,12 +123,18 @@ export class OrchestratorInitCommand {
             updateSource: 'session',
             sessionId,
           });
-        } catch {
-          // Task might not exist on server yet, skip
+        } catch (err: unknown) {
+          if (process.env.MAESTRO_DEBUG === 'true') {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`[orchestrator-init] Failed to update task ${task.id} session status: ${message}`);
+          }
         }
       }
-    } catch {
-      // Don't fail init on status update errors
+    } catch (err: unknown) {
+      if (process.env.MAESTRO_DEBUG === 'true') {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[orchestrator-init] Failed to update session status: ${message}`);
+      }
     }
   }
 

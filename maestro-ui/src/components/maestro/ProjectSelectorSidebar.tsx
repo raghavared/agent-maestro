@@ -31,7 +31,7 @@ export const ProjectSelectorSidebar = React.memo(function ProjectSelectorSidebar
     if (collapsed) {
         return (
             <div className="mpbSidebar mpbSidebar--collapsed">
-                <button
+                <button type="button"
                     className="mpbSidebarToggle"
                     onClick={onToggleCollapse}
                     title="Expand project selector"
@@ -56,7 +56,7 @@ export const ProjectSelectorSidebar = React.memo(function ProjectSelectorSidebar
         <div className="mpbSidebar">
             <div className="mpbSidebarHeader">
                 <span className="mpbSidebarTitle">Projects</span>
-                <button
+                <button type="button"
                     className="mpbSidebarToggle"
                     onClick={onToggleCollapse}
                     title="Collapse sidebar"

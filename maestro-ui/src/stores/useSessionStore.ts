@@ -1199,18 +1199,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         sessions: [...s.sessions, newSession],
         activeId: newSession.id,
       }));
-      console.log('[handleSpawnTerminalSession] ✓ Terminal session added to store:', newSession.id);
-      console.log('[handleSpawnTerminalSession] ✓ Linked to maestroSessionId:', sessionInfo.maestroSessionId);
-      console.log('[handleSpawnTerminalSession] ========================================');
 
       setTimeout(() => {
         spawningSessionsRef.delete(dedupKey);
-        console.log('[handleSpawnTerminalSession] ✓ Cleaned up dedup key:', dedupKey);
       }, 2000);
     } catch (err) {
-      console.error('[handleSpawnTerminalSession] ❌ Error spawning terminal:', err);
+      console.error('[handleSpawnTerminalSession] Error spawning terminal:', err);
       spawningSessionsRef.delete(dedupKey);
-      console.log('[handleSpawnTerminalSession] ✓ Cleaned up dedup key after error:', dedupKey);
       useUIStore.getState().reportError('Failed to spawn terminal session', err);
     }
   },

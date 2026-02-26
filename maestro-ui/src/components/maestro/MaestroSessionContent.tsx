@@ -88,7 +88,7 @@ function TreeTaskNodeContent({
           {task.priority.toUpperCase()}
         </span>
         {onJumpToTask && (
-          <button
+          <button type="button"
             className="maestroSessionContentTaskJump"
             onClick={(e) => {
               e.stopPropagation();
@@ -182,19 +182,19 @@ export function MaestroSessionContent({
 
       {/* Tab Navigation */}
       <div className="maestroSessionTabs">
-        <button
+        <button type="button"
           className={`maestroSessionTab ${activeTab === 'tasks' ? 'maestroSessionTab--active' : ''}`}
           onClick={() => setActiveTab('tasks')}
         >
           [Tasks{tasks.length > 0 ? ` (${tasks.length})` : ''}]
         </button>
-        <button
+        <button type="button"
           className={`maestroSessionTab ${activeTab === 'timeline' ? 'maestroSessionTab--active' : ''}`}
           onClick={() => setActiveTab('timeline')}
         >
           [Timeline{timelineCount > 0 ? ` (${timelineCount})` : ''}]
         </button>
-        <button
+        <button type="button"
           className={`maestroSessionTab ${activeTab === 'details' ? 'maestroSessionTab--active' : ''}`}
           onClick={() => setActiveTab('details')}
         >
@@ -273,7 +273,7 @@ export function MaestroSessionContent({
                       </span>
 
                       {onJumpToTask && (
-                        <button
+                        <button type="button"
                           className="maestroSessionContentTaskJump"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -303,7 +303,7 @@ export function MaestroSessionContent({
                               {subtask.title}
                             </span>
                             {onJumpToTask && (
-                              <button
+                              <button type="button"
                                 className="maestroSessionContentTaskJump"
                                 onClick={(e) => {
                                   e.stopPropagation();

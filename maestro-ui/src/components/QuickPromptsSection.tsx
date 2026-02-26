@@ -36,13 +36,13 @@ export function QuickPromptsSection({
     <>
       <div className="sidebarHeader">
         <div className="title">Quick Prompts</div>
-        <button className="btn" onClick={onOpenPromptsPanel} title="Manage prompts">
+        <button type="button" className="btn" onClick={onOpenPromptsPanel} title="Manage prompts">
           <Icon name="panel" />
         </button>
       </div>
       <div className="quickPromptsSection">
         {pinnedPrompts.map((p, idx) => (
-          <button
+          <button type="button"
             key={p.id}
             className="quickPromptItem"
             onClick={() => onSendPrompt(p)}

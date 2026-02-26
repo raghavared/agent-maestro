@@ -44,16 +44,13 @@ maestro --version
 maestro --help
 
 # List all tasks
-maestro tasks list
+maestro task list
 
 # Create a new task
-maestro tasks create "Implement feature X"
+maestro task create "Implement feature X"
 
-# Start an agent session
-maestro agent start --type worker
-
-# Check agent status
-maestro agent status
+# Check project status
+maestro status
 ```
 
 ## Commands
@@ -62,35 +59,28 @@ maestro agent status
 
 ```bash
 # List all tasks
-maestro tasks list
+maestro task list
 
 # Create a task
-maestro tasks create "Task description"
+maestro task create "Task description"
 
 # Get task details
-maestro tasks get <task-id>
+maestro task get <task-id>
 
 # Update task status
-maestro tasks update <task-id> --status completed
+maestro task update <task-id> --status completed
 
 # Delete task
-maestro tasks delete <task-id>
-```
+maestro task delete <task-id>
 
-### Agents
+# Show task tree
+maestro task tree
 
-```bash
-# Start an agent
-maestro agent start [--type orchestrator|worker]
+# Report task progress (from within a session)
+maestro task report progress <task-id> "Working on implementation"
 
-# List running agents
-maestro agent list
-
-# Stop an agent
-maestro agent stop <agent-id>
-
-# Check agent status
-maestro agent status <agent-id>
+# Report task completion
+maestro task report complete <task-id> "Feature implemented and tested"
 ```
 
 ### Sessions
@@ -99,69 +89,109 @@ maestro agent status <agent-id>
 # List sessions
 maestro session list
 
-# Create new session
-maestro session create [--name <name>]
+# Get session info
+maestro session info [session-id]
 
-# Get session details
-maestro session get <session-id>
+# Spawn a worker session for a task
+maestro session spawn --task <task-id>
 
-# Close session
-maestro session close <session-id>
+# List sibling sessions
+maestro session siblings
+
+# Send a prompt to another session
+maestro session prompt <session-id> --message "Your message"
+
+# Watch sessions in real-time
+maestro session watch <session-ids>
+
+# Read session logs
+maestro session logs <session-ids>
+
+# Report session progress
+maestro session report progress "Making good progress"
+
+# Report session completion
+maestro session report complete "All tasks finished"
 ```
 
-### Server
+### Teams
 
 ```bash
-# Connect to server
-maestro server connect <url>
+# List teams
+maestro team list
 
-# Check server status
-maestro server status
+# Create a team
+maestro team create "Frontend Team" --leader <member-id>
 
-# Disconnect
-maestro server disconnect
+# Get team details
+maestro team get <team-id>
+
+# Show team hierarchy
+maestro team tree <team-id>
 ```
 
-## Configuration
+### Team Members
 
-### Configuration File
+```bash
+# List team members
+maestro team-member list
 
-Create `~/.maestro/config.json`:
+# Create a team member
+maestro team-member create "Alice" --role "Frontend Dev" --avatar "👩‍💻" --mode worker
 
-```json
-{
-  "server": {
-    "url": "http://localhost:3000",
-    "apiKey": "your-api-key"
-  },
-  "cli": {
-    "colorOutput": true,
-    "defaultAgent": "worker"
-  }
-}
+# Get team member details
+maestro team-member get <member-id>
+
+# Edit a team member
+maestro team-member edit <member-id> --model opus
 ```
 
-### Environment Variables
+### Other Commands
 
-- `MAESTRO_SERVER_URL` - Server URL (overrides config)
-- `MAESTRO_API_KEY` - API key for authentication
-- `MAESTRO_DEBUG` - Enable debug logging
+```bash
+# Show project status summary
+maestro status
 
-## Project Structure
+# Show available commands based on permissions
+maestro commands
 
+# Show session identity
+maestro whoami
 ```
-maestro-cli/
-├── bin/
-│   └── maestro.js       # CLI entry point
-├── src/
-│   ├── index.ts         # Main CLI logic
-│   ├── commands/        # Command implementations
-│   ├── utils/           # Utility functions
-│   └── api/             # API client
-├── tests/               # Test files
-├── dist/                # Compiled JavaScript (generated)
-├── package.json
-└── tsconfig.json
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MAESTRO_SERVER_URL` | Server URL | `http://localhost:3000` |
+| `MAESTRO_API_URL` | Alias for server URL | - |
+| `MAESTRO_PROJECT_ID` | Current project ID | - |
+| `MAESTRO_SESSION_ID` | Current session ID | - |
+| `MAESTRO_TASK_IDS` | Comma-separated task IDs for current session | - |
+| `MAESTRO_COORDINATOR_SESSION_ID` | Parent coordinator session ID | - |
+| `MAESTRO_MANIFEST_PATH` | Path to the session manifest file | - |
+| `MAESTRO_DEBUG` | Enable debug logging (`true`/`false`) | `false` |
+| `MAESTRO_RETRIES` | Max API retry attempts | `3` |
+| `MAESTRO_RETRY_DELAY` | Base retry delay in ms | `1000` |
+| `MAESTRO_IS_MASTER` | Whether this is a master session | `false` |
+| `MAESTRO_MODE` | Agent mode (worker/coordinator) | `worker` |
+| `MAESTRO_CLI_VERSION` | Override reported CLI version | - |
+| `MAESTRO_PROMPT_IDENTITY_V2` | Use v2 identity prompts (`true`/`false`) | `true` |
+| `MAESTRO_PROMPT_IDENTITY_COORDINATOR_POLICY` | Coordinator identity policy (`permissive`/`strict`) | `strict` |
+| `MAESTRO_MANIFEST_FAILURE_POLICY` | Manifest failure behavior (`permissive`/`safe-degraded`) | `safe-degraded` |
+| `MAESTRO_INITIAL_DIRECTIVE` | Initial directive for manifest generation | - |
+| `MAESTRO_MEMBER_OVERRIDES` | Team member overrides for manifest generation | - |
+| `DATA_DIR` | Override data storage directory | `~/.maestro/data` |
+| `SESSION_DIR` | Override session directory | - |
+
+## Global Options
+
+All commands support these global options:
+
+```bash
+--json              Output in JSON format (for scripting)
+--server <url>      Override server URL
+--project <id>      Override project ID
 ```
 
 ## Development
@@ -178,6 +208,13 @@ npm run build
 npm test
 ```
 
+### Linting
+
+```bash
+npm run lint
+npm run format
+```
+
 ### Running Locally
 
 ```bash
@@ -187,40 +224,6 @@ node dist/index.js --help
 
 # Or use npm start
 npm start -- --help
-```
-
-## Examples
-
-### Task Management Workflow
-
-```bash
-# Create a task
-maestro tasks create "Build authentication system"
-
-# List tasks
-maestro tasks list
-
-# Update task
-maestro tasks update task-123 --status in_progress
-
-# Mark as complete
-maestro tasks update task-123 --status completed
-```
-
-### Agent Orchestration
-
-```bash
-# Start orchestrator
-maestro agent start --type orchestrator
-
-# Start workers
-maestro agent start --type worker --count 3
-
-# Check status
-maestro agent list
-
-# Stop all agents
-maestro agent stop --all
 ```
 
 ## Documentation

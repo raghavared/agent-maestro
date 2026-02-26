@@ -71,7 +71,7 @@ export function TaskListModal({ isOpen, projectId, list, onClose }: TaskListModa
       <div className="themedModal" onClick={(e) => e.stopPropagation()}>
         <div className="themedModalHeader">
           <span className="themedModalTitle">[ {isEditMode ? "EDIT TASK LIST" : "NEW TASK LIST"} ]</span>
-          <button className="themedModalClose" onClick={onClose} disabled={isSaving}>×</button>
+          <button type="button" className="themedModalClose" onClick={onClose} disabled={isSaving}>×</button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="themedModalContent">

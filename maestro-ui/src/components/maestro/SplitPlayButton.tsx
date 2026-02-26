@@ -118,7 +118,7 @@ export function SplitPlayButton({
     return (
         <div className="splitPlayButton" ref={containerRef}>
             {/* Play button (left side) - shows assigned member avatar */}
-            <button
+            <button type="button"
                 className="splitPlayButton__play"
                 onClick={handlePlayDefault}
                 disabled={disabled}
@@ -132,7 +132,7 @@ export function SplitPlayButton({
             </button>
 
             {/* Dropdown button (right side) */}
-            <button
+            <button type="button"
                 ref={dropdownBtnRef}
                 className="splitPlayButton__dropdown"
                 onClick={handleToggleDropdown}
@@ -174,7 +174,7 @@ export function SplitPlayButton({
                                     const isAssigned = member.id === assignedTeamMemberId;
                                     const subline = getMemberSubline(member);
                                     return (
-                                        <button
+                                        <button type="button"
                                             key={member.id}
                                             className={`splitPlayDropdown__member ${isAssigned ? 'splitPlayDropdown__member--assigned' : ''}`}
                                             onClick={() => handleSelectTeamMember(member.id)}
@@ -212,7 +212,7 @@ export function SplitPlayButton({
 
                         {/* New team member button */}
                         <div className="splitPlayDropdown__separator" />
-                        <button
+                        <button type="button"
                             className="splitPlayDropdown__newMember"
                             onClick={() => {
                                 setShowDropdown(false);

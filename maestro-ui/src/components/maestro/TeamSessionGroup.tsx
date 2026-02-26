@@ -112,7 +112,7 @@ export function TeamSessionGroup({
         <span className="tsGroupHeader__workerCount">
           {totalMembers} {totalMembers === 1 ? 'member' : 'members'}
         </span>
-        <button
+        <button type="button"
           className="tsGroupHeader__teamViewBtn"
           onClick={handleOpenTeamView}
           title="Open team view"

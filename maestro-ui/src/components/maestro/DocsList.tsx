@@ -47,7 +47,7 @@ export function DocsList({ docs, title = "Docs" }: DocsListProps) {
           const fileName = doc.filePath.split("/").pop() || doc.filePath;
 
           return (
-            <button
+            <button type="button"
               key={doc.id}
               className="docsListCard"
               onClick={() => setSelectedDoc(doc)}

@@ -411,7 +411,7 @@ const ResizableSessionColumn = React.memo(function ResizableSessionColumn({
                         {session.name}
                     </span>
                     <div className="sessionColumnToggle" onClick={(e) => e.stopPropagation()}>
-                        <button
+                        <button type="button"
                             className={`sessionColumnToggleBtn ${view === "terminal" ? "sessionColumnToggleBtn--active" : ""}`}
                             onClick={() => setView("terminal")}
                             title="Terminal view"
@@ -419,7 +419,7 @@ const ResizableSessionColumn = React.memo(function ResizableSessionColumn({
                             &gt;_
                         </button>
                         {hasTimeline && (
-                            <button
+                            <button type="button"
                                 className={`sessionColumnToggleBtn ${view === "timeline" ? "sessionColumnToggleBtn--active" : ""}`}
                                 onClick={() => setView("timeline")}
                                 title="Timeline view"

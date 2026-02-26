@@ -188,7 +188,7 @@ export const TeamView = React.memo(function TeamView({
           </div>
           <div className="teamViewHeaderRight">
             <span className="teamViewHeaderHint">double-click to open / Esc to close</span>
-            <button className="teamViewCloseBtn" onClick={onClose} title="Close team view (Esc)">
+            <button type="button" className="teamViewCloseBtn" onClick={onClose} title="Close team view (Esc)">
               {'\u2715'}
             </button>
           </div>
