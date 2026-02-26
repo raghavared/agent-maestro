@@ -46,7 +46,7 @@ export function validatePriority(priority: string): 'high' | 'medium' | 'low' {
       `Use one of: ${validPriorities.join(', ')}`
     );
   }
-  return priority as any;
+  return priority as 'high' | 'medium' | 'low';
 }
 
 export function validateRequired(value: string | undefined, fieldName: string): string {

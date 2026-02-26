@@ -107,7 +107,7 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
               <h2 className="terminalModalTitle">
                 {session?.name || sessionId.slice(0, 12)}
               </h2>
-              <button className="terminalModalBtn" onClick={onClose} title="Close">
+              <button type="button" className="terminalModalBtn" onClick={onClose} title="Close">
                 ✕
               </button>
             </div>
@@ -250,7 +250,7 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
             </span>
           </div>
           <div className="terminalModalFooterRight">
-            <button className="terminalModalBtn" onClick={onClose}>
+            <button type="button" className="terminalModalBtn" onClick={onClose}>
               Close
             </button>
           </div>

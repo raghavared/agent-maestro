@@ -28,7 +28,7 @@ export function PathPickerModal({
       <div className="themedModal themedModal--wide" onClick={(e) => e.stopPropagation()}>
         <div className="themedModalHeader">
           <span className="themedModalTitle">[ SELECT FOLDER ]</span>
-          <button className="themedModalClose" onClick={onClose}>×</button>
+          <button type="button" className="themedModalClose" onClick={onClose}>×</button>
         </div>
         <div className="themedModalContent">
           <InlineFolderBrowser

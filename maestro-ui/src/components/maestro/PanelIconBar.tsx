@@ -62,7 +62,7 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
         <div className="maestroPanelTabSystem">
             {/* Primary tab bar - at the very top */}
             {!hidePrimaryTabs && <div className="maestroPanelPrimaryTabs">
-                <button
+                <button type="button"
                     className={`maestroPanelPrimaryTab ${primaryTab === "tasks" ? "maestroPanelPrimaryTabActive" : ""}`}
                     onClick={() => onPrimaryTabChange("tasks")}
                 >
@@ -73,7 +73,7 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                     Tasks
                     <span className="maestroPanelTabBadge">{activeCount}</span>
                 </button>
-                <button
+                <button type="button"
                     className={`maestroPanelPrimaryTab ${primaryTab === "team" ? "maestroPanelPrimaryTabActive" : ""}`}
                     onClick={() => onPrimaryTabChange("team")}
                 >
@@ -86,7 +86,7 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                     Team
                     <span className="maestroPanelTabBadge">{activeTeamCount}</span>
                 </button>
-                <button
+                <button type="button"
                     className={`maestroPanelPrimaryTab ${primaryTab === "skills" ? "maestroPanelPrimaryTabActive" : ""}`}
                     onClick={() => onPrimaryTabChange("skills")}
                 >
@@ -97,7 +97,7 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                     </svg>
                     Skills
                 </button>
-                <button
+                <button type="button"
                     className={`maestroPanelPrimaryTab ${primaryTab === "lists" ? "maestroPanelPrimaryTabActive" : ""}`}
                     onClick={() => onPrimaryTabChange("lists")}
                 >
@@ -115,14 +115,14 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
             <div className="maestroPanelSubTabs">
                 {primaryTab === "tasks" && (
                     <>
-                        <button
+                        <button type="button"
                             className="maestroPanelSubTab maestroPanelSubTab--action"
                             onClick={onNewTask}
                         >
                             <span className="maestroPanelSubTabPlus">+</span>
                             New Task
                         </button>
-                        <button
+                        <button type="button"
                             className={`maestroPanelSubTab maestroPanelSubTab--icon ${taskSubTab === "current" ? "maestroPanelSubTabActive" : ""}`}
                             onClick={() => onTaskSubTabChange("current")}
                             title="Current"
@@ -132,7 +132,7 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                             </svg>
                             <span className="maestroPanelSubTabCount">{activeCount}</span>
                         </button>
-                        <button
+                        <button type="button"
                             className={`maestroPanelSubTab maestroPanelSubTab--icon ${taskSubTab === "pinned" ? "maestroPanelSubTabActive" : ""}`}
                             onClick={() => onTaskSubTabChange("pinned")}
                             title="Pinned"
@@ -143,7 +143,7 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                             </svg>
                             <span className="maestroPanelSubTabCount">{pinnedCount}</span>
                         </button>
-                        <button
+                        <button type="button"
                             className={`maestroPanelSubTab maestroPanelSubTab--icon ${taskSubTab === "completed" ? "maestroPanelSubTabActive" : ""}`}
                             onClick={() => onTaskSubTabChange("completed")}
                             title="Completed"
@@ -153,7 +153,7 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                             </svg>
                             <span className="maestroPanelSubTabCount">{completedCount}</span>
                         </button>
-                        <button
+                        <button type="button"
                             className={`maestroPanelSubTab maestroPanelSubTab--icon ${taskSubTab === "archived" ? "maestroPanelSubTabActive" : ""}`}
                             onClick={() => onTaskSubTabChange("archived")}
                             title="Archived"
@@ -170,7 +170,7 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
 
                 {primaryTab === "lists" && (
                     <>
-                        <button
+                        <button type="button"
                             className="maestroPanelSubTab maestroPanelSubTab--action"
                             onClick={onNewTaskList}
                         >
@@ -186,7 +186,7 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
 
                 {primaryTab === "team" && teamSubTab === "members" && (
                     <>
-                        <button
+                        <button type="button"
                             className="maestroPanelSubTab maestroPanelSubTab--action"
                             onClick={onNewTeamMember}
                         >
@@ -202,7 +202,7 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
 
                 {primaryTab === "team" && teamSubTab === "teams" && (
                     <>
-                        <button
+                        <button type="button"
                             className="maestroPanelSubTab maestroPanelSubTab--action"
                             onClick={onNewTeam}
                         >

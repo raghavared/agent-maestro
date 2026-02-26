@@ -133,6 +133,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
       teamMemberId: input.teamMemberId,
       teamMemberIds: input.teamMemberIds,
       dueDate: input.dueDate || null,
+      memberOverrides: input.memberOverrides,
       // NOTE: timeline is now on Session, not Task
     };
 

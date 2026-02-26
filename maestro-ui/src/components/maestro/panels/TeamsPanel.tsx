@@ -46,7 +46,7 @@ export function TeamsPanel({
     ║                                       ║
     ╚═══════════════════════════════════════╝
                                         `}</pre>
-                        <button
+                        <button type="button"
                             className="themedBtn themedBtnPrimary"
                             style={{ marginTop: '8px' }}
                             onClick={handleNewTeam}
@@ -57,7 +57,7 @@ export function TeamsPanel({
                 ) : (
                     <>
                         <div style={{ padding: '6px 12px 2px', display: 'flex', justifyContent: 'flex-end' }}>
-                            <button
+                            <button type="button"
                                 className="themedBtn themedBtnPrimary"
                                 style={{ padding: '3px 10px', fontSize: '10px' }}
                                 onClick={handleNewTeam}

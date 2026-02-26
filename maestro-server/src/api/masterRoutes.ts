@@ -3,6 +3,8 @@ import { ProjectService } from '../application/services/ProjectService';
 import { TaskService } from '../application/services/TaskService';
 import { SessionService } from '../application/services/SessionService';
 import { AppError } from '../domain/common/Errors';
+import { TaskFilter } from '../domain/repositories/ITaskRepository';
+import { handleRouteError } from './middleware/errorHandler';
 
 /**
  * Authorization middleware for master-only endpoints.
@@ -33,7 +35,7 @@ function createMasterAuthMiddleware(sessionService: SessionService) {
         });
       }
       next();
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof AppError && err.statusCode === 404) {
         return res.status(403).json({
           error: true,
@@ -41,9 +43,10 @@ function createMasterAuthMiddleware(sessionService: SessionService) {
           code: 'FORBIDDEN'
         });
       }
+      const message = err instanceof Error ? err.message : 'Unknown error';
       return res.status(500).json({
         error: true,
-        message: err.message,
+        message,
         code: 'INTERNAL_ERROR'
       });
     }
@@ -61,16 +64,6 @@ export function createMasterRoutes(
 ) {
   const router = express.Router();
 
-  const handleError = (err: any, res: Response) => {
-    if (err instanceof AppError) {
-      return res.status(err.statusCode).json(err.toJSON());
-    }
-    return res.status(500).json({
-      error: true,
-      message: err.message,
-      code: 'INTERNAL_ERROR'
-    });
-  };
 
   const authMiddleware = createMasterAuthMiddleware(sessionService);
 
@@ -82,8 +75,8 @@ export function createMasterRoutes(
     try {
       const projects = await projectService.listProjects();
       res.json(projects);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -91,20 +84,20 @@ export function createMasterRoutes(
   router.get('/master/tasks', async (req: Request, res: Response) => {
     try {
       const projectId = req.query.projectId as string | undefined;
-      const filter: any = {};
+      const filter: TaskFilter = {};
 
       if (projectId) {
         filter.projectId = projectId;
       }
 
       if (req.query.status) {
-        filter.status = req.query.status as string;
+        filter.status = req.query.status as TaskFilter['status'];
       }
 
       const tasks = await taskService.listTasks(filter);
       res.json(tasks);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -121,8 +114,8 @@ export function createMasterRoutes(
       }
 
       res.json(sessions);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -162,8 +155,8 @@ export function createMasterRoutes(
         taskCounts,
         sessionCounts,
       });
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 

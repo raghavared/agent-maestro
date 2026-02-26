@@ -213,7 +213,7 @@ export function SkillsPanel({ project }: SkillsPanelProps) {
             <div className="terminalContent">
                 <div className="skillsPanelError">
                     <div>Error: {error}</div>
-                    <button onClick={loadSkills} className="themedBtn" style={{ marginTop: '8px' }}>
+                    <button type="button" onClick={loadSkills} className="themedBtn" style={{ marginTop: '8px' }}>
                         Retry
                     </button>
                 </div>
@@ -226,14 +226,14 @@ export function SkillsPanel({ project }: SkillsPanelProps) {
             {/* View toggle + search bar */}
             <div className="skillsPanelToolbar">
                 <div className="skillsPanelViewToggle">
-                    <button
+                    <button type="button"
                         className={`skillsPanelViewBtn ${view === 'installed' ? 'active' : ''}`}
                         onClick={() => setView('installed')}
                     >
                         Installed
                         <span className="skillsPanelViewCount">{skills.length}</span>
                     </button>
-                    <button
+                    <button type="button"
                         className={`skillsPanelViewBtn ${view === 'marketplace' ? 'active' : ''}`}
                         onClick={() => setView('marketplace')}
                     >
@@ -250,7 +250,7 @@ export function SkillsPanel({ project }: SkillsPanelProps) {
                         className="skillsPanelSearchInput"
                     />
                     {(view === 'installed' ? searchQuery : marketplaceQuery) && (
-                        <button
+                        <button type="button"
                             className="skillsPanelSearchClear"
                             onClick={() => view === 'installed' ? setSearchQuery("") : setMarketplaceQuery("")}
                         >
@@ -258,7 +258,7 @@ export function SkillsPanel({ project }: SkillsPanelProps) {
                         </button>
                     )}
                 </div>
-                <button
+                <button type="button"
                     className="themedBtn skillsPanelRefreshBtn"
                     onClick={loadSkills}
                     title="Refresh skills"

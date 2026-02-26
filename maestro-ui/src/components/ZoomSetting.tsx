@@ -13,7 +13,7 @@ export function ZoomSetting() {
           const config = ZOOM_CONFIG[level];
           const isActive = level === zoomLevel;
           return (
-            <button
+            <button type="button"
               key={level}
               className={`themeSwitcherOption ${isActive ? 'themeSwitcherOptionActive' : ''}`}
               onClick={() => setZoomLevel(level as ZoomLevel)}

@@ -77,7 +77,7 @@ export function TaskFilters({
     return (
         <div className={`filterBar ${isExpanded ? "filterBar--expanded" : ""}`}>
             <div className="filterBar__header">
-                <button
+                <button type="button"
                     className="filterBar__toggle"
                     onClick={() => setIsExpanded(!isExpanded)}
                 >
@@ -97,7 +97,7 @@ export function TaskFilters({
                                 <span key={s} className={`filterChip filterChip--active ${cfg.colorClass}`}>
                                     <span className="filterChip__icon">{cfg.icon}</span>
                                     {cfg.label}
-                                    <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); toggleStatus(s); }}>×</button>
+                                    <button type="button" className="filterChip__remove" onClick={(e) => { e.stopPropagation(); toggleStatus(s); }}>×</button>
                                 </span>
                             ) : null;
                         })}
@@ -106,7 +106,7 @@ export function TaskFilters({
                             return cfg ? (
                                 <span key={p} className={`filterChip filterChip--active ${cfg.colorClass}`}>
                                     {cfg.label}
-                                    <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); togglePriority(p); }}>×</button>
+                                    <button type="button" className="filterChip__remove" onClick={(e) => { e.stopPropagation(); togglePriority(p); }}>×</button>
                                 </span>
                             ) : null;
                         })}
@@ -120,10 +120,10 @@ export function TaskFilters({
                         {sortBy !== "updatedAt" && (
                             <span className="filterChip filterChip--active filterChip--sort">
                                 Sort: {SORT_OPTIONS.find(o => o.value === sortBy)?.label}
-                                <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); onSortChange("updatedAt"); }}>×</button>
+                                <button type="button" className="filterChip__remove" onClick={(e) => { e.stopPropagation(); onSortChange("updatedAt"); }}>×</button>
                             </span>
                         )}
-                        <button className="filterBar__clearAll" onClick={handleClearAll}>Clear all</button>
+                        <button type="button" className="filterBar__clearAll" onClick={handleClearAll}>Clear all</button>
                     </div>
                 )}
             </div>
@@ -136,7 +136,7 @@ export function TaskFilters({
                             {STATUS_CONFIG.map(({ value, label, icon, colorClass }) => {
                                 const isActive = statusFilter.includes(value);
                                 return (
-                                    <button
+                                    <button type="button"
                                         key={value}
                                         className={`filterChip ${colorClass} ${isActive ? "filterChip--active" : ""}`}
                                         onClick={() => toggleStatus(value)}
@@ -155,7 +155,7 @@ export function TaskFilters({
                             {PRIORITY_CONFIG.map(({ value, label, colorClass }) => {
                                 const isActive = priorityFilter.includes(value);
                                 return (
-                                    <button
+                                    <button type="button"
                                         key={value}
                                         className={`filterChip ${colorClass} ${isActive ? "filterChip--active" : ""}`}
                                         onClick={() => togglePriority(value)}
@@ -185,7 +185,7 @@ export function TaskFilters({
                         <span className="filterGroup__label">Sort by</span>
                         <div className="filterGroup__segmented">
                             {SORT_OPTIONS.map(({ value, label }) => (
-                                <button
+                                <button type="button"
                                     key={value}
                                     className={`filterSegment ${sortBy === value ? "filterSegment--active" : ""}`}
                                     onClick={() => onSortChange(value)}
@@ -197,7 +197,7 @@ export function TaskFilters({
                     </div>
 
                     {activeFilterCount > 0 && (
-                        <button className="filterBar__clearAll" onClick={handleClearAll}>
+                        <button type="button" className="filterBar__clearAll" onClick={handleClearAll}>
                             Clear all filters
                         </button>
                     )}

@@ -97,12 +97,11 @@ export const IconRail: React.FC<IconRailProps> = (props) => {
                 const badge = getBadge(section, props);
 
                 return (
-                    <button
+                    <button type="button"
                         key={section}
                         className={`iconRailButton ${isActive ? "iconRailButton--active" : ""}`}
                         onClick={() => onSectionChange(section)}
                         title={label}
-                        type="button"
                     >
                         {isActive && <span className="iconRailActiveIndicator" />}
                         {getSvgForSection(section)}

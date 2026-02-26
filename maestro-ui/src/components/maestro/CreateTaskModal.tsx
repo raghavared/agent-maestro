@@ -136,9 +136,10 @@ export function CreateTaskModal({
 
     const handleToggleLaunchConfig = () => {
         if (!form.showLaunchConfig) {
-            // Initialize configs for selected members
+            // Initialize configs for selected members, restoring saved overrides if editing
+            const savedOverrides = isEditMode ? task?.memberOverrides : undefined;
             for (const id of form.selectedTeamMemberIds) {
-                form.initMemberConfig(id, teamMembers);
+                form.initMemberConfig(id, teamMembers, savedOverrides);
             }
             form.setActiveTab(null); // close any open tab
         }
@@ -169,7 +170,7 @@ export function CreateTaskModal({
     const handleSave = () => {
         if (!isEditMode || !task) return;
         const refIds = refPicker.selectedReferenceTasks.map(t => t.id);
-        const updates = form.getUpdateDiff(refIds);
+        const updates = form.getUpdateDiff(refIds, teamMembers);
         if (updates) {
             onUpdateTask?.(task.id, updates);
         }

@@ -112,7 +112,7 @@ export const TaskCard = React.memo(function TaskCard({
                     </div>
                 )}
                 {(task.status === "todo" || task.status === "blocked") && (
-                    <button
+                    <button type="button"
                         className="taskBoardCardAction"
                         onClick={(e) => {
                             e.stopPropagation();

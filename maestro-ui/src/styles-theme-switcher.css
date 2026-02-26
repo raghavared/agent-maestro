@@ -1,0 +1,153 @@
+/* ------------------------------------------------------------------ */
+/*  Theme Switcher                                                     */
+/* ------------------------------------------------------------------ */
+
+.themeSwitcher {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.themeSwitcherLabel {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.themeSwitcherGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.themeSwitcherOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.themeSwitcherOption:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.themeSwitcherOptionActive {
+  border-color: var(--swatch-color);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.15);
+}
+
+.themeSwitcherSwatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--swatch-color);
+  box-shadow: 0 0 8px var(--swatch-color);
+  flex-shrink: 0;
+}
+
+.themeSwitcherName {
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.themeSwitcherOptionActive .themeSwitcherName {
+  color: var(--swatch-color);
+}
+
+/* ---- Style Switcher (App Style Picker) ---- */
+
+.styleSwitcherGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.styleSwitcherOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: all var(--style-transition, 0.15s ease);
+  font-family: var(--style-font-ui);
+}
+
+.styleSwitcherOption:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.styleSwitcherOptionActive {
+  border-color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  box-shadow: var(--style-shadow-glow);
+}
+
+.styleSwitcherIcon {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 22px;
+  text-align: center;
+  font-family: var(--style-font-code);
+}
+
+.styleSwitcherOptionActive .styleSwitcherIcon {
+  color: var(--theme-primary);
+}
+
+.styleSwitcherName {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.styleSwitcherOptionActive .styleSwitcherName {
+  color: var(--theme-primary);
+}
+
+/* ---- Style-specific overrides for theme switcher ---- */
+
+html[data-style="material"] .themeSwitcherSwatch {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+html[data-style="material"] .themeSwitcherOptionActive {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+html[data-style="glass"] .themeSwitcher {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: var(--style-backdrop);
+  -webkit-backdrop-filter: var(--style-backdrop);
+}
+
+html[data-style="glass"] .themeSwitcherSwatch {
+  box-shadow: 0 0 12px var(--swatch-color), inset 0 0 4px rgba(255, 255, 255, 0.2);
+}
+
+html[data-style="minimal"] .themeSwitcherSwatch {
+  box-shadow: none;
+  border: 2px solid var(--swatch-color);
+}
+
+html[data-style="minimal"] .themeSwitcherOptionActive {
+  box-shadow: none;
+}
+

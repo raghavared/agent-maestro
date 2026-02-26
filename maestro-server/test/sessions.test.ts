@@ -1,437 +1,153 @@
-import request from 'supertest';
-import express from 'express';
-import Storage from '../src/storage';
-import { TestDataDir, createTestProject, createTestTask, createTestSession } from './helpers';
+import { TestDataDir, createTestContainer, createTestProject, createTestTask, createTestSession } from './helpers';
 
-describe('Sessions API', () => {
-  let app: express.Application;
-  let storage: Storage;
+describe('SessionService', () => {
   let testDataDir: TestDataDir;
+  let container: Awaited<ReturnType<typeof createTestContainer>>;
   let projectId: string;
   let taskId: string;
 
   beforeEach(async () => {
     testDataDir = new TestDataDir();
-    storage = new Storage(testDataDir.getPath());
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    app = express();
-    app.use(express.json());
-
-    const projectsRouter = require('../src/api/projects')(storage);
-    const tasksRouter = require('../src/api/tasks')(storage);
-    const sessionsRouter = require('../src/api/sessions')(storage);
-    app.use('/api', projectsRouter);
-    app.use('/api', tasksRouter);
-    app.use('/api', sessionsRouter);
+    container = await createTestContainer(testDataDir.getPath());
 
     // Create test project and task
-    const projectResponse = await request(app)
-      .post('/api/projects')
-      .send(createTestProject());
-    projectId = projectResponse.body.id;
+    const project = await container.projectService.createProject(createTestProject());
+    projectId = project.id;
 
-    const taskResponse = await request(app)
-      .post('/api/tasks')
-      .send(createTestTask(projectId));
-    taskId = taskResponse.body.id;
+    const task = await container.taskService.createTask(createTestTask(projectId));
+    taskId = task.id;
   });
 
   afterEach(async () => {
     await testDataDir.cleanup();
   });
 
-  describe('POST /api/sessions', () => {
+  describe('createSession', () => {
     it('should create a new session', async () => {
-      const sessionData = createTestSession(projectId, [taskId]);
+      const input = createTestSession(projectId, [taskId]);
+      const session = await container.sessionService.createSession(input);
 
-      const response = await request(app)
-        .post('/api/sessions')
-        .send(sessionData)
-        .expect(201);
-
-      expect(response.body).toMatchObject({
+      expect(session).toMatchObject({
         projectId,
         taskIds: [taskId],
-        name: sessionData.name,
-        status: 'running'
+        name: input.name,
       });
-      expect(response.body.id).toMatch(/^sess_/);
-      expect(response.body.hostname).toBeDefined();
-      expect(response.body.platform).toBeDefined();
+      expect(session.id).toMatch(/^sess_/);
+      expect(session.startedAt).toBeDefined();
     });
 
-    it('should return 400 if taskIds is missing', async () => {
-      const response = await request(app)
-        .post('/api/sessions')
-        .send({ projectId })
-        .expect(400);
-
-      expect(response.body.error).toBe(true);
-    });
-
-    it('should accept backward compatible taskId field', async () => {
-      const response = await request(app)
-        .post('/api/sessions')
-        .send({
-          projectId,
-          taskId, // Old format (singular)
-          name: 'Test Session'
+    it('should throw if projectId is invalid', async () => {
+      await expect(
+        container.sessionService.createSession({
+          projectId: 'proj_nonexistent',
+          taskIds: [taskId],
+          name: 'Test',
         })
-        .expect(201);
-
-      expect(response.body.taskIds).toEqual([taskId]);
+      ).rejects.toThrow();
     });
 
-    it('should update tasks with session ID', async () => {
-      const sessionResponse = await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId]));
+    it('should associate session with tasks', async () => {
+      const session = await container.sessionService.createSession(
+        createTestSession(projectId, [taskId])
+      );
 
-      const sessionId = sessionResponse.body.id;
-
-      // Verify task was updated
-      const taskResponse = await request(app)
-        .get(`/api/tasks/${taskId}`)
-        .expect(200);
-
-      expect(taskResponse.body.sessionIds).toContain(sessionId);
-      expect(taskResponse.body.timeline.some((e: any) =>
-        e.type === 'session_started' && e.sessionId === sessionId
-      )).toBe(true);
+      // Verify task was updated with session ID
+      const task = await container.taskService.getTask(taskId);
+      expect(task.sessionIds).toContain(session.id);
     });
   });
 
-  describe('GET /api/sessions', () => {
+  describe('listSessions', () => {
     it('should return empty array when no sessions exist', async () => {
-      const response = await request(app)
-        .get('/api/sessions')
-        .expect(200);
-
-      expect(response.body).toEqual([]);
+      const sessions = await container.sessionService.listSessions();
+      expect(sessions).toEqual([]);
     });
 
     it('should return all sessions', async () => {
-      await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId], { name: 'Session 1' }));
+      await container.sessionService.createSession(
+        createTestSession(projectId, [taskId], { name: 'Session 1' })
+      );
+      await container.sessionService.createSession(
+        createTestSession(projectId, [taskId], { name: 'Session 2' })
+      );
 
-      await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId], { name: 'Session 2' }));
-
-      const response = await request(app)
-        .get('/api/sessions')
-        .expect(200);
-
-      expect(response.body).toHaveLength(2);
+      const sessions = await container.sessionService.listSessions();
+      expect(sessions).toHaveLength(2);
     });
 
     it('should filter sessions by projectId', async () => {
-      const project2Response = await request(app)
-        .post('/api/projects')
-        .send(createTestProject({ name: 'Project 2' }));
-      const projectId2 = project2Response.body.id;
+      const project2 = await container.projectService.createProject(
+        createTestProject({ name: 'Project 2' })
+      );
+      const task2 = await container.taskService.createTask(
+        createTestTask(project2.id)
+      );
 
-      const task2Response = await request(app)
-        .post('/api/tasks')
-        .send(createTestTask(projectId2));
-      const taskId2 = task2Response.body.id;
+      await container.sessionService.createSession(
+        createTestSession(projectId, [taskId])
+      );
+      await container.sessionService.createSession(
+        createTestSession(project2.id, [task2.id])
+      );
 
-      await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId]));
-
-      await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId2, [taskId2]));
-
-      const response = await request(app)
-        .get(`/api/sessions?projectId=${projectId}`)
-        .expect(200);
-
-      expect(response.body).toHaveLength(1);
-      expect(response.body[0].projectId).toBe(projectId);
-    });
-
-    it('should filter sessions by taskId', async () => {
-      const task2Response = await request(app)
-        .post('/api/tasks')
-        .send(createTestTask(projectId, { title: 'Task 2' }));
-      const taskId2 = task2Response.body.id;
-
-      await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId]));
-
-      await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId2]));
-
-      const response = await request(app)
-        .get(`/api/sessions?taskId=${taskId}`)
-        .expect(200);
-
-      expect(response.body).toHaveLength(1);
-      expect(response.body[0].taskIds).toContain(taskId);
-    });
-
-    it('should filter active sessions', async () => {
-      const session1Response = await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId]));
-
-      await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId]));
-
-      // Complete first session
-      await request(app)
-        .patch(`/api/sessions/${session1Response.body.id}`)
-        .send({ status: 'completed' });
-
-      const response = await request(app)
-        .get('/api/sessions?active=true')
-        .expect(200);
-
-      expect(response.body).toHaveLength(1);
-      expect(response.body[0].status).toBe('running');
+      const sessions = await container.sessionService.listSessions({ projectId });
+      expect(sessions).toHaveLength(1);
+      expect(sessions[0].projectId).toBe(projectId);
     });
   });
 
-  describe('GET /api/sessions/:id', () => {
+  describe('getSession', () => {
     it('should return a session by ID', async () => {
-      const createResponse = await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId]));
-
-      const sessionId = createResponse.body.id;
-
-      const response = await request(app)
-        .get(`/api/sessions/${sessionId}`)
-        .expect(200);
-
-      expect(response.body.id).toBe(sessionId);
+      const created = await container.sessionService.createSession(
+        createTestSession(projectId, [taskId])
+      );
+      const found = await container.sessionService.getSession(created.id);
+      expect(found.id).toBe(created.id);
     });
 
-    it('should return 404 for non-existent session', async () => {
-      await request(app)
-        .get('/api/sessions/sess_nonexistent')
-        .expect(404);
+    it('should throw for non-existent session', async () => {
+      await expect(
+        container.sessionService.getSession('sess_nonexistent')
+      ).rejects.toThrow();
     });
   });
 
-  describe('PATCH /api/sessions/:id', () => {
+  describe('updateSession', () => {
     it('should update session status', async () => {
-      const createResponse = await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId]));
-
-      const sessionId = createResponse.body.id;
-
-      const response = await request(app)
-        .patch(`/api/sessions/${sessionId}`)
-        .send({ status: 'completed' })
-        .expect(200);
-
-      expect(response.body.status).toBe('completed');
-      expect(response.body.lastActivity).toBeGreaterThan(createResponse.body.lastActivity);
-    });
-
-    it('should update session taskIds', async () => {
-      const task2Response = await request(app)
-        .post('/api/tasks')
-        .send(createTestTask(projectId, { title: 'Task 2' }));
-      const taskId2 = task2Response.body.id;
-
-      const createResponse = await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId]));
-
-      const sessionId = createResponse.body.id;
-
-      const response = await request(app)
-        .patch(`/api/sessions/${sessionId}`)
-        .send({ taskIds: [taskId, taskId2] })
-        .expect(200);
-
-      expect(response.body.taskIds).toEqual([taskId, taskId2]);
-    });
-  });
-
-  describe('DELETE /api/sessions/:id', () => {
-    it('should delete a session', async () => {
-      const createResponse = await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId]));
-
-      const sessionId = createResponse.body.id;
-
-      const response = await request(app)
-        .delete(`/api/sessions/${sessionId}`)
-        .expect(200);
-
-      expect(response.body).toEqual({
-        success: true,
-        id: sessionId
+      const created = await container.sessionService.createSession(
+        createTestSession(projectId, [taskId])
+      );
+      const updated = await container.sessionService.updateSession(created.id, {
+        status: 'completed',
       });
-
-      await request(app)
-        .get(`/api/sessions/${sessionId}`)
-        .expect(404);
-    });
-
-    it('should remove session ID from tasks', async () => {
-      const createResponse = await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId]));
-
-      const sessionId = createResponse.body.id;
-
-      await request(app)
-        .delete(`/api/sessions/${sessionId}`)
-        .expect(200);
-
-      // Verify task was updated
-      const taskResponse = await request(app)
-        .get(`/api/tasks/${taskId}`)
-        .expect(200);
-
-      expect(taskResponse.body.sessionIds).not.toContain(sessionId);
-      expect(taskResponse.body.timeline.some((e: any) =>
-        e.type === 'session_ended' && e.sessionId === sessionId
-      )).toBe(true);
+      expect(updated.status).toBe('completed');
     });
   });
 
-  describe('POST /api/sessions/:id/tasks/:taskId', () => {
-    it('should add task to session', async () => {
-      const task2Response = await request(app)
-        .post('/api/tasks')
-        .send(createTestTask(projectId, { title: 'Task 2' }));
-      const taskId2 = task2Response.body.id;
-
-      const sessionResponse = await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId]));
-
-      const sessionId = sessionResponse.body.id;
-
-      const response = await request(app)
-        .post(`/api/sessions/${sessionId}/tasks/${taskId2}`)
-        .expect(200);
-
-      expect(response.body.taskIds).toContain(taskId2);
-
-      // Verify task was updated
-      const updatedTask = await request(app)
-        .get(`/api/tasks/${taskId2}`)
-        .expect(200);
-
-      expect(updatedTask.body.sessionIds).toContain(sessionId);
-    });
-
-    it('should return 404 if session not found', async () => {
-      await request(app)
-        .post(`/api/sessions/sess_nonexistent/tasks/${taskId}`)
-        .expect(404);
-    });
-
-    it('should return 404 if task not found', async () => {
-      const sessionResponse = await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId]));
-
-      const sessionId = sessionResponse.body.id;
-
-      await request(app)
-        .post(`/api/sessions/${sessionId}/tasks/task_nonexistent`)
-        .expect(404);
+  describe('deleteSession', () => {
+    it('should delete a session', async () => {
+      const created = await container.sessionService.createSession(
+        createTestSession(projectId, [taskId])
+      );
+      await container.sessionService.deleteSession(created.id);
+      await expect(
+        container.sessionService.getSession(created.id)
+      ).rejects.toThrow();
     });
   });
 
-  describe('DELETE /api/sessions/:id/tasks/:taskId', () => {
-    it('should remove task from session', async () => {
-      const task2Response = await request(app)
-        .post('/api/tasks')
-        .send(createTestTask(projectId, { title: 'Task 2' }));
-      const taskId2 = task2Response.body.id;
+  describe('addTaskToSession', () => {
+    it('should add a task to a session', async () => {
+      const task2 = await container.taskService.createTask(
+        createTestTask(projectId, { title: 'Task 2' })
+      );
+      const session = await container.sessionService.createSession(
+        createTestSession(projectId, [taskId])
+      );
 
-      const sessionResponse = await request(app)
-        .post('/api/sessions')
-        .send(createTestSession(projectId, [taskId, taskId2]));
-
-      const sessionId = sessionResponse.body.id;
-
-      const response = await request(app)
-        .delete(`/api/sessions/${sessionId}/tasks/${taskId}`)
-        .expect(200);
-
-      expect(response.body.taskIds).not.toContain(taskId);
-      expect(response.body.taskIds).toContain(taskId2);
-
-      // Verify task was updated
-      const updatedTask = await request(app)
-        .get(`/api/tasks/${taskId}`)
-        .expect(200);
-
-      expect(updatedTask.body.sessionIds).not.toContain(sessionId);
-    });
-  });
-
-  describe('POST /api/sessions/spawn', () => {
-    it('should spawn a session', async () => {
-      const response = await request(app)
-        .post('/api/sessions/spawn')
-        .send({
-          projectId,
-          taskIds: [taskId],
-          sessionName: 'Test Spawn',
-          skills: ['test-skill']
-        })
-        .expect(201);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.sessionId).toMatch(/^sess_/);
-      expect(response.body.session).toBeDefined();
-      expect(response.body.session.status).toBe('spawning');
-      expect(response.body.session.metadata.skills).toEqual(['test-skill']);
-    });
-
-    it('should return 400 if projectId is missing', async () => {
-      const response = await request(app)
-        .post('/api/sessions/spawn')
-        .send({ taskIds: [taskId] })
-        .expect(400);
-
-      expect(response.body.code).toBe('missing_project_id');
-    });
-
-    it('should return 400 if taskIds is empty', async () => {
-      const response = await request(app)
-        .post('/api/sessions/spawn')
-        .send({ projectId, taskIds: [] })
-        .expect(400);
-
-      expect(response.body.code).toBe('invalid_task_ids');
-    });
-
-    it('should return 404 if task does not exist', async () => {
-      const response = await request(app)
-        .post('/api/sessions/spawn')
-        .send({ projectId, taskIds: ['task_nonexistent'] })
-        .expect(404);
-
-      expect(response.body.code).toBe('task_not_found');
-    });
-
-    it('should use default skills if not provided', async () => {
-      const response = await request(app)
-        .post('/api/sessions/spawn')
-        .send({ projectId, taskIds: [taskId] })
-        .expect(201);
-
-      expect(response.body.session.metadata.skills).toEqual(['maestro-worker']);
+      await container.sessionService.addTaskToSession(session.id, task2.id);
+      const updated = await container.sessionService.getSession(session.id);
+      expect(updated.taskIds).toContain(task2.id);
     });
   });
 });

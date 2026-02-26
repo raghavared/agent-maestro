@@ -192,7 +192,7 @@ export function TeamModal({ isOpen, onClose, projectId, team }: TeamModalProps) 
                             autoFocus
                         />
                     </div>
-                    <button className="themedModalClose" onClick={handleClose} disabled={isSaving}>{'\u00D7'}</button>
+                    <button type="button" className="themedModalClose" onClick={handleClose} disabled={isSaving}>{'\u00D7'}</button>
                 </div>
 
                 {/* Content */}
@@ -201,7 +201,7 @@ export function TeamModal({ isOpen, onClose, projectId, team }: TeamModalProps) 
                         <div className="terminalErrorBanner" style={{ marginBottom: '10px' }}>
                             <span className="terminalErrorSymbol">[ERROR]</span>
                             <span className="terminalErrorText">{error}</span>
-                            <button className="terminalErrorClose" onClick={() => setError(null)}>{'\u00D7'}</button>
+                            <button type="button" className="terminalErrorClose" onClick={() => setError(null)}>{'\u00D7'}</button>
                         </div>
                     )}
 

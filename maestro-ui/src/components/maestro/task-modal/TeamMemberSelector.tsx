@@ -87,7 +87,7 @@ export function TeamMemberSelector({
                             {teamMembers.map(member => {
                                 const isSelected = selectedTeamMemberIds.includes(member.id);
                                 return (
-                                    <button
+                                    <button type="button"
                                         key={member.id}
                                         className={`themedDropdownOption ${isSelected ? 'themedDropdownOption--current' : ''}`}
                                         onClick={(e) => {

@@ -4,6 +4,7 @@ import { config } from '../config.js';
 import { outputJSON, outputTable, outputErrorJSON, outputKeyValue, outputTaskTree } from '../utils/formatter.js';
 import { handleError } from '../utils/errors.js';
 import { guardCommand } from '../services/command-permissions.js';
+import type { TaskResponse, DocResponse } from '../types/api-responses.js';
 import ora from 'ora';
 import { readFileSync } from 'fs';
 
@@ -23,17 +24,17 @@ export function registerTaskCommands(program: Command) {
             const spinner = !isJson ? ora('Fetching tasks...').start() : null;
 
             try {
-                let tasks: any[] = [];
+                let tasks: TaskResponse[] = [];
 
                 if (taskId) {
                     // Fetch specific task from server
-                    const t: any = await api.get(`/api/tasks/${taskId}`);
+                    const t = await api.get<TaskResponse>(`/api/tasks/${taskId}`);
                     // Fetch children from server
                     try {
-                        const children = await api.get(`/api/tasks/${taskId}/children`);
-                        t.children = children;
+                        const children = await api.get<TaskResponse[]>(`/api/tasks/${taskId}/children`);
+                        (t as TaskResponse & { children: TaskResponse[] }).children = children;
                     } catch {
-                        t.children = [];
+                        (t as TaskResponse & { children: TaskResponse[] }).children = [];
                     }
                     tasks = [t];
                 } else {
@@ -97,7 +98,7 @@ export function registerTaskCommands(program: Command) {
 
             try {
                 // Create task via server API
-                const newTask: any = await api.post('/api/tasks', {
+                const newTask = await api.post<TaskResponse>('/api/tasks', {
                     projectId,
                     title: finalTitle,
                     description: cmdOpts.desc || cmdOpts.description || '',
@@ -132,7 +133,7 @@ export function registerTaskCommands(program: Command) {
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
 
-            const updateData: Record<string, any> = {};
+            const updateData: Record<string, string> = {};
             if (cmdOpts.title) updateData.title = cmdOpts.title;
             if (cmdOpts.desc) updateData.description = cmdOpts.desc;
             if (cmdOpts.priority) updateData.priority = cmdOpts.priority;
@@ -179,7 +180,7 @@ export function registerTaskCommands(program: Command) {
                     const deleteChildren = async (parentId: string): Promise<number> => {
                         let count = 0;
                         try {
-                            const children: any[] = await api.get(`/api/tasks/${parentId}/children`);
+                            const children = await api.get<TaskResponse[]>(`/api/tasks/${parentId}/children`);
                             for (const child of children) {
                                 count += await deleteChildren(child.id);
                                 await api.delete(`/api/tasks/${child.id}`);
@@ -233,7 +234,7 @@ export function registerTaskCommands(program: Command) {
              const spinner = !isJson ? ora('Fetching task...').start() : null;
              try {
                  // Fetch from server
-                 const t: any = await api.get(`/api/tasks/${id}`);
+                 const t = await api.get<TaskResponse>(`/api/tasks/${id}`);
 
                  spinner?.stop();
                  if (isJson) {
@@ -253,7 +254,7 @@ export function registerTaskCommands(program: Command) {
                              }
                          }
                      }
-                     outputKeyValue('Priority', t.priority);
+                     outputKeyValue('Priority', t.priority || '');
                      outputKeyValue('Description', t.description || '');
                  }
              } catch (err) {
@@ -275,7 +276,7 @@ export function registerTaskCommands(program: Command) {
 
             try {
                 const sessionId = config.sessionId;
-                const updateData: Record<string, any> = {};
+                const updateData: Record<string, string> = {};
 
                 if (cmdOpts.status) updateData.status = cmdOpts.status;
                 if (cmdOpts.priority) updateData.priority = cmdOpts.priority;
@@ -398,12 +399,12 @@ export function registerTaskCommands(program: Command) {
             const spinner = !isJson ? ora('Fetching child tasks...').start() : null;
 
             try {
-                let children: any[] = [];
+                let children: TaskResponse[] = [];
 
                 if (cmdOpts.recursive) {
                     // Recursively fetch all descendants via server
-                    const fetchDescendants = async (parentId: string): Promise<any[]> => {
-                        const directChildren: any[] = await api.get(`/api/tasks/${parentId}/children`);
+                    const fetchDescendants = async (parentId: string): Promise<TaskResponse[]> => {
+                        const directChildren = await api.get<TaskResponse[]>(`/api/tasks/${parentId}/children`);
                         let descendants = [...directChildren];
                         for (const child of directChildren) {
                             const childDescendants = await fetchDescendants(child.id);
@@ -428,7 +429,7 @@ export function registerTaskCommands(program: Command) {
                         if (cmdOpts.recursive) {
                             outputTaskTree(children);
                         } else {
-                            children.forEach((child: any) => {
+                            children.forEach((child) => {
                                 const statusIcon = child.status === 'completed' ? '✅' :
                                                   child.status === 'in_progress' ? '🔄' :
                                                   child.status === 'in_review' ? '🔍' :
@@ -608,7 +609,7 @@ export function registerTaskCommands(program: Command) {
         .description('Add a doc entry to a task')
         .requiredOption('--file <filePath>', 'File path for the doc')
         .option('--content <content>', 'Content of the doc (reads file if not provided)')
-        .action(async (taskId: string, title: string, cmdOpts: any) => {
+        .action(async (taskId: string, title: string, cmdOpts: { file: string; content?: string }) => {
             await guardCommand('task:docs:add');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -624,8 +625,9 @@ export function registerTaskCommands(program: Command) {
             if (!content && cmdOpts.file) {
                 try {
                     content = readFileSync(cmdOpts.file, 'utf-8');
-                } catch (e: any) {
-                    const err = { message: `Failed to read file: ${e.message}` };
+                } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    const err = { message: `Failed to read file: ${msg}` };
                     if (isJson) { outputErrorJSON(err); process.exit(1); }
                     else { console.error(err.message); process.exit(1); }
                 }
@@ -664,7 +666,7 @@ export function registerTaskCommands(program: Command) {
             const spinner = !isJson ? ora('Fetching task docs...').start() : null;
 
             try {
-                const docs: any[] = await api.get(`/api/tasks/${taskId}/docs`);
+                const docs = await api.get<DocResponse[]>(`/api/tasks/${taskId}/docs`);
 
                 spinner?.stop();
 
@@ -705,35 +707,35 @@ export function registerTaskCommands(program: Command) {
                     else { console.error(err.message); process.exit(1); }
                 }
 
-                let tasks: any[] = [];
+                let tasks: TaskResponse[] = [];
 
                 if (cmdOpts.root) {
                     // Get specific task from server
-                    const rootTask = await api.get(`/api/tasks/${cmdOpts.root}`);
+                    const rootTask = await api.get<TaskResponse>(`/api/tasks/${cmdOpts.root}`);
                     tasks = [rootTask];
                 } else {
                     // Get all root tasks (no parent) for the project from server
-                    const allTasks: any[] = await api.get(`/api/tasks?projectId=${projectId}`);
-                    tasks = allTasks.filter((t: any) => !t.parentId);
+                    const allTasks = await api.get<TaskResponse[]>(`/api/tasks?projectId=${projectId}`);
+                    tasks = allTasks.filter(t => !t.parentId);
                 }
 
                 // Apply status filter
                 if (cmdOpts.status) {
-                    tasks = tasks.filter((t: any) => t.status === cmdOpts.status);
+                    tasks = tasks.filter(t => t.status === cmdOpts.status);
                 }
 
                 // Build tree structure recursively via server
-                const buildTree = async (taskId: string, depth: number = 0): Promise<any> => {
+                const buildTree = async (taskId: string, depth: number = 0): Promise<TaskResponse | null> => {
                     if (cmdOpts.depth && depth >= cmdOpts.depth) return null;
 
-                    const task: any = await api.get(`/api/tasks/${taskId}`);
-                    const children: any[] = await api.get(`/api/tasks/${taskId}/children`);
+                    const task = await api.get<TaskResponse>(`/api/tasks/${taskId}`);
+                    const children = await api.get<TaskResponse[]>(`/api/tasks/${taskId}/children`);
 
                     const childTrees = await Promise.all(
-                        children.map((child: any) => buildTree(child.id, depth + 1))
+                        children.map(child => buildTree(child.id, depth + 1))
                     );
 
-                    return { ...task, children: childTrees.filter(Boolean) };
+                    return { ...task, children: childTrees.filter(Boolean) as TaskResponse[] };
                 };
 
                 const tree = await Promise.all(tasks.map(t => buildTree(t.id)));

@@ -531,7 +531,7 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                             autoFocus={!isEditMode}
                         />
                     </div>
-                    <button className="themedModalClose" onClick={handleClose} disabled={isSaving}>{'\u00D7'}</button>
+                    <button type="button" className="themedModalClose" onClick={handleClose} disabled={isSaving}>{'\u00D7'}</button>
                 </div>
 
                 {/* ── Content ───────────────────────────────────────── */}
@@ -540,7 +540,7 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                         <div className="terminalErrorBanner" style={{ marginBottom: '10px' }}>
                             <span className="terminalErrorSymbol">[ERROR]</span>
                             <span className="terminalErrorText">{error}</span>
-                            <button className="terminalErrorClose" onClick={() => setError(null)}>{'\u00D7'}</button>
+                            <button type="button" className="terminalErrorClose" onClick={() => setError(null)}>{'\u00D7'}</button>
                         </div>
                     )}
 
@@ -970,7 +970,7 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         {AGENT_TOOLS.map(tool => (
-                                            <button
+                                            <button type="button"
                                                 key={tool}
                                                 className={`themedDropdownOption ${tool === agentTool ? 'themedDropdownOption--current' : ''}`}
                                                 onClick={(e) => {

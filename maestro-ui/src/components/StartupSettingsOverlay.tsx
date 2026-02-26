@@ -75,7 +75,7 @@ export function StartupSettingsOverlay({ onComplete }: StartupSettingsOverlayPro
                   const style = STYLES[sid];
                   const isActive = sid === styleId;
                   return (
-                    <button
+                    <button type="button"
                       key={sid}
                       className={`startupThemeOption ${isActive ? 'startupThemeOptionActive' : ''}`}
                       onClick={() => setStyle(sid)}
@@ -102,7 +102,7 @@ export function StartupSettingsOverlay({ onComplete }: StartupSettingsOverlayPro
                 {currentStyleThemes.variants.map((variant) => {
                   const isActive = variant.key === colorKey;
                   return (
-                    <button
+                    <button type="button"
                       key={variant.key}
                       className={`startupThemeOption ${isActive ? 'startupThemeOptionActive' : ''}`}
                       onClick={() => setColor(variant.key)}
@@ -126,7 +126,7 @@ export function StartupSettingsOverlay({ onComplete }: StartupSettingsOverlayPro
                   const config = ZOOM_CONFIG[level];
                   const isActive = level === zoomLevel;
                   return (
-                    <button
+                    <button type="button"
                       key={level}
                       className={`startupZoomOption ${isActive ? 'startupZoomOptionActive' : ''}`}
                       onClick={() => setZoomLevel(level as ZoomLevel)}
@@ -140,7 +140,7 @@ export function StartupSettingsOverlay({ onComplete }: StartupSettingsOverlayPro
             </div>
 
             <div className="startupOverlayFooter">
-              <button className="startupBtn startupBtnPrimary" onClick={() => setStep('sound')}>
+              <button type="button" className="startupBtn startupBtnPrimary" onClick={() => setStep('sound')}>
                 Next
               </button>
             </div>
@@ -156,14 +156,14 @@ export function StartupSettingsOverlay({ onComplete }: StartupSettingsOverlayPro
               </p>
 
               <div className="startupSoundToggle">
-                <button
+                <button type="button"
                   className={`startupSoundBtn ${soundEnabled ? 'startupSoundBtnActive' : ''}`}
                   onClick={() => handleSoundToggle(true)}
                 >
                   <span className="startupSoundIcon">&#9835;</span>
                   Sounds On
                 </button>
-                <button
+                <button type="button"
                   className={`startupSoundBtn ${!soundEnabled ? 'startupSoundBtnActive' : ''}`}
                   onClick={() => handleSoundToggle(false)}
                 >
@@ -192,10 +192,10 @@ export function StartupSettingsOverlay({ onComplete }: StartupSettingsOverlayPro
             </div>
 
             <div className="startupOverlayFooter">
-              <button className="startupBtn startupBtnSecondary" onClick={() => setStep('theme')}>
+              <button type="button" className="startupBtn startupBtnSecondary" onClick={() => setStep('theme')}>
                 Back
               </button>
-              <button className="startupBtn startupBtnPrimary" onClick={handleFinish}>
+              <button type="button" className="startupBtn startupBtnPrimary" onClick={handleFinish}>
                 Get Started
               </button>
             </div>

@@ -1,0 +1,268 @@
+/* SSH Modal */
+.sshModal {
+  width: min(720px, calc(100% - 24px));
+}
+
+.sshHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sshHeaderIcon {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.14), rgba(107, 138, 253, 0.08));
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.92);
+  flex: 0 0 auto;
+}
+
+.sshHeaderIcon svg {
+  filter: none;
+}
+
+.sshHeaderText {
+  min-width: 0;
+}
+
+.sshHostRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sshHostRow .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.sshHostList {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  padding: 10px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sshHostListHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sshHostListHeaderTitle {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.sshHostListHeaderMeta {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.15);
+  padding: 2px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.sshHostListEmpty {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 6px 2px;
+}
+
+.sshHostListItems {
+  max-height: 190px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 2px;
+}
+
+.sshHostItem {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  padding: 10px 10px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.sshHostItem:hover {
+  border-color: rgba(34, 211, 238, 0.28);
+  background: rgba(34, 211, 238, 0.06);
+}
+
+.sshHostItemActive {
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(34, 211, 238, 0.08);
+}
+
+.sshHostItemMain {
+  min-width: 0;
+}
+
+.sshHostAlias {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sshHostMeta {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.sshHostPick {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(34, 211, 238, 0.12);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+}
+
+.sshHostItem:not(.sshHostItemActive) .sshHostPick {
+  background: transparent;
+  border-color: transparent;
+  color: transparent;
+}
+
+.sshOptionGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+}
+
+.sshForwardList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sshForwardRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 10px 10px;
+  border-radius: 12px;
+}
+
+.sshForwardType {
+  width: 120px;
+  flex: 0 0 auto;
+}
+
+.sshForwardBind {
+  width: 140px;
+  flex: 0 0 auto;
+}
+
+.sshForwardPort {
+  width: 90px;
+  flex: 0 0 auto;
+}
+
+.sshForwardDestHost {
+  flex: 1 1 180px;
+  min-width: 180px;
+}
+
+.sshForwardSpacer {
+  flex: 1 1 280px;
+  min-width: 180px;
+}
+
+.sshForwardRemove {
+  flex: 0 0 auto;
+}
+
+.sshForwardActions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sshCommandPreview {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 12px;
+  padding: 10px 10px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.sshCommandPreviewText {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.sshCommandPreviewActions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn.btnPrimary {
+  border-color: rgba(107, 138, 253, 0.45);
+  background: linear-gradient(180deg, rgba(107, 138, 253, 0.18), rgba(34, 211, 238, 0.1));
+}
+
+.btn.btnPrimary:hover {
+  background: linear-gradient(180deg, rgba(107, 138, 253, 0.22), rgba(34, 211, 238, 0.12));
+}
+

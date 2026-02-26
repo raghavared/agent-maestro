@@ -107,10 +107,11 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
         version: skill.manifest.version || '1.0.0',
         instructions: skill.instructions
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({
         error: true,
-        message: err.message,
+        message,
         code: 'INTERNAL_ERROR'
       });
     }
@@ -144,10 +145,11 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
       }));
 
       res.json(result);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({
         error: true,
-        message: err.message,
+        message,
         code: 'INTERNAL_ERROR'
       });
     }
@@ -187,10 +189,11 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
         version: skill.manifest.version || '1.0.0',
         reloaded: true
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({
         error: true,
-        message: err.message,
+        message,
         code: 'INTERNAL_ERROR'
       });
     }

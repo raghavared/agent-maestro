@@ -56,7 +56,7 @@ export function NewSessionModal({
       <div className="themedModal" onClick={(e) => e.stopPropagation()}>
         <div className="themedModalHeader">
           <span className="themedModalTitle">[ NEW TERMINAL ]</span>
-          <button className="themedModalClose" onClick={onClose}>×</button>
+          <button type="button" className="themedModalClose" onClick={onClose}>×</button>
         </div>
 
         <form onSubmit={onSubmit}>

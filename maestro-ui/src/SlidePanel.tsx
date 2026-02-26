@@ -67,32 +67,32 @@ export function SlidePanel({
       <div className="slidePanelResize" onMouseDown={handleMouseDown} />
       <div className="slidePanelHeader">
         <div className="slidePanelTabs">
-          <button
+          <button type="button"
             className={`slidePanelTab ${activeTab === "prompts" ? "slidePanelTabActive" : ""}`}
             onClick={() => onTabChange("prompts")}
           >
             Prompts
           </button>
-          <button
+          <button type="button"
             className={`slidePanelTab ${activeTab === "recordings" ? "slidePanelTabActive" : ""}`}
             onClick={() => onTabChange("recordings")}
           >
             Recordings
           </button>
-          <button
+          <button type="button"
             className={`slidePanelTab ${activeTab === "assets" ? "slidePanelTabActive" : ""}`}
             onClick={() => onTabChange("assets")}
           >
             Assets
           </button>
-          <button
+          <button type="button"
             className={`slidePanelTab ${activeTab === "settings" ? "slidePanelTabActive" : ""}`}
             onClick={() => onTabChange("settings")}
           >
             Settings
           </button>
         </div>
-        <button className="slidePanelClose" onClick={onClose} title="Close panel">
+        <button type="button" className="slidePanelClose" onClick={onClose} title="Close panel">
           ×
         </button>
       </div>

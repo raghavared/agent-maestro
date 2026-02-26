@@ -52,7 +52,7 @@ export function TaskFormHeader({
             <div className="themedModalHeader">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
                     {isOverlay && (
-                        <button
+                        <button type="button"
                             className="taskDetailOverlay__backBtn"
                             onClick={onClose}
                             title="Back to terminal"
@@ -85,7 +85,7 @@ export function TaskFormHeader({
                     />
                 </div>
                 {!isOverlay && (
-                    <button className="themedModalClose" onClick={onClose}>×</button>
+                    <button type="button" className="themedModalClose" onClick={onClose}>×</button>
                 )}
             </div>
 

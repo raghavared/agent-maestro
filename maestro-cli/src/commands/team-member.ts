@@ -5,6 +5,7 @@ import { outputJSON, outputTable, outputKeyValue, outputErrorJSON } from '../uti
 import { handleError } from '../utils/errors.js';
 import { guardCommand } from '../services/command-permissions.js';
 import { normalizeMode, type AgentModeInput } from '../types/manifest.js';
+import type { TeamMemberResponse } from '../types/api-responses.js';
 import ora from 'ora';
 
 export function registerTeamMemberCommands(program: Command) {
@@ -15,7 +16,7 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--all', 'Include archived members')
         .option('--status <status>', 'Filter by status: active or archived')
         .option('--mode <mode>', 'Filter by mode: worker, coordinator, coordinated-worker, coordinated-coordinator')
-        .action(async (cmdOpts: any) => {
+        .action(async (cmdOpts: { all?: boolean; status?: string; mode?: string }) => {
             await guardCommand('team-member:list');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -48,7 +49,7 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Fetching team members...').start() : null;
 
             try {
-                const members: any[] = await api.get(`/api/team-members?projectId=${projectId}`);
+                const members = await api.get<TeamMemberResponse[]>(`/api/team-members?projectId=${projectId}`);
 
                 spinner?.stop();
 
@@ -57,13 +58,13 @@ export function registerTeamMemberCommands(program: Command) {
                 if (cmdOpts.all) {
                     // include all statuses
                 } else if (cmdOpts.status) {
-                    filtered = members.filter((m: any) => m.status === cmdOpts.status);
+                    filtered = members.filter(m => m.status === cmdOpts.status);
                 } else {
-                    filtered = members.filter((m: any) => m.status === 'active');
+                    filtered = members.filter(m => m.status === 'active');
                 }
 
                 if (normalizedFilterMode) {
-                    filtered = filtered.filter((m: any) => {
+                    filtered = filtered.filter(m => {
                         const mode = normalizeMode((m.mode || 'worker') as AgentModeInput, false);
                         return mode === normalizedFilterMode;
                     });
@@ -77,7 +78,7 @@ export function registerTeamMemberCommands(program: Command) {
                     } else {
                         outputTable(
                             ['ID', 'Name', 'Role', 'Mode', 'Status', 'Default'],
-                            filtered.map((m: any) => [
+                            filtered.map(m => [
                                 m.id,
                                 `${m.avatar} ${m.name}`,
                                 m.role,
@@ -111,7 +112,7 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Fetching team member...').start() : null;
 
             try {
-                const member: any = await api.get(`/api/team-members/${teamMemberId}?projectId=${projectId}`);
+                const member = await api.get<TeamMemberResponse>(`/api/team-members/${teamMemberId}?projectId=${projectId}`);
 
                 spinner?.stop();
 
@@ -128,7 +129,7 @@ export function registerTeamMemberCommands(program: Command) {
                     outputKeyValue('Default', member.isDefault ? 'yes' : 'no');
                     outputKeyValue('Status', member.status);
                     if (member.identity) {
-                        outputKeyValue('Identity', member.identity);
+                        outputKeyValue('Identity', member.identity || '');
                     }
                     if (member.skillIds && member.skillIds.length > 0) {
                         outputKeyValue('Skill IDs', member.skillIds.join(', '));
@@ -180,7 +181,7 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--permission-mode <mode>', 'Update permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Update identity/persona instructions')
         .option('--skills <skills>', 'Update assigned skill IDs (comma-separated, e.g. react-expert,frontend-design)')
-        .action(async (teamMemberId: string, cmdOpts: any) => {
+        .action(async (teamMemberId: string, cmdOpts: { name?: string; role?: string; avatar?: string; mode?: string; model?: string; agentTool?: string; permissionMode?: string; identity?: string; skills?: string }) => {
             await guardCommand('team-member:edit');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -223,7 +224,7 @@ export function registerTeamMemberCommands(program: Command) {
             }
 
             // Build update payload from provided options
-            const updates: Record<string, any> = { projectId };
+            const updates: Record<string, unknown> = { projectId };
             if (cmdOpts.name) updates.name = cmdOpts.name.trim();
             if (cmdOpts.role) updates.role = cmdOpts.role.trim();
             if (cmdOpts.avatar) updates.avatar = cmdOpts.avatar.trim();
@@ -245,7 +246,7 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Updating team member...').start() : null;
 
             try {
-                const member: any = await api.patch(`/api/team-members/${teamMemberId}`, updates);
+                const member = await api.patch<TeamMemberResponse>(`/api/team-members/${teamMemberId}`, updates);
 
                 spinner?.succeed('Team member updated');
 
@@ -259,7 +260,7 @@ export function registerTeamMemberCommands(program: Command) {
                     outputKeyValue('Model', member.model || 'sonnet');
                     outputKeyValue('Agent Tool', member.agentTool || 'claude-code');
                     if (member.identity) {
-                        outputKeyValue('Identity', member.identity);
+                        outputKeyValue('Identity', member.identity || '');
                     }
                 }
             } catch (err) {
@@ -286,7 +287,7 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Archiving team member...').start() : null;
 
             try {
-                const member: any = await api.post(`/api/team-members/${teamMemberId}/archive`, { projectId });
+                const member = await api.post<TeamMemberResponse>(`/api/team-members/${teamMemberId}/archive`, { projectId });
 
                 spinner?.succeed('Team member archived');
 
@@ -320,7 +321,7 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Unarchiving team member...').start() : null;
 
             try {
-                const member: any = await api.post(`/api/team-members/${teamMemberId}/unarchive`, { projectId });
+                const member = await api.post<TeamMemberResponse>(`/api/team-members/${teamMemberId}/unarchive`, { projectId });
 
                 spinner?.succeed('Team member unarchived');
 
@@ -358,7 +359,7 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Deleting team member...').start() : null;
 
             try {
-                const result: any = await api.delete(`/api/team-members/${teamMemberId}?projectId=${projectId}`);
+                const result = await api.delete<TeamMemberResponse>(`/api/team-members/${teamMemberId}?projectId=${projectId}`);
 
                 spinner?.succeed('Team member deleted');
 
@@ -390,7 +391,7 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Resetting team member...').start() : null;
 
             try {
-                const member: any = await api.post(`/api/team-members/${teamMemberId}/reset`, { projectId });
+                const member = await api.post<TeamMemberResponse>(`/api/team-members/${teamMemberId}/reset`, { projectId });
 
                 spinner?.succeed('Team member reset to defaults');
 
@@ -413,7 +414,7 @@ export function registerTeamMemberCommands(program: Command) {
     teamMember.command('update-identity <teamMemberId>')
         .description('Update own identity/persona instructions (self-awareness)')
         .requiredOption('--identity <instructions>', 'New identity/persona instructions')
-        .action(async (teamMemberId: string, cmdOpts: any) => {
+        .action(async (teamMemberId: string, cmdOpts: { identity: string }) => {
             await guardCommand('team-member:update-identity');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -428,7 +429,7 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Updating identity...').start() : null;
 
             try {
-                const member: any = await api.patch(`/api/team-members/${teamMemberId}`, {
+                const member = await api.patch<TeamMemberResponse>(`/api/team-members/${teamMemberId}`, {
                     projectId,
                     identity: cmdOpts.identity.trim(),
                 });
@@ -440,7 +441,7 @@ export function registerTeamMemberCommands(program: Command) {
                 } else {
                     outputKeyValue('ID', member.id);
                     outputKeyValue('Name', `${member.avatar} ${member.name}`);
-                    outputKeyValue('Identity', member.identity);
+                    outputKeyValue('Identity', member.identity || '');
                 }
             } catch (err) {
                 spinner?.stop();
@@ -454,7 +455,7 @@ export function registerTeamMemberCommands(program: Command) {
     memory.command('append <teamMemberId>')
         .description('Append an entry to team member memory')
         .requiredOption('--entry <text>', 'Memory entry to store')
-        .action(async (teamMemberId: string, cmdOpts: any) => {
+        .action(async (teamMemberId: string, cmdOpts: { entry: string }) => {
             await guardCommand('team-member:memory:append');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -476,7 +477,7 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Appending to memory...').start() : null;
 
             try {
-                const member: any = await api.post(`/api/team-members/${teamMemberId}/memory`, {
+                const member = await api.post<TeamMemberResponse>(`/api/team-members/${teamMemberId}/memory`, {
                     projectId,
                     entries: [trimmedEntry],
                 });
@@ -520,7 +521,7 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Fetching memory...').start() : null;
 
             try {
-                const member: any = await api.get(`/api/team-members/${teamMemberId}?projectId=${projectId}`);
+                const member = await api.get<TeamMemberResponse>(`/api/team-members/${teamMemberId}?projectId=${projectId}`);
 
                 spinner?.stop();
 
@@ -563,7 +564,7 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Clearing memory...').start() : null;
 
             try {
-                const member: any = await api.patch(`/api/team-members/${teamMemberId}`, {
+                const member = await api.patch<TeamMemberResponse>(`/api/team-members/${teamMemberId}`, {
                     projectId,
                     memory: [],
                 });
@@ -593,7 +594,7 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--permission-mode <mode>', 'Permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Custom identity/persona instructions')
         .option('--skills <skills>', 'Comma-separated skill IDs to assign (e.g. react-expert,frontend-design)')
-        .action(async (name: string, cmdOpts: any) => {
+        .action(async (name: string, cmdOpts: { role: string; avatar: string; mode: string; model?: string; agentTool?: string; permissionMode?: string; identity?: string; skills?: string }) => {
             await guardCommand('team-member:create');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -634,7 +635,7 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Creating team member...').start() : null;
 
             try {
-                const payload: any = {
+                const payload: Record<string, unknown> = {
                     projectId,
                     name: name.trim(),
                     role: cmdOpts.role.trim(),
@@ -656,7 +657,7 @@ export function registerTeamMemberCommands(program: Command) {
                     payload.skillIds = cmdOpts.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
                 }
 
-                const member: any = await api.post('/api/team-members', payload);
+                const member = await api.post<TeamMemberResponse>('/api/team-members', payload);
 
                 spinner?.succeed('Team member created');
 

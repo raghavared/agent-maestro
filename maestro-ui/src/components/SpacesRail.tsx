@@ -206,12 +206,11 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
 
                 {/* Whiteboard & document space buttons */}
                 {spaces.map((space) => (
-                    <button
+                    <button type="button"
                         key={space.id}
                         className={`spacesRailSession spacesRailSpace spacesRailSpace--${space.type} ${space.id === activeSessionId ? "spacesRailSession--active" : ""}`}
                         onClick={() => onSelectSession(space.id)}
                         title={space.name}
-                        type="button"
                     >
                         {space.id === activeSessionId && <span className="iconRailActiveIndicator iconRailActiveIndicator--right" />}
                         {space.type === "whiteboard" ? <WhiteboardIcon /> : <DocumentIcon />}

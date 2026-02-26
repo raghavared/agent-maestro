@@ -119,8 +119,11 @@ export class WorkerInitCommand {
           await api.patch(`/api/tasks/${task.id}`, {
             status: 'in_progress',
           });
-        } catch (err: any) {
-          // Silent failure
+        } catch (err: unknown) {
+          if (process.env.MAESTRO_DEBUG === 'true') {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`[worker-init] Failed to update task ${task.id} status: ${message}`);
+          }
         }
 
         // Update task's per-session status to working
@@ -130,12 +133,18 @@ export class WorkerInitCommand {
             updateSource: 'session',
             sessionId,
           });
-        } catch (err: any) {
-          // Silent failure
+        } catch (err: unknown) {
+          if (process.env.MAESTRO_DEBUG === 'true') {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`[worker-init] Failed to update task ${task.id} session status: ${message}`);
+          }
         }
       }
-    } catch (err: any) {
-      // Silent failure
+    } catch (err: unknown) {
+      if (process.env.MAESTRO_DEBUG === 'true') {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[worker-init] Failed to update session status: ${message}`);
+      }
     }
   }
 

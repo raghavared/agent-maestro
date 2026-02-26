@@ -95,7 +95,7 @@ function TeamMemberDropdown({
 
     return (
         <div className="executionBarDropdown">
-            <button
+            <button type="button"
                 ref={triggerRef}
                 className="executionBarDropdownTrigger"
                 onClick={() => setIsOpen(!isOpen)}
@@ -127,7 +127,7 @@ function TeamMemberDropdown({
                             <div className="executionBarDropdownEmpty">No members available</div>
                         ) : (
                             members.map(member => (
-                                <button
+                                <button type="button"
                                     key={member.id}
                                     className={`executionBarDropdownOption ${selectedId === member.id ? 'executionBarDropdownOption--selected' : ''}`}
                                     onClick={() => {
@@ -182,7 +182,7 @@ function TeamMemberMultiDropdown({
 
     return (
         <div className="executionBarDropdown">
-            <button
+            <button type="button"
                 ref={triggerRef}
                 className="executionBarDropdownTrigger"
                 onClick={() => setIsOpen(!isOpen)}
@@ -215,11 +215,11 @@ function TeamMemberMultiDropdown({
                         ) : (
                             <>
                                 <div className="executionBarDropdownActions">
-                                    <button className="executionBarDropdownActionBtn" onClick={onSelectAll}>select all</button>
-                                    <button className="executionBarDropdownActionBtn" onClick={onClearAll}>clear</button>
+                                    <button type="button" className="executionBarDropdownActionBtn" onClick={onSelectAll}>select all</button>
+                                    <button type="button" className="executionBarDropdownActionBtn" onClick={onClearAll}>clear</button>
                                 </div>
                                 {members.map(member => (
-                                    <button
+                                    <button type="button"
                                         key={member.id}
                                         className={`executionBarDropdownOption ${selectedIds.has(member.id) ? 'executionBarDropdownOption--selected' : ''}`}
                                         onClick={() => onToggle(member.id)}
@@ -322,13 +322,13 @@ export function ExecutionBar({
     if (!isActive) {
         return (
             <div className="executionBar executionBar--inactive">
-                <button
+                <button type="button"
                     className="terminalCmd terminalCmdPrimary"
                     onClick={onActivate}
                 >
                     <span className="executionBarBtnIcon">▶</span> run
                 </button>
-                <button
+                <button type="button"
                     className="terminalCmd terminalCmdOrchestrate"
                     onClick={onActivateOrchestrate}
                 >
@@ -358,7 +358,7 @@ export function ExecutionBar({
                 <div className="terminalLaunchDropdown__header">Launch With</div>
                 {AGENT_TOOLS.map((tool) => (
                     <div key={tool.id} className="terminalLaunchDropdown__toolGroup">
-                        <button
+                        <button type="button"
                             className={`terminalLaunchDropdown__tool ${expandedTool === tool.id ? 'terminalLaunchDropdown__tool--expanded' : ''}`}
                             onClick={() => setExpandedTool(expandedTool === tool.id ? null : tool.id)}
                         >
@@ -369,7 +369,7 @@ export function ExecutionBar({
                         {expandedTool === tool.id && (
                             <div className="terminalLaunchDropdown__models">
                                 {tool.models.map((model) => (
-                                    <button
+                                    <button type="button"
                                         key={model.id}
                                         className={`terminalLaunchDropdown__model ${launchOverride?.model === model.id && launchOverride?.agentTool === tool.id ? 'terminalLaunchDropdown__model--selected' : ''}`}
                                         onClick={() => {
@@ -390,7 +390,7 @@ export function ExecutionBar({
                 {launchOverride && (
                     <>
                         <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
-                        <button
+                        <button type="button"
                             className="terminalLaunchDropdown__model"
                             style={{ color: 'var(--terminal-text-dim)', paddingLeft: 10 }}
                             onClick={() => {
@@ -462,15 +462,15 @@ export function ExecutionBar({
                     </div>
                     <div className="executionBarRow">
                         <div className="executionBarActions">
-                            <button className="terminalCmd executionBarCancelBtn" onClick={onCancel}>cancel</button>
-                            <button
+                            <button type="button" className="terminalCmd executionBarCancelBtn" onClick={onCancel}>cancel</button>
+                            <button type="button"
                                 className="executionBarConfigBtn executionBarConfigBtn--orchestrate"
                                 onClick={() => setShowConfigModal(true)}
                                 title="Configure launch options per team member"
                             >
                                 {'\u2699'}
                             </button>
-                            <button
+                            <button type="button"
                                 className="terminalCmd terminalCmdOrchestrate terminalCmdPrimary--prominent"
                                 onClick={() => onOrchestrate(
                                     selectedCoordinatorId || undefined,
@@ -534,15 +534,15 @@ export function ExecutionBar({
                 </div>
                 <div className="executionBarRow">
                     <div className="executionBarActions">
-                        <button className="terminalCmd executionBarCancelBtn" onClick={onCancel}>cancel</button>
-                        <button
+                        <button type="button" className="terminalCmd executionBarCancelBtn" onClick={onCancel}>cancel</button>
+                        <button type="button"
                             className="executionBarConfigBtn"
                             onClick={() => setShowConfigModal(true)}
                             title="Configure launch options"
                         >
                             {'\u2699'}
                         </button>
-                        <button
+                        <button type="button"
                             className="terminalCmd terminalCmdPrimary terminalCmdPrimary--prominent"
                             onClick={() => onExecute(
                                 selectedExecuteMemberId || undefined,

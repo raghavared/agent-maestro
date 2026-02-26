@@ -228,7 +228,7 @@ export function TeamLaunchConfigModal({
                             {members.length} member{members.length !== 1 ? 's' : ''}
                         </span>
                     </div>
-                    <button className="themedModalClose" onClick={onClose}>{'\u00D7'}</button>
+                    <button type="button" className="themedModalClose" onClick={onClose}>{'\u00D7'}</button>
                 </div>
 
                 {/* Content */}
@@ -285,7 +285,7 @@ export function TeamLaunchConfigModal({
                                                 </select>
 
                                                 {/* Dangerous mode toggle */}
-                                                <button
+                                                <button type="button"
                                                     className={`launchConfigToggle ${config.isDangerous ? 'launchConfigToggle--active launchConfigToggle--danger' : ''}`}
                                                     onClick={() => updateConfig(member.id, { isDangerous: !config.isDangerous })}
                                                     title={config.isDangerous ? 'Dangerous mode ON (bypassPermissions)' : 'Dangerous mode OFF'}
@@ -294,7 +294,7 @@ export function TeamLaunchConfigModal({
                                                 </button>
 
                                                 {/* Expand/collapse */}
-                                                <button
+                                                <button type="button"
                                                     className="launchConfigExpandBtn"
                                                     onClick={() => toggleMemberExpanded(member.id)}
                                                     title={config.expanded ? 'Collapse' : 'Skills & Commands'}

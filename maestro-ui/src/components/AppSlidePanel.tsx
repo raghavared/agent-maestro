@@ -108,24 +108,24 @@ export function AppSlidePanel() {
                                             </div>
                                             <div className="panelCardPreview">{p.content.slice(0, 100)}</div>
                                             <div className="panelCardActions">
-                                                <button
+                                                <button type="button"
                                                     className="panelCardBtn"
                                                     onClick={() => onSendPrompt(p, "paste")}
                                                     disabled={!activeId}
                                                 >
                                                     Paste
                                                 </button>
-                                                <button
+                                                <button type="button"
                                                     className="panelCardBtn"
                                                     onClick={() => onSendPrompt(p, "send")}
                                                     disabled={!activeId}
                                                 >
                                                     Send
                                                 </button>
-                                                <button className="panelCardBtn" onClick={() => openPromptEditor(p)}>
+                                                <button type="button" className="panelCardBtn" onClick={() => openPromptEditor(p)}>
                                                     Edit
                                                 </button>
-                                                <button className="panelCardBtn" onClick={() => togglePromptPin(p.id)}>
+                                                <button type="button" className="panelCardBtn" onClick={() => togglePromptPin(p.id)}>
                                                     Unpin
                                                 </button>
                                             </div>
@@ -152,24 +152,24 @@ export function AppSlidePanel() {
                                         <div className="panelCardMeta">{formatTimeAgo(p.createdAt)}</div>
                                         <div className="panelCardPreview">{p.content.slice(0, 100)}</div>
                                         <div className="panelCardActions">
-                                            <button
+                                            <button type="button"
                                                 className="panelCardBtn"
                                                 onClick={() => onSendPrompt(p, "paste")}
                                                 disabled={!activeId}
                                             >
                                                 Paste
                                             </button>
-                                            <button
+                                            <button type="button"
                                                 className="panelCardBtn"
                                                 onClick={() => onSendPrompt(p, "send")}
                                                 disabled={!activeId}
                                             >
                                                 Send
                                             </button>
-                                            <button className="panelCardBtn" onClick={() => openPromptEditor(p)}>
+                                            <button type="button" className="panelCardBtn" onClick={() => openPromptEditor(p)}>
                                                 Edit
                                             </button>
-                                            <button className="panelCardBtn" onClick={() => togglePromptPin(p.id)}>
+                                            <button type="button" className="panelCardBtn" onClick={() => togglePromptPin(p.id)}>
                                                 Pin
                                             </button>
                                         </div>
@@ -185,7 +185,7 @@ export function AppSlidePanel() {
 
                     {/* New Prompt Footer */}
                     <div className="panelFooter">
-                        <button className="panelFooterBtn" onClick={() => openPromptEditor()}>
+                        <button type="button" className="panelFooterBtn" onClick={() => openPromptEditor()}>
                             + New Prompt
                         </button>
                     </div>
@@ -272,13 +272,13 @@ export function AppSlidePanel() {
                                                             .join(" • ")}
                                                     </div>
                                                     <div className="panelCardActions">
-                                                        <button className="panelCardBtn" onClick={() => openReplay(r.recordingId, "step")}>
+                                                        <button type="button" className="panelCardBtn" onClick={() => openReplay(r.recordingId, "step")}>
                                                             Replay
                                                         </button>
-                                                        <button className="panelCardBtn" onClick={() => openReplay(r.recordingId, "all")}>
+                                                        <button type="button" className="panelCardBtn" onClick={() => openReplay(r.recordingId, "all")}>
                                                             View
                                                         </button>
-                                                        <button
+                                                        <button type="button"
                                                             className="panelCardBtn panelCardBtnDanger"
                                                             onClick={() => requestDeleteRecording(r.recordingId)}
                                                         >
@@ -296,7 +296,7 @@ export function AppSlidePanel() {
 
                     {/* Refresh Button */}
                     <div className="panelFooter">
-                        <button className="panelFooterBtn" onClick={() => void refreshRecordings()}>
+                        <button type="button" className="panelFooterBtn" onClick={() => void refreshRecordings()}>
                             Refresh
                         </button>
                     </div>
@@ -372,7 +372,7 @@ export function AppSlidePanel() {
                                         </div>
                                         <div className="panelCardPreview">{a.content.slice(0, 140)}</div>
                                         <div className="panelCardActions">
-                                            <button
+                                            <button type="button"
                                                 className="panelCardBtn"
                                                 onClick={() => {
                                                     const dir = activeProject?.basePath ?? null;
@@ -384,7 +384,7 @@ export function AppSlidePanel() {
                                             >
                                                 To project
                                             </button>
-                                            <button
+                                            <button type="button"
                                                 className="panelCardBtn"
                                                 onClick={() => {
                                                     const dir = activeSessionCwd ?? null;
@@ -396,13 +396,13 @@ export function AppSlidePanel() {
                                             >
                                                 To tab
                                             </button>
-                                            <button className="panelCardBtn" onClick={() => openAssetEditor(a)}>
+                                            <button type="button" className="panelCardBtn" onClick={() => openAssetEditor(a)}>
                                                 Edit
                                             </button>
-                                            <button className="panelCardBtn" onClick={() => toggleAssetAutoApply(a.id)}>
+                                            <button type="button" className="panelCardBtn" onClick={() => toggleAssetAutoApply(a.id)}>
                                                 {a.autoApply ?? true ? "Disable auto" : "Enable auto"}
                                             </button>
-                                            <button className="panelCardBtn panelCardBtnDanger" onClick={() => requestDeleteAsset(a.id)}>
+                                            <button type="button" className="panelCardBtn panelCardBtnDanger" onClick={() => requestDeleteAsset(a.id)}>
                                                 Delete
                                             </button>
                                         </div>
@@ -414,7 +414,7 @@ export function AppSlidePanel() {
 
                     {/* New Asset Footer */}
                     <div className="panelFooter">
-                        <button className="panelFooterBtn" onClick={() => openAssetEditor()}>
+                        <button type="button" className="panelFooterBtn" onClick={() => openAssetEditor()}>
                             + New Asset
                         </button>
                     </div>

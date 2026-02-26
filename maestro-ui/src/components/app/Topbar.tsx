@@ -22,6 +22,7 @@ type TopbarProps = {
   onToggleFileExplorer: () => void;
   onToggleMaestro: () => void;
   onOpenInFinder: () => void;
+  onOpenInVSCode: () => void;
   isFileExplorerDisabled: boolean;
   fileExplorerTitle: string;
 };
@@ -44,6 +45,7 @@ export function Topbar({
   onToggleFileExplorer,
   onToggleMaestro,
   onOpenInFinder,
+  onOpenInVSCode,
   isFileExplorerDisabled,
   fileExplorerTitle,
 }: TopbarProps) {
@@ -78,7 +80,7 @@ export function Topbar({
                 {secureStorageRetrying ? "Retrying…" : "Retry"}
               </button>
             ) : (
-              <button className="errorClose" onClick={onDismissPersistenceError} title="Dismiss">
+              <button type="button" className="errorClose" onClick={onDismissPersistenceError} title="Dismiss">
                 ×
               </button>
             )}
@@ -90,7 +92,7 @@ export function Topbar({
             <div className="errorText" title={error}>
               {error}
             </div>
-            <button className="errorClose" onClick={onDismissError} title="Dismiss">
+            <button type="button" className="errorClose" onClick={onDismissError} title="Dismiss">
               ×
             </button>
           </div>
@@ -107,7 +109,7 @@ export function Topbar({
         {active && (
           <>
             <div className="topbarButtonGroup">
-              <button
+              <button type="button"
                 className="iconBtn iconBtnText"
                 onClick={onOpenInFinder}
                 disabled={!active.cwd}
@@ -116,11 +118,19 @@ export function Topbar({
                 Open in Finder
               </button>
 
+              <button type="button"
+                className="iconBtn iconBtnText"
+                onClick={onOpenInVSCode}
+                disabled={!active.cwd}
+                title={active.cwd ? `Open in VS Code — ${active.cwd}` : "Open in VS Code"}
+              >
+                Open in VS Code
+              </button>
             </div>
           </>
         )}
 
-        <button
+        <button type="button"
           className={`iconBtn ${activeWorkspaceView?.fileExplorerOpen ? "iconBtnActive" : ""}`}
           onClick={onToggleFileExplorer}
           disabled={isFileExplorerDisabled}
@@ -129,7 +139,7 @@ export function Topbar({
           <Icon name="folder" />
         </button>
 
-        <button
+        <button type="button"
           className={`iconBtn ${activeRightPanel === "maestro" ? "iconBtnActive" : ""}`}
           onClick={onToggleMaestro}
           title={activeRightPanel === "maestro" ? "Close Maestro" : "Open Maestro - Task Management"}
