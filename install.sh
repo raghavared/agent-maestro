@@ -88,6 +88,55 @@ else
   success "bun found: $(bun --version)"
 fi
 
+# ── Install Node.js/npm if missing ────────────────────────
+
+info "Checking for Node.js and npm..."
+if ! command -v node >/dev/null 2>&1; then
+  info "Node.js not found — installing via official binary..."
+
+  # Detect architecture
+  NODE_ARCH="$(uname -m)"
+  case "$NODE_ARCH" in
+    arm64|aarch64) NODE_ARCH="arm64" ;;
+    x86_64)        NODE_ARCH="x64" ;;
+    *)             die "Unsupported architecture for Node.js: $NODE_ARCH" ;;
+  esac
+
+  NODE_VERSION="22.14.0"
+  NODE_TARBALL="node-v${NODE_VERSION}-darwin-${NODE_ARCH}.tar.gz"
+  NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/${NODE_TARBALL}"
+
+  TMP_DIR="$(mktemp -d)"
+  info "Downloading Node.js v${NODE_VERSION} for ${NODE_ARCH}..."
+  curl -fSL "$NODE_URL" -o "${TMP_DIR}/${NODE_TARBALL}"
+  tar -xzf "${TMP_DIR}/${NODE_TARBALL}" -C "$TMP_DIR"
+
+  NODE_EXTRACTED="${TMP_DIR}/node-v${NODE_VERSION}-darwin-${NODE_ARCH}"
+
+  # Install to ~/.local/node and add to PATH
+  NODE_LOCAL_DIR="${HOME}/.local/node"
+  rm -rf "$NODE_LOCAL_DIR"
+  mkdir -p "$(dirname "$NODE_LOCAL_DIR")"
+  mv "$NODE_EXTRACTED" "$NODE_LOCAL_DIR"
+  rm -rf "$TMP_DIR"
+
+  export PATH="${NODE_LOCAL_DIR}/bin:${PATH}"
+
+  command -v node >/dev/null 2>&1 || die "Node.js installation failed. Install manually: https://nodejs.org"
+  command -v npm >/dev/null 2>&1 || die "npm not found after Node.js install. Install manually: https://nodejs.org"
+  success "Node.js installed: $(node --version)"
+  success "npm installed: $(npm --version)"
+else
+  # Ensure npm is also available
+  if ! command -v npm >/dev/null 2>&1; then
+    warn "Node.js found but npm is missing. Attempting to install npm..."
+    node -e "process.exit(0)" 2>/dev/null || die "Node.js is present but broken. Reinstall from https://nodejs.org"
+    die "npm not found. Please install npm or reinstall Node.js from https://nodejs.org"
+  fi
+  success "Node.js found: $(node --version)"
+  success "npm found: $(npm --version)"
+fi
+
 # ── Install Rust/Cargo if missing (required for Tauri) ────
 
 info "Checking for Rust/Cargo..."
@@ -328,20 +377,30 @@ fi
 # ── Update PATH ────────────────────────────────────────────
 
 BIN_DIR="${INSTALL_DIR}/bin"
-EXPORT_LINE="export PATH=\"${BIN_DIR}:\$PATH\""
+NODE_LOCAL_BIN="${HOME}/.local/node/bin"
 
+CURRENT_SHELL="$(basename "${SHELL:-/bin/sh}")"
+case "$CURRENT_SHELL" in
+  zsh)  SHELL_RC="$HOME/.zshrc" ;;
+  bash) SHELL_RC="${HOME}/.bashrc" ; [ ! -f "$SHELL_RC" ] && SHELL_RC="$HOME/.bash_profile" ;;
+  fish) SHELL_RC="$HOME/.config/fish/config.fish" ;;
+  *)    SHELL_RC="" ;;
+esac
+
+# Add Node.js to PATH if we installed it to ~/.local/node
+if [ -d "$NODE_LOCAL_BIN" ] && [ -n "$SHELL_RC" ]; then
+  if ! grep -qF "$NODE_LOCAL_BIN" "$SHELL_RC" 2>/dev/null; then
+    printf '\n# Node.js (installed by Maestro)\nexport PATH="%s:$PATH"\n' "$NODE_LOCAL_BIN" >> "$SHELL_RC"
+    success "Added $(echo "$NODE_LOCAL_BIN" | sed "s|$HOME|~|") to PATH in $(echo "$SHELL_RC" | sed "s|$HOME|~|")"
+  fi
+fi
+
+# Add Maestro bin to PATH
+EXPORT_LINE="export PATH=\"${BIN_DIR}:\$PATH\""
 case ":${PATH}:" in
   *":${BIN_DIR}:"*)
     ;;
   *)
-    CURRENT_SHELL="$(basename "${SHELL:-/bin/sh}")"
-    case "$CURRENT_SHELL" in
-      zsh)  SHELL_RC="$HOME/.zshrc" ;;
-      bash) SHELL_RC="${HOME}/.bashrc" ; [ ! -f "$SHELL_RC" ] && SHELL_RC="$HOME/.bash_profile" ;;
-      fish) SHELL_RC="$HOME/.config/fish/config.fish" ;;
-      *)    SHELL_RC="" ;;
-    esac
-
     if [ -n "$SHELL_RC" ]; then
       if ! grep -qF "$BIN_DIR" "$SHELL_RC" 2>/dev/null; then
         printf '\n# Maestro\n%s\n' "$EXPORT_LINE" >> "$SHELL_RC"
