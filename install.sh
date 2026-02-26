@@ -263,13 +263,13 @@ success "CLI built"
 
 printf "\n"
 info "[4/6] Building UI and desktop app (Tauri)..."
-bun run build:ui
+NODE_OPTIONS="--max-old-space-size=8192" bun run build:ui
 cd maestro-ui
 if [ "$INCLUDE_VSCODE" = "y" ]; then
-  VITE_API_URL=http://localhost:2357/api VITE_WS_URL=ws://localhost:2357 \
+  NODE_OPTIONS="--max-old-space-size=8192" VITE_API_URL=http://localhost:2357/api VITE_WS_URL=ws://localhost:2357 \
     bunx tauri build --features custom-protocol,vscode --config src-tauri/tauri.conf.prod.json
 else
-  VITE_API_URL=http://localhost:2357/api VITE_WS_URL=ws://localhost:2357 \
+  NODE_OPTIONS="--max-old-space-size=8192" VITE_API_URL=http://localhost:2357/api VITE_WS_URL=ws://localhost:2357 \
     bunx tauri build --features custom-protocol --config src-tauri/tauri.conf.prod-novscode.json
 fi
 cd "$REPO_DIR"
