@@ -159,20 +159,6 @@ export function AppTopbar() {
                     Open in Finder
                   </button>
 
-                  <button
-                    className="iconBtn iconBtnText"
-                    onClick={() => {
-                      const cwd = active.cwd?.trim() ?? "";
-                      if (!cwd) return;
-                      void invoke("open_path_in_vscode", { path: cwd }).catch((err) =>
-                        reportError("Failed to open VS Code", err),
-                      );
-                    }}
-                    disabled={!active.cwd}
-                    title={active.cwd ? `Open in VS Code — ${active.cwd}` : "Open in VS Code"}
-                  >
-                    Open in VS Code
-                  </button>
                 </div>
               </>
             ) : null}

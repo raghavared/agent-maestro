@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { TaskPriority, MaestroTask, MemberLaunchOverride, TeamMember } from "../app/types/maestro";
+import { TaskPriority, MaestroTask, MemberLaunchOverride, TeamMember, TaskImage } from "../app/types/maestro";
 import { maestroClient } from "../utils/MaestroClient";
 import { MemberConfig, buildDefaultMemberConfig, buildOverridesFromConfigs } from "../components/maestro/task-modal/LaunchConfigPanel";
 
@@ -13,6 +13,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
     const [activeTab, setActiveTab] = useState<string | null>(null);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [dueDate, setDueDate] = useState<string>("");
 
     // Subtask state
     const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
@@ -20,6 +21,9 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
 
     // Task docs (edit mode)
     const [taskDocs, setTaskDocs] = useState<any[]>([]);
+
+    // Task images (edit mode)
+    const [taskImages, setTaskImages] = useState<TaskImage[]>([]);
 
     // Launch config state
     const [showLaunchConfig, setShowLaunchConfig] = useState(false);
@@ -37,8 +41,9 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
                     : task.teamMemberId ? [task.teamMemberId] : []
             );
             setSelectedSkills(task.skillIds || []);
+            setDueDate(task.dueDate || "");
         }
-    }, [isEditMode, isOpen, task?.id, task?.title, task?.description, task?.priority, task?.teamMemberId, JSON.stringify(task?.teamMemberIds), JSON.stringify(task?.referenceTaskIds)]);
+    }, [isEditMode, isOpen, task?.id, task?.title, task?.description, task?.priority, task?.teamMemberId, JSON.stringify(task?.teamMemberIds), JSON.stringify(task?.referenceTaskIds), task?.dueDate]);
 
     // Fetch task docs in edit mode
     useEffect(() => {
@@ -49,6 +54,15 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         }
     }, [isEditMode, task?.id]);
 
+    // Load images in edit mode
+    useEffect(() => {
+        if (isEditMode && task) {
+            setTaskImages(task.images || []);
+        } else {
+            setTaskImages([]);
+        }
+    }, [isEditMode, task?.id, JSON.stringify(task?.images)]);
+
     // Reset form when switching to create mode
     useEffect(() => {
         if (mode === "create" && isOpen) {
@@ -57,24 +71,26 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
             setPriority("medium");
             setSelectedTeamMemberIds([]);
             setSelectedSkills([]);
+            setDueDate("");
             setActiveTab(null);
         }
     }, [mode, isOpen]);
 
     const hasUnsavedContent = useMemo(() => {
         if (mode === "create") {
-            return title.trim() !== "" || prompt.trim() !== "";
+            return title.trim() !== "" || prompt.trim() !== "" || dueDate !== "";
         }
         if (isEditMode && task) {
             return (
                 title !== task.title ||
                 prompt !== (task.description || "") ||
                 priority !== task.priority ||
+                dueDate !== (task.dueDate || "") ||
                 JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(task.teamMemberIds || (task.teamMemberId ? [task.teamMemberId] : []))
             );
         }
         return false;
-    }, [mode, isEditMode, task, title, prompt, priority, selectedTeamMemberIds]);
+    }, [mode, isEditMode, task, title, prompt, priority, dueDate, selectedTeamMemberIds]);
 
     const isValid = title.trim() !== "" && prompt.trim() !== "";
 
@@ -122,8 +138,10 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         setShowConfirmDialog(false);
         setNewSubtaskTitle("");
         setShowSubtaskInput(false);
+        setDueDate("");
         setShowLaunchConfig(false);
         setMemberConfigs({});
+        setTaskImages([]);
     };
 
     const getCreatePayload = (startImmediately: boolean, referenceTaskIds?: string[], parentId?: string) => ({
@@ -131,6 +149,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         description: prompt,
         priority,
         startImmediately,
+        dueDate: dueDate || undefined,
         skillIds: selectedSkills.length > 0 ? selectedSkills : undefined,
         referenceTaskIds: referenceTaskIds && referenceTaskIds.length > 0 ? referenceTaskIds : undefined,
         parentId,
@@ -149,6 +168,8 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
             updates.teamMemberIds = selectedTeamMemberIds.length > 0 ? selectedTeamMemberIds : undefined;
             updates.teamMemberId = selectedTeamMemberIds.length === 1 ? selectedTeamMemberIds[0] : undefined;
         }
+        const currentDueDate = task.dueDate || "";
+        if (dueDate !== currentDueDate) updates.dueDate = dueDate || null;
         if (JSON.stringify(selectedSkills) !== JSON.stringify(task.skillIds || [])) updates.skillIds = selectedSkills;
         if (JSON.stringify(referenceTaskIds) !== JSON.stringify(task.referenceTaskIds || [])) updates.referenceTaskIds = referenceTaskIds;
         return Object.keys(updates).length > 0 ? updates : null;
@@ -158,6 +179,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         title, setTitle,
         prompt, setPrompt,
         priority, setPriority,
+        dueDate, setDueDate,
         selectedTeamMemberIds, setSelectedTeamMemberIds,
         selectedSkills, setSelectedSkills,
         activeTab, setActiveTab, toggleTab,
@@ -165,6 +187,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         newSubtaskTitle, setNewSubtaskTitle,
         showSubtaskInput, setShowSubtaskInput,
         taskDocs,
+        taskImages, setTaskImages,
         hasUnsavedContent,
         isValid,
         resetForm,

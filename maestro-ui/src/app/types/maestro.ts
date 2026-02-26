@@ -229,6 +229,14 @@ export interface DocEntry {
   sessionName?: string;
 }
 
+export interface TaskImage {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  addedAt: number;
+}
+
 export interface MaestroProject {
   id: string;
   name: string;
@@ -312,8 +320,14 @@ export interface MaestroTask {
   // Per-member launch overrides saved on the task
   memberOverrides?: Record<string, MemberLaunchOverride>;
 
+  // Due date for the task (ISO date string "YYYY-MM-DD" or null)
+  dueDate?: string | null;
+
   // Docs attached to this task
   docs?: DocEntry[];
+
+  // Images attached to this task
+  images?: TaskImage[];
 
   // UI/Populated Fields (Optional)
   subtasks?: MaestroTask[];
@@ -379,6 +393,7 @@ export interface CreateTaskPayload {
   teamMemberId?: string;
   teamMemberIds?: string[];
   memberOverrides?: Record<string, MemberLaunchOverride>;
+  dueDate?: string;
 }
 
 export interface UpdateTaskPayload {
@@ -396,6 +411,7 @@ export interface UpdateTaskPayload {
   pinned?: boolean;
   teamMemberId?: string;
   teamMemberIds?: string[];
+  dueDate?: string | null;
   // NOTE: timeline moved to Session - use addTimelineEvent on session
   completedAt?: number | null;
 }

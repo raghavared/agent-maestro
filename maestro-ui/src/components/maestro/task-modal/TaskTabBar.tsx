@@ -12,6 +12,7 @@ type TaskTabBarProps = {
     selectedSkillsCount: number;
     selectedRefTasksCount: number;
     taskDocsCount: number;
+    taskImagesCount?: number;
 };
 
 export function TaskTabBar({
@@ -23,6 +24,7 @@ export function TaskTabBar({
     selectedSkillsCount,
     selectedRefTasksCount,
     taskDocsCount,
+    taskImagesCount = 0,
 }: TaskTabBarProps) {
     const subtaskProgress = useSubtaskProgress(isEditMode ? taskId ?? null : null);
     const { sessions } = useTaskSessions(isEditMode ? taskId ?? null : null);
@@ -82,6 +84,18 @@ export function TaskTabBar({
                     Gen Docs
                     {taskDocsCount > 0 && (
                         <span className="themedModalTabBadge">{taskDocsCount}</span>
+                    )}
+                </button>
+            )}
+            {isEditMode && (
+                <button
+                    type="button"
+                    className={`themedModalTab ${activeTab === 'images' ? 'themedModalTab--active' : ''}`}
+                    onClick={() => onToggleTab('images')}
+                >
+                    Images
+                    {taskImagesCount > 0 && (
+                        <span className="themedModalTabBadge">{taskImagesCount}</span>
                     )}
                 </button>
             )}

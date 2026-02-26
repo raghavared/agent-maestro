@@ -46,7 +46,6 @@ import { UpdateBanner } from "./components/UpdateBanner";
 import { PromptSendAnimationLayer } from "./components/PromptSendAnimation";
 import { createMaestroSession } from "./services/maestroService";
 import { TaskDetailOverlay } from "./components/maestro/TaskDetailOverlay";
-import { VSCodePanel } from "./components/VSCodePanel";
 import { STORAGE_SETUP_COMPLETE_KEY } from "./app/constants/defaults";
 
 // ---------------------------------------------------------------------------
@@ -184,8 +183,6 @@ export default function App() {
   const spacesRailActiveSection = useUIStore((s) => s.spacesRailActiveSection);
   const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
   const toggleSpacesPanel = useUIStore((s) => s.toggleSpacesPanel);
-  const vsCodeMode = useUIStore((s) => s.vsCodeMode);
-
   // ---------- projects ----------
   const projects = useProjectStore((s) => s.projects);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
@@ -514,10 +511,6 @@ export default function App() {
         <>
           {/* -------- App Content -------- */}
           <div className="appContent">
-            {vsCodeMode ? (
-              <VSCodePanel basePath={activeProject?.basePath} />
-            ) : (
-              <>
                 {/* -------- Left Panel (Icon Rail + Maestro Sidebar) -------- */}
                 <AppLeftPanel />
 
@@ -583,8 +576,6 @@ export default function App() {
                   activeSection={spacesRailActiveSection}
                   onToggle={toggleSpacesPanel}
                 />
-              </>
-            )}
           </div>
         </>
       )}

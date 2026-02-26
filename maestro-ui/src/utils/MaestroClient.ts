@@ -18,6 +18,7 @@ import type {
     SpawnSessionPayload,
     SpawnSessionResponse,
     DocEntry,
+    TaskImage,
     Ordering,
     TeamMember,
     CreateTeamMemberPayload,
@@ -359,6 +360,56 @@ class MaestroClient {
 
     async getTaskDocs(taskId: string): Promise<DocEntry[]> {
         return this.fetch<DocEntry[]>(`/tasks/${taskId}/docs`);
+    }
+
+    // ==================== TASK IMAGES ====================
+
+    /**
+     * Upload an image to a task (accepts a File object, converts to base64)
+     */
+    async uploadTaskImage(taskId: string, file: File): Promise<TaskImage> {
+        const data = await this.fileToBase64(file);
+        return this.fetch<TaskImage>(`/tasks/${taskId}/images`, {
+            method: 'POST',
+            body: JSON.stringify({
+                filename: file.name,
+                data,
+                mimeType: file.type,
+            }),
+        });
+    }
+
+    /**
+     * Get the URL for serving a task image
+     */
+    getTaskImageUrl(taskId: string, imageId: string): string {
+        return `${this.baseUrl}/tasks/${taskId}/images/${imageId}`;
+    }
+
+    /**
+     * Delete an image from a task
+     */
+    async deleteTaskImage(taskId: string, imageId: string): Promise<void> {
+        await this.fetch<{ success: boolean }>(`/tasks/${taskId}/images/${imageId}`, {
+            method: 'DELETE',
+        });
+    }
+
+    /**
+     * Convert a File to base64 string
+     */
+    private fileToBase64(file: File): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = reader.result as string;
+                // Strip the data URL prefix (e.g. "data:image/png;base64,")
+                const base64 = result.split(',')[1];
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
     }
 
     // ==================== SKILLS ====================

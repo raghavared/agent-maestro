@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
@@ -22,6 +23,10 @@ pub struct PersistedProjectV1 {
     pub base_path: Option<String>,
     pub environment_id: Option<String>,
     pub assets_enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound_instrument: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound_config: Option<JsonValue>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

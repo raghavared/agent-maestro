@@ -1,13 +1,15 @@
 import express, { Request, Response } from 'express';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { TaskService } from '../application/services/TaskService';
 import { SessionService } from '../application/services/SessionService';
-import { TaskStatus } from '../types';
+import { TaskStatus, TaskImage } from '../types';
 import { AppError } from '../domain/common/Errors';
 
 /**
  * Create task routes using the TaskService.
  */
-export function createTaskRoutes(taskService: TaskService, sessionService?: SessionService) {
+export function createTaskRoutes(taskService: TaskService, sessionService?: SessionService, dataDir?: string) {
   const router = express.Router();
 
   // Error handler helper
@@ -221,6 +223,131 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
         filePath,
         addedAt: Date.now(),
       });
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
+  // ==================== TASK IMAGES ====================
+
+  // Helper: get images directory for a task
+  const getImagesDir = (projectId: string, taskId: string) => {
+    if (!dataDir) throw new Error('dataDir not configured');
+    return path.join(dataDir, 'images', projectId, taskId);
+  };
+
+  // Upload image to a task (base64 encoded in JSON body)
+  router.post('/tasks/:id/images', async (req: Request, res: Response) => {
+    try {
+      const taskId = req.params.id as string;
+      const { filename, data, mimeType } = req.body;
+
+      if (!filename || !data || !mimeType) {
+        return res.status(400).json({
+          error: true,
+          message: 'filename, data (base64), and mimeType are required',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Validate mime type
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
+      if (!allowedTypes.includes(mimeType)) {
+        return res.status(400).json({
+          error: true,
+          message: `Unsupported image type: ${mimeType}. Allowed: ${allowedTypes.join(', ')}`,
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      const task = await taskService.getTask(taskId);
+
+      // Generate image ID
+      const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const ext = filename.split('.').pop() || 'png';
+      const storedFilename = `${imageId}.${ext}`;
+
+      // Decode base64 and write to disk
+      const buffer = Buffer.from(data, 'base64');
+      const imagesDir = getImagesDir(task.projectId, taskId);
+      await fs.mkdir(imagesDir, { recursive: true });
+      await fs.writeFile(path.join(imagesDir, storedFilename), buffer);
+
+      // Add image metadata to task
+      const imageEntry: TaskImage = {
+        id: imageId,
+        filename,
+        mimeType,
+        size: buffer.length,
+        addedAt: Date.now(),
+      };
+
+      const currentImages = task.images || [];
+      await taskService.updateTask(taskId, {
+        ...({} as any),
+        images: [...currentImages, imageEntry],
+      } as any);
+
+      res.status(201).json(imageEntry);
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
+  // Get (serve) an image file
+  router.get('/tasks/:id/images/:imageId', async (req: Request, res: Response) => {
+    try {
+      const taskId = req.params.id as string;
+      const imageId = req.params.imageId as string;
+
+      const task = await taskService.getTask(taskId);
+      const image = (task.images || []).find((img: TaskImage) => img.id === imageId);
+      if (!image) {
+        return res.status(404).json({ error: true, message: 'Image not found', code: 'NOT_FOUND' });
+      }
+
+      const ext = image.filename.split('.').pop() || 'png';
+      const filePath = path.join(getImagesDir(task.projectId, taskId), `${imageId}.${ext}`);
+
+      try {
+        const fileBuffer = await fs.readFile(filePath);
+        res.set('Content-Type', image.mimeType);
+        res.set('Cache-Control', 'public, max-age=31536000');
+        res.send(fileBuffer);
+      } catch {
+        return res.status(404).json({ error: true, message: 'Image file not found on disk', code: 'NOT_FOUND' });
+      }
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  });
+
+  // Delete an image from a task
+  router.delete('/tasks/:id/images/:imageId', async (req: Request, res: Response) => {
+    try {
+      const taskId = req.params.id as string;
+      const imageId = req.params.imageId as string;
+
+      const task = await taskService.getTask(taskId);
+      const image = (task.images || []).find((img: TaskImage) => img.id === imageId);
+      if (!image) {
+        return res.status(404).json({ error: true, message: 'Image not found', code: 'NOT_FOUND' });
+      }
+
+      // Remove file from disk
+      const ext = image.filename.split('.').pop() || 'png';
+      const filePath = path.join(getImagesDir(task.projectId, taskId), `${imageId}.${ext}`);
+      try {
+        await fs.unlink(filePath);
+      } catch {
+        // Ignore if file already gone
+      }
+
+      // Update task to remove image metadata
+      const updatedImages = (task.images || []).filter((img: TaskImage) => img.id !== imageId);
+      await taskService.updateTask(taskId, { ...({} as any), images: updatedImages } as any);
+
+      res.json({ success: true, id: imageId });
     } catch (err: any) {
       handleError(err, res);
     }

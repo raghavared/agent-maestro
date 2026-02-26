@@ -54,7 +54,7 @@ async function startServer() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Session-Id'],
     exposedHeaders: ['Content-Length', 'X-Request-Id']
   }));
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
 
   // Health check
   app.get('/health', (req: Request, res: Response) => {
@@ -81,7 +81,7 @@ async function startServer() {
 
   // API routes using services
   const projectRoutes = createProjectRoutes(projectService);
-  const taskRoutes = createTaskRoutes(taskService, sessionService);
+  const taskRoutes = createTaskRoutes(taskService, sessionService, config.dataDir);
   const taskListRoutes = createTaskListRoutes(taskListService);
   const sessionRoutes = createSessionRoutes({
     sessionService,

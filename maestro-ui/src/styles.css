@@ -400,17 +400,6 @@ body {
   border-color: var(--theme-primary);
 }
 
-/* VS Code Panel */
-.vsCodePanel { flex: 1; display: flex; align-items: center; justify-content: center; background: #1e1e1e; min-height: 0; }
-.vsCodeIframe { width: 100%; height: 100%; border: none; }
-.vsCodePanelLoading, .vsCodePanelError {
-  color: var(--muted);
-  font-family: var(--style-font-ui);
-  font-size: 13px;
-  text-align: center;
-  padding: 24px;
-}
-
 /* Add Project Menu */
 .projectAddMenuWrapper {
   position: relative;
@@ -1491,6 +1480,14 @@ body {
   border-right: 1px solid var(--border);
   background: #000;
   contain: strict;
+}
+
+.appLeftPanelContent .fileExplorerPanel {
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  border-left: none;
+  background: transparent;
 }
 
 /* ------------------------------------------------------------------ */
@@ -2910,8 +2907,8 @@ body {
 }
 
 .workspaceResize {
-  flex: 0 0 6px;
-  width: 6px;
+  flex: 0 0 4px;
+  width: 4px;
   cursor: ew-resize;
   position: relative;
   z-index: 5;
@@ -2922,15 +2919,16 @@ body {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 2px;
+  left: 1px;
   width: 2px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  transition: background 0.15s ease;
 }
 
 .workspaceResize:hover::before,
 .workspaceResizing .workspaceResize::before {
-  background: rgba(107, 138, 253, 0.35);
+  background: rgba(107, 138, 253, 0.6);
 }
 
 .terminalPane {
@@ -3036,10 +3034,9 @@ body {
 .rightPanel .fileExplorerPanel {
   width: 100%;
   flex: 1;
+  min-width: 0;
   border-left: none;
-  /* rightPanel has the border */
   background: transparent;
-  /* match panel bg */
 }
 
 /* File Explorer + Editor */
@@ -3051,7 +3048,7 @@ body {
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(15, 22, 32, 0.92), rgba(10, 14, 20, 0.98));
+  background: #252526;
 }
 
 .fileExplorerHeader {
@@ -3059,8 +3056,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .fileExplorerTitle {
@@ -3091,7 +3088,26 @@ body {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 6px 0;
+  padding: 4px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.fileExplorerList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.fileExplorerList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fileExplorerList::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+.fileExplorerList::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .fileExplorerListDropTarget {
@@ -3104,22 +3120,29 @@ body {
   width: 100%;
   border: 0;
   background: transparent;
-  color: var(--text);
-  padding: 6px 10px;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 2px 10px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 12.5px;
+  font-family: var(--style-font-ui);
   cursor: pointer;
   text-align: left;
+  transition: background 0.08s ease;
+  line-height: 1;
 }
 
 .fileExplorerRow:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .fileExplorerRowActive {
-  background: rgba(107, 138, 253, 0.12);
+  background: rgba(107, 138, 253, 0.15);
+}
+
+.fileExplorerRowActive:hover {
+  background: rgba(107, 138, 253, 0.2);
 }
 
 .fileExplorerRowContext {
@@ -3157,6 +3180,10 @@ body {
   width: 12px;
   flex-shrink: 0;
   color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+  line-height: 1;
+  user-select: none;
 }
 
 .fileExplorerIcon {
@@ -3166,7 +3193,6 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.85;
 }
 
 .fileExplorerName {
@@ -3174,6 +3200,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 .fileExplorerMeta {
@@ -3208,7 +3235,7 @@ body {
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(12, 18, 26, 0.9), rgba(10, 14, 20, 0.96));
+  background: #1e1e1e;
 }
 
 .codeEditorHeader {
@@ -3217,10 +3244,10 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
+  gap: 8px;
+  padding: 0 8px 0 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #252526;
 }
 
 .codeEditorTabsWrapper {
@@ -3251,7 +3278,7 @@ body {
   bottom: 0;
   width: 28px;
   border: 0;
-  background: linear-gradient(90deg, rgba(16, 21, 30, 0.95), rgba(16, 21, 30, 0.4));
+  background: linear-gradient(90deg, rgba(37, 37, 38, 0.95), rgba(37, 37, 38, 0.4));
   color: rgba(255, 255, 255, 0.75);
   cursor: pointer;
   display: flex;
@@ -3271,26 +3298,31 @@ body {
 
 .codeEditorTabsScrollBtnLeft {
   left: 0;
-  background: linear-gradient(90deg, rgba(16, 21, 30, 0.95), transparent);
+  background: linear-gradient(90deg, rgba(37, 37, 38, 0.95), transparent);
 }
 
 .codeEditorTabsScrollBtnRight {
   right: 0;
-  background: linear-gradient(270deg, rgba(16, 21, 30, 0.95), transparent);
+  background: linear-gradient(270deg, rgba(37, 37, 38, 0.95), transparent);
 }
 
 .codeEditorTab {
   display: flex;
   align-items: center;
   border: 0;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
   border-bottom: 2px solid transparent;
-  background: rgba(255, 255, 255, 0.01);
+  background: #2d2d2d;
   border-radius: 0;
   overflow: hidden;
   flex-shrink: 0;
   min-width: 100px;
   max-width: 260px;
+  transition: background 0.1s ease;
+}
+
+.codeEditorTab:hover {
+  background: #353535;
 }
 
 .codeEditorTab:last-child {
@@ -3298,20 +3330,29 @@ body {
 }
 
 .codeEditorTabActive {
-  background: rgba(255, 255, 255, 0.04);
-  border-bottom-color: rgba(107, 138, 253, 0.6);
+  background: #1e1e1e;
+  border-bottom-color: rgba(107, 138, 253, 0.8);
+}
+
+.codeEditorTabActive:hover {
+  background: #1e1e1e;
 }
 
 .codeEditorTabMain {
   border: 0;
   background: transparent;
-  color: var(--text);
-  padding: 7px 10px;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 8px 12px;
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
   min-width: 0;
+  font-size: 12px;
+}
+
+.codeEditorTabActive .codeEditorTabMain {
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .codeEditorTabTitle {
@@ -3413,16 +3454,16 @@ body {
 }
 
 .codeEditorPathBar {
-  padding: 3px 10px;
-  font-size: 10px;
-  color: var(--muted);
+  padding: 4px 12px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
   font-family: var(--style-font-code);
-  text-align: center;
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: rgba(0, 0, 0, 0.15);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: #1e1e1e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .codeEditorBody {
@@ -3430,11 +3471,35 @@ body {
   z-index: 0;
   flex: 1;
   min-height: 0;
+  background: #1e1e1e;
 }
 
 .codeEditorMonaco {
   position: absolute;
   inset: 0;
+}
+
+.codeEditorMonaco .monaco-editor,
+.codeEditorMonaco .monaco-editor .overflow-guard {
+  border-radius: 0;
+}
+
+.codeEditorEmptyState {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 13px;
+  user-select: none;
+}
+
+.codeEditorEmptyIcon {
+  font-size: 32px;
+  opacity: 0.4;
 }
 
 .codeEditorOverlay {
@@ -3443,10 +3508,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.38);
-  color: rgba(255, 255, 255, 0.92);
+  background: rgba(30, 30, 30, 0.85);
+  color: rgba(255, 255, 255, 0.8);
   font-size: 13px;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(4px);
 }
 
 .codeEditorSaveError {
@@ -12463,6 +12528,15 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.filterChip--overdue:hover,
+.filterChip--overdue.filterChip--active {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+.filterChip--overdue.filterChip--active {
+  background: rgba(239, 68, 68, 0.12);
+}
+
 /* Priority semantic colors */
 .filterChip--high:hover,
 .filterChip--high.filterChip--active {
@@ -18810,6 +18884,22 @@ body.dragging-active * {
   opacity: 0.4;
 }
 
+.taskBoardCard--overdue {
+  border-left: 2px solid #ef4444;
+}
+
+/* ── Card Due Date ── */
+
+.taskBoardCardDueDate {
+  font-size: 10px;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.taskBoardCardDueDate--overdue {
+  color: #ef4444;
+  font-weight: 600;
+}
+
 /* ── Card Stripe ── */
 
 .taskBoardCardStripe {
@@ -21796,7 +21886,7 @@ html[data-style="minimal"] * {
   box-shadow: 0 0 6px rgba(var(--theme-primary-rgb), 0.3);
 }
 
-/* Expand button */
+/* Expand button - hidden by default, visible on row hover */
 .terminalTaskExpandBtn {
   width: 24px;
   height: 24px;
@@ -21811,15 +21901,59 @@ html[data-style="minimal"] * {
   font-size: 11px;
   transition: all 0.2s ease;
   border-radius: 3px;
+  opacity: 0;
+}
+
+.terminalTaskRow:hover .terminalTaskExpandBtn {
+  opacity: 1;
 }
 
 .terminalTaskExpandBtn--open {
+  opacity: 1;
   transform: rotate(180deg);
   color: var(--terminal-green);
 }
 
 .terminalTaskExpandBtn:hover {
   color: var(--terminal-cyan);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+/* Session status indicator on task tile */
+.terminalTaskSessionIndicator {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  border-radius: 3px;
+}
+
+.terminalTaskSessionIndicator--completed {
+  color: var(--terminal-green);
+}
+
+.terminalTaskSessionIndicator--failed {
+  color: var(--terminal-red, #ff4444);
+}
+
+.terminalTaskSessionIndicator--working {
+  color: var(--terminal-cyan);
+  animation: sessionIndicatorPulse 2s ease-in-out infinite;
+}
+
+@keyframes sessionIndicatorPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.terminalTaskSessionIndicator:hover {
   background: rgba(var(--theme-primary-rgb), 0.1);
 }
 
@@ -22175,4 +22309,449 @@ html[data-style="minimal"] * {
   .terminalTeamMain .terminalTimeAgo {
     display: none;
   }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Dashboard — Dark Analytics Theme
+   ══════════════════════════════════════════════════════════ */
+
+.dashContainer {
+  padding: 20px 24px 40px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dashTimeBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  flex-shrink: 0;
+}
+
+.dashTimeLabel {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.dashTimePresets {
+  display: flex;
+  gap: 2px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  border-radius: var(--style-radius-sm, 4px);
+  padding: 3px;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+}
+
+.dashTimeBtn {
+  background: transparent;
+  border: none;
+  color: rgba(var(--theme-primary-rgb), 0.35);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 3px;
+}
+
+.dashTimeBtn:hover {
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  background: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.dashTimeBtn--active {
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.dashSection {
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  border-radius: var(--style-radius-md, 8px);
+  padding: 16px;
+}
+
+.dashSection--half {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashRow {
+  display: flex;
+  gap: 16px;
+}
+
+.dashSectionHeader {
+  margin-bottom: 12px;
+}
+
+.dashSectionTitle {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  margin: 0;
+}
+
+.dashMetricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.dashMetricCard {
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  border-radius: var(--style-radius-md, 8px);
+  padding: 14px 16px;
+  transition: all 0.2s ease;
+  border-left-width: 3px;
+}
+
+.dashMetricCard:hover {
+  background: rgba(var(--theme-primary-rgb), 0.04);
+  border-color: rgba(var(--theme-primary-rgb), 0.12);
+}
+
+.dashMetricCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.dashMetricCardIcon {
+  font-size: 14px;
+  opacity: 0.5;
+}
+
+.dashMetricCardLabel {
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(var(--theme-primary-rgb), 0.35);
+}
+
+.dashMetricCardValue {
+  font-family: var(--style-font-mono, monospace);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--theme-primary);
+}
+
+.dashMetricCardSub {
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  color: rgba(var(--theme-primary-rgb), 0.3);
+  margin-top: 4px;
+}
+
+.dashChartWrap {
+  width: 100%;
+  min-height: 150px;
+}
+
+.dashTooltip {
+  background: rgba(10, 12, 18, 0.95);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  border-radius: 6px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.dashTooltipLabel {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  margin-bottom: 6px;
+}
+
+.dashTooltipRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.8);
+  padding: 2px 0;
+}
+
+.dashTooltipDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dashTooltipName {
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  flex: 1;
+}
+
+.dashTooltipValue {
+  font-weight: 600;
+  font-family: var(--style-font-mono, monospace);
+}
+
+.dashCalendarWrap {
+  overflow-x: auto;
+  padding: 4px 0;
+}
+
+.dashCalendarSvg {
+  display: block;
+}
+
+.dashCalendarMonth {
+  font-family: var(--style-font-ui);
+  font-size: 9px;
+  fill: rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.dashCalendarDayLabel {
+  font-family: var(--style-font-ui);
+  font-size: 9px;
+  fill: rgba(var(--theme-primary-rgb), 0.2);
+}
+
+.dashCalendarCell {
+  transition: opacity 0.15s ease;
+}
+
+.dashCalendarCell:hover {
+  opacity: 0.8;
+  stroke: rgba(var(--theme-primary-rgb), 0.3);
+  stroke-width: 1;
+}
+
+.dashDueList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.dashDueItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.04);
+  transition: background 0.15s ease;
+}
+
+.dashDueItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.dashDueItem--overdue {
+  border-color: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.03);
+}
+
+.dashDueItemLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.dashDuePriority {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dashDuePriority--high { background: #ff6464; }
+.dashDuePriority--medium { background: #ffb000; }
+.dashDuePriority--low { background: rgba(var(--theme-primary-rgb), 0.3); }
+
+.dashDueTitle {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashDueItemRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.dashDueProject {
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.dashDueDate {
+  font-family: var(--style-font-mono, monospace);
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.dashDueDate--overdue {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.dashTeamGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.dashTeamCard {
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  border-radius: var(--style-radius-md, 8px);
+  padding: 14px;
+  transition: all 0.2s ease;
+}
+
+.dashTeamCard:hover {
+  background: rgba(var(--theme-primary-rgb), 0.04);
+  border-color: rgba(var(--theme-primary-rgb), 0.12);
+}
+
+.dashTeamCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.dashTeamAvatar {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.dashTeamInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dashTeamName {
+  font-family: var(--style-font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(var(--theme-primary-rgb), 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashTeamRole {
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  color: rgba(var(--theme-primary-rgb), 0.3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashTeamMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  text-align: center;
+}
+
+.dashTeamMetric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashTeamMetricValue {
+  font-family: var(--style-font-mono, monospace);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--theme-primary);
+}
+
+.dashTeamMetricLabel {
+  font-family: var(--style-font-ui);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(var(--theme-primary-rgb), 0.25);
+}
+
+.dashTeamProgressBar {
+  height: 3px;
+  background: rgba(var(--theme-primary-rgb), 0.06);
+  border-radius: 2px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.dashTeamProgressFill {
+  height: 100%;
+  background: var(--theme-primary);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+  opacity: 0.6;
+}
+
+.dashEmptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.2);
+  text-transform: lowercase;
+}
+
+@media (max-width: 768px) {
+  .dashRow {
+    flex-direction: column;
+  }
+  .dashMetricsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dashTeamGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashContainer .recharts-legend-item-text {
+  color: rgba(var(--theme-primary-rgb), 0.5) !important;
+  font-size: 11px;
+}
+
+.dashContainer .recharts-cartesian-grid-horizontal line,
+.dashContainer .recharts-cartesian-grid-vertical line {
+  stroke: rgba(var(--theme-primary-rgb), 0.04);
 }

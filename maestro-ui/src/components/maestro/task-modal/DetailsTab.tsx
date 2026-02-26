@@ -13,11 +13,13 @@ const STATUS_LABELS: Record<string, string> = {
 type DetailsTabProps = {
     priority: TaskPriority;
     onPriorityChange: (priority: TaskPriority) => void;
+    dueDate: string;
+    onDueDateChange: (date: string) => void;
     isEditMode: boolean;
     task?: MaestroTask;
 };
 
-export function DetailsTab({ priority, onPriorityChange, isEditMode, task }: DetailsTabProps) {
+export function DetailsTab({ priority, onPriorityChange, dueDate, onDueDateChange, isEditMode, task }: DetailsTabProps) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div className="themedFormRow" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
@@ -45,6 +47,26 @@ export function DetailsTab({ priority, onPriorityChange, isEditMode, task }: Det
                         High
                     </button>
                 </div>
+            </div>
+            <div className="themedFormRow" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
+                <div className="themedFormLabel" style={{ marginBottom: 0, flexShrink: 0 }}>Due Date</div>
+                <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => onDueDateChange(e.target.value)}
+                    className="themedInput"
+                    style={{ padding: '4px 8px', fontSize: '12px', width: 'auto' }}
+                />
+                {dueDate && (
+                    <button
+                        type="button"
+                        className="themedSegmentedBtn"
+                        onClick={() => onDueDateChange("")}
+                        style={{ padding: '4px 8px', fontSize: '11px' }}
+                    >
+                        Clear
+                    </button>
+                )}
             </div>
             {isEditMode && task && (
                 <div style={{ display: 'flex', gap: '16px', fontSize: '11px' }}>

@@ -297,8 +297,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
         </>
       ) : null}
 
-      {/* COMMENTED OUT: File Explorer Component */}
-      {/* {activeWorkspaceView.fileExplorerOpen &&
+      {activeWorkspaceView.fileExplorerOpen &&
         (
           activeWorkspaceView.fileExplorerRootDir ??
           activeWorkspaceView.codeEditorRootDir ??
@@ -378,7 +377,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
             </div>
           </aside>
         </>
-      ) : null} */}
+      ) : null}
     </div>
   );
 });

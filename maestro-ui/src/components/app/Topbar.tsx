@@ -22,7 +22,6 @@ type TopbarProps = {
   onToggleFileExplorer: () => void;
   onToggleMaestro: () => void;
   onOpenInFinder: () => void;
-  onOpenInVSCode: () => void;
   isFileExplorerDisabled: boolean;
   fileExplorerTitle: string;
 };
@@ -45,7 +44,6 @@ export function Topbar({
   onToggleFileExplorer,
   onToggleMaestro,
   onOpenInFinder,
-  onOpenInVSCode,
   isFileExplorerDisabled,
   fileExplorerTitle,
 }: TopbarProps) {
@@ -118,14 +116,6 @@ export function Topbar({
                 Open in Finder
               </button>
 
-              <button
-                className="iconBtn iconBtnText"
-                onClick={onOpenInVSCode}
-                disabled={!active.cwd}
-                title={active.cwd ? `Open in VS Code — ${active.cwd}` : "Open in VS Code"}
-              >
-                Open in VS Code
-              </button>
             </div>
           </>
         )}

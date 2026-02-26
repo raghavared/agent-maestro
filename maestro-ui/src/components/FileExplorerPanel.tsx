@@ -6,6 +6,7 @@ import { startDrag } from "@crabnebula/tauri-plugin-drag";
 import React from "react";
 import { shortenPathSmart } from "../pathDisplay";
 import { Icon } from "./Icon";
+import { FileIcon } from "./FileIcon";
 import { ConfirmActionModal } from "./modals/ConfirmActionModal";
 
 // Cache for downloaded SSH files to avoid re-downloading during the same session
@@ -1068,12 +1069,10 @@ export function FileExplorerPanel({
                           {isExpanded ? "▾" : "▸"}
                         </span>
                       ) : (
-                        <span className="fileExplorerDisclosure" aria-hidden="true">
-                          {" "}
-                        </span>
+                        <span className="fileExplorerDisclosure" aria-hidden="true" />
                       )}
                       <span className="fileExplorerIcon" aria-hidden="true">
-                        <Icon name={entry.isDir ? "folder" : "file"} size={14} />
+                        <FileIcon name={entry.name} isDir={entry.isDir} isExpanded={isExpanded} size={16} />
                       </span>
                       <span className="fileExplorerName">{entry.name}</span>
                     </button>
@@ -1144,18 +1143,6 @@ export function FileExplorerPanel({
                 }}
               >
                 Open folder in Finder
-              </button>
-              <button
-                type="button"
-                className="sidebarActionMenuItem"
-                role="menuitem"
-                onClick={() => {
-                  const folder = contextMenu.entry.isDir ? contextMenu.entry.path : dirname(contextMenu.entry.path);
-                  void invoke("open_path_in_vscode", { path: folder }).catch(() => {});
-                  setContextMenu(null);
-                }}
-              >
-                Open folder in VS Code
               </button>
               <div className="fileContextMenuSep" role="separator" />
             </>
