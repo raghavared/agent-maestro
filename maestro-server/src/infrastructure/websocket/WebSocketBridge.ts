@@ -96,6 +96,7 @@ export class WebSocketBridge {
       // Notification events
       'notify:task_completed',
       'notify:task_failed',
+      'notify:task_in_review',
       'notify:task_blocked',
       'notify:task_session_completed',
       'notify:task_session_failed',
@@ -149,6 +150,8 @@ export class WebSocketBridge {
    * Clients with a subscription filter only receive events matching their session IDs.
    */
   private broadcast(event: string, data: any): void {
+    if (this.wss.clients.size === 0) return;
+
     const message = JSON.stringify({
       type: event,
       event,
@@ -189,7 +192,7 @@ export class WebSocketBridge {
     this.wss.clients.forEach((client) => {
       clients.push({
         readyState: client.readyState,
-        readyStateText: ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][client.readyState]
+        readyStateText: ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][client.readyState] ?? 'UNKNOWN'
       });
     });
     return clients;

@@ -52,7 +52,6 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
       setStatus({ type: "success", message: "Image exported to task!" });
       setTimeout(() => onClose(), 1200);
     } catch (err) {
-      console.error("Export to task failed:", err);
       setStatus({ type: "error", message: "Failed to export image" });
     } finally {
       setUploading(false);
@@ -69,12 +68,11 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
       const task = await createTask({
         projectId: activeProjectId,
         title,
-        description: "",
+        description: `Exported from whiteboard: ${whiteboardName}`,
         priority: "medium",
       });
       await exportToTask(task.id);
     } catch (err) {
-      console.error("Create task + export failed:", err);
       setStatus({ type: "error", message: "Failed to create task" });
       setUploading(false);
     }

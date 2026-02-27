@@ -158,7 +158,7 @@ export function registerSessionCommands(program: Command) {
                                 s.name,
                                 s.status,
                                 s.teamMemberSnapshot?.name || s.teamMemberId || '-',
-                                (s.taskIds || []).length,
+                                String((s.taskIds || []).length),
                             ])
                         );
                     }
@@ -697,14 +697,15 @@ export function registerSessionCommands(program: Command) {
                     // session not found on server
                 }
 
+                const isDebug = config.debug;
                 if (sessionExists) {
-                    if (!isJson) console.log(`[session:register]    PATCH /api/sessions/${sessionId} -> status: 'working'`);
+                    if (isDebug) console.log(`[session:register]    PATCH /api/sessions/${sessionId} -> status: 'working'`);
                     await api.patch(`/api/sessions/${sessionId}`, {
                         status: 'working',
                     });
-                    if (!isJson) console.log(`[session:register]    Session status updated to 'working'`);
+                    if (isDebug) console.log(`[session:register]    Session status updated to 'working'`);
                 } else {
-                    if (!isJson) console.log(`[session:register]    POST /api/sessions (creating new session)`);
+                    if (isDebug) console.log(`[session:register]    POST /api/sessions (creating new session)`);
                     await api.post('/api/sessions', {
                         id: sessionId,
                         projectId,
@@ -713,16 +714,16 @@ export function registerSessionCommands(program: Command) {
                         status: 'working',
                         metadata: { mode },
                     });
-                    if (!isJson) console.log(`[session:register]    New session created with status 'working'`);
+                    if (isDebug) console.log(`[session:register]    New session created with status 'working'`);
                 }
 
-                if (!isJson) {
-                    console.log(`[session:register] Done: session ${sessionId} registered`);
-                } else {
+                if (isJson) {
                     outputJSON({ sessionId, status: 'registered' });
+                } else if (isDebug) {
+                    console.log(`[session:register] Done: session ${sessionId} registered`);
                 }
             } catch (err: unknown) {
-                if (!isJson) {
+                if (config.debug) {
                     const message = err instanceof Error ? err.message : String(err);
                     console.error(`[session:register] FAILED: ${message}`);
                 }
@@ -739,30 +740,31 @@ export function registerSessionCommands(program: Command) {
             const isJson = globalOpts.json;
             const sessionId = config.sessionId;
 
-            if (!isJson) {
+            const isDebugComplete = config.debug;
+            if (isDebugComplete) {
                 console.log(`[session:complete] Hook fired (SessionEnd)`);
                 console.log(`[session:complete]    Session ID: ${sessionId || '(not set)'}`);
             }
 
             if (!sessionId) {
-                if (!isJson) console.log(`[session:complete] ABORT: no session ID`);
+                if (isDebugComplete) console.log(`[session:complete] ABORT: no session ID`);
                 process.exit(0);
             }
 
             try {
-                if (!isJson) console.log(`[session:complete]    PATCH /api/sessions/${sessionId} -> status: 'completed'`);
+                if (isDebugComplete) console.log(`[session:complete]    PATCH /api/sessions/${sessionId} -> status: 'completed'`);
                 await api.patch(`/api/sessions/${sessionId}`, {
                     status: 'completed',
                     completedAt: Date.now(),
                 });
 
-                if (!isJson) {
-                    console.log(`[session:complete] Done: session ${sessionId} completed`);
-                } else {
+                if (isJson) {
                     outputJSON({ sessionId, status: 'completed' });
+                } else if (isDebugComplete) {
+                    console.log(`[session:complete] Done: session ${sessionId} completed`);
                 }
             } catch (err: unknown) {
-                if (!isJson) {
+                if (isDebugComplete) {
                     const message = err instanceof Error ? err.message : String(err);
                     console.error(`[session:complete] FAILED: ${message}`);
                 }
@@ -779,18 +781,19 @@ export function registerSessionCommands(program: Command) {
             const isJson = globalOpts.json;
             const sessionId = config.sessionId;
 
-            if (!isJson) {
+            const isDebugNeedsInput = config.debug;
+            if (isDebugNeedsInput) {
                 console.log(`[session:needs-input] Hook fired (Stop)`);
                 console.log(`[session:needs-input]    Session ID: ${sessionId || '(not set)'}`);
             }
 
             if (!sessionId) {
-                if (!isJson) console.log(`[session:needs-input] ABORT: no session ID`);
+                if (isDebugNeedsInput) console.log(`[session:needs-input] ABORT: no session ID`);
                 process.exit(0);
             }
 
             try {
-                if (!isJson) console.log(`[session:needs-input]    PATCH /api/sessions/${sessionId} -> needsInput: { active: true }`);
+                if (isDebugNeedsInput) console.log(`[session:needs-input]    PATCH /api/sessions/${sessionId} -> needsInput: { active: true }`);
                 await api.patch(`/api/sessions/${sessionId}`, {
                     needsInput: {
                         active: true,
@@ -805,13 +808,13 @@ export function registerSessionCommands(program: Command) {
                     }],
                 });
 
-                if (!isJson) {
-                    console.log(`[session:needs-input] Done: session ${sessionId} marked as needsInput`);
-                } else {
+                if (isJson) {
                     outputJSON({ sessionId, needsInput: true });
+                } else if (isDebugNeedsInput) {
+                    console.log(`[session:needs-input] Done: session ${sessionId} marked as needsInput`);
                 }
             } catch (err: unknown) {
-                if (!isJson) {
+                if (isDebugNeedsInput) {
                     const message = err instanceof Error ? err.message : String(err);
                     console.error(`[session:needs-input] FAILED: ${message}`);
                 }
@@ -828,30 +831,31 @@ export function registerSessionCommands(program: Command) {
             const isJson = globalOpts.json;
             const sessionId = config.sessionId;
 
-            if (!isJson) {
+            const isDebugResume = config.debug;
+            if (isDebugResume) {
                 console.log(`[session:resume-working] Hook fired (UserPromptSubmit)`);
                 console.log(`[session:resume-working]    Session ID: ${sessionId || '(not set)'}`);
             }
 
             if (!sessionId) {
-                if (!isJson) console.log(`[session:resume-working] ABORT: no session ID`);
+                if (isDebugResume) console.log(`[session:resume-working] ABORT: no session ID`);
                 process.exit(0);
             }
 
             try {
-                if (!isJson) console.log(`[session:resume-working]    PATCH /api/sessions/${sessionId} -> status: 'working', needsInput: { active: false }`);
+                if (isDebugResume) console.log(`[session:resume-working]    PATCH /api/sessions/${sessionId} -> status: 'working', needsInput: { active: false }`);
                 await api.patch(`/api/sessions/${sessionId}`, {
                     status: 'working',
                     needsInput: { active: false },
                 });
 
-                if (!isJson) {
-                    console.log(`[session:resume-working] Done: session ${sessionId} resumed to working`);
-                } else {
+                if (isJson) {
                     outputJSON({ sessionId, status: 'working' });
+                } else if (isDebugResume) {
+                    console.log(`[session:resume-working] Done: session ${sessionId} resumed to working`);
                 }
             } catch (err: unknown) {
-                if (!isJson) {
+                if (isDebugResume) {
                     const message = err instanceof Error ? err.message : String(err);
                     console.error(`[session:resume-working] FAILED: ${message}`);
                 }
@@ -976,15 +980,31 @@ export function registerSessionCommands(program: Command) {
                 console.error('No session ID — not running inside a session');
                 process.exit(1);
             }
+            let succeeded = 0;
+            const failed: string[] = [];
             for (const targetId of ids) {
-                await api.post(`/api/sessions/${targetId}/mail`, {
-                    fromSessionId: mySessionId,
-                    fromName: myName,
-                    message: cmdOpts.message,
-                    ...(cmdOpts.detail ? { detail: cmdOpts.detail } : {}),
-                });
+                try {
+                    await api.post(`/api/sessions/${targetId}/mail`, {
+                        fromSessionId: mySessionId,
+                        fromName: myName,
+                        message: cmdOpts.message,
+                        ...(cmdOpts.detail ? { detail: cmdOpts.detail } : {}),
+                    });
+                    succeeded++;
+                } catch (err: unknown) {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    failed.push(`${targetId} (${msg})`);
+                }
             }
-            console.log(`Notified ${ids.length} session(s).`);
+            if (failed.length > 0) {
+                console.error(`Failed to notify ${failed.length} session(s): ${failed.join(', ')}`);
+            }
+            if (succeeded > 0) {
+                console.log(`Notified ${succeeded} session(s).`);
+            }
+            if (failed.length > 0 && succeeded === 0) {
+                process.exit(1);
+            }
         });
 
     const mail = session

@@ -27,12 +27,13 @@ import {
   spawnSessionSchema,
   idParamSchema,
   idAndTaskIdParamSchema,
+  idAndModalIdParamSchema,
 } from './validation';
 
-function resolveMaestroCliRuntime(): { maestroBin: string; monorepoRoot: string | null } {
+function resolveMaestroCliRuntime(cliPathOverride?: string): { maestroBin: string; monorepoRoot: string | null } {
   const isPkg = __dirname.startsWith('/snapshot');
-  if (process.env.MAESTRO_CLI_PATH) {
-    return { maestroBin: process.env.MAESTRO_CLI_PATH, monorepoRoot: null };
+  if (cliPathOverride && cliPathOverride !== 'maestro') {
+    return { maestroBin: cliPathOverride, monorepoRoot: null };
   }
   if (!isPkg) {
     const monorepoRoot = resolvePath(__dirname, '..', '..', '..');
@@ -71,13 +72,13 @@ async function generateManifestViaCLI(options: {
   coordinatorSessionId?: string;
   isMaster?: boolean;
   memberOverrides?: Record<string, MemberLaunchOverride>;
+  sessionDir?: string;
+  cliPathOverride?: string;
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective, memberOverrides } = options;
+  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective, memberOverrides, cliPathOverride } = options;
 
-  const sessionDir = process.env.SESSION_DIR
-    ? (process.env.SESSION_DIR.startsWith('~') ? join(homedir(), process.env.SESSION_DIR.slice(1)) : process.env.SESSION_DIR)
-    : join(homedir(), '.maestro', 'sessions');
-  const maestroDir = join(sessionDir, sessionId);
+  const resolvedSessionDir = options.sessionDir ?? join(homedir(), '.maestro', 'sessions');
+  const maestroDir = join(resolvedSessionDir, sessionId);
   await mkdir(maestroDir, { recursive: true });
 
   const manifestPath = join(maestroDir, 'manifest.json');
@@ -96,7 +97,7 @@ async function generateManifestViaCLI(options: {
     ...(teamMemberId ? ['--team-member-id', teamMemberId] : []),
   ];
 
-  const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime();
+  const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime(cliPathOverride);
 
   const spawnEnv: Record<string, string | undefined> = { ...process.env };
   // Ensure CLI subprocess can reach the server API (CLI reads MAESTRO_SERVER_URL, not SERVER_URL)
@@ -252,14 +253,14 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
   // List sessions
   // Helper: enrich session with team member snapshots if missing
-  async function enrichSessionWithSnapshots(session: any): Promise<void> {
-    if (session.teamMemberSnapshots?.length > 0 || session.teamMemberSnapshot) return;
+  async function enrichSessionWithSnapshots(session: any): Promise<any> {
+    if (session.teamMemberSnapshots?.length > 0 || session.teamMemberSnapshot) return session;
     const meta = session.metadata;
-    if (!meta) return;
+    if (!meta) return session;
     const tmIds: string[] = meta.teamMemberIds?.length > 0
       ? meta.teamMemberIds
       : (meta.teamMemberId ? [meta.teamMemberId] : []);
-    if (tmIds.length === 0) return;
+    if (tmIds.length === 0) return session;
     const snapshots: TeamMemberSnapshot[] = [];
     for (const tmId of tmIds) {
       try {
@@ -269,14 +270,14 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         }
       } catch { /* skip */ }
     }
-    if (snapshots.length > 0) {
-      session.teamMemberIds = tmIds;
-      session.teamMemberSnapshots = snapshots;
-      if (tmIds.length === 1) {
-        session.teamMemberId = tmIds[0];
-        session.teamMemberSnapshot = snapshots[0];
-      }
+    if (snapshots.length === 0) return session;
+    // Return a shallow clone to avoid mutating the repository's in-memory cache
+    const enriched = { ...session, teamMemberIds: tmIds, teamMemberSnapshots: snapshots };
+    if (tmIds.length === 1) {
+      enriched.teamMemberId = tmIds[0];
+      enriched.teamMemberSnapshot = snapshots[0];
     }
+    return enriched;
   }
 
   router.get('/sessions', validateQuery(listSessionsQuerySchema), async (req: Request, res: Response) => {
@@ -309,9 +310,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
 
       // Enrich sessions with team member snapshots
-      await Promise.all(sessions.map(s => enrichSessionWithSnapshots(s)));
+      const enrichedSessions = await Promise.all(sessions.map(s => enrichSessionWithSnapshots(s)));
 
-      res.json(sessions);
+      res.json(enrichedSessions);
     } catch (err: unknown) {
       handleRouteError(err, res);
     }
@@ -343,7 +344,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   });
 
   // Log digest — single session
-  router.get('/sessions/:id/log-digest', async (req: Request, res: Response) => {
+  router.get('/sessions/:id/log-digest', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const last = parseInt(req.query.last as string || '5', 10);
@@ -360,8 +361,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     try {
       const id = req.params.id as string;
       const session = await sessionService.getSession(id);
-      await enrichSessionWithSnapshots(session);
-      res.json(session);
+      const enrichedSession = await enrichSessionWithSnapshots(session);
+      res.json(enrichedSession);
     } catch (err: unknown) {
       handleRouteError(err, res);
     }
@@ -438,7 +439,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   });
 
   // Add doc to session
-  router.post('/sessions/:id/docs', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/docs', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const { title, filePath, content, taskId } = req.body;
@@ -473,7 +474,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   });
 
   // Get docs for a session
-  router.get('/sessions/:id/docs', async (req: Request, res: Response) => {
+  router.get('/sessions/:id/docs', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const session = await sessionService.getSession(sessionId);
@@ -510,7 +511,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   });
 
   // Show modal in UI (agent-generated HTML content)
-  router.post('/sessions/:id/modal', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/modal', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const { modalId, title, html, filePath } = req.body;
@@ -564,7 +565,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   });
 
   // Receive user action from a modal (forwarded by UI)
-  router.post('/sessions/:id/modal/:modalId/actions', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/modal/:modalId/actions', validateParams(idAndModalIdParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const modalId = req.params.modalId as string;
@@ -596,7 +597,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   });
 
   // Modal closed by user (forwarded by UI)
-  router.post('/sessions/:id/modal/:modalId/close', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/modal/:modalId/close', validateParams(idAndModalIdParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const modalId = req.params.modalId as string;
@@ -614,7 +615,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   });
 
   // Send a prompt to a session's terminal
-  router.post('/sessions/:id/prompt', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/prompt', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const { content, mode = 'send', senderSessionId } = req.body;
 
@@ -670,7 +671,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   });
 
   // POST /api/sessions/:id/mail — notify a session (store mail + PTY inject)
-  router.post('/sessions/:id/mail', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/mail', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const toSessionId = req.params.id as string;
       const { fromSessionId, message, detail } = req.body;
@@ -700,7 +701,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   });
 
   // GET /api/sessions/:id/mail — read unread mail for session :id
-  router.get('/sessions/:id/mail', async (req: Request, res: Response) => {
+  router.get('/sessions/:id/mail', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const toSessionId = req.params.id as string;
       const targetSession = await sessionService.getSession(toSessionId);
@@ -871,6 +872,15 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           });
         }
         verifiedTasks.push(task);
+      }
+
+      // Inherit memberOverrides from task when not provided in request
+      // This ensures stored launch-config overrides are applied when spawning from task list
+      if (!normalizedMemberOverrides && verifiedTasks.length === 1 && verifiedTasks[0].memberOverrides) {
+        const taskOverrides = verifiedTasks[0].memberOverrides;
+        if (typeof taskOverrides === 'object' && !Array.isArray(taskOverrides)) {
+          normalizedMemberOverrides = taskOverrides;
+        }
       }
 
       // Fall back to task-level teamMemberId/teamMemberIds if none provided in request
@@ -1105,6 +1115,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           memberOverrides: normalizedMemberOverrides && Object.keys(normalizedMemberOverrides).length > 0
             ? normalizedMemberOverrides
             : undefined,
+          sessionDir: config.sessionDir,
+          cliPathOverride: config.manifestGenerator.cliPath,
         });
         manifestPath = result.manifestPath;
         manifest = result.manifest;
@@ -1123,7 +1135,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const initCommand = isCoordinatorMode(resolvedMode) ? 'orchestrator' : 'worker';
       const command = `maestro ${initCommand} init`;
       const cwd = project.workingDir;
-      const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime();
+      const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime(config.manifestGenerator.cliPath);
 
       // Pass through auth-related API keys from server environment
       const authEnvKeys = [

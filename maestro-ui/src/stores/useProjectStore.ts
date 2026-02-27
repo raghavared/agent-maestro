@@ -9,6 +9,7 @@ import { useSessionStore } from './useSessionStore';
 import { useUIStore } from './useUIStore';
 import { useEnvironmentStore } from './useEnvironmentStore';
 import { useAssetStore } from './useAssetStore';
+import { DEFAULT_SOUND_INSTRUMENT } from '../app/constants/defaults';
 
 // Module-level ref (not reactive state)
 export const lastActiveByProject = new Map<string, string>();
@@ -84,7 +85,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     projectBasePath: '',
     projectEnvironmentId: '',
     projectAssetsEnabled: true,
-    projectSoundInstrument: 'piano',
+    projectSoundInstrument: DEFAULT_SOUND_INSTRUMENT,
     projectSoundConfig: undefined,
     confirmDeleteProjectOpen: false,
     deleteProjectError: null,
@@ -144,7 +145,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         projectBasePath: homeDir ?? '',
         projectEnvironmentId: '',
         projectAssetsEnabled: true,
-        projectSoundInstrument: 'piano',
+        projectSoundInstrument: DEFAULT_SOUND_INSTRUMENT,
         projectSoundConfig: undefined,
         projectOpen: true,
       });
@@ -161,7 +162,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         projectBasePath: project.basePath ?? '',
         projectEnvironmentId: project.environmentId ?? '',
         projectAssetsEnabled: project.assetsEnabled ?? true,
-        projectSoundInstrument: project.soundConfig?.instrument ?? project.soundInstrument ?? 'piano',
+        projectSoundInstrument: project.soundConfig?.instrument ?? project.soundInstrument ?? DEFAULT_SOUND_INSTRUMENT,
         projectSoundConfig: project.soundConfig,
         projectOpen: true,
       });

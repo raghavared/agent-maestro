@@ -40,12 +40,18 @@ interface DashboardProps {
 
 // ── Custom Tooltip ──
 
-function ChartTooltip({ active, payload, label }: any) {
+interface TooltipEntry {
+  color: string;
+  name: string;
+  value: number;
+}
+
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: TooltipEntry[]; label?: string }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="dashTooltip">
       <div className="dashTooltipLabel">{label}</div>
-      {payload.map((entry: any, i: number) => (
+      {payload.map((entry: TooltipEntry, i: number) => (
         <div key={i} className="dashTooltipRow">
           <span className="dashTooltipDot" style={{ background: entry.color }} />
           <span className="dashTooltipName">{entry.name}</span>

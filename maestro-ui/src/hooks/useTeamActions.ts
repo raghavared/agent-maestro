@@ -1,8 +1,8 @@
 import { useMemo, useEffect, useCallback } from "react";
 import { useMaestroStore } from "../stores/useMaestroStore";
-import { MaestroProject, MaestroTask, TeamMember } from "../app/types/maestro";
+import { MaestroProject, MaestroTask, TeamMember, Team, CreateMaestroSessionInput, CreateTaskPayload } from "../app/types/maestro";
 
-export function useTeamActions(projectId: string, project: MaestroProject, teamMembersMap: Map<string, TeamMember>, onCreateMaestroSession: (input: any) => Promise<any>, createTask: (input: any) => Promise<MaestroTask>, onError: (msg: string) => void) {
+export function useTeamActions(projectId: string, project: MaestroProject, teamMembersMap: Map<string, TeamMember>, onCreateMaestroSession: (input: CreateMaestroSessionInput) => Promise<void>, createTask: (input: CreateTaskPayload) => Promise<MaestroTask>, onError: (msg: string) => void) {
     const teamsMap = useMaestroStore(s => s.teams);
     const fetchTeams = useMaestroStore(s => s.fetchTeams);
     const wsConnected = useMaestroStore(s => s.wsConnected);
@@ -26,7 +26,7 @@ export function useTeamActions(projectId: string, project: MaestroProject, teamM
         return teams.filter(t => !t.parentTeamId || !teamIdSet.has(t.parentTeamId));
     }, [teams]);
 
-    const handleRun = useCallback(async (team: any) => {
+    const handleRun = useCallback(async (team: Team) => {
         try {
             const leader = teamMembersMap.get(team.leaderId);
             if (!leader) { onError("Team has no valid leader"); return; }
@@ -48,8 +48,9 @@ export function useTeamActions(projectId: string, project: MaestroProject, teamM
                 teamMemberId: leader.id,
                 delegateTeamMemberIds: delegateIds.length > 0 ? delegateIds : undefined,
             });
-        } catch (err: any) {
-            onError(`Failed to start team session: ${err.message}`);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            onError(`Failed to start team session: ${message}`);
         }
     }, [projectId, project, teamMembersMap, createTask, onCreateMaestroSession, onError]);
 

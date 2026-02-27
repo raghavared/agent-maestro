@@ -390,11 +390,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       const timeout = window.setTimeout(() => {
         closingSessions.delete(id);
         pendingDataRef?.current.delete(id);
-      }, 30_000);
+      }, DEFAULTS.SESSION_CLOSE_CLEANUP_TIMEOUT_MS);
       closingSessions.set(id, timeout);
     }
     pendingDataRef?.current.delete(id);
-    void closeSession(id).catch(() => { });
+    void closeSession(id).catch(() => { /* best-effort session close */ });
   },
 
   clearAgentIdleTimer: (id) => {
@@ -433,7 +433,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     get().clearAgentIdleTimer(id);
     if (session.effectId) {
       const effect = getProcessEffectById(session.effectId);
-      const idleAfterMs = effect?.idleAfterMs ?? 2000;
+      const idleAfterMs = effect?.idleAfterMs ?? DEFAULTS.AGENT_IDLE_TIMEOUT_MS;
       const timeout = window.setTimeout(() => {
         agentIdleTimersRef.delete(id);
         set((s) => ({
@@ -557,7 +557,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       void maestroClient.updateSession(session.maestroSessionId, {
         status: 'stopped',
         completedAt: Date.now(),
-      }).catch(() => { });
+      }).catch(() => { /* best-effort server status update */ });
     }
     if (session?.recordingActive) {
       try {
@@ -575,7 +575,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       const timeout = window.setTimeout(() => {
         closingSessions.delete(id);
         pendingDataRef?.current.delete(id);
-      }, 30_000);
+      }, DEFAULTS.SESSION_CLOSE_CLEANUP_TIMEOUT_MS);
       closingSessions.set(id, timeout);
     }
     pendingDataRef?.current.delete(id);
@@ -1204,7 +1204,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         spawningSessionsRef.delete(dedupKey);
       }, 2000);
     } catch (err) {
-      console.error('[handleSpawnTerminalSession] Error spawning terminal:', err);
       spawningSessionsRef.delete(dedupKey);
       useUIStore.getState().reportError('Failed to spawn terminal session', err);
     }

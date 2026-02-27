@@ -213,8 +213,9 @@ export class FileSystemTaskRepository implements ITaskRepository {
     if (updates.pinned !== undefined) task.pinned = updates.pinned;
     if (updates.teamMemberId !== undefined) task.teamMemberId = updates.teamMemberId;
     if (updates.teamMemberIds !== undefined) task.teamMemberIds = updates.teamMemberIds;
-    if ((updates as any).images !== undefined) (task as any).images = (updates as any).images;
+    if (updates.images !== undefined) task.images = updates.images;
     if (updates.dueDate !== undefined) task.dueDate = updates.dueDate;
+    if (updates.memberOverrides !== undefined) task.memberOverrides = updates.memberOverrides;
 
     // Handle status changes
     if (updates.status !== undefined) {

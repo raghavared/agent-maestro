@@ -1,8 +1,8 @@
 import { useMemo, useEffect, useCallback } from "react";
 import { useMaestroStore } from "../stores/useMaestroStore";
-import { MaestroProject, MaestroTask } from "../app/types/maestro";
+import { MaestroProject, MaestroTask, TeamMember, CreateMaestroSessionInput, CreateTaskPayload } from "../app/types/maestro";
 
-export function useTeamMemberActions(projectId: string, project: MaestroProject, onCreateMaestroSession: (input: any) => Promise<any>, createTask: (input: any) => Promise<MaestroTask>, onError: (msg: string) => void) {
+export function useTeamMemberActions(projectId: string, project: MaestroProject, onCreateMaestroSession: (input: CreateMaestroSessionInput) => Promise<void>, createTask: (input: CreateTaskPayload) => Promise<MaestroTask>, onError: (msg: string) => void) {
     const teamMembersMap = useMaestroStore(s => s.teamMembers);
     const fetchTeamMembers = useMaestroStore(s => s.fetchTeamMembers);
     const archiveTeamMember = useMaestroStore(s => s.archiveTeamMember);
@@ -45,7 +45,7 @@ export function useTeamMemberActions(projectId: string, project: MaestroProject,
         }
     }, [deleteTeamMember, projectId, onError]);
 
-    const handleRun = useCallback(async (member: any) => {
+    const handleRun = useCallback(async (member: TeamMember) => {
         try {
             const task = await createTask({
                 projectId,
@@ -61,8 +61,9 @@ export function useTeamMemberActions(projectId: string, project: MaestroProject,
                 mode,
                 teamMemberId: member.id,
             });
-        } catch (err: any) {
-            onError(`Failed to start session: ${err.message}`);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            onError(`Failed to start session: ${message}`);
         }
     }, [projectId, project, createTask, onCreateMaestroSession, onError]);
 
