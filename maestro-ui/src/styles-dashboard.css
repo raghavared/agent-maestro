@@ -1,0 +1,502 @@
+/* ================================================================== */
+/*  Dashboard Styles                                                   */
+/* ================================================================== */
+
+/* ── Container ── */
+
+.dashContainer {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.1) transparent;
+}
+
+/* ── Time Range Bar ── */
+
+.dashTimeBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  border-radius: var(--style-radius-md, 6px);
+}
+
+.dashTimeLabel {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  white-space: nowrap;
+}
+
+.dashTimePresets {
+  display: flex;
+  gap: 2px;
+  background: rgba(var(--theme-primary-rgb), 0.04);
+  border-radius: var(--style-radius-sm, 4px);
+  padding: 2px;
+}
+
+.dashTimeBtn {
+  background: transparent;
+  border: none;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-radius: var(--style-radius-sm, 4px);
+  transition: all var(--style-transition, 0.15s ease);
+  letter-spacing: 0.03em;
+}
+
+.dashTimeBtn:hover {
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  background: rgba(var(--theme-primary-rgb), 0.06);
+}
+
+.dashTimeBtn--active {
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  box-shadow: 0 0 6px rgba(var(--theme-primary-rgb), 0.1);
+}
+
+/* ── Sections ── */
+
+.dashSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dashSection--half {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashSectionTitle {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  margin: 0;
+}
+
+/* ── Row (two-column layout) ── */
+
+.dashRow {
+  display: flex;
+  gap: 16px;
+}
+
+@media (max-width: 800px) {
+  .dashRow {
+    flex-direction: column;
+  }
+}
+
+/* ── Metrics Grid ── */
+
+.dashMetricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+/* ── Metric Card ── */
+
+.dashMetricCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  border-left: 3px solid;
+  border-radius: var(--style-radius-sm, 4px);
+  transition: background var(--style-transition, 0.15s ease),
+              border-color var(--style-transition, 0.15s ease);
+}
+
+.dashMetricCard:hover {
+  background: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.dashMetricCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashMetricCardIcon {
+  font-size: 13px;
+  opacity: 0.5;
+}
+
+.dashMetricCardLabel {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.dashMetricCardValue {
+  font-family: var(--style-font-ui);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--theme-primary);
+}
+
+.dashMetricCardSub {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.35);
+}
+
+/* ── Chart Wrapper ── */
+
+.dashChartWrap {
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.05);
+  border-radius: var(--style-radius-sm, 4px);
+  padding: 12px 8px 8px;
+}
+
+/* ── Custom Tooltip ── */
+
+.dashTooltip {
+  background: var(--style-surface-2, #10151e);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  border-radius: var(--style-radius-sm, 4px);
+  padding: 8px 12px;
+  box-shadow: var(--style-shadow-card, 0 0 6px rgba(var(--theme-primary-rgb), 0.15));
+  min-width: 100px;
+}
+
+.dashTooltipLabel {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  margin-bottom: 6px;
+  letter-spacing: 0.03em;
+}
+
+.dashTooltipRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.dashTooltipDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dashTooltipName {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  flex: 1;
+}
+
+.dashTooltipValue {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--theme-text, #f0f4f8);
+}
+
+/* ── Calendar Heatmap ── */
+
+.dashCalendarWrap {
+  overflow-x: auto;
+  padding: 8px 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.1) transparent;
+}
+
+.dashCalendarSvg {
+  display: block;
+}
+
+.dashCalendarMonth {
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  fill: rgba(var(--theme-primary-rgb), 0.35);
+}
+
+.dashCalendarDayLabel {
+  font-family: var(--style-font-ui);
+  font-size: 9px;
+  fill: rgba(var(--theme-primary-rgb), 0.25);
+  text-anchor: start;
+}
+
+.dashCalendarCell {
+  transition: opacity 0.15s ease;
+}
+
+.dashCalendarCell:hover {
+  opacity: 0.8;
+  stroke: rgba(var(--theme-primary-rgb), 0.3);
+  stroke-width: 1;
+}
+
+/* ── Due Date List ── */
+
+.dashDueList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashDueItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--style-radius-sm, 4px);
+  transition: background var(--style-transition, 0.15s ease);
+}
+
+.dashDueItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.dashDueItem--overdue {
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.dashDueItem--overdue:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.dashDueItemLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.dashDuePriority {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.dashDuePriority--high {
+  background: #ef4444;
+}
+
+.dashDuePriority--medium {
+  background: #ffb000;
+}
+
+.dashDuePriority--low {
+  background: #4ade80;
+}
+
+.dashDueTitle {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  color: var(--theme-text, #f0f4f8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashDueItemRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dashDueProject {
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.dashDueDate {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  white-space: nowrap;
+}
+
+.dashDueDate--overdue {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+/* ── Team Members Grid ── */
+
+.dashTeamGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.dashTeamCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: rgba(var(--theme-primary-rgb), 0.02);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  border-radius: var(--style-radius-sm, 4px);
+  transition: background var(--style-transition, 0.15s ease),
+              border-color var(--style-transition, 0.15s ease);
+}
+
+.dashTeamCard:hover {
+  background: rgba(var(--theme-primary-rgb), 0.04);
+  border-color: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.dashTeamCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashTeamAvatar {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.dashTeamInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.dashTeamName {
+  font-family: var(--style-font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-text, #f0f4f8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashTeamRole {
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  color: rgba(var(--theme-primary-rgb), 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashTeamMetrics {
+  display: flex;
+  gap: 2px;
+}
+
+.dashTeamMetric {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  border-radius: var(--style-radius-sm, 4px);
+}
+
+.dashTeamMetricValue {
+  font-family: var(--style-font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--theme-primary);
+  line-height: 1;
+}
+
+.dashTeamMetricLabel {
+  font-family: var(--style-font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(var(--theme-primary-rgb), 0.3);
+}
+
+/* ── Team Progress Bar ── */
+
+.dashTeamProgressBar {
+  height: 3px;
+  background: rgba(var(--theme-primary-rgb), 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.dashTeamProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--theme-primary), rgba(var(--theme-primary-rgb), 0.4));
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* ── Empty State ── */
+
+.dashEmptyState {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.2);
+  text-align: center;
+  padding: 24px 16px;
+}
+
+/* ── Recharts Overrides ── */
+
+.dashChartWrap .recharts-legend-item-text {
+  font-family: var(--style-font-ui) !important;
+  font-size: 11px !important;
+}
+
+.dashChartWrap .recharts-cartesian-grid-horizontal line,
+.dashChartWrap .recharts-cartesian-grid-vertical line {
+  stroke: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.dashChartWrap .recharts-default-legend {
+  padding-left: 0 !important;
+}
