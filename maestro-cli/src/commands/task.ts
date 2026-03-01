@@ -749,7 +749,7 @@ export function registerTaskCommands(program: Command) {
                         console.log('No tasks found.');
                     } else {
                         console.log(`\nProject Task Tree (${projectId || cmdOpts.root}):\n`);
-                        outputTaskTree(tree.filter(Boolean));
+                        outputTaskTree(tree.filter((t): t is TaskResponse => t !== null));
                     }
                 }
             } catch (err) {

@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
-import { MaestroTask, MaestroProject, AgentTool, ModelType, MemberLaunchOverride } from "../app/types/maestro";
+import { MaestroTask, MaestroProject, AgentTool, ModelType, MemberLaunchOverride, CreateMaestroSessionInput, CreateTeamPayload } from "../app/types/maestro";
 
-type CreateSessionFn = (input: any) => Promise<any>;
+type CreateSessionFn = (input: CreateMaestroSessionInput) => Promise<void>;
 
 export function useExecutionMode(
     projectId: string,
@@ -9,7 +9,7 @@ export function useExecutionMode(
     normalizedTasks: MaestroTask[],
     regularTasks: MaestroTask[],
     onCreateMaestroSession: CreateSessionFn,
-    createTeamFn: (payload: any) => Promise<any>,
+    createTeamFn: (payload: CreateTeamPayload) => Promise<unknown>,
     onError: (msg: string) => void,
 ) {
     const [executionMode, setExecutionMode] = useState(false);
@@ -51,8 +51,9 @@ export function useExecutionMode(
             setExecutionMode(false);
             setActiveBarMode('none');
             setSelectedForExecution(new Set());
-        } catch (err: any) {
-            onError(`Failed to create session: ${err.message}`);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            onError(`Failed to create session: ${message}`);
         }
     }, [normalizedTasks, selectedForExecution, project, onCreateMaestroSession, onError]);
 
@@ -74,8 +75,9 @@ export function useExecutionMode(
             setExecutionMode(false);
             setActiveBarMode('none');
             setSelectedForExecution(new Set());
-        } catch (err: any) {
-            onError(`Failed to create orchestrator session: ${err.message}`);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            onError(`Failed to create orchestrator session: ${message}`);
         }
     }, [regularTasks, selectedForExecution, project, onCreateMaestroSession, onError]);
 
@@ -88,8 +90,9 @@ export function useExecutionMode(
                 leaderId: coordinatorId || allMemberIds[0] || '',
                 memberIds: allMemberIds,
             });
-        } catch (err: any) {
-            onError(`Failed to save team: ${err.message}`);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            onError(`Failed to save team: ${message}`);
         }
     }, [projectId, createTeamFn, onError]);
 

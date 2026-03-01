@@ -148,7 +148,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     );
     return {
       projectId,
-      fileExplorerOpen: true,
+      fileExplorerOpen: false,
       fileExplorerRootDir: null,
       fileExplorerPersistedState: null,
       codeEditorOpen: false,

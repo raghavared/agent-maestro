@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { TeamMemberService } from '../application/services/TeamMemberService';
 import { handleRouteError } from './middleware/errorHandler';
-import { validateParams, idParamSchema } from './validation';
+import { validateBody, validateParams, idParamSchema, createTeamMemberSchema, updateTeamMemberSchema } from './validation';
 
 /**
  * Create team member routes using the TeamMemberService.
@@ -37,7 +37,7 @@ export function createTeamMemberRoutes(teamMemberService: TeamMemberService) {
    * POST /team-members
    * Create a custom team member
    */
-  router.post('/team-members', async (req: Request, res: Response) => {
+  router.post('/team-members', validateBody(createTeamMemberSchema), async (req: Request, res: Response) => {
     try {
       const member = await teamMemberService.createTeamMember(req.body);
       res.status(201).json(member);
@@ -74,7 +74,7 @@ export function createTeamMemberRoutes(teamMemberService: TeamMemberService) {
    * PATCH /team-members/:id
    * Update team member (custom or default override)
    */
-  router.patch('/team-members/:id', async (req: Request, res: Response) => {
+  router.patch('/team-members/:id', validateParams(idParamSchema), validateBody(updateTeamMemberSchema), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
       const { projectId, ...updates } = req.body;

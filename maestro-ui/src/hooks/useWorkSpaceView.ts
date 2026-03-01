@@ -57,7 +57,7 @@ export function useWorkspaceView({
       );
       return {
         projectId,
-        fileExplorerOpen: true,
+        fileExplorerOpen: false,
         fileExplorerRootDir: null,
         fileExplorerPersistedState: null,
         codeEditorOpen: false,

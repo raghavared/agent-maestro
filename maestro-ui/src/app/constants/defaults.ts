@@ -16,6 +16,10 @@ export const STORAGE_ZOOM_KEY = "agents-ui-zoom-v1";
 export const STORAGE_SETUP_COMPLETE_KEY = "agents-ui-setup-complete-v1";
 
 
+export const DEFAULT_SOUND_INSTRUMENT = 'piano';
+export const AGENT_IDLE_TIMEOUT_MS = 2000;
+export const SESSION_CLOSE_CLEANUP_TIMEOUT_MS = 30_000;
+
 export const MAX_PENDING_SESSIONS = 32;
 export const MAX_PENDING_CHUNKS_PER_SESSION = 200;
 

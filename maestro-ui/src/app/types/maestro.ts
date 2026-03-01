@@ -521,6 +521,21 @@ export interface SpawnSessionPayload {
   memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member overrides keyed by teamMemberId
 }
 
+/** Input shape for the UI-level session creation callback used by hooks/components. */
+export interface CreateMaestroSessionInput {
+  task?: MaestroTask;
+  tasks?: MaestroTask[];
+  project: MaestroProject;
+  mode?: AgentMode;
+  skillIds?: string[];
+  teamMemberId?: string;
+  teamMemberIds?: string[];
+  delegateTeamMemberIds?: string[];
+  agentTool?: AgentTool;
+  model?: ModelType;
+  memberOverrides?: Record<string, MemberLaunchOverride>;
+}
+
 export interface SpawnSessionResponse {
   success: boolean;
   sessionId: string;

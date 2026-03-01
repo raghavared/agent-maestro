@@ -16,6 +16,7 @@ import {
   listTasksQuerySchema,
   idParamSchema,
   idAndTaskIdParamSchema,
+  addTaskDocSchema,
 } from './validation';
 
 /**
@@ -150,34 +151,10 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
   });
 
   // Add doc to a task (validates task exists, stores in session, links session to task)
-  router.post('/tasks/:id/docs', validateParams(idParamSchema), async (req: Request, res: Response) => {
+  router.post('/tasks/:id/docs', validateParams(idParamSchema), validateBody(addTaskDocSchema), async (req: Request, res: Response) => {
     try {
       const taskId = req.params.id as string;
       const { title, filePath, content, sessionId } = req.body;
-
-      if (!title) {
-        return res.status(400).json({
-          error: true,
-          message: 'title is required',
-          code: 'VALIDATION_ERROR'
-        });
-      }
-
-      if (!filePath) {
-        return res.status(400).json({
-          error: true,
-          message: 'filePath is required',
-          code: 'VALIDATION_ERROR'
-        });
-      }
-
-      if (!sessionId) {
-        return res.status(400).json({
-          error: true,
-          message: 'sessionId is required',
-          code: 'VALIDATION_ERROR'
-        });
-      }
 
       // Validate task exists first — returns 404 if taskId is invalid (fixes BUG-3)
       await taskService.getTask(taskId);
@@ -268,9 +245,8 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
 
       const currentImages = task.images || [];
       await taskService.updateTask(taskId, {
-        ...({} as any),
         images: [...currentImages, imageEntry],
-      } as any);
+      });
 
       res.status(201).json(imageEntry);
     } catch (err: unknown) {
@@ -329,7 +305,7 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
 
       // Update task to remove image metadata
       const updatedImages = (task.images || []).filter((img: TaskImage) => img.id !== imageId);
-      await taskService.updateTask(taskId, { ...({} as any), images: updatedImages } as any);
+      await taskService.updateTask(taskId, { images: updatedImages });
 
       res.json({ success: true, id: imageId });
     } catch (err: unknown) {

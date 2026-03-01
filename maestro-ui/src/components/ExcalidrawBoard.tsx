@@ -111,7 +111,7 @@ export function ExcalidrawBoard({ onClose, inline, storageKey, name }: Excalidra
       });
       return blob;
     } catch (err) {
-      console.error("Failed to export Excalidraw to blob:", err);
+      // Export failed – return null to caller
       return null;
     } finally {
       setExporting(false);

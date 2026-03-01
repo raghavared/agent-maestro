@@ -404,6 +404,8 @@ export interface UpdateTaskPayload {
   teamMemberId?: string;
   teamMemberIds?: string[];
   dueDate?: string | null;
+  memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member launch overrides
+  images?: TaskImage[];
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline
   // Update source tracking
   updateSource?: UpdateSource;  // Who is making the update

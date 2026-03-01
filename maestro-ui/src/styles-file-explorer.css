@@ -1,5 +1,6 @@
 /* File Explorer + Editor */
 .fileExplorerPanel {
+  position: relative;
   width: var(--workspaceFileTreeWidthPx, 320px);
   flex: 0 1 var(--workspaceFileTreeWidthPx, 320px);
   min-width: 200px;
@@ -10,13 +11,35 @@
   background: linear-gradient(180deg, rgba(15, 22, 32, 0.92), rgba(10, 14, 20, 0.98));
 }
 
+/* When hosted inside the left panel sidebar, fill all available space */
+.appLeftPanelContent .fileExplorerPanel {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  border-left: none;
+}
+
+/* Compact header buttons in left panel */
+.appLeftPanelContent .fileExplorerPanel .btnSmall.btnIcon {
+  width: 26px;
+  height: 26px;
+  font-size: 13px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.appLeftPanelContent .fileExplorerPanel .btnSmall.btnIcon:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .fileExplorerHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 10px 10px;
+  gap: 8px;
+  padding: 8px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
 }
 
 .fileExplorerTitle {
@@ -24,7 +47,10 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  flex: 1;
   font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .fileExplorerPath {
@@ -34,20 +60,40 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 200px;
+  min-width: 0;
+  flex: 1;
 }
 
 .fileExplorerActions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .fileExplorerList {
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  padding: 6px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
+}
+
+.fileExplorerList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.fileExplorerList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fileExplorerList::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.fileExplorerList::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .fileExplorerListDropTarget {
@@ -61,43 +107,59 @@
   border: 0;
   background: transparent;
   color: var(--text);
-  padding: 6px 10px;
+  padding: 0 10px 0 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 5px;
+  font-size: 12.5px;
+  line-height: 1;
   cursor: pointer;
   text-align: left;
+  border-radius: 0;
+  transition: background 0.08s ease;
 }
 
 .fileExplorerRow:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .fileExplorerRowActive {
-  background: rgba(107, 138, 253, 0.12);
+  background: rgba(107, 138, 253, 0.14);
+}
+
+.fileExplorerRowActive:hover {
+  background: rgba(107, 138, 253, 0.18);
 }
 
 .fileExplorerRowContext {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .fileContextMenu {
   position: fixed;
-  min-width: 220px;
-  max-width: 280px;
-  padding: 6px;
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(17, 24, 34, 0.98), rgba(10, 14, 20, 0.98));
-  border-radius: 12px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  min-width: 200px;
+  max-width: 260px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(14, 20, 30, 0.98);
+  backdrop-filter: blur(12px);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
   z-index: 640;
 }
 
 .fileContextMenuSep {
   height: 1px;
-  background: var(--border-subtle);
-  margin: 6px 4px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 4px 6px;
+}
+
+/* Compact context menu items */
+.fileContextMenu .sidebarActionMenuItem {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  gap: 8px;
 }
 
 .fileContextMenuItemDanger {
@@ -110,9 +172,18 @@
 }
 
 .fileExplorerDisclosure {
-  width: 12px;
+  width: 16px;
   flex-shrink: 0;
-  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  transition: color 0.1s ease;
+}
+
+.fileExplorerRow:hover .fileExplorerDisclosure {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .fileExplorerIcon {
@@ -130,14 +201,26 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
 }
 
 .fileExplorerMeta {
+  display: flex;
+  align-items: center;
   color: var(--muted);
+  font-size: 11px;
+  font-style: italic;
 }
 
 .fileExplorerError {
-  color: rgba(255, 120, 120, 0.95);
+  color: rgba(255, 120, 120, 0.85);
+}
+
+.fileExplorerList .empty {
+  padding: 16px 12px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
 }
 
 .fileExplorerRowDropTarget {

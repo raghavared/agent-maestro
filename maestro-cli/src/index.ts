@@ -307,6 +307,8 @@ program.command('commands')
               if (isJson) {
                   outputJSON({ command: commandName, allowed, mode: permissions.mode });
               } else {
+                  const status = allowed ? '✅ allowed' : '❌ denied';
+                  console.log(`Command "${commandName}" is ${status} (mode: ${permissions.mode})`);
               }
           } else {
               // Show all available commands
@@ -326,6 +328,7 @@ program.command('commands')
           if (isJson) {
               outputJSON({ success: false, error: err.message });
           } else {
+              console.error(`Error: ${err.message || String(err)}`);
           }
           process.exit(1);
       }
@@ -355,6 +358,7 @@ program.command('status')
       if (isJson) {
         outputJSON({ success: false, error: 'no_context', message: 'No project context.' });
       } else {
+        console.error('Error: No project context. Set MAESTRO_PROJECT_ID or use --project <id>.');
       }
       process.exit(1);
     }
@@ -393,11 +397,23 @@ program.command('status')
       if (isJson) {
         outputJSON(summary);
       } else {
+        console.log(`Project: ${summary.project}`);
+        console.log(`Tasks:   ${summary.tasks.total} total`);
+        const byStatus = Object.entries(summary.tasks.byStatus)
+          .map(([s, n]) => `  ${s}: ${n}`)
+          .join('\n');
+        if (byStatus) console.log(byStatus);
+        const byPriority = Object.entries(summary.tasks.byPriority)
+          .map(([p, n]) => `  ${p}: ${n}`)
+          .join('\n');
+        if (byPriority) console.log(`Priority breakdown:\n${byPriority}`);
+        console.log(`Sessions (active): ${summary.sessions.active}`);
       }
     } catch (err) {
       if (isJson) {
         outputJSON({ success: false, error: 'status_failed', message: String(err) });
       } else {
+        console.error(`Error: ${String(err)}`);
       }
       process.exit(1);
     }

@@ -39,13 +39,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/agent-maestro.git",
+    "url": "https://github.com/subhangR/agent-maestro.git",
     "directory": "maestro-cli"
   },
   "bugs": {
-    "url": "https://github.com/your-org/agent-maestro/issues"
+    "url": "https://github.com/subhangR/agent-maestro/issues"
   },
-  "homepage": "https://github.com/your-org/agent-maestro/tree/main/maestro-cli#readme",
+  "homepage": "https://github.com/subhangR/agent-maestro/tree/main/maestro-cli#readme",
   "dependencies": {
     "ajv": "^8.17.1",
     "chalk": "^4.1.2",

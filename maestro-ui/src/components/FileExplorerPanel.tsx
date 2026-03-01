@@ -739,7 +739,8 @@ export function FileExplorerPanel({
               destPath,
             });
           }
-        } catch (err) {
+        } catch {
+          // best-effort file copy – directory reload will reflect actual state
         }
       }
 
@@ -905,12 +906,14 @@ export function FileExplorerPanel({
 
       try {
         unlistenWebview = await getCurrentWebview().onDragDropEvent(handleEvent);
-      } catch (err) {
+      } catch {
+        // Webview drag-drop listener not available in this context
       }
 
       try {
         unlistenWindow = await getCurrentWindow().onDragDropEvent(handleEvent);
-      } catch (err) {
+      } catch {
+        // Window drag-drop listener not available in this context
       }
     };
 
@@ -1121,7 +1124,7 @@ export function FileExplorerPanel({
                 role="menuitem"
                 onClick={() => {
                   const folder = contextMenu.entry.isDir ? contextMenu.entry.path : dirname(contextMenu.entry.path);
-                  void invoke("open_path_in_file_manager", { path: folder }).catch(() => {});
+                  void invoke("open_path_in_file_manager", { path: folder }).catch(() => { /* best-effort OS open */ });
                   setContextMenu(null);
                 }}
               >

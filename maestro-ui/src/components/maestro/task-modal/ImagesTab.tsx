@@ -28,7 +28,7 @@ export function ImagesTab({ taskId, images, onImagesChange }: ImagesTabProps) {
             }
             onImagesChange([...images, ...newImages]);
         } catch (err) {
-            console.error('Failed to upload image:', err);
+            // Upload failed – UI resets via finally block
         } finally {
             setUploading(false);
             // Reset input so same file can be re-selected
@@ -42,7 +42,7 @@ export function ImagesTab({ taskId, images, onImagesChange }: ImagesTabProps) {
             onImagesChange(images.filter(img => img.id !== imageId));
             if (previewImage?.id === imageId) setPreviewImage(null);
         } catch (err) {
-            console.error('Failed to delete image:', err);
+            // Delete failed – image remains in list
         }
     };
 
@@ -62,7 +62,7 @@ export function ImagesTab({ taskId, images, onImagesChange }: ImagesTabProps) {
                     const img = await maestroClient.uploadTaskImage(taskId, file);
                     onImagesChange([...images, img]);
                 } catch (err) {
-                    console.error('Failed to upload pasted image:', err);
+                    // Paste upload failed – continue silently
                 } finally {
                     setUploading(false);
                 }

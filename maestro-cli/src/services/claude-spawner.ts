@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'child_process';
+import { type ChildProcess } from 'child_process';
 import { join, dirname } from 'path';
 import { randomBytes } from 'crypto';
 import { existsSync } from 'fs';
@@ -8,6 +8,7 @@ import { SkillLoader } from './skill-loader.js';
 import { prepareSpawnerEnvironment } from './spawner-env.js';
 import { PromptComposer, type PromptEnvelope } from '../prompting/prompt-composer.js';
 import { STDIN_UNAVAILABLE_WARNING } from '../prompts/index.js';
+import { spawnWithUlimit } from './spawn-with-ulimit.js';
 
 /**
  * Result of spawning an agent session
@@ -205,8 +206,8 @@ export class ClaudeSpawner {
     // Determine working directory
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
 
-    // Spawn Claude process
-    const claudeProcess = spawn('claude', args, {
+    // Spawn Claude process with raised file descriptor limit
+    const claudeProcess = spawnWithUlimit('claude', args, {
       cwd,
       env,
       stdio: options.interactive ? 'inherit' : 'pipe',

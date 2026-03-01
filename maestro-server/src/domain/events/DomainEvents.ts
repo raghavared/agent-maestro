@@ -308,6 +308,7 @@ export interface TypedEventMap {
   // Notification events
   'notify:task_completed': { taskId: string; title: string };
   'notify:task_failed': { taskId: string; title: string };
+  'notify:task_in_review': { taskId: string; title: string };
   'notify:task_blocked': { taskId: string; title: string };
   'notify:task_session_completed': { taskId: string; sessionId: string; title: string };
   'notify:task_session_failed': { taskId: string; sessionId: string; title: string };
