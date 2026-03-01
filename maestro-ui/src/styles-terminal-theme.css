@@ -773,17 +773,6 @@
   position: relative;
 }
 
-.terminalTaskRow--sessionActive::after {
-  content: '\2B25';
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 9px;
-  color: var(--terminal-cyan);
-  opacity: 0.6;
-  pointer-events: none;
-}
 
 .terminalTreePrefix {
   font-family: var(--terminal-font);

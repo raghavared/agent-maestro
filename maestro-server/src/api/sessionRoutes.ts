@@ -127,10 +127,20 @@ async function generateManifestViaCLI(options: {
   }
 
   return new Promise((resolve, reject) => {
-    const child = spawnProcess(maestroBin, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: spawnEnv,
-    });
+    // Raise file descriptor limit before spawning to prevent "low max file
+    // descriptors" errors from Claude Code (macOS default of 2560 is too low).
+    // Explicitly set cwd to $HOME so the shell can getcwd() during init —
+    // when launched from Finder the process cwd may be "/" which is
+    // inaccessible due to macOS SIP/TCC restrictions.
+    const child = spawnProcess(
+      '/bin/sh',
+      ['-c', 'ulimit -n 2147483646 2>/dev/null; exec "$@"', 'sh', maestroBin, ...args],
+      {
+        cwd: homedir(),
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: spawnEnv as NodeJS.ProcessEnv,
+      },
+    );
 
     let stdout = '';
     let stderr = '';

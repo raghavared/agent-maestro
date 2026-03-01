@@ -1,9 +1,9 @@
-import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
 import type { MaestroManifest } from '../types/manifest.js';
 import type { SpawnResult, SpawnOptions } from './claude-spawner.js';
 import { prepareSpawnerEnvironment } from './spawner-env.js';
 import { PromptComposer, type PromptEnvelope } from '../prompting/prompt-composer.js';
+import { spawnWithUlimit } from './spawn-with-ulimit.js';
 
 /**
  * CodexSpawner - Spawns OpenAI Codex CLI sessions with manifests
@@ -173,7 +173,7 @@ export class CodexSpawner {
 
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
 
-    const codexProcess = spawn('codex', args, {
+    const codexProcess = spawnWithUlimit('codex', args, {
       cwd,
       env,
       stdio: options.interactive ? 'inherit' : 'pipe',

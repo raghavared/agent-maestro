@@ -82,6 +82,15 @@ fn main() {
         // Now fix_path_env can properly spawn the shell to extract full PATH.
         let _ = fix_path_env::fix();
     }
+    // When launched from Finder / Dock, macOS sets cwd to "/" which is often
+    // inaccessible to child processes due to SIP / TCC restrictions.  This
+    // causes "shell-init: getcwd: Operation not permitted" errors in every
+    // subprocess (server sidecar, PTY shells, CLI commands).  Fix by moving
+    // the process cwd to $HOME early, before anything spawns.
+    if let Some(home) = dirs::home_dir() {
+        let _ = std::env::set_current_dir(&home);
+    }
+
     startup::init_startup_flags();
 
     let app = tauri::Builder::default()
