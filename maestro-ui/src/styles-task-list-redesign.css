@@ -280,6 +280,39 @@
 }
 
 /* Flex filler to push time-ago to the right */
+/* Dangerous mode toggle button (task list + execution bar) */
+.terminalDangerousToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-family: inherit;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--terminal-text-dim, #888);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.terminalDangerousToggle:hover {
+  border-color: rgba(255,200,0,0.4);
+  color: var(--terminal-text, #ccc);
+}
+.terminalDangerousToggle--on {
+  background: rgba(255,170,0,0.15);
+  border-color: rgba(255,170,0,0.5);
+  color: #ffab00;
+}
+.terminalDangerousToggle--on:hover {
+  background: rgba(255,170,0,0.25);
+}
+.terminalDangerousToggle--bar {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
 .terminalTaskMetaFill {
   flex: 1;
   min-width: 8px;

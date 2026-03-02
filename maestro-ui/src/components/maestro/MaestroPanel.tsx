@@ -259,7 +259,11 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             // Upload any staged image files attached during task creation
             if (taskData._stagedFiles?.length > 0) {
                 for (const file of taskData._stagedFiles) {
-                    try { await maestroClient.uploadTaskImage(newTask.id, file); } catch { /* non-fatal */ }
+                    try {
+                        await maestroClient.uploadTaskImage(newTask.id, file);
+                    } catch (uploadErr) {
+                        console.error(`Failed to upload task image "${file.name}":`, uploadErr);
+                    }
                 }
             }
             if (taskData.startImmediately) {
@@ -296,6 +300,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 task, project, mode, teamMemberId, teamMemberIds,
                 ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
                 ...(task.memberOverrides ? { memberOverrides: task.memberOverrides } : {}),
+                ...(task.dangerousMode ? { permissionMode: 'bypassPermissions' as const } : {}),
             });
         } catch (err: any) {
             setError(`Failed to open terminal: ${err.message}`);

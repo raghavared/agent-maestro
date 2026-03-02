@@ -79,6 +79,11 @@ export interface SessionSpawnEvent {
   data: SpawnRequestEvent;
 }
 
+export interface SessionResumeEvent {
+  type: 'session:resume';
+  data: SpawnRequestEvent;
+}
+
 export interface SessionUpdatedEvent {
   type: 'session:updated';
   data: Session;
@@ -255,6 +260,7 @@ export type DomainEvent =
   | TaskListReorderedEvent
   | SessionCreatedEvent
   | SessionSpawnEvent
+  | SessionResumeEvent
   | SessionUpdatedEvent
   | SessionDeletedEvent
   | SessionTaskAddedEvent
@@ -301,6 +307,7 @@ export interface TypedEventMap {
   'task_list:reordered': TaskList;
   'session:created': Session;
   'session:spawn': SpawnRequestEvent;
+  'session:resume': SpawnRequestEvent;
   'session:updated': Session;
   'session:deleted': { id: string };
   'session:task_added': { sessionId: string; taskId: string };

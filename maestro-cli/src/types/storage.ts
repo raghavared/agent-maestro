@@ -42,7 +42,7 @@ export interface StoredTask {
     filename: string;
     mimeType: string;
     size: number;
-    uploadedAt: number;
+    addedAt: number;
   }>;
 }
 

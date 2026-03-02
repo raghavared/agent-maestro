@@ -3,6 +3,7 @@ import { spawn as spawnProcess } from 'child_process';
 import { readFile, mkdir, writeFile } from 'fs/promises';
 import { join, resolve as resolvePath, delimiter as pathDelimiter } from 'path';
 import { homedir } from 'os';
+import { randomUUID } from 'crypto';
 import { SessionService } from '../application/services/SessionService';
 import { LogDigestService } from '../application/services/LogDigestService';
 import { IProjectRepository } from '../domain/repositories/IProjectRepository';
@@ -72,6 +73,8 @@ async function generateManifestViaCLI(options: {
   coordinatorSessionId?: string;
   isMaster?: boolean;
   memberOverrides?: Record<string, MemberLaunchOverride>;
+  permissionMode?: string;
+  delegatePermissionMode?: string;
   sessionDir?: string;
   cliPathOverride?: string;
 }): Promise<{ manifestPath: string; manifest: any }> {
@@ -124,6 +127,13 @@ async function generateManifestViaCLI(options: {
 
   if (memberOverrides && Object.keys(memberOverrides).length > 0) {
     spawnEnv.MAESTRO_MEMBER_OVERRIDES = JSON.stringify(memberOverrides);
+  }
+
+  if (options.permissionMode) {
+    spawnEnv.MAESTRO_PERMISSION_MODE = options.permissionMode;
+  }
+  if (options.delegatePermissionMode) {
+    spawnEnv.MAESTRO_DELEGATE_PERMISSION_MODE = options.delegatePermissionMode;
   }
 
   return new Promise((resolve, reject) => {
@@ -743,6 +753,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         model: requestedModel,           // Override model for this run
         initialDirective,                // { subject, message, fromSessionId } for guaranteed delivery
         memberOverrides,                 // Per-member launch overrides: Record<string, MemberLaunchOverride>
+        permissionMode: requestedPermissionMode,           // Session-level permission mode override
+        delegatePermissionMode: requestedDelegatePermissionMode, // Permission mode for spawned workers
       } = req.body;
 
       let normalizedMemberOverrides: Record<string, MemberLaunchOverride> | undefined =
@@ -844,6 +856,17 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         const parentOverrides = parentSession.metadata?.memberOverrides;
         if (parentOverrides && typeof parentOverrides === 'object' && !Array.isArray(parentOverrides)) {
           normalizedMemberOverrides = parentOverrides;
+        }
+      }
+
+      // Inherit delegatePermissionMode from parent as child's permissionMode
+      // When a coordinator spawns a worker, the coordinator's delegatePermissionMode becomes the worker's permissionMode
+      let resolvedPermissionMode = requestedPermissionMode;
+      let resolvedDelegatePermissionMode = requestedDelegatePermissionMode;
+      if (spawnSource === 'session' && parentSession && !resolvedPermissionMode) {
+        const parentDelegateMode = parentSession.metadata?.delegatePermissionMode;
+        if (parentDelegateMode) {
+          resolvedPermissionMode = parentDelegateMode;
         }
       }
 
@@ -1037,10 +1060,14 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       // Coordinator gets teamSessionId = its own ID (set after creation).
       const isSessionSpawned = !!resolvedParentSessionId;
 
+      // Pre-generate Claude session ID for resume support
+      const claudeSessionId = randomUUID();
+
       const session = await sessionService.createSession({
         projectId,
         taskIds,
         name: sessionName || `${modeLabel} for ${taskIds[0]}`,
+        claudeSessionId,
         status: 'spawning',
         env: {},
         metadata: {
@@ -1054,6 +1081,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           teamMemberIds: effectiveTeamMemberIds.length > 0 ? effectiveTeamMemberIds : null,
           context: context || {},
           ...(normalizedMemberOverrides && Object.keys(normalizedMemberOverrides).length > 0 ? { memberOverrides: normalizedMemberOverrides } : {}),
+          ...(requestedPermissionMode ? { permissionMode: requestedPermissionMode } : {}),
+          ...(requestedDelegatePermissionMode ? { delegatePermissionMode: requestedDelegatePermissionMode } : {}),
         },
         parentSessionId: resolvedParentSessionId,
         rootSessionId: resolvedRootSessionId,
@@ -1125,6 +1154,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           memberOverrides: normalizedMemberOverrides && Object.keys(normalizedMemberOverrides).length > 0
             ? normalizedMemberOverrides
             : undefined,
+          permissionMode: resolvedPermissionMode || undefined,
+          delegatePermissionMode: resolvedDelegatePermissionMode || undefined,
           sessionDir: config.sessionDir,
           cliPathOverride: config.manifestGenerator.cliPath,
         });
@@ -1169,6 +1200,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       const finalEnvVars: Record<string, string> = {
         MAESTRO_SESSION_ID: session.id,
+        MAESTRO_CLAUDE_SESSION_ID: claudeSessionId,
         MAESTRO_MANIFEST_PATH: manifestPath,
         MAESTRO_SERVER_URL: config.serverUrl,
         MAESTRO_MODE: resolvedMode,
@@ -1230,6 +1262,161 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       res.status(500).json({
         error: true,
         code: 'spawn_error',
+        message
+      });
+    }
+  });
+
+  // ==================== RESUME SESSION ====================
+
+  router.post('/:id/resume', async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+
+      // Load session
+      const session = await sessionService.getSession(id);
+      if (!session) {
+        return res.status(404).json({
+          error: true,
+          code: 'session_not_found',
+          message: `Session ${id} not found`
+        });
+      }
+
+      // Validate session is resumable
+      const resumableStatuses: SessionStatus[] = ['completed', 'stopped', 'failed', 'idle'];
+      if (!resumableStatuses.includes(session.status)) {
+        return res.status(400).json({
+          error: true,
+          code: 'session_not_resumable',
+          message: `Session status '${session.status}' is not resumable. Must be one of: ${resumableStatuses.join(', ')}`
+        });
+      }
+
+      // Validate claudeSessionId exists (pre-feature sessions can't be resumed)
+      if (!session.claudeSessionId) {
+        return res.status(400).json({
+          error: true,
+          code: 'no_claude_session_id',
+          message: 'Session was created before resume support. Cannot resume without a Claude session ID.'
+        });
+      }
+
+      // Validate agent tool is claude-code
+      const agentTool = session.metadata?.agentTool || 'claude-code';
+      if (agentTool !== 'claude-code') {
+        return res.status(400).json({
+          error: true,
+          code: 'agent_tool_not_resumable',
+          message: `Agent tool '${agentTool}' does not support resume. Only 'claude-code' sessions can be resumed.`
+        });
+      }
+
+      // Load project for workingDir
+      const project = await projectRepo.findById(session.projectId);
+      if (!project) {
+        return res.status(404).json({
+          error: true,
+          code: 'project_not_found',
+          message: `Project ${session.projectId} not found`
+        });
+      }
+
+      const cwd = project.workingDir;
+      const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime(config.manifestGenerator.cliPath);
+
+      // Pass through auth-related API keys from server environment
+      const authEnvKeys = [
+        'GEMINI_API_KEY',
+        'GOOGLE_API_KEY',
+        'GOOGLE_GENAI_USE_VERTEXAI',
+        'GOOGLE_GENAI_USE_GCA',
+        'OPENAI_API_KEY',
+        'ANTHROPIC_API_KEY',
+      ];
+      const authEnvVars: Record<string, string> = {};
+      for (const key of authEnvKeys) {
+        if (process.env[key]) {
+          authEnvVars[key] = process.env[key]!;
+        }
+      }
+      if (!authEnvVars['GOOGLE_GENAI_USE_GCA']) {
+        authEnvVars['GOOGLE_GENAI_USE_GCA'] = 'true';
+      }
+
+      // Determine resume command
+      const mode = session.metadata?.mode || 'worker';
+      const initCommand = isCoordinatorMode(mode) ? 'orchestrator' : 'worker';
+      const command = `maestro ${initCommand} resume`;
+
+      // Reconstruct env vars — reuse stored env, refresh dynamic values
+      const finalEnvVars: Record<string, string> = {
+        ...session.env,
+        MAESTRO_SESSION_ID: session.id,
+        MAESTRO_CLAUDE_SESSION_ID: session.claudeSessionId,
+        MAESTRO_SERVER_URL: config.serverUrl,
+        MAESTRO_MODE: mode,
+        DATA_DIR: config.dataDir,
+        SESSION_DIR: config.sessionDir,
+        ...authEnvVars,
+      };
+
+      // Ensure CLI runtime path is correct
+      const runtimePath = prependNodeModulesBin(process.env.PATH, monorepoRoot);
+      if (runtimePath) {
+        finalEnvVars.PATH = runtimePath;
+      }
+      finalEnvVars.MAESTRO_CLI_PATH = maestroBin;
+
+      if (project.isMaster === true) {
+        finalEnvVars.MAESTRO_IS_MASTER = 'true';
+      }
+
+      // Update session status to spawning
+      await sessionService.updateSession(session.id, {
+        status: 'spawning',
+        env: finalEnvVars,
+      });
+
+      // Add timeline event
+      await sessionService.updateSession(session.id, {
+        timeline: [
+          ...(session.timeline || []),
+          {
+            id: randomUUID(),
+            type: 'progress' as const,
+            timestamp: Date.now(),
+            message: 'Session resumed',
+          }
+        ],
+      });
+
+      // Emit session:resume event (reuses SpawnRequestEvent shape)
+      const resumeEvent = {
+        session: { ...session, status: 'spawning' as SessionStatus, env: finalEnvVars },
+        command,
+        cwd,
+        envVars: finalEnvVars,
+        projectId: session.projectId,
+        taskIds: session.taskIds,
+        spawnSource: 'ui' as const,
+        parentSessionId: session.parentSessionId || undefined,
+        rootSessionId: session.rootSessionId || undefined,
+      };
+
+      await eventBus.emit('session:resume', resumeEvent);
+
+      res.json({
+        success: true,
+        sessionId: session.id,
+        claudeSessionId: session.claudeSessionId,
+        message: 'Resume request sent to Agent Maestro',
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({
+        error: true,
+        code: 'resume_error',
         message
       });
     }

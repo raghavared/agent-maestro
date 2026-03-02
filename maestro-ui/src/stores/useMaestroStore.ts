@@ -111,6 +111,7 @@ interface MaestroState {
   deleteTeam: (id: string, projectId: string) => Promise<void>;
   archiveTeam: (id: string, projectId: string) => Promise<void>;
   unarchiveTeam: (id: string, projectId: string) => Promise<void>;
+  resumeSession: (sessionId: string) => Promise<void>;
 }
 
 export const useMaestroStore = create<MaestroState>((set, get) => {
@@ -217,6 +218,24 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
             projectId: message.data.projectId || '',
           });
           // Play sound for session creation
+          playEventSound('session:created');
+          break;
+        }
+        case 'session:resume': {
+          const session = normalizeSession(message.data.session || message.data);
+          if (!session?.id) {
+            break;
+          }
+          set((prev) => ({ sessions: new Map(prev.sessions).set(session.id, session) }));
+          void useSessionStore.getState().handleSpawnTerminalSession({
+            maestroSessionId: session.id,
+            name: session.name || '',
+            command: message.data.command ?? null,
+            args: [],
+            cwd: message.data.cwd || '',
+            envVars: message.data.envVars || {},
+            projectId: message.data.projectId || '',
+          });
           playEventSound('session:created');
           break;
         }
@@ -995,6 +1014,10 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
 
     unarchiveTeam: async (id, projectId) => {
       await maestroClient.unarchiveTeam(id, projectId);
+    },
+
+    resumeSession: async (sessionId: string) => {
+      await maestroClient.resumeSession(sessionId);
     },
 
     fetchWorkflowTemplates: async () => {

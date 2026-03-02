@@ -40,7 +40,7 @@ type CreateTaskModalProps = {
         teamMemberId?: string;
         teamMemberIds?: string[];
         memberOverrides?: Record<string, MemberLaunchOverride>;
-    }) => void;
+    }) => Promise<void> | void;
     project: MaestroProject;
     parentId?: string;
     parentTitle?: string;
@@ -147,7 +147,7 @@ export function CreateTaskModal({
         form.setShowLaunchConfig(!form.showLaunchConfig);
     };
 
-    const handleSubmit = (startImmediately: boolean) => {
+    const handleSubmit = async (startImmediately: boolean) => {
         if (!form.title.trim() || !form.prompt.trim()) return;
 
         const payload = form.getCreatePayload(
@@ -162,7 +162,7 @@ export function CreateTaskModal({
             (payload as any).memberOverrides = overrides;
         }
 
-        onCreate(payload);
+        await onCreate(payload);
         form.resetForm();
         refPicker.reset();
         onClose();
