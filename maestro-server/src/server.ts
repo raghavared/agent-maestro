@@ -25,7 +25,7 @@ async function startServer() {
   const container = await createContainer();
   await container.initialize();
 
-  const { config, logger, eventBus, projectService, taskService, taskListService, sessionService, logDigestService, orderingService, teamMemberService, teamService, mailService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
+  const { config, logger, eventBus, projectService, taskService, taskListService, sessionService, logDigestService, orderingService, teamMemberService, teamService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
 
   // Create Express app
   const app = express();
@@ -121,7 +121,6 @@ async function startServer() {
     projectRepo,
     taskRepo,
     teamMemberRepo,
-    mailService,
     eventBus,
     config
   });

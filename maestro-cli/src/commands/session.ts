@@ -7,7 +7,7 @@ import { handleError } from '../utils/errors.js';
 import { guardCommand } from '../services/command-permissions.js';
 import { executeReport } from './report.js';
 import { resolveSpawnModeFromSkillAndTeamMemberMode } from './session-spawn-mode.js';
-import type { TaskResponse, SessionResponse, TeamMemberResponse, SpawnResponse, DocResponse, LogDigestResponse, MailMessage } from '../types/api-responses.js';
+import type { TaskResponse, SessionResponse, TeamMemberResponse, SpawnResponse, DocResponse, LogDigestResponse } from '../types/api-responses.js';
 import ora from 'ora';
 import { readFileSync } from 'fs';
 import WebSocket from 'ws';
@@ -966,77 +966,6 @@ export function registerSessionCommands(program: Command) {
             }
         });
 
-    session
-        .command('notify <ids...>')
-        .description('Notify one or more sessions — sends a PTY wakeup and stores a mail message')
-        .requiredOption('--message <brief>', 'Brief message (injected into PTY + stored as mail)')
-        .option('--detail <full>', 'Full detail text (stored in mail only, not injected into PTY)')
-        .action(async (ids: string[], cmdOpts: { message: string; detail?: string }) => {
-            await guardCommand('session:notify');
-            const mySessionId = config.sessionId;
-            const configRecord = config as Record<string, unknown>;
-            const myName = (configRecord.teamMemberName as string) || ((configRecord.teamMemberSnapshot as Record<string, string>)?.name) || config.sessionId || 'Unknown';
-            if (!mySessionId) {
-                console.error('No session ID — not running inside a session');
-                process.exit(1);
-            }
-            let succeeded = 0;
-            const failed: string[] = [];
-            for (const targetId of ids) {
-                try {
-                    await api.post(`/api/sessions/${targetId}/mail`, {
-                        fromSessionId: mySessionId,
-                        fromName: myName,
-                        message: cmdOpts.message,
-                        ...(cmdOpts.detail ? { detail: cmdOpts.detail } : {}),
-                    });
-                    succeeded++;
-                } catch (err: unknown) {
-                    const msg = err instanceof Error ? err.message : String(err);
-                    failed.push(`${targetId} (${msg})`);
-                }
-            }
-            if (failed.length > 0) {
-                console.error(`Failed to notify ${failed.length} session(s): ${failed.join(', ')}`);
-            }
-            if (succeeded > 0) {
-                console.log(`Notified ${succeeded} session(s).`);
-            }
-            if (failed.length > 0 && succeeded === 0) {
-                process.exit(1);
-            }
-        });
-
-    const mail = session
-        .command('mail')
-        .description('Session mail (persistent messages)');
-
-    mail
-        .command('read')
-        .description('Read unread mail for the current session')
-        .action(async () => {
-            await guardCommand('session:mail:read');
-            const mySessionId = config.sessionId;
-            if (!mySessionId) {
-                console.error('No session ID — not running inside a session');
-                process.exit(1);
-            }
-            const messages = await api.get<MailMessage[]>(`/api/sessions/${mySessionId}/mail`);
-            if (messages.length === 0) {
-                console.log('No unread messages.');
-                return;
-            }
-            console.log(`\n📬 ${messages.length} unread message(s):\n`);
-            for (const m of messages) {
-                const date = new Date(m.createdAt).toLocaleTimeString();
-                console.log(`  [${date}] From: ${m.fromName} (${m.fromSessionId})`);
-                console.log(`  ${m.message}`);
-                if (m.detail) {
-                    console.log(`  Detail: ${m.detail}`);
-                }
-                console.log();
-            }
-        });
 }
 
 /**

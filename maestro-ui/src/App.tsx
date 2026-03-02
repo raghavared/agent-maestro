@@ -27,6 +27,7 @@ import { useAppLayoutResizing } from "./hooks/useAppLayoutResizing";
 import { useWorkspaceResizeEffect } from "./hooks/useWorkspaceResizeEffect";
 import { useProjectSoundSync } from "./hooks/useProjectSoundSync";
 import { useTeamMemberSoundSync } from "./hooks/useTeamMemberSoundSync";
+import { useSoundEffects } from "./hooks/useSoundEffects";
 
 // Components
 import { CommandPalette } from "./CommandPalette";
@@ -168,6 +169,8 @@ export default function App() {
   // ---------- keyboard shortcuts (reads from stores directly) ----------
   useKeyboardShortcuts();
 
+  // ---------- sound effects (preload + enable) ----------
+  useSoundEffects();
   // ---------- project sound sync ----------
   useProjectSoundSync();
   // ---------- team member instrument sync ----------

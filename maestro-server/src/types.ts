@@ -495,22 +495,3 @@ export interface SpawnRequestEvent {
   _isSpawnCreated?: boolean;             // Backward compatibility flag
 }
 
-export interface Mail {
-  id: string;
-  parentSessionId: string;
-  fromSessionId: string;
-  fromName: string;
-  toSessionId: string;
-  message: string;
-  detail?: string;
-  createdAt: number;
-  readAt?: number;
-}
-
-export interface CreateMailPayload {
-  fromSessionId: string;
-  fromName: string;
-  toSessionId: string;
-  message: string;
-  detail?: string;
-}

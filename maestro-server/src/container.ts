@@ -10,14 +10,12 @@ import { FileSystemTaskListRepository } from './infrastructure/repositories/File
 import { FileSystemOrderingRepository } from './infrastructure/repositories/FileSystemOrderingRepository';
 import { FileSystemTeamMemberRepository } from './infrastructure/repositories/FileSystemTeamMemberRepository';
 import { FileSystemTeamRepository } from './infrastructure/repositories/FileSystemTeamRepository';
-import { FileSystemMailRepository } from './infrastructure/repositories/FileSystemMailRepository';
 import { MultiScopeSkillLoader } from './infrastructure/skills/MultiScopeSkillLoader';
 import { ProjectService } from './application/services/ProjectService';
 import { TaskService } from './application/services/TaskService';
 import { SessionService } from './application/services/SessionService';
 import { TaskListService } from './application/services/TaskListService';
 import { LogDigestService } from './application/services/LogDigestService';
-import { MailService } from './application/services/MailService';
 
 import { OrderingService } from './application/services/OrderingService';
 import { TeamMemberService } from './application/services/TeamMemberService';
@@ -33,7 +31,6 @@ import { ISessionRepository } from './domain/repositories/ISessionRepository';
 import { IOrderingRepository } from './domain/repositories/IOrderingRepository';
 import { ITeamMemberRepository } from './domain/repositories/ITeamMemberRepository';
 import { ITeamRepository } from './domain/repositories/ITeamRepository';
-import { IMailRepository } from './domain/repositories/IMailRepository';
 import { ISkillLoader } from './domain/services/ISkillLoader';
 
 /**
@@ -91,7 +88,6 @@ export interface Container {
   orderingRepo: IOrderingRepository;
   teamMemberRepo: ITeamMemberRepository;
   teamRepo: ITeamRepository;
-  mailRepo: IMailRepository;
 
   // Loaders
   skillLoader: ISkillLoader;
@@ -105,7 +101,6 @@ export interface Container {
   orderingService: OrderingService;
   teamMemberService: TeamMemberService;
   teamService: TeamService;
-  mailService: MailService;
 
   // Lifecycle
   initialize(): Promise<void>;
@@ -152,8 +147,6 @@ export async function createContainer(): Promise<Container> {
   const orderingService = new OrderingService(orderingRepo);
   const teamMemberService = new TeamMemberService(teamMemberRepo, eventBus, idGenerator);
   const teamService = new TeamService(teamRepo, teamMemberRepo, eventBus, idGenerator);
-  const mailRepo = new FileSystemMailRepository(config.dataDir, idGenerator, logger);
-  const mailService = new MailService(mailRepo, sessionRepo, eventBus);
 
   const container: Container = {
     config,
@@ -167,7 +160,6 @@ export async function createContainer(): Promise<Container> {
     orderingRepo,
     teamMemberRepo,
     teamRepo,
-    mailRepo,
     skillLoader,
     projectService,
     taskService,
@@ -177,7 +169,6 @@ export async function createContainer(): Promise<Container> {
     orderingService,
     teamMemberService,
     teamService,
-    mailService,
 
     async initialize() {
       logger.info('Initializing container...');
@@ -190,7 +181,6 @@ export async function createContainer(): Promise<Container> {
       await orderingRepo.initialize();
       await teamMemberRepo.initialize();
       await teamRepo.initialize();
-      await mailRepo.initialize();
 
       // Migration: Delete old team member tasks (one-time migration)
       await migrateTeamMemberTasks(taskRepo, logger);

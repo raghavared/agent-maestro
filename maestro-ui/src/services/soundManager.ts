@@ -464,12 +464,20 @@ function chromaticToSimpleNote(note: string): string {
   return match ? match[1] : 'C';
 }
 
+/**
+ * How to resolve sounds when a session has multiple team members:
+ * - 'ensemble': All members' instruments play simultaneously with stagger (default)
+ * - 'primary': Only the first team member's instrument plays (tie-breaker)
+ */
+export type MultiMemberSoundMode = 'ensemble' | 'primary';
+
 interface SoundManagerConfig {
   enabled: boolean;
   volume: number;
   maxConcurrentSounds: number;
   enabledCategories: Set<SoundCategory>;
   currentInstrument: InstrumentType;
+  multiMemberMode: MultiMemberSoundMode;
 }
 
 class SoundManager {
@@ -481,6 +489,7 @@ class SoundManager {
     volume: 0.3,
     maxConcurrentSounds: 5,
     currentInstrument: 'piano',
+    multiMemberMode: 'ensemble',
     enabledCategories: new Set([
       'success',
       'error',
@@ -813,7 +822,15 @@ class SoundManager {
       return;
     }
 
-    // Play each instrument's voice with a 20ms stagger for natural ensemble effect
+    // 'primary' mode: only the first team member's instrument plays (tie-breaker)
+    if (this.config.multiMemberMode === 'primary') {
+      const instrument = instruments[0];
+      const notes = this.getNotesForCategory(category, instrument);
+      if (notes.length) await this.playNotes(notes, instrument);
+      return;
+    }
+
+    // 'ensemble' mode (default): all instruments play with stagger
     // Cap at 4 instruments to avoid sound overload
     const VOICE_STAGGER_MS = 20;
     const activeInstruments = instruments.slice(0, 4);
@@ -945,6 +962,15 @@ class SoundManager {
 
   public getInstrument(): InstrumentType {
     return this.config.currentInstrument;
+  }
+
+  public setMultiMemberMode(mode: MultiMemberSoundMode): void {
+    this.config.multiMemberMode = mode;
+    this.saveConfig();
+  }
+
+  public getMultiMemberMode(): MultiMemberSoundMode {
+    return this.config.multiMemberMode;
   }
 
   public stopAll(): void {
