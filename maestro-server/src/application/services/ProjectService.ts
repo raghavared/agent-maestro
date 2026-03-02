@@ -1,3 +1,4 @@
+import * as fs from 'fs/promises';
 import { Project } from '../../types';
 import {
   IProjectRepository,
@@ -26,9 +27,15 @@ export class ProjectService {
       throw new ValidationError('Project name is required');
     }
 
+    // Ensure working directory exists, create it if it doesn't
+    const workingDir = input.workingDir || '';
+    if (workingDir) {
+      await fs.mkdir(workingDir, { recursive: true });
+    }
+
     const project = await this.projectRepo.create({
       name: input.name.trim(),
-      workingDir: input.workingDir || '',
+      workingDir,
       description: input.description || ''
     });
 

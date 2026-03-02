@@ -43,7 +43,7 @@ export class TeamMemberService {
       projectId: data.projectId,
       name: data.name.trim(),
       role: data.role.trim(),
-      identity: data.identity ? data.identity.trim() : undefined,
+      identity: data.identity ? data.identity.trim() : `You are ${data.name.trim()}. ${data.role.trim()}.`,
       avatar: data.avatar.trim(),
       model: data.model,
       agentTool: data.agentTool,
