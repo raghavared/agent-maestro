@@ -504,9 +504,9 @@ export class ManifestGeneratorCLICommand {
             teamMembers.push({
               id: teamMember.id,
               name: teamMember.name,
-              role: teamMember.role,
-              identity: teamMember.identity,
-              avatar: teamMember.avatar,
+              role: teamMember.role || 'worker',
+              identity: teamMember.identity || `You are ${teamMember.name}. ${teamMember.role || 'A team member.'}`,
+              avatar: teamMember.avatar || '🤖',
               mode: teamMember.mode,
               permissionMode: teamMember.permissionMode,
               skillIds: teamMember.skillIds,
