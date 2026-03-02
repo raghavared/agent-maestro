@@ -320,6 +320,9 @@ export interface MaestroTask {
   // Per-member launch overrides saved on the task
   memberOverrides?: Record<string, MemberLaunchOverride>;
 
+  // Run this task with --dangerously-skip-permissions
+  dangerousMode?: boolean;
+
   // Due date for the task (ISO date string "YYYY-MM-DD" or null)
   dueDate?: string | null;
 
@@ -344,6 +347,7 @@ export interface MaestroSession {
   taskIds: string[];
   name: string;
   agentId?: string;
+  claudeSessionId?: string;
   env: Record<string, string>;
   metadata?: Record<string, any>;
   status: MaestroSessionStatus;
@@ -412,6 +416,7 @@ export interface UpdateTaskPayload {
   teamMemberId?: string;
   teamMemberIds?: string[];
   dueDate?: string | null;
+  dangerousMode?: boolean;
   // NOTE: timeline moved to Session - use addTimelineEvent on session
   completedAt?: number | null;
 }
@@ -519,6 +524,8 @@ export interface SpawnSessionPayload {
   agentTool?: AgentTool;              // Override agent tool for this run
   model?: ModelType;                  // Override model for this run
   memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member overrides keyed by teamMemberId
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
+  delegatePermissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
 }
 
 /** Input shape for the UI-level session creation callback used by hooks/components. */
@@ -534,6 +541,8 @@ export interface CreateMaestroSessionInput {
   agentTool?: AgentTool;
   model?: ModelType;
   memberOverrides?: Record<string, MemberLaunchOverride>;
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
+  delegatePermissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
 }
 
 export interface SpawnSessionResponse {

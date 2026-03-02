@@ -36,7 +36,7 @@ export function useExecutionMode(
         setSelectedAgentByTask(prev => ({ ...prev, [taskId]: agentId }));
     }, []);
 
-    const handleBatchExecute = useCallback(async (teamMemberId?: string, override?: { agentTool: AgentTool; model: ModelType }, memberOverrides?: Record<string, MemberLaunchOverride>) => {
+    const handleBatchExecute = useCallback(async (teamMemberId?: string, override?: { agentTool: AgentTool; model: ModelType }, memberOverrides?: Record<string, MemberLaunchOverride>, permissionMode?: string) => {
         const selectedTasks = normalizedTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
 
@@ -47,6 +47,7 @@ export function useExecutionMode(
                 teamMemberId,
                 ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
                 ...(memberOverrides && Object.keys(memberOverrides).length > 0 ? { memberOverrides } : {}),
+                ...(permissionMode ? { permissionMode: permissionMode as any } : {}),
             });
             setExecutionMode(false);
             setActiveBarMode('none');
@@ -57,7 +58,7 @@ export function useExecutionMode(
         }
     }, [normalizedTasks, selectedForExecution, project, onCreateMaestroSession, onError]);
 
-    const handleBatchOrchestrate = useCallback(async (coordinatorId?: string, workerIds?: string[], override?: { agentTool: AgentTool; model: ModelType }, memberOverrides?: Record<string, MemberLaunchOverride>) => {
+    const handleBatchOrchestrate = useCallback(async (coordinatorId?: string, workerIds?: string[], override?: { agentTool: AgentTool; model: ModelType }, memberOverrides?: Record<string, MemberLaunchOverride>, permissionMode?: string, delegatePermissionMode?: string) => {
         const selectedTasks = regularTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
 
@@ -71,6 +72,8 @@ export function useExecutionMode(
                 delegateTeamMemberIds: workerIds && workerIds.length > 0 ? workerIds : undefined,
                 ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
                 ...(memberOverrides && Object.keys(memberOverrides).length > 0 ? { memberOverrides } : {}),
+                ...(permissionMode ? { permissionMode: permissionMode as any } : {}),
+                ...(delegatePermissionMode ? { delegatePermissionMode: delegatePermissionMode as any } : {}),
             });
             setExecutionMode(false);
             setActiveBarMode('none');

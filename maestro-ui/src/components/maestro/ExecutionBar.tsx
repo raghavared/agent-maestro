@@ -33,8 +33,8 @@ type ExecutionBarProps = {
     isActive: boolean;
     onActivate: () => void;
     onCancel: () => void;
-    onExecute: (teamMemberId?: string, override?: LaunchOverride, memberOverrides?: Record<string, MemberLaunchOverride>) => void;
-    onOrchestrate: (coordinatorId?: string, workerIds?: string[], override?: LaunchOverride, memberOverrides?: Record<string, MemberLaunchOverride>) => void;
+    onExecute: (teamMemberId?: string, override?: LaunchOverride, memberOverrides?: Record<string, MemberLaunchOverride>, permissionMode?: string) => void;
+    onOrchestrate: (coordinatorId?: string, workerIds?: string[], override?: LaunchOverride, memberOverrides?: Record<string, MemberLaunchOverride>, permissionMode?: string, delegatePermissionMode?: string) => void;
     selectedCount: number;
     activeMode?: ExecutionMode;
     onActivateOrchestrate: () => void;
@@ -275,6 +275,8 @@ export function ExecutionBar({
     // Launch config modal state
     const [showConfigModal, setShowConfigModal] = useState(false);
     const [pendingMemberOverrides, setPendingMemberOverrides] = useState<Record<string, MemberLaunchOverride> | null>(null);
+    const [coordinatorDangerous, setCoordinatorDangerous] = useState(false);
+    const [workersDangerous, setWorkersDangerous] = useState(false);
 
     const computeLaunchPos = useCallback(() => {
         const btn = launchBtnRef.current;
@@ -417,6 +419,8 @@ export function ExecutionBar({
                 selectedWorkerIds.size > 0 ? Array.from(selectedWorkerIds) : undefined,
                 launchOverride || undefined,
                 Object.keys(overrides).length > 0 ? overrides : undefined,
+                coordinatorDangerous ? 'bypassPermissions' : undefined,
+                workersDangerous ? 'bypassPermissions' : undefined,
             );
         };
 
@@ -428,7 +432,6 @@ export function ExecutionBar({
             if (onSaveAsTeam) {
                 onSaveAsTeam(teamName, selectedCoordinatorId, Array.from(selectedWorkerIds), overrides);
             }
-            // Also launch after saving
             handleConfigLaunch(overrides);
         };
 
@@ -464,6 +467,20 @@ export function ExecutionBar({
                         <div className="executionBarActions">
                             <button type="button" className="terminalCmd executionBarCancelBtn" onClick={onCancel}>cancel</button>
                             <button type="button"
+                                className={`terminalDangerousToggle terminalDangerousToggle--bar ${coordinatorDangerous ? 'terminalDangerousToggle--on' : ''}`}
+                                title={coordinatorDangerous ? 'Coordinator: dangerous mode ON' : 'Coordinator: enable dangerous mode'}
+                                onClick={() => setCoordinatorDangerous(v => !v)}
+                            >
+                                {coordinatorDangerous ? '\u26A0 COORD' : '\uD83D\uDEE1\uFE0F COORD'}
+                            </button>
+                            <button type="button"
+                                className={`terminalDangerousToggle terminalDangerousToggle--bar ${workersDangerous ? 'terminalDangerousToggle--on' : ''}`}
+                                title={workersDangerous ? 'Workers: dangerous mode ON' : 'Workers: enable dangerous mode'}
+                                onClick={() => setWorkersDangerous(v => !v)}
+                            >
+                                {workersDangerous ? '\u26A0 WORKERS' : '\uD83D\uDEE1\uFE0F WORKERS'}
+                            </button>
+                            <button type="button"
                                 className="executionBarConfigBtn executionBarConfigBtn--orchestrate"
                                 onClick={() => setShowConfigModal(true)}
                                 title="Configure launch options per team member"
@@ -477,6 +494,8 @@ export function ExecutionBar({
                                     selectedWorkerIds.size > 0 ? Array.from(selectedWorkerIds) : undefined,
                                     launchOverride || undefined,
                                     pendingMemberOverrides || undefined,
+                                    coordinatorDangerous ? 'bypassPermissions' : undefined,
+                                    workersDangerous ? 'bypassPermissions' : undefined,
                                 )}
                                 disabled={selectedCount === 0}
                             >

@@ -134,6 +134,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
       teamMemberIds: input.teamMemberIds,
       dueDate: input.dueDate || null,
       memberOverrides: input.memberOverrides,
+      dangerousMode: input.dangerousMode,
       // NOTE: timeline is now on Session, not Task
     };
 
@@ -216,6 +217,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
     if (updates.images !== undefined) task.images = updates.images;
     if (updates.dueDate !== undefined) task.dueDate = updates.dueDate;
     if (updates.memberOverrides !== undefined) task.memberOverrides = updates.memberOverrides;
+    if (updates.dangerousMode !== undefined) task.dangerousMode = updates.dangerousMode;
 
     // Handle status changes
     if (updates.status !== undefined) {

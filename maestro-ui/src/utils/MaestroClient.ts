@@ -336,6 +336,13 @@ class MaestroClient {
         });
     }
 
+    async resumeSession(sessionId: string): Promise<{ success: boolean; sessionId: string; claudeSessionId: string }> {
+        return this.fetch(`/sessions/${sessionId}/resume`, {
+            method: 'POST',
+            body: JSON.stringify({}),
+        });
+    }
+
     async getTaskChildren(taskId: string): Promise<MaestroTask[]> {
         return this.fetch<MaestroTask[]>(`/tasks/${taskId}/children`);
     }

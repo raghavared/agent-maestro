@@ -141,6 +141,12 @@ export class ClaudeSpawner {
       // They're categorized but not preventing session spawn
     }
 
+    // Add pre-generated Claude session ID for resume support
+    const claudeSessionId = process.env.MAESTRO_CLAUDE_SESSION_ID;
+    if (claudeSessionId) {
+      args.push('--session-id', claudeSessionId);
+    }
+
     // Add model
     args.push('--model', manifest.session.model);
 
