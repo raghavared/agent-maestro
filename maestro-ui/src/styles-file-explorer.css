@@ -250,6 +250,13 @@
   background: linear-gradient(180deg, rgba(12, 18, 26, 0.9), rgba(10, 14, 20, 0.96));
 }
 
+/* File space variant: full-width code editor occupying the entire workspace */
+.codeEditorPanel--fileSpace {
+  width: 100%;
+  flex: 1 1 100%;
+  border-left: none;
+}
+
 .codeEditorHeader {
   position: relative;
   z-index: 1;

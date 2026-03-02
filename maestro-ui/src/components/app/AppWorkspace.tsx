@@ -16,8 +16,8 @@ import {
 } from "../../stores/useWorkspaceStore";
 import { isSshCommandLine, sshTargetFromCommandLine } from "../../app/utils/ssh";
 import { SessionLogStrip } from "../session-log/SessionLogStrip";
-import { isWhiteboardId, isDocumentId } from "../../app/types/space";
-import type { WhiteboardSpace, DocumentSpace } from "../../app/types/space";
+import { isWhiteboardId, isDocumentId, isFileId } from "../../app/types/space";
+import type { WhiteboardSpace, DocumentSpace, FileSpace } from "../../app/types/space";
 const LazyExcalidrawBoard = React.lazy(() => import("../ExcalidrawBoard").then(m => ({ default: m.ExcalidrawBoard })));
 const LazyDocViewer = React.lazy(() => import("../maestro/DocViewer").then(m => ({ default: m.DocViewer })));
 
@@ -53,11 +53,14 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
   );
   const closeWhiteboard = useSpacesStore((s) => s.closeWhiteboard);
   const closeDocument = useSpacesStore((s) => s.closeDocument);
+  const closeFile = useSpacesStore((s) => s.closeFile);
+  const setActiveId = useSessionStore((s) => s.setActiveId);
 
   // Determine if we're showing a non-session space
   const isActiveWhiteboard = activeId ? isWhiteboardId(activeId) : false;
   const isActiveDocument = activeId ? isDocumentId(activeId) : false;
-  const isActiveSession = !isActiveWhiteboard && !isActiveDocument;
+  const isActiveFile = activeId ? isFileId(activeId) : false;
+  const isActiveSession = !isActiveWhiteboard && !isActiveDocument && !isActiveFile;
 
   const activeLogAgentTool = (() => {
     if (!active?.maestroSessionId) return active?.effectId ?? null;
@@ -184,6 +187,39 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
               onClose={() => closeDocument(activeSpace.id)}
             />
           </Suspense>
+        </ErrorBoundary>
+      )}
+
+      {/* Inline file space — full-width code editor */}
+      {isActiveFile && activeSpace?.type === "file" && (
+        <ErrorBoundary name="FileEditor">
+          <React.Suspense
+            fallback={
+              <section className="codeEditorPanel codeEditorPanel--fileSpace" aria-label="Editor">
+                <div className="empty">Loading editor...</div>
+              </section>
+            }
+          >
+            <LazyCodeEditorPanel
+              key={`file-space:${activeSpace.id}`}
+              className="codeEditorPanel--fileSpace"
+              provider={(activeSpace as FileSpace).provider}
+              sshTarget={(activeSpace as FileSpace).sshTarget}
+              rootDir={(activeSpace as FileSpace).rootDir}
+              openFileRequest={{ path: (activeSpace as FileSpace).filePath, nonce: activeSpace.createdAt }}
+              persistedState={null}
+              fsEvent={null}
+              onPersistState={() => {}}
+              onConsumeOpenFileRequest={() => {}}
+              onActiveFilePathChange={() => {}}
+              onCloseEditor={() => {
+                closeFile(activeSpace.id);
+                // Switch to first session or null
+                const firstSession = sessions[0];
+                setActiveId(firstSession?.id ?? null);
+              }}
+            />
+          </React.Suspense>
         </ErrorBoundary>
       )}
 

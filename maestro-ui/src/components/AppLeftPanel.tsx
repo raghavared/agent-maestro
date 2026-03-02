@@ -8,6 +8,7 @@ import { useProjectStore } from "../stores/useProjectStore";
 import { useSessionStore } from "../stores/useSessionStore";
 import { useWorkspaceStore, getActiveWorkspaceView } from "../stores/useWorkspaceStore";
 import { useMaestroStore } from "../stores/useMaestroStore";
+import { useSpacesStore } from "../stores/useSpacesStore";
 import { isSshCommandLine, sshTargetFromCommandLine } from "../app/utils/ssh";
 import { createMaestroSession } from "../services/maestroService";
 import { useTasks } from "../hooks/useTasks";
@@ -65,8 +66,9 @@ export const AppLeftPanel: React.FC = () => {
     })();
 
     // Workspace store
-    const handleSelectWorkspaceFile = useWorkspaceStore((s) => s.handleSelectWorkspaceFile);
     const activeWorkspaceView = getActiveWorkspaceView();
+    const openFileAsSpace = useSpacesStore((s) => s.openFile);
+    const setActiveId = useSessionStore((s) => s.setActiveId);
 
     const fileExplorerRootDir =
         activeWorkspaceView.fileExplorerRootDir ??
@@ -75,6 +77,22 @@ export const AppLeftPanel: React.FC = () => {
         active?.cwd ??
         homeDir ??
         "";
+
+    const handleSelectFileAsSpace = useCallback(
+        (path: string) => {
+            const rootDir = fileExplorerRootDir;
+            if (!rootDir) return;
+            const id = openFileAsSpace({
+                projectId: activeProjectId,
+                filePath: path,
+                rootDir,
+                provider: activeIsSsh ? "ssh" : "local",
+                sshTarget: activeIsSsh ? activeSshTarget : null,
+            });
+            setActiveId(id);
+        },
+        [activeProjectId, fileExplorerRootDir, activeIsSsh, activeSshTarget, openFileAsSpace, setActiveId],
+    );
 
     // Task/team counts for badges
     const { tasks } = useTasks(activeProjectId);
@@ -166,7 +184,7 @@ export const AppLeftPanel: React.FC = () => {
                         sshTarget={activeIsSsh ? activeSshTarget : null}
                         rootDir={fileExplorerRootDir}
                         activeFilePath={activeWorkspaceView.codeEditorActiveFilePath}
-                        onSelectFile={handleSelectWorkspaceFile}
+                        onSelectFile={handleSelectFileAsSpace}
                         onClose={handleClose}
                     />
                 )}

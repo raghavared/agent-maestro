@@ -6,7 +6,7 @@ import type { ProcessEffect } from "../processEffects";
 import * as DEFAULTS from "../app/constants/defaults";
 import { useSpacesStore } from "../stores/useSpacesStore";
 import { useSessionStore } from "../stores/useSessionStore";
-import { isWhiteboardId, isDocumentId } from "../app/types/space";
+import { isWhiteboardId, isDocumentId, isFileId } from "../app/types/space";
 
 type SpacesPanelProps = {
     agentShortcuts: ProcessEffect[];
@@ -53,6 +53,7 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
     const createWhiteboard = useSpacesStore((s) => s.createWhiteboard);
     const closeWhiteboard = useSpacesStore((s) => s.closeWhiteboard);
     const closeDocument = useSpacesStore((s) => s.closeDocument);
+    const closeFile = useSpacesStore((s) => s.closeFile);
     const setActiveId = useSessionStore((s) => s.setActiveId);
 
     const handleCreateWhiteboard = () => {
@@ -65,6 +66,8 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
             closeWhiteboard(id);
         } else if (isDocumentId(id)) {
             closeDocument(id);
+        } else if (isFileId(id)) {
+            closeFile(id);
         }
         // If the closed space was active, switch to first session
         if (id === activeSessionId) {

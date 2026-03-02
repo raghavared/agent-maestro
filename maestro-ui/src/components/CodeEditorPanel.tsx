@@ -123,6 +123,7 @@ export function CodeEditorPanel({
   onConsumeOpenFileRequest,
   onActiveFilePathChange,
   onCloseEditor,
+  className,
 }: {
   provider: "local" | "ssh";
   sshTarget?: string | null;
@@ -134,6 +135,7 @@ export function CodeEditorPanel({
   onConsumeOpenFileRequest?: () => void;
   onActiveFilePathChange: (path: string | null) => void;
   onCloseEditor: () => void;
+  className?: string;
 }) {
   const [tabs, setTabs] = React.useState<Tab[]>([]);
   const [activePath, setActivePath] = React.useState<string | null>(null);
@@ -805,7 +807,7 @@ export function CodeEditorPanel({
   }, [activePath, tabs.length]);
 
   return (
-    <section className="codeEditorPanel" aria-label="Editor">
+    <section className={`codeEditorPanel${className ? ` ${className}` : ""}`} aria-label="Editor">
       <div className="codeEditorHeader">
         <div className="codeEditorTabsWrapper">
           {canScrollLeft ? (
