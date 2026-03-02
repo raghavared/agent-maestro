@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Space, WhiteboardSpace, DocumentSpace } from "../app/types/space";
+import type { Space, WhiteboardSpace, DocumentSpace, FileSpace } from "../app/types/space";
 import type { DocEntry } from "../app/types/maestro";
 
 const STORAGE_KEY = "maestro-spaces-v1";
@@ -19,7 +19,7 @@ function loadSpaces(): Space[] {
         typeof s === "object" &&
         s !== null &&
         ("type" in s) &&
-        ((s as Space).type === "whiteboard" || (s as Space).type === "document"),
+        ((s as Space).type === "whiteboard" || (s as Space).type === "document" || (s as Space).type === "file"),
     );
   } catch {
     return [];
@@ -36,6 +36,14 @@ function persistSpaces(spaces: Space[]) {
   }
 }
 
+interface OpenFileOptions {
+  projectId: string;
+  filePath: string;
+  rootDir: string;
+  provider: "local" | "ssh";
+  sshTarget: string | null;
+}
+
 interface SpacesState {
   spaces: Space[];
 
@@ -46,6 +54,10 @@ interface SpacesState {
   // Document actions
   openDocument: (projectId: string, doc: DocEntry) => string;
   closeDocument: (id: string) => void;
+
+  // File actions
+  openFile: (opts: OpenFileOptions) => string;
+  closeFile: (id: string) => void;
 
   // Getters
   getSpacesByProject: (projectId: string) => Space[];
@@ -112,6 +124,36 @@ export const useSpacesStore = create<SpacesState>((set, get) => ({
   },
 
   closeDocument: (id) => {
+    set((s) => ({
+      spaces: s.spaces.filter((sp) => sp.id !== id),
+    }));
+  },
+
+  openFile: (opts) => {
+    // Reuse an existing file space for the same path in this project
+    const existing = get().spaces.find(
+      (s) => s.type === "file" && (s as FileSpace).filePath === opts.filePath && s.projectId === opts.projectId,
+    );
+    if (existing) return existing.id;
+
+    const id = generateId("file_");
+    const name = opts.filePath.split(/[\\/]/).pop() || opts.filePath;
+    const fs: FileSpace = {
+      id,
+      type: "file",
+      name,
+      projectId: opts.projectId,
+      createdAt: Date.now(),
+      filePath: opts.filePath,
+      rootDir: opts.rootDir,
+      provider: opts.provider,
+      sshTarget: opts.sshTarget,
+    };
+    set((s) => ({ spaces: [...s.spaces, fs] }));
+    return id;
+  },
+
+  closeFile: (id) => {
     set((s) => ({
       spaces: s.spaces.filter((sp) => sp.id !== id),
     }));

@@ -964,6 +964,13 @@ export function SessionsSection({
                             <path d="M3 17l3.5-3.5M6.5 13.5l-2-2L14 2l2 2L6.5 13.5z" strokeLinejoin="round" />
                             <path d="M12 4l2 2" strokeLinecap="round" />
                           </svg>
+                        ) : space.type === "file" ? (
+                          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
+                            <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
+                            <path d="M12 2v4h4" />
+                            <path d="M8 11l-2 2 2 2" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M12 11l2 2-2 2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
                         ) : (
                           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
                             <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
@@ -976,7 +983,7 @@ export function SessionsSection({
                     <div className="sessionMeta">
                       <div className="sessionName">
                         <span className="sessionNameText">{space.name}</span>
-                        <span className="chip">{space.type === "whiteboard" ? "whiteboard" : "document"}</span>
+                        <span className="chip">{space.type === "whiteboard" ? "whiteboard" : space.type === "file" ? "file" : "document"}</span>
                       </div>
                     </div>
                     <div className="sessionItemActions">
