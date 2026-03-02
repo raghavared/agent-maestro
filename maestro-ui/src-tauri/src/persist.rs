@@ -292,7 +292,11 @@ pub fn validate_directory(path: String) -> Result<Option<String>, String> {
     if p.is_dir() {
         return Ok(Some(expanded));
     }
-    Ok(None)
+    // Directory doesn't exist — try to create it
+    match std::fs::create_dir_all(p) {
+        Ok(_) => Ok(Some(expanded)),
+        Err(e) => Err(format!("Failed to create directory: {}", e)),
+    }
 }
 
 #[tauri::command]

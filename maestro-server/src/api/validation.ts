@@ -54,14 +54,14 @@ export const modeParamSchema = z.object({
 export const createProjectSchema = z.object({
   name: shortString,
   workingDir: z.string().min(1).max(1000),
-  description: shortString.optional(),
+  description: z.string().max(500).optional(),
   isMaster: z.boolean().optional(),
 }).strict();
 
 export const updateProjectSchema = z.object({
   name: shortString.optional(),
   workingDir: z.string().min(1).max(1000).optional(),
-  description: shortString.optional(),
+  description: z.string().max(500).optional(),
   isMaster: z.boolean().optional(),
 }).strict();
 
@@ -93,6 +93,7 @@ export const createTaskSchema = z.object({
   priority: taskPrioritySchema.optional(),
   initialPrompt: longString.optional(),
   skillIds: z.array(safeId).optional(),
+  referenceTaskIds: z.array(safeId).optional(),
   model: modelSchema.optional(),
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
@@ -109,6 +110,7 @@ export const updateTaskSchema = z.object({
   priority: taskPrioritySchema.optional(),
   sessionIds: z.array(safeId).optional(),
   skillIds: z.array(safeId).optional(),
+  referenceTaskIds: z.array(safeId).optional(),
   agentIds: z.array(safeId).optional(),
   model: modelSchema.optional(),
   updateSource: updateSourceSchema.optional(),
