@@ -9,6 +9,7 @@ import { AddSubtaskInput } from "./AddSubtaskInput";
 import { PanelIconBar, PrimaryTab, TaskSubTab, SkillSubTab, TeamSubTab } from "./PanelIconBar";
 import { TaskTabContent } from "./TaskTabContent";
 import { PanelErrorState, NoProjectState } from "./PanelErrorState";
+import { maestroClient } from "../../utils/MaestroClient";
 import { useTaskSearch } from "../../hooks/useTaskSearch";
 import { useTasks } from "../../hooks/useTasks";
 import { useMaestroStore } from "../../stores/useMaestroStore";
@@ -103,6 +104,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [slidingOutTasks, setSlidingOutTasks] = React.useState<Set<string>>(new Set());
     const [showBoard, setShowBoard] = React.useState(false);
     const [taskListCreateSignal, setTaskListCreateSignal] = React.useState(0);
+    const [teamMemberCreateSignal, setTeamMemberCreateSignal] = React.useState(0);
     const [searchQuery, setSearchQuery] = React.useState("");
 
     // ==================== EXTRACTED HOOKS ====================
@@ -162,6 +164,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     // Slide-out animation for completed tasks
     const prevTaskStatusesRef = useRef<Map<string, string>>(new Map());
+    const slideOutTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
     useEffect(() => {
         const newlyCompleted: string[] = [];
         normalizedTasks.forEach(task => {
@@ -175,23 +178,36 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         normalizedTasks.forEach(task => newStatuses.set(task.id, task.status));
         prevTaskStatusesRef.current = newStatuses;
 
-        let timer: ReturnType<typeof setTimeout> | undefined;
         if (newlyCompleted.length > 0) {
             setSlidingOutTasks(prev => {
                 const next = new Set(prev);
                 newlyCompleted.forEach(id => next.add(id));
                 return next;
             });
-            timer = setTimeout(() => {
-                setSlidingOutTasks(prev => {
-                    const next = new Set(prev);
-                    newlyCompleted.forEach(id => next.delete(id));
-                    return next;
-                });
-            }, 500);
+            newlyCompleted.forEach(id => {
+                // Clear any existing timer for this task
+                const existing = slideOutTimersRef.current.get(id);
+                if (existing) clearTimeout(existing);
+                // Set a per-task timer that won't be cancelled by other task updates
+                const timer = setTimeout(() => {
+                    setSlidingOutTasks(prev => {
+                        const next = new Set(prev);
+                        next.delete(id);
+                        return next;
+                    });
+                    slideOutTimersRef.current.delete(id);
+                }, 500);
+                slideOutTimersRef.current.set(id, timer);
+            });
         }
-        return () => { if (timer) clearTimeout(timer); };
     }, [normalizedTasks]);
+    // Cleanup all per-task timers on unmount
+    useEffect(() => {
+        return () => {
+            slideOutTimersRef.current.forEach(timer => clearTimeout(timer));
+            slideOutTimersRef.current.clear();
+        };
+    }, []);
 
     // Initialize collapsed state
     const hasInitializedCollapsedRef = useRef(false);
@@ -240,6 +256,12 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 teamMemberIds: taskData.teamMemberIds,
                 memberOverrides: taskData.memberOverrides,
             });
+            // Upload any staged image files attached during task creation
+            if (taskData._stagedFiles?.length > 0) {
+                for (const file of taskData._stagedFiles) {
+                    try { await maestroClient.uploadTaskImage(newTask.id, file); } catch { /* non-fatal */ }
+                }
+            }
             if (taskData.startImmediately) {
                 // Attach memberOverrides from the form data since the server may not return them on the task object
                 if (taskData.memberOverrides && !newTask.memberOverrides) {
@@ -454,7 +476,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     projectId={projectId}
                     onNewTask={() => setShowCreateModal(true)}
                     onNewTaskList={() => setTaskListCreateSignal(prev => prev + 1)}
-                    onNewTeamMember={() => {}}
+                    onNewTeamMember={() => setTeamMemberCreateSignal(prev => prev + 1)}
                     onNewTeam={() => {}}
                     teamCount={activeTeams.length}
                     taskListCount={taskListArray.length}
@@ -545,6 +567,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                                 onUnarchive={handleUnarchiveTeamMember}
                                 onDelete={handleDeleteTeamMember}
                                 onRun={handleRunTeamMember}
+                                createSignal={teamMemberCreateSignal}
                             />
                         )}
                         {teamSubTab === "teams" && (

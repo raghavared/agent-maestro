@@ -25,6 +25,10 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     // Task images (edit mode)
     const [taskImages, setTaskImages] = useState<TaskImage[]>([]);
 
+    // Staged image files (create mode — uploaded after task is created)
+    const [stagedImageFiles, setStagedImageFiles] = useState<File[]>([]);
+    const [stagedImagePreviews, setStagedImagePreviews] = useState<string[]>([]);
+
     // Launch config state
     const [showLaunchConfig, setShowLaunchConfig] = useState(false);
     const [memberConfigs, setMemberConfigs] = useState<Record<string, MemberConfig>>({});
@@ -132,6 +136,21 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         return Object.keys(overrides).length > 0 ? overrides : undefined;
     }, [memberConfigs]);
 
+    const addStagedFiles = (files: FileList | File[]) => {
+        const arr = Array.from(files).filter(f => f.type.startsWith('image/'));
+        const previews = arr.map(f => URL.createObjectURL(f));
+        setStagedImageFiles(prev => [...prev, ...arr]);
+        setStagedImagePreviews(prev => [...prev, ...previews]);
+    };
+
+    const removeStagedFile = (index: number) => {
+        setStagedImageFiles(prev => prev.filter((_, i) => i !== index));
+        setStagedImagePreviews(prev => {
+            URL.revokeObjectURL(prev[index]);
+            return prev.filter((_, i) => i !== index);
+        });
+    };
+
     const resetForm = () => {
         setTitle("");
         setPrompt("");
@@ -146,6 +165,9 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         setShowLaunchConfig(false);
         setMemberConfigs({});
         setTaskImages([]);
+        stagedImagePreviews.forEach(url => URL.revokeObjectURL(url));
+        setStagedImageFiles([]);
+        setStagedImagePreviews([]);
     };
 
     const getCreatePayload = (startImmediately: boolean, referenceTaskIds?: string[], parentId?: string) => ({
@@ -159,6 +181,8 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         parentId,
         teamMemberId: selectedTeamMemberIds.length === 1 ? selectedTeamMemberIds[0] : undefined,
         teamMemberIds: selectedTeamMemberIds.length > 0 ? selectedTeamMemberIds : undefined,
+        // Staged image files — uploaded after task creation by the handler
+        _stagedFiles: stagedImageFiles.length > 0 ? stagedImageFiles : undefined,
     });
 
     const getUpdateDiff = (referenceTaskIds: string[], teamMembers?: TeamMember[]): Partial<MaestroTask> | null => {
@@ -199,6 +223,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         showSubtaskInput, setShowSubtaskInput,
         taskDocs,
         taskImages, setTaskImages,
+        stagedImageFiles, stagedImagePreviews, addStagedFiles, removeStagedFile,
         hasUnsavedContent,
         isValid,
         resetForm,

@@ -280,6 +280,13 @@ export interface TaskData {
 
   /** Current active session ID */
   activeSessionId?: string;
+
+  /** Attached media files for this task (absolute paths on disk) */
+  images?: Array<{
+    path: string;
+    filename: string;
+    mimeType: string;
+  }>;
 }
 
 /**

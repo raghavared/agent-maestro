@@ -594,6 +594,14 @@ export class PromptBuilder {
       if (t.dependencies && t.dependencies.length > 0) {
         lines.push('      <dependencies>' + t.dependencies.map(d => `<dep>${this.esc(d)}</dep>`).join('') + '</dependencies>');
       }
+      if (t.images && t.images.length > 0) {
+        lines.push('      <media>');
+        lines.push(`        <instruction>Use the Read tool to view these attached images as visual context for this task.</instruction>`);
+        for (const img of t.images) {
+          lines.push(`        <image filename="${this.esc(img.filename)}" type="${this.esc(img.mimeType)}" path="${this.esc(img.path)}" />`);
+        }
+        lines.push('      </media>');
+      }
       lines.push('    </task>');
     }
     lines.push('  </tasks>');

@@ -6,9 +6,11 @@ type ImagesTabProps = {
     taskId: string;
     images: TaskImage[];
     onImagesChange: (images: TaskImage[]) => void;
+    /** 'tab' = full panel (default), 'bar' = compact inline chips row */
+    variant?: 'tab' | 'bar';
 };
 
-export function ImagesTab({ taskId, images, onImagesChange }: ImagesTabProps) {
+export function ImagesTab({ taskId, images, onImagesChange, variant = 'tab' }: ImagesTabProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
     const [previewImage, setPreviewImage] = useState<TaskImage | null>(null);
@@ -28,10 +30,9 @@ export function ImagesTab({ taskId, images, onImagesChange }: ImagesTabProps) {
             }
             onImagesChange([...images, ...newImages]);
         } catch (err) {
-            // Upload failed – UI resets via finally block
+            // Upload failed
         } finally {
             setUploading(false);
-            // Reset input so same file can be re-selected
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
@@ -42,7 +43,7 @@ export function ImagesTab({ taskId, images, onImagesChange }: ImagesTabProps) {
             onImagesChange(images.filter(img => img.id !== imageId));
             if (previewImage?.id === imageId) setPreviewImage(null);
         } catch (err) {
-            // Delete failed – image remains in list
+            // Delete failed
         }
     };
 
@@ -62,7 +63,7 @@ export function ImagesTab({ taskId, images, onImagesChange }: ImagesTabProps) {
                     const img = await maestroClient.uploadTaskImage(taskId, file);
                     onImagesChange([...images, img]);
                 } catch (err) {
-                    // Paste upload failed – continue silently
+                    // Paste upload failed
                 } finally {
                     setUploading(false);
                 }
@@ -76,6 +77,135 @@ export function ImagesTab({ taskId, images, onImagesChange }: ImagesTabProps) {
         return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     };
 
+    const previewLightbox = previewImage && (
+        <div
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.8)',
+                zIndex: 10000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'column',
+                cursor: 'pointer',
+            }}
+            onClick={() => setPreviewImage(null)}
+        >
+            <img
+                src={maestroClient.getTaskImageUrl(taskId, previewImage.id)}
+                alt={previewImage.filename}
+                style={{ maxWidth: '90vw', maxHeight: '80vh', objectFit: 'contain', borderRadius: '8px' }}
+            />
+            <div style={{ color: '#fff', marginTop: '8px', fontSize: '12px', textAlign: 'center' }}>
+                {previewImage.filename} &middot; {formatSize(previewImage.size)}
+            </div>
+        </div>
+    );
+
+    // ── Bar variant: compact inline chips ────────────────────
+    if (variant === 'bar') {
+        return (
+            <>
+                {images.map(img => (
+                    <span
+                        key={img.id}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '2px 6px 2px 3px',
+                            fontSize: '10px',
+                            border: '1px solid var(--theme-border)',
+                            borderRadius: '3px',
+                            backgroundColor: 'rgba(var(--theme-primary-rgb), 0.05)',
+                            color: 'var(--theme-text-secondary)',
+                            cursor: 'pointer',
+                            maxWidth: '120px',
+                        }}
+                        onClick={() => setPreviewImage(img)}
+                        title={img.filename}
+                    >
+                        <img
+                            src={maestroClient.getTaskImageUrl(taskId, img.id)}
+                            alt={img.filename}
+                            style={{
+                                width: '16px',
+                                height: '16px',
+                                objectFit: 'cover',
+                                borderRadius: '2px',
+                                flexShrink: 0,
+                            }}
+                        />
+                        <span style={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: '70px',
+                        }}>
+                            {img.filename}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleDelete(img.id); }}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: 'var(--theme-text-secondary)',
+                                padding: '0',
+                                fontSize: '12px',
+                                lineHeight: 1,
+                                flexShrink: 0,
+                                opacity: 0.6,
+                            }}
+                            title="Remove image"
+                        >
+                            ×
+                        </button>
+                    </span>
+                ))}
+
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        padding: '2px 7px',
+                        fontSize: '10px',
+                        border: '1px solid var(--theme-border)',
+                        borderRadius: '3px',
+                        background: 'transparent',
+                        color: 'var(--theme-text-secondary)',
+                        cursor: uploading ? 'default' : 'pointer',
+                        opacity: uploading ? 0.5 : 1,
+                        fontFamily: 'inherit',
+                    }}
+                    title="Attach image"
+                >
+                    {uploading ? '…' : '+ img'}
+                </button>
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileSelect}
+                    style={{ display: 'none' }}
+                />
+
+                {previewLightbox}
+            </>
+        );
+    }
+
+    // ── Tab variant: full panel ───────────────────────────────
     return (
         <div
             style={{ padding: '8px 12px' }}
@@ -141,19 +271,11 @@ export function ImagesTab({ taskId, images, onImagesChange }: ImagesTabProps) {
                             <img
                                 src={maestroClient.getTaskImageUrl(taskId, img.id)}
                                 alt={img.filename}
-                                style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    objectFit: 'cover',
-                                    display: 'block',
-                                }}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                             />
                             <button
                                 type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(img.id);
-                                }}
+                                onClick={(e) => { e.stopPropagation(); handleDelete(img.id); }}
                                 style={{
                                     position: 'absolute',
                                     top: '2px',
@@ -195,45 +317,7 @@ export function ImagesTab({ taskId, images, onImagesChange }: ImagesTabProps) {
                 </div>
             )}
 
-            {/* Image preview overlay */}
-            {previewImage && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: 'rgba(0,0,0,0.8)',
-                        zIndex: 10000,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexDirection: 'column',
-                        cursor: 'pointer',
-                    }}
-                    onClick={() => setPreviewImage(null)}
-                >
-                    <img
-                        src={maestroClient.getTaskImageUrl(taskId, previewImage.id)}
-                        alt={previewImage.filename}
-                        style={{
-                            maxWidth: '90vw',
-                            maxHeight: '80vh',
-                            objectFit: 'contain',
-                            borderRadius: '8px',
-                        }}
-                    />
-                    <div style={{
-                        color: '#fff',
-                        marginTop: '8px',
-                        fontSize: '12px',
-                        textAlign: 'center',
-                    }}>
-                        {previewImage.filename} &middot; {formatSize(previewImage.size)}
-                    </div>
-                </div>
-            )}
+            {previewLightbox}
         </div>
     );
 }
