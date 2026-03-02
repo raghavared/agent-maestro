@@ -103,10 +103,3 @@ export interface LogDigestResponse {
   entries?: { timestamp: number; source: string; text: string }[];
 }
 
-export interface MailMessage {
-  fromSessionId: string;
-  fromName: string;
-  message: string;
-  detail?: string;
-  createdAt: string;
-}

@@ -13,7 +13,6 @@ import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
 import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, MemberLaunchOverride, isCoordinatorMode, normalizeMode } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
-import { MailService } from '../application/services/MailService';
 import { SessionFilter } from '../domain/repositories/ISessionRepository';
 import { handleRouteError } from './middleware/errorHandler';
 import {
@@ -189,7 +188,6 @@ interface SessionRouteDependencies {
   projectRepo: IProjectRepository;
   taskRepo: ITaskRepository;
   teamMemberRepo: ITeamMemberRepository;
-  mailService: MailService;
   eventBus: IEventBus;
   config: Config;
 }
@@ -198,7 +196,7 @@ interface SessionRouteDependencies {
  * Create session routes using the SessionService.
  */
 export function createSessionRoutes(deps: SessionRouteDependencies) {
-  const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, mailService, eventBus, config } = deps;
+  const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, eventBus, config } = deps;
   const router = express.Router();
 
   const resolveSessionMode = (session: any): string => {
@@ -690,49 +688,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     }
   });
 
-  // POST /api/sessions/:id/mail — notify a session (store mail + PTY inject)
-  router.post('/sessions/:id/mail', validateParams(idParamSchema), async (req: Request, res: Response) => {
-    try {
-      const toSessionId = req.params.id as string;
-      const { fromSessionId, message, detail } = req.body;
-      if (!fromSessionId || !message) {
-        return res.status(400).json({ error: true, message: 'fromSessionId and message are required' });
-      }
-      const toSession = await sessionService.getSession(toSessionId);
-      const fromSession = await sessionService.getSession(fromSessionId);
-      const fromName = resolveSenderName(fromSession);
-      if (!canCommunicateWithinTeamBoundary(fromSession, toSession)) {
-        return res.status(403).json({
-          error: true,
-          code: 'mail_scope_violation',
-          message: 'Session notify/mail is limited to parent/sibling sessions (or direct team sessions for a root coordinator).',
-          details: {
-            fromSessionId,
-            toSessionId,
-          },
-        });
-      }
-      const mail = await mailService.notify({ fromSessionId, fromName, toSessionId, message, detail });
-      res.json({ success: true, mailId: mail.id });
-    } catch (err: unknown) {
-      if (err instanceof AppError && err.code === 'NOT_FOUND') return res.status(404).json({ error: true, message: err.message });
-      handleRouteError(err, res);
-    }
-  });
-
-  // GET /api/sessions/:id/mail — read unread mail for session :id
-  router.get('/sessions/:id/mail', validateParams(idParamSchema), async (req: Request, res: Response) => {
-    try {
-      const toSessionId = req.params.id as string;
-      const targetSession = await sessionService.getSession(toSessionId);
-      const parentSessionId = targetSession.parentSessionId || toSessionId;
-      const messages = await mailService.readMail(toSessionId, parentSessionId);
-      res.json(messages);
-    } catch (err: unknown) {
-      if (err instanceof AppError && err.code === 'NOT_FOUND') return res.status(404).json({ error: true, message: err.message });
-      handleRouteError(err, res);
-    }
-  });
 
   // Spawn session (complex endpoint - uses CLI for manifest generation)
   router.post('/sessions/spawn', validateBody(spawnSessionSchema), async (req: Request, res: Response) => {

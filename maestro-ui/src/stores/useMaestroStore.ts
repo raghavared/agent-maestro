@@ -158,6 +158,24 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     });
   };
 
+  /**
+   * Play a sound for a session-related event using team member instruments when available.
+   * Falls back to project/global instrument if session has no team members registered.
+   */
+  const playSessionAwareSound = (eventType: string, sessionOrData: { teamMemberIds?: string[]; teamMemberId?: string } | null) => {
+    let teamMemberIds: string[] = [];
+    if (sessionOrData?.teamMemberIds?.length) {
+      teamMemberIds = sessionOrData.teamMemberIds;
+    } else if (sessionOrData?.teamMemberId) {
+      teamMemberIds = [sessionOrData.teamMemberId];
+    }
+    if (teamMemberIds.length > 0) {
+      soundManager.playSessionEventSound(eventType as any, teamMemberIds).catch(() => {});
+    } else {
+      playEventSound(eventType as any);
+    }
+  };
+
   const handleMessage = (event: MessageEvent) => {
     try {
       const message = JSON.parse(event.data);
@@ -184,24 +202,26 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         case 'session:created': {
           const session = normalizeSession(message.data.session || message.data);
           set((prev) => ({ sessions: new Map(prev.sessions).set(session.id, session) }));
-          // Play sound for event
-          playEventSound(message.event as any);
+          // Play sound using team member instruments when available
+          playSessionAwareSound(message.event, session);
           break;
         }
         case 'session:updated': {
           const updatedSession = normalizeSession(message.data);
           set((prev) => ({ sessions: new Map(prev.sessions).set(updatedSession.id, updatedSession) }));
-          // Play sound for event (only if not a high-frequency update)
+          // Play sound using team member instruments (only if not a high-frequency update)
           if (shouldLogDetails) {
-            playEventSound(message.event as any);
+            playSessionAwareSound(message.event, updatedSession);
           }
           break;
         }
-        case 'session:deleted':
+        case 'session:deleted': {
+          // Grab session before removing so we can play its team member sounds
+          const deletedSession = get().sessions.get(message.data.id);
           set((prev) => { const sessions = new Map(prev.sessions); sessions.delete(message.data.id); return { sessions }; });
-          // Play sound for event
-          playEventSound(message.event as any);
+          playSessionAwareSound(message.event, deletedSession || message.data);
           break;
+        }
         case 'session:spawn': {
           const session = normalizeSession(message.data.session || message.data);
           if (!session?.id) {
@@ -217,8 +237,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
             envVars: message.data.envVars || {},
             projectId: message.data.projectId || '',
           });
-          // Play sound for session creation
-          playEventSound('session:created');
+          playSessionAwareSound('session:created', session);
           break;
         }
         case 'session:resume': {
@@ -236,7 +255,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
             envVars: message.data.envVars || {},
             projectId: message.data.projectId || '',
           });
-          playEventSound('session:created');
+          playSessionAwareSound('session:created', session);
           break;
         }
         case 'session:prompt_send': {
@@ -277,17 +296,21 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           break;
         }
         case 'task:session_added':
-        case 'task:session_removed':
+        case 'task:session_removed': {
           if (message.data?.taskId) get().fetchTask(message.data.taskId);
-          // Play sound for event
-          playEventSound(message.event as any);
+          // Use session's team member sounds if available
+          const tsSession = message.data?.sessionId ? get().sessions.get(message.data.sessionId) : null;
+          playSessionAwareSound(message.event, tsSession || null);
           break;
+        }
         case 'session:task_added':
-        case 'session:task_removed':
+        case 'session:task_removed': {
           if (message.data?.sessionId) get().fetchSession(message.data.sessionId);
-          // Play sound for event
-          playEventSound(message.event as any);
+          // Use session's team member sounds if available
+          const stSession = message.data?.sessionId ? get().sessions.get(message.data.sessionId) : null;
+          playSessionAwareSound(message.event, stSession || null);
           break;
+        }
         // Notification events — play dedicated sounds using team member ensemble if available
         case 'notify:task_completed':
         case 'notify:task_failed':
