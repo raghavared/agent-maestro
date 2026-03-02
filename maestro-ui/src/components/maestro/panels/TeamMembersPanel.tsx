@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { TeamMember } from "../../../app/types/maestro";
 import { TeamMemberList } from "../TeamMemberList";
 import { TeamMemberModal } from "../TeamMemberModal";
@@ -12,6 +12,7 @@ type TeamMembersPanelProps = {
     onUnarchive: (memberId: string) => void;
     onDelete: (memberId: string) => void;
     onRun: (member: any) => void;
+    createSignal?: number;
 };
 
 export function TeamMembersPanel({
@@ -23,9 +24,17 @@ export function TeamMembersPanel({
     onUnarchive,
     onDelete,
     onRun,
+    createSignal = 0,
 }: TeamMembersPanelProps) {
     const [showModal, setShowModal] = useState(false);
     const [editingMember, setEditingMember] = useState<any | null>(null);
+
+    useEffect(() => {
+        if (createSignal > 0) {
+            setEditingMember(null);
+            setShowModal(true);
+        }
+    }, [createSignal]);
 
     const handleEdit = (member: any) => {
         setEditingMember(member);

@@ -14,7 +14,8 @@ import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
 import { api } from '../api.js';
 import { writeFile, mkdir } from 'fs/promises';
-import { dirname } from 'path';
+import { dirname, join, extname } from 'path';
+import { homedir } from 'os';
 
 /**
  * Task data input for manifest generation
@@ -30,6 +31,7 @@ export interface TaskInput {
   dependencies?: string[];
   priority?: 'low' | 'medium' | 'high' | 'critical';
   metadata?: Record<string, any>;
+  images?: Array<{ path: string; filename: string; mimeType: string }>;
 }
 
 /**
@@ -207,6 +209,17 @@ export class ManifestGeneratorCLICommand {
       ? new Date(task.createdAt).toISOString()
       : String(task.createdAt);
 
+    // Resolve absolute paths for attached images
+    const dataDir = process.env.DATA_DIR
+      ? (process.env.DATA_DIR.startsWith('~') ? join(homedir(), process.env.DATA_DIR.slice(1)) : process.env.DATA_DIR)
+      : join(homedir(), '.maestro', 'data');
+
+    const images = (task.images || []).map((img) => {
+      const ext = extname(img.filename) || `.${img.mimeType.split('/')[1] || 'png'}`;
+      const path = join(dataDir, 'images', task.projectId, task.id, `${img.id}${ext}`);
+      return { path, filename: img.filename, mimeType: img.mimeType };
+    });
+
     return {
       id: task.id,
       title: task.title,
@@ -218,6 +231,7 @@ export class ManifestGeneratorCLICommand {
       dependencies: task.dependencies,
       priority: task.priority as any,
       metadata: task.metadata,
+      ...(images.length > 0 && { images }),
     };
   }
 
@@ -575,6 +589,7 @@ export class ManifestGenerator {
       ...(taskData.dependencies && { dependencies: taskData.dependencies }),
       ...(taskData.priority && { priority: taskData.priority }),
       ...(taskData.metadata && { metadata: taskData.metadata }),
+      ...(taskData.images && taskData.images.length > 0 && { images: taskData.images }),
     }));
 
     const manifest: MaestroManifest = {

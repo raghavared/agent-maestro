@@ -77,6 +77,20 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
             type: 'string',
             nullable: true,
           },
+          images: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                path: { type: 'string' },
+                filename: { type: 'string' },
+                mimeType: { type: 'string' },
+              },
+              required: ['path', 'filename', 'mimeType'],
+              additionalProperties: false,
+            },
+            nullable: true,
+          },
         },
         required: ['id', 'title', 'description', 'acceptanceCriteria', 'projectId', 'createdAt'],
         additionalProperties: false,

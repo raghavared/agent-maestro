@@ -65,18 +65,35 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
     setUploading(true);
     setStatus(null);
     try {
+      // Get blob first — if canvas is empty we skip task creation
+      const blob = await onExport();
+      if (!blob) {
+        setStatus({ type: "error", message: "Nothing to export (empty canvas)" });
+        return;
+      }
+
+      // Create the task
       const task = await createTask({
         projectId: activeProjectId,
         title,
         description: `Exported from whiteboard: ${whiteboardName}`,
         priority: "medium",
       });
-      await exportToTask(task.id);
+
+      // Upload the image to the newly created task
+      const filename = `${whiteboardName.replace(/[^a-zA-Z0-9_-]/g, "_")}_${Date.now()}.png`;
+      const file = new File([blob], filename, { type: "image/png" });
+      await maestroClient.uploadTaskImage(task.id, file);
+
+      setStatus({ type: "success", message: "Task created with image!" });
+      setTimeout(() => onClose(), 1200);
     } catch (err) {
-      setStatus({ type: "error", message: "Failed to create task" });
+      const msg = err instanceof Error ? err.message : String(err);
+      setStatus({ type: "error", message: `Failed to export: ${msg}` });
+    } finally {
       setUploading(false);
     }
-  }, [newTaskTitle, activeProjectId, createTask, exportToTask]);
+  }, [newTaskTitle, activeProjectId, createTask, onExport, whiteboardName, onClose]);
 
   const overlay = (
     <div
