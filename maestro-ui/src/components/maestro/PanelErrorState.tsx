@@ -34,7 +34,7 @@ export const PanelErrorState: React.FC<PanelErrorStateProps> = ({ error, onRetry
                 <p className="terminalErrorHint">
                     → Check DevTools console (Cmd+Option+I) for stack trace
                 </p>
-                <button
+                <button type="button"
                     className="terminalCmd terminalCmdPrimary"
                     onClick={onRetry}
                 >

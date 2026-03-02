@@ -40,6 +40,11 @@ export const idAndTaskIdParamSchema = z.object({
   taskId: safeId,
 });
 
+export const idAndModalIdParamSchema = z.object({
+  id: safeId,
+  modalId: safeId,
+});
+
 export const modeParamSchema = z.object({
   mode: agentModeSchema,
 });
@@ -64,6 +69,20 @@ export const masterToggleSchema = z.object({
   isMaster: z.boolean(),
 }).strict();
 
+// --- Shared schemas ---
+
+const permissionModeSchema = z.enum(['acceptEdits', 'interactive', 'readOnly', 'bypassPermissions']);
+
+const memberLaunchOverrideSchema = z.object({
+  agentTool: z.string().optional(),
+  model: z.string().optional(),
+  permissionMode: permissionModeSchema.optional(),
+  skillIds: z.array(z.string()).optional(),
+  commandPermissions: z.object({
+    commands: z.record(z.string(), z.boolean()),
+  }).optional(),
+}).strict();
+
 // --- Task schemas ---
 
 export const createTaskSchema = z.object({
@@ -77,6 +96,7 @@ export const createTaskSchema = z.object({
   model: modelSchema.optional(),
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
+  memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
 }).strict();
 
 export const updateTaskSchema = z.object({
@@ -94,6 +114,14 @@ export const updateTaskSchema = z.object({
   sessionId: safeId.optional(),
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
+  memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
+}).strict();
+
+export const addTaskDocSchema = z.object({
+  title: shortString,
+  filePath: z.string().min(1).max(2000),
+  content: z.string().max(100000).optional(),
+  sessionId: safeId,
 }).strict();
 
 export const taskTimelineSchema = z.object({
@@ -131,6 +159,64 @@ export const reorderTaskListSchema = z.object({
   orderedTaskIds: z.array(safeId),
 }).strict();
 
+// --- Team member schemas ---
+
+export const createTeamMemberSchema = z.object({
+  projectId: safeId,
+  name: shortString,
+  role: shortString,
+  identity: z.string().max(10000).optional(),
+  avatar: shortString,
+  model: z.string().max(100).optional(),
+  agentTool: z.string().max(100).optional(),
+  mode: agentModeSchema.optional(),
+  permissionMode: permissionModeSchema.optional(),
+  strategy: z.string().max(100).optional(),
+  skillIds: z.array(safeId).optional(),
+  capabilities: z.object({
+    can_spawn_sessions: z.boolean().optional(),
+    can_edit_tasks: z.boolean().optional(),
+    can_report_task_level: z.boolean().optional(),
+    can_report_session_level: z.boolean().optional(),
+  }).optional(),
+  commandPermissions: z.object({
+    groups: z.record(z.string(), z.boolean()).optional(),
+    commands: z.record(z.string(), z.boolean()).optional(),
+  }).optional(),
+  workflowTemplateId: z.string().max(200).optional(),
+  customWorkflow: z.string().max(10000).optional(),
+  soundInstrument: z.string().max(100).optional(),
+}).strict();
+
+export const updateTeamMemberSchema = z.object({
+  projectId: safeId,
+  name: shortString.optional(),
+  role: shortString.optional(),
+  identity: z.string().max(10000).optional(),
+  avatar: shortString.optional(),
+  model: z.string().max(100).optional(),
+  agentTool: z.string().max(100).optional(),
+  mode: agentModeSchema.optional(),
+  permissionMode: permissionModeSchema.optional(),
+  strategy: z.string().max(100).optional(),
+  skillIds: z.array(safeId).optional(),
+  status: z.enum(['active', 'archived']).optional(),
+  capabilities: z.object({
+    can_spawn_sessions: z.boolean().optional(),
+    can_edit_tasks: z.boolean().optional(),
+    can_report_task_level: z.boolean().optional(),
+    can_report_session_level: z.boolean().optional(),
+  }).optional(),
+  commandPermissions: z.object({
+    groups: z.record(z.string(), z.boolean()).optional(),
+    commands: z.record(z.string(), z.boolean()).optional(),
+  }).optional(),
+  workflowTemplateId: z.string().max(200).optional(),
+  customWorkflow: z.string().max(10000).optional(),
+  memory: z.array(z.string().max(500)).optional(),
+  soundInstrument: z.string().max(100).optional(),
+}).strict();
+
 // --- Session schemas ---
 
 export const createSessionSchema = z.object({
@@ -143,7 +229,6 @@ export const createSessionSchema = z.object({
   status: sessionStatusSchema.optional(),
   env: z.record(z.string(), z.string().max(5000)).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
-  _suppressCreatedEvent: z.boolean().optional(),
 }).strict();
 
 export const updateSessionSchema = z.object({
@@ -209,9 +294,16 @@ export const spawnSessionSchema = z.object({
   strategy: allStrategySchema.optional().default('simple'),
   context: z.record(z.string(), z.unknown()).optional(),
   model: modelSchema.optional(),
+  agentTool: z.string().optional(),
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
   delegateTeamMemberIds: z.array(safeId).optional(),
+  initialDirective: z.object({
+    subject: shortString,
+    message: longString,
+    fromSessionId: safeId.optional(),
+  }).optional(),
+  memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
 }).strict();
 
 // --- Template schemas ---

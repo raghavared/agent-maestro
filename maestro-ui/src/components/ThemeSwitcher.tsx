@@ -24,7 +24,7 @@ export function ThemeSwitcher() {
           const style = STYLES[sid];
           const isActive = sid === styleId;
           return (
-            <button
+            <button type="button"
               key={sid}
               className={`styleSwitcherOption ${isActive ? 'styleSwitcherOptionActive' : ''}`}
               onClick={() => setStyle(sid)}
@@ -45,7 +45,7 @@ export function ThemeSwitcher() {
         {currentStyleThemes.variants.map((variant) => {
           const isActive = variant.key === colorKey;
           return (
-            <button
+            <button type="button"
               key={variant.key}
               className={`themeSwitcherOption ${isActive ? 'themeSwitcherOptionActive' : ''}`}
               onClick={() => setColor(variant.key)}

@@ -82,7 +82,7 @@ export function ProjectModal({
           <span className="themedModalTitle">
             [ {mode === "new" ? "NEW PROJECT" : "PROJECT SETTINGS"} ]
           </span>
-          <button className="themedModalClose" onClick={onClose}>×</button>
+          <button type="button" className="themedModalClose" onClick={onClose}>×</button>
         </div>
         <form onSubmit={onSubmit}>
           <div className="themedModalContent">

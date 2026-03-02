@@ -6,6 +6,7 @@ import { startDrag } from "@crabnebula/tauri-plugin-drag";
 import React from "react";
 import { shortenPathSmart } from "../pathDisplay";
 import { Icon } from "./Icon";
+import { FileIcon } from "./FileIcon";
 import { ConfirmActionModal } from "./modals/ConfirmActionModal";
 
 // Cache for downloaded SSH files to avoid re-downloading during the same session
@@ -110,23 +111,6 @@ async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(value);
     return true;
-  } catch {
-    // fall through
-  }
-
-  try {
-    const el = document.createElement("textarea");
-    el.value = value;
-    el.setAttribute("readonly", "true");
-    el.style.position = "fixed";
-    el.style.left = "-9999px";
-    el.style.top = "0";
-    document.body.appendChild(el);
-    el.focus();
-    el.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(el);
-    return ok;
   } catch {
     return false;
   }
@@ -755,7 +739,8 @@ export function FileExplorerPanel({
               destPath,
             });
           }
-        } catch (err) {
+        } catch {
+          // best-effort file copy – directory reload will reflect actual state
         }
       }
 
@@ -921,12 +906,14 @@ export function FileExplorerPanel({
 
       try {
         unlistenWebview = await getCurrentWebview().onDragDropEvent(handleEvent);
-      } catch (err) {
+      } catch {
+        // Webview drag-drop listener not available in this context
       }
 
       try {
         unlistenWindow = await getCurrentWindow().onDragDropEvent(handleEvent);
-      } catch (err) {
+      } catch {
+        // Window drag-drop listener not available in this context
       }
     };
 
@@ -1068,12 +1055,10 @@ export function FileExplorerPanel({
                           {isExpanded ? "▾" : "▸"}
                         </span>
                       ) : (
-                        <span className="fileExplorerDisclosure" aria-hidden="true">
-                          {" "}
-                        </span>
+                        <span className="fileExplorerDisclosure" aria-hidden="true" />
                       )}
                       <span className="fileExplorerIcon" aria-hidden="true">
-                        <Icon name={entry.isDir ? "folder" : "file"} size={14} />
+                        <FileIcon name={entry.name} isDir={entry.isDir} isExpanded={isExpanded} size={16} />
                       </span>
                       <span className="fileExplorerName">{entry.name}</span>
                     </button>
@@ -1139,23 +1124,11 @@ export function FileExplorerPanel({
                 role="menuitem"
                 onClick={() => {
                   const folder = contextMenu.entry.isDir ? contextMenu.entry.path : dirname(contextMenu.entry.path);
-                  void invoke("open_path_in_file_manager", { path: folder }).catch(() => {});
+                  void invoke("open_path_in_file_manager", { path: folder }).catch(() => { /* best-effort OS open */ });
                   setContextMenu(null);
                 }}
               >
                 Open folder in Finder
-              </button>
-              <button
-                type="button"
-                className="sidebarActionMenuItem"
-                role="menuitem"
-                onClick={() => {
-                  const folder = contextMenu.entry.isDir ? contextMenu.entry.path : dirname(contextMenu.entry.path);
-                  void invoke("open_path_in_vscode", { path: folder }).catch(() => {});
-                  setContextMenu(null);
-                }}
-              >
-                Open folder in VS Code
               </button>
               <div className="fileContextMenuSep" role="separator" />
             </>

@@ -185,14 +185,14 @@ export function SoundSettingsContent() {
       {/* Bulk Actions */}
       <div className="soundSettingSection">
         <div className="soundBulkActions">
-          <button
+          <button type="button"
             onClick={handleEnableAll}
             disabled={!enabled}
             className="soundBulkBtn"
           >
             Enable All
           </button>
-          <button
+          <button type="button"
             onClick={handleDisableAll}
             disabled={!enabled}
             className="soundBulkBtn"
@@ -224,7 +224,7 @@ export function SoundSettingsContent() {
                   </span>
                 </div>
               </label>
-              <button
+              <button type="button"
                 onClick={() => handleTestSound(category)}
                 disabled={!enabled || !enabledCategories.has(category)}
                 className="soundTestBtn"
@@ -248,13 +248,13 @@ export function SoundSettingsModal({ isOpen, onClose }: SoundSettingsModalProps)
       <div className="modal sound-settings-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Sound Settings</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button type="button" className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
           <SoundSettingsContent />
         </div>
         <div className="modal-footer">
-          <button onClick={onClose} className="btn btn-primary">
+          <button type="button" onClick={onClose} className="btn btn-primary">
             Done
           </button>
         </div>

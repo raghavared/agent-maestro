@@ -307,6 +307,8 @@ program.command('commands')
               if (isJson) {
                   outputJSON({ command: commandName, allowed, mode: permissions.mode });
               } else {
+                  const status = allowed ? '✅ allowed' : '❌ denied';
+                  console.log(`Command "${commandName}" is ${status} (mode: ${permissions.mode})`);
               }
           } else {
               // Show all available commands
@@ -326,6 +328,7 @@ program.command('commands')
           if (isJson) {
               outputJSON({ success: false, error: err.message });
           } else {
+              console.error(`Error: ${err.message || String(err)}`);
           }
           process.exit(1);
       }
@@ -355,28 +358,29 @@ program.command('status')
       if (isJson) {
         outputJSON({ success: false, error: 'no_context', message: 'No project context.' });
       } else {
+        console.error('Error: No project context. Set MAESTRO_PROJECT_ID or use --project <id>.');
       }
       process.exit(1);
     }
 
     try {
       // Fetch from server
-      const tasks: any[] = await api.get(`/api/tasks?projectId=${projectId}`);
-      const sessions: any[] = await api.get(`/api/sessions?projectId=${projectId}`);
+      const tasks = await api.get<Array<{status: string; priority: string}>>(`/api/tasks?projectId=${projectId}`);
+      const sessions = await api.get<Array<{status: string}>>(`/api/sessions?projectId=${projectId}`);
 
       // Count by status
-      const statusCounts = tasks.reduce((acc: any, task: any) => {
+      const statusCounts = tasks.reduce<Record<string, number>>((acc, task) => {
         acc[task.status] = (acc[task.status] || 0) + 1;
         return acc;
       }, {});
 
       // Count by priority
-      const priorityCounts = tasks.reduce((acc: any, task: any) => {
+      const priorityCounts = tasks.reduce<Record<string, number>>((acc, task) => {
         acc[task.priority] = (acc[task.priority] || 0) + 1;
         return acc;
       }, {});
 
-      const activeSessions = sessions.filter((s: any) => s.status === 'working' || s.status === 'spawning');
+      const activeSessions = sessions.filter(s => s.status === 'working' || s.status === 'spawning');
 
       const summary = {
         project: projectId,
@@ -393,11 +397,23 @@ program.command('status')
       if (isJson) {
         outputJSON(summary);
       } else {
+        console.log(`Project: ${summary.project}`);
+        console.log(`Tasks:   ${summary.tasks.total} total`);
+        const byStatus = Object.entries(summary.tasks.byStatus)
+          .map(([s, n]) => `  ${s}: ${n}`)
+          .join('\n');
+        if (byStatus) console.log(byStatus);
+        const byPriority = Object.entries(summary.tasks.byPriority)
+          .map(([p, n]) => `  ${p}: ${n}`)
+          .join('\n');
+        if (byPriority) console.log(`Priority breakdown:\n${byPriority}`);
+        console.log(`Sessions (active): ${summary.sessions.active}`);
       }
     } catch (err) {
       if (isJson) {
         outputJSON({ success: false, error: 'status_failed', message: String(err) });
       } else {
+        console.error(`Error: ${String(err)}`);
       }
       process.exit(1);
     }

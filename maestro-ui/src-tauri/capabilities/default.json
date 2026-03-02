@@ -23,11 +23,6 @@
           "name": "maestro-server",
           "sidecar": true,
           "args": true
-        },
-        {
-          "name": "code-server",
-          "sidecar": true,
-          "args": true
         }
       ]
     }

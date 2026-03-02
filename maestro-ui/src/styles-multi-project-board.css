@@ -1,0 +1,692 @@
+/* ── Multi-Project Board                                     ── */
+/* ============================================================ */
+
+.mpbOverlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10000;
+  background: var(--bg, #0a0e16);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  animation: taskBoardSlideIn 0.2s ease-out;
+}
+
+.mpbContainer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--bg, #0a0e16);
+  overflow: hidden;
+}
+
+/* ── MPB Header ── */
+
+.mpbHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  flex-shrink: 0;
+}
+
+.mpbHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.mpbProjectCount {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  padding: 3px 10px;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  border-radius: 3px;
+}
+
+.mpbLayoutToggle {
+  display: flex;
+  gap: 2px;
+  background: rgba(var(--theme-primary-rgb), 0.06);
+  border-radius: 3px;
+  padding: 2px;
+}
+
+.mpbLayoutBtn {
+  background: transparent;
+  border: none;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  font-family: var(--style-font-ui);
+  font-size: 14px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-radius: 2px;
+}
+
+.mpbLayoutBtn:hover {
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  background: rgba(var(--theme-primary-rgb), 0.06);
+}
+
+.mpbLayoutBtn--active {
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.12);
+}
+
+/* ── MPB Body ── */
+
+.mpbBody {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.mpbContent {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── MPB Sidebar ── */
+
+.mpbSidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--bg, #0a0e16);
+  border-right: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mpbSidebar--collapsed {
+  width: 40px;
+  align-items: center;
+  padding-top: 8px;
+}
+
+.mpbSidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+}
+
+.mpbSidebarTitle {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(var(--theme-primary-rgb), 0.6);
+}
+
+.mpbSidebarToggle {
+  background: transparent;
+  border: none;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px;
+  transition: color 0.15s ease;
+}
+
+.mpbSidebarToggle:hover {
+  color: var(--theme-primary);
+}
+
+.mpbSidebarCollapsedDots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.mpbSidebarDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  transition: all 0.15s ease;
+}
+
+.mpbSidebarDot--selected {
+  box-shadow: 0 0 4px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.mpbSidebarSelectAll {
+  padding: 8px 12px;
+}
+
+.mpbSidebarDivider {
+  height: 1px;
+  background: var(--theme-border, rgba(255,255,255,0.08));
+  margin: 0 12px;
+}
+
+.mpbSidebarList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.1) transparent;
+}
+
+/* ── Checkbox & Project Item ── */
+
+.mpbCheckboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.mpbCheckbox {
+  display: none;
+}
+
+.mpbCheckboxCustom {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+  border-radius: 2px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.mpbCheckbox:checked + .mpbCheckboxCustom {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  border-color: var(--theme-primary);
+}
+
+.mpbCheckbox:checked + .mpbCheckboxCustom::after {
+  content: '✓';
+  font-size: 10px;
+  color: var(--theme-primary);
+}
+
+.mpbSelectAllText {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.mpbProjectItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.mpbProjectItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.mpbProjectItem--selected {
+  background: rgba(var(--theme-primary-rgb), 0.06);
+}
+
+.mpbProjectColor {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mpbProjectName {
+  font-family: var(--style-font-ui);
+  font-size: 13px;
+  color: var(--theme-text, #f0f4f8);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mpbProjectStats {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mpbProjectStatItem {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.35);
+}
+
+/* ── Grouped View ── */
+
+.mpbGroupedView {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.1) transparent;
+}
+
+.mpbProjectRow {
+  border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+}
+
+.mpbProjectRowHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.mpbProjectRowHeader:hover {
+  background: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.mpbProjectRowColor {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mpbProjectRowName {
+  font-family: var(--style-font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-text, #f0f4f8);
+  flex: 1;
+}
+
+.mpbProjectRowCount {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.mpbProjectRowChevron {
+  font-size: 10px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  transition: transform 0.2s ease;
+}
+
+.mpbProjectRowChevron--collapsed {
+  transform: rotate(-90deg);
+}
+
+/* ── Kanban Columns in Grouped View ── */
+
+.mpbProjectRowColumns {
+  display: flex;
+  gap: 1px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  min-height: 120px;
+}
+
+.mpbKanbanColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg, #0a0e16);
+  border-right: 1px solid rgba(var(--theme-primary-rgb), 0.05);
+  transition: background 0.2s ease;
+}
+
+.mpbKanbanColumn:last-child {
+  border-right: none;
+}
+
+.mpbKanbanColumn--dragOver {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.mpbKanbanColumnHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.05);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.mpbKanbanColumnHeader:hover {
+  background: rgba(var(--theme-primary-rgb), 0.04);
+}
+
+.mpbKanbanColumnLabel {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.mpbKanbanColumnCount {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.mpbKanbanColumnBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.1) transparent;
+}
+
+.mpbKanbanColumnEmpty {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.15);
+  text-align: center;
+  padding: 12px 0;
+}
+
+/* ── Project Badge ── */
+
+.mpbProjectBadge {
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border: 1px solid;
+  border-radius: 2px;
+  align-self: flex-start;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* ── Empty States ── */
+
+.mpbEmptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 200px;
+}
+
+.mpbEmptyText {
+  font-family: var(--style-font-ui);
+  font-size: 13px;
+  color: rgba(var(--theme-primary-rgb), 0.2);
+  text-transform: lowercase;
+}
+
+.mpbSessionsEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 200px;
+}
+
+/* ── Sessions View ── */
+
+.mpbSessionsView {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.1) transparent;
+}
+
+.mpbSessionProjectGroup {
+  border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.mpbSessionProjectHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(var(--theme-primary-rgb), 0.02);
+}
+
+.mpbSessionProjectName {
+  font-family: var(--style-font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-text, #f0f4f8);
+  flex: 1;
+}
+
+.mpbSessionProjectCount {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.mpbSessionColumns {
+  display: flex;
+  gap: 1px;
+  overflow-x: auto;
+  padding: 0;
+  flex: 1;
+  min-height: 400px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.15) transparent;
+}
+
+.mpbSessionColumns .sessionBoardColumn {
+  flex: 1 1 0;
+  min-width: 80px;
+  max-width: none;
+  min-height: 100%;
+}
+
+/* ── Collapsed Kanban Column (grouped view) ── */
+
+.mpbKanbanColumnCollapsed {
+  flex: 0 0 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0;
+  background: var(--bg, #0a0e16);
+  border-right: 1px solid rgba(var(--theme-primary-rgb), 0.05);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.mpbKanbanColumnCollapsed:hover {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.mpbKanbanColumnCollapsedSymbol {
+  font-family: var(--style-font-ui);
+  font-size: 14px;
+  color: rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.mpbKanbanColumnCollapsedCount {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  padding: 2px 6px;
+  border-radius: 6px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* ── Session Resize Handle ── */
+
+.mpbSessionResizeHandle {
+  flex: 0 0 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.mpbSessionResizeHandle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 1px;
+  width: 2px;
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  transition: background 0.15s ease;
+}
+
+.mpbSessionResizeHandle:hover::after {
+  background: rgba(var(--theme-primary-rgb), 0.3);
+}
+
+.mpbSessionResizeHandle:active::after {
+  background: var(--theme-primary);
+}
+
+/* ── Collapsed Session Column ── */
+
+.mpbSessionColumnCollapsed {
+  flex: 0 0 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  min-height: 100%;
+  background: var(--bg, #0a0e16);
+  border-right: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.mpbSessionColumnCollapsed:hover {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.mpbSessionColumnCollapsedDot {
+  font-size: 12px;
+  font-family: var(--style-font-ui);
+}
+
+.mpbSessionColumnCollapsedName {
+  font-family: var(--style-font-ui);
+  font-size: 9px;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  max-height: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Unified Sessions View ── */
+
+.mpbSessionColumns--unified {
+  flex-wrap: nowrap;
+  min-height: 100%;
+}
+
+.mpbUnifiedSessionWrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 80px;
+  min-height: 100%;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+  border: 2px solid transparent;
+  border-radius: 6px;
+}
+
+.mpbUnifiedSessionWrapper--dragOver {
+  border-color: var(--theme-primary, #00d9ff);
+  background: rgba(var(--theme-primary-rgb), 0.03);
+}
+
+.mpbUnifiedSessionWrapper--dragging {
+  opacity: 0.4;
+}
+
+.mpbUnifiedSessionBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  border-bottom: 2px solid rgba(var(--theme-primary-rgb), 0.1);
+  cursor: grab;
+  user-select: none;
+}
+
+.mpbUnifiedSessionBadge:active {
+  cursor: grabbing;
+}
+
+.mpbUnifiedSessionBadgeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mpbUnifiedSessionBadgeName {
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-text, #f0f4f8);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mpbUnifiedSessionDragHandle {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  color: rgba(var(--theme-primary-rgb), 0.25);
+  letter-spacing: -2px;
+  cursor: grab;
+  transition: color 0.15s ease;
+}
+
+.mpbUnifiedSessionDragHandle:hover {
+  color: rgba(var(--theme-primary-rgb), 0.6);
+}
+
+.mpbUnifiedSessionWrapper .sessionBoardColumn {
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+}
+

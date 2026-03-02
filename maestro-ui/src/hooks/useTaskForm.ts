@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { TaskPriority, MaestroTask, MemberLaunchOverride, TeamMember } from "../app/types/maestro";
+import { TaskPriority, MaestroTask, MemberLaunchOverride, TeamMember, TaskImage } from "../app/types/maestro";
 import { maestroClient } from "../utils/MaestroClient";
-import { MemberConfig, buildDefaultMemberConfig, buildOverridesFromConfigs } from "../components/maestro/task-modal/LaunchConfigPanel";
+import { MemberConfig, buildDefaultMemberConfig, buildMemberConfigFromOverride, buildOverridesFromConfigs } from "../components/maestro/task-modal/LaunchConfigPanel";
 
 export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: MaestroTask) {
     const isEditMode = mode === "edit" && !!task;
@@ -13,6 +13,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
     const [activeTab, setActiveTab] = useState<string | null>(null);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [dueDate, setDueDate] = useState<string>("");
 
     // Subtask state
     const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
@@ -20,6 +21,13 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
 
     // Task docs (edit mode)
     const [taskDocs, setTaskDocs] = useState<any[]>([]);
+
+    // Task images (edit mode)
+    const [taskImages, setTaskImages] = useState<TaskImage[]>([]);
+
+    // Staged image files (create mode — uploaded after task is created)
+    const [stagedImageFiles, setStagedImageFiles] = useState<File[]>([]);
+    const [stagedImagePreviews, setStagedImagePreviews] = useState<string[]>([]);
 
     // Launch config state
     const [showLaunchConfig, setShowLaunchConfig] = useState(false);
@@ -37,8 +45,9 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
                     : task.teamMemberId ? [task.teamMemberId] : []
             );
             setSelectedSkills(task.skillIds || []);
+            setDueDate(task.dueDate || "");
         }
-    }, [isEditMode, isOpen, task?.id, task?.title, task?.description, task?.priority, task?.teamMemberId, JSON.stringify(task?.teamMemberIds), JSON.stringify(task?.referenceTaskIds)]);
+    }, [isEditMode, isOpen, task?.id, task?.title, task?.description, task?.priority, task?.teamMemberId, JSON.stringify(task?.teamMemberIds), JSON.stringify(task?.referenceTaskIds), task?.dueDate]);
 
     // Fetch task docs in edit mode
     useEffect(() => {
@@ -49,6 +58,15 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         }
     }, [isEditMode, task?.id]);
 
+    // Load images in edit mode
+    useEffect(() => {
+        if (isEditMode && task) {
+            setTaskImages(task.images || []);
+        } else {
+            setTaskImages([]);
+        }
+    }, [isEditMode, task?.id, JSON.stringify(task?.images)]);
+
     // Reset form when switching to create mode
     useEffect(() => {
         if (mode === "create" && isOpen) {
@@ -57,24 +75,26 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
             setPriority("medium");
             setSelectedTeamMemberIds([]);
             setSelectedSkills([]);
+            setDueDate("");
             setActiveTab(null);
         }
     }, [mode, isOpen]);
 
     const hasUnsavedContent = useMemo(() => {
         if (mode === "create") {
-            return title.trim() !== "" || prompt.trim() !== "";
+            return title.trim() !== "" || prompt.trim() !== "" || dueDate !== "";
         }
         if (isEditMode && task) {
             return (
                 title !== task.title ||
                 prompt !== (task.description || "") ||
                 priority !== task.priority ||
+                dueDate !== (task.dueDate || "") ||
                 JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(task.teamMemberIds || (task.teamMemberId ? [task.teamMemberId] : []))
             );
         }
         return false;
-    }, [mode, isEditMode, task, title, prompt, priority, selectedTeamMemberIds]);
+    }, [mode, isEditMode, task, title, prompt, priority, dueDate, selectedTeamMemberIds]);
 
     const isValid = title.trim() !== "" && prompt.trim() !== "";
 
@@ -83,12 +103,16 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     };
 
     // Launch config helpers
-    const initMemberConfig = useCallback((memberId: string, teamMembers: TeamMember[]) => {
+    const initMemberConfig = useCallback((memberId: string, teamMembers: TeamMember[], savedOverrides?: Record<string, MemberLaunchOverride>) => {
         setMemberConfigs(prev => {
             if (prev[memberId]) return prev; // already initialized
             const member = teamMembers.find(m => m.id === memberId);
             if (!member) return prev;
-            return { ...prev, [memberId]: buildDefaultMemberConfig(member) };
+            const override = savedOverrides?.[memberId];
+            const config = override
+                ? buildMemberConfigFromOverride(member, override)
+                : buildDefaultMemberConfig(member);
+            return { ...prev, [memberId]: config };
         });
     }, []);
 
@@ -112,6 +136,21 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         return Object.keys(overrides).length > 0 ? overrides : undefined;
     }, [memberConfigs]);
 
+    const addStagedFiles = (files: FileList | File[]) => {
+        const arr = Array.from(files).filter(f => f.type.startsWith('image/'));
+        const previews = arr.map(f => URL.createObjectURL(f));
+        setStagedImageFiles(prev => [...prev, ...arr]);
+        setStagedImagePreviews(prev => [...prev, ...previews]);
+    };
+
+    const removeStagedFile = (index: number) => {
+        setStagedImageFiles(prev => prev.filter((_, i) => i !== index));
+        setStagedImagePreviews(prev => {
+            URL.revokeObjectURL(prev[index]);
+            return prev.filter((_, i) => i !== index);
+        });
+    };
+
     const resetForm = () => {
         setTitle("");
         setPrompt("");
@@ -122,8 +161,13 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         setShowConfirmDialog(false);
         setNewSubtaskTitle("");
         setShowSubtaskInput(false);
+        setDueDate("");
         setShowLaunchConfig(false);
         setMemberConfigs({});
+        setTaskImages([]);
+        stagedImagePreviews.forEach(url => URL.revokeObjectURL(url));
+        setStagedImageFiles([]);
+        setStagedImagePreviews([]);
     };
 
     const getCreatePayload = (startImmediately: boolean, referenceTaskIds?: string[], parentId?: string) => ({
@@ -131,14 +175,17 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         description: prompt,
         priority,
         startImmediately,
+        dueDate: dueDate || undefined,
         skillIds: selectedSkills.length > 0 ? selectedSkills : undefined,
         referenceTaskIds: referenceTaskIds && referenceTaskIds.length > 0 ? referenceTaskIds : undefined,
         parentId,
         teamMemberId: selectedTeamMemberIds.length === 1 ? selectedTeamMemberIds[0] : undefined,
         teamMemberIds: selectedTeamMemberIds.length > 0 ? selectedTeamMemberIds : undefined,
+        // Staged image files — uploaded after task creation by the handler
+        _stagedFiles: stagedImageFiles.length > 0 ? stagedImageFiles : undefined,
     });
 
-    const getUpdateDiff = (referenceTaskIds: string[]): Partial<MaestroTask> | null => {
+    const getUpdateDiff = (referenceTaskIds: string[], teamMembers?: TeamMember[]): Partial<MaestroTask> | null => {
         if (!isEditMode || !task) return null;
         const updates: Partial<MaestroTask> = {};
         if (title.trim() && title !== task.title) updates.title = title.trim();
@@ -149,8 +196,17 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
             updates.teamMemberIds = selectedTeamMemberIds.length > 0 ? selectedTeamMemberIds : undefined;
             updates.teamMemberId = selectedTeamMemberIds.length === 1 ? selectedTeamMemberIds[0] : undefined;
         }
+        const currentDueDate = task.dueDate || "";
+        if (dueDate !== currentDueDate) updates.dueDate = dueDate || null;
         if (JSON.stringify(selectedSkills) !== JSON.stringify(task.skillIds || [])) updates.skillIds = selectedSkills;
         if (JSON.stringify(referenceTaskIds) !== JSON.stringify(task.referenceTaskIds || [])) updates.referenceTaskIds = referenceTaskIds;
+        // Include memberOverrides if launch config was modified
+        if (teamMembers && Object.keys(memberConfigs).length > 0) {
+            const overrides = buildOverridesFromConfigs(memberConfigs, teamMembers);
+            if (JSON.stringify(overrides) !== JSON.stringify(task.memberOverrides || {})) {
+                updates.memberOverrides = Object.keys(overrides).length > 0 ? overrides : undefined;
+            }
+        }
         return Object.keys(updates).length > 0 ? updates : null;
     };
 
@@ -158,6 +214,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         title, setTitle,
         prompt, setPrompt,
         priority, setPriority,
+        dueDate, setDueDate,
         selectedTeamMemberIds, setSelectedTeamMemberIds,
         selectedSkills, setSelectedSkills,
         activeTab, setActiveTab, toggleTab,
@@ -165,6 +222,8 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         newSubtaskTitle, setNewSubtaskTitle,
         showSubtaskInput, setShowSubtaskInput,
         taskDocs,
+        taskImages, setTaskImages,
+        stagedImageFiles, stagedImagePreviews, addStagedFiles, removeStagedFile,
         hasUnsavedContent,
         isValid,
         resetForm,

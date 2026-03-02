@@ -37,6 +37,13 @@ export interface StoredTask {
     identity: string;
     avatar: string;
   };
+  images?: Array<{
+    id: string;
+    filename: string;
+    mimeType: string;
+    size: number;
+    uploadedAt: number;
+  }>;
 }
 
 export interface StoredSession {

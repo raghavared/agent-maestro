@@ -265,6 +265,12 @@ export interface Task {
 
   // Per-member launch overrides saved on the task
   memberOverrides?: Record<string, MemberLaunchOverride>;
+
+  // Due date for the task (ISO date string "YYYY-MM-DD" or null)
+  dueDate: string | null;
+
+  // Images attached to this task
+  images?: TaskImage[];
 }
 
 export interface Session {
@@ -349,6 +355,15 @@ export interface DocEntry {
   addedBy?: string;                   // Session that added this doc
 }
 
+// Image attached to a task
+export interface TaskImage {
+  id: string;
+  filename: string;                   // Original filename
+  mimeType: string;                   // e.g. 'image/png', 'image/jpeg'
+  size: number;                       // File size in bytes
+  addedAt: number;
+}
+
 export interface SessionEvent {
   id: string;
   timestamp: number;
@@ -369,6 +384,7 @@ export interface CreateTaskPayload {
   teamMemberId?: string;
   teamMemberIds?: string[];
   memberOverrides?: Record<string, MemberLaunchOverride>;
+  dueDate?: string;
 }
 
 export type UpdateSource = 'user' | 'session';
@@ -387,6 +403,9 @@ export interface UpdateTaskPayload {
   pinned?: boolean;
   teamMemberId?: string;
   teamMemberIds?: string[];
+  dueDate?: string | null;
+  memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member launch overrides
+  images?: TaskImage[];
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline
   // Update source tracking
   updateSource?: UpdateSource;  // Who is making the update

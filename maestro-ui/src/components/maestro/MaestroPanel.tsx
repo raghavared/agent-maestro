@@ -9,6 +9,7 @@ import { AddSubtaskInput } from "./AddSubtaskInput";
 import { PanelIconBar, PrimaryTab, TaskSubTab, SkillSubTab, TeamSubTab } from "./PanelIconBar";
 import { TaskTabContent } from "./TaskTabContent";
 import { PanelErrorState, NoProjectState } from "./PanelErrorState";
+import { maestroClient } from "../../utils/MaestroClient";
 import { useTaskSearch } from "../../hooks/useTaskSearch";
 import { useTasks } from "../../hooks/useTasks";
 import { useMaestroStore } from "../../stores/useMaestroStore";
@@ -94,6 +95,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [statusFilter, setStatusFilter] = React.useState<MaestroTask["status"][]>([]);
     const [priorityFilter, setPriorityFilter] = React.useState<MaestroTask["priority"][]>([]);
     const [sortBy, setSortBy] = React.useState<SortByOption>("custom");
+    const [overdueFilter, setOverdueFilter] = React.useState(false);
     const [showCreateModal, setShowCreateModal] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
     const [subtaskParentId, setSubtaskParentId] = React.useState<string | null>(null);
@@ -102,6 +104,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [slidingOutTasks, setSlidingOutTasks] = React.useState<Set<string>>(new Set());
     const [showBoard, setShowBoard] = React.useState(false);
     const [taskListCreateSignal, setTaskListCreateSignal] = React.useState(0);
+    const [teamMemberCreateSignal, setTeamMemberCreateSignal] = React.useState(0);
     const [searchQuery, setSearchQuery] = React.useState("");
 
     // ==================== EXTRACTED HOOKS ====================
@@ -161,6 +164,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     // Slide-out animation for completed tasks
     const prevTaskStatusesRef = useRef<Map<string, string>>(new Map());
+    const slideOutTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
     useEffect(() => {
         const newlyCompleted: string[] = [];
         normalizedTasks.forEach(task => {
@@ -180,15 +184,30 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 newlyCompleted.forEach(id => next.add(id));
                 return next;
             });
-            setTimeout(() => {
-                setSlidingOutTasks(prev => {
-                    const next = new Set(prev);
-                    newlyCompleted.forEach(id => next.delete(id));
-                    return next;
-                });
-            }, 500);
+            newlyCompleted.forEach(id => {
+                // Clear any existing timer for this task
+                const existing = slideOutTimersRef.current.get(id);
+                if (existing) clearTimeout(existing);
+                // Set a per-task timer that won't be cancelled by other task updates
+                const timer = setTimeout(() => {
+                    setSlidingOutTasks(prev => {
+                        const next = new Set(prev);
+                        next.delete(id);
+                        return next;
+                    });
+                    slideOutTimersRef.current.delete(id);
+                }, 500);
+                slideOutTimersRef.current.set(id, timer);
+            });
         }
     }, [normalizedTasks]);
+    // Cleanup all per-task timers on unmount
+    useEffect(() => {
+        return () => {
+            slideOutTimersRef.current.forEach(timer => clearTimeout(timer));
+            slideOutTimersRef.current.clear();
+        };
+    }, []);
 
     // Initialize collapsed state
     const hasInitializedCollapsedRef = useRef(false);
@@ -237,7 +256,19 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 teamMemberIds: taskData.teamMemberIds,
                 memberOverrides: taskData.memberOverrides,
             });
-            if (taskData.startImmediately) await handleWorkOnTask(newTask);
+            // Upload any staged image files attached during task creation
+            if (taskData._stagedFiles?.length > 0) {
+                for (const file of taskData._stagedFiles) {
+                    try { await maestroClient.uploadTaskImage(newTask.id, file); } catch { /* non-fatal */ }
+                }
+            }
+            if (taskData.startImmediately) {
+                // Attach memberOverrides from the form data since the server may not return them on the task object
+                if (taskData.memberOverrides && !newTask.memberOverrides) {
+                    newTask.memberOverrides = taskData.memberOverrides;
+                }
+                await handleWorkOnTask(newTask);
+            }
         } catch (err: any) {
             setError("Failed to create task");
         }
@@ -327,10 +358,12 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     const customOrder = taskOrdering.get(projectId) || [];
 
+    const todayStr = new Date().toISOString().split('T')[0];
     const activeRoots = filterBySearch(roots
         .filter(n => n.status !== 'completed' && n.status !== 'archived')
         .filter(n => statusFilter.length === 0 || statusFilter.includes(n.status))
         .filter(n => priorityFilter.length === 0 || priorityFilter.includes(n.priority))
+        .filter(n => !overdueFilter || (n.dueDate && n.status !== 'completed' && n.status !== 'cancelled' && n.dueDate < todayStr))
         .sort((a, b) => {
             if (sortBy === "custom") {
                 const aIdx = customOrder.indexOf(a.id);
@@ -343,6 +376,12 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             if (sortBy === "priority") {
                 const priorityOrder = { high: 0, medium: 1, low: 2 };
                 return priorityOrder[a.priority] - priorityOrder[b.priority];
+            }
+            if (sortBy === "dueDate") {
+                if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+                if (a.dueDate) return -1;
+                if (b.dueDate) return 1;
+                return b.updatedAt - a.updatedAt;
             }
             return b[sortBy] - a[sortBy];
         }));
@@ -437,7 +476,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     projectId={projectId}
                     onNewTask={() => setShowCreateModal(true)}
                     onNewTaskList={() => setTaskListCreateSignal(prev => prev + 1)}
-                    onNewTeamMember={() => {}}
+                    onNewTeamMember={() => setTeamMemberCreateSignal(prev => prev + 1)}
                     onNewTeam={() => {}}
                     teamCount={activeTeams.length}
                     taskListCount={taskListArray.length}
@@ -448,7 +487,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     <div className="taskSearchBar">
                         <span className="taskSearchBar__icon">⌕</span>
                         <input type="text" className="taskSearchBar__input" placeholder="Search tasks..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                        {searchQuery && <button className="taskSearchBar__clear" onClick={() => setSearchQuery("")}>×</button>}
+                        {searchQuery && <button type="button" className="taskSearchBar__clear" onClick={() => setSearchQuery("")}>×</button>}
                     </div>
                 )}
 
@@ -456,7 +495,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     <div className="terminalErrorBanner">
                         <span className="terminalErrorSymbol">[ERROR]</span>
                         <span className="terminalErrorText">{error || fetchError}</span>
-                        <button className="terminalErrorClose" onClick={() => setError(null)}>×</button>
+                        <button type="button" className="terminalErrorClose" onClick={() => setError(null)}>×</button>
                     </div>
                 )}
 
@@ -465,7 +504,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     <>
                         {taskSubTab === "current" && (
                             <>
-                                <TaskFilters statusFilter={statusFilter} priorityFilter={priorityFilter} sortBy={sortBy} onStatusFilterChange={setStatusFilter} onPriorityFilterChange={setPriorityFilter} onSortChange={setSortBy} />
+                                <TaskFilters statusFilter={statusFilter} priorityFilter={priorityFilter} sortBy={sortBy} overdueFilter={overdueFilter} onStatusFilterChange={setStatusFilter} onPriorityFilterChange={setPriorityFilter} onSortChange={setSortBy} onOverdueFilterChange={setOverdueFilter} />
                                 <ExecutionBar
                                     isActive={execution.executionMode}
                                     activeMode={execution.activeBarMode}
@@ -528,6 +567,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                                 onUnarchive={handleUnarchiveTeamMember}
                                 onDelete={handleDeleteTeamMember}
                                 onRun={handleRunTeamMember}
+                                createSignal={teamMemberCreateSignal}
                             />
                         )}
                         {teamSubTab === "teams" && (

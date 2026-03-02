@@ -7,6 +7,7 @@ import { handleError } from '../utils/errors.js';
 import { guardCommand } from '../services/command-permissions.js';
 import { executeReport } from './report.js';
 import { resolveSpawnModeFromSkillAndTeamMemberMode } from './session-spawn-mode.js';
+import type { TaskResponse, SessionResponse, TeamMemberResponse, SpawnResponse, DocResponse, LogDigestResponse, MailMessage } from '../types/api-responses.js';
 import ora from 'ora';
 import { readFileSync } from 'fs';
 import WebSocket from 'ws';
@@ -15,8 +16,8 @@ import chalk from 'chalk';
 /**
  * Build comprehensive session context for spawning
  */
-async function buildSessionContext(task: any, options: any): Promise<any> {
-    const context: any = {
+async function buildSessionContext(task: TaskResponse, options: { includeRelated?: boolean; skill?: string }): Promise<Record<string, unknown>> {
+    const context: Record<string, unknown> = {
         primaryTask: {
             ...task,
             acceptanceCriteria: task.acceptanceCriteria || [],
@@ -58,14 +59,15 @@ async function buildSessionContext(task: any, options: any): Promise<any> {
     }
 
     // Add initial commands
-    context.initialCommands = [
+    const initialCommands = [
         'maestro whoami',
         `maestro task get ${task.id}`
     ];
 
     if (options.skill === 'maestro-worker') {
-        context.initialCommands.push(`maestro task start ${task.id}`);
+        initialCommands.push(`maestro task start ${task.id}`);
     }
+    context.initialCommands = initialCommands;
 
     return context;
 }
@@ -73,7 +75,7 @@ async function buildSessionContext(task: any, options: any): Promise<any> {
 /**
  * Generate session name from task and skill
  */
-function generateSessionName(task: any, skill: string): string {
+function generateSessionName(task: TaskResponse, skill: string): string {
     const skillName = skill === 'maestro-worker' ? 'Worker' :
                       skill === 'maestro-orchestrator' ? 'Orchestrator' : skill;
 
@@ -134,7 +136,7 @@ export function registerSessionCommands(program: Command) {
                 }
                 if (queryParts.length) endpoint += '?' + queryParts.join('&');
 
-                let sessions: any[] = await api.get(endpoint);
+                let sessions = await api.get<SessionResponse[]>(endpoint);
 
                 // Client-side filter by teamMemberId (server doesn't support this filter yet)
                 if (cmdOpts.teamMemberId) {
@@ -156,7 +158,7 @@ export function registerSessionCommands(program: Command) {
                                 s.name,
                                 s.status,
                                 s.teamMemberSnapshot?.name || s.teamMemberId || '-',
-                                (s.taskIds || []).length,
+                                String((s.taskIds || []).length),
                             ])
                         );
                     }
@@ -192,10 +194,10 @@ export function registerSessionCommands(program: Command) {
                 const queryParts = [`parentSessionId=${coordinatorId}`, 'active=true'];
                 if (projectId) queryParts.push(`projectId=${projectId}`);
 
-                let sessions: any[] = await api.get(`/api/sessions?${queryParts.join('&')}`);
+                let sessions = await api.get<SessionResponse[]>(`/api/sessions?${queryParts.join('&')}`);
 
                 // Exclude this session from the list
-                if (myId) sessions = sessions.filter((s: any) => s.id !== myId);
+                if (myId) sessions = sessions.filter(s => s.id !== myId);
 
                 spinner?.stop();
 
@@ -207,7 +209,7 @@ export function registerSessionCommands(program: Command) {
                     } else {
                         outputTable(
                             ['ID', 'Name', 'Role', 'Status', 'Tasks'],
-                            sessions.map((s: any) => [
+                            sessions.map(s => [
                                 s.id,
                                 s.name,
                                 s.teamMemberSnapshot?.name || s.teamMemberId || '-',
@@ -242,7 +244,7 @@ export function registerSessionCommands(program: Command) {
             const spinner = !isJson ? ora('Fetching session info...').start() : null;
             try {
                 // Fetch from server
-                const s: any = await api.get(`/api/sessions/${sessionId}`);
+                const s = await api.get<SessionResponse>(`/api/sessions/${sessionId}`);
 
                 spinner?.stop();
 
@@ -267,7 +269,7 @@ export function registerSessionCommands(program: Command) {
         .description('Add a doc entry to the current session')
         .requiredOption('--file <filePath>', 'File path for the doc')
         .option('--content <content>', 'Content of the doc (reads file if not provided)')
-        .action(async (title: string, cmdOpts: any) => {
+        .action(async (title: string, cmdOpts: { file: string; content?: string }) => {
             await guardCommand('session:docs:add');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -283,8 +285,9 @@ export function registerSessionCommands(program: Command) {
             if (!content && cmdOpts.file) {
                 try {
                     content = readFileSync(cmdOpts.file, 'utf-8');
-                } catch (e: any) {
-                    const err = { message: `Failed to read file: ${e.message}` };
+                } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    const err = { message: `Failed to read file: ${msg}` };
                     if (isJson) { outputErrorJSON(err); process.exit(1); }
                     else { console.error(err.message); process.exit(1); }
                 }
@@ -328,7 +331,7 @@ export function registerSessionCommands(program: Command) {
 
             const spinner = !isJson ? ora('Fetching session docs...').start() : null;
             try {
-                const docs: any[] = await api.get(`/api/sessions/${sessionId}/docs`);
+                const docs = await api.get<DocResponse[]>(`/api/sessions/${sessionId}/docs`);
 
                 spinner?.stop();
 
@@ -384,7 +387,7 @@ export function registerSessionCommands(program: Command) {
     session.command('watch <sessionIds>')
         .description('Watch spawned sessions in real-time via WebSocket (comma-separated IDs)')
         .option('--timeout <ms>', 'Auto-exit after N milliseconds (0 = no timeout)', '0')
-        .action(async (sessionIds: string, cmdOpts: any) => {
+        .action(async (sessionIds: string, cmdOpts: { timeout?: string }) => {
             await guardCommand('session:watch');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -555,7 +558,7 @@ export function registerSessionCommands(program: Command) {
                 const spinner = !isJson ? ora('Fetching task details...').start() : null;
 
                 // Fetch task from server
-                const task: any = await api.get(`/api/tasks/${taskId}`);
+                const task = await api.get<TaskResponse>(`/api/tasks/${taskId}`);
                 spinner?.stop();
 
                 const projectId = task.projectId;
@@ -574,7 +577,7 @@ export function registerSessionCommands(program: Command) {
                 let resolvedTeamMemberMode: string | undefined;
                 if (resolvedTeamMemberId) {
                     try {
-                        const teamMember: any = await api.get(`/api/team-members/${resolvedTeamMemberId}?projectId=${projectId}`);
+                        const teamMember = await api.get<TeamMemberResponse>(`/api/team-members/${resolvedTeamMemberId}?projectId=${projectId}`);
                         resolvedTeamMemberMode = teamMember?.mode;
                     } catch {
                         // Keep skill-based fallback mode if team member lookup fails.
@@ -603,7 +606,7 @@ export function registerSessionCommands(program: Command) {
                 }
 
                 // Prepare spawn request with spawnSource and mode
-                const spawnRequest: any = {
+                const spawnRequest: Record<string, unknown> = {
                     projectId,
                     taskIds: [taskId],
                     mode,
@@ -642,7 +645,7 @@ export function registerSessionCommands(program: Command) {
                 }
 
                 const spinner3 = !isJson ? ora('Requesting session spawn...').start() : null;
-                const result: any = await api.post('/api/sessions/spawn', spawnRequest);
+                const result = await api.post<SpawnResponse>('/api/sessions/spawn', spawnRequest as Record<string, unknown>);
                 spinner3?.succeed('Spawn request sent');
 
                 if (isJson) {
@@ -694,14 +697,15 @@ export function registerSessionCommands(program: Command) {
                     // session not found on server
                 }
 
+                const isDebug = config.debug;
                 if (sessionExists) {
-                    if (!isJson) console.log(`[session:register]    PATCH /api/sessions/${sessionId} -> status: 'working'`);
+                    if (isDebug) console.log(`[session:register]    PATCH /api/sessions/${sessionId} -> status: 'working'`);
                     await api.patch(`/api/sessions/${sessionId}`, {
                         status: 'working',
                     });
-                    if (!isJson) console.log(`[session:register]    Session status updated to 'working'`);
+                    if (isDebug) console.log(`[session:register]    Session status updated to 'working'`);
                 } else {
-                    if (!isJson) console.log(`[session:register]    POST /api/sessions (creating new session)`);
+                    if (isDebug) console.log(`[session:register]    POST /api/sessions (creating new session)`);
                     await api.post('/api/sessions', {
                         id: sessionId,
                         projectId,
@@ -710,17 +714,18 @@ export function registerSessionCommands(program: Command) {
                         status: 'working',
                         metadata: { mode },
                     });
-                    if (!isJson) console.log(`[session:register]    New session created with status 'working'`);
+                    if (isDebug) console.log(`[session:register]    New session created with status 'working'`);
                 }
 
-                if (!isJson) {
-                    console.log(`[session:register] Done: session ${sessionId} registered`);
-                } else {
+                if (isJson) {
                     outputJSON({ sessionId, status: 'registered' });
+                } else if (isDebug) {
+                    console.log(`[session:register] Done: session ${sessionId} registered`);
                 }
-            } catch (err: any) {
-                if (!isJson) {
-                    console.error(`[session:register] FAILED: ${err.message}`);
+            } catch (err: unknown) {
+                if (config.debug) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`[session:register] FAILED: ${message}`);
                 }
                 process.exit(0);
             }
@@ -735,31 +740,33 @@ export function registerSessionCommands(program: Command) {
             const isJson = globalOpts.json;
             const sessionId = config.sessionId;
 
-            if (!isJson) {
+            const isDebugComplete = config.debug;
+            if (isDebugComplete) {
                 console.log(`[session:complete] Hook fired (SessionEnd)`);
                 console.log(`[session:complete]    Session ID: ${sessionId || '(not set)'}`);
             }
 
             if (!sessionId) {
-                if (!isJson) console.log(`[session:complete] ABORT: no session ID`);
+                if (isDebugComplete) console.log(`[session:complete] ABORT: no session ID`);
                 process.exit(0);
             }
 
             try {
-                if (!isJson) console.log(`[session:complete]    PATCH /api/sessions/${sessionId} -> status: 'completed'`);
+                if (isDebugComplete) console.log(`[session:complete]    PATCH /api/sessions/${sessionId} -> status: 'completed'`);
                 await api.patch(`/api/sessions/${sessionId}`, {
                     status: 'completed',
                     completedAt: Date.now(),
                 });
 
-                if (!isJson) {
-                    console.log(`[session:complete] Done: session ${sessionId} completed`);
-                } else {
+                if (isJson) {
                     outputJSON({ sessionId, status: 'completed' });
+                } else if (isDebugComplete) {
+                    console.log(`[session:complete] Done: session ${sessionId} completed`);
                 }
-            } catch (err: any) {
-                if (!isJson) {
-                    console.error(`[session:complete] FAILED: ${err.message}`);
+            } catch (err: unknown) {
+                if (isDebugComplete) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`[session:complete] FAILED: ${message}`);
                 }
                 process.exit(0);
             }
@@ -774,18 +781,19 @@ export function registerSessionCommands(program: Command) {
             const isJson = globalOpts.json;
             const sessionId = config.sessionId;
 
-            if (!isJson) {
+            const isDebugNeedsInput = config.debug;
+            if (isDebugNeedsInput) {
                 console.log(`[session:needs-input] Hook fired (Stop)`);
                 console.log(`[session:needs-input]    Session ID: ${sessionId || '(not set)'}`);
             }
 
             if (!sessionId) {
-                if (!isJson) console.log(`[session:needs-input] ABORT: no session ID`);
+                if (isDebugNeedsInput) console.log(`[session:needs-input] ABORT: no session ID`);
                 process.exit(0);
             }
 
             try {
-                if (!isJson) console.log(`[session:needs-input]    PATCH /api/sessions/${sessionId} -> needsInput: { active: true }`);
+                if (isDebugNeedsInput) console.log(`[session:needs-input]    PATCH /api/sessions/${sessionId} -> needsInput: { active: true }`);
                 await api.patch(`/api/sessions/${sessionId}`, {
                     needsInput: {
                         active: true,
@@ -800,14 +808,15 @@ export function registerSessionCommands(program: Command) {
                     }],
                 });
 
-                if (!isJson) {
-                    console.log(`[session:needs-input] Done: session ${sessionId} marked as needsInput`);
-                } else {
+                if (isJson) {
                     outputJSON({ sessionId, needsInput: true });
+                } else if (isDebugNeedsInput) {
+                    console.log(`[session:needs-input] Done: session ${sessionId} marked as needsInput`);
                 }
-            } catch (err: any) {
-                if (!isJson) {
-                    console.error(`[session:needs-input] FAILED: ${err.message}`);
+            } catch (err: unknown) {
+                if (isDebugNeedsInput) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`[session:needs-input] FAILED: ${message}`);
                 }
                 process.exit(0);
             }
@@ -822,31 +831,33 @@ export function registerSessionCommands(program: Command) {
             const isJson = globalOpts.json;
             const sessionId = config.sessionId;
 
-            if (!isJson) {
+            const isDebugResume = config.debug;
+            if (isDebugResume) {
                 console.log(`[session:resume-working] Hook fired (UserPromptSubmit)`);
                 console.log(`[session:resume-working]    Session ID: ${sessionId || '(not set)'}`);
             }
 
             if (!sessionId) {
-                if (!isJson) console.log(`[session:resume-working] ABORT: no session ID`);
+                if (isDebugResume) console.log(`[session:resume-working] ABORT: no session ID`);
                 process.exit(0);
             }
 
             try {
-                if (!isJson) console.log(`[session:resume-working]    PATCH /api/sessions/${sessionId} -> status: 'working', needsInput: { active: false }`);
+                if (isDebugResume) console.log(`[session:resume-working]    PATCH /api/sessions/${sessionId} -> status: 'working', needsInput: { active: false }`);
                 await api.patch(`/api/sessions/${sessionId}`, {
                     status: 'working',
                     needsInput: { active: false },
                 });
 
-                if (!isJson) {
-                    console.log(`[session:resume-working] Done: session ${sessionId} resumed to working`);
-                } else {
+                if (isJson) {
                     outputJSON({ sessionId, status: 'working' });
+                } else if (isDebugResume) {
+                    console.log(`[session:resume-working] Done: session ${sessionId} resumed to working`);
                 }
-            } catch (err: any) {
-                if (!isJson) {
-                    console.error(`[session:resume-working] FAILED: ${err.message}`);
+            } catch (err: unknown) {
+                if (isDebugResume) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`[session:resume-working] FAILED: ${message}`);
                 }
                 process.exit(0);
             }
@@ -858,7 +869,7 @@ export function registerSessionCommands(program: Command) {
         .option('--last <n>', 'Number of text entries per session (default 5)', '5')
         .option('--full', 'Return full untruncated text entries')
         .option('--max-length <n>', 'Max character length per text entry (default 150)')
-        .action(async (ids: string | undefined, cmdOpts: any) => {
+        .action(async (ids: string | undefined, cmdOpts: { myWorkers?: boolean; last?: string; full?: boolean; maxLength?: string }) => {
             await guardCommand('session:logs');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -885,7 +896,7 @@ export function registerSessionCommands(program: Command) {
                     const sessionIds = ids.split(',').map(s => s.trim()).filter(Boolean);
                     if (sessionIds.length === 1) {
                         // Single session — use the single endpoint
-                        const digest: any = await api.get(`/api/sessions/${sessionIds[0]}/log-digest?last=${last}${maxLengthParam}`);
+                        const digest = await api.get<LogDigestResponse>(`/api/sessions/${sessionIds[0]}/log-digest?last=${last}${maxLengthParam}`);
                         if (isJson) {
                             outputJSON([digest]);
                         } else {
@@ -900,7 +911,7 @@ export function registerSessionCommands(program: Command) {
                     return;
                 }
 
-                const digests: any[] = await api.get(endpoint);
+                const digests = await api.get<LogDigestResponse[]>(endpoint);
 
                 if (isJson) {
                     outputJSON(digests);
@@ -923,13 +934,13 @@ export function registerSessionCommands(program: Command) {
         .description('Send an input prompt to another active Maestro session')
         .requiredOption('--message <message>', 'The prompt message to send')
         .option('--mode <mode>', '"send" (type + Enter) or "paste" (type only)', 'send')
-        .action(async (targetSessionId: string, cmdOpts: any) => {
+        .action(async (targetSessionId: string, cmdOpts: { message: string; mode?: string }) => {
             await guardCommand('session:prompt');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
             const { message, mode } = cmdOpts;
 
-            if (!['send', 'paste'].includes(mode)) {
+            if (!['send', 'paste'].includes(mode || '')) {
                 console.error('Error: --mode must be "send" or "paste"');
                 process.exit(1);
             }
@@ -960,23 +971,40 @@ export function registerSessionCommands(program: Command) {
         .description('Notify one or more sessions — sends a PTY wakeup and stores a mail message')
         .requiredOption('--message <brief>', 'Brief message (injected into PTY + stored as mail)')
         .option('--detail <full>', 'Full detail text (stored in mail only, not injected into PTY)')
-        .action(async (ids: string[], cmdOpts: any) => {
+        .action(async (ids: string[], cmdOpts: { message: string; detail?: string }) => {
             await guardCommand('session:notify');
             const mySessionId = config.sessionId;
-            const myName = (config as any).teamMemberName || (config as any).teamMemberSnapshot?.name || config.sessionId || 'Unknown';
+            const configRecord = config as Record<string, unknown>;
+            const myName = (configRecord.teamMemberName as string) || ((configRecord.teamMemberSnapshot as Record<string, string>)?.name) || config.sessionId || 'Unknown';
             if (!mySessionId) {
                 console.error('No session ID — not running inside a session');
                 process.exit(1);
             }
+            let succeeded = 0;
+            const failed: string[] = [];
             for (const targetId of ids) {
-                await api.post(`/api/sessions/${targetId}/mail`, {
-                    fromSessionId: mySessionId,
-                    fromName: myName,
-                    message: cmdOpts.message,
-                    ...(cmdOpts.detail ? { detail: cmdOpts.detail } : {}),
-                });
+                try {
+                    await api.post(`/api/sessions/${targetId}/mail`, {
+                        fromSessionId: mySessionId,
+                        fromName: myName,
+                        message: cmdOpts.message,
+                        ...(cmdOpts.detail ? { detail: cmdOpts.detail } : {}),
+                    });
+                    succeeded++;
+                } catch (err: unknown) {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    failed.push(`${targetId} (${msg})`);
+                }
             }
-            console.log(`Notified ${ids.length} session(s).`);
+            if (failed.length > 0) {
+                console.error(`Failed to notify ${failed.length} session(s): ${failed.join(', ')}`);
+            }
+            if (succeeded > 0) {
+                console.log(`Notified ${succeeded} session(s).`);
+            }
+            if (failed.length > 0 && succeeded === 0) {
+                process.exit(1);
+            }
         });
 
     const mail = session
@@ -993,7 +1021,7 @@ export function registerSessionCommands(program: Command) {
                 console.error('No session ID — not running inside a session');
                 process.exit(1);
             }
-            const messages: any[] = await api.get(`/api/sessions/${mySessionId}/mail`);
+            const messages = await api.get<MailMessage[]>(`/api/sessions/${mySessionId}/mail`);
             if (messages.length === 0) {
                 console.log('No unread messages.');
                 return;
@@ -1025,7 +1053,7 @@ function formatDuration(ms: number): string {
 /**
  * Print a single session log digest in human-readable format.
  */
-function printDigest(digest: any): void {
+function printDigest(digest: LogDigestResponse): void {
     // State icon and color
     let stateIcon: string;
     let stateLabel: string;

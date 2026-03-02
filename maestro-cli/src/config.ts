@@ -39,7 +39,7 @@ export const config = {
     return process.env.MAESTRO_SERVER_URL || process.env.MAESTRO_API_URL || discoverServerUrl() || 'http://localhost:3000';
   },
   get isOffline() {
-    return !process.env.MAESTRO_SERVER_URL && !process.env.MAESTRO_API_URL;
+    return !process.env.MAESTRO_SERVER_URL && !process.env.MAESTRO_API_URL && !discoverServerUrl();
   },
   get projectId() {
     return process.env.MAESTRO_PROJECT_ID;

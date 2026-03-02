@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Excalidraw } from "@excalidraw/excalidraw";
-import type { ExcalidrawInitialDataState } from "@excalidraw/excalidraw/types";
+import { Excalidraw, exportToBlob } from "@excalidraw/excalidraw";
+import type { ExcalidrawImperativeAPI, ExcalidrawInitialDataState } from "@excalidraw/excalidraw/types";
 import "@excalidraw/excalidraw/index.css";
+import { ExportToTaskPicker } from "./ExportToTaskPicker";
 
 const DEFAULT_STORAGE_KEY = "maestro-excalidraw-scene-v1";
 const SAVE_DEBOUNCE_MS = 300;
@@ -39,6 +40,10 @@ export function ExcalidrawBoard({ onClose, inline, storageKey, name }: Excalidra
   const effectiveKey = storageKey || DEFAULT_STORAGE_KEY;
   const saveTimeoutRef = useRef<number | null>(null);
   const initialData = useMemo(() => loadInitialData(effectiveKey), [effectiveKey]);
+  const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
+  const [showTaskPicker, setShowTaskPicker] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const exportBtnRef = useRef<HTMLButtonElement>(null);
 
   const handleChange = useCallback<ExcalidrawChangeHandler>((elements, appState, files) => {
     if (saveTimeoutRef.current !== null) {
@@ -89,6 +94,30 @@ export function ExcalidrawBoard({ onClose, inline, storageKey, name }: Excalidra
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [onClose, inline]);
 
+  const handleExportToTask = useCallback(async (): Promise<Blob | null> => {
+    const api = excalidrawAPIRef.current;
+    if (!api) return null;
+
+    const elements = api.getSceneElements();
+    if (elements.length === 0) return null;
+
+    setExporting(true);
+    try {
+      const blob = await exportToBlob({
+        elements,
+        appState: { ...api.getAppState(), exportWithDarkMode: false },
+        files: api.getFiles(),
+        mimeType: "image/png",
+      });
+      return blob;
+    } catch (err) {
+      // Export failed – return null to caller
+      return null;
+    } finally {
+      setExporting(false);
+    }
+  }, []);
+
   const content = (
     <div className={inline ? "excalidrawInline" : "excalidrawOverlay"}>
       <div className="excalidrawContainer">
@@ -99,25 +128,46 @@ export function ExcalidrawBoard({ onClose, inline, storageKey, name }: Excalidra
               <span className="excalidrawShortcutHint">Cmd/Ctrl+Shift+X to toggle</span>
             )}
           </div>
-          {!inline && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
+              ref={exportBtnRef}
               type="button"
-              className="taskBoardCloseBtn"
-              onClick={onClose}
-              aria-label="Close whiteboard"
-              title="Close whiteboard"
+              className="themedBtn"
+              style={{ padding: '4px 10px', fontSize: '11px' }}
+              onClick={() => setShowTaskPicker(true)}
+              disabled={exporting}
+              title="Export drawing as image to a task"
             >
-              ×
+              {exporting ? 'Exporting...' : 'Export to Task'}
             </button>
-          )}
+            {!inline && (
+              <button
+                type="button"
+                className="taskBoardCloseBtn"
+                onClick={onClose}
+                aria-label="Close whiteboard"
+                title="Close whiteboard"
+              >
+                ×
+              </button>
+            )}
+          </div>
         </div>
         <div className="excalidrawCanvas">
           <Excalidraw
             initialData={initialData}
             onChange={handleChange}
+            excalidrawAPI={(api) => { excalidrawAPIRef.current = api; }}
           />
         </div>
       </div>
+      {showTaskPicker && (
+        <ExportToTaskPicker
+          onExport={handleExportToTask}
+          onClose={() => setShowTaskPicker(false)}
+          whiteboardName={name || "whiteboard"}
+        />
+      )}
     </div>
   );
 

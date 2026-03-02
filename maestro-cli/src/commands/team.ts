@@ -4,6 +4,7 @@ import { config } from '../config.js';
 import { outputJSON, outputTable, outputKeyValue, outputErrorJSON } from '../utils/formatter.js';
 import { handleError } from '../utils/errors.js';
 import { guardCommand } from '../services/command-permissions.js';
+import type { TeamResponse } from '../types/api-responses.js';
 import ora from 'ora';
 
 function requireProject(program: Command, isJson: boolean): string {
@@ -25,7 +26,7 @@ export function registerTeamCommands(program: Command) {
         .description('List teams for the current project')
         .option('--all', 'Include archived teams')
         .option('--status <status>', 'Filter by status: active or archived')
-        .action(async (cmdOpts: any) => {
+        .action(async (cmdOpts: { all?: boolean; status?: string }) => {
             await guardCommand('team:list');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -40,7 +41,7 @@ export function registerTeamCommands(program: Command) {
             const spinner = !isJson ? ora('Fetching teams...').start() : null;
 
             try {
-                const teams: any[] = await api.get(`/api/teams?projectId=${projectId}`);
+                const teams = await api.get<TeamResponse[]>(`/api/teams?projectId=${projectId}`);
 
                 spinner?.stop();
 
@@ -48,9 +49,9 @@ export function registerTeamCommands(program: Command) {
                 if (cmdOpts.all) {
                     // include all
                 } else if (cmdOpts.status) {
-                    filtered = teams.filter((t: any) => t.status === cmdOpts.status);
+                    filtered = teams.filter(t => t.status === cmdOpts.status);
                 } else {
-                    filtered = teams.filter((t: any) => t.status === 'active');
+                    filtered = teams.filter(t => t.status === 'active');
                 }
 
                 if (isJson) {
@@ -61,7 +62,7 @@ export function registerTeamCommands(program: Command) {
                     } else {
                         outputTable(
                             ['ID', 'Name', 'Leader', 'Members', 'Sub-Teams', 'Status'],
-                            filtered.map((t: any) => [
+                            filtered.map(t => [
                                 t.id,
                                 `${t.avatar || '👥'} ${t.name}`,
                                 t.leaderId || 'none',
@@ -90,7 +91,7 @@ export function registerTeamCommands(program: Command) {
             const spinner = !isJson ? ora('Fetching team...').start() : null;
 
             try {
-                const t: any = await api.get(`/api/teams/${teamId}?projectId=${projectId}`);
+                const t = await api.get<TeamResponse>(`/api/teams/${teamId}?projectId=${projectId}`);
 
                 spinner?.stop();
 
@@ -128,7 +129,7 @@ export function registerTeamCommands(program: Command) {
         .option('--members <ids>', 'Comma-separated member IDs')
         .option('--description <text>', 'Team description')
         .option('--avatar <emoji>', 'Team avatar emoji')
-        .action(async (name: string, cmdOpts: any) => {
+        .action(async (name: string, cmdOpts: { leader: string; members?: string; description?: string; avatar?: string }) => {
             await guardCommand('team:create');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -137,7 +138,7 @@ export function registerTeamCommands(program: Command) {
             const spinner = !isJson ? ora('Creating team...').start() : null;
 
             try {
-                const payload: any = {
+                const payload: Record<string, unknown> = {
                     projectId,
                     name: name.trim(),
                     leaderId: cmdOpts.leader.trim(),
@@ -149,7 +150,7 @@ export function registerTeamCommands(program: Command) {
                 if (cmdOpts.description) payload.description = cmdOpts.description.trim();
                 if (cmdOpts.avatar) payload.avatar = cmdOpts.avatar.trim();
 
-                const t: any = await api.post('/api/teams', payload);
+                const t = await api.post<TeamResponse>('/api/teams', payload);
 
                 spinner?.succeed('Team created');
 
@@ -174,13 +175,13 @@ export function registerTeamCommands(program: Command) {
         .option('--leader <teamMemberId>', 'Update team leader')
         .option('--description <text>', 'Update description')
         .option('--avatar <emoji>', 'Update avatar emoji')
-        .action(async (teamId: string, cmdOpts: any) => {
+        .action(async (teamId: string, cmdOpts: { name?: string; leader?: string; description?: string; avatar?: string }) => {
             await guardCommand('team:edit');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
             const projectId = requireProject(program, isJson);
 
-            const updates: Record<string, any> = { projectId };
+            const updates: Record<string, string> = { projectId };
             if (cmdOpts.name) updates.name = cmdOpts.name.trim();
             if (cmdOpts.leader) updates.leaderId = cmdOpts.leader.trim();
             if (cmdOpts.description) updates.description = cmdOpts.description.trim();
@@ -196,7 +197,7 @@ export function registerTeamCommands(program: Command) {
             const spinner = !isJson ? ora('Updating team...').start() : null;
 
             try {
-                const t: any = await api.patch(`/api/teams/${teamId}`, updates);
+                const t = await api.patch<TeamResponse>(`/api/teams/${teamId}`, updates);
 
                 spinner?.succeed('Team updated');
 
@@ -225,7 +226,7 @@ export function registerTeamCommands(program: Command) {
             const spinner = !isJson ? ora('Archiving team...').start() : null;
 
             try {
-                const t: any = await api.post(`/api/teams/${teamId}/archive`, { projectId });
+                const t = await api.post<TeamResponse>(`/api/teams/${teamId}/archive`, { projectId });
 
                 spinner?.succeed('Team archived');
 
@@ -254,7 +255,7 @@ export function registerTeamCommands(program: Command) {
             const spinner = !isJson ? ora('Unarchiving team...').start() : null;
 
             try {
-                const t: any = await api.post(`/api/teams/${teamId}/unarchive`, { projectId });
+                const t = await api.post<TeamResponse>(`/api/teams/${teamId}/unarchive`, { projectId });
 
                 spinner?.succeed('Team unarchived');
 
@@ -287,7 +288,7 @@ export function registerTeamCommands(program: Command) {
             const spinner = !isJson ? ora('Deleting team...').start() : null;
 
             try {
-                const result: any = await api.delete(`/api/teams/${teamId}?projectId=${projectId}`);
+                const result = await api.delete<TeamResponse>(`/api/teams/${teamId}?projectId=${projectId}`);
 
                 spinner?.succeed('Team deleted');
 
@@ -314,7 +315,7 @@ export function registerTeamCommands(program: Command) {
             const spinner = !isJson ? ora('Adding members...').start() : null;
 
             try {
-                const t: any = await api.post(`/api/teams/${teamId}/members`, {
+                const t = await api.post<TeamResponse>(`/api/teams/${teamId}/members`, {
                     projectId,
                     memberIds,
                 });
@@ -347,7 +348,7 @@ export function registerTeamCommands(program: Command) {
 
             try {
                 const memberIdsParam = memberIds.join(',');
-                const t: any = await api.delete(`/api/teams/${teamId}/members?projectId=${projectId}&memberIds=${encodeURIComponent(memberIdsParam)}`);
+                const t = await api.delete<TeamResponse>(`/api/teams/${teamId}/members?projectId=${projectId}&memberIds=${encodeURIComponent(memberIdsParam)}`);
 
                 spinner?.succeed('Members removed');
 
@@ -376,7 +377,7 @@ export function registerTeamCommands(program: Command) {
             const spinner = !isJson ? ora('Adding sub-team...').start() : null;
 
             try {
-                const t: any = await api.post(`/api/teams/${teamId}/sub-teams`, {
+                const t = await api.post<TeamResponse>(`/api/teams/${teamId}/sub-teams`, {
                     projectId,
                     subTeamId,
                 });
@@ -408,7 +409,7 @@ export function registerTeamCommands(program: Command) {
             const spinner = !isJson ? ora('Removing sub-team...').start() : null;
 
             try {
-                const t: any = await api.delete(`/api/teams/${teamId}/sub-teams?projectId=${projectId}&subTeamId=${encodeURIComponent(subTeamId)}`);
+                const t = await api.delete<TeamResponse>(`/api/teams/${teamId}/sub-teams?projectId=${projectId}&subTeamId=${encodeURIComponent(subTeamId)}`);
 
                 spinner?.succeed('Sub-team removed');
 
@@ -438,8 +439,8 @@ export function registerTeamCommands(program: Command) {
 
             try {
                 // Fetch all teams to build the tree locally
-                const allTeams: any[] = await api.get(`/api/teams?projectId=${projectId}`);
-                const teamMap = new Map<string, any>();
+                const allTeams = await api.get<TeamResponse[]>(`/api/teams?projectId=${projectId}`);
+                const teamMap = new Map<string, TeamResponse>();
                 for (const t of allTeams) {
                     teamMap.set(t.id, t);
                 }
@@ -457,11 +458,11 @@ export function registerTeamCommands(program: Command) {
 
                 if (isJson) {
                     // Build JSON tree recursively
-                    function buildTree(t: any): any {
+                    function buildTree(t: TeamResponse): Record<string, unknown> {
                         const children = (t.subTeamIds || [])
                             .map((id: string) => teamMap.get(id))
-                            .filter(Boolean)
-                            .map((child: any) => buildTree(child));
+                            .filter((x): x is TeamResponse => !!x)
+                            .map(child => buildTree(child));
                         return {
                             id: t.id,
                             name: t.name,
@@ -474,7 +475,7 @@ export function registerTeamCommands(program: Command) {
                     outputJSON(buildTree(root));
                 } else {
                     // Print tree with indentation
-                    function printTree(t: any, prefix: string, isLast: boolean) {
+                    function printTree(t: TeamResponse, prefix: string, isLast: boolean) {
                         const connector = isLast ? '└── ' : '├── ';
                         const avatar = t.avatar || '👥';
                         const memberCount = (t.memberIds || []).length;

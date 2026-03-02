@@ -1,5 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { WebSocketServer } from 'ws';
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
@@ -16,7 +18,7 @@ import { createTeamRoutes } from './api/teamRoutes';
 import { createWorkflowTemplateRoutes } from './api/workflowTemplateRoutes';
 import { createMasterRoutes } from './api/masterRoutes';
 import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
-import { AppError } from './domain/common/Errors';
+import { errorHandler } from './api/middleware/errorHandler';
 
 async function startServer() {
   // Create and initialize dependency container
@@ -28,10 +30,14 @@ async function startServer() {
   // Create Express app
   const app = express();
 
-  // Middleware - CORS configuration for Tauri app and web clients
+  // Security headers
+  app.use(helmet());
+
+  // CORS configuration for Tauri app and web clients
+  // NOTE: CORS must be registered before rate limiting so preflight OPTIONS
+  // requests always get proper CORS headers and are not blocked by 429.
   app.use(cors({
     origin: (origin, callback) => {
-      // Allow Tauri app, localhost variations, and undefined (same-origin)
       const allowedOrigins = [
         'tauri://localhost',
         'http://localhost:1420',
@@ -46,7 +52,7 @@ async function startServer() {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(null, true); // For now, allow all origins
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
       }
     },
     credentials: true,
@@ -54,7 +60,33 @@ async function startServer() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Session-Id'],
     exposedHeaders: ['Content-Length', 'X-Request-Id']
   }));
-  app.use(express.json());
+  // JSON body parser with size limit (50mb for image uploads)
+  app.use(express.json({ limit: '50mb' }));
+
+  // Rate limiting (applied after CORS so preflight OPTIONS always get CORS headers)
+  const generalLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 1000,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    skip: (req: Request) => req.method === 'OPTIONS',
+  });
+  const writeLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 200,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    skip: (req: Request) => req.method === 'OPTIONS',
+  });
+  app.use(generalLimiter);
+
+  // Apply stricter rate limiting to write routes
+  app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+    if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) {
+      return writeLimiter(req, res, next);
+    }
+    next();
+  });
 
   // Health check
   app.get('/health', (req: Request, res: Response) => {
@@ -81,7 +113,7 @@ async function startServer() {
 
   // API routes using services
   const projectRoutes = createProjectRoutes(projectService);
-  const taskRoutes = createTaskRoutes(taskService, sessionService);
+  const taskRoutes = createTaskRoutes(taskService, sessionService, config.dataDir);
   const taskListRoutes = createTaskListRoutes(taskListService);
   const sessionRoutes = createSessionRoutes({
     sessionService,
@@ -123,16 +155,7 @@ async function startServer() {
   // Global error handling middleware
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     logger.error('Server error:', err);
-
-    if (err instanceof AppError) {
-      return res.status(err.statusCode).json(err.toJSON());
-    }
-
-    res.status(500).json({
-      error: true,
-      message: err.message,
-      code: 'INTERNAL_ERROR'
-    });
+    errorHandler(err, req, res, next);
   });
 
   // Start HTTP server
@@ -151,9 +174,9 @@ async function startServer() {
   const wss = new WebSocketServer({ server });
   wsBridge = new WebSocketBridge(wss, eventBus, logger);
 
-  // Graceful shutdown
+  // Graceful shutdown handler
   let isShuttingDown = false;
-  process.on('SIGINT', async () => {
+  const gracefulShutdown = async () => {
     if (isShuttingDown) {
       process.exit(1);
     }
@@ -184,12 +207,16 @@ async function startServer() {
       clearTimeout(forceExitTimeout);
       process.exit(1);
     }
-  });
+  };
+
+  process.on('SIGINT', gracefulShutdown);
+  process.on('SIGTERM', gracefulShutdown);
 
   return { app, server, container };
 }
 
 // Start server
 startServer().catch(err => {
+  console.error('Failed to start server:', err);
   process.exit(1);
 });

@@ -79,7 +79,7 @@ export function TaskListAddTasksModal({
       <div className="themedModal themedModal--wide" onClick={(e) => e.stopPropagation()}>
         <div className="themedModalHeader">
           <span className="themedModalTitle">[ ADD TASKS TO LIST ]</span>
-          <button className="themedModalClose" onClick={onClose} disabled={isSaving}>×</button>
+          <button type="button" className="themedModalClose" onClick={onClose} disabled={isSaving}>×</button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="themedModalContent">

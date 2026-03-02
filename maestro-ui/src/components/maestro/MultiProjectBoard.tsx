@@ -22,8 +22,9 @@ import { DragGhostCard } from "./DragGhostCard";
 import { TaskCard } from "./TaskCard";
 import { COLUMNS, PRIORITY_COLORS } from "./boardConstants";
 import { useTasks } from "../../hooks/useTasks";
+import { Dashboard } from "./Dashboard";
 
-type BoardView = "tasks" | "sessions";
+type BoardView = "tasks" | "sessions" | "dashboard";
 type LayoutMode = "grouped" | "unified";
 type SessionLayoutMode = "grouped" | "unified";
 
@@ -68,6 +69,7 @@ export const Board = React.memo(function Board({
 }: BoardProps) {
     const projects = useProjectStore((s) => s.projects);
     const maestroSessions = useMaestroStore((s) => s.sessions);
+    const teamMembers = useMaestroStore((s) => s.teamMembers);
     const terminalSessions = useSessionStore((s) => s.sessions);
 
     const isSingleProject = !!focusProjectId;
@@ -189,6 +191,20 @@ export const Board = React.memo(function Board({
         return counts;
     }, [terminalSessions]);
 
+    // Maestro sessions for selected projects (for dashboard)
+    const dashboardSessions = useMemo(() => {
+        return Array.from(maestroSessions.values()).filter((s) =>
+            selectedProjectIds.has(s.projectId),
+        );
+    }, [maestroSessions, selectedProjectIds]);
+
+    // Team members for selected projects (for dashboard)
+    const dashboardTeamMembers = useMemo(() => {
+        return Array.from(teamMembers.values()).filter((m) =>
+            selectedProjectIds.has(m.projectId),
+        );
+    }, [teamMembers, selectedProjectIds]);
+
     // Group tasks by project for grouped view
     const tasksByProject = useMemo(() => {
         const grouped = new Map<string, typeof effectiveTasks>();
@@ -239,17 +255,23 @@ export const Board = React.memo(function Board({
                 <div className={isSingleProject ? "taskBoardHeader" : "mpbHeader"}>
                     <div className={isSingleProject ? "taskBoardHeaderLeft" : "mpbHeaderLeft"}>
                         <div className="taskBoardTabs">
-                            <button
+                            <button type="button"
                                 className={`taskBoardTab ${activeView === "tasks" ? "taskBoardTab--active" : ""}`}
                                 onClick={() => setActiveView("tasks")}
                             >
                                 <span className="taskBoardTabSymbol">⊞</span> Tasks
                             </button>
-                            <button
+                            <button type="button"
                                 className={`taskBoardTab ${activeView === "sessions" ? "taskBoardTab--active" : ""}`}
                                 onClick={() => setActiveView("sessions")}
                             >
                                 <span className="taskBoardTabSymbol">◈</span> Sessions
+                            </button>
+                            <button
+                                className={`taskBoardTab ${activeView === "dashboard" ? "taskBoardTab--active" : ""}`}
+                                onClick={() => setActiveView("dashboard")}
+                            >
+                                <span className="taskBoardTabSymbol">◫</span> Dashboard
                             </button>
                         </div>
                         {isSingleProject ? (
@@ -259,14 +281,14 @@ export const Board = React.memo(function Board({
                                 <span className="mpbProjectCount">{headerLabel}</span>
                                 {activeView === "tasks" && (
                                     <div className="mpbLayoutToggle">
-                                        <button
+                                        <button type="button"
                                             className={`mpbLayoutBtn ${layoutMode === "grouped" ? "mpbLayoutBtn--active" : ""}`}
                                             onClick={() => setLayoutMode("grouped")}
                                             title="Grouped by project"
                                         >
                                             ≡
                                         </button>
-                                        <button
+                                        <button type="button"
                                             className={`mpbLayoutBtn ${layoutMode === "unified" ? "mpbLayoutBtn--active" : ""}`}
                                             onClick={() => setLayoutMode("unified")}
                                             title="Unified kanban"
@@ -277,14 +299,14 @@ export const Board = React.memo(function Board({
                                 )}
                                 {activeView === "sessions" && (
                                     <div className="mpbLayoutToggle">
-                                        <button
+                                        <button type="button"
                                             className={`mpbLayoutBtn ${sessionLayoutMode === "grouped" ? "mpbLayoutBtn--active" : ""}`}
                                             onClick={() => setSessionLayoutMode("grouped")}
                                             title="Grouped by project"
                                         >
                                             ≡
                                         </button>
-                                        <button
+                                        <button type="button"
                                             className={`mpbLayoutBtn ${sessionLayoutMode === "unified" ? "mpbLayoutBtn--active" : ""}`}
                                             onClick={() => setSessionLayoutMode("unified")}
                                             title="Unified view"
@@ -305,15 +327,17 @@ export const Board = React.memo(function Board({
                                 <span className="taskBoardStat taskBoardStatReview">◎ {taskStats.review}</span>
                                 <span className="taskBoardStat taskBoardStatDone">✓ {taskStats.done}</span>
                             </>
-                        ) : (
+                        ) : activeView === "sessions" ? (
                             <>
                                 <span className="taskBoardStat taskBoardStatActive">◉ {sessionStats.working}</span>
                                 <span className="taskBoardStat taskBoardStatPending">○ {sessionStats.idle}</span>
                                 <span className="taskBoardStat taskBoardStatDone">✓ {sessionStats.total}</span>
                             </>
+                        ) : (
+                            <span className="taskBoardStat" style={{ color: 'rgba(var(--theme-primary-rgb), 0.4)' }}>Analytics</span>
                         )}
                     </div>
-                    <button className="taskBoardCloseBtn" onClick={onClose} title="Close board (Esc)">
+                    <button type="button" className="taskBoardCloseBtn" onClick={onClose} title="Close board (Esc)">
                         ✕
                     </button>
                 </div>
@@ -373,13 +397,20 @@ export const Board = React.memo(function Board({
                                     )}
                                 </div>
                             )
-                        ) : (
+                        ) : activeView === "sessions" ? (
                             <MultiProjectSessionsView
                                 selectedProjectIds={selectedProjectIds}
                                 projectNames={projectNames}
                                 projectColors={projectColors}
                                 maestroSessions={maestroSessions}
                                 layoutMode={isSingleProject ? "grouped" : sessionLayoutMode}
+                            />
+                        ) : (
+                            <Dashboard
+                                tasks={effectiveTasks}
+                                sessions={dashboardSessions}
+                                teamMembers={dashboardTeamMembers}
+                                isMultiProject={!isSingleProject}
                             />
                         )}
                     </div>

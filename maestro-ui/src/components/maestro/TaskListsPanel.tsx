@@ -101,7 +101,7 @@ function TaskListTasks({ list, tasksById, onRemoveTask, onReorder, onMoveTask }:
                     )}
                   </div>
                   <div className="taskListTaskRowActions">
-                    <button
+                    <button type="button"
                       className="taskListActionBtn"
                       onClick={() => onMoveTask(taskId, -1)}
                       disabled={index === 0}
@@ -109,7 +109,7 @@ function TaskListTasks({ list, tasksById, onRemoveTask, onReorder, onMoveTask }:
                     >
                       ↑
                     </button>
-                    <button
+                    <button type="button"
                       className="taskListActionBtn"
                       onClick={() => onMoveTask(taskId, 1)}
                       disabled={index === taskIds.length - 1}
@@ -117,7 +117,7 @@ function TaskListTasks({ list, tasksById, onRemoveTask, onReorder, onMoveTask }:
                     >
                       ↓
                     </button>
-                    <button className="taskListActionBtn taskListActionBtn--danger" onClick={() => onRemoveTask(taskId)}>
+                    <button type="button" className="taskListActionBtn taskListActionBtn--danger" onClick={() => onRemoveTask(taskId)}>
                       Remove
                     </button>
                   </div>
@@ -255,7 +255,7 @@ export function TaskListsPanel({ projectId, createListSignal }: TaskListsPanelPr
         <div className="terminalErrorBanner">
           <span className="terminalErrorSymbol">[ERROR]</span>
           <span className="terminalErrorText">{error || actionError}</span>
-          <button className="terminalErrorClose" onClick={() => setActionError(null)}>×</button>
+          <button type="button" className="terminalErrorClose" onClick={() => setActionError(null)}>×</button>
         </div>
       )}
 
@@ -264,7 +264,7 @@ export function TaskListsPanel({ projectId, createListSignal }: TaskListsPanelPr
           <div className="terminalSectionTitle">Task Lists</div>
           <div className="terminalSectionSubtitle">Organize tasks into curated lists.</div>
         </div>
-        <button className="themedBtn themedBtnPrimary" onClick={() => setEditingList({} as TaskList)}>
+        <button type="button" className="themedBtn themedBtnPrimary" onClick={() => setEditingList({} as TaskList)}>
           + New List
         </button>
       </div>
@@ -291,7 +291,7 @@ export function TaskListsPanel({ projectId, createListSignal }: TaskListsPanelPr
     ║                                       ║
     ╚═══════════════════════════════════════╝
                                         `}</pre>
-          <button className="themedBtn themedBtnPrimary" onClick={() => setEditingList({} as TaskList)}>
+          <button type="button" className="themedBtn themedBtnPrimary" onClick={() => setEditingList({} as TaskList)}>
             + Create Task List
           </button>
         </div>
@@ -307,7 +307,7 @@ export function TaskListsPanel({ projectId, createListSignal }: TaskListsPanelPr
                     <div className="taskListItem">
                       <div className="taskListItemMain" onClick={() => toggleExpanded(list.id)}>
                         <div className="taskListItemLeft">
-                          <button
+                          <button type="button"
                             className={`taskListItemExpand ${isExpanded ? "expanded" : ""}`}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -334,7 +334,7 @@ export function TaskListsPanel({ projectId, createListSignal }: TaskListsPanelPr
                           </div>
                         </div>
                         <div className="taskListItemRight" onClick={(e) => e.stopPropagation()}>
-                          <button
+                          <button type="button"
                             className="taskListActionBtn"
                             onClick={() => moveList(list.id, -1)}
                             disabled={index === 0}
@@ -342,7 +342,7 @@ export function TaskListsPanel({ projectId, createListSignal }: TaskListsPanelPr
                           >
                             ↑
                           </button>
-                          <button
+                          <button type="button"
                             className="taskListActionBtn"
                             onClick={() => moveList(list.id, 1)}
                             disabled={index === taskLists.length - 1}
@@ -350,9 +350,9 @@ export function TaskListsPanel({ projectId, createListSignal }: TaskListsPanelPr
                           >
                             ↓
                           </button>
-                          <button className="taskListItemActionBtn" onClick={() => setAddingTasksList(list)}>Add Tasks</button>
-                          <button className="taskListItemActionBtn" onClick={() => setEditingList(list)}>Edit</button>
-                          <button className="taskListItemActionBtn taskListActionBtn--danger" onClick={() => setDeleteTarget(list)}>Delete</button>
+                          <button type="button" className="taskListItemActionBtn" onClick={() => setAddingTasksList(list)}>Add Tasks</button>
+                          <button type="button" className="taskListItemActionBtn" onClick={() => setEditingList(list)}>Edit</button>
+                          <button type="button" className="taskListItemActionBtn taskListActionBtn--danger" onClick={() => setDeleteTarget(list)}>Delete</button>
                         </div>
                       </div>
                       {isExpanded && (

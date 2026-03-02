@@ -43,21 +43,23 @@ export function createError(
   };
 }
 
-export function handleError(err: any, json: boolean): never {
+export function handleError(err: unknown, json: boolean): never {
+  const e = err as Record<string, unknown>;
   let cliError: CLIError;
   let exitCode = 1; // default: general error
 
-  if (err.response) {
+  if (e.response) {
     // HTTP error from server
-    const status = err.response.status;
-    const data = err.response.data || {};
+    const response = e.response as Record<string, unknown>;
+    const status = response.status as number;
+    const data = (response.data as Record<string, unknown>) || {};
 
     switch (status) {
       case 404:
         cliError = createError(
           'resource_not_found',
-          data.message || 'Resource not found',
-          { status, url: err.config?.url },
+          (data.message as string) || 'Resource not found',
+          { status, url: (e.config as Record<string, unknown>)?.url },
           NOT_FOUND_SUGGESTION
         );
         exitCode = 2;
@@ -66,7 +68,7 @@ export function handleError(err: any, json: boolean): never {
       case 403:
         cliError = createError(
           'permission_denied',
-          data.message || 'Permission denied',
+          (data.message as string) || 'Permission denied',
           { status },
           PERMISSION_DENIED_SUGGESTION
         );
@@ -76,7 +78,7 @@ export function handleError(err: any, json: boolean): never {
       case 400:
         cliError = createError(
           'invalid_request',
-          data.message || 'Invalid request',
+          (data.message as string) || 'Invalid request',
           { status, errors: data.errors },
           INVALID_REQUEST_SUGGESTION
         );
@@ -86,7 +88,7 @@ export function handleError(err: any, json: boolean): never {
       case 500:
         cliError = createError(
           'server_error',
-          data.message || 'Internal server error',
+          (data.message as string) || 'Internal server error',
           { status },
           SERVER_ERROR_SUGGESTION
         );
@@ -96,63 +98,65 @@ export function handleError(err: any, json: boolean): never {
       default:
         cliError = createError(
           'http_error',
-          data.message || `HTTP ${status} error`,
+          (data.message as string) || `HTTP ${status} error`,
           { status }
         );
     }
-  } else if (err.code === 'ECONNREFUSED') {
+  } else if (e.code === 'ECONNREFUSED') {
     // Connection refused
+    const cfg = e.config as Record<string, unknown> | undefined;
     cliError = createError(
       'connection_refused',
       CONNECTION_REFUSED_MESSAGE,
       {
-        server: err.config?.baseURL || 'http://localhost:3000',
-        errno: err.code
+        server: (cfg?.baseURL as string) || 'http://localhost:3000',
+        errno: e.code
       },
       CONNECTION_REFUSED_SUGGESTION
     );
     exitCode = 3;
-  } else if (err.code === 'ETIMEDOUT' || err.code === 'ENOTFOUND') {
+  } else if (e.code === 'ETIMEDOUT' || e.code === 'ENOTFOUND') {
     // Network timeout or DNS failure
+    const cfg = e.config as Record<string, unknown> | undefined;
     cliError = createError(
       'network_error',
       NETWORK_ERROR_MESSAGE,
-      { errno: err.code, server: err.config?.baseURL },
+      { errno: e.code, server: cfg?.baseURL },
       NETWORK_ERROR_SUGGESTION
     );
     exitCode = 3;
-  } else if (err.error === 'resource_not_found') {
+  } else if (e.error === 'resource_not_found') {
     cliError = createError(
       'resource_not_found',
-      err.message || 'Resource not found',
-      err.details,
-      err.suggestion || NOT_FOUND_SUGGESTION
+      (e.message as string) || 'Resource not found',
+      e.details as Record<string, unknown>,
+      (e.suggestion as string) || NOT_FOUND_SUGGESTION
     );
     exitCode = 2;
-  } else if (err.error === 'permission_denied') {
+  } else if (e.error === 'permission_denied') {
     cliError = createError(
       'permission_denied',
-      err.message || 'Permission denied',
-      err.details,
-      err.suggestion
+      (e.message as string) || 'Permission denied',
+      e.details as Record<string, unknown>,
+      e.suggestion as string | undefined
     );
     exitCode = 4;
-  } else if (err.error === 'spawn_failed') {
+  } else if (e.error === 'spawn_failed') {
     cliError = createError(
       'spawn_failed',
-      err.message || 'Claude spawn failed',
-      err.details,
-      err.suggestion || SPAWN_FAILED_SUGGESTION
+      (e.message as string) || 'Claude spawn failed',
+      e.details as Record<string, unknown>,
+      (e.suggestion as string) || SPAWN_FAILED_SUGGESTION
     );
     exitCode = 5;
-  } else if (err.success === false) {
+  } else if (e.success === false) {
     // Already formatted as CLIError
-    cliError = err;
-  } else if (err.message && /not found/i.test(err.message)) {
+    cliError = e as unknown as CLIError;
+  } else if (e.message && /not found/i.test(e.message as string)) {
     // Detect "not found" patterns from storage/other errors
     cliError = createError(
       'resource_not_found',
-      err.message,
+      e.message as string,
       {},
       NOT_FOUND_SUGGESTION
     );
@@ -161,8 +165,8 @@ export function handleError(err: any, json: boolean): never {
     // Unknown error
     cliError = createError(
       'unknown_error',
-      err.message || 'An unexpected error occurred',
-      { originalError: err.toString() }
+      (e.message as string) || 'An unexpected error occurred',
+      { originalError: String(err) }
     );
   }
 
@@ -183,7 +187,5 @@ export function handleError(err: any, json: boolean): never {
 }
 
 export function throwValidationError(code: string, message: string, suggestion?: string): never {
-  const error: any = createError(code, message, {}, suggestion);
-  error.success = false;
-  throw error;
+  throw createError(code, message, {}, suggestion);
 }

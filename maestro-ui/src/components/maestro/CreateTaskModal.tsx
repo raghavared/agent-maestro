@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { MaestroTask, MaestroProject, TeamMember, MemberLaunchOverride } from "../../app/types/maestro";
 import { maestroClient } from "../../utils/MaestroClient";
@@ -24,6 +24,7 @@ import { GeneratedDocsTab } from "./task-modal/GeneratedDocsTab";
 import { TimelineTab } from "./task-modal/TimelineTab";
 import { DetailsTab } from "./task-modal/DetailsTab";
 import { RefDocsTab } from "./task-modal/RefDocsTab";
+import { ImagesTab } from "./task-modal/ImagesTab";
 
 type CreateTaskModalProps = {
     isOpen: boolean;
@@ -85,6 +86,7 @@ export function CreateTaskModal({
     const form = useTaskForm(mode, isOpen, task);
     const refPicker = useReferenceTaskPicker(project?.id);
     const files = useFileAutocomplete(project?.basePath, isOpen);
+    const stagedFileInputRef = useRef<HTMLInputElement>(null);
     const tasks = useMaestroStore(s => s.tasks);
     const teamMembersMap = useMaestroStore(s => s.teamMembers);
     const teamMembers = useMemo(() =>
@@ -135,9 +137,10 @@ export function CreateTaskModal({
 
     const handleToggleLaunchConfig = () => {
         if (!form.showLaunchConfig) {
-            // Initialize configs for selected members
+            // Initialize configs for selected members, restoring saved overrides if editing
+            const savedOverrides = isEditMode ? task?.memberOverrides : undefined;
             for (const id of form.selectedTeamMemberIds) {
-                form.initMemberConfig(id, teamMembers);
+                form.initMemberConfig(id, teamMembers, savedOverrides);
             }
             form.setActiveTab(null); // close any open tab
         }
@@ -168,7 +171,7 @@ export function CreateTaskModal({
     const handleSave = () => {
         if (!isEditMode || !task) return;
         const refIds = refPicker.selectedReferenceTasks.map(t => t.id);
-        const updates = form.getUpdateDiff(refIds);
+        const updates = form.getUpdateDiff(refIds, teamMembers);
         if (updates) {
             onUpdateTask?.(task.id, updates);
         }
@@ -230,32 +233,90 @@ export function CreateTaskModal({
                 ) : (
                     /* Normal description + tabs view */
                     <>
-                        <div className="themedModalContent">
-                            <TaskDescriptionField
-                                prompt={form.prompt}
-                                onPromptChange={form.setPrompt}
-                                onKeyDown={handleKeyDown}
-                                files={files}
-                                isOverlay={isOverlay}
-                            >
-                                <ReferenceTaskPicker
-                                    selectedReferenceTasks={refPicker.selectedReferenceTasks}
-                                    showPicker={refPicker.showPicker}
-                                    candidates={refPicker.candidates}
-                                    loading={refPicker.loading}
-                                    displayCount={refPicker.displayCount}
-                                    onTogglePicker={refPicker.togglePicker}
-                                    onClosePicker={refPicker.closePicker}
-                                    onToggleSelection={refPicker.toggleSelection}
-                                    onRemoveTask={refPicker.removeTask}
-                                    onLoadMore={refPicker.loadMore}
-                                />
-                            </TaskDescriptionField>
-                        </div>
+                        <div className={isOverlay ? 'themedModalDescriptionArea' : ''}>
+                            <div className="themedModalContent">
+                                <TaskDescriptionField
+                                    prompt={form.prompt}
+                                    onPromptChange={form.setPrompt}
+                                    onKeyDown={handleKeyDown}
+                                    files={files}
+                                    isOverlay={isOverlay}
+                                >
+                                    {isEditMode && task ? (
+                                        <ImagesTab
+                                            variant="bar"
+                                            taskId={task.id}
+                                            images={form.taskImages}
+                                            onImagesChange={form.setTaskImages}
+                                        />
+                                    ) : (
+                                        <>
+                                            {form.stagedImagePreviews.map((preview, i) => (
+                                                <span
+                                                    key={i}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        padding: '2px 6px 2px 3px',
+                                                        fontSize: '10px',
+                                                        border: '1px solid var(--theme-border)',
+                                                        borderRadius: '3px',
+                                                        backgroundColor: 'rgba(var(--theme-primary-rgb), 0.05)',
+                                                        color: 'var(--theme-text-secondary)',
+                                                        maxWidth: '120px',
+                                                    }}
+                                                    title={form.stagedImageFiles[i]?.name}
+                                                >
+                                                    <img
+                                                        src={preview}
+                                                        alt={form.stagedImageFiles[i]?.name}
+                                                        style={{ width: '16px', height: '16px', objectFit: 'cover', borderRadius: '2px', flexShrink: 0 }}
+                                                    />
+                                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70px' }}>
+                                                        {form.stagedImageFiles[i]?.name}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => form.removeStagedFile(i)}
+                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--theme-text-secondary)', padding: '0', fontSize: '12px', lineHeight: 1, flexShrink: 0, opacity: 0.6 }}
+                                                    >×</button>
+                                                </span>
+                                            ))}
+                                            <button
+                                                type="button"
+                                                onClick={() => stagedFileInputRef.current?.click()}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 7px', fontSize: '10px', border: '1px solid var(--theme-border)', borderRadius: '3px', background: 'transparent', color: 'var(--theme-text-secondary)', cursor: 'pointer', fontFamily: 'inherit' }}
+                                                title="Attach image"
+                                            >+ img</button>
+                                            <input
+                                                ref={stagedFileInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                multiple
+                                                style={{ display: 'none' }}
+                                                onChange={(e) => { if (e.target.files) { form.addStagedFiles(e.target.files); e.target.value = ''; } }}
+                                            />
+                                        </>
+                                    )}
+                                    <ReferenceTaskPicker
+                                        selectedReferenceTasks={refPicker.selectedReferenceTasks}
+                                        showPicker={refPicker.showPicker}
+                                        candidates={refPicker.candidates}
+                                        loading={refPicker.loading}
+                                        displayCount={refPicker.displayCount}
+                                        onTogglePicker={refPicker.togglePicker}
+                                        onClosePicker={refPicker.closePicker}
+                                        onToggleSelection={refPicker.toggleSelection}
+                                        onRemoveTask={refPicker.removeTask}
+                                        onLoadMore={refPicker.loadMore}
+                                    />
+                                </TaskDescriptionField>
+                            </div>
 
-                        {/* Tab Content */}
-                        {form.activeTab && (
-                            <div className="themedModalTabContent" style={{ maxHeight: '200px', overflowY: 'auto', borderTop: '1px solid var(--theme-border)' }}>
+                            {/* Tab Content */}
+                            {form.activeTab && (
+                            <div className={`themedModalTabContent${isOverlay ? ' themedModalTabContent--overlay' : ''}`} style={!isOverlay ? { maxHeight: '200px', overflowY: 'auto', borderTop: '1px solid var(--theme-border)' } : undefined}>
                                 {form.activeTab === 'subtasks' && isEditMode && (
                                     <SubtasksTab
                                         taskId={task!.id}
@@ -300,12 +361,15 @@ export function CreateTaskModal({
                                     <DetailsTab
                                         priority={form.priority}
                                         onPriorityChange={form.setPriority}
+                                        dueDate={form.dueDate}
+                                        onDueDateChange={form.setDueDate}
                                         isEditMode={isEditMode}
                                         task={task}
                                     />
                                 )}
                             </div>
-                        )}
+                            )}
+                        </div>
 
                         <TaskTabBar
                             activeTab={form.activeTab}

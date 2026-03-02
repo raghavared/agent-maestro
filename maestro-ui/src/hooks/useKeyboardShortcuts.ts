@@ -42,7 +42,7 @@ export function useKeyboardShortcuts() {
     const slidePanelTab = useUIStore((s) => s.slidePanelTab);
 
     useEffect(() => {
-        const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+        const isMac = /Mac|iPhone|iPad|iPod/.test((navigator as any).userAgentData?.platform ?? navigator.platform);
         const onKeyDown = (e: KeyboardEvent) => {
             const modalOpen =
                 newOpen ||

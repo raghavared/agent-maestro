@@ -55,7 +55,7 @@ export const TaskTabContent: React.FC<TaskTabContentProps> = ({
     ╚═══════════════════════════════════════╝
                     `}</pre>
                     {showNewTaskButton && onNewTask && (
-                        <button
+                        <button type="button"
                             className="terminalCmd terminalCmdPrimary"
                             onClick={onNewTask}
                         >

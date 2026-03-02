@@ -1,0 +1,171 @@
+/*  MATERIAL STYLE — Global Component Overrides                        */
+/* ================================================================== */
+
+html[data-style="material"] .terminalTaskModal,
+html[data-style="material"] .terminalTaskModal__content {
+  border-radius: var(--style-radius-xl);
+  box-shadow: var(--style-shadow-modal);
+}
+
+html[data-style="material"] .terminalBtn,
+html[data-style="material"] .terminalBtn--primary {
+  border-radius: var(--style-radius-md);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  box-shadow: var(--style-shadow-card);
+  transition: all var(--style-transition);
+}
+
+html[data-style="material"] .terminalBtn:hover,
+html[data-style="material"] .terminalBtn--primary:hover {
+  box-shadow: var(--style-shadow-hover);
+  text-shadow: none;
+}
+
+html[data-style="material"] .terminalBtn--secondary {
+  border-radius: var(--style-radius-md);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+html[data-style="material"] .terminalSubsectionHeader {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+html[data-style="material"] .terminalSessionItem {
+  border-radius: var(--style-radius-md);
+  transition: all var(--style-transition);
+}
+
+html[data-style="material"] .terminalSessionItem:hover {
+  text-shadow: none;
+}
+
+html[data-style="material"] .terminalStatusLabel--pending,
+html[data-style="material"] .terminalStatusLabel--in_progress,
+html[data-style="material"] .terminalStatusLabel--completed,
+html[data-style="material"] .terminalStatusLabel--failed {
+  border-radius: var(--style-radius-sm);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+html[data-style="material"] input,
+html[data-style="material"] textarea,
+html[data-style="material"] select {
+  border-radius: var(--style-radius-md);
+  transition: all var(--style-transition);
+}
+
+/* Remove neon text-shadow across material */
+html[data-style="material"] * {
+  text-shadow: none !important;
+}
+
+/* ================================================================== */
+/*  GLASS STYLE — Global Component Overrides                           */
+/* ================================================================== */
+
+html[data-style="glass"] .terminalTaskModal,
+html[data-style="glass"] .terminalTaskModal__content {
+  border-radius: var(--style-radius-xl);
+  background: var(--style-surface-2);
+  backdrop-filter: var(--style-backdrop);
+  -webkit-backdrop-filter: var(--style-backdrop);
+  box-shadow: var(--style-shadow-modal);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+html[data-style="glass"] .terminalBtn,
+html[data-style="glass"] .terminalBtn--primary {
+  border-radius: var(--style-radius-md);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+html[data-style="glass"] .terminalSessionItem {
+  border-radius: var(--style-radius-md);
+  background: var(--style-surface-3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+html[data-style="glass"] .terminalSubsectionHeader {
+  text-transform: none;
+  letter-spacing: 0.2px;
+}
+
+html[data-style="glass"] .terminalStatusLabel--pending,
+html[data-style="glass"] .terminalStatusLabel--in_progress,
+html[data-style="glass"] .terminalStatusLabel--completed,
+html[data-style="glass"] .terminalStatusLabel--failed {
+  border-radius: var(--style-radius-sm);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+html[data-style="glass"] input,
+html[data-style="glass"] textarea,
+html[data-style="glass"] select {
+  border-radius: var(--style-radius-md);
+  background: var(--style-input-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ================================================================== */
+/*  MINIMAL STYLE — Global Component Overrides                         */
+/* ================================================================== */
+
+html[data-style="minimal"] .terminalTaskModal,
+html[data-style="minimal"] .terminalTaskModal__content {
+  box-shadow: var(--style-shadow-modal);
+  border: 1px solid var(--border);
+}
+
+html[data-style="minimal"] .terminalBtn,
+html[data-style="minimal"] .terminalBtn--primary {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  box-shadow: none;
+  transition: all var(--style-transition);
+}
+
+html[data-style="minimal"] .terminalBtn:hover,
+html[data-style="minimal"] .terminalBtn--primary:hover {
+  box-shadow: none;
+  text-shadow: none;
+}
+
+html[data-style="minimal"] .terminalSubsectionHeader {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+html[data-style="minimal"] .terminalSessionItem:hover {
+  text-shadow: none;
+  box-shadow: none;
+}
+
+html[data-style="minimal"] .terminalStatusLabel--pending,
+html[data-style="minimal"] .terminalStatusLabel--in_progress,
+html[data-style="minimal"] .terminalStatusLabel--completed,
+html[data-style="minimal"] .terminalStatusLabel--failed {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+/* Remove all neon text-shadow and box-shadow glow in minimal */
+html[data-style="minimal"] * {
+  text-shadow: none !important;
+}
+

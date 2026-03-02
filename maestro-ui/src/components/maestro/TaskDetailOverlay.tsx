@@ -67,7 +67,13 @@ export function TaskDetailOverlay() {
     };
 
     const handleWorkOn = async () => {
-        await createMaestroSession({ task, project, mode: "worker", strategy: "simple" });
+        await createMaestroSession({
+            task,
+            project,
+            mode: "worker",
+            strategy: "simple",
+            ...(task.memberOverrides ? { memberOverrides: task.memberOverrides } : {}),
+        });
     };
 
     const handleNavigateToTask = (taskId: string) => {
@@ -75,7 +81,13 @@ export function TaskDetailOverlay() {
     };
 
     const handleWorkOnSubtask = async (subtask: MaestroTask) => {
-        await createMaestroSession({ task: subtask, project, mode: "worker", strategy: "simple" });
+        await createMaestroSession({
+            task: subtask,
+            project,
+            mode: "worker",
+            strategy: "simple",
+            ...(subtask.memberOverrides ? { memberOverrides: subtask.memberOverrides } : {}),
+        });
     };
 
     return (

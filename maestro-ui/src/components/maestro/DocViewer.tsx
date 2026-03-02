@@ -128,7 +128,7 @@ export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
         </div>
         <div className="docViewerHeaderActions">
           {!inline && (
-            <button
+            <button type="button"
               className="docViewerFullscreenBtn"
               onClick={() => setIsFullscreen(!isFullscreen)}
               title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
@@ -145,7 +145,7 @@ export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
             </button>
           )}
           {!inline && (
-            <button className="docViewerCloseBtn" onClick={onClose} title="Close (Esc)">
+            <button type="button" className="docViewerCloseBtn" onClick={onClose} title="Close (Esc)">
               ✕
             </button>
           )}

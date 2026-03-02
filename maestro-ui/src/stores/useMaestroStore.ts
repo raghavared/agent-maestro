@@ -123,9 +123,9 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     'keepalive',
   ]);
 
-  // Normalize session data to ensure required fields exist
-  const normalizeSession = (session: any): any => {
-    if (!session) return session;
+  // Normalize session data to ensure required fields exist (mutates in-place)
+  const normalizeSession = (session: Partial<MaestroSession>): MaestroSession => {
+    if (!session) return session as MaestroSession;
     if (!Array.isArray(session.taskIds)) {
       session.taskIds = [];
     }
@@ -138,7 +138,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     if (!session.status) {
       session.status = 'spawning';
     }
-    return session;
+    return session as MaestroSession;
   };
 
   const setLoading = (key: string, isLoading: boolean) => {
@@ -252,6 +252,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
                 await invoke('write_to_session', { id: ptyId, data: '\r', source: 'system' });
               }
             } catch {
+              // best-effort write to session – ignore failures
             }
           })();
           break;
@@ -290,7 +291,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
             }
           }
           if (teamMemberIds.length > 0) {
-            soundManager.playSessionEventSound(message.event as any, teamMemberIds).catch(() => {});
+            soundManager.playSessionEventSound(message.event as any, teamMemberIds).catch(() => { /* best-effort sound */ });
           } else {
             playEventSound(message.event as any);
           }
@@ -360,6 +361,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         }
       }
     } catch {
+      // best-effort WebSocket message handling – ignore parse/processing errors
     }
   };
 
@@ -732,7 +734,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         return { sessions };
       });
       // PATCH server
-      maestroClient.updateSession(maestroSessionId, { needsInput: { active: false } }).catch(() => {});
+      maestroClient.updateSession(maestroSessionId, { needsInput: { active: false } }).catch(() => { /* best-effort server update */ });
     },
 
     checkAndClearNeedsInputForActiveSession: () => {
@@ -1000,12 +1002,11 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         const templates = await maestroClient.getWorkflowTemplates();
         set({ workflowTemplates: templates });
       } catch (err) {
-        console.error('[useMaestroStore] Failed to fetch workflow templates:', err);
+        // Failed to fetch workflow templates – non-critical, silently ignore
       }
     },
 
     initWebSocket: () => {
-      console.log('[useMaestroStore.initWebSocket] Called - initiating WebSocket connection');
       connectGlobal();
     },
     destroyWebSocket: () => {

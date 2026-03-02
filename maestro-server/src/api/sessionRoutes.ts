@@ -13,11 +13,27 @@ import { AppError } from '../domain/common/Errors';
 import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, MemberLaunchOverride, isCoordinatorMode, normalizeMode } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
 import { MailService } from '../application/services/MailService';
+import { SessionFilter } from '../domain/repositories/ISessionRepository';
+import { handleRouteError } from './middleware/errorHandler';
+import {
+  validateBody,
+  validateParams,
+  validateQuery,
+  createSessionSchema,
+  updateSessionSchema,
+  sessionEventSchema,
+  sessionTimelineSchema,
+  listSessionsQuerySchema,
+  spawnSessionSchema,
+  idParamSchema,
+  idAndTaskIdParamSchema,
+  idAndModalIdParamSchema,
+} from './validation';
 
-function resolveMaestroCliRuntime(): { maestroBin: string; monorepoRoot: string | null } {
+function resolveMaestroCliRuntime(cliPathOverride?: string): { maestroBin: string; monorepoRoot: string | null } {
   const isPkg = __dirname.startsWith('/snapshot');
-  if (process.env.MAESTRO_CLI_PATH) {
-    return { maestroBin: process.env.MAESTRO_CLI_PATH, monorepoRoot: null };
+  if (cliPathOverride && cliPathOverride !== 'maestro') {
+    return { maestroBin: cliPathOverride, monorepoRoot: null };
   }
   if (!isPkg) {
     const monorepoRoot = resolvePath(__dirname, '..', '..', '..');
@@ -56,13 +72,13 @@ async function generateManifestViaCLI(options: {
   coordinatorSessionId?: string;
   isMaster?: boolean;
   memberOverrides?: Record<string, MemberLaunchOverride>;
+  sessionDir?: string;
+  cliPathOverride?: string;
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective, memberOverrides } = options;
+  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective, memberOverrides, cliPathOverride } = options;
 
-  const sessionDir = process.env.SESSION_DIR
-    ? (process.env.SESSION_DIR.startsWith('~') ? join(homedir(), process.env.SESSION_DIR.slice(1)) : process.env.SESSION_DIR)
-    : join(homedir(), '.maestro', 'sessions');
-  const maestroDir = join(sessionDir, sessionId);
+  const resolvedSessionDir = options.sessionDir ?? join(homedir(), '.maestro', 'sessions');
+  const maestroDir = join(resolvedSessionDir, sessionId);
   await mkdir(maestroDir, { recursive: true });
 
   const manifestPath = join(maestroDir, 'manifest.json');
@@ -81,7 +97,7 @@ async function generateManifestViaCLI(options: {
     ...(teamMemberId ? ['--team-member-id', teamMemberId] : []),
   ];
 
-  const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime();
+  const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime(cliPathOverride);
 
   const spawnEnv: Record<string, string | undefined> = { ...process.env };
   // Ensure CLI subprocess can reach the server API (CLI reads MAESTRO_SERVER_URL, not SERVER_URL)
@@ -111,10 +127,20 @@ async function generateManifestViaCLI(options: {
   }
 
   return new Promise((resolve, reject) => {
-    const child = spawnProcess(maestroBin, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: spawnEnv,
-    });
+    // Raise file descriptor limit before spawning to prevent "low max file
+    // descriptors" errors from Claude Code (macOS default of 2560 is too low).
+    // Explicitly set cwd to $HOME so the shell can getcwd() during init —
+    // when launched from Finder the process cwd may be "/" which is
+    // inaccessible due to macOS SIP/TCC restrictions.
+    const child = spawnProcess(
+      '/bin/sh',
+      ['-c', 'ulimit -n 2147483646 2>/dev/null; exec "$@"', 'sh', maestroBin, ...args],
+      {
+        cwd: homedir(),
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: spawnEnv as NodeJS.ProcessEnv,
+      },
+    );
 
     let stdout = '';
     let stderr = '';
@@ -128,8 +154,9 @@ async function generateManifestViaCLI(options: {
           const manifestContent = await readFile(manifestPath, 'utf-8');
           const manifest = JSON.parse(manifestContent);
           resolve({ manifestPath, manifest });
-        } catch (error: any) {
-          reject(new Error(`Failed to read manifest: ${error.message}`));
+        } catch (error: unknown) {
+          const msg = error instanceof Error ? error.message : 'Unknown error';
+          reject(new Error(`Failed to read manifest: ${msg}`));
         }
       } else {
         if (stderr.includes('command not found') || stderr.includes('ENOENT')) {
@@ -163,18 +190,6 @@ interface SessionRouteDependencies {
 export function createSessionRoutes(deps: SessionRouteDependencies) {
   const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, mailService, eventBus, config } = deps;
   const router = express.Router();
-
-  // Error handler helper
-  const handleError = (err: any, res: Response) => {
-    if (err instanceof AppError) {
-      return res.status(err.statusCode).json(err.toJSON());
-    }
-    return res.status(500).json({
-      error: true,
-      message: err.message,
-      code: 'INTERNAL_ERROR'
-    });
-  };
 
   const resolveSessionMode = (session: any): string => {
     const metadataMode = session?.metadata?.mode;
@@ -224,7 +239,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   };
 
   // Create session
-  router.post('/sessions', async (req: Request, res: Response) => {
+  router.post('/sessions', validateBody(createSessionSchema), async (req: Request, res: Response) => {
     try {
       // Backward compatibility: convert taskId to taskIds
       if (req.body.taskId && !req.body.taskIds) {
@@ -241,21 +256,21 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       const session = await sessionService.createSession(req.body);
       res.status(201).json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // List sessions
   // Helper: enrich session with team member snapshots if missing
-  async function enrichSessionWithSnapshots(session: any): Promise<void> {
-    if (session.teamMemberSnapshots?.length > 0 || session.teamMemberSnapshot) return;
+  async function enrichSessionWithSnapshots(session: any): Promise<any> {
+    if (session.teamMemberSnapshots?.length > 0 || session.teamMemberSnapshot) return session;
     const meta = session.metadata;
-    if (!meta) return;
+    if (!meta) return session;
     const tmIds: string[] = meta.teamMemberIds?.length > 0
       ? meta.teamMemberIds
       : (meta.teamMemberId ? [meta.teamMemberId] : []);
-    if (tmIds.length === 0) return;
+    if (tmIds.length === 0) return session;
     const snapshots: TeamMemberSnapshot[] = [];
     for (const tmId of tmIds) {
       try {
@@ -265,19 +280,19 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         }
       } catch { /* skip */ }
     }
-    if (snapshots.length > 0) {
-      session.teamMemberIds = tmIds;
-      session.teamMemberSnapshots = snapshots;
-      if (tmIds.length === 1) {
-        session.teamMemberId = tmIds[0];
-        session.teamMemberSnapshot = snapshots[0];
-      }
+    if (snapshots.length === 0) return session;
+    // Return a shallow clone to avoid mutating the repository's in-memory cache
+    const enriched = { ...session, teamMemberIds: tmIds, teamMemberSnapshots: snapshots };
+    if (tmIds.length === 1) {
+      enriched.teamMemberId = tmIds[0];
+      enriched.teamMemberSnapshot = snapshots[0];
     }
+    return enriched;
   }
 
-  router.get('/sessions', async (req: Request, res: Response) => {
+  router.get('/sessions', validateQuery(listSessionsQuerySchema), async (req: Request, res: Response) => {
     try {
-      const filter: any = {};
+      const filter: SessionFilter = {};
 
       if (req.query.projectId) {
         filter.projectId = req.query.projectId as string;
@@ -305,11 +320,11 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
 
       // Enrich sessions with team member snapshots
-      await Promise.all(sessions.map(s => enrichSessionWithSnapshots(s)));
+      const enrichedSessions = await Promise.all(sessions.map(s => enrichSessionWithSnapshots(s)));
 
-      res.json(sessions);
-    } catch (err: any) {
-      handleError(err, res);
+      res.json(enrichedSessions);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
@@ -333,60 +348,60 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
 
       return res.json([]);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Log digest — single session
-  router.get('/sessions/:id/log-digest', async (req: Request, res: Response) => {
+  router.get('/sessions/:id/log-digest', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const last = parseInt(req.query.last as string || '5', 10);
       const maxLength = req.query.maxLength !== undefined ? parseInt(req.query.maxLength as string, 10) : undefined;
       const digest = await logDigestService.getDigest(sessionId, { last, maxLength });
       res.json(digest);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Get session by ID
-  router.get('/sessions/:id', async (req: Request, res: Response) => {
+  router.get('/sessions/:id', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
       const session = await sessionService.getSession(id);
-      await enrichSessionWithSnapshots(session);
-      res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+      const enrichedSession = await enrichSessionWithSnapshots(session);
+      res.json(enrichedSession);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Update session
-  router.patch('/sessions/:id', async (req: Request, res: Response) => {
+  router.patch('/sessions/:id', validateParams(idParamSchema), validateBody(updateSessionSchema), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
       const session = await sessionService.updateSession(id, req.body);
       res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Delete session
-  router.delete('/sessions/:id', async (req: Request, res: Response) => {
+  router.delete('/sessions/:id', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
       await sessionService.deleteSession(id);
       res.json({ success: true, id });
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Add event to session
-  router.post('/sessions/:id/events', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/events', validateParams(idParamSchema), validateBody(sessionEventSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const { type, data } = req.body;
@@ -401,13 +416,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       const session = await sessionService.addEventToSession(sessionId, { type, data });
       res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Add timeline event to session
-  router.post('/sessions/:id/timeline', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/timeline', validateParams(idParamSchema), validateBody(sessionTimelineSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const { type = 'progress', message, taskId, metadata } = req.body;
@@ -428,13 +443,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         metadata
       );
       res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Add doc to session
-  router.post('/sessions/:id/docs', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/docs', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const { title, filePath, content, taskId } = req.body;
@@ -463,50 +478,50 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         taskId,
       );
       res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Get docs for a session
-  router.get('/sessions/:id/docs', async (req: Request, res: Response) => {
+  router.get('/sessions/:id/docs', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const session = await sessionService.getSession(sessionId);
       res.json(session.docs || []);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Add task to session
-  router.post('/sessions/:id/tasks/:taskId', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/tasks/:taskId', validateParams(idAndTaskIdParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const taskId = req.params.taskId as string;
       await sessionService.addTaskToSession(sessionId, taskId);
       const session = await sessionService.getSession(sessionId);
       res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Remove task from session
-  router.delete('/sessions/:id/tasks/:taskId', async (req: Request, res: Response) => {
+  router.delete('/sessions/:id/tasks/:taskId', validateParams(idAndTaskIdParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const taskId = req.params.taskId as string;
       await sessionService.removeTaskFromSession(sessionId, taskId);
       const session = await sessionService.getSession(sessionId);
       res.json(session);
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Show modal in UI (agent-generated HTML content)
-  router.post('/sessions/:id/modal', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/modal', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const { modalId, title, html, filePath } = req.body;
@@ -554,13 +569,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         sessionId,
         message: 'Modal sent to UI',
       });
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Receive user action from a modal (forwarded by UI)
-  router.post('/sessions/:id/modal/:modalId/actions', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/modal/:modalId/actions', validateParams(idAndModalIdParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const modalId = req.params.modalId as string;
@@ -586,13 +601,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       await eventBus.emit('session:modal_action', actionEvent);
 
       res.json({ success: true, modalId, action });
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Modal closed by user (forwarded by UI)
-  router.post('/sessions/:id/modal/:modalId/close', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/modal/:modalId/close', validateParams(idAndModalIdParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
       const modalId = req.params.modalId as string;
@@ -604,13 +619,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       });
 
       res.json({ success: true, modalId });
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // Send a prompt to a session's terminal
-  router.post('/sessions/:id/prompt', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/prompt', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const { content, mode = 'send', senderSessionId } = req.body;
 
@@ -660,13 +675,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       );
 
       res.json({ success: true });
-    } catch (err: any) {
-      handleError(err, res);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
     }
   });
 
   // POST /api/sessions/:id/mail — notify a session (store mail + PTY inject)
-  router.post('/sessions/:id/mail', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/mail', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const toSessionId = req.params.id as string;
       const { fromSessionId, message, detail } = req.body;
@@ -689,28 +704,28 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
       const mail = await mailService.notify({ fromSessionId, fromName, toSessionId, message, detail });
       res.json({ success: true, mailId: mail.id });
-    } catch (err: any) {
-      if (err.code === 'NOT_FOUND') return res.status(404).json({ error: true, message: err.message });
-      handleError(err, res);
+    } catch (err: unknown) {
+      if (err instanceof AppError && err.code === 'NOT_FOUND') return res.status(404).json({ error: true, message: err.message });
+      handleRouteError(err, res);
     }
   });
 
   // GET /api/sessions/:id/mail — read unread mail for session :id
-  router.get('/sessions/:id/mail', async (req: Request, res: Response) => {
+  router.get('/sessions/:id/mail', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const toSessionId = req.params.id as string;
       const targetSession = await sessionService.getSession(toSessionId);
       const parentSessionId = targetSession.parentSessionId || toSessionId;
       const messages = await mailService.readMail(toSessionId, parentSessionId);
       res.json(messages);
-    } catch (err: any) {
-      if (err.code === 'NOT_FOUND') return res.status(404).json({ error: true, message: err.message });
-      handleError(err, res);
+    } catch (err: unknown) {
+      if (err instanceof AppError && err.code === 'NOT_FOUND') return res.status(404).json({ error: true, message: err.message });
+      handleRouteError(err, res);
     }
   });
 
   // Spawn session (complex endpoint - uses CLI for manifest generation)
-  router.post('/sessions/spawn', async (req: Request, res: Response) => {
+  router.post('/sessions/spawn', validateBody(spawnSessionSchema), async (req: Request, res: Response) => {
     try {
       const {
         projectId,
@@ -814,7 +829,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
               message: `Parent session ${sessionId} not found`
             });
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           return res.status(404).json({
             error: true,
             code: 'parent_session_not_found',
@@ -867,6 +882,15 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           });
         }
         verifiedTasks.push(task);
+      }
+
+      // Inherit memberOverrides from task when not provided in request
+      // This ensures stored launch-config overrides are applied when spawning from task list
+      if (!normalizedMemberOverrides && verifiedTasks.length === 1 && verifiedTasks[0].memberOverrides) {
+        const taskOverrides = verifiedTasks[0].memberOverrides;
+        if (typeof taskOverrides === 'object' && !Array.isArray(taskOverrides)) {
+          normalizedMemberOverrides = taskOverrides;
+        }
       }
 
       // Fall back to task-level teamMemberId/teamMemberIds if none provided in request
@@ -1101,15 +1125,18 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           memberOverrides: normalizedMemberOverrides && Object.keys(normalizedMemberOverrides).length > 0
             ? normalizedMemberOverrides
             : undefined,
+          sessionDir: config.sessionDir,
+          cliPathOverride: config.manifestGenerator.cliPath,
         });
         manifestPath = result.manifestPath;
         manifest = result.manifest;
 
-      } catch (manifestError: any) {
+      } catch (manifestError: unknown) {
+        const msg = manifestError instanceof Error ? manifestError.message : 'Unknown error';
         return res.status(500).json({
           error: true,
           code: 'manifest_generation_failed',
-          message: `Failed to generate manifest: ${manifestError.message}`
+          message: `Failed to generate manifest: ${msg}`
         });
       }
 
@@ -1118,7 +1145,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const initCommand = isCoordinatorMode(resolvedMode) ? 'orchestrator' : 'worker';
       const command = `maestro ${initCommand} init`;
       const cwd = project.workingDir;
-      const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime();
+      const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime(config.manifestGenerator.cliPath);
 
       // Pass through auth-related API keys from server environment
       const authEnvKeys = [
@@ -1198,11 +1225,12 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         message: 'Spawn request sent to Agent Maestro',
         session: { ...session, env: finalEnvVars }
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({
         error: true,
         code: 'spawn_error',
-        message: err.message
+        message
       });
     }
   });

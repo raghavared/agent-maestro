@@ -200,7 +200,7 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId, a
               <h2 className="terminalModalTitle">
                 Session Log: {sessionName}
               </h2>
-              <button className="terminalModalBtn" onClick={onClose} title="Close">
+              <button type="button" className="terminalModalBtn" onClick={onClose} title="Close">
                 ✕
               </button>
             </div>
@@ -243,20 +243,20 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId, a
               )}
               {/* View mode toggle */}
               <div className="sessionLogViewToggle">
-                <button
+                <button type="button"
                   className={`sessionLogViewBtn ${viewMode === 'conversation' ? 'sessionLogViewBtnActive' : ''}`}
                   onClick={() => setViewMode('conversation')}
                 >
                   Chat
                 </button>
-                <button
+                <button type="button"
                   className={`sessionLogViewBtn ${viewMode === 'context' ? 'sessionLogViewBtnActive' : ''}`}
                   onClick={() => setViewMode('context')}
                 >
                   Context
                 </button>
               </div>
-              <button
+              <button type="button"
                 className={`sessionLogLiveBtn ${live ? 'sessionLogLiveBtnActive' : ''}`}
                 onClick={() => setLive((v) => !v)}
                 title={live ? 'Disable live updates' : 'Enable live updates'}
@@ -309,7 +309,7 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId, a
             {isOngoing && <span className="sessionLogOngoingIndicator" />}
           </div>
           <div className="terminalModalFooterRight">
-            <button className="terminalModalBtn" onClick={onClose}>
+            <button type="button" className="terminalModalBtn" onClick={onClose}>
               Close
             </button>
           </div>

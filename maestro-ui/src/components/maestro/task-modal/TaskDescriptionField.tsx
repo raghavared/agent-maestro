@@ -73,12 +73,14 @@ export function TaskDescriptionField({
 
     return (
         <div className="themedFormRow" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, marginBottom: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div className="themedFormLabel" style={{ marginBottom: 0 }}>Description</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    {children}
+            {(!isOverlay || children) && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    {!isOverlay && <div className="themedFormLabel" style={{ marginBottom: 0 }}>Description</div>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        {children}
+                    </div>
                 </div>
-            </div>
+            )}
 
             <div className="mentionsWrapper" style={{ flex: 1, minHeight: 0 }}>
                 <MentionsInput

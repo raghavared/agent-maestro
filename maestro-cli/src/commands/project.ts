@@ -27,6 +27,7 @@ export function registerProjectCommands(program: Command) {
                     outputJSON(projects);
                 } else {
                     if (projects.length === 0) {
+                        console.log('No projects found.');
                     } else {
                         outputTable(
                             ['ID', 'Name', 'Working Dir'],

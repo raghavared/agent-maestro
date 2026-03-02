@@ -22,7 +22,7 @@ export function ConfirmDeleteProjectModal({
       <div className="themedModal" onClick={(e) => e.stopPropagation()}>
         <div className="themedModalHeader">
           <span className="themedModalTitle">[ DELETE PROJECT ]</span>
-          <button className="themedModalClose" onClick={onClose}>×</button>
+          <button type="button" className="themedModalClose" onClick={onClose}>×</button>
         </div>
 
         {error ? (

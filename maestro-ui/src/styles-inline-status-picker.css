@@ -1,0 +1,183 @@
+/* ------------------------------------------------------------------ */
+/*  Inline Status Picker                                               */
+/* ------------------------------------------------------------------ */
+
+.terminalInlineStatusPicker {
+  position: relative;
+  display: inline-flex;
+}
+
+.terminalMetaBadge--clickable {
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.terminalMetaBadge--clickable:hover {
+  filter: brightness(1.2);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
+}
+
+.terminalMetaBadge--open {
+  filter: brightness(1.2);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
+}
+
+.terminalMetaBadge--updating {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.terminalMetaBadgeCaret {
+  font-size: 8px;
+  margin-left: 2px;
+  opacity: 0.7;
+}
+
+.terminalStatusSpinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.terminalInlineStatusOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9998;
+  background: rgba(0, 0, 0, 0.3); /* Semi-transparent to show it's a modal overlay */
+}
+
+.terminalInlineStatusDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: #000000;
+  border: 1px solid var(--theme-primary);
+  border-radius: 4px;
+  min-width: 140px;
+  z-index: 9999;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px rgba(var(--theme-primary-rgb), 0.15);
+  overflow: hidden;
+  /* Prevent hover events from affecting underlying elements */
+  isolation: isolate;
+}
+
+.terminalInlineStatusDropdown--fixed {
+  position: fixed;
+  margin-top: 0;
+}
+
+/* Backdrop to catch clicks outside dropdown */
+.terminalInlineStatusPicker::before {
+  content: '';
+  display: none;
+}
+
+.terminalTaskRow--dropdownOpen .terminalInlineStatusPicker::before {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+}
+
+.terminalInlineStatusOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  text-align: left;
+}
+
+.terminalInlineStatusOption:hover {
+  background: rgba(128, 128, 128, 0.1);
+}
+
+.terminalInlineStatusOption--current {
+  background: rgba(128, 128, 128, 0.15);
+}
+
+/* Per-status colors for dropdown options */
+.terminalInlineStatusOption--todo {
+  color: var(--terminal-gray);
+}
+.terminalInlineStatusOption--todo:hover,
+.terminalInlineStatusOption--todo.terminalInlineStatusOption--current {
+  color: var(--terminal-gray);
+  background: rgba(128, 128, 128, 0.15);
+}
+
+.terminalInlineStatusOption--in_progress {
+  color: var(--terminal-blue);
+}
+.terminalInlineStatusOption--in_progress:hover,
+.terminalInlineStatusOption--in_progress.terminalInlineStatusOption--current {
+  color: var(--terminal-blue);
+  background: rgba(0, 150, 255, 0.15);
+}
+
+.terminalInlineStatusOption--in_review {
+  color: #a855f7;
+}
+.terminalInlineStatusOption--in_review:hover,
+.terminalInlineStatusOption--in_review.terminalInlineStatusOption--current {
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.15);
+}
+
+.terminalInlineStatusOption--completed {
+  color: var(--terminal-green);
+}
+.terminalInlineStatusOption--completed:hover,
+.terminalInlineStatusOption--completed.terminalInlineStatusOption--current {
+  color: var(--terminal-green);
+  background: rgba(0, 255, 102, 0.15);
+}
+
+.terminalInlineStatusOption--cancelled {
+  color: var(--terminal-gray);
+}
+.terminalInlineStatusOption--cancelled:hover,
+.terminalInlineStatusOption--cancelled.terminalInlineStatusOption--current {
+  color: var(--terminal-gray);
+  background: rgba(128, 128, 128, 0.15);
+}
+
+.terminalInlineStatusOption--blocked {
+  color: var(--terminal-red);
+}
+.terminalInlineStatusOption--blocked:hover,
+.terminalInlineStatusOption--blocked.terminalInlineStatusOption--current {
+  color: var(--terminal-red);
+  background: rgba(255, 50, 50, 0.15);
+}
+
+.terminalInlineStatusOption .terminalStatusSymbol {
+  width: 14px;
+  text-align: center;
+}
+
+.terminalInlineStatusOption .terminalStatusLabel {
+  flex: 1;
+}
+
+.terminalInlineStatusOption .terminalStatusCheck {
+  font-size: 10px;
+}
+

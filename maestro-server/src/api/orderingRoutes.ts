@@ -23,8 +23,9 @@ export function createOrderingRoutes(orderingService: OrderingService) {
         return res.json({ projectId, entityType, orderedIds: [], updatedAt: 0 });
       }
       res.json(ordering);
-    } catch (err: any) {
-      res.status(500).json({ error: true, message: err.message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: true, message });
     }
   });
 
@@ -44,8 +45,9 @@ export function createOrderingRoutes(orderingService: OrderingService) {
 
       const ordering = await orderingService.saveOrdering(projectId, entityType, orderedIds);
       res.json(ordering);
-    } catch (err: any) {
-      res.status(500).json({ error: true, message: err.message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: true, message });
     }
   });
 

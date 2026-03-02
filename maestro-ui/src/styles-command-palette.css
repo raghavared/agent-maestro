@@ -1,0 +1,315 @@
+/* Command Palette */
+.commandPaletteBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+  z-index: 1000;
+  animation: fadeIn 0.1s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.commandPalette {
+  width: min(560px, calc(100% - 32px));
+  background: linear-gradient(180deg, rgba(20, 28, 40, 0.98), rgba(12, 18, 26, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  animation: commandPaletteIn 0.15s ease-out;
+}
+
+@keyframes commandPaletteIn {
+  from {
+    transform: translateY(-10px) scale(0.98);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.commandPaletteSearch {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+}
+
+.commandPaletteSearchIcon {
+  color: var(--accent);
+  font-size: 14px;
+  font-family: var(--style-font-code);
+}
+
+.commandPaletteInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+}
+
+.commandPaletteInput::placeholder {
+  color: var(--muted);
+}
+
+.commandPaletteList {
+  max-height: 380px;
+  overflow: auto;
+  padding: 8px;
+}
+
+.commandPaletteEmpty {
+  text-align: center;
+  color: var(--muted);
+  padding: 24px 16px;
+  font-size: 13px;
+}
+
+.commandPaletteGroup {
+  margin-bottom: 8px;
+}
+
+.commandPaletteGroupLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 8px 10px 6px;
+}
+
+.commandPaletteItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.commandPaletteItem:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.commandPaletteItemSelected {
+  background: rgba(107, 138, 253, 0.12);
+}
+
+.commandPaletteItemIcon {
+  width: 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.commandPaletteItemIconImg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  margin: 0 auto;
+}
+
+.commandPaletteItemIcon.iconPinned {
+  color: rgba(255, 200, 50, 0.85);
+}
+
+.commandPaletteItemIcon.iconRecording {
+  color: rgba(255, 80, 80, 0.85);
+}
+
+.commandPaletteItemIcon.iconActive {
+  color: var(--accent);
+}
+
+.commandPaletteItemContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.commandPaletteItemTitle {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.commandPaletteItemSubtitle {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.commandPaletteItemShortcut {
+  font-size: 11px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--style-font-code);
+}
+
+.commandPaletteFooter {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.commandPaletteHint {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.commandPaletteHint kbd {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-family: var(--style-font-code);
+  font-size: 10px;
+  margin-right: 4px;
+}
+
+/* Quick Prompts Sidebar */
+.quickPromptsSection {
+  margin-bottom: 8px;
+}
+
+.quickPromptItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 12px;
+  transition: all 0.15s ease;
+}
+
+.quickPromptItem:hover {
+  border-color: rgba(107, 138, 253, 0.35);
+  background: rgba(107, 138, 253, 0.08);
+}
+
+.quickPromptIcon {
+  color: rgba(255, 200, 50, 0.7);
+  font-size: 10px;
+}
+
+.quickPromptTitle {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quickPromptShortcut {
+  font-size: 10px;
+  color: var(--muted);
+  font-family: var(--style-font-code);
+}
+
+/* Icon Buttons for Topbar */
+.iconBtn {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.iconBtn.iconBtnText {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.iconBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.iconBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.iconBtn.iconBtnRecording {
+  border-color: rgba(255, 80, 80, 0.4);
+  background: rgba(255, 80, 80, 0.12);
+  color: rgba(255, 100, 100, 0.95);
+}
+
+.iconBtn.iconBtnActive {
+  border-color: rgba(107, 138, 253, 0.4);
+  background: rgba(107, 138, 253, 0.12);
+}
+
+/* Recording Timer */
+.recordingTimer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 100, 100, 0.9);
+  padding: 4px 10px;
+  background: rgba(255, 80, 80, 0.1);
+  border: 1px solid rgba(255, 80, 80, 0.25);
+  border-radius: 8px;
+}
+
+.recordingTimerDot {
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 80, 80, 0.9);
+  border-radius: 50%;
+  animation: recordingPulse 1.2s ease-in-out infinite;
+}
+
+/* Keyboard Shortcut Hint */
+.shortcutHint {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shortcutHint kbd {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--style-font-code);
+}
+

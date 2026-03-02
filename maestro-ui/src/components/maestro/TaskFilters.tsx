@@ -1,15 +1,17 @@
 import React, { useState } from "react";
 import { TaskStatus, TaskPriority } from "../../app/types/maestro";
 
-export type SortByOption = "updatedAt" | "createdAt" | "priority" | "custom";
+export type SortByOption = "updatedAt" | "createdAt" | "priority" | "dueDate" | "custom";
 
 type TaskFiltersProps = {
     statusFilter: TaskStatus[];
     priorityFilter: TaskPriority[];
     sortBy: SortByOption;
+    overdueFilter: boolean;
     onStatusFilterChange: (statuses: TaskStatus[]) => void;
     onPriorityFilterChange: (priorities: TaskPriority[]) => void;
     onSortChange: (sort: SortByOption) => void;
+    onOverdueFilterChange: (overdue: boolean) => void;
 };
 
 const STATUS_CONFIG: { value: TaskStatus; label: string; icon: string; colorClass: string }[] = [
@@ -32,15 +34,18 @@ const SORT_OPTIONS: { value: SortByOption; label: string }[] = [
     { value: "updatedAt", label: "Updated" },
     { value: "createdAt", label: "Created" },
     { value: "priority", label: "Priority" },
+    { value: "dueDate", label: "Due Date" },
 ];
 
 export function TaskFilters({
     statusFilter,
     priorityFilter,
     sortBy,
+    overdueFilter,
     onStatusFilterChange,
     onPriorityFilterChange,
     onSortChange,
+    onOverdueFilterChange,
 }: TaskFiltersProps) {
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -60,18 +65,19 @@ export function TaskFilters({
         }
     };
 
-    const activeFilterCount = statusFilter.length + priorityFilter.length + (sortBy !== "updatedAt" ? 1 : 0);
+    const activeFilterCount = statusFilter.length + priorityFilter.length + (sortBy !== "updatedAt" ? 1 : 0) + (overdueFilter ? 1 : 0);
 
     const handleClearAll = () => {
         onStatusFilterChange([]);
         onPriorityFilterChange([]);
         onSortChange("updatedAt");
+        onOverdueFilterChange(false);
     };
 
     return (
         <div className={`filterBar ${isExpanded ? "filterBar--expanded" : ""}`}>
             <div className="filterBar__header">
-                <button
+                <button type="button"
                     className="filterBar__toggle"
                     onClick={() => setIsExpanded(!isExpanded)}
                 >
@@ -91,7 +97,7 @@ export function TaskFilters({
                                 <span key={s} className={`filterChip filterChip--active ${cfg.colorClass}`}>
                                     <span className="filterChip__icon">{cfg.icon}</span>
                                     {cfg.label}
-                                    <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); toggleStatus(s); }}>×</button>
+                                    <button type="button" className="filterChip__remove" onClick={(e) => { e.stopPropagation(); toggleStatus(s); }}>×</button>
                                 </span>
                             ) : null;
                         })}
@@ -100,17 +106,24 @@ export function TaskFilters({
                             return cfg ? (
                                 <span key={p} className={`filterChip filterChip--active ${cfg.colorClass}`}>
                                     {cfg.label}
-                                    <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); togglePriority(p); }}>×</button>
+                                    <button type="button" className="filterChip__remove" onClick={(e) => { e.stopPropagation(); togglePriority(p); }}>×</button>
                                 </span>
                             ) : null;
                         })}
+                        {overdueFilter && (
+                            <span className="filterChip filterChip--active filterChip--overdue">
+                                <span className="filterChip__icon">⚠</span>
+                                Overdue
+                                <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); onOverdueFilterChange(false); }}>×</button>
+                            </span>
+                        )}
                         {sortBy !== "updatedAt" && (
                             <span className="filterChip filterChip--active filterChip--sort">
                                 Sort: {SORT_OPTIONS.find(o => o.value === sortBy)?.label}
-                                <button className="filterChip__remove" onClick={(e) => { e.stopPropagation(); onSortChange("updatedAt"); }}>×</button>
+                                <button type="button" className="filterChip__remove" onClick={(e) => { e.stopPropagation(); onSortChange("updatedAt"); }}>×</button>
                             </span>
                         )}
-                        <button className="filterBar__clearAll" onClick={handleClearAll}>Clear all</button>
+                        <button type="button" className="filterBar__clearAll" onClick={handleClearAll}>Clear all</button>
                     </div>
                 )}
             </div>
@@ -123,7 +136,7 @@ export function TaskFilters({
                             {STATUS_CONFIG.map(({ value, label, icon, colorClass }) => {
                                 const isActive = statusFilter.includes(value);
                                 return (
-                                    <button
+                                    <button type="button"
                                         key={value}
                                         className={`filterChip ${colorClass} ${isActive ? "filterChip--active" : ""}`}
                                         onClick={() => toggleStatus(value)}
@@ -142,7 +155,7 @@ export function TaskFilters({
                             {PRIORITY_CONFIG.map(({ value, label, colorClass }) => {
                                 const isActive = priorityFilter.includes(value);
                                 return (
-                                    <button
+                                    <button type="button"
                                         key={value}
                                         className={`filterChip ${colorClass} ${isActive ? "filterChip--active" : ""}`}
                                         onClick={() => togglePriority(value)}
@@ -156,10 +169,23 @@ export function TaskFilters({
                     </div>
 
                     <div className="filterGroup">
+                        <span className="filterGroup__label">Due Date</span>
+                        <div className="filterGroup__chips">
+                            <button
+                                className={`filterChip filterChip--overdue ${overdueFilter ? "filterChip--active" : ""}`}
+                                onClick={() => onOverdueFilterChange(!overdueFilter)}
+                            >
+                                <span className="filterChip__icon">⚠</span>
+                                Overdue
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="filterGroup">
                         <span className="filterGroup__label">Sort by</span>
                         <div className="filterGroup__segmented">
                             {SORT_OPTIONS.map(({ value, label }) => (
-                                <button
+                                <button type="button"
                                     key={value}
                                     className={`filterSegment ${sortBy === value ? "filterSegment--active" : ""}`}
                                     onClick={() => onSortChange(value)}
@@ -171,7 +197,7 @@ export function TaskFilters({
                     </div>
 
                     {activeFilterCount > 0 && (
-                        <button className="filterBar__clearAll" onClick={handleClearAll}>
+                        <button type="button" className="filterBar__clearAll" onClick={handleClearAll}>
                             Clear all filters
                         </button>
                     )}

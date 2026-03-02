@@ -1,0 +1,310 @@
+/* VS Code Panel */
+.vsCodePanel { flex: 1; display: flex; align-items: center; justify-content: center; background: #1e1e1e; min-height: 0; }
+.vsCodeIframe { width: 100%; height: 100%; border: none; }
+.vsCodePanelLoading, .vsCodePanelError {
+  color: var(--muted);
+  font-family: var(--style-font-ui);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px;
+}
+
+/* Add Project Menu */
+.projectAddMenuWrapper {
+  position: relative;
+}
+
+.projectAddMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 200px;
+  background: #000000;
+  border: 1px solid var(--theme-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+}
+
+.projectAddMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.projectAddMenuItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+}
+
+.projectAddMenuItem + .projectAddMenuItem {
+  border-top: 1px solid var(--theme-border);
+}
+
+/* Saved Project List Items */
+.savedProjectItem {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.savedProjectItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.savedProjectItem + .savedProjectItem {
+  border-top: 1px solid var(--theme-border);
+}
+
+.savedProjectName {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--theme-primary);
+}
+
+.savedProjectPath {
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Project Tab Settings Button */
+.projectTabSettingsBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-right: 4px;
+  margin-left: -4px;
+  flex-shrink: 0;
+}
+
+.projectTabSettingsBtn:hover {
+  color: var(--theme-primary);
+  border-color: rgba(var(--theme-primary-rgb), 0.4);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+/* Project Settings Dialog */
+.projectSettingsBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.projectSettingsDialog {
+  background: #000000;
+  border: 2px solid var(--theme-primary);
+  min-width: 360px;
+  max-width: 500px;
+  box-shadow: 0 0 30px rgba(var(--theme-primary-rgb), 0.3), inset 0 0 60px rgba(var(--theme-primary-rgb), 0.03);
+  font-family: var(--style-font-ui);
+}
+
+.projectSettingsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--theme-border);
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.projectSettingsTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-primary);
+  letter-spacing: 1px;
+}
+
+.projectSettingsClose {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--theme-border);
+  background: transparent;
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.projectSettingsClose:hover {
+  color: var(--theme-primary);
+  border-color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+.projectSettingsContent {
+  padding: 16px;
+}
+
+.projectSettingsRow {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.projectSettingsRow:last-child {
+  margin-bottom: 0;
+}
+
+.projectSettingsLabel {
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.projectSettingsValue {
+  color: var(--theme-primary);
+  word-break: break-all;
+}
+
+.projectSettingsPath {
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.8);
+}
+
+.projectSettingsDivider {
+  height: 1px;
+  background: var(--theme-border);
+  margin: 0;
+}
+
+.projectSettingsCloseBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border: none;
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  color: rgba(var(--theme-primary-rgb), 0.8);
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.projectSettingsCloseBtn:hover {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  color: var(--theme-primary);
+  text-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.projectSettingsDeleteBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border: none;
+  background: rgba(255, 50, 50, 0.05);
+  color: rgba(255, 100, 100, 0.8);
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.projectSettingsDeleteBtn:hover {
+  background: rgba(255, 50, 50, 0.15);
+  color: #ff6464;
+  text-shadow: 0 0 8px rgba(255, 100, 100, 0.5);
+}
+
+.projectSettingsConfirm {
+  padding: 16px;
+}
+
+.projectSettingsWarning {
+  padding: 12px;
+  background: rgba(255, 50, 50, 0.1);
+  border: 1px solid rgba(255, 100, 100, 0.3);
+  color: #ff6464;
+  font-size: 12px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.projectSettingsConfirmActions {
+  display: flex;
+  gap: 10px;
+}
+
+.projectSettingsCancelBtn {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid var(--theme-border);
+  background: transparent;
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.projectSettingsCancelBtn:hover {
+  border-color: var(--theme-primary);
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.projectSettingsConfirmDeleteBtn {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 100, 100, 0.5);
+  background: rgba(255, 50, 50, 0.15);
+  color: #ff6464;
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.projectSettingsConfirmDeleteBtn:hover {
+  border-color: #ff6464;
+  background: rgba(255, 50, 50, 0.25);
+  box-shadow: 0 0 12px rgba(255, 100, 100, 0.3);
+}
+

@@ -94,7 +94,7 @@ export function SessionInTaskView({
         className="sessionInTaskViewHeader"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <button className={`sessionInTaskViewToggle ${isExpanded ? "expanded" : ""}`}>
+        <button type="button" className={`sessionInTaskViewToggle ${isExpanded ? "expanded" : ""}`}>
           {isExpanded ? "▾" : "▸"}
         </button>
 
@@ -123,7 +123,7 @@ export function SessionInTaskView({
         {/* Actions */}
         <div className="sessionInTaskViewActions">
           {onJumpToSession && (
-            <button
+            <button type="button"
               className="sessionInTaskViewJumpBtn"
               onClick={(e) => {
                 e.stopPropagation();
@@ -135,7 +135,7 @@ export function SessionInTaskView({
             </button>
           )}
           {onRemoveFromTask && (
-            <button
+            <button type="button"
               className="sessionInTaskViewRemoveBtn"
               onClick={(e) => {
                 e.stopPropagation();

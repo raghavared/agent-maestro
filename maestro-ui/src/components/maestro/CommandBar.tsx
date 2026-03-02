@@ -17,7 +17,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
     return (
         <div className="terminalCommandBar">
             <div className="terminalCommands">
-                <button
+                <button type="button"
                     className="terminalCmd terminalCmdPrimary"
                     onClick={onNewTask}
                 >
