@@ -266,6 +266,9 @@ export interface Task {
   // Per-member launch overrides saved on the task
   memberOverrides?: Record<string, MemberLaunchOverride>;
 
+  // Run this task with --dangerously-skip-permissions
+  dangerousMode?: boolean;
+
   // Due date for the task (ISO date string "YYYY-MM-DD" or null)
   dueDate: string | null;
 
@@ -282,6 +285,7 @@ export interface Session {
 
   name: string;                // Session name
   agentId?: string;            // Agent running this session (Phase IV-C)
+  claudeSessionId?: string;    // Pre-generated Claude CLI session ID for resume support
   env: Record<string, string>; // Environment variables
   strategy?: string;    // Deprecated: kept for backward compatibility
 
@@ -384,6 +388,7 @@ export interface CreateTaskPayload {
   teamMemberId?: string;
   teamMemberIds?: string[];
   memberOverrides?: Record<string, MemberLaunchOverride>;
+  dangerousMode?: boolean;
   dueDate?: string;
 }
 
@@ -405,6 +410,7 @@ export interface UpdateTaskPayload {
   teamMemberIds?: string[];
   dueDate?: string | null;
   memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member launch overrides
+  dangerousMode?: boolean;
   images?: TaskImage[];
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline
   // Update source tracking
@@ -418,6 +424,7 @@ export interface CreateSessionPayload {
   taskIds: string[];           // PHASE IV-A: Array of task IDs
   name?: string;
   agentId?: string;
+  claudeSessionId?: string;    // Pre-generated Claude CLI session ID for resume support
   strategy?: string;   // Deprecated: kept for backward compatibility
   status?: SessionStatus;
   env?: Record<string, string>;
@@ -469,6 +476,8 @@ export interface SpawnSessionPayload {
     fromSessionId?: string;
   };
   memberOverrides?: Record<string, MemberLaunchOverride>; // Per-member launch overrides
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
+  delegatePermissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
 }
 
 // Spawn request event (emitted by server to UI)
@@ -486,22 +495,3 @@ export interface SpawnRequestEvent {
   _isSpawnCreated?: boolean;             // Backward compatibility flag
 }
 
-export interface Mail {
-  id: string;
-  parentSessionId: string;
-  fromSessionId: string;
-  fromName: string;
-  toSessionId: string;
-  message: string;
-  detail?: string;
-  createdAt: number;
-  readAt?: number;
-}
-
-export interface CreateMailPayload {
-  fromSessionId: string;
-  fromName: string;
-  toSessionId: string;
-  message: string;
-  detail?: string;
-}

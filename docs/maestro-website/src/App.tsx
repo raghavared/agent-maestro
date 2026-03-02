@@ -46,7 +46,7 @@ const pillars: Feature[] = [
     summary:
       'A write-safe system of record with real-time updates to UI and CLI clients.',
     bullets: [
-      'Predictable CRUD for projects, tasks, sessions, team members, ordering, and mail.',
+      'Predictable CRUD for projects, tasks, sessions, team members, and ordering.',
       'Session lifecycle from spawning to working to completed/failed with timeline events.',
       'Event bus + WebSocket bridge pushes live updates for tasks and sessions.',
       'Local JSON persistence keeps data transparent and easy to inspect or recover.',
@@ -59,7 +59,7 @@ const pillars: Feature[] = [
     summary:
       'Scriptable control over tasks, sessions, teams, and manifests for automation-heavy workflows.',
     bullets: [
-      '`maestro task` and `maestro session` manage task trees, status, logs, and mail.',
+      '`maestro task` and `maestro session` manage task trees, status, and logs.',
       '`maestro team` and `maestro team-member` manage roles, membership, and memory.',
       '`maestro report` keeps progress, blocked, and completion status in sync.',
       'Manifest-driven spawn flow makes context explicit and reproducible.',
@@ -76,7 +76,7 @@ const pillars: Feature[] = [
       'Workers execute assigned tasks and publish artifacts with task docs.',
       'Session spawning passes role-specific context, task scope, and directives.',
       'Progress, blocked, and completion reports keep real-time visibility.',
-      'Prompt is for immediate direction; mail is durable async handoff.',
+      'Session logs and prompt commands provide real-time coordination and visibility.',
     ],
   },
 ]
@@ -217,7 +217,7 @@ function App() {
                 <li>Coordinators plan, assign tasks, and resolve blockers.</li>
                 <li>Workers execute assigned tasks and publish artifacts with task docs.</li>
                 <li>Session spawning passes role context, task scope, and directives.</li>
-                <li>Prompt is for immediate direction; mail is durable async handoff.</li>
+                <li>Session logs and prompt commands provide real-time coordination and visibility.</li>
               </ul>
             </div>
             <div className="panel-block reveal" style={delayStyle(3)}>

@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { OrchestratorInitCommand } from './orchestrator-init.js';
+import { WorkerResumeCommand } from './worker-resume.js';
 
 /**
  * Register orchestrator commands
@@ -15,6 +16,15 @@ export function registerOrchestratorCommands(program: Command) {
     .description('Initialize orchestrator session from manifest')
     .action(async () => {
       const command = new OrchestratorInitCommand();
+      await command.execute();
+    });
+
+  // orchestrator resume - Resume a previously stopped Claude session
+  orchestrator
+    .command('resume')
+    .description('Resume a previously stopped Claude session')
+    .action(async () => {
+      const command = new WorkerResumeCommand();
       await command.execute();
     });
 }

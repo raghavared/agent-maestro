@@ -108,6 +108,15 @@ const DocumentIcon: React.FC = () => (
     </svg>
 );
 
+const FileCodeIcon: React.FC = () => (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18">
+        <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
+        <path d="M12 2v4h4" />
+        <path d="M8 11l-2 2 2 2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M12 11l2 2-2 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
 export const SpacesRail: React.FC<SpacesRailProps> = ({
     sessions,
     activeSessionId,
@@ -204,7 +213,7 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
                     />
                 ))}
 
-                {/* Whiteboard & document space buttons */}
+                {/* Whiteboard, document & file space buttons */}
                 {spaces.map((space) => (
                     <button type="button"
                         key={space.id}
@@ -213,7 +222,7 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
                         title={space.name}
                     >
                         {space.id === activeSessionId && <span className="iconRailActiveIndicator iconRailActiveIndicator--right" />}
-                        {space.type === "whiteboard" ? <WhiteboardIcon /> : <DocumentIcon />}
+                        {space.type === "whiteboard" ? <WhiteboardIcon /> : space.type === "file" ? <FileCodeIcon /> : <DocumentIcon />}
                     </button>
                 ))}
             </div>

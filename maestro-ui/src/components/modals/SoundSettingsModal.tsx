@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { soundManager, type SoundCategory } from '../../services/soundManager';
+import { soundManager, type SoundCategory, type MultiMemberSoundMode } from '../../services/soundManager';
 
 interface SoundSettingsModalProps {
   isOpen: boolean;
@@ -89,12 +89,16 @@ export function SoundSettingsContent() {
   const [enabledCategories, setEnabledCategories] = useState<Set<SoundCategory>>(
     new Set(soundManager.getEnabledCategories())
   );
+  const [multiMemberMode, setMultiMemberMode] = useState<MultiMemberSoundMode>(
+    soundManager.getMultiMemberMode()
+  );
 
   // Sync state with sound manager on mount
   useEffect(() => {
     setEnabled(soundManager.isEnabled());
     setVolume(soundManager.getVolume());
     setEnabledCategories(new Set(soundManager.getEnabledCategories()));
+    setMultiMemberMode(soundManager.getMultiMemberMode());
   }, []);
 
   const handleEnabledChange = (value: boolean) => {
@@ -178,6 +182,46 @@ export function SoundSettingsContent() {
               />
               <span className="soundVolumeValue">{Math.round(volume * 100)}%</span>
             </div>
+          </label>
+        </div>
+      </div>
+
+      {/* Multi-Member Sound Mode */}
+      <div className="soundSettingSection">
+        <div className="soundSettingRow">
+          <label className="soundSettingLabel">
+            <span className="soundSettingTitle">Multi-Member Sessions</span>
+            <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={() => { setMultiMemberMode('ensemble'); soundManager.setMultiMemberMode('ensemble'); }}
+                disabled={!enabled}
+                className="soundBulkBtn"
+                style={{
+                  background: multiMemberMode === 'ensemble' ? 'var(--theme-primary)' : undefined,
+                  color: multiMemberMode === 'ensemble' ? '#fff' : undefined,
+                }}
+              >
+                Ensemble (combine)
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMultiMemberMode('primary'); soundManager.setMultiMemberMode('primary'); }}
+                disabled={!enabled}
+                className="soundBulkBtn"
+                style={{
+                  background: multiMemberMode === 'primary' ? 'var(--theme-primary)' : undefined,
+                  color: multiMemberMode === 'primary' ? '#fff' : undefined,
+                }}
+              >
+                Primary (first member)
+              </button>
+            </div>
+            <span className="soundSettingDescription" style={{ marginTop: '2px' }}>
+              {multiMemberMode === 'ensemble'
+                ? 'All team members\u2019 instruments play together as a chord'
+                : 'Only the first team member\u2019s instrument plays'}
+            </span>
           </label>
         </div>
       </div>

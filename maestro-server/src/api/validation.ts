@@ -97,6 +97,7 @@ export const createTaskSchema = z.object({
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
   memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
+  dangerousMode: z.boolean().optional(),
 }).strict();
 
 export const updateTaskSchema = z.object({
@@ -115,6 +116,7 @@ export const updateTaskSchema = z.object({
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
   memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
+  dangerousMode: z.boolean().optional(),
 }).strict();
 
 export const addTaskDocSchema = z.object({
@@ -225,6 +227,7 @@ export const createSessionSchema = z.object({
   taskIds: z.array(safeId).optional(),
   name: shortString.optional(),
   agentId: safeId.optional(),
+  claudeSessionId: z.string().uuid().optional(),
   strategy: z.union([workerStrategySchema, orchestratorStrategySchema]).optional(),
   status: sessionStatusSchema.optional(),
   env: z.record(z.string(), z.string().max(5000)).optional(),
@@ -235,6 +238,7 @@ export const updateSessionSchema = z.object({
   taskIds: z.array(safeId).optional(),
   status: sessionStatusSchema.optional(),
   agentId: safeId.optional(),
+  claudeSessionId: z.string().uuid().optional(),
   env: z.record(z.string(), z.string().max(5000)).optional(),
   events: z.array(z.object({
     id: safeId,
@@ -304,6 +308,8 @@ export const spawnSessionSchema = z.object({
     fromSessionId: safeId.optional(),
   }).optional(),
   memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
+  permissionMode: permissionModeSchema.optional(),
+  delegatePermissionMode: permissionModeSchema.optional(),
 }).strict();
 
 // --- Template schemas ---

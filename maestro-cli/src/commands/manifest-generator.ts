@@ -525,6 +525,12 @@ export class ManifestGeneratorCLICommand {
         }
       }
 
+      // Session-level permissionMode override (highest precedence, overrides per-member settings)
+      const envPermissionMode = process.env.MAESTRO_PERMISSION_MODE;
+      if (envPermissionMode && ['acceptEdits', 'interactive', 'readOnly', 'bypassPermissions'].includes(envPermissionMode)) {
+        manifest.session.permissionMode = envPermissionMode as SessionOptions['permissionMode'];
+      }
+
       // 5. Validate manifest
       const validationResult = this.generator.validateGeneratedManifest(manifest);
       if (!validationResult) {

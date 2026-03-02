@@ -168,7 +168,6 @@ export function SessionsSection({
     }
   }, [settingsOpen, computeDropdownPos]);
 
-
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { delay: 300, tolerance: 5 },
@@ -201,11 +200,13 @@ export function SessionsSection({
   // Maestro session expansion state
   const [expandedSessions, setExpandedSessions] = React.useState<Set<string>>(new Set());
   const [loadingTasks, setLoadingTasks] = React.useState<Set<string>>(new Set());
+  const [resumingSessionId, setResumingSessionId] = React.useState<string | null>(null);
 
   // Use Zustand store - WebSocket updates are automatic
   const maestroTasks = useMaestroStore((s) => s.tasks);
   const maestroSessions = useMaestroStore((s) => s.sessions);
   const fetchSession = useMaestroStore((s) => s.fetchSession);
+  const resumeSession = useMaestroStore((s) => s.resumeSession);
   const hardRefresh = useMaestroStore((s) => s.hardRefresh);
 
   // Teams from store
@@ -219,6 +220,24 @@ export function SessionsSection({
   const { grouped: groupedSessions, ungrouped: ungroupedSessions } = useMemo(() => {
     return getGroupedSessionOrder(sessions, teamGroupData.groups);
   }, [sessions, teamGroupData.groups]);
+
+  const [showHistory, setShowHistory] = React.useState(false);
+  const historyBtnRef = React.useRef<HTMLButtonElement | null>(null);
+  const [historyDropdownPos, setHistoryDropdownPos] = React.useState<{ top: number; right: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (showHistory) {
+      setHistoryDropdownPos(computeDropdownPos(historyBtnRef));
+    }
+  }, [showHistory, computeDropdownPos]);
+
+  // Past sessions eligible for resume (completed/stopped/failed/idle)
+  const historySessions = useMemo(() => {
+    const resumableStatuses = new Set(['completed', 'stopped', 'failed', 'idle']);
+    return Array.from(maestroSessions.values())
+      .filter(s => s.projectId === activeProjectId && resumableStatuses.has(s.status))
+      .sort((a, b) => b.lastActivity - a.lastActivity);
+  }, [maestroSessions, activeProjectId]);
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -292,18 +311,19 @@ export function SessionsSection({
   };
 
   React.useEffect(() => {
-    if (!settingsOpen) return;
+    if (!settingsOpen && !showHistory) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setSettingsOpen(false);
+      setShowHistory(false);
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [settingsOpen]);
+  }, [settingsOpen, showHistory]);
 
   // Non-session spaces (whiteboards, documents)
   const allSpaces = useSpacesStore((s) => s.spaces);
@@ -576,6 +596,30 @@ export function SessionsSection({
                 <Icon name="log" size={12} />
                 <span>Logs</span>
               </button>
+              {/* Resume button — visible for completed/stopped/failed/idle Claude sessions with claudeSessionId */}
+              {maestroSession && ['completed', 'stopped', 'failed', 'idle'].includes(maestroSession.status)
+                && maestroSession.claudeSessionId
+                && (maestroSession.metadata?.agentTool || 'claude-code') === 'claude-code' && (
+                <button type="button"
+                  className="sessionItemBottomBtn sessionItemBottomBtn--resume"
+                  disabled={resumingSessionId === maestroSession.id}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    setResumingSessionId(maestroSession.id);
+                    try {
+                      await resumeSession(maestroSession.id);
+                    } catch (err) {
+                      console.error('Failed to resume session:', err);
+                    } finally {
+                      setResumingSessionId(null);
+                    }
+                  }}
+                  title="Resume this Claude session"
+                >
+                  <Icon name="refresh" size={12} />
+                  <span>{resumingSessionId === maestroSession.id ? 'Resuming...' : 'Resume'}</span>
+                </button>
+              )}
               <button type="button"
                 className="sessionItemBottomBtn sessionItemBottomBtn--danger"
                 disabled={isClosing}
@@ -624,6 +668,20 @@ export function SessionsSection({
             aria-label="Open board view"
           >
             <Icon name="layers" />
+          </button>
+          <button
+            ref={historyBtnRef}
+            type="button"
+            className={`btnSmall btnIcon ${showHistory ? "btnIconActive" : ""}`}
+            onClick={() => setShowHistory(prev => !prev)}
+            disabled={!activeProjectId}
+            title="Session history"
+            aria-label="Session history"
+          >
+            <Icon name="clock" />
+            {historySessions.length > 0 && (
+              <span className="iconRailBadge iconRailBadge--history">{historySessions.length > 99 ? '99+' : historySessions.length}</span>
+            )}
           </button>
           <div className="sidebarActionMenu" ref={settingsMenuRef}>
             <button
@@ -699,6 +757,81 @@ export function SessionsSection({
           </div>
         </div>
       </div>
+
+      {/* Session History Dropdown */}
+      {showHistory && historyDropdownPos && createPortal(
+        <>
+          <div
+            className="terminalInlineStatusOverlay"
+            onClick={() => setShowHistory(false)}
+          />
+          <div
+            className="sessionHistoryDropdown"
+            style={{ position: 'fixed', top: historyDropdownPos.top, right: historyDropdownPos.right }}
+          >
+            <div className="sessionHistoryDropdown__header">
+              <span>Session History</span>
+              <span className="sessionHistoryDropdown__count">{historySessions.length}</span>
+            </div>
+            {historySessions.length === 0 ? (
+              <div className="sessionHistoryDropdown__empty">No past sessions</div>
+            ) : (
+              <div className="sessionHistoryDropdown__list">
+                {historySessions.map(hs => {
+                  const canResume = !!hs.claudeSessionId && (hs.metadata?.agentTool || 'claude-code') === 'claude-code';
+                  const isResuming = resumingSessionId === hs.id;
+                  const snap = hs.teamMemberSnapshot;
+                  const ago = (() => {
+                    const sec = Math.floor((Date.now() - hs.lastActivity) / 1000);
+                    if (sec < 60) return `${sec}s ago`;
+                    const min = Math.floor(sec / 60);
+                    if (min < 60) return `${min}m ago`;
+                    const hr = Math.floor(min / 60);
+                    if (hr < 24) return `${hr}h ago`;
+                    return `${Math.floor(hr / 24)}d ago`;
+                  })();
+                  return (
+                    <div key={hs.id} className="sessionHistoryDropdown__row">
+                      <span className={`sessionHistoryDropdown__dot sessionHistoryDropdown__dot--${hs.status}`} />
+                      <div className="sessionHistoryDropdown__info">
+                        <span className="sessionHistoryDropdown__name">
+                          {snap?.avatar && <span>{snap.avatar} </span>}
+                          {snap?.name || hs.name}
+                        </span>
+                        <span className="sessionHistoryDropdown__meta">
+                          {hs.status} · {ago}
+                        </span>
+                      </div>
+                      {canResume && (
+                        <button
+                          type="button"
+                          className="sessionHistoryDropdown__resumeBtn"
+                          disabled={isResuming}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            setResumingSessionId(hs.id);
+                            try {
+                              await resumeSession(hs.id);
+                              setShowHistory(false);
+                            } catch (err) {
+                              console.error('Failed to resume session:', err);
+                            } finally {
+                              setResumingSessionId(null);
+                            }
+                          }}
+                        >
+                          {isResuming ? '...' : 'Resume'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </>,
+        document.body
+      )}
 
       <div className="agentShortcutRow" role="toolbar" aria-label="Quick launch">
         <button
@@ -831,6 +964,13 @@ export function SessionsSection({
                             <path d="M3 17l3.5-3.5M6.5 13.5l-2-2L14 2l2 2L6.5 13.5z" strokeLinejoin="round" />
                             <path d="M12 4l2 2" strokeLinecap="round" />
                           </svg>
+                        ) : space.type === "file" ? (
+                          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
+                            <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
+                            <path d="M12 2v4h4" />
+                            <path d="M8 11l-2 2 2 2" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M12 11l2 2-2 2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
                         ) : (
                           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
                             <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
@@ -843,7 +983,7 @@ export function SessionsSection({
                     <div className="sessionMeta">
                       <div className="sessionName">
                         <span className="sessionNameText">{space.name}</span>
-                        <span className="chip">{space.type === "whiteboard" ? "whiteboard" : "document"}</span>
+                        <span className="chip">{space.type === "whiteboard" ? "whiteboard" : space.type === "file" ? "file" : "document"}</span>
                       </div>
                     </div>
                     <div className="sessionItemActions">

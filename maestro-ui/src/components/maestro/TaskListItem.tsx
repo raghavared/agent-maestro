@@ -185,20 +185,26 @@ export function TaskListItem({
         const rect = btn.getBoundingClientRect();
         const spaceBelow = window.innerHeight - rect.bottom;
         const spaceAbove = rect.top;
-        const rightOffset = window.innerWidth - rect.right;
+
+        // Use left positioning (clamped so the dropdown doesn't overflow the viewport)
+        const dropdownWidth = 180;
+        let left = rect.left;
+        if (left + dropdownWidth > window.innerWidth - 8) {
+            left = window.innerWidth - dropdownWidth - 8;
+        }
 
         if (spaceBelow >= 200 || spaceBelow >= spaceAbove) {
-            return { top: rect.bottom + 4, right: rightOffset, openDirection: 'down' as const };
+            return { top: rect.bottom + 4, left, openDirection: 'down' as const };
         } else {
-            return { bottom: (window.innerHeight - rect.top) + 4, right: rightOffset, openDirection: 'up' as const };
+            return { bottom: (window.innerHeight - rect.top) + 4, left, openDirection: 'up' as const };
         }
     }, []);
 
-    const [launchDropdownRightPos, setLaunchDropdownRightPos] = useState<{ top?: number; bottom?: number; right: number; openDirection: 'down' | 'up' } | null>(null);
+    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' } | null>(null);
 
     useLayoutEffect(() => {
         if (showLaunchDropdown) {
-            setLaunchDropdownRightPos(computeLaunchDropdownPos());
+            setLaunchDropdownPos(computeLaunchDropdownPos());
         }
     }, [showLaunchDropdown, computeLaunchDropdownPos]);
 
@@ -291,10 +297,7 @@ export function TaskListItem({
         e.stopPropagation();
         const newStatus: TaskStatus = task.status === 'completed' ? 'todo' : 'completed';
         try {
-            await updateTask(task.id, {
-                status: newStatus,
-                ...(newStatus === 'completed' && { completedAt: Date.now() }),
-            });
+            await updateTask(task.id, { status: newStatus });
         } catch (error) {
             // silent
         }
@@ -307,11 +310,7 @@ export function TaskListItem({
         }
         setIsUpdatingStatus(true);
         try {
-            await updateTask(task.id, {
-                status: newStatus,
-                ...(newStatus === 'completed' && { completedAt: Date.now() }),
-                ...(newStatus === 'in_progress' && !task.startedAt && { startedAt: Date.now() }),
-            });
+            await updateTask(task.id, { status: newStatus });
             setShowStatusDropdown(false);
         } catch (error) {
         } finally {
@@ -683,14 +682,14 @@ export function TaskListItem({
                                 {effectiveModel || 'default'}
                                 <span className="terminalMetaBadgeCaret">{showLaunchDropdown ? '▴' : '▾'}</span>
                             </button>
-                            {showLaunchDropdown && launchDropdownRightPos && createPortal(
+                            {showLaunchDropdown && launchDropdownPos && createPortal(
                                 <>
                                     <div className="terminalInlineStatusOverlay" onClick={(e) => { e.stopPropagation(); setShowLaunchDropdown(false); }} />
                                     <div
-                                        className={`terminalLaunchDropdown terminalLaunchDropdown--fixed ${launchDropdownRightPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
+                                        className={`terminalLaunchDropdown terminalLaunchDropdown--fixed ${launchDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
                                         style={{
-                                            ...(launchDropdownRightPos.openDirection === 'down' ? { top: launchDropdownRightPos.top } : { bottom: launchDropdownRightPos.bottom }),
-                                            right: launchDropdownRightPos.right,
+                                            ...(launchDropdownPos.openDirection === 'down' ? { top: launchDropdownPos.top } : { bottom: launchDropdownPos.bottom }),
+                                            left: launchDropdownPos.left,
                                         }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
@@ -731,6 +730,18 @@ export function TaskListItem({
                                 document.body
                             )}
                         </div>
+
+                        <button
+                            type="button"
+                            className={`terminalDangerousToggle ${task.dangerousMode ? 'terminalDangerousToggle--on' : ''}`}
+                            title={task.dangerousMode ? 'Dangerous mode ON — click to disable' : 'Enable dangerous mode (bypass permissions)'}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                updateTask(task.id, { dangerousMode: !task.dangerousMode });
+                            }}
+                        >
+                            {task.dangerousMode ? '\u26A0 YOLO' : '\uD83D\uDEE1\uFE0F'}
+                        </button>
 
                         <span className="terminalTaskMetaFill" />
                         <span className="terminalTimeAgo">{formatTimeAgo(task.updatedAt)}</span>
