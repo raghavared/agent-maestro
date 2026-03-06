@@ -6,10 +6,7 @@ const ALL_MODES: CommandMode[] = ['worker', 'coordinator', 'coordinated-worker',
 const COORDINATOR_MODES: CommandMode[] = ['coordinator', 'coordinated-coordinator'];
 
 const DEFAULT_EXCLUDED_COMMANDS_BY_MODE: Partial<Record<CommandMode, string[]>> = {
-  worker: ['team-member:create', 'team-member:list', 'team-member:get'],
-  coordinator: ['team-member:list'],
-  'coordinated-worker': ['team-member:create', 'team-member:list', 'team-member:get'],
-  'coordinated-coordinator': ['team-member:list', 'session:spawn'],
+  'coordinated-coordinator': ['session:spawn'],
 };
 
 // UI permission panels currently expose this subset of command IDs.
@@ -44,6 +41,15 @@ const COMMAND_ALLOWED_MODES: Record<string, CommandMode[]> = {
   'team-member:create': ALL_MODES,
   'team-member:list': ALL_MODES,
   'team-member:get': ALL_MODES,
+  'team-member:edit': ALL_MODES,
+  'team-member:archive': ALL_MODES,
+  'team-member:unarchive': ALL_MODES,
+  'team-member:delete': ALL_MODES,
+  'team-member:reset': ALL_MODES,
+  'team-member:update-identity': ALL_MODES,
+  'team-member:memory:append': ALL_MODES,
+  'team-member:memory:list': ALL_MODES,
+  'team-member:memory:clear': ALL_MODES,
 
   'show:modal': ALL_MODES,
   'modal:events': ALL_MODES,

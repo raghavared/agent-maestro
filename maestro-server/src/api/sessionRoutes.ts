@@ -1280,6 +1280,47 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const cwd = project.workingDir;
       const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime(config.manifestGenerator.cliPath);
 
+      // Regenerate manifest so MAESTRO_MANIFEST_PATH points to a valid file
+      const mode = session.metadata?.mode || 'worker';
+      const skillsToUse: string[] = session.metadata?.skills || [];
+      const resolvedModel: string | undefined = session.metadata?.model || undefined;
+
+      const allReferenceTaskIds: string[] = [];
+      for (const taskId of session.taskIds) {
+        const task = await taskRepo.findById(taskId);
+        if (task?.referenceTaskIds && task.referenceTaskIds.length > 0) {
+          for (const refId of task.referenceTaskIds) {
+            if (!allReferenceTaskIds.includes(refId)) {
+              allReferenceTaskIds.push(refId);
+            }
+          }
+        }
+      }
+
+      let manifestPath: string | undefined;
+      try {
+        const manifestResult = await generateManifestViaCLI({
+          mode,
+          projectId: session.projectId,
+          taskIds: session.taskIds,
+          skills: skillsToUse,
+          sessionId: session.id,
+          model: resolvedModel,
+          agentTool: agentTool,
+          referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
+          teamMemberIds: session.metadata?.teamMemberIds || undefined,
+          teamMemberId: session.metadata?.teamMemberId || undefined,
+          serverUrl: config.serverUrl,
+          isMaster: project.isMaster === true,
+          sessionDir: config.sessionDir,
+          cliPathOverride: config.manifestGenerator.cliPath,
+        });
+        manifestPath = manifestResult.manifestPath;
+      } catch (manifestErr) {
+        // Non-fatal: resume can proceed without fresh manifest (hooks will handle gracefully)
+        console.warn('[resume] Failed to regenerate manifest:', manifestErr instanceof Error ? manifestErr.message : manifestErr);
+      }
+
       // Pass through auth-related API keys from server environment
       const authEnvKeys = [
         'GEMINI_API_KEY',
@@ -1300,7 +1341,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
 
       // Determine resume command
-      const mode = session.metadata?.mode || 'worker';
       const initCommand = isCoordinatorMode(mode) ? 'orchestrator' : 'worker';
       const command = `maestro ${initCommand} resume`;
 
@@ -1325,6 +1365,11 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       if (project.isMaster === true) {
         finalEnvVars.MAESTRO_IS_MASTER = 'true';
+      }
+
+      // Update manifest path if regeneration succeeded
+      if (manifestPath) {
+        finalEnvVars.MAESTRO_MANIFEST_PATH = manifestPath;
       }
 
       // Update session status to spawning
