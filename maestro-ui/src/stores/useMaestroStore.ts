@@ -246,7 +246,20 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
             break;
           }
           set((prev) => ({ sessions: new Map(prev.sessions).set(session.id, session) }));
-          void useSessionStore.getState().handleSpawnTerminalSession({
+
+          // Find and remove existing exited terminal tab for this maestro session
+          const sessionStore = useSessionStore.getState();
+          const existingTerminal = sessionStore.sessions.find(
+            (s) => s.maestroSessionId === session.id
+          );
+          if (existingTerminal && existingTerminal.exited) {
+            sessionStore.setSessions((prev) =>
+              prev.filter((s) => s.id !== existingTerminal.id)
+            );
+          }
+
+          // Spawn new terminal (replaces the removed one)
+          void sessionStore.handleSpawnTerminalSession({
             maestroSessionId: session.id,
             name: session.name || '',
             command: message.data.command ?? null,

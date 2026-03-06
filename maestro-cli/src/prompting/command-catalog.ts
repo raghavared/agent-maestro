@@ -15,10 +15,7 @@ const COORDINATOR_MODES: AgentMode[] = ['coordinator', 'coordinated-coordinator'
 const WORKER_MODES: AgentMode[] = ['worker', 'coordinated-worker'];
 
 const DEFAULT_EXCLUDED_COMMANDS_BY_MODE: Partial<Record<AgentMode, string[]>> = {
-  worker: ['team-member:create', 'team-member:list', 'team-member:get', 'team-member:edit'],
-  coordinator: ['team-member:list'],
-  'coordinated-worker': ['team-member:create', 'team-member:list', 'team-member:get', 'team-member:edit'],
-  'coordinated-coordinator': ['team-member:list', 'session:spawn'],
+  'coordinated-coordinator': ['session:spawn'],
 };
 
 const COMMAND_DEFINITIONS: Array<Omit<CommandCatalogEntry, 'syntax'>> = [
@@ -92,14 +89,14 @@ const COMMAND_DEFINITIONS: Array<Omit<CommandCatalogEntry, 'syntax'>> = [
   { id: 'team-member:list', description: 'List team members', group: 'team-member', allowedModes: ALL_MODES },
   { id: 'team-member:get', description: 'Get team member details', group: 'team-member', allowedModes: ALL_MODES },
   { id: 'team-member:edit', description: 'Edit a team member', group: 'team-member', allowedModes: ALL_MODES },
-  { id: 'team-member:archive', description: 'Archive a team member', group: 'team-member', allowedModes: COORDINATOR_MODES },
-  { id: 'team-member:unarchive', description: 'Unarchive a team member', group: 'team-member', allowedModes: COORDINATOR_MODES },
-  { id: 'team-member:delete', description: 'Delete a team member (must be archived first)', group: 'team-member', allowedModes: COORDINATOR_MODES },
-  { id: 'team-member:reset', description: 'Reset a default team member to original settings', group: 'team-member', allowedModes: COORDINATOR_MODES },
-  { id: 'team-member:update-identity', description: 'Update own identity/persona (self-awareness)', group: 'team-member', allowedModes: COORDINATOR_MODES },
-  { id: 'team-member:memory:append', description: 'Append an entry to team member memory', group: 'team-member', allowedModes: COORDINATOR_MODES },
-  { id: 'team-member:memory:list', description: 'List team member memory entries', group: 'team-member', allowedModes: COORDINATOR_MODES },
-  { id: 'team-member:memory:clear', description: 'Clear team member memory', group: 'team-member', allowedModes: COORDINATOR_MODES },
+  { id: 'team-member:archive', description: 'Archive a team member', group: 'team-member', allowedModes: ALL_MODES },
+  { id: 'team-member:unarchive', description: 'Unarchive a team member', group: 'team-member', allowedModes: ALL_MODES },
+  { id: 'team-member:delete', description: 'Delete a team member (must be archived first)', group: 'team-member', allowedModes: ALL_MODES },
+  { id: 'team-member:reset', description: 'Reset a default team member to original settings', group: 'team-member', allowedModes: ALL_MODES },
+  { id: 'team-member:update-identity', description: 'Update own identity/persona (self-awareness)', group: 'team-member', allowedModes: ALL_MODES },
+  { id: 'team-member:memory:append', description: 'Append an entry to team member memory', group: 'team-member', allowedModes: ALL_MODES },
+  { id: 'team-member:memory:list', description: 'List team member memory entries', group: 'team-member', allowedModes: ALL_MODES },
+  { id: 'team-member:memory:clear', description: 'Clear team member memory', group: 'team-member', allowedModes: ALL_MODES },
 
   // Team commands
   { id: 'team:list', description: 'List teams', group: 'team', allowedModes: COORDINATOR_MODES },
