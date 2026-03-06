@@ -667,6 +667,16 @@ export function initApp(
             ['spawning', 'idle', 'working'].includes(serverSession.status) &&
             !localIds.has(serverSession.id)
           ) {
+            // Skip recently-spawning sessions to avoid racing with resume flow.
+            // A session in 'spawning' with recent activity is likely being resumed
+            // and its PTY hasn't been created yet.
+            if (
+              serverSession.status === 'spawning' &&
+              serverSession.lastActivity &&
+              Date.now() - serverSession.lastActivity < 60_000
+            ) {
+              continue;
+            }
             void maestroClient.updateSession(serverSession.id, {
               status: 'stopped',
               completedAt: Date.now(),

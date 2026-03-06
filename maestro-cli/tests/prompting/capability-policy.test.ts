@@ -72,9 +72,9 @@ describe('capability-policy', () => {
     expect(result.allowedCommands).not.toContain('session:spawn');
   });
 
-  it('excludes team-member:list from coordinator defaults', () => {
+  it('includes team-member:list in coordinator defaults', () => {
     const result = resolveCapabilitySet(buildManifest({ mode: 'coordinator' }));
-    expect(result.allowedCommands).not.toContain('team-member:list');
+    expect(result.allowedCommands).toContain('team-member:list');
   });
 
   it('allows worker overrides to grant recruiter team-member commands', () => {
@@ -96,19 +96,13 @@ describe('capability-policy', () => {
     expect(result.allowedCommands).toContain('team-member:get');
   });
 
-  it('keeps non-grantable team-member commands blocked for worker overrides', () => {
-    const manifest = buildManifest({
-      mode: 'worker',
-      teamMemberCommandPermissions: {
-        commands: {
-          'team-member:edit': true,
-        },
-      },
-    });
+  it('includes team-member commands in worker defaults without overrides', () => {
+    const result = resolveCapabilitySet(buildManifest({ mode: 'worker' }));
 
-    const result = resolveCapabilitySet(manifest);
-
-    expect(result.allowedCommands).not.toContain('team-member:edit');
+    expect(result.allowedCommands).toContain('team-member:create');
+    expect(result.allowedCommands).toContain('team-member:list');
+    expect(result.allowedCommands).toContain('team-member:get');
+    expect(result.allowedCommands).toContain('team-member:edit');
   });
 
   it('hard-blocks coordinated-coordinator spawn even with explicit allowlist', () => {
