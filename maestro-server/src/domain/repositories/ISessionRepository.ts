@@ -131,4 +131,12 @@ export interface ISessionRepository {
    * @returns The updated session
    */
   addDoc(sessionId: string, doc: DocEntry): Promise<Session>;
+
+  /**
+   * Get document content by reading from the stored file.
+   * @param sessionId - Session ID
+   * @param docId - Document ID
+   * @returns The document content string, or null if not found
+   */
+  getDocContent(sessionId: string, docId: string): Promise<string | null>;
 }

@@ -127,16 +127,15 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
       // Verify task exists
       await taskService.getTask(taskId);
 
-      // Get all sessions for this task and aggregate docs
+      // Get all sessions for this task and aggregate docs (with content hydrated from files)
       const docs: Array<Record<string, unknown>> = [];
       if (sessionService) {
         const sessions = await sessionService.listSessionsByTask(taskId);
         for (const session of sessions) {
-          if (session.docs) {
-            for (const doc of session.docs) {
-              if (!doc.taskId || doc.taskId === taskId) {
-                docs.push({ ...doc, sessionId: session.id, sessionName: session.name });
-              }
+          const sessionDocs = await sessionService.getSessionDocsWithContent(session.id);
+          for (const doc of sessionDocs) {
+            if (!doc.taskId || doc.taskId === taskId) {
+              docs.push({ ...doc, sessionId: session.id, sessionName: session.name });
             }
           }
         }
