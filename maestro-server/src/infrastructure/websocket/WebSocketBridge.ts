@@ -89,6 +89,7 @@ export class WebSocketBridge {
       'task:session_removed',
       'session:created',
       'session:spawn',
+      'session:resume',
       'session:updated',
       'session:deleted',
       'session:task_added',

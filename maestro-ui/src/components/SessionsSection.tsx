@@ -596,9 +596,8 @@ export function SessionsSection({
                 <Icon name="log" size={12} />
                 <span>Logs</span>
               </button>
-              {/* Resume button — visible for completed/stopped/failed/idle Claude sessions with claudeSessionId */}
+              {/* Resume button — visible for completed/stopped/failed/idle Claude sessions */}
               {maestroSession && ['completed', 'stopped', 'failed', 'idle'].includes(maestroSession.status)
-                && maestroSession.claudeSessionId
                 && (maestroSession.metadata?.agentTool || 'claude-code') === 'claude-code' && (
                 <button type="button"
                   className="sessionItemBottomBtn sessionItemBottomBtn--resume"
@@ -610,6 +609,7 @@ export function SessionsSection({
                       await resumeSession(maestroSession.id);
                     } catch (err) {
                       console.error('Failed to resume session:', err);
+                      useUIStore.getState().reportError('Failed to resume session', err);
                     } finally {
                       setResumingSessionId(null);
                     }
@@ -778,7 +778,7 @@ export function SessionsSection({
             ) : (
               <div className="sessionHistoryDropdown__list">
                 {historySessions.map(hs => {
-                  const canResume = !!hs.claudeSessionId && (hs.metadata?.agentTool || 'claude-code') === 'claude-code';
+                  const canResume = (hs.metadata?.agentTool || 'claude-code') === 'claude-code';
                   const isResuming = resumingSessionId === hs.id;
                   const snap = hs.teamMemberSnapshot;
                   const ago = (() => {
@@ -815,6 +815,7 @@ export function SessionsSection({
                               setShowHistory(false);
                             } catch (err) {
                               console.error('Failed to resume session:', err);
+                              useUIStore.getState().reportError('Failed to resume session', err);
                             } finally {
                               setResumingSessionId(null);
                             }

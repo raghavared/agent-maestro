@@ -13,6 +13,7 @@ import { NotFoundError } from '../../domain/common/Errors';
  */
 export class FileSystemSessionRepository implements ISessionRepository {
   private sessionsDir: string;
+  private sessionDocsDir: string;
   private sessions: Map<string, Session>;
   private initialized: boolean = false;
 
@@ -22,6 +23,7 @@ export class FileSystemSessionRepository implements ISessionRepository {
     private logger: ILogger
   ) {
     this.sessionsDir = path.join(dataDir, 'sessions');
+    this.sessionDocsDir = path.join(dataDir, 'session-docs');
     this.sessions = new Map();
   }
 
@@ -33,6 +35,7 @@ export class FileSystemSessionRepository implements ISessionRepository {
 
     try {
       await fs.mkdir(this.sessionsDir, { recursive: true });
+      await fs.mkdir(this.sessionDocsDir, { recursive: true });
 
       const files = await fs.readdir(this.sessionsDir);
       const sessionFiles = files.filter(f => f.endsWith('.json'));
@@ -60,6 +63,30 @@ export class FileSystemSessionRepository implements ISessionRepository {
           if (!session.rootSessionId) { session.rootSessionId = session.id; needsSave = true; }
           // Remove deprecated strategy field if present
           if (session.strategy) { delete session.strategy; needsSave = true; }
+          // MIGRATION: Recover claudeSessionId from env vars for pre-fix sessions
+          if (!session.claudeSessionId && session.env?.MAESTRO_CLAUDE_SESSION_ID) {
+            session.claudeSessionId = session.env.MAESTRO_CLAUDE_SESSION_ID;
+            needsSave = true;
+          }
+
+          // MIGRATION: Move inline doc content to separate files
+          if (session.docs && session.docs.length > 0) {
+            for (const doc of session.docs) {
+              if (doc.content && !doc.contentFilePath) {
+                try {
+                  const docDir = path.join(this.sessionDocsDir, session.id);
+                  await fs.mkdir(docDir, { recursive: true });
+                  const contentPath = path.join(docDir, `${doc.id}.md`);
+                  await fs.writeFile(contentPath, doc.content, 'utf-8');
+                  doc.contentFilePath = contentPath;
+                  delete doc.content;
+                  needsSave = true;
+                } catch (docErr) {
+                  this.logger.warn(`Failed to migrate doc content for session ${session.id}, doc ${doc.id}`, { error: (docErr as Error).message });
+                }
+              }
+            }
+          }
 
           this.sessions.set(session.id, session as Session);
 
@@ -112,6 +139,7 @@ export class FileSystemSessionRepository implements ISessionRepository {
       taskIds: input.taskIds || [],
       name: input.name || 'Unnamed Session',
       agentId: input.agentId,
+      claudeSessionId: input.claudeSessionId,
       env: input.env || {},
       status: input.status || 'idle',
       startedAt: now,
@@ -348,6 +376,16 @@ export class FileSystemSessionRepository implements ISessionRepository {
       throw new NotFoundError('Session', sessionId);
     }
 
+    // Write content to a separate file instead of storing inline in session JSON
+    if (doc.content) {
+      const docDir = path.join(this.sessionDocsDir, sessionId);
+      await fs.mkdir(docDir, { recursive: true });
+      const contentPath = path.join(docDir, `${doc.id}.md`);
+      await fs.writeFile(contentPath, doc.content, 'utf-8');
+      doc.contentFilePath = contentPath;
+      delete doc.content;
+    }
+
     if (!session.docs) { session.docs = []; }
     session.docs.push(doc);
     session.lastActivity = Date.now();
@@ -357,5 +395,31 @@ export class FileSystemSessionRepository implements ISessionRepository {
 
     this.logger.debug(`Added doc to session: ${sessionId}, title: ${doc.title}`);
     return session;
+  }
+
+  async getDocContent(sessionId: string, docId: string): Promise<string | null> {
+    await this.ensureInitialized();
+
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new NotFoundError('Session', sessionId);
+    }
+
+    const doc = session.docs?.find(d => d.id === docId);
+    if (!doc) return null;
+
+    // Return inline content if still present (legacy)
+    if (doc.content) return doc.content;
+
+    // Read from file
+    if (doc.contentFilePath) {
+      try {
+        return await fs.readFile(doc.contentFilePath, 'utf-8');
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
   }
 }

@@ -67,11 +67,8 @@ export function createMasterRoutes(
 
   const authMiddleware = createMasterAuthMiddleware(sessionService);
 
-  // Apply master auth to all routes in this router
-  router.use(authMiddleware);
-
   // GET /master/projects — List all projects
-  router.get('/master/projects', async (req: Request, res: Response) => {
+  router.get('/master/projects', authMiddleware, async (req: Request, res: Response) => {
     try {
       const projects = await projectService.listProjects();
       res.json(projects);
@@ -81,7 +78,7 @@ export function createMasterRoutes(
   });
 
   // GET /master/tasks?projectId=<optional> — List tasks across all or specific project
-  router.get('/master/tasks', async (req: Request, res: Response) => {
+  router.get('/master/tasks', authMiddleware, async (req: Request, res: Response) => {
     try {
       const projectId = req.query.projectId as string | undefined;
       const filter: TaskFilter = {};
@@ -102,7 +99,7 @@ export function createMasterRoutes(
   });
 
   // GET /master/sessions?projectId=<optional> — List sessions across all or specific project
-  router.get('/master/sessions', async (req: Request, res: Response) => {
+  router.get('/master/sessions', authMiddleware, async (req: Request, res: Response) => {
     try {
       const projectId = req.query.projectId as string | undefined;
       let sessions;
@@ -120,7 +117,7 @@ export function createMasterRoutes(
   });
 
   // GET /master/context — Full workspace summary
-  router.get('/master/context', async (req: Request, res: Response) => {
+  router.get('/master/context', authMiddleware, async (req: Request, res: Response) => {
     try {
       const projects = await projectService.listProjects();
 
