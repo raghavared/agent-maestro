@@ -953,6 +953,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
               if (power > highestModelPower) {
                 highestModelPower = power;
                 teamMemberDefaults.model = effectiveModel;
+              } else if (!teamMemberDefaults.model && effectiveModel) {
+                // Fallback: use any model if none resolved yet (handles non-standard model names)
+                teamMemberDefaults.model = effectiveModel;
               }
               // AgentTool: first non-default wins (using overridden tool)
               if (!teamMemberDefaults.agentTool && effectiveAgentTool) {

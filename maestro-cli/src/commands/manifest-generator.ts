@@ -385,6 +385,10 @@ export class ManifestGeneratorCLICommand {
           if (teamMember.permissionMode) {
             manifest.session.permissionMode = teamMember.permissionMode;
           }
+          // Override model with team member's model (if not explicitly set by launch settings)
+          if (teamMember.model && !hasExplicitModel) {
+            manifest.session.model = teamMember.model;
+          }
         } catch {
           // ignore team member load error
         }
