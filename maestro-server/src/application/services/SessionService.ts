@@ -408,4 +408,32 @@ export class SessionService {
 
     return updatedSession;
   }
+
+  /**
+   * Get docs for a session with content hydrated from files on demand.
+   */
+  async getSessionDocsWithContent(sessionId: string): Promise<DocEntry[]> {
+    const session = await this.sessionRepo.findById(sessionId);
+    if (!session) {
+      throw new NotFoundError('Session', sessionId);
+    }
+
+    const docs = session.docs || [];
+    const hydratedDocs: DocEntry[] = [];
+
+    for (const doc of docs) {
+      if (doc.content) {
+        // Legacy: inline content still present
+        hydratedDocs.push({ ...doc });
+      } else if (doc.contentFilePath) {
+        // Read content from file
+        const content = await this.sessionRepo.getDocContent(sessionId, doc.id);
+        hydratedDocs.push({ ...doc, content: content || undefined });
+      } else {
+        hydratedDocs.push({ ...doc });
+      }
+    }
+
+    return hydratedDocs;
+  }
 }

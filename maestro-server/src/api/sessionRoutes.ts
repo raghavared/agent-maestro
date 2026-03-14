@@ -491,12 +491,12 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     }
   });
 
-  // Get docs for a session
+  // Get docs for a session (content hydrated from files on demand)
   router.get('/sessions/:id/docs', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
-      const session = await sessionService.getSession(sessionId);
-      res.json(session.docs || []);
+      const docs = await sessionService.getSessionDocsWithContent(sessionId);
+      res.json(docs);
     } catch (err: unknown) {
       handleRouteError(err, res);
     }
@@ -953,6 +953,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
               if (power > highestModelPower) {
                 highestModelPower = power;
                 teamMemberDefaults.model = effectiveModel;
+              } else if (!teamMemberDefaults.model && effectiveModel) {
+                // Fallback: use any model if none resolved yet (handles non-standard model names)
+                teamMemberDefaults.model = effectiveModel;
               }
               // AgentTool: first non-default wins (using overridden tool)
               if (!teamMemberDefaults.agentTool && effectiveAgentTool) {
@@ -1224,7 +1227,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
   // ==================== RESUME SESSION ====================
 
-  router.post('/:id/resume', async (req: Request, res: Response) => {
+  router.post('/sessions/:id/resume', async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
 
@@ -1248,12 +1251,12 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         });
       }
 
-      // Validate claudeSessionId exists (pre-feature sessions can't be resumed)
-      if (!session.claudeSessionId) {
-        return res.status(400).json({
-          error: true,
-          code: 'no_claude_session_id',
-          message: 'Session was created before resume support. Cannot resume without a Claude session ID.'
+      // Generate claudeSessionId if missing (pre-feature sessions get a fresh spawn)
+      const hadClaudeSessionId = !!session.claudeSessionId;
+      if (!hadClaudeSessionId) {
+        session.claudeSessionId = randomUUID();
+        await sessionService.updateSession(session.id, {
+          env: { ...session.env, MAESTRO_CLAUDE_SESSION_ID: session.claudeSessionId },
         });
       }
 
@@ -1340,15 +1343,17 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         authEnvVars['GOOGLE_GENAI_USE_GCA'] = 'true';
       }
 
-      // Determine resume command
+      // Determine command: resume if session had a Claude session ID, fresh spawn otherwise
       const initCommand = isCoordinatorMode(mode) ? 'orchestrator' : 'worker';
-      const command = `maestro ${initCommand} resume`;
+      const command = hadClaudeSessionId
+        ? `maestro ${initCommand} resume`
+        : `maestro ${initCommand} init`;
 
       // Reconstruct env vars — reuse stored env, refresh dynamic values
       const finalEnvVars: Record<string, string> = {
         ...session.env,
         MAESTRO_SESSION_ID: session.id,
-        MAESTRO_CLAUDE_SESSION_ID: session.claudeSessionId,
+        MAESTRO_CLAUDE_SESSION_ID: session.claudeSessionId!,
         MAESTRO_SERVER_URL: config.serverUrl,
         MAESTRO_MODE: mode,
         DATA_DIR: config.dataDir,

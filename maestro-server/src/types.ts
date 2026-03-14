@@ -353,7 +353,8 @@ export interface DocEntry {
   id: string;
   title: string;
   filePath: string;
-  content?: string;                   // Optional inline markdown content
+  content?: string;                   // Optional inline markdown content (deprecated: stored in separate files)
+  contentFilePath?: string;           // Path to file storing doc content (replaces inline content)
   taskId?: string;                    // Which task this doc relates to
   addedAt: number;
   addedBy?: string;                   // Session that added this doc
