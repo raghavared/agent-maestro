@@ -99,7 +99,7 @@ function formatTimeAgo(timestamp: number): string {
     return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-export function TaskListItem({
+export const TaskListItem = React.memo(function TaskListItem({
     task,
     onSelect,
     onWorkOn,
@@ -231,7 +231,7 @@ export function TaskListItem({
     const deleteTask = useMaestroStore(s => s.deleteTask);
     const updateTask = useMaestroStore(s => s.updateTask);
 
-    const teamMembers = useMemo(() => Array.from(teamMembersMap.values()), [teamMembersMap]);
+    const teamMembers = useMemo(() => Object.values(teamMembersMap), [teamMembersMap]);
 
     // Resolve effective team member IDs (prefer array, fallback to singular)
     const effectiveTeamMemberIds = useMemo(() =>
@@ -242,7 +242,7 @@ export function TaskListItem({
     );
 
     const assignedTeamMembers = useMemo(() =>
-        effectiveTeamMemberIds.map(id => teamMembersMap.get(id)).filter(Boolean) as typeof teamMembers,
+        effectiveTeamMemberIds.map(id => teamMembersMap[id]).filter(Boolean) as typeof teamMembers,
         [effectiveTeamMemberIds, teamMembersMap]
     );
 
@@ -251,7 +251,7 @@ export function TaskListItem({
     const isSubtask = task.parentId !== null;
 
     // For subtasks, also fetch parent task sessions
-    const parentTask = isSubtask && task.parentId ? tasks.get(task.parentId) : null;
+    const parentTask = isSubtask && task.parentId ? tasks[task.parentId] : null;
     const { sessions: parentSessions, loading: loadingParentSessions } = useTaskSessions(parentTask?.id);
 
     const allSessions = useMemo(() => {
@@ -268,11 +268,11 @@ export function TaskListItem({
     }, [taskSessions, parentSessions, isSubtask]);
 
     const sessionCount = allSessions.length;
-    const subtaskCount = Array.from(tasks.values()).filter(t => t.parentId === task.id).length;
+    const subtaskCount = Object.values(tasks).filter(t => t.parentId === task.id).length;
 
     const totalDescendantCount = useMemo(() => {
         const countDescendants = (parentId: string): number => {
-            const children = Array.from(tasks.values()).filter(t => t.parentId === parentId);
+            const children = Object.values(tasks).filter(t => t.parentId === parentId);
             return children.reduce((sum, child) => sum + 1 + countDescendants(child.id), 0);
         };
         return countDescendants(task.id);
@@ -828,4 +828,4 @@ export function TaskListItem({
             )}
         </div>
     );
-}
+});

@@ -23,30 +23,24 @@ export { prepareSpawnerEnvironment } from './spawner-env.js';
  * Defaults to ClaudeSpawner when agentTool is not specified.
  */
 export class AgentSpawner implements IAgentSpawner {
-  private claudeSpawner: ClaudeSpawner;
-  private codexSpawner: CodexSpawner;
-  private geminiSpawner: GeminiSpawner;
-
-  constructor() {
-    this.claudeSpawner = new ClaudeSpawner();
-    this.codexSpawner = new CodexSpawner();
-    this.geminiSpawner = new GeminiSpawner();
-  }
+  private _claudeSpawner?: ClaudeSpawner;
+  private _codexSpawner?: CodexSpawner;
+  private _geminiSpawner?: GeminiSpawner;
 
   /**
-   * Get the appropriate spawner for a manifest
+   * Get the appropriate spawner for a manifest (lazy-initialized)
    */
   private getSpawner(manifest: MaestroManifest): ClaudeSpawner | CodexSpawner | GeminiSpawner {
     const agentTool = manifest.agentTool || 'claude-code';
 
     switch (agentTool) {
       case 'codex':
-        return this.codexSpawner;
+        return (this._codexSpawner ??= new CodexSpawner());
       case 'gemini':
-        return this.geminiSpawner;
+        return (this._geminiSpawner ??= new GeminiSpawner());
       case 'claude-code':
       default:
-        return this.claudeSpawner;
+        return (this._claudeSpawner ??= new ClaudeSpawner());
     }
   }
 

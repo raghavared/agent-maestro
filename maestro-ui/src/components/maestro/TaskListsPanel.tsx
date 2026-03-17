@@ -50,7 +50,7 @@ function SortableWrapper({ id, children }: { id: string; children: React.ReactNo
 
 type TaskListTasksProps = {
   list: TaskList;
-  tasksById: Map<string, MaestroTask>;
+  tasksById: Record<string, MaestroTask>;
   onRemoveTask: (taskId: string) => void;
   onReorder: (orderedTaskIds: string[]) => void;
   onMoveTask: (taskId: string, delta: number) => void;
@@ -82,7 +82,7 @@ function TaskListTasks({ list, tasksById, onRemoveTask, onReorder, onMoveTask }:
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
         <div className="taskListTasks">
           {taskIds.map((taskId, index) => {
-            const task = tasksById.get(taskId);
+            const task = tasksById[taskId];
             const isMissing = !task;
             return (
               <SortableWrapper key={taskId} id={taskId}>
@@ -152,7 +152,7 @@ export function TaskListsPanel({ projectId, createListSignal }: TaskListsPanelPr
   const [actionError, setActionError] = useState<string | null>(null);
   const createSignalRef = useRef<number | undefined>(createListSignal);
 
-  const tasksById = useMemo(() => new Map(tasks.map(task => [task.id, task])), [tasks]);
+  const tasksById = useMemo(() => Object.fromEntries(tasks.map(task => [task.id, task])), [tasks]);
   const listOrder = useMemo(() => taskLists.map(list => list.id), [taskLists]);
 
   useEffect(() => {

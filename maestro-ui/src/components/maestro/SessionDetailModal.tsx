@@ -47,7 +47,7 @@ function formatTimeAgo(timestamp: number): string {
 }
 
 export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetailModalProps) {
-  const session = useMaestroStore((s) => s.sessions.get(sessionId));
+  const session = useMaestroStore((s) => s.sessions[sessionId]);
   const tasks = useMaestroStore((s) => s.tasks);
   const fetchSession = useMaestroStore((s) => s.fetchSession);
 
@@ -94,7 +94,7 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
 
   // Resolve linked tasks
   const linkedTasks = session?.taskIds
-    ?.map((taskId) => tasks.get(taskId))
+    ?.map((taskId) => tasks[taskId])
     .filter((t) => t !== undefined) ?? [];
 
   return (

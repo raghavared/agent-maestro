@@ -1,15 +1,20 @@
 import { useMemo, useEffect, useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useMaestroStore } from "../stores/useMaestroStore";
 import { MaestroProject, MaestroTask, TeamMember, CreateMaestroSessionInput, CreateTaskPayload } from "../app/types/maestro";
 
 export function useTeamMemberActions(projectId: string, project: MaestroProject, onCreateMaestroSession: (input: CreateMaestroSessionInput) => Promise<void>, createTask: (input: CreateTaskPayload) => Promise<MaestroTask>, onError: (msg: string) => void) {
-    const teamMembersMap = useMaestroStore(s => s.teamMembers);
-    const fetchTeamMembers = useMaestroStore(s => s.fetchTeamMembers);
-    const archiveTeamMember = useMaestroStore(s => s.archiveTeamMember);
-    const unarchiveTeamMember = useMaestroStore(s => s.unarchiveTeamMember);
-    const deleteTeamMember = useMaestroStore(s => s.deleteTeamMember);
-    const wsConnected = useMaestroStore(s => s.wsConnected);
-    const teamMembersLoading = useMaestroStore(s => s.loading.has(`teamMembers:${projectId}`));
+    const { teamMembersMap, fetchTeamMembers, archiveTeamMember, unarchiveTeamMember, deleteTeamMember, wsConnected, teamMembersLoading } = useMaestroStore(
+        useShallow(s => ({
+            teamMembersMap: s.teamMembers,
+            fetchTeamMembers: s.fetchTeamMembers,
+            archiveTeamMember: s.archiveTeamMember,
+            unarchiveTeamMember: s.unarchiveTeamMember,
+            deleteTeamMember: s.deleteTeamMember,
+            wsConnected: s.wsConnected,
+            teamMembersLoading: !!s.loading[`teamMembers:${projectId}`],
+        }))
+    );
 
     useEffect(() => {
         if (projectId) {
@@ -18,7 +23,7 @@ export function useTeamMemberActions(projectId: string, project: MaestroProject,
     }, [projectId, fetchTeamMembers, wsConnected]);
 
     const teamMembers = useMemo(() => {
-        return Array.from(teamMembersMap.values()).filter(tm => tm.projectId === projectId);
+        return Object.values(teamMembersMap).filter(tm => tm.projectId === projectId || tm.scope === 'global');
     }, [teamMembersMap, projectId]);
 
     const handleArchive = useCallback(async (memberId: string) => {

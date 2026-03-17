@@ -5,6 +5,7 @@ import { SessionService } from '../application/services/SessionService';
 import { AppError } from '../domain/common/Errors';
 import { TaskFilter } from '../domain/repositories/ITaskRepository';
 import { handleRouteError } from './middleware/errorHandler';
+import { validateQuery, paginationQuerySchema, extractPagination, paginate } from './validation';
 
 /**
  * Authorization middleware for master-only endpoints.
@@ -68,17 +69,21 @@ export function createMasterRoutes(
   const authMiddleware = createMasterAuthMiddleware(sessionService);
 
   // GET /master/projects — List all projects
-  router.get('/master/projects', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/master/projects', authMiddleware, validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
     try {
       const projects = await projectService.listProjects();
-      res.json(projects);
+      if (req.query.limit || req.query.offset) {
+        res.json(paginate(projects, extractPagination(req.query)));
+      } else {
+        res.json(projects);
+      }
     } catch (err: unknown) {
       handleRouteError(err, res);
     }
   });
 
   // GET /master/tasks?projectId=<optional> — List tasks across all or specific project
-  router.get('/master/tasks', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/master/tasks', authMiddleware, validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
     try {
       const projectId = req.query.projectId as string | undefined;
       const filter: TaskFilter = {};
@@ -92,14 +97,18 @@ export function createMasterRoutes(
       }
 
       const tasks = await taskService.listTasks(filter);
-      res.json(tasks);
+      if (req.query.limit || req.query.offset) {
+        res.json(paginate(tasks, extractPagination(req.query)));
+      } else {
+        res.json(tasks);
+      }
     } catch (err: unknown) {
       handleRouteError(err, res);
     }
   });
 
   // GET /master/sessions?projectId=<optional> — List sessions across all or specific project
-  router.get('/master/sessions', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/master/sessions', authMiddleware, validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
     try {
       const projectId = req.query.projectId as string | undefined;
       let sessions;
@@ -110,7 +119,11 @@ export function createMasterRoutes(
         sessions = await sessionService.listSessions();
       }
 
-      res.json(sessions);
+      if (req.query.limit || req.query.offset) {
+        res.json(paginate(sessions, extractPagination(req.query)));
+      } else {
+        res.json(sessions);
+      }
     } catch (err: unknown) {
       handleRouteError(err, res);
     }

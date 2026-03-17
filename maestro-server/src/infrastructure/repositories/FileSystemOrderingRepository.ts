@@ -3,6 +3,8 @@ import * as path from 'path';
 import { Ordering } from '../../types';
 import { IOrderingRepository } from '../../domain/repositories/IOrderingRepository';
 import { ILogger } from '../../domain/common/ILogger';
+import { atomicWriteFile } from './utils/atomicWrite';
+import { loadFilesParallel } from './utils/parallelFileLoader';
 
 /**
  * File system based implementation of IOrderingRepository.
@@ -11,6 +13,7 @@ import { ILogger } from '../../domain/common/ILogger';
 export class FileSystemOrderingRepository implements IOrderingRepository {
   private orderingDir: string;
   private cache: Map<string, Ordering>;
+  private createdDirs: Set<string> = new Set();
 
   constructor(
     private dataDir: string,
@@ -18,6 +21,12 @@ export class FileSystemOrderingRepository implements IOrderingRepository {
   ) {
     this.orderingDir = path.join(dataDir, 'ordering');
     this.cache = new Map();
+  }
+
+  private async ensureDir(dirPath: string): Promise<void> {
+    if (this.createdDirs.has(dirPath)) return;
+    await fs.mkdir(dirPath, { recursive: true });
+    this.createdDirs.add(dirPath);
   }
 
   private readonly KNOWN_ENTITY_TYPES = ['task', 'session', 'task-list'];
@@ -32,26 +41,41 @@ export class FileSystemOrderingRepository implements IOrderingRepository {
 
   async initialize(): Promise<void> {
     for (const entityType of this.KNOWN_ENTITY_TYPES) {
-      await fs.mkdir(path.join(this.orderingDir, entityType), { recursive: true });
+      const dir = path.join(this.orderingDir, entityType);
+      await this.ensureDir(dir);
     }
 
-    // Load all existing orderings into cache
+    // Collect all file paths across entity types
+    const fileEntries: { filePath: string; entityType: string }[] = [];
     for (const entityType of this.KNOWN_ENTITY_TYPES) {
       const dir = path.join(this.orderingDir, entityType);
       try {
         const files = await fs.readdir(dir);
         for (const file of files.filter(f => f.endsWith('.json'))) {
-          try {
-            const content = await fs.readFile(path.join(dir, file), 'utf-8');
-            const ordering: Ordering = JSON.parse(content);
-            this.cache.set(this.cacheKey(ordering.projectId, entityType), ordering);
-          } catch (err) {
-            this.logger.warn(`Failed to load ordering file ${file}:`, err as any);
-          }
+          fileEntries.push({ filePath: path.join(dir, file), entityType });
         }
       } catch {
         // Directory may not exist yet
       }
+    }
+
+    // Load all in parallel
+    const { successes, failures } = await loadFilesParallel(
+      fileEntries.map(e => e.filePath),
+      async (filePath) => {
+        const content = await fs.readFile(filePath, 'utf-8');
+        return JSON.parse(content) as Ordering;
+      },
+      { concurrency: 50 }
+    );
+
+    for (const failure of failures) {
+      this.logger.warn(`Failed to load ordering file ${failure.path}:`, failure.error);
+    }
+
+    for (let i = 0; i < successes.length; i++) {
+      const ordering = successes[i];
+      this.cache.set(this.cacheKey(ordering.projectId, ordering.entityType), ordering);
     }
 
     this.logger.info(`Loaded ${this.cache.size} orderings`);
@@ -70,8 +94,8 @@ export class FileSystemOrderingRepository implements IOrderingRepository {
     };
 
     const fp = this.filePath(projectId, entityType);
-    await fs.mkdir(path.dirname(fp), { recursive: true });
-    await fs.writeFile(fp, JSON.stringify(ordering, null, 2), 'utf-8');
+    await this.ensureDir(path.dirname(fp));
+    await atomicWriteFile(fp, JSON.stringify(ordering));
 
     this.cache.set(this.cacheKey(projectId, entityType), ordering);
     return ordering;

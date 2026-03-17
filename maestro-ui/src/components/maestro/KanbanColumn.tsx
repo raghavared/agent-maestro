@@ -12,8 +12,8 @@ type KanbanColumnProps = {
     isDragOver: boolean;
     registerColumn: (status: string, el: HTMLElement | null) => void;
     onCardPointerDown: (e: React.PointerEvent, taskId: string) => void;
-    onSelectTask: (task: MaestroTask) => void;
-    onWorkOnTask: (task: MaestroTask) => void;
+    onSelectTask: (task: MaestroTask) => void;  // stable ref — TaskCard calls with task
+    onWorkOnTask: (task: MaestroTask) => void;  // stable ref — TaskCard calls with task
     projectBadge?: (task: MaestroTask) => { name: string; color: string } | undefined;
     className?: string;
     collapsedClassName?: string;
@@ -92,8 +92,8 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                             task={task}
                             isDragging={dragState?.taskId === task.id}
                             onPointerDown={onCardPointerDown}
-                            onClick={() => onSelectTask(task)}
-                            onWorkOn={() => onWorkOnTask(task)}
+                            onClick={onSelectTask}
+                            onWorkOn={onWorkOnTask}
                             projectBadge={projectBadge?.(task)}
                         />
                     ))

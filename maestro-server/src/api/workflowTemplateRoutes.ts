@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import type { AgentMode } from '../types';
+import { cacheControl } from './middleware/cacheControl';
 
 /**
  * Workflow phase definition.
@@ -106,7 +107,7 @@ export function createWorkflowTemplateRoutes(): Router {
   const router = Router();
 
   // GET /api/workflow-templates - list all templates
-  router.get('/', (req: Request, res: Response) => {
+  router.get('/', cacheControl(86400, { public: true, immutable: true }), (req: Request, res: Response) => {
     const { mode } = req.query;
 
     let templates = TEMPLATES;
@@ -120,7 +121,7 @@ export function createWorkflowTemplateRoutes(): Router {
   });
 
   // GET /api/workflow-templates/:id - get specific template
-  router.get('/:id', (req: Request, res: Response) => {
+  router.get('/:id', cacheControl(86400, { public: true, immutable: true }), (req: Request, res: Response) => {
     const id = String(req.params.id);
     const template = TEMPLATE_MAP.get(id);
     if (!template) {

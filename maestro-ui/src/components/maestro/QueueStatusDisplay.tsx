@@ -24,7 +24,7 @@ export interface QueueState {
 
 interface QueueStatusDisplayProps {
   queueState: QueueState;
-  tasks: Map<string, MaestroTask>;
+  tasks: Record<string, MaestroTask>;
   onJumpToTask?: (taskId: string) => void;
   compact?: boolean;
 }
@@ -106,7 +106,7 @@ export function QueueStatusDisplay({
           {/* Queue Items */}
           <div className="queueStatusItems">
             {items.map((item, index) => {
-              const task = tasks.get(item.taskId);
+              const task = tasks[item.taskId];
               const isCurrent = index === currentIndex;
 
               return (

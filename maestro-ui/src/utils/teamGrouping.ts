@@ -33,8 +33,8 @@ interface LocalSession {
  */
 export function buildTeamGroups(
   localSessions: LocalSession[],
-  maestroSessions: Map<string, MaestroSession>,
-  teamsMap?: Map<string, Team>
+  maestroSessions: Record<string, MaestroSession>,
+  teamsMap?: Record<string, Team>
 ): { groups: TeamGroup[]; sessionColorMap: Map<string, SessionTeamInfo> } {
   // Build a lookup: maestroSessionId -> localSessionId
   const maestroToLocal = new Map<string, string>();
@@ -47,7 +47,7 @@ export function buildTeamGroups(
   // Strategy 1: Group by explicit teamSessionId
   const teamSessionGroups = new Map<string, { coordinatorMsId: string; workerMsIds: string[] }>();
 
-  for (const [msId, ms] of maestroSessions) {
+  for (const [msId, ms] of Object.entries(maestroSessions)) {
     if (ms.teamSessionId) {
       const tsId = ms.teamSessionId;
       if (!teamSessionGroups.has(tsId)) {
@@ -70,7 +70,7 @@ export function buildTeamGroups(
   }
 
   const fallbackCoordinators: string[] = [];
-  for (const [msId, ms] of maestroSessions) {
+  for (const [msId, ms] of Object.entries(maestroSessions)) {
     if (assignedByTeamSessionId.has(msId)) continue;
     if (ms.mode === 'coordinator' || ms.mode === 'coordinated-coordinator' || (ms.mode as string) === 'coordinate') {
       fallbackCoordinators.push(msId);
@@ -81,7 +81,7 @@ export function buildTeamGroups(
   for (const coordMsId of fallbackCoordinators) {
     if (teamSessionGroups.has(coordMsId)) continue;
     const workerMsIds: string[] = [];
-    for (const [msId, ms] of maestroSessions) {
+    for (const [msId, ms] of Object.entries(maestroSessions)) {
       if (assignedByTeamSessionId.has(msId)) continue;
       if (msId === coordMsId) continue;
       const parentId = ms.spawnedBy ?? (ms as any).parentSessionId;
@@ -104,7 +104,7 @@ export function buildTeamGroups(
     const raw = teamSessionGroups.get(tsId)!;
     const color = TEAM_COLORS[i % TEAM_COLORS.length];
     const coordLocalId = maestroToLocal.get(raw.coordinatorMsId) ?? null;
-    const coordMaestroSession = maestroSessions.get(raw.coordinatorMsId);
+    const coordMaestroSession = maestroSessions[raw.coordinatorMsId];
 
     const workerLocalIds: string[] = [];
     for (const wMsId of raw.workerMsIds) {
@@ -116,11 +116,11 @@ export function buildTeamGroups(
     let status: 'active' | 'idle' | 'done' = 'idle';
     const allMsIds = [raw.coordinatorMsId, ...raw.workerMsIds];
     const hasActive = allMsIds.some(id => {
-      const s = maestroSessions.get(id);
+      const s = maestroSessions[id];
       return s && (s.status === 'working' || s.status === 'spawning');
     });
     const allDone = allMsIds.every(id => {
-      const s = maestroSessions.get(id);
+      const s = maestroSessions[id];
       return s && (s.status === 'completed' || s.status === 'failed' || s.status === 'stopped');
     });
     if (hasActive) status = 'active';
@@ -132,7 +132,7 @@ export function buildTeamGroups(
     let matchedTeamAvatar: string | undefined;
 
     if (teamsMap && coordMaestroSession?.teamMemberId) {
-      for (const [, team] of teamsMap) {
+      for (const team of Object.values(teamsMap)) {
         if (team.leaderId === coordMaestroSession.teamMemberId && team.status === 'active') {
           matchedTeamId = team.id;
           matchedTeamName = team.name;
@@ -146,7 +146,7 @@ export function buildTeamGroups(
     if (!matchedTeamId && coordMaestroSession?.teamId) {
       matchedTeamId = coordMaestroSession.teamId;
       if (teamsMap) {
-        const t = teamsMap.get(matchedTeamId!);
+        const t = teamsMap[matchedTeamId!];
         if (t) {
           matchedTeamName = t.name;
           matchedTeamAvatar = t.avatar;

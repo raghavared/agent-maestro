@@ -51,9 +51,9 @@ export function TeamListItem({
     const unarchiveTeam = useMaestroStore(s => s.unarchiveTeam);
     const deleteTeam = useMaestroStore(s => s.deleteTeam);
 
-    const leader = teamMembersMap.get(team.leaderId);
+    const leader = teamMembersMap[team.leaderId];
     const members = useMemo(() =>
-        team.memberIds.map(id => teamMembersMap.get(id)).filter(Boolean),
+        team.memberIds.map(id => teamMembersMap[id]).filter(Boolean),
         [team.memberIds, teamMembersMap]
     );
     const subTeams = useMemo(() =>

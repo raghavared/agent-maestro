@@ -5,6 +5,7 @@ import { usePromptStore } from "./stores/usePromptStore";
 import { useRecordingStore } from "./stores/useRecordingStore";
 import { useSessionStore } from "./stores/useSessionStore";
 import { useProjectStore } from "./stores/useProjectStore";
+import { useProjectDialogStore } from "./stores/useProjectDialogStore";
 import { useSshStore } from "./stores/useSshStore";
 import { useSecureStorageStore } from "./stores/useSecureStorageStore";
 import { useAgentShortcutStore } from "./stores/useAgentShortcutStore";
@@ -111,7 +112,7 @@ export function CommandPalette() {
 
   // --- Project store ---
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
-  const setProjectOpen = useProjectStore((s) => s.setProjectOpen);
+  const setProjectOpen = useProjectDialogStore((s) => s.setProjectOpen);
 
   // --- SSH store ---
   const setSshManagerOpen = useSshStore((s) => s.setSshManagerOpen);

@@ -95,6 +95,7 @@ export class SkillLoader {
   private projectPath?: string;
   private includeGlobal: boolean;
   private directories: SkillDirectory[];
+  private _cachedSkills?: SkillInfo[];
 
   /**
    * Create a new SkillLoader
@@ -135,6 +136,8 @@ export class SkillLoader {
    * Returns empty array if no skills directories exist.
    */
   async discover(): Promise<SkillInfo[]> {
+    if (this._cachedSkills) return this._cachedSkills;
+
     const skillMap = new Map<string, SkillInfo>();
 
     for (const dir of this.directories) {
@@ -149,10 +152,20 @@ export class SkillLoader {
     }
 
     // Sort: project first, then global; alphabetical within each group
-    return Array.from(skillMap.values()).sort((a, b) => {
+    const result = Array.from(skillMap.values()).sort((a, b) => {
       if (a.scope !== b.scope) return a.scope === 'project' ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
+    this._cachedSkills = result;
+    return result;
+  }
+
+  /**
+   * Invalidate the cached skill discovery results.
+   * Call this if skills may have been added/removed since last discover().
+   */
+  invalidateCache(): void {
+    this._cachedSkills = undefined;
   }
 
   /**

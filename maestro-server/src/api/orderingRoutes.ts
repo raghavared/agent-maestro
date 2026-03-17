@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { OrderingService } from '../application/services/OrderingService';
+import { cacheControl } from './middleware/cacheControl';
 
 /**
  * Create ordering routes.
@@ -10,7 +11,7 @@ export function createOrderingRoutes(orderingService: OrderingService) {
   const router = express.Router();
 
   // Get ordering for a project and entity type
-  router.get('/ordering/:entityType/:projectId', async (req: Request, res: Response) => {
+  router.get('/ordering/:entityType/:projectId', cacheControl(5), async (req: Request, res: Response) => {
     try {
       const entityType = req.params.entityType as string;
       const projectId = req.params.projectId as string;

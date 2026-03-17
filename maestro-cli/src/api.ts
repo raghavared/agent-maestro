@@ -20,17 +20,30 @@ export class APIClient {
 
     const maxRetries = config.retries || 3;
     const retryDelay = config.retryDelay || 1000;
+    const REQUEST_TIMEOUT_MS = 30_000;
+    const MAX_TOTAL_MS = 120_000;
+    const totalStart = Date.now();
     let lastError: Error | undefined;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      // Check total retry timeout
+      if (Date.now() - totalStart > MAX_TOTAL_MS) {
+        throw new Error(`Request to ${endpoint} exceeded total timeout of ${MAX_TOTAL_MS}ms`);
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
       try {
         const response = await fetch(url, {
           ...options,
+          signal: controller.signal as any,
           headers: {
             'Content-Type': 'application/json',
             ...options?.headers,
           },
         });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           // Read response body as text first (to avoid consuming body multiple times)
@@ -74,8 +87,20 @@ export class APIClient {
 
         return await response.json() as T;
       } catch (error: unknown) {
-        const err = error as Error & { code?: string; response?: unknown };
+        clearTimeout(timeoutId);
+        const err = error as Error & { code?: string; name?: string; response?: unknown };
         lastError = err;
+
+        // Handle abort (timeout)
+        if (err.name === 'AbortError') {
+          lastError = new Error(`Request to ${endpoint} timed out after ${REQUEST_TIMEOUT_MS}ms`);
+          if (attempt < maxRetries) {
+            const delay = retryDelay * Math.pow(2, attempt);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          throw lastError;
+        }
 
         // Retry on network errors
         if (attempt < maxRetries && (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'ENOTFOUND' || !err.response)) {

@@ -13,6 +13,7 @@ import { maestroClient } from "../../utils/MaestroClient";
 import { useTaskSearch } from "../../hooks/useTaskSearch";
 import { useTasks } from "../../hooks/useTasks";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { useShallow } from "zustand/react/shallow";
 import { useSessionStore } from "../../stores/useSessionStore";
 import { useTaskTree } from "../../hooks/useTaskTree";
 import { useUIStore } from "../../stores/useUIStore";
@@ -29,6 +30,143 @@ import { useTeamActions } from "../../hooks/useTeamActions";
 // Extracted panels
 import { TeamMembersPanel } from "./panels/TeamMembersPanel";
 import { TeamsPanel } from "./panels/TeamsPanel";
+
+// Phase 6: Module-scope noop callback
+const NOOP = () => {};
+
+// Phase 6: Extracted memoized TaskNodeRenderer
+interface TaskNodeRendererProps {
+    node: TaskTreeNode;
+    depth: number;
+    showPermanentDelete?: boolean;
+    collapsedTasks: Set<string>;
+    slidingOutTasks: Set<string>;
+    addingSubtaskTo: string | null;
+    executionMode: boolean;
+    selectedForExecution: Set<string>;
+    currentSessionTaskIds: Set<string>;
+    projectId: string;
+    onSelectTask: (taskId: string) => void;
+    onWorkOnTask: (task: MaestroTask, override?: { agentTool: AgentTool; model: ModelType }) => void;
+    onAssignTeamMember: (taskId: string, tmId: string) => void;
+    onJumpToSession?: (sid: string) => void;
+    onNavigateToTask: (taskId: string) => void;
+    onToggleAddSubtask: (taskId: string, hasChildren: boolean) => void;
+    onTogglePin: (taskId: string) => void;
+    onToggleSelect: (taskId: string) => void;
+    onInlineAddSubtask: (parentId: string, title: string) => Promise<void>;
+}
+
+const TaskNodeRenderer = React.memo(function TaskNodeRenderer({
+    node, depth, showPermanentDelete,
+    collapsedTasks, slidingOutTasks, addingSubtaskTo,
+    executionMode, selectedForExecution, currentSessionTaskIds, projectId,
+    onSelectTask, onWorkOnTask, onAssignTeamMember, onJumpToSession,
+    onNavigateToTask, onToggleAddSubtask, onTogglePin, onToggleSelect, onInlineAddSubtask,
+}: TaskNodeRendererProps) {
+    const hasChildren = node.children.length > 0;
+    const isCollapsed = collapsedTasks.has(node.id);
+    const isSlidingOut = slidingOutTasks.has(node.id);
+    const isAddingSubtask = addingSubtaskTo === node.id;
+
+    const taskItem = (
+        <div className={isSlidingOut ? 'terminalTaskSlideOut' : ''}>
+            <TaskListItem
+                task={node}
+                onSelect={() => onSelectTask(node.id)}
+                onWorkOn={() => onWorkOnTask(node)}
+                onWorkOnWithOverride={(agentTool: AgentTool, model: ModelType) => onWorkOnTask(node, { agentTool, model })}
+                onAssignTeamMember={(tmId: string) => onAssignTeamMember(node.id, tmId)}
+                onOpenCreateTeamMember={NOOP}
+                onJumpToSession={(sid) => onJumpToSession?.(sid)}
+                onNavigateToTask={onNavigateToTask}
+                depth={depth}
+                hasChildren={hasChildren}
+                isChildrenCollapsed={isCollapsed}
+                isAddingSubtask={isAddingSubtask}
+                onToggleChildrenCollapse={() => onToggleAddSubtask(node.id, hasChildren)}
+                onTogglePin={() => onTogglePin(node.id)}
+                selectionMode={executionMode}
+                isSelected={selectedForExecution.has(node.id)}
+                onToggleSelect={() => onToggleSelect(node.id)}
+                showPermanentDelete={showPermanentDelete}
+                isSessionTask={currentSessionTaskIds.has(node.id)}
+            />
+        </div>
+    );
+
+    const subtaskInput = (isAddingSubtask || (hasChildren && !isCollapsed)) ? (
+        <AddSubtaskInput parentTaskId={node.id} onAddSubtask={onInlineAddSubtask} depth={depth + 1} />
+    ) : null;
+
+    if (depth === 0 && (hasChildren || isAddingSubtask)) {
+        return (
+            <div key={node.id} className={`terminalTaskGroup ${isCollapsed && !isAddingSubtask ? 'terminalTaskGroup--collapsed' : 'terminalTaskGroup--expanded'} ${isSlidingOut ? 'terminalTaskSlideOut' : ''}`}>
+                {taskItem}
+                {(!isCollapsed || isAddingSubtask) && (
+                    <div className="terminalTaskGroupChildren">
+                        {!isCollapsed && node.children.map(child => (
+                            <TaskNodeRenderer
+                                key={child.id}
+                                node={child}
+                                depth={depth + 1}
+                                showPermanentDelete={showPermanentDelete}
+                                collapsedTasks={collapsedTasks}
+                                slidingOutTasks={slidingOutTasks}
+                                addingSubtaskTo={addingSubtaskTo}
+                                executionMode={executionMode}
+                                selectedForExecution={selectedForExecution}
+                                currentSessionTaskIds={currentSessionTaskIds}
+                                projectId={projectId}
+                                onSelectTask={onSelectTask}
+                                onWorkOnTask={onWorkOnTask}
+                                onAssignTeamMember={onAssignTeamMember}
+                                onJumpToSession={onJumpToSession}
+                                onNavigateToTask={onNavigateToTask}
+                                onToggleAddSubtask={onToggleAddSubtask}
+                                onTogglePin={onTogglePin}
+                                onToggleSelect={onToggleSelect}
+                                onInlineAddSubtask={onInlineAddSubtask}
+                            />
+                        ))}
+                        {subtaskInput}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <React.Fragment key={node.id}>
+            {taskItem}
+            {!isCollapsed && node.children.map(child => (
+                <TaskNodeRenderer
+                    key={child.id}
+                    node={child}
+                    depth={depth + 1}
+                    showPermanentDelete={showPermanentDelete}
+                    collapsedTasks={collapsedTasks}
+                    slidingOutTasks={slidingOutTasks}
+                    addingSubtaskTo={addingSubtaskTo}
+                    executionMode={executionMode}
+                    selectedForExecution={selectedForExecution}
+                    currentSessionTaskIds={currentSessionTaskIds}
+                    projectId={projectId}
+                    onSelectTask={onSelectTask}
+                    onWorkOnTask={onWorkOnTask}
+                    onAssignTeamMember={onAssignTeamMember}
+                    onJumpToSession={onJumpToSession}
+                    onNavigateToTask={onNavigateToTask}
+                    onToggleAddSubtask={onToggleAddSubtask}
+                    onTogglePin={onTogglePin}
+                    onToggleSelect={onToggleSelect}
+                    onInlineAddSubtask={onInlineAddSubtask}
+                />
+            ))}
+            {subtaskInput}
+        </React.Fragment>
+    );
+});
 
 type MaestroPanelProps = {
     isOpen: boolean;
@@ -57,26 +195,40 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     // ==================== CORE DATA ====================
 
     const { tasks, loading, error: fetchError } = useTasks(projectId);
-    const createTask = useMaestroStore(s => s.createTask);
-    const updateTask = useMaestroStore(s => s.updateTask);
-    const deleteTask = useMaestroStore(s => s.deleteTask);
-    const removeTaskFromSession = useMaestroStore(s => s.removeTaskFromSession);
-    const taskOrdering = useMaestroStore(s => s.taskOrdering);
-    const fetchTaskOrdering = useMaestroStore(s => s.fetchTaskOrdering);
-    const saveTaskOrdering = useMaestroStore(s => s.saveTaskOrdering);
-    const createTeam = useMaestroStore(s => s.createTeam);
+    const {
+        createTask,
+        updateTask,
+        deleteTask,
+        removeTaskFromSession,
+        taskOrdering,
+        fetchTaskOrdering,
+        saveTaskOrdering,
+        createTeam,
+        sessions: maestroSessions,
+    } = useMaestroStore(
+        useShallow(s => ({
+            createTask: s.createTask,
+            updateTask: s.updateTask,
+            deleteTask: s.deleteTask,
+            removeTaskFromSession: s.removeTaskFromSession,
+            taskOrdering: s.taskOrdering,
+            fetchTaskOrdering: s.fetchTaskOrdering,
+            saveTaskOrdering: s.saveTaskOrdering,
+            createTeam: s.createTeam,
+            sessions: s.sessions,
+        }))
+    );
 
     const { taskLists: taskListArray } = useTaskLists(projectId);
 
     // Session task highlighting
     const activeTerminalId = useSessionStore(s => s.activeId);
     const terminalSessions = useSessionStore(s => s.sessions);
-    const maestroSessions = useMaestroStore(s => s.sessions);
 
     const currentSessionTaskIds = useMemo(() => {
         const terminal = terminalSessions.find(s => s.id === activeTerminalId);
         if (!terminal?.maestroSessionId) return new Set<string>();
-        const maestroSession = maestroSessions.get(terminal.maestroSessionId);
+        const maestroSession = maestroSessions[terminal.maestroSessionId];
         return new Set(maestroSession?.taskIds || []);
     }, [activeTerminalId, terminalSessions, maestroSessions]);
 
@@ -227,22 +379,42 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }
     }, [regularTasks]);
 
-    // Move useCallback before early returns to satisfy Rules of Hooks
+    // ==================== TASK HANDLERS (useCallback for stable refs) ====================
+
     const handleTaskReorder = useCallback((orderedIds: string[]) => {
         saveTaskOrdering(projectId, orderedIds);
     }, [projectId, saveTaskOrdering]);
 
-    // ==================== EARLY RETURNS ====================
+    const handleUpdateTask = useCallback(async (taskId: string, updates: Partial<MaestroTask>) => {
+        try { await updateTask(taskId, updates); } catch { setError("Failed to update task"); }
+    }, [updateTask]);
 
-    if (componentError) {
-        return <PanelErrorState error={componentError} onRetry={() => setComponentError(null)} onClose={onClose} />;
-    }
-    if (!isOpen) return null;
-    if (!projectId) return <NoProjectState onClose={onClose} />;
+    const handleDeleteTask = useCallback(async (taskId: string) => {
+        try { await deleteTask(taskId); } catch { setError("Failed to delete task"); }
+    }, [deleteTask]);
 
-    // ==================== TASK HANDLERS ====================
+    const handleWorkOnTask = useCallback(async (task: MaestroTask, override?: { agentTool: AgentTool; model: ModelType }) => {
+        const effectiveIds = task.teamMemberIds && task.teamMemberIds.length > 0
+            ? task.teamMemberIds
+            : task.teamMemberId ? [task.teamMemberId] : [];
+        const teamMemberId = effectiveIds.length === 1 ? effectiveIds[0] : undefined;
+        const teamMemberIds = effectiveIds.length > 1 ? effectiveIds : undefined;
+        const member = teamMemberId ? teamMembersMap[teamMemberId] : null;
+        const mode = member?.mode || 'worker';
 
-    const handleCreateTask = async (taskData: any) => {
+        try {
+            await onCreateMaestroSession({
+                task, project, mode, teamMemberId, teamMemberIds,
+                ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
+                ...(task.memberOverrides ? { memberOverrides: task.memberOverrides } : {}),
+                ...(task.dangerousMode ? { permissionMode: 'bypassPermissions' as const } : {}),
+            });
+        } catch (err: any) {
+            setError(`Failed to open terminal: ${err.message}`);
+        }
+    }, [teamMembersMap, onCreateMaestroSession, project]);
+
+    const handleCreateTask = useCallback(async (taskData: any) => {
         try {
             const newTask = await createTask({
                 projectId,
@@ -256,7 +428,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 teamMemberIds: taskData.teamMemberIds,
                 memberOverrides: taskData.memberOverrides,
             });
-            // Upload any staged image files attached during task creation
             if (taskData._stagedFiles?.length > 0) {
                 for (const file of taskData._stagedFiles) {
                     try {
@@ -267,7 +438,6 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 }
             }
             if (taskData.startImmediately) {
-                // Attach memberOverrides from the form data since the server may not return them on the task object
                 if (taskData.memberOverrides && !newTask.memberOverrides) {
                     newTask.memberOverrides = taskData.memberOverrides;
                 }
@@ -276,47 +446,18 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         } catch (err: any) {
             setError("Failed to create task");
         }
-    };
+    }, [createTask, projectId, handleWorkOnTask]);
 
-    const handleUpdateTask = async (taskId: string, updates: Partial<MaestroTask>) => {
-        try { await updateTask(taskId, updates); } catch { setError("Failed to update task"); }
-    };
-
-    const handleDeleteTask = async (taskId: string) => {
-        try { await deleteTask(taskId); } catch { setError("Failed to delete task"); }
-    };
-
-    const handleWorkOnTask = async (task: MaestroTask, override?: { agentTool: AgentTool; model: ModelType }) => {
-        const effectiveIds = task.teamMemberIds && task.teamMemberIds.length > 0
-            ? task.teamMemberIds
-            : task.teamMemberId ? [task.teamMemberId] : [];
-        const teamMemberId = effectiveIds.length === 1 ? effectiveIds[0] : undefined;
-        const teamMemberIds = effectiveIds.length > 1 ? effectiveIds : undefined;
-        const member = teamMemberId ? teamMembersMap.get(teamMemberId) : null;
-        const mode = member?.mode || 'worker';
-
-        try {
-            await onCreateMaestroSession({
-                task, project, mode, teamMemberId, teamMemberIds,
-                ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
-                ...(task.memberOverrides ? { memberOverrides: task.memberOverrides } : {}),
-                ...(task.dangerousMode ? { permissionMode: 'bypassPermissions' as const } : {}),
-            });
-        } catch (err: any) {
-            setError(`Failed to open terminal: ${err.message}`);
-        }
-    };
-
-    const handleAssignTeamMember = async (taskId: string, teamMemberId: string) => {
+    const handleAssignTeamMember = useCallback(async (taskId: string, teamMemberId: string) => {
         try { await updateTask(taskId, { teamMemberId, teamMemberIds: [teamMemberId] }); } catch { setError("Failed to assign team member"); }
-    };
+    }, [updateTask]);
 
-    const handleAddSubtask = (parentId: string) => {
+    const handleAddSubtask = useCallback((parentId: string) => {
         setSubtaskParentId(parentId);
         setShowCreateModal(true);
-    };
+    }, []);
 
-    const handleInlineAddSubtask = async (parentId: string, title: string) => {
+    const handleInlineAddSubtask = useCallback(async (parentId: string, title: string) => {
         try {
             await createTask({ projectId, parentId, title, description: "", priority: "medium" });
             setCollapsedTasks(prev => { const next = new Set(prev); next.delete(parentId); return next; });
@@ -324,139 +465,125 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             setError("Failed to create subtask");
             throw err;
         }
-    };
+    }, [createTask, projectId]);
 
-    const handleToggleCollapse = (taskId: string) => {
+    const handleToggleCollapse = useCallback((taskId: string) => {
         setCollapsedTasks(prev => {
             const next = new Set(prev);
             if (next.has(taskId)) next.delete(taskId);
             else next.add(taskId);
             return next;
         });
-    };
+    }, []);
 
-    const handleToggleAddSubtask = (taskId: string, hasChildren: boolean) => {
+    const handleToggleAddSubtask = useCallback((taskId: string, hasChildren: boolean) => {
         if (hasChildren) handleToggleCollapse(taskId);
         else setAddingSubtaskTo(prev => prev === taskId ? null : taskId);
-    };
+    }, [handleToggleCollapse]);
 
-    const handleToggleSubtask = async (_taskId: string, subtaskId: string) => {
+    const handleToggleSubtask = useCallback(async (_taskId: string, subtaskId: string) => {
         try {
             const subtask = normalizedTasks.find(t => t.id === subtaskId);
             if (!subtask) return;
             await updateTask(subtaskId, { status: subtask.status === 'completed' ? 'todo' : 'completed' });
         } catch { setError("Failed to toggle subtask"); }
-    };
+    }, [normalizedTasks, updateTask]);
 
-    const handleDeleteSubtask = async (_taskId: string, subtaskId: string) => {
+    const handleDeleteSubtask = useCallback(async (_taskId: string, subtaskId: string) => {
         try { await deleteTask(subtaskId); } catch { setError("Failed to delete subtask"); }
-    };
+    }, [deleteTask]);
 
-    const handleTogglePin = async (taskId: string) => {
+    const handleTogglePin = useCallback(async (taskId: string) => {
         try {
             const task = normalizedTasks.find(t => t.id === taskId);
             if (task) await updateTask(taskId, { pinned: !task.pinned });
         } catch { setError("Failed to toggle pin"); }
-    };
+    }, [normalizedTasks, updateTask]);
 
-    // ==================== DERIVED DATA ====================
+    // ==================== DERIVED DATA (useMemo) ====================
 
-    const customOrder = taskOrdering.get(projectId) || [];
+    const customOrder = useMemo(() => taskOrdering[projectId] || [], [taskOrdering, projectId]);
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    const activeRoots = filterBySearch(roots
-        .filter(n => n.status !== 'completed' && n.status !== 'archived')
-        .filter(n => statusFilter.length === 0 || statusFilter.includes(n.status))
-        .filter(n => priorityFilter.length === 0 || priorityFilter.includes(n.priority))
-        .filter(n => !overdueFilter || (n.dueDate && n.status !== 'completed' && n.status !== 'cancelled' && n.dueDate < todayStr))
-        .sort((a, b) => {
-            if (sortBy === "custom") {
-                const aIdx = customOrder.indexOf(a.id);
-                const bIdx = customOrder.indexOf(b.id);
-                if (aIdx === -1 && bIdx === -1) return b.updatedAt - a.updatedAt;
-                if (aIdx === -1) return 1;
-                if (bIdx === -1) return -1;
-                return aIdx - bIdx;
-            }
-            if (sortBy === "priority") {
-                const priorityOrder = { high: 0, medium: 1, low: 2 };
-                return priorityOrder[a.priority] - priorityOrder[b.priority];
-            }
-            if (sortBy === "dueDate") {
-                if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-                if (a.dueDate) return -1;
-                if (b.dueDate) return 1;
-                return b.updatedAt - a.updatedAt;
-            }
-            return b[sortBy] - a[sortBy];
-        }));
+    const activeRoots = useMemo(() => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        return filterBySearch(roots
+            .filter(n => n.status !== 'completed' && n.status !== 'archived')
+            .filter(n => statusFilter.length === 0 || statusFilter.includes(n.status))
+            .filter(n => priorityFilter.length === 0 || priorityFilter.includes(n.priority))
+            .filter(n => !overdueFilter || (n.dueDate && n.status !== 'completed' && n.status !== 'cancelled' && n.dueDate < todayStr))
+            .sort((a, b) => {
+                if (sortBy === "custom") {
+                    const aIdx = customOrder.indexOf(a.id);
+                    const bIdx = customOrder.indexOf(b.id);
+                    if (aIdx === -1 && bIdx === -1) return b.updatedAt - a.updatedAt;
+                    if (aIdx === -1) return 1;
+                    if (bIdx === -1) return -1;
+                    return aIdx - bIdx;
+                }
+                if (sortBy === "priority") {
+                    const priorityOrder = { high: 0, medium: 1, low: 2 };
+                    return priorityOrder[a.priority] - priorityOrder[b.priority];
+                }
+                if (sortBy === "dueDate") {
+                    if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+                    if (a.dueDate) return -1;
+                    if (b.dueDate) return 1;
+                    return b.updatedAt - a.updatedAt;
+                }
+                return b[sortBy] - a[sortBy];
+            }));
+    }, [roots, statusFilter, priorityFilter, overdueFilter, sortBy, customOrder, filterBySearch]);
 
-    const completedRoots = filterBySearch(roots.filter(n => n.status === 'completed').sort((a, b) => (b.completedAt || b.updatedAt) - (a.completedAt || a.updatedAt)));
-    const pinnedRoots = filterBySearch(roots.filter(n => n.pinned).sort((a, b) => b.updatedAt - a.updatedAt));
-    const archivedRoots = filterBySearch(roots.filter(n => n.status === 'archived').sort((a, b) => b.updatedAt - a.updatedAt));
+    const completedRoots = useMemo(() => filterBySearch(roots.filter(n => n.status === 'completed').sort((a, b) => (b.completedAt || b.updatedAt) - (a.completedAt || a.updatedAt))), [roots, filterBySearch]);
+    const pinnedRoots = useMemo(() => filterBySearch(roots.filter(n => n.pinned).sort((a, b) => b.updatedAt - a.updatedAt)), [roots, filterBySearch]);
+    const archivedRoots = useMemo(() => filterBySearch(roots.filter(n => n.status === 'archived').sort((a, b) => b.updatedAt - a.updatedAt)), [roots, filterBySearch]);
 
-    const subtaskParentTitle = subtaskParentId ? normalizedTasks.find(t => t.id === subtaskParentId)?.title : undefined;
+    const subtaskParentTitle = useMemo(() => subtaskParentId ? normalizedTasks.find(t => t.id === subtaskParentId)?.title : undefined, [subtaskParentId, normalizedTasks]);
 
-    // ==================== RENDER TASK NODE ====================
+    // ==================== STABLE CALLBACKS FOR TaskNodeRenderer ====================
 
-    const renderTaskNode = (node: TaskTreeNode, depth: number = 0, options?: { showPermanentDelete?: boolean }): React.ReactNode => {
-        const hasChildren = node.children.length > 0;
-        const isCollapsed = collapsedTasks.has(node.id);
-        const isSlidingOut = slidingOutTasks.has(node.id);
-        const isAddingSubtask = addingSubtaskTo === node.id;
+    const handleSelectTask = useCallback((taskId: string) => {
+        useUIStore.getState().setTaskDetailOverlay({ taskId, projectId });
+    }, [projectId]);
 
-        const taskItem = (
-            <div className={isSlidingOut ? 'terminalTaskSlideOut' : ''}>
-                <TaskListItem
-                    task={node}
-                    onSelect={() => useUIStore.getState().setTaskDetailOverlay({ taskId: node.id, projectId })}
-                    onWorkOn={() => handleWorkOnTask(node)}
-                    onWorkOnWithOverride={(agentTool: AgentTool, model: ModelType) => handleWorkOnTask(node, { agentTool, model })}
-                    onAssignTeamMember={(tmId: string) => handleAssignTeamMember(node.id, tmId)}
-                    onOpenCreateTeamMember={() => {}}
-                    onJumpToSession={(sid) => onJumpToSession?.(sid)}
-                    onNavigateToTask={(taskId: string) => useUIStore.getState().setTaskDetailOverlay({ taskId, projectId })}
-                    depth={depth}
-                    hasChildren={hasChildren}
-                    isChildrenCollapsed={isCollapsed}
-                    isAddingSubtask={isAddingSubtask}
-                    onToggleChildrenCollapse={() => handleToggleAddSubtask(node.id, hasChildren)}
-                    onTogglePin={() => handleTogglePin(node.id)}
-                    selectionMode={execution.executionMode}
-                    isSelected={execution.selectedForExecution.has(node.id)}
-                    onToggleSelect={() => execution.handleToggleTaskSelection(node.id)}
-                    showPermanentDelete={options?.showPermanentDelete}
-                    isSessionTask={currentSessionTaskIds.has(node.id)}
-                />
-            </div>
-        );
+    const handleNavigateToTask = useCallback((taskId: string) => {
+        useUIStore.getState().setTaskDetailOverlay({ taskId, projectId });
+    }, [projectId]);
 
-        const subtaskInput = (isAddingSubtask || (hasChildren && !isCollapsed)) ? (
-            <AddSubtaskInput parentTaskId={node.id} onAddSubtask={handleInlineAddSubtask} depth={depth + 1} />
-        ) : null;
-
-        if (depth === 0 && (hasChildren || isAddingSubtask)) {
-            return (
-                <div key={node.id} className={`terminalTaskGroup ${isCollapsed && !isAddingSubtask ? 'terminalTaskGroup--collapsed' : 'terminalTaskGroup--expanded'} ${isSlidingOut ? 'terminalTaskSlideOut' : ''}`}>
-                    {taskItem}
-                    {(!isCollapsed || isAddingSubtask) && (
-                        <div className="terminalTaskGroupChildren">
-                            {!isCollapsed && node.children.map(child => renderTaskNode(child, depth + 1, options))}
-                            {subtaskInput}
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
+    const renderTaskNode = useCallback((node: TaskTreeNode, depth: number = 0, options?: { showPermanentDelete?: boolean }): React.ReactNode => {
         return (
-            <React.Fragment key={node.id}>
-                {taskItem}
-                {!isCollapsed && node.children.map(child => renderTaskNode(child, depth + 1, options))}
-                {subtaskInput}
-            </React.Fragment>
+            <TaskNodeRenderer
+                key={node.id}
+                node={node}
+                depth={depth}
+                showPermanentDelete={options?.showPermanentDelete}
+                collapsedTasks={collapsedTasks}
+                slidingOutTasks={slidingOutTasks}
+                addingSubtaskTo={addingSubtaskTo}
+                executionMode={execution.executionMode}
+                selectedForExecution={execution.selectedForExecution}
+                currentSessionTaskIds={currentSessionTaskIds}
+                projectId={projectId}
+                onSelectTask={handleSelectTask}
+                onWorkOnTask={handleWorkOnTask}
+                onAssignTeamMember={handleAssignTeamMember}
+                onJumpToSession={onJumpToSession}
+                onNavigateToTask={handleNavigateToTask}
+                onToggleAddSubtask={handleToggleAddSubtask}
+                onTogglePin={handleTogglePin}
+                onToggleSelect={execution.handleToggleTaskSelection}
+                onInlineAddSubtask={handleInlineAddSubtask}
+            />
         );
-    };
+    }, [collapsedTasks, slidingOutTasks, addingSubtaskTo, execution.executionMode, execution.selectedForExecution, execution.handleToggleTaskSelection, currentSessionTaskIds, projectId, handleSelectTask, handleWorkOnTask, handleAssignTeamMember, onJumpToSession, handleNavigateToTask, handleToggleAddSubtask, handleTogglePin, handleInlineAddSubtask]);
+
+    // ==================== EARLY RETURNS ====================
+
+    if (componentError) {
+        return <PanelErrorState error={componentError} onRetry={() => setComponentError(null)} onClose={onClose} />;
+    }
+    if (!isOpen) return null;
+    if (!projectId) return <NoProjectState onClose={onClose} />;
 
     // ==================== RENDER ====================
 

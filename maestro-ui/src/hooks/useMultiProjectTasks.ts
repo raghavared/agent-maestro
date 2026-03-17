@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useMaestroStore } from '../stores/useMaestroStore';
 import type { MaestroTask } from '../app/types/maestro';
 
@@ -31,10 +32,9 @@ export function useMultiProjectTasks(
     projectNames: Map<string, string>,
     projectColors: Map<string, string>,
 ) {
-    const tasks = useMaestroStore((s) => s.tasks);
-    const loading = useMaestroStore((s) => s.loading);
-    const errors = useMaestroStore((s) => s.errors);
-    const fetchTasks = useMaestroStore((s) => s.fetchTasks);
+    const { tasks, loading, errors, fetchTasks } = useMaestroStore(
+        useShallow(s => ({ tasks: s.tasks, loading: s.loading, errors: s.errors, fetchTasks: s.fetchTasks }))
+    );
 
     // Fetch tasks for each selected project
     useEffect(() => {
@@ -48,7 +48,7 @@ export function useMultiProjectTasks(
         const projectIdSet = new Set(projectIds);
         const result: BoardTask[] = [];
 
-        for (const task of tasks.values()) {
+        for (const task of Object.values(tasks)) {
             if (projectIdSet.has(task.projectId)) {
                 result.push({
                     ...task,
@@ -62,9 +62,9 @@ export function useMultiProjectTasks(
     }, [tasks, projectIds, projectNames, projectColors]);
 
     // Aggregate loading/error states
-    const isLoading = projectIds.some((id) => loading.has(`tasks:${id}`));
+    const isLoading = projectIds.some((id) => !!loading[`tasks:${id}`]);
     const errorMessages = projectIds
-        .map((id) => errors.get(`tasks:${id}`))
+        .map((id) => errors[`tasks:${id}`])
         .filter(Boolean);
 
     return {

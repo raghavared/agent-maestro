@@ -15,7 +15,7 @@ function makeMaestroSession(overrides: Partial<MaestroSession> = {}): MaestroSes
 
 describe("buildTeamGroups", () => {
   it("returns empty groups when no sessions", () => {
-    const { groups, sessionColorMap } = buildTeamGroups([], new Map());
+    const { groups, sessionColorMap } = buildTeamGroups([], {});
     expect(groups).toHaveLength(0);
     expect(sessionColorMap.size).toBe(0);
   });
@@ -25,7 +25,7 @@ describe("buildTeamGroups", () => {
       { id: "ls-1", maestroSessionId: "ms-coord" },
       { id: "ls-2", maestroSessionId: "ms-worker" },
     ];
-    const maestroSessions = new Map<string, MaestroSession>([
+    const maestroSessions = Object.fromEntries([
       ["ms-coord", makeMaestroSession({ id: "ms-coord", mode: "coordinator", teamSessionId: "ms-coord" })],
       ["ms-worker", makeMaestroSession({ id: "ms-worker", mode: "worker", teamSessionId: "ms-coord" })],
     ]);
@@ -43,7 +43,7 @@ describe("buildTeamGroups", () => {
       { id: "ls-1", maestroSessionId: "ms-coord" },
       { id: "ls-2", maestroSessionId: "ms-worker" },
     ];
-    const maestroSessions = new Map<string, MaestroSession>([
+    const maestroSessions = Object.fromEntries([
       ["ms-coord", makeMaestroSession({ id: "ms-coord", mode: "coordinator" })],
       ["ms-worker", makeMaestroSession({ id: "ms-worker", mode: "worker", spawnedBy: "ms-coord" })],
     ]);
@@ -55,7 +55,7 @@ describe("buildTeamGroups", () => {
 
   it("assigns colors to groups", () => {
     const localSessions = [{ id: "ls-1", maestroSessionId: "ms-coord" }];
-    const maestroSessions = new Map<string, MaestroSession>([
+    const maestroSessions = Object.fromEntries([
       ["ms-coord", makeMaestroSession({ id: "ms-coord", mode: "coordinator", teamSessionId: "ms-coord" })],
     ]);
 

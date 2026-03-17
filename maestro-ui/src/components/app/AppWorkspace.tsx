@@ -16,6 +16,7 @@ import {
 } from "../../stores/useWorkspaceStore";
 import { isSshCommandLine, sshTargetFromCommandLine } from "../../app/utils/ssh";
 import { SessionLogStrip } from "../session-log/SessionLogStrip";
+import { SpellButton } from "../maestro/SpellButton";
 import { isWhiteboardId, isDocumentId, isFileId } from "../../app/types/space";
 import type { WhiteboardSpace, DocumentSpace, FileSpace } from "../../app/types/space";
 const LazyExcalidrawBoard = React.lazy(() => import("../ExcalidrawBoard").then(m => ({ default: m.ExcalidrawBoard })));
@@ -64,7 +65,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
 
   const activeLogAgentTool = (() => {
     if (!active?.maestroSessionId) return active?.effectId ?? null;
-    const maestroSession = maestroSessions.get(active.maestroSessionId);
+    const maestroSession = maestroSessions[active.maestroSessionId];
     const snapshots = maestroSession?.teamMemberSnapshots?.length
       ? maestroSession.teamMemberSnapshots
       : maestroSession?.teamMemberSnapshot
@@ -240,6 +241,10 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
             maestroSessionId={active.maestroSessionId}
             agentTool={activeLogAgentTool}
           />
+        )}
+        {/* Spell button overlay */}
+        {active?.maestroSessionId && (
+          <SpellButton maestroSessionId={active.maestroSessionId} />
         )}
         {sessions.length === 0 && (
           <div className="terminalEmptyState">

@@ -75,6 +75,7 @@ export interface TeamMemberResponse {
     commands?: Record<string, boolean>;
   };
   memory?: string[];
+  scope?: 'project' | 'global';
   status: string;
   isDefault?: boolean;
   projectId?: string;
@@ -101,5 +102,42 @@ export interface LogDigestResponse {
   lastActivityTimestamp?: number;
   stuck?: { warning: string; silentDurationMs: number };
   entries?: { timestamp: number; source: string; text: string }[];
+}
+
+// ── Spell Types ──
+
+export type SpellEntityType = 'maestro' | 'skill' | 'team-member' | 'task' | 'doc' | 'session' | 'custom-prompt';
+
+export interface SpellEntityResponse {
+  entityId: string;
+  entityType: SpellEntityType;
+  name: string;
+  description?: string;
+  spells: SpellDefinitionResponse[];
+}
+
+export interface SpellDefinitionResponse {
+  name: string | null;
+  description?: string;
+  entityId: string;
+  entityType: SpellEntityType;
+  entityName?: string;
+}
+
+export interface SpellInvokeResponse {
+  status: 'sent' | 'failed';
+  entityId: string;
+  entityName?: string;
+  spellName: string | null;
+  targetSessionId: string;
+  error?: string;
+}
+
+export interface SpellCustomPromptResponse {
+  id: string;
+  name: string;
+  prompt: string;
+  description?: string;
+  createdAt: string;
 }
 

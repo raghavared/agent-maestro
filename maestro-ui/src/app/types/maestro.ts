@@ -27,6 +27,7 @@ export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 
 // Team Member types
 export type TeamMemberStatus = 'active' | 'archived';
+export type TeamMemberScope = 'project' | 'global';
 
 // Team types
 export type TeamStatus = 'active' | 'archived';
@@ -69,6 +70,7 @@ export interface UpdateTeamPayload {
 export interface TeamMember {
   id: string;
   projectId: string;
+  scope?: TeamMemberScope;
   name: string;
   role: string;
   identity: string;
@@ -133,6 +135,7 @@ export interface TeamMemberSnapshot {
 
 export interface CreateTeamMemberPayload {
   projectId: string;
+  scope?: TeamMemberScope;
   name: string;
   role: string;
   identity: string;
@@ -160,6 +163,7 @@ export interface UpdateTeamMemberPayload {
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   skillIds?: string[];
   status?: TeamMemberStatus;
+  scope?: TeamMemberScope;
   capabilities?: TeamMember['capabilities'];
   commandPermissions?: TeamMember['commandPermissions'];
   workflowTemplateId?: string;
@@ -566,4 +570,39 @@ export interface TaskListOrdering {
   projectId: string;
   orderedIds: string[];
   updatedAt: number;
+}
+
+// ─── Spell Types ───
+
+export type SpellEntityType = 'maestro' | 'skill' | 'team-member' | 'task' | 'doc' | 'session' | 'custom-prompt';
+
+export interface SpellDefinition {
+  name: string;
+  label: string;
+  description?: string;
+}
+
+export interface SpellEntity {
+  id: string;
+  type: SpellEntityType;
+  label: string;
+  icon?: string;
+  spells: SpellDefinition[];
+  metadata?: Record<string, any>;
+}
+
+export interface SpellInvocation {
+  entityType: SpellEntityType;
+  entityId: string;
+  spellName: string;
+  targetSessionId: string;
+  projectId: string;
+}
+
+export interface SpellInvokedEvent {
+  sessionId: string;
+  content: string;
+  entityType: SpellEntityType;
+  entityId: string;
+  spellName: string;
 }

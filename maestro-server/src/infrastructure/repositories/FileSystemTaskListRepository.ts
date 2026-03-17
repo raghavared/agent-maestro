@@ -5,6 +5,8 @@ import { ITaskListRepository, TaskListFilter } from '../../domain/repositories/I
 import { IIdGenerator } from '../../domain/common/IIdGenerator';
 import { ILogger } from '../../domain/common/ILogger';
 import { NotFoundError } from '../../domain/common/Errors';
+import { atomicWriteFile } from './utils/atomicWrite';
+import { loadFilesParallel } from './utils/parallelFileLoader';
 
 /**
  * File system based implementation of ITaskListRepository.
@@ -15,6 +17,13 @@ export class FileSystemTaskListRepository implements ITaskListRepository {
   private taskLists: Map<string, TaskList>;
   private initialized: boolean = false;
 
+  // Phase 2: Secondary indexes
+  private projectTaskListIndex: Map<string, Set<string>> = new Map();
+  private taskToTaskListIndex: Map<string, Set<string>> = new Map();
+
+  // Phase 3: ensureDir cache
+  private createdDirs: Set<string> = new Set();
+
   constructor(
     private dataDir: string,
     private idGenerator: IIdGenerator,
@@ -24,20 +33,79 @@ export class FileSystemTaskListRepository implements ITaskListRepository {
     this.taskLists = new Map();
   }
 
+  private async ensureDir(dirPath: string): Promise<void> {
+    if (this.createdDirs.has(dirPath)) return;
+    await fs.mkdir(dirPath, { recursive: true });
+    this.createdDirs.add(dirPath);
+  }
+
+  // --- Secondary index helpers ---
+
+  private indexTaskList(taskList: TaskList): void {
+    if (!this.projectTaskListIndex.has(taskList.projectId)) {
+      this.projectTaskListIndex.set(taskList.projectId, new Set());
+    }
+    this.projectTaskListIndex.get(taskList.projectId)!.add(taskList.id);
+
+    for (const taskId of taskList.orderedTaskIds) {
+      if (!this.taskToTaskListIndex.has(taskId)) {
+        this.taskToTaskListIndex.set(taskId, new Set());
+      }
+      this.taskToTaskListIndex.get(taskId)!.add(taskList.id);
+    }
+  }
+
+  private unindexTaskList(taskList: TaskList): void {
+    this.projectTaskListIndex.get(taskList.projectId)?.delete(taskList.id);
+    if (this.projectTaskListIndex.get(taskList.projectId)?.size === 0) {
+      this.projectTaskListIndex.delete(taskList.projectId);
+    }
+    for (const taskId of taskList.orderedTaskIds) {
+      this.taskToTaskListIndex.get(taskId)?.delete(taskList.id);
+      if (this.taskToTaskListIndex.get(taskId)?.size === 0) {
+        this.taskToTaskListIndex.delete(taskId);
+      }
+    }
+  }
+
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
     try {
-      await fs.mkdir(this.taskListsDir, { recursive: true });
+      await this.ensureDir(this.taskListsDir);
 
       const entries = await fs.readdir(this.taskListsDir, { withFileTypes: true });
+
+      // Collect all file paths
+      const filePaths: string[] = [];
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
         const projectDir = path.join(this.taskListsDir, entry.name);
+        this.createdDirs.add(projectDir);
         const listFiles = await fs.readdir(projectDir);
         for (const file of listFiles.filter(f => f.endsWith('.json'))) {
-          await this.loadTaskListFile(path.join(projectDir, file));
+          filePaths.push(path.join(projectDir, file));
         }
+      }
+
+      // Load in parallel
+      const { successes, failures } = await loadFilesParallel(
+        filePaths,
+        async (filePath) => {
+          const data = await fs.readFile(filePath, 'utf-8');
+          return JSON.parse(data) as TaskList;
+        },
+        { concurrency: 50 }
+      );
+
+      for (const failure of failures) {
+        this.logger.warn(`Failed to load task list file: ${failure.path}`, { error: failure.error.message });
+      }
+
+      for (const taskList of successes) {
+        if (!taskList.orderedTaskIds) taskList.orderedTaskIds = [];
+        this.taskLists.set(taskList.id, taskList);
+        this.indexTaskList(taskList);
       }
 
       this.logger.info(`Loaded ${this.taskLists.size} task lists`);
@@ -45,17 +113,6 @@ export class FileSystemTaskListRepository implements ITaskListRepository {
     } catch (err) {
       this.logger.error('Failed to initialize task list repository:', err as Error);
       throw err;
-    }
-  }
-
-  private async loadTaskListFile(filePath: string): Promise<void> {
-    try {
-      const data = await fs.readFile(filePath, 'utf-8');
-      const taskList = JSON.parse(data) as TaskList;
-      if (!taskList.orderedTaskIds) taskList.orderedTaskIds = [];
-      this.taskLists.set(taskList.id, taskList);
-    } catch (err) {
-      this.logger.warn(`Failed to load task list file: ${filePath}`, { error: (err as Error).message });
     }
   }
 
@@ -67,9 +124,9 @@ export class FileSystemTaskListRepository implements ITaskListRepository {
 
   private async saveTaskList(taskList: TaskList): Promise<void> {
     const projectDir = path.join(this.taskListsDir, taskList.projectId);
-    await fs.mkdir(projectDir, { recursive: true });
+    await this.ensureDir(projectDir);
     const filePath = path.join(projectDir, `${taskList.id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(taskList, null, 2));
+    await atomicWriteFile(filePath, JSON.stringify(taskList));
   }
 
   private async deleteTaskListFile(taskList: TaskList): Promise<void> {
@@ -95,6 +152,7 @@ export class FileSystemTaskListRepository implements ITaskListRepository {
     };
 
     this.taskLists.set(taskList.id, taskList);
+    this.indexTaskList(taskList);
     await this.saveTaskList(taskList);
 
     this.logger.debug(`Created task list: ${taskList.id}`);
@@ -108,16 +166,22 @@ export class FileSystemTaskListRepository implements ITaskListRepository {
 
   async findByProjectId(projectId: string): Promise<TaskList[]> {
     await this.ensureInitialized();
-    return Array.from(this.taskLists.values()).filter(t => t.projectId === projectId);
+    const taskListIds = this.projectTaskListIndex.get(projectId);
+    if (!taskListIds) return [];
+    const lists: TaskList[] = [];
+    for (const id of taskListIds) {
+      const tl = this.taskLists.get(id);
+      if (tl) lists.push(tl);
+    }
+    return lists;
   }
 
   async findAll(filter?: TaskListFilter): Promise<TaskList[]> {
     await this.ensureInitialized();
-    let lists = Array.from(this.taskLists.values());
     if (filter?.projectId) {
-      lists = lists.filter(l => l.projectId === filter.projectId);
+      return this.findByProjectId(filter.projectId);
     }
-    return lists;
+    return Array.from(this.taskLists.values());
   }
 
   async update(id: string, updates: UpdateTaskListPayload): Promise<TaskList> {
@@ -128,6 +192,9 @@ export class FileSystemTaskListRepository implements ITaskListRepository {
       throw new NotFoundError('Task list', id);
     }
 
+    // Unindex old state
+    this.unindexTaskList(taskList);
+
     if (updates.name !== undefined) taskList.name = updates.name;
     if (updates.description !== undefined) taskList.description = updates.description;
     if (updates.orderedTaskIds !== undefined) taskList.orderedTaskIds = updates.orderedTaskIds;
@@ -135,6 +202,8 @@ export class FileSystemTaskListRepository implements ITaskListRepository {
     taskList.updatedAt = Date.now();
 
     this.taskLists.set(id, taskList);
+    // Re-index new state
+    this.indexTaskList(taskList);
     await this.saveTaskList(taskList);
 
     this.logger.debug(`Updated task list: ${id}`);
@@ -149,6 +218,7 @@ export class FileSystemTaskListRepository implements ITaskListRepository {
       throw new NotFoundError('Task list', id);
     }
 
+    this.unindexTaskList(taskList);
     this.taskLists.delete(id);
     await this.deleteTaskListFile(taskList);
 
@@ -158,15 +228,22 @@ export class FileSystemTaskListRepository implements ITaskListRepository {
   async removeTaskReferences(taskId: string): Promise<void> {
     await this.ensureInitialized();
 
-    let updatedCount = 0;
-    for (const taskList of this.taskLists.values()) {
-      if (!taskList.orderedTaskIds.includes(taskId)) continue;
+    // Use taskToTaskListIndex to find only affected task lists
+    const affectedIds = this.taskToTaskListIndex.get(taskId);
+    if (!affectedIds?.size) return;
 
-      taskList.orderedTaskIds = taskList.orderedTaskIds.filter(id => id !== taskId);
-      taskList.updatedAt = Date.now();
-      await this.saveTaskList(taskList);
+    let updatedCount = 0;
+    for (const tlId of affectedIds) {
+      const tl = this.taskLists.get(tlId);
+      if (!tl) continue;
+
+      tl.orderedTaskIds = tl.orderedTaskIds.filter(id => id !== taskId);
+      tl.updatedAt = Date.now();
+      await this.saveTaskList(tl);
       updatedCount++;
     }
+
+    this.taskToTaskListIndex.delete(taskId);
 
     if (updatedCount > 0) {
       this.logger.debug(`Removed task ${taskId} from ${updatedCount} task list(s)`);
@@ -175,7 +252,7 @@ export class FileSystemTaskListRepository implements ITaskListRepository {
 
   async existsByProjectId(projectId: string): Promise<boolean> {
     await this.ensureInitialized();
-    return Array.from(this.taskLists.values()).some(t => t.projectId === projectId);
+    return (this.projectTaskListIndex.get(projectId)?.size ?? 0) > 0;
   }
 
   async count(): Promise<number> {

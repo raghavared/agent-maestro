@@ -158,7 +158,22 @@ export class SessionService {
       }
     }
 
-    await this.eventBus.emit('session:updated', session);
+    // Emit lightweight status event when only status/lastActivity/needsInput changed,
+    // full session:updated for structural changes (name, taskIds, description, etc.)
+    const statusOnlyFields = new Set(['status', 'lastActivity', 'needsInput']);
+    const updateKeys = Object.keys(updates).filter(k => (updates as any)[k] !== undefined);
+    const isStatusOnly = updateKeys.length > 0 && updateKeys.every(k => statusOnlyFields.has(k));
+
+    if (isStatusOnly) {
+      await this.eventBus.emit('session:status_changed', {
+        id: session.id,
+        status: session.status,
+        lastActivity: session.lastActivity,
+        needsInput: session.needsInput,
+      });
+    } else {
+      await this.eventBus.emit('session:updated', session);
+    }
 
     // Emit notification events for session status transitions (using snapshot)
     if (oldSession && oldStatus !== session.status) {

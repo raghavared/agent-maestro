@@ -9,7 +9,7 @@ interface SessionInTaskViewProps {
   session: MaestroSession;
   taskId: string;
   queueState?: QueueState;
-  tasks?: Map<string, any>;
+  tasks?: Record<string, any>;
   onJumpToSession?: (sessionId: string) => void;
   onRemoveFromTask?: (sessionId: string) => void;
 }

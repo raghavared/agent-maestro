@@ -5,7 +5,7 @@ import { useTaskSessions } from "../../../hooks/useTaskSessions";
 
 type SessionsTabProps = {
     taskId: string;
-    tasks: Map<string, MaestroTask>;
+    tasks: Record<string, MaestroTask>;
     onJumpToSession?: (sessionId: string) => void;
 };
 
@@ -25,7 +25,7 @@ export function SessionsTab({ taskId, tasks, onJumpToSession }: SessionsTabProps
                             key={session.id}
                             session={session}
                             taskId={taskId}
-                            tasks={tasks}
+                            tasks={tasks as any}
                             onJumpToSession={onJumpToSession}
                         />
                     ))}

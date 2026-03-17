@@ -1,0 +1,154 @@
+/* ── Scroll Reveal ── */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--duration-slower) var(--ease-expo),
+    transform var(--duration-slower) var(--ease-out);
+  transition-delay: calc(var(--stagger-index, 0) * 120ms);
+}
+
+.reveal-left {
+  opacity: 0;
+  transform: translateX(-40px);
+}
+
+.reveal-left.visible {
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity var(--duration-slower) var(--ease-expo),
+    transform var(--duration-slower) var(--ease-out);
+}
+
+.reveal-scale {
+  opacity: 0;
+  transform: scale(0.92);
+}
+
+.reveal-scale.visible {
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity var(--duration-slower) var(--ease-expo),
+    transform var(--duration-slower) var(--ease-out);
+}
+
+.reveal-right {
+  opacity: 0;
+  transform: translateX(40px);
+}
+
+.reveal-right.visible {
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity var(--duration-slower) var(--ease-expo),
+    transform var(--duration-slower) var(--ease-out);
+}
+
+/* ── Hero Entrance ── */
+
+.hero-entrance {
+  opacity: 0;
+  transform: translateY(24px);
+  animation: hero-fade-up 700ms var(--ease-expo) forwards;
+  animation-delay: var(--hero-delay, 0ms);
+}
+
+@keyframes hero-fade-up {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Hero Background Glow ── */
+
+@keyframes glow-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.8;
+  }
+  25% {
+    transform: translate(2%, -3%) scale(1.02);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-1%, 2%) scale(0.98);
+    opacity: 0.85;
+  }
+  75% {
+    transform: translate(3%, 1%) scale(1.01);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.8;
+  }
+}
+
+.hero-glow {
+  position: absolute;
+  inset: -10%;
+  background: var(--gradient-hero-glow);
+  animation: glow-drift 20s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(60px);
+}
+
+/* ── Terminal Typing ── */
+
+.terminal-line {
+  opacity: 0;
+  transform: translateX(-4px);
+}
+
+.terminal-line.typed {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 150ms var(--ease-smooth),
+              transform 150ms var(--ease-out);
+}
+
+/* ── Section Divider Animation ── */
+
+@keyframes shimmer-slide {
+  0%, 100% { background-position: 0% 0%; }
+  50% { background-position: 100% 0%; }
+}
+
+/* ── Status Pulse ── */
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.status-in-progress {
+  animation: status-pulse 2s ease-in-out infinite;
+}
+
+/* ── Reduced Motion ── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .reveal, .reveal-left, .reveal-scale, .reveal-right,
+  .hero-entrance, .terminal-line {
+    opacity: 1;
+    transform: none;
+  }
+}
