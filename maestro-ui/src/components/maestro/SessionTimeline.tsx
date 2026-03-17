@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type { SessionTimelineEvent } from "../../app/types/maestro";
 import { TimelineEvent } from "./TimelineEvent";
 
@@ -207,6 +208,14 @@ export function AggregatedTimeline({
   const displayEvents = filteredEvents.slice(-maxEvents);
   const sessionNames = Array.from(sessionEvents.entries());
 
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: displayEvents.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 48,
+    overscan: 5,
+  });
+
   if (allEvents.length === 0) {
     return (
       <div className="aggregatedTimeline aggregatedTimeline--empty">
@@ -255,18 +264,34 @@ export function AggregatedTimeline({
             ))}
           </div>
 
-          <div className="aggregatedTimelineEvents">
-            {displayEvents.map((event) => (
-              <div key={event.id} className="aggregatedTimelineEventRow">
-                <span className="aggregatedTimelineEventSession">
-                  {event.sessionName}
-                </span>
-                <TimelineEvent
-                  event={event}
-                  compact={compact}
-                />
-              </div>
-            ))}
+          <div ref={parentRef} className="aggregatedTimelineEvents" style={{ maxHeight: 400, overflow: 'auto' }}>
+            <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const event = displayEvents[virtualRow.index];
+                return (
+                  <div
+                    key={event.id}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <div className="aggregatedTimelineEventRow">
+                      <span className="aggregatedTimelineEventSession">
+                        {event.sessionName}
+                      </span>
+                      <TimelineEvent
+                        event={event}
+                        compact={compact}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

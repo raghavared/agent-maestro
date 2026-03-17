@@ -1,10 +1,17 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { TeamMember, AgentMode } from '../../types';
+import { TeamMember, AgentMode, TeamMemberScope } from '../../types';
 import { ITeamMemberRepository } from '../../domain/repositories/ITeamMemberRepository';
 import { IIdGenerator } from '../../domain/common/IIdGenerator';
 import { ILogger } from '../../domain/common/ILogger';
 import { NotFoundError, ForbiddenError } from '../../domain/common/Errors';
+import { atomicWriteFile } from './utils/atomicWrite';
+
+/**
+ * Special project ID used to store global team members.
+ * Global members are shared across all projects.
+ */
+export const GLOBAL_PROJECT_ID = '__global__';
 
 /**
  * Default team member type identifiers.
@@ -170,6 +177,8 @@ const ALL_DEFAULT_TYPES: DefaultTeamMemberType[] = [
   'simple_worker', 'coordinator', 'batch_coordinator', 'dag_coordinator', 'recruiter'
 ];
 
+const DEFAULT_TYPE_SET: Set<string> = new Set(ALL_DEFAULT_TYPES.map(t => t));
+
 /**
  * File system based implementation of ITeamMemberRepository.
  * Stores team members as individual JSON files.
@@ -183,6 +192,13 @@ const ALL_DEFAULT_TYPES: DefaultTeamMemberType[] = [
 export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
   private teamMembersDir: string;
   private initialized: boolean = false;
+
+  // Phase 1: In-memory caches
+  private memberCache: Map<string, TeamMember> = new Map();
+  private projectMemberIndex: Map<string, Set<string>> = new Map();
+  private overrideCache: Map<string, Record<string, any>> = new Map();
+  private projectsLoaded: Set<string> = new Set();
+  private createdDirs: Set<string> = new Set();
 
   constructor(
     private dataDir: string,
@@ -200,6 +216,7 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
 
     try {
       await fs.mkdir(this.teamMembersDir, { recursive: true });
+      this.createdDirs.add(this.teamMembersDir);
       this.logger.info('Team member repository initialized');
       this.initialized = true;
     } catch (err) {
@@ -214,11 +231,27 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
     }
   }
 
+  private async ensureDir(dirPath: string): Promise<void> {
+    if (this.createdDirs.has(dirPath)) return;
+    await fs.mkdir(dirPath, { recursive: true });
+    this.createdDirs.add(dirPath);
+  }
+
   /**
    * Get the deterministic ID for a default team member.
    */
   private getDefaultId(projectId: string, type: DefaultTeamMemberType): string {
     return `tm_${projectId}_${type}`;
+  }
+
+  /**
+   * Check if ID matches a default team member pattern and extract the type.
+   */
+  private getDefaultTypeFromId(projectId: string, id: string): DefaultTeamMemberType | null {
+    for (const type of ALL_DEFAULT_TYPES) {
+      if (id === this.getDefaultId(projectId, type)) return type;
+    }
+    return null;
   }
 
   /**
@@ -237,6 +270,7 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
 
   /**
    * Create a default team member with optional overrides applied.
+   * Uses overrideCache to avoid repeated disk reads.
    */
   private async createDefaultTeamMember(
     projectId: string,
@@ -246,7 +280,6 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
     const id = this.getDefaultId(projectId, type);
     const now = new Date().toISOString();
 
-    // Start with code defaults
     let teamMember: TeamMember = {
       id,
       projectId,
@@ -255,22 +288,37 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
       updatedAt: now,
     };
 
-    // Try to load overrides
-    try {
-      const overridePath = this.getOverridePath(projectId, id);
-      const overrideData = await fs.readFile(overridePath, 'utf-8');
-      const overrides = JSON.parse(overrideData);
+    // Check overrideCache first, then disk
+    const cacheKey = `${projectId}:${id}`;
+    if (this.overrideCache.has(cacheKey)) {
+      const overrides = this.overrideCache.get(cacheKey)!;
+      if (overrides !== null) {
+        teamMember = {
+          ...teamMember,
+          ...overrides,
+          id,
+          projectId,
+          isDefault: true,
+        };
+      }
+    } else {
+      try {
+        const overridePath = this.getOverridePath(projectId, id);
+        const overrideData = await fs.readFile(overridePath, 'utf-8');
+        const overrides = JSON.parse(overrideData);
+        this.overrideCache.set(cacheKey, overrides);
 
-      // Merge overrides while preserving isDefault
-      teamMember = {
-        ...teamMember,
-        ...overrides,
-        id,
-        projectId,
-        isDefault: true,
-      };
-    } catch (err) {
-      // No overrides file or read error - use defaults
+        teamMember = {
+          ...teamMember,
+          ...overrides,
+          id,
+          projectId,
+          isDefault: true,
+        };
+      } catch (err) {
+        // No overrides file — cache as null to avoid future disk reads
+        this.overrideCache.set(cacheKey, null as any);
+      }
     }
 
     return teamMember;
@@ -283,10 +331,9 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
     const projectDir = this.getProjectDir(projectId);
 
     try {
-      await fs.mkdir(projectDir, { recursive: true });
+      await this.ensureDir(projectDir);
       const files = await fs.readdir(projectDir);
 
-      // Filter for custom member files (not .override.json)
       const memberFiles = files.filter(f =>
         f.endsWith('.json') && !f.includes('.override.')
       );
@@ -306,44 +353,154 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
 
       return members;
     } catch (err) {
-      // Directory doesn't exist - return empty array
       return [];
     }
+  }
+
+  /**
+   * Load all members for a project into the cache (defaults + custom).
+   */
+  private async loadProjectMembers(projectId: string): Promise<void> {
+    if (this.projectsLoaded.has(projectId)) return;
+
+    const index = new Set<string>();
+
+    // Load defaults
+    for (const type of ALL_DEFAULT_TYPES) {
+      const member = await this.createDefaultTeamMember(projectId, type);
+      this.memberCache.set(member.id, member);
+      index.add(member.id);
+    }
+
+    // Load custom members
+    const customMembers = await this.loadCustomMembers(projectId);
+    for (const member of customMembers) {
+      this.memberCache.set(member.id, member);
+      index.add(member.id);
+    }
+
+    this.projectMemberIndex.set(projectId, index);
+    this.projectsLoaded.add(projectId);
+  }
+
+  /**
+   * Load all global team members into the cache.
+   * Global members are stored under the __global__ project directory.
+   */
+  private async loadGlobalMembers(): Promise<void> {
+    if (this.projectsLoaded.has(GLOBAL_PROJECT_ID)) return;
+
+    const globalDir = this.getProjectDir(GLOBAL_PROJECT_ID);
+    const index = new Set<string>();
+
+    try {
+      await this.ensureDir(globalDir);
+      const files = await fs.readdir(globalDir);
+      const memberFiles = files.filter(f => f.endsWith('.json') && !f.includes('.override.'));
+
+      for (const file of memberFiles) {
+        try {
+          const data = await fs.readFile(path.join(globalDir, file), 'utf-8');
+          const member = JSON.parse(data) as TeamMember;
+          this.memberCache.set(member.id, member);
+          index.add(member.id);
+        } catch (err) {
+          this.logger.warn(`Failed to load global team member file: ${file}`, {
+            error: (err as Error).message
+          });
+        }
+      }
+    } catch (err) {
+      // No global directory yet - that's fine
+    }
+
+    this.projectMemberIndex.set(GLOBAL_PROJECT_ID, index);
+    this.projectsLoaded.add(GLOBAL_PROJECT_ID);
   }
 
   async findById(projectId: string, id: string): Promise<TeamMember | null> {
     await this.ensureInitialized();
 
+    // Check cache first
+    const cached = this.memberCache.get(id);
+    if (cached) return cached;
+
     // Check if it's a default member
-    for (const type of ALL_DEFAULT_TYPES) {
-      if (id === this.getDefaultId(projectId, type)) {
-        return this.createDefaultTeamMember(projectId, type);
+    const defaultType = this.getDefaultTypeFromId(projectId, id);
+    if (defaultType) {
+      const member = await this.createDefaultTeamMember(projectId, defaultType);
+      this.memberCache.set(member.id, member);
+      // Add to project index
+      if (!this.projectMemberIndex.has(projectId)) {
+        this.projectMemberIndex.set(projectId, new Set());
       }
+      this.projectMemberIndex.get(projectId)!.add(member.id);
+      return member;
     }
 
-    // Try to load custom member
+    // Try to load custom member from disk (project dir first)
     try {
       const filePath = path.join(this.getProjectDir(projectId), `${id}.json`);
       const data = await fs.readFile(filePath, 'utf-8');
-      return JSON.parse(data) as TeamMember;
+      const member = JSON.parse(data) as TeamMember;
+      this.memberCache.set(member.id, member);
+      if (!this.projectMemberIndex.has(projectId)) {
+        this.projectMemberIndex.set(projectId, new Set());
+      }
+      this.projectMemberIndex.get(projectId)!.add(member.id);
+      return member;
     } catch (err) {
-      return null;
+      // Not found in project dir
     }
+
+    // Try global directory if not already searching there
+    if (projectId !== GLOBAL_PROJECT_ID) {
+      try {
+        const globalFilePath = path.join(this.getProjectDir(GLOBAL_PROJECT_ID), `${id}.json`);
+        const data = await fs.readFile(globalFilePath, 'utf-8');
+        const member = JSON.parse(data) as TeamMember;
+        this.memberCache.set(member.id, member);
+        if (!this.projectMemberIndex.has(GLOBAL_PROJECT_ID)) {
+          this.projectMemberIndex.set(GLOBAL_PROJECT_ID, new Set());
+        }
+        this.projectMemberIndex.get(GLOBAL_PROJECT_ID)!.add(member.id);
+        return member;
+      } catch (err) {
+        // Not found in global dir either
+      }
+    }
+
+    return null;
   }
 
   async findByProjectId(projectId: string): Promise<TeamMember[]> {
     await this.ensureInitialized();
 
-    // Start with all defaults
-    const defaults: TeamMember[] = [];
-    for (const type of ALL_DEFAULT_TYPES) {
-      defaults.push(await this.createDefaultTeamMember(projectId, type));
+    // Load all members for this project if not already loaded
+    await this.loadProjectMembers(projectId);
+
+    const memberIds = this.projectMemberIndex.get(projectId);
+    if (!memberIds) return [];
+
+    const members: TeamMember[] = [];
+    for (const id of memberIds) {
+      const member = this.memberCache.get(id);
+      if (member) members.push(member);
     }
 
-    // Load custom members
-    const customMembers = await this.loadCustomMembers(projectId);
+    // Also load global members if this isn't already the global project
+    if (projectId !== GLOBAL_PROJECT_ID) {
+      await this.loadGlobalMembers();
+      const globalIds = this.projectMemberIndex.get(GLOBAL_PROJECT_ID);
+      if (globalIds) {
+        for (const id of globalIds) {
+          const member = this.memberCache.get(id);
+          if (member) members.push(member);
+        }
+      }
+    }
 
-    return [...defaults, ...customMembers];
+    return members;
   }
 
   async create(member: TeamMember): Promise<TeamMember> {
@@ -353,20 +510,28 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
       throw new ForbiddenError('Cannot create a default team member directly');
     }
 
-    const projectDir = this.getProjectDir(member.projectId);
-    await fs.mkdir(projectDir, { recursive: true });
+    // Determine storage directory based on scope
+    const storageProjectId = member.scope === 'global' ? GLOBAL_PROJECT_ID : member.projectId;
+    const projectDir = this.getProjectDir(storageProjectId);
+    await this.ensureDir(projectDir);
 
     const filePath = path.join(projectDir, `${member.id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(member, null, 2));
+    await atomicWriteFile(filePath, JSON.stringify(member));
 
-    this.logger.debug(`Created team member: ${member.id}`);
+    // Update cache
+    this.memberCache.set(member.id, member);
+    if (!this.projectMemberIndex.has(storageProjectId)) {
+      this.projectMemberIndex.set(storageProjectId, new Set());
+    }
+    this.projectMemberIndex.get(storageProjectId)!.add(member.id);
+
+    this.logger.debug(`Created team member: ${member.id} (scope: ${member.scope || 'project'})`);
     return member;
   }
 
   async update(id: string, updates: Partial<TeamMember>): Promise<TeamMember> {
     await this.ensureInitialized();
 
-    // Determine project ID from updates or try to find the member
     const projectId = updates.projectId;
     if (!projectId) {
       throw new Error('projectId is required for update');
@@ -378,12 +543,17 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
     }
 
     if (member.isDefault) {
-      // For defaults, save to override file
       await this.saveDefaultOverride(projectId, id, updates);
+      // Rebuild the default member from config + updated overrides
+      const defaultType = this.getDefaultTypeFromId(projectId, id);
+      if (defaultType) {
+        const updated = await this.createDefaultTeamMember(projectId, defaultType);
+        this.memberCache.set(updated.id, updated);
+        return updated;
+      }
       return this.findById(projectId, id) as Promise<TeamMember>;
     }
 
-    // For custom members, update the main file
     const updatedMember: TeamMember = {
       ...member,
       ...updates,
@@ -393,8 +563,34 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
       updatedAt: new Date().toISOString(),
     };
 
-    const filePath = path.join(this.getProjectDir(projectId), `${id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(updatedMember, null, 2));
+    // Determine storage directory based on scope
+    const storageProjectId = updatedMember.scope === 'global' ? GLOBAL_PROJECT_ID : projectId;
+    const filePath = path.join(this.getProjectDir(storageProjectId), `${id}.json`);
+
+    // If scope changed, we may need to move the file
+    const oldStorageProjectId = member.scope === 'global' ? GLOBAL_PROJECT_ID : member.projectId;
+    if (oldStorageProjectId !== storageProjectId) {
+      // Remove from old location
+      try {
+        const oldFilePath = path.join(this.getProjectDir(oldStorageProjectId), `${id}.json`);
+        await fs.unlink(oldFilePath);
+      } catch (err) {
+        // Old file may not exist
+      }
+      // Remove from old index
+      this.projectMemberIndex.get(oldStorageProjectId)?.delete(id);
+      // Ensure new directory
+      await this.ensureDir(this.getProjectDir(storageProjectId));
+    }
+
+    await atomicWriteFile(filePath, JSON.stringify(updatedMember));
+
+    // Update cache and index
+    this.memberCache.set(updatedMember.id, updatedMember);
+    if (!this.projectMemberIndex.has(storageProjectId)) {
+      this.projectMemberIndex.set(storageProjectId, new Set());
+    }
+    this.projectMemberIndex.get(storageProjectId)!.add(id);
 
     this.logger.debug(`Updated team member: ${id}`);
     return updatedMember;
@@ -403,9 +599,27 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
   async delete(id: string): Promise<void> {
     await this.ensureInitialized();
 
-    // Need to find the member to check if it's default
-    // Since we don't have projectId, we need to search all projects
-    // For now, throw an error if we can't determine
+    // Try cache first to find projectId without scanning all projects
+    const cachedMember = this.memberCache.get(id);
+    if (cachedMember) {
+      if (cachedMember.isDefault) {
+        throw new ForbiddenError('Cannot delete default team members');
+      }
+
+      // Determine storage directory based on scope
+      const storageProjectId = cachedMember.scope === 'global' ? GLOBAL_PROJECT_ID : cachedMember.projectId;
+      const filePath = path.join(this.getProjectDir(storageProjectId), `${id}.json`);
+      await fs.unlink(filePath);
+
+      // Remove from cache and index
+      this.memberCache.delete(id);
+      this.projectMemberIndex.get(storageProjectId)?.delete(id);
+
+      this.logger.debug(`Deleted team member: ${id}`);
+      return;
+    }
+
+    // Fallback: scan project directories including __global__ (rare — only if member was never accessed)
     const projects = await fs.readdir(this.teamMembersDir);
 
     let found = false;
@@ -416,8 +630,13 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
           throw new ForbiddenError('Cannot delete default team members');
         }
 
-        const filePath = path.join(this.getProjectDir(projectId), `${id}.json`);
+        const storageProjectId = member.scope === 'global' ? GLOBAL_PROJECT_ID : projectId;
+        const filePath = path.join(this.getProjectDir(storageProjectId), `${id}.json`);
         await fs.unlink(filePath);
+
+        // Remove from cache and index
+        this.memberCache.delete(id);
+        this.projectMemberIndex.get(storageProjectId)?.delete(id);
 
         this.logger.debug(`Deleted team member: ${id}`);
         found = true;
@@ -438,27 +657,35 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
     await this.ensureInitialized();
 
     const projectDir = this.getProjectDir(projectId);
-    await fs.mkdir(projectDir, { recursive: true });
+    await this.ensureDir(projectDir);
 
     const overridePath = this.getOverridePath(projectId, defaultId);
+    const cacheKey = `${projectId}:${defaultId}`;
 
-    // Load existing overrides if any
+    // Load existing overrides from cache or disk
     let existingOverrides: Partial<TeamMember> = {};
-    try {
-      const data = await fs.readFile(overridePath, 'utf-8');
-      existingOverrides = JSON.parse(data);
-    } catch (err) {
-      // No existing overrides
+    const cachedOverride = this.overrideCache.get(cacheKey);
+    if (cachedOverride && cachedOverride !== null) {
+      existingOverrides = cachedOverride;
+    } else if (!this.overrideCache.has(cacheKey)) {
+      try {
+        const data = await fs.readFile(overridePath, 'utf-8');
+        existingOverrides = JSON.parse(data);
+      } catch (err) {
+        // No existing overrides
+      }
     }
 
-    // Merge new overrides
     const mergedOverrides = {
       ...existingOverrides,
       ...overrides,
       updatedAt: new Date().toISOString(),
     };
 
-    await fs.writeFile(overridePath, JSON.stringify(mergedOverrides, null, 2));
+    await atomicWriteFile(overridePath, JSON.stringify(mergedOverrides));
+
+    // Update override cache
+    this.overrideCache.set(cacheKey, mergedOverrides);
     this.logger.debug(`Saved override for default team member: ${defaultId}`);
   }
 
@@ -466,12 +693,21 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
     await this.ensureInitialized();
 
     const overridePath = this.getOverridePath(projectId, defaultId);
+    const cacheKey = `${projectId}:${defaultId}`;
 
     try {
       await fs.unlink(overridePath);
       this.logger.debug(`Reset default team member: ${defaultId}`);
     } catch (err) {
       // File doesn't exist - already at defaults
+    }
+
+    // Clear override cache and regenerate default in member cache
+    this.overrideCache.delete(cacheKey);
+    const defaultType = this.getDefaultTypeFromId(projectId, defaultId);
+    if (defaultType) {
+      const member = await this.createDefaultTeamMember(projectId, defaultType);
+      this.memberCache.set(member.id, member);
     }
   }
 }

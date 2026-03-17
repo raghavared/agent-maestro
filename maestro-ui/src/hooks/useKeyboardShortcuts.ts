@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useSessionStore } from "../stores/useSessionStore";
 import { useProjectStore } from "../stores/useProjectStore";
+import { useProjectDialogStore } from "../stores/useProjectDialogStore";
 import { useSshStore } from "../stores/useSshStore";
 import { useAgentShortcutStore } from "../stores/useAgentShortcutStore";
 import { usePromptStore } from "../stores/usePromptStore";
@@ -19,9 +20,9 @@ export function useKeyboardShortcuts() {
     const newOpen = useSessionStore((s) => s.newOpen);
     const sshManagerOpen = useSshStore((s) => s.sshManagerOpen);
     const agentShortcutsOpen = useAgentShortcutStore((s) => s.agentShortcutsOpen);
-    const projectOpen = useProjectStore((s) => s.projectOpen);
+    const projectOpen = useProjectDialogStore((s) => s.projectOpen);
     const pathPickerOpen = usePathPickerStore((s) => s.pathPickerOpen);
-    const confirmDeleteProjectOpen = useProjectStore((s) => s.confirmDeleteProjectOpen);
+    const confirmDeleteProjectOpen = useProjectDialogStore((s) => s.confirmDeleteProjectOpen);
     const confirmDeleteRecordingId = useRecordingStore((s) => s.confirmDeleteRecordingId);
     const confirmDeletePromptId = usePromptStore((s) => s.confirmDeletePromptId);
     const confirmDeleteEnvironmentId = useEnvironmentStore((s) => s.confirmDeleteEnvironmentId);
@@ -159,11 +160,11 @@ export function useKeyboardShortcuts() {
                     return;
                 }
                 if (confirmDeleteProjectOpen) {
-                    useProjectStore.getState().setConfirmDeleteProjectOpen(false);
+                    useProjectDialogStore.getState().setConfirmDeleteProjectOpen(false);
                     return;
                 }
                 if (projectOpen) {
-                    useProjectStore.getState().setProjectOpen(false);
+                    useProjectDialogStore.getState().setProjectOpen(false);
                     return;
                 }
                 if (sshManagerOpen) {
@@ -219,14 +220,14 @@ export function useKeyboardShortcuts() {
                 // Cmd+N - New terminal session
                 if (e.metaKey && !e.shiftKey && e.key.toLowerCase() === "n") {
                     e.preventDefault();
-                    useProjectStore.getState().setProjectOpen(false);
+                    useProjectDialogStore.getState().setProjectOpen(false);
                     useSessionStore.getState().setNewOpen(true);
                     return;
                 }
                 // Cmd+D - New terminal session (same as Cmd+N)
                 if (e.metaKey && e.key.toLowerCase() === "d") {
                     e.preventDefault();
-                    useProjectStore.getState().setProjectOpen(false);
+                    useProjectDialogStore.getState().setProjectOpen(false);
                     useSessionStore.getState().setNewOpen(true);
                     return;
                 }
@@ -323,7 +324,7 @@ export function useKeyboardShortcuts() {
                 // Ctrl+Shift+N - New terminal session
                 if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "n") {
                     e.preventDefault();
-                    useProjectStore.getState().setProjectOpen(false);
+                    useProjectDialogStore.getState().setProjectOpen(false);
                     useSessionStore.getState().setNewOpen(true);
                     return;
                 }

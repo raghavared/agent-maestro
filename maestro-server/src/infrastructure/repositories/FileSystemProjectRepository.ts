@@ -9,6 +9,8 @@ import {
 import { IIdGenerator } from '../../domain/common/IIdGenerator';
 import { ILogger } from '../../domain/common/ILogger';
 import { NotFoundError } from '../../domain/common/Errors';
+import { atomicWriteFile } from './utils/atomicWrite';
+import { loadFilesParallel } from './utils/parallelFileLoader';
 
 /**
  * File system based implementation of IProjectRepository.
@@ -41,15 +43,23 @@ export class FileSystemProjectRepository implements IProjectRepository {
 
       const files = await fs.readdir(this.projectsDir);
       const projectFiles = files.filter(f => f.endsWith('.json'));
+      const filePaths = projectFiles.map(f => path.join(this.projectsDir, f));
 
-      for (const file of projectFiles) {
-        try {
-          const data = await fs.readFile(path.join(this.projectsDir, file), 'utf-8');
-          const project = JSON.parse(data) as Project;
-          this.projects.set(project.id, project);
-        } catch (err) {
-          this.logger.warn(`Failed to load project file: ${file}`, { error: (err as Error).message });
-        }
+      const { successes, failures } = await loadFilesParallel(
+        filePaths,
+        async (filePath) => {
+          const data = await fs.readFile(filePath, 'utf-8');
+          return JSON.parse(data) as Project;
+        },
+        { concurrency: 50 }
+      );
+
+      for (const failure of failures) {
+        this.logger.warn(`Failed to load project file: ${failure.path}`, { error: failure.error.message });
+      }
+
+      for (const project of successes) {
+        this.projects.set(project.id, project);
       }
 
       this.logger.info(`Loaded ${this.projects.size} projects`);
@@ -68,7 +78,7 @@ export class FileSystemProjectRepository implements IProjectRepository {
 
   private async saveProject(project: Project): Promise<void> {
     const filePath = path.join(this.projectsDir, `${project.id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(project, null, 2));
+    await atomicWriteFile(filePath, JSON.stringify(project));
   }
 
   private async deleteProjectFile(id: string): Promise<void> {

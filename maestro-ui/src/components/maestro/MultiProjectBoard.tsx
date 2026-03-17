@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useCallback, useEffect } from "react";
+import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { createPortal } from "react-dom";
 import {
     MaestroTask,
@@ -23,6 +24,7 @@ import { TaskCard } from "./TaskCard";
 import { COLUMNS, PRIORITY_COLORS } from "./boardConstants";
 import { useTasks } from "../../hooks/useTasks";
 import { Dashboard } from "./Dashboard";
+import { ErrorBoundary } from "../ErrorBoundary";
 
 type BoardView = "tasks" | "sessions" | "dashboard";
 type LayoutMode = "grouped" | "unified";
@@ -144,63 +146,49 @@ export const Board = React.memo(function Board({
         return boardTasks;
     }, [isSingleProject, singleProjectTasks.tasks, boardTasks, projectNames, projectColors]);
 
-    // Task stats across all selected projects
-    const taskStats = useMemo(() => {
-        const rootTasks = effectiveTasks.filter((t) => !t.parentId);
-        return {
-            total: rootTasks.length,
-            active: rootTasks.filter((t) => t.status === "in_progress").length,
-            pending: rootTasks.filter((t) => t.status === "todo").length,
-            review: rootTasks.filter((t) => t.status === "in_review").length,
-            done: rootTasks.filter((t) => t.status === "completed").length,
-            blocked: rootTasks.filter((t) => t.status === "blocked").length,
-        };
-    }, [effectiveTasks]);
-
-    // Session stats
-    const sessionStats = useMemo(() => {
-        const active = terminalSessions.filter(
-            (s) => !s.exited && !s.closing && selectedProjectIds.has(s.projectId),
-        );
-        return {
-            total: active.length,
-            working: active.filter((s) => s.agentWorking).length,
-            idle: active.filter((s) => !s.agentWorking).length,
-        };
-    }, [terminalSessions, selectedProjectIds]);
-
-    // Task count per project (for sidebar)
-    const taskCountByProject = useMemo(() => {
-        const counts = new Map<string, number>();
-        for (const task of effectiveTasks) {
-            if (!task.parentId) {
-                counts.set(task.projectId, (counts.get(task.projectId) ?? 0) + 1);
-            }
+    // Single-pass task stats + per-project counts
+    const { taskStats, taskCountByProject } = useMemo(() => {
+        const ts = { total: 0, active: 0, pending: 0, review: 0, done: 0, blocked: 0 };
+        const tcp = new Map<string, number>();
+        for (const t of effectiveTasks) {
+            if (t.parentId) continue;
+            ts.total++;
+            if (t.status === "in_progress") ts.active++;
+            else if (t.status === "todo") ts.pending++;
+            else if (t.status === "in_review") ts.review++;
+            else if (t.status === "completed") ts.done++;
+            else if (t.status === "blocked") ts.blocked++;
+            tcp.set(t.projectId, (tcp.get(t.projectId) ?? 0) + 1);
         }
-        return counts;
+        return { taskStats: ts, taskCountByProject: tcp };
     }, [effectiveTasks]);
 
-    // Session count per project (for sidebar)
-    const sessionCountByProject = useMemo(() => {
-        const counts = new Map<string, number>();
+    // Single-pass session stats + per-project counts
+    const { sessionStats, sessionCountByProject } = useMemo(() => {
+        const ss = { total: 0, working: 0, idle: 0 };
+        const scp = new Map<string, number>();
         for (const s of terminalSessions) {
-            if (!s.exited && !s.closing) {
-                counts.set(s.projectId, (counts.get(s.projectId) ?? 0) + 1);
+            if (s.exited || s.closing) continue;
+            if (selectedProjectIds.has(s.projectId)) {
+                ss.total++;
+                if (s.agentWorking) ss.working++;
+                else ss.idle++;
             }
+            scp.set(s.projectId, (scp.get(s.projectId) ?? 0) + 1);
         }
-        return counts;
-    }, [terminalSessions]);
+        return { sessionStats: ss, sessionCountByProject: scp };
+    }, [terminalSessions, selectedProjectIds]);
 
     // Maestro sessions for selected projects (for dashboard)
     const dashboardSessions = useMemo(() => {
-        return Array.from(maestroSessions.values()).filter((s) =>
+        return Object.values(maestroSessions).filter((s) =>
             selectedProjectIds.has(s.projectId),
         );
     }, [maestroSessions, selectedProjectIds]);
 
     // Team members for selected projects (for dashboard)
     const dashboardTeamMembers = useMemo(() => {
-        return Array.from(teamMembers.values()).filter((m) =>
+        return Object.values(teamMembers).filter((m) =>
             selectedProjectIds.has(m.projectId),
         );
     }, [teamMembers, selectedProjectIds]);
@@ -406,12 +394,14 @@ export const Board = React.memo(function Board({
                                 layoutMode={isSingleProject ? "grouped" : sessionLayoutMode}
                             />
                         ) : (
-                            <Dashboard
-                                tasks={effectiveTasks}
-                                sessions={dashboardSessions}
-                                teamMembers={dashboardTeamMembers}
-                                isMultiProject={!isSingleProject}
-                            />
+                            <ErrorBoundary name="Dashboard">
+                                <Dashboard
+                                    tasks={effectiveTasks}
+                                    sessions={dashboardSessions}
+                                    teamMembers={dashboardTeamMembers}
+                                    isMultiProject={!isSingleProject}
+                                />
+                            </ErrorBoundary>
                         )}
                     </div>
                 </div>
@@ -423,6 +413,81 @@ export const Board = React.memo(function Board({
 
 // Keep old export name for backwards compatibility
 export const MultiProjectBoard = Board;
+
+// ── Virtualized Column Body ──
+
+function VirtualizedColumnBody({
+    tasks,
+    dragState,
+    onCardPointerDown,
+    onSelectTask,
+    onWorkOnTask,
+    showProjectBadge,
+}: {
+    tasks: BoardTask[];
+    dragState: ReturnType<typeof useBoardDrag>["dragState"];
+    onCardPointerDown: ReturnType<typeof useBoardDrag>["onCardPointerDown"];
+    onSelectTask: (taskId: string, projectId: string) => void;
+    onWorkOnTask: (task: MaestroTask) => void;
+    showProjectBadge?: boolean;
+}) {
+    const handleSelectTask = useCallback((task: MaestroTask) => onSelectTask(task.id, task.projectId), [onSelectTask]);
+
+    const parentRef = useRef<HTMLDivElement>(null);
+    const rowVirtualizer = useVirtualizer({
+        count: tasks.length,
+        getScrollElement: () => parentRef.current,
+        estimateSize: () => 72,
+        overscan: 5,
+    });
+
+    if (tasks.length === 0) {
+        return (
+            <div className="taskBoardColumnBody">
+                <div className="taskBoardColumnEmpty">
+                    <span className="taskBoardColumnEmptyText">
+                        {dragState ? "drop here" : "no tasks"}
+                    </span>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div ref={parentRef} className="taskBoardColumnBody">
+            <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const task = tasks[virtualRow.index];
+                    return (
+                        <div
+                            key={task.id}
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                transform: `translateY(${virtualRow.start}px)`,
+                            }}
+                        >
+                            <TaskCard
+                                task={task}
+                                isDragging={dragState?.taskId === task.id}
+                                onPointerDown={onCardPointerDown}
+                                onClick={handleSelectTask}
+                                onWorkOn={onWorkOnTask}
+                                projectBadge={
+                                    showProjectBadge
+                                        ? { name: task.projectName, color: task.projectColor }
+                                        : undefined
+                                }
+                            />
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
 
 // ── Unified Kanban View (now uses useBoardDrag) ──
 
@@ -529,31 +594,14 @@ const UnifiedKanbanView = React.memo(function UnifiedKanbanView({
                                 <span className="taskBoardColumnLabel">{col.label}</span>
                                 <span className="taskBoardColumnCount">{colTasks.length}</span>
                             </div>
-                            <div className="taskBoardColumnBody">
-                                {colTasks.length === 0 ? (
-                                    <div className="taskBoardColumnEmpty">
-                                        <span className="taskBoardColumnEmptyText">
-                                            {dragState ? "drop here" : "no tasks"}
-                                        </span>
-                                    </div>
-                                ) : (
-                                    colTasks.map((task) => (
-                                        <TaskCard
-                                            key={task.id}
-                                            task={task}
-                                            isDragging={dragState?.taskId === task.id}
-                                            onPointerDown={onCardPointerDown}
-                                            onClick={() => onSelectTask(task.id, task.projectId)}
-                                            onWorkOn={() => onWorkOnTask(task)}
-                                            projectBadge={
-                                                showProjectBadge
-                                                    ? { name: (task as BoardTask).projectName, color: (task as BoardTask).projectColor }
-                                                    : undefined
-                                            }
-                                        />
-                                    ))
-                                )}
-                            </div>
+                            <VirtualizedColumnBody
+                                tasks={colTasks}
+                                dragState={dragState}
+                                onCardPointerDown={onCardPointerDown}
+                                onSelectTask={onSelectTask}
+                                onWorkOnTask={onWorkOnTask}
+                                showProjectBadge={showProjectBadge}
+                            />
                         </div>
                     );
                 })}

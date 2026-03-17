@@ -90,8 +90,8 @@ export function CreateTaskModal({
     const tasks = useMaestroStore(s => s.tasks);
     const teamMembersMap = useMaestroStore(s => s.teamMembers);
     const teamMembers = useMemo(() =>
-        Array.from(teamMembersMap.values()).filter((m: TeamMember) => m.status === 'active'),
-        [teamMembersMap]
+        Object.values(teamMembersMap).filter((m: TeamMember) => m.status === 'active' && m.projectId === project?.id),
+        [teamMembersMap, project?.id]
     );
 
     // Load reference tasks for edit mode

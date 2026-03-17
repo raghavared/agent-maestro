@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useMaestroStore } from '../stores/useMaestroStore';
 import type { MaestroTask } from '../app/types/maestro';
 
@@ -9,10 +10,9 @@ import type { MaestroTask } from '../app/types/maestro';
  * @returns Object with tasks array, loading state, and error
  */
 export function useTasks(projectId: string | null | undefined) {
-    const tasks = useMaestroStore(s => s.tasks);
-    const loading = useMaestroStore(s => s.loading);
-    const errors = useMaestroStore(s => s.errors);
-    const fetchTasks = useMaestroStore(s => s.fetchTasks);
+    const { tasks, loading, errors, fetchTasks } = useMaestroStore(
+        useShallow(s => ({ tasks: s.tasks, loading: s.loading, errors: s.errors, fetchTasks: s.fetchTasks }))
+    );
 
     // Fetch tasks when projectId changes
     useEffect(() => {
@@ -24,13 +24,13 @@ export function useTasks(projectId: string | null | undefined) {
     // Filter tasks for this project
     const filteredTasks = useMemo(() => {
         if (!projectId) return [];
-        return Array.from(tasks.values()).filter(
+        return Object.values(tasks).filter(
             task => task.projectId === projectId
         );
     }, [tasks, projectId]);
 
-    const isLoading = projectId ? loading.has(`tasks:${projectId}`) : false;
-    const error = projectId ? errors.get(`tasks:${projectId}`) : undefined;
+    const isLoading = projectId ? !!loading[`tasks:${projectId}`] : false;
+    const error = projectId ? errors[`tasks:${projectId}`] : undefined;
 
     return {
         tasks: filteredTasks,

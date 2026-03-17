@@ -1,28 +1,22 @@
-import { useMemo } from 'react';
+import { useCallback } from 'react';
 import { useMaestroStore } from '../stores/useMaestroStore';
 
 /**
- * Hook to get real-time session count for a task
- *
- * Computes the count from global sessions state (all sessions, including completed)
- * This ensures the count is always up-to-date with WebSocket updates
- *
- * @param taskId - The task ID to count sessions for
- * @returns The number of sessions containing this task
+ * Hook to get real-time session count for a task.
+ * Returns a primitive number — Zustand skips re-render when the count is unchanged.
  */
 export function useTaskSessionCount(taskId: string | null | undefined): number {
-    const sessions = useMaestroStore(s => s.sessions);
-
-    return useMemo(() => {
-        if (!taskId) return 0;
-
-        let count = 0;
-        for (const session of sessions.values()) {
-            if (session.taskIds.includes(taskId)) {
-                count++;
-            }
-        }
-
-        return count;
-    }, [sessions, taskId]);
+    return useMaestroStore(
+        useCallback(
+            (s) => {
+                if (!taskId) return 0;
+                let count = 0;
+                for (const session of Object.values(s.sessions)) {
+                    if (session.taskIds?.includes(taskId)) count++;
+                }
+                return count;
+            },
+            [taskId],
+        ),
+    );
 }

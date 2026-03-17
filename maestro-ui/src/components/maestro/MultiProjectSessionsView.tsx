@@ -10,7 +10,7 @@ type MultiProjectSessionsViewProps = {
     selectedProjectIds: Set<string>;
     projectNames: Map<string, string>;
     projectColors: Map<string, string>;
-    maestroSessions: Map<string, MaestroSession>;
+    maestroSessions: Record<string, MaestroSession>;
     layoutMode?: "grouped" | "unified";
 };
 
@@ -107,7 +107,7 @@ export const MultiProjectSessionsView = React.memo(function MultiProjectSessions
 type UnifiedSessionsViewProps = {
     sessions: TerminalSession[];
     activeTerminalId: string | null;
-    maestroSessions: Map<string, MaestroSession>;
+    maestroSessions: Record<string, MaestroSession>;
     projectNames: Map<string, string>;
     projectColors: Map<string, string>;
 };
@@ -242,7 +242,7 @@ const UnifiedSessionsView = React.memo(function UnifiedSessionsView({
                                 isActiveTerminal={session.id === activeTerminalId}
                                 maestroSession={
                                     session.maestroSessionId
-                                        ? maestroSessions.get(session.maestroSessionId) ?? null
+                                        ? maestroSessions[session.maestroSessionId] ?? null
                                         : null
                                 }
                                 width={0}
@@ -263,7 +263,7 @@ type SessionProjectGroupProps = {
     projectColor: string;
     sessions: TerminalSession[];
     activeTerminalId: string | null;
-    maestroSessions: Map<string, MaestroSession>;
+    maestroSessions: Record<string, MaestroSession>;
 };
 
 const MIN_COL_WIDTH = 80;
@@ -303,7 +303,7 @@ const SessionProjectGroup = React.memo(function SessionProjectGroup({
                             isActiveTerminal={session.id === activeTerminalId}
                             maestroSession={
                                 session.maestroSessionId
-                                    ? maestroSessions.get(session.maestroSessionId) ?? null
+                                    ? maestroSessions[session.maestroSessionId] ?? null
                                     : null
                             }
                             width={0}

@@ -446,11 +446,15 @@ export function registerSessionCommands(program: Command) {
 
             ws.on('message', (data: WebSocket.Data) => {
                 try {
-                    const msg = JSON.parse(data.toString());
+                    const parsed = JSON.parse(data.toString());
+                    // Support both single-object and batched array formats
+                    const messages = Array.isArray(parsed) ? parsed : [parsed];
+
+                    for (const msg of messages) {
                     const event = msg.event || msg.type;
                     const payload = msg.data;
 
-                    if (!event || !payload) return;
+                    if (!event || !payload) continue;
 
                     // Filter: only show events for watched sessions
                     const eventSessionId = payload.id || payload.sessionId;
@@ -463,7 +467,7 @@ export function registerSessionCommands(program: Command) {
                         // Human-readable output
                         const ts = new Date(msg.timestamp || Date.now()).toLocaleTimeString();
 
-                        if (event === 'session:updated') {
+                        if (event === 'session:updated' || event === 'session:status_changed') {
                             const status = payload.status;
                             const prevStatus = sessionStatuses.get(eventSessionId);
                             sessionStatuses.set(eventSessionId, status);
@@ -511,6 +515,7 @@ export function registerSessionCommands(program: Command) {
                         }
                         cleanup();
                     }
+                    } // end for loop
                 } catch {
                     // ignore parse errors
                 }

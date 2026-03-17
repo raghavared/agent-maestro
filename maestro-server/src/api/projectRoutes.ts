@@ -1,13 +1,18 @@
 import express, { Request, Response } from 'express';
 import { ProjectService } from '../application/services/ProjectService';
 import { handleRouteError } from './middleware/errorHandler';
+import { cacheControl } from './middleware/cacheControl';
 import {
   validateBody,
   validateParams,
+  validateQuery,
   createProjectSchema,
   updateProjectSchema,
   masterToggleSchema,
   idParamSchema,
+  paginationQuerySchema,
+  extractPagination,
+  paginate,
 } from './validation';
 
 /**
@@ -17,10 +22,14 @@ export function createProjectRoutes(projectService: ProjectService) {
   const router = express.Router();
 
   // List projects
-  router.get('/projects', async (req: Request, res: Response) => {
+  router.get('/projects', cacheControl(30), validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
     try {
       const projects = await projectService.listProjects();
-      res.json(projects);
+      if (req.query.limit || req.query.offset) {
+        res.json(paginate(projects, extractPagination(req.query)));
+      } else {
+        res.json(projects);
+      }
     } catch (err: unknown) {
       handleRouteError(err, res);
     }
@@ -49,7 +58,7 @@ export function createProjectRoutes(projectService: ProjectService) {
   });
 
   // Get project by ID
-  router.get('/projects/:id', validateParams(idParamSchema), async (req: Request, res: Response) => {
+  router.get('/projects/:id', validateParams(idParamSchema), cacheControl(30), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
       const project = await projectService.getProject(id);

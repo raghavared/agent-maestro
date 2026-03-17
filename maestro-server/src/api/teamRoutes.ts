@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { TeamService } from '../application/services/TeamService';
 import { handleRouteError } from './middleware/errorHandler';
-import { validateParams, idParamSchema } from './validation';
+import { validateParams, validateQuery, idParamSchema, paginationQuerySchema, extractPagination, paginate } from './validation';
 
 /**
  * Create team routes using the TeamService.
@@ -13,7 +13,7 @@ export function createTeamRoutes(teamService: TeamService) {
    * GET /teams?projectId=X
    * List all active teams for a project
    */
-  router.get('/teams', async (req: Request, res: Response) => {
+  router.get('/teams', validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
     try {
       const projectId = req.query.projectId as string;
 
@@ -26,7 +26,11 @@ export function createTeamRoutes(teamService: TeamService) {
       }
 
       const teams = await teamService.getProjectTeams(projectId);
-      res.json(teams);
+      if (req.query.limit || req.query.offset) {
+        res.json(paginate(teams, extractPagination(req.query)));
+      } else {
+        res.json(teams);
+      }
     } catch (err: unknown) {
       handleRouteError(err, res);
     }

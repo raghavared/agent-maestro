@@ -21,6 +21,7 @@ import { useWorkspaceStore } from './useWorkspaceStore';
 
 let saveTimerRef: number | null = null;
 let pendingSaveRef: PersistedStateV1 | null = null;
+let lastPersistedHash = '';
 let workspaceViewSaveTimerRef: number | null = null;
 let pendingWorkspaceViewSaveRef: any = null;
 
@@ -85,10 +86,32 @@ function buildPersistedState(): PersistedStateV1 {
 }
 
 function scheduleSave() {
+  if (dirtyStores.size === 0) return;
+
   const { hydrated } = useSessionStore.getState();
   const { persistenceDisabledReason, secureStorageMode } = useSecureStorageStore.getState();
 
   if (!hydrated || persistenceDisabledReason) return;
+
+  // Quick fingerprint of persist-relevant state to skip transient changes
+  // (e.g. agentWorking toggling, dialog state, form fields)
+  const sessions = useSessionStore.getState().sessions;
+  const projects = useProjectStore.getState();
+  const quickHash =
+    sessions.length +
+    ':' +
+    sessions.map((s: any) => s.persistId + (s.closing ? 'c' : '')).join(',') +
+    ':' +
+    projects.activeProjectId +
+    ':' +
+    projects.projects.length +
+    ':' +
+    JSON.stringify(projects.activeSessionByProject) +
+    ':' +
+    projects.closedProjectIds.join(',');
+
+  if (quickHash === lastPersistedHash) return;
+  lastPersistedHash = quickHash;
 
   if (saveTimerRef !== null) {
     window.clearTimeout(saveTimerRef);
@@ -98,6 +121,7 @@ function scheduleSave() {
 
   saveTimerRef = window.setTimeout(() => {
     saveTimerRef = null;
+    dirtyStores.clear();
     const state = pendingSaveRef;
     if (!state) return;
     void invoke('save_persisted_state', { state }).catch((err) => {
@@ -120,18 +144,32 @@ function scheduleSave() {
 }
 
 /**
+ * Track which stores have changed since last save.
+ * Only stores that changed will trigger persistence — transient updates
+ * in non-persist-relevant stores are ignored entirely.
+ */
+const dirtyStores = new Set<string>();
+
+function markDirtyAndSave(storeName: string) {
+  return () => {
+    dirtyStores.add(storeName);
+    scheduleSave();
+  };
+}
+
+/**
  * Subscribe to all domain stores that contribute to persisted state.
  * Returns a cleanup function that removes all subscriptions.
  */
 export function initCentralPersistence(): () => void {
   const unsubs = [
-    useProjectStore.subscribe(scheduleSave),
-    useSessionStore.subscribe(scheduleSave),
-    usePromptStore.subscribe(scheduleSave),
-    useEnvironmentStore.subscribe(scheduleSave),
-    useAssetStore.subscribe(scheduleSave),
-    useAgentShortcutStore.subscribe(scheduleSave),
-    useSecureStorageStore.subscribe(scheduleSave),
+    useProjectStore.subscribe(markDirtyAndSave('project')),
+    useSessionStore.subscribe(markDirtyAndSave('session')),
+    usePromptStore.subscribe(markDirtyAndSave('prompt')),
+    useEnvironmentStore.subscribe(markDirtyAndSave('environment')),
+    useAssetStore.subscribe(markDirtyAndSave('asset')),
+    useAgentShortcutStore.subscribe(markDirtyAndSave('shortcut')),
+    useSecureStorageStore.subscribe(markDirtyAndSave('secure')),
   ];
 
   return () => {
@@ -141,6 +179,7 @@ export function initCentralPersistence(): () => void {
       saveTimerRef = null;
     }
     pendingSaveRef = null;
+    dirtyStores.clear();
   };
 }
 

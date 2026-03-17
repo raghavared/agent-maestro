@@ -1,4 +1,4 @@
-import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember, Team, TaskList } from '../../types';
+import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember, Team, TaskList, SpellInvocationResult, CustomPrompt } from '../../types';
 
 /**
  * Type-safe domain event definitions.
@@ -97,6 +97,11 @@ export interface SessionDeletedEvent {
 export interface SessionTaskAddedEvent {
   type: 'session:task_added';
   data: { sessionId: string; taskId: string };
+}
+
+export interface SessionStatusChangedEvent {
+  type: 'session:status_changed';
+  data: { id: string; status: string; lastActivity: string; needsInput?: { active: boolean; message?: string } };
 }
 
 export interface SessionTaskRemovedEvent {
@@ -241,6 +246,27 @@ export interface TeamArchivedEvent {
   data: Team;
 }
 
+// Spell Events
+export interface SpellInvokedEvent {
+  type: 'spell:invoked';
+  data: SpellInvocationResult;
+}
+
+export interface CustomPromptCreatedEvent {
+  type: 'custom_prompt:created';
+  data: CustomPrompt;
+}
+
+export interface CustomPromptUpdatedEvent {
+  type: 'custom_prompt:updated';
+  data: CustomPrompt;
+}
+
+export interface CustomPromptDeletedEvent {
+  type: 'custom_prompt:deleted';
+  data: { id: string };
+}
+
 /**
  * Union type of all domain events.
  * Use this for type-safe event handling.
@@ -262,6 +288,7 @@ export type DomainEvent =
   | SessionSpawnEvent
   | SessionResumeEvent
   | SessionUpdatedEvent
+  | SessionStatusChangedEvent
   | SessionDeletedEvent
   | SessionTaskAddedEvent
   | SessionTaskRemovedEvent
@@ -286,7 +313,11 @@ export type DomainEvent =
   | TeamCreatedEvent
   | TeamUpdatedEvent
   | TeamDeletedEvent
-  | TeamArchivedEvent;
+  | TeamArchivedEvent
+  | SpellInvokedEvent
+  | CustomPromptCreatedEvent
+  | CustomPromptUpdatedEvent
+  | CustomPromptDeletedEvent;
 
 /**
  * Type-safe event map for event bus.
@@ -309,6 +340,7 @@ export interface TypedEventMap {
   'session:spawn': SpawnRequestEvent;
   'session:resume': SpawnRequestEvent;
   'session:updated': Session;
+  'session:status_changed': { id: string; status: string; lastActivity: string; needsInput?: { active: boolean; message?: string } };
   'session:deleted': { id: string };
   'session:task_added': { sessionId: string; taskId: string };
   'session:task_removed': { sessionId: string; taskId: string };
@@ -360,6 +392,11 @@ export interface TypedEventMap {
   'team:updated': Team;
   'team:deleted': { id: string };
   'team:archived': Team;
+  // Spell events
+  'spell:invoked': SpellInvocationResult;
+  'custom_prompt:created': CustomPrompt;
+  'custom_prompt:updated': CustomPrompt;
+  'custom_prompt:deleted': { id: string };
 }
 
 /**

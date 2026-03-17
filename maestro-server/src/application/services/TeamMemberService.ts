@@ -3,6 +3,7 @@ import { ITeamMemberRepository } from '../../domain/repositories/ITeamMemberRepo
 import { IEventBus } from '../../domain/events/IEventBus';
 import { IIdGenerator } from '../../domain/common/IIdGenerator';
 import { ValidationError, NotFoundError, ForbiddenError, BusinessRuleError } from '../../domain/common/Errors';
+import { GLOBAL_PROJECT_ID } from '../../infrastructure/repositories/FileSystemTeamMemberRepository';
 
 /**
  * Application service for team member operations.
@@ -41,6 +42,7 @@ export class TeamMemberService {
     const member: TeamMember = {
       id: this.idGenerator.generate('tm'),
       projectId: data.projectId,
+      ...(data.scope && { scope: data.scope }),
       name: data.name.trim(),
       role: data.role.trim(),
       identity: data.identity ? data.identity.trim() : `You are ${data.name.trim()}. ${data.role.trim()}.`,
@@ -95,6 +97,14 @@ export class TeamMemberService {
   }
 
   /**
+   * Get all global team members (scope === 'global').
+   */
+  async getGlobalTeamMembers(): Promise<TeamMember[]> {
+    const members = await this.teamMemberRepo.findByProjectId(GLOBAL_PROJECT_ID);
+    return members.filter(m => m.status !== 'archived' && m.scope === 'global');
+  }
+
+  /**
    * Update a team member.
    * Business rules:
    * - For default members: delegates to saveDefaultOverride()
@@ -146,6 +156,7 @@ export class TeamMemberService {
     if (updates.customWorkflow !== undefined) cleanUpdates.customWorkflow = updates.customWorkflow;
     if (updates.memory !== undefined) cleanUpdates.memory = updates.memory;
     if (updates.permissionMode !== undefined) cleanUpdates.permissionMode = updates.permissionMode;
+    if (updates.scope !== undefined) cleanUpdates.scope = updates.scope;
 
     // Update through repository (handles both defaults via override and custom via file)
     const updated = await this.teamMemberRepo.update(id, { ...cleanUpdates, projectId });

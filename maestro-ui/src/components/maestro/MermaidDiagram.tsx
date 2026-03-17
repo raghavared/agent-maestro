@@ -45,7 +45,14 @@ function getThemeColors() {
   };
 }
 
-function reinitMermaid() {
+// Module-level mermaid initialization tracking
+let mermaidInitialized = false;
+let lastMermaidTheme: string | null = null;
+
+function ensureMermaidInit() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  if (mermaidInitialized && currentTheme === lastMermaidTheme) return;
+
   mermaid.initialize({
     startOnLoad: false,
     theme: "base",
@@ -53,7 +60,13 @@ function reinitMermaid() {
     fontFamily: "'JetBrains Mono', monospace",
     themeVariables: getThemeColors(),
   });
+  mermaidInitialized = true;
+  lastMermaidTheme = currentTheme;
 }
+
+// SVG cache with LRU eviction
+const svgCache = new Map<string, string>();
+const MAX_SVG_CACHE = 50;
 
 interface MermaidDiagramProps {
   chart: string;
@@ -127,14 +140,31 @@ export function MermaidDiagram({ chart }: MermaidDiagramProps) {
 
   useEffect(() => {
     let cancelled = false;
+    const trimmed = chart.trim();
+
+    // Check SVG cache first
+    const cached = svgCache.get(trimmed);
+    if (cached) {
+      setSvgContent(cached);
+      setError(null);
+      return;
+    }
+
     const id = `mermaid-diagram-${++diagramCounter}`;
 
     async function renderDiagram() {
       try {
-        reinitMermaid();
-        const { svg } = await mermaid.render(id, chart.trim());
+        ensureMermaidInit();
+        const { svg } = await mermaid.render(id, trimmed);
         if (!cancelled) {
-          setSvgContent(svg);
+          const sanitized = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true } });
+          // Cache the sanitized SVG
+          svgCache.set(trimmed, sanitized);
+          if (svgCache.size > MAX_SVG_CACHE) {
+            const firstKey = svgCache.keys().next().value;
+            if (firstKey !== undefined) svgCache.delete(firstKey);
+          }
+          setSvgContent(sanitized);
           setError(null);
         }
       } catch (err: any) {
@@ -174,15 +204,14 @@ export function MermaidDiagram({ chart }: MermaidDiagramProps) {
     );
   }
 
-  const sanitizedSvg = DOMPurify.sanitize(svgContent, { USE_PROFILES: { svg: true, svgFilters: true } });
-
+  // svgContent is already sanitized in the effect
   return (
     <>
       <div
         ref={containerRef}
         className={`mermaidDiagram ${isZoomed ? "mermaidDiagram--zoomed" : ""}`}
         onClick={openZoom}
-        dangerouslySetInnerHTML={{ __html: sanitizedSvg }}
+        dangerouslySetInnerHTML={{ __html: svgContent }}
       />
       {isZoomed && (
         <div className="mermaidDiagramOverlay" onClick={closeZoom}>
@@ -211,7 +240,7 @@ export function MermaidDiagram({ chart }: MermaidDiagramProps) {
             <div
               className="mermaidDiagramOverlaySvg"
               style={{ transform: `scale(${zoomLevel})`, transformOrigin: "center top" }}
-              dangerouslySetInnerHTML={{ __html: sanitizedSvg }}
+              dangerouslySetInnerHTML={{ __html: svgContent }}
             />
           </div>
         </div>

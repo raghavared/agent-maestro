@@ -6,8 +6,8 @@ type TaskCardProps = {
     task: MaestroTask;
     isDragging: boolean;
     onPointerDown: (e: React.PointerEvent, taskId: string) => void;
-    onClick: () => void;
-    onWorkOn: () => void;
+    onClick: (task: MaestroTask) => void;
+    onWorkOn: (task: MaestroTask) => void;
     projectBadge?: { name: string; color: string };
 };
 
@@ -46,8 +46,8 @@ export const TaskCard = React.memo(function TaskCard({
             e.stopPropagation();
             return;
         }
-        onClick();
-    }, [onClick]);
+        onClick(task);
+    }, [onClick, task]);
 
     const handleDragStart = useCallback((e: React.DragEvent) => {
         const content = task.initialPrompt || task.description || '';
@@ -59,7 +59,7 @@ export const TaskCard = React.memo(function TaskCard({
         }));
         e.dataTransfer.setData('text/plain', text);
         e.dataTransfer.effectAllowed = 'copy';
-    }, [task]);
+    }, [task.title, task.description, task.initialPrompt]);
 
     return (
         <div
@@ -116,7 +116,7 @@ export const TaskCard = React.memo(function TaskCard({
                         className="taskBoardCardAction"
                         onClick={(e) => {
                             e.stopPropagation();
-                            onWorkOn();
+                            onWorkOn(task);
                         }}
                         title="Start working on this task"
                     >

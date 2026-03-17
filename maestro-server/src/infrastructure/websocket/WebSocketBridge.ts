@@ -4,17 +4,64 @@ import { ILogger } from '../../domain/common/ILogger';
 import { EventName, TypedEventMap } from '../../domain/events/DomainEvents';
 
 /**
+ * Maximum send buffer size before a client is considered backpressured.
+ * Clients exceeding this threshold have messages dropped until they catch up.
+ */
+const MAX_BUFFER_BYTES = 1024 * 1024; // 1MB
+
+/**
+ * Events that must be delivered immediately (not batched).
+ * These trigger time-sensitive side effects like terminal spawning or PTY writes.
+ */
+const IMMEDIATE_EVENTS = new Set<string>([
+  'session:spawn',
+  'session:resume',
+  'session:prompt_send',
+  'session:modal',
+  'session:modal_action',
+  'session:modal_closed',
+  'spell:invoked',
+]);
+
+/** Subscription filter for per-client event filtering. */
+interface SubscriptionFilter {
+  sessionIds?: Set<string>;
+  projectId?: string;
+  taskIds?: Set<string>;
+}
+
+/**
  * Bridges domain events to WebSocket clients.
- * Subscribes to all domain events and broadcasts them to connected clients.
+ * Features: message batching (50ms), per-entity throttling, backpressure handling,
+ * extended subscription filtering, and EventBus decoupling via queueMicrotask.
  *
- * Clients can send a `subscribe` message with `sessionIds` to receive only
- * events related to those sessions (used by `maestro session watch`).
- * Clients without a subscription receive ALL events (backward compatible).
+ * Clients can send a `subscribe` message with `sessionIds`, `projectId`, and/or
+ * `taskIds` to receive only matching events. Clients without a subscription
+ * receive ALL events (backward compatible).
  */
 export class WebSocketBridge {
   private logger: ILogger;
-  /** Per-client session subscription filters. Clients not in this map get all events. */
-  private subscriptions = new Map<WebSocket, Set<string>>();
+  /** Per-client subscription filters. Clients not in this map get all events. */
+  private subscriptions = new Map<WebSocket, SubscriptionFilter>();
+  /** Stored handler references for cleanup during shutdown. */
+  private handlers = new Map<string, (data: any) => void>();
+
+  // --- Batching ---
+  private pendingMessages: Array<{ event: string; data: any }> = [];
+  private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly BATCH_WINDOW_MS = 50;
+
+  // --- Per-entity throttling ---
+  private lastQueued = new Map<string, { time: number; data: any }>();
+  private readonly THROTTLE_MS: Record<string, number> = {
+    'session:updated': 500,          // Max 2/sec per session
+    'session:status_changed': 500,   // Same throttle for lightweight status events
+    'task:updated': 300,             // Max ~3/sec per task
+    'notify:progress': 1000,         // Max 1/sec per session
+  };
+
+  // --- Backpressure ---
+  private backpressuredClients = new Map<WebSocket, number>();
 
   constructor(
     private wss: WebSocketServer,
@@ -30,9 +77,12 @@ export class WebSocketBridge {
     this.wss.on('connection', (ws: WebSocket, req) => {
       ws.on('close', (code, reason) => {
         this.subscriptions.delete(ws);
+        this.backpressuredClients.delete(ws);
       });
 
       ws.on('error', (error) => {
+        this.subscriptions.delete(ws);
+        this.backpressuredClients.delete(ws);
         this.logger.error('WebSocket client error:', error);
       });
 
@@ -54,11 +104,26 @@ export class WebSocketBridge {
       return;
     }
 
-    // Handle subscribe — client wants events filtered to specific session IDs
-    if (message.type === 'subscribe' && Array.isArray(message.sessionIds)) {
-      const ids = new Set<string>(message.sessionIds.filter((id: any) => typeof id === 'string'));
-      this.subscriptions.set(ws, ids);
-      ws.send(JSON.stringify({ type: 'subscribed', sessionIds: [...ids], timestamp: Date.now() }));
+    // Handle subscribe — client wants events filtered
+    if (message.type === 'subscribe') {
+      const sub: SubscriptionFilter = {};
+      if (Array.isArray(message.sessionIds)) {
+        sub.sessionIds = new Set(message.sessionIds.filter((id: any) => typeof id === 'string'));
+      }
+      if (typeof message.projectId === 'string') {
+        sub.projectId = message.projectId;
+      }
+      if (Array.isArray(message.taskIds)) {
+        sub.taskIds = new Set(message.taskIds.filter((id: any) => typeof id === 'string'));
+      }
+      this.subscriptions.set(ws, sub);
+      ws.send(JSON.stringify({
+        type: 'subscribed',
+        ...(sub.sessionIds ? { sessionIds: [...sub.sessionIds] } : {}),
+        ...(sub.projectId ? { projectId: sub.projectId } : {}),
+        ...(sub.taskIds ? { taskIds: [...sub.taskIds] } : {}),
+        timestamp: Date.now(),
+      }));
       return;
     }
 
@@ -91,6 +156,7 @@ export class WebSocketBridge {
       'session:spawn',
       'session:resume',
       'session:updated',
+      'session:status_changed',
       'session:deleted',
       'session:task_added',
       'session:task_removed',
@@ -114,68 +180,222 @@ export class WebSocketBridge {
       'team_member:updated',
       'team_member:deleted',
       'team_member:archived',
+      // Spell events
+      'spell:invoked',
+      'custom_prompt:created',
+      'custom_prompt:updated',
+      'custom_prompt:deleted',
     ];
 
-    // Subscribe to each event
+    // Subscribe to each event, deferring via queueMicrotask to avoid blocking emit()
     for (const event of events) {
-      this.eventBus.on(event, (data) => {
-        this.broadcast(event, data);
-      });
+      const handler = (data: any) => {
+        queueMicrotask(() => {
+          if (IMMEDIATE_EVENTS.has(event)) {
+            this.broadcastImmediate(event, data);
+          } else {
+            this.queueBroadcast(event, data);
+          }
+        });
+      };
+      this.handlers.set(event, handler);
+      this.eventBus.on(event, handler);
     }
 
     this.logger.info(`WebSocket bridge subscribed to ${events.length} events`);
   }
 
   /**
-   * Extract the session ID from an event payload, if present.
+   * Queue a message for batched delivery. Applies per-entity throttling.
    */
-  private extractSessionId(event: string, data: any): string | undefined {
-    if (!data) return undefined;
-
-    // Task events, team member events, and project events are not session-scoped
-    if (event.startsWith('task:') || event.startsWith('team_member:') || event.startsWith('project:') || event.startsWith('notify:')) {
-      return undefined;
+  private queueBroadcast(event: string, data: any): void {
+    const throttleMs = this.THROTTLE_MS[event];
+    if (throttleMs) {
+      const entityId = data?.id || data?.sessionId || data?.taskId || '';
+      const key = `${event}:${entityId}`;
+      const now = Date.now();
+      const last = this.lastQueued.get(key);
+      if (last && now - last.time < throttleMs) {
+        // Replace pending data with latest (so flush sends newest state)
+        last.data = data;
+        const idx = this.pendingMessages.findIndex(
+          (m) => m.event === event && (m.data?.id || m.data?.sessionId || m.data?.taskId) === entityId
+        );
+        if (idx >= 0) this.pendingMessages[idx].data = data;
+        return;
+      }
+      this.lastQueued.set(key, { time: now, data });
     }
 
-    // Direct session ID field
-    if (data.sessionId) return data.sessionId;
-    // Session object with id field (session:updated, session:created, etc.)
-    if (data.id && typeof data.status === 'string') return data.id;
-    // Spawn event
-    if (data.session?.id) return data.session.id;
-    return undefined;
+    this.pendingMessages.push({ event, data });
+    if (!this.flushTimer) {
+      this.flushTimer = setTimeout(() => this.flushBatch(), this.BATCH_WINDOW_MS);
+    }
   }
 
   /**
-   * Broadcast a message to connected WebSocket clients.
-   * Clients with a subscription filter only receive events matching their session IDs.
+   * Flush pending messages to all connected clients as a batched array.
    */
-  private broadcast(event: string, data: any): void {
+  private flushBatch(): void {
+    this.flushTimer = null;
+    if (this.pendingMessages.length === 0) return;
+
+    const batch = this.pendingMessages;
+    this.pendingMessages = [];
+    const now = Date.now();
+
+    this.wss.clients.forEach((client) => {
+      if (client.readyState !== WebSocket.OPEN) {
+        this.subscriptions.delete(client);
+        this.backpressuredClients.delete(client);
+        return;
+      }
+
+      // Backpressure check
+      if ((client as any).bufferedAmount > MAX_BUFFER_BYTES) {
+        this.logger.warn('Skipping slow WebSocket client', {
+          buffered: (client as any).bufferedAmount,
+        });
+        if (!this.backpressuredClients.has(client)) {
+          this.backpressuredClients.set(client, now);
+        } else if (now - this.backpressuredClients.get(client)! > 30_000) {
+          this.logger.warn('Terminating persistently slow WebSocket client');
+          client.terminate();
+          this.backpressuredClients.delete(client);
+          this.subscriptions.delete(client);
+        }
+        return;
+      }
+
+      // Client is sending fine — clear backpressure tracking
+      this.backpressuredClients.delete(client);
+
+      const sub = this.subscriptions.get(client);
+      const clientMessages = sub
+        ? batch.filter((m) => !this.shouldFilterOut(m.event, m.data, sub))
+        : batch;
+
+      if (clientMessages.length === 0) return;
+
+      const payload = JSON.stringify(
+        clientMessages.map((m) => ({
+          type: m.event,
+          event: m.event,
+          data: m.data,
+          timestamp: now,
+        }))
+      );
+      client.send(payload);
+    });
+
+    // Prune stale throttle entries (older than 10s)
+    const cutoff = now - 10_000;
+    for (const [key, entry] of this.lastQueued) {
+      if (entry.time < cutoff) this.lastQueued.delete(key);
+    }
+  }
+
+  /**
+   * Send an event immediately to all matching clients (bypasses batching).
+   * Used for time-sensitive events like session:spawn and session:prompt_send.
+   */
+  private broadcastImmediate(event: string, data: any): void {
     if (this.wss.clients.size === 0) return;
 
     const message = JSON.stringify({
       type: event,
       event,
       data,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
-    const eventSessionId = this.extractSessionId(event, data);
-
-    let sent = 0;
     this.wss.clients.forEach((client) => {
-      if (client.readyState !== WebSocket.OPEN) return;
-
-      // If client has a subscription, check if this event matches
-      const sub = this.subscriptions.get(client);
-      if (sub && eventSessionId && !sub.has(eventSessionId)) {
-        return; // skip — event not for a subscribed session
+      if (client.readyState !== WebSocket.OPEN) {
+        this.subscriptions.delete(client);
+        return;
       }
 
-      client.send(message);
-      sent++;
-    });
+      // Still skip backpressured clients even for immediate events
+      if ((client as any).bufferedAmount > MAX_BUFFER_BYTES) return;
 
+      const sub = this.subscriptions.get(client);
+      if (sub && this.shouldFilterOut(event, data, sub)) return;
+
+      client.send(message);
+    });
+  }
+
+  /**
+   * Determine if an event should be filtered out for a specific client subscription.
+   * Returns true if the event should be skipped.
+   */
+  private shouldFilterOut(event: string, data: any, sub: SubscriptionFilter): boolean {
+    // Session events — filter by sessionIds
+    if (event.startsWith('session:')) {
+      const sessionId = data?.sessionId || data?.id || data?.session?.id;
+      if (sub.sessionIds && sessionId && !sub.sessionIds.has(sessionId)) return true;
+      return false;
+    }
+
+    // Task events — filter by taskIds if specified, or projectId
+    if (event.startsWith('task:')) {
+      const taskId = data?.taskId || data?.id;
+      if (sub.taskIds && taskId && !sub.taskIds.has(taskId)) return true;
+      if (sub.projectId && data?.projectId && data.projectId !== sub.projectId) return true;
+      return false;
+    }
+
+    // Team member / project / team events — filter by projectId
+    if (event.startsWith('team_member:') || event.startsWith('project:') || event.startsWith('team:')) {
+      if (sub.projectId && data?.projectId && data.projectId !== sub.projectId) return true;
+      return false;
+    }
+
+    // Spell events — filter by target sessionId
+    if (event.startsWith('spell:')) {
+      const sessionId = data?.targetSessionId;
+      if (sub.sessionIds && sessionId && !sub.sessionIds.has(sessionId)) return true;
+      return false;
+    }
+
+    // Custom prompt events — pass through to all clients (global)
+    if (event.startsWith('custom_prompt:')) {
+      return false;
+    }
+
+    // Notify events — filter by sessionId if available
+    if (event.startsWith('notify:')) {
+      const sessionId = data?.sessionId;
+      if (sub.sessionIds && sessionId && !sub.sessionIds.has(sessionId)) return true;
+      return false;
+    }
+
+    return false; // Unknown events pass through
+  }
+
+  /**
+   * Shut down the bridge: remove all event bus listeners, clear timers, and clear subscriptions.
+   */
+  shutdown(): void {
+    // Clear batching timer
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+    // Flush remaining messages
+    if (this.pendingMessages.length > 0) {
+      this.flushBatch();
+    }
+
+    for (const [event, handler] of this.handlers) {
+      this.eventBus.off(event, handler);
+    }
+    this.handlers.clear();
+    this.subscriptions.clear();
+    this.backpressuredClients.clear();
+    this.lastQueued.clear();
+    this.pendingMessages = [];
+    this.logger.info('WebSocketBridge shut down');
   }
 
   /**

@@ -17,6 +17,9 @@ import {
   idParamSchema,
   idAndTaskIdParamSchema,
   addTaskDocSchema,
+  paginationQuerySchema,
+  extractPagination,
+  paginate,
 } from './validation';
 
 /**
@@ -26,7 +29,7 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
   const router = express.Router();
 
   // List tasks
-  router.get('/tasks', validateQuery(listTasksQuerySchema), async (req: Request, res: Response) => {
+  router.get('/tasks', validateQuery(listTasksQuerySchema.merge(paginationQuerySchema)), async (req: Request, res: Response) => {
     try {
       const filter: TaskFilter = {};
 
@@ -43,7 +46,11 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
       }
 
       const tasks = await taskService.listTasks(filter);
-      res.json(tasks);
+      if (req.query.limit || req.query.offset) {
+        res.json(paginate(tasks, extractPagination(req.query)));
+      } else {
+        res.json(tasks);
+      }
     } catch (err: unknown) {
       handleRouteError(err, res);
     }
@@ -120,7 +127,7 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
   });
 
   // Get docs for a task (aggregated from all sessions working on this task)
-  router.get('/tasks/:id/docs', validateParams(idParamSchema), async (req: Request, res: Response) => {
+  router.get('/tasks/:id/docs', validateParams(idParamSchema), validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
     try {
       const taskId = req.params.id as string;
 
@@ -128,22 +135,27 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
       await taskService.getTask(taskId);
 
       // Get all sessions for this task and aggregate docs (with content hydrated from files)
-      const docs: Array<Record<string, unknown>> = [];
+      let docs: Array<Record<string, unknown>> = [];
       if (sessionService) {
         const sessions = await sessionService.listSessionsByTask(taskId);
-        for (const session of sessions) {
-          const sessionDocs = await sessionService.getSessionDocsWithContent(session.id);
-          for (const doc of sessionDocs) {
-            if (!doc.taskId || doc.taskId === taskId) {
-              docs.push({ ...doc, sessionId: session.id, sessionName: session.name });
-            }
-          }
-        }
+        const allSessionDocs = await Promise.all(
+          sessions.map(async (session) => {
+            const sessionDocs = await sessionService.getSessionDocsWithContent(session.id);
+            return sessionDocs
+              .filter((doc) => !doc.taskId || doc.taskId === taskId)
+              .map((doc) => ({ ...doc, sessionId: session.id, sessionName: session.name }));
+          })
+        );
+        docs = allSessionDocs.flat();
       }
 
       // Sort by addedAt
       docs.sort((a, b) => (a.addedAt as number) - (b.addedAt as number));
-      res.json(docs);
+      if (req.query.limit || req.query.offset) {
+        res.json(paginate(docs, extractPagination(req.query)));
+      } else {
+        res.json(docs);
+      }
     } catch (err: unknown) {
       handleRouteError(err, res);
     }
@@ -324,14 +336,18 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
   });
 
   // Get child tasks
-  router.get('/tasks/:id/children', validateParams(idParamSchema), async (req: Request, res: Response) => {
+  router.get('/tasks/:id/children', validateParams(idParamSchema), validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
       // First verify parent exists
       await taskService.getTask(id);
 
       const childTasks = await taskService.listChildTasks(id);
-      res.json(childTasks);
+      if (req.query.limit || req.query.offset) {
+        res.json(paginate(childTasks, extractPagination(req.query)));
+      } else {
+        res.json(childTasks);
+      }
     } catch (err: unknown) {
       handleRouteError(err, res);
     }

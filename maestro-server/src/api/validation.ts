@@ -7,8 +7,8 @@ import { Request, Response, NextFunction } from 'express';
 const safeId = z.string().regex(/^[a-zA-Z0-9_-]+$/, 'ID must be alphanumeric with hyphens/underscores only');
 
 // String with reasonable length limits
-const shortString = z.string().min(1).max(500);
-const longString = z.string().min(1).max(10000);
+const shortString = z.string().min(1);
+const longString = z.string();
 
 // --- Enums ---
 
@@ -20,7 +20,7 @@ const workerStrategySchema = z.enum(['simple', 'tree']);
 const orchestratorStrategySchema = z.enum(['default', 'intelligent-batching', 'dag']);
 const agentModeSchema = z.enum(['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate']);
 const templateModeSchema = z.enum(['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate']);
-const modelSchema = z.enum(['haiku', 'sonnet', 'opus']);
+const modelSchema = z.string().min(1);
 const updateSourceSchema = z.enum(['user', 'session']);
 
 const timelineEventTypeSchema = z.enum([
@@ -165,8 +165,11 @@ export const reorderTaskListSchema = z.object({
 
 // --- Team member schemas ---
 
+export const teamMemberScopeSchema = z.enum(['project', 'global']);
+
 export const createTeamMemberSchema = z.object({
   projectId: safeId,
+  scope: teamMemberScopeSchema.optional(),
   name: shortString,
   role: shortString,
   identity: z.string().max(10000).optional(),
@@ -194,6 +197,7 @@ export const createTeamMemberSchema = z.object({
 
 export const updateTeamMemberSchema = z.object({
   projectId: safeId,
+  scope: teamMemberScopeSchema.optional(),
   name: shortString.optional(),
   role: shortString.optional(),
   identity: z.string().max(10000).optional(),
@@ -283,7 +287,8 @@ export const listSessionsQuerySchema = z.object({
   parentSessionId: safeId.optional(),
   rootSessionId: safeId.optional(),
   teamSessionId: safeId.optional(),
-}).strict();
+  fields: z.enum(['full', 'summary']).optional(),
+});
 
 // --- Spawn session schema ---
 
@@ -325,6 +330,46 @@ export const createTemplateSchema = z.object({
 export const updateTemplateSchema = z.object({
   name: shortString.optional(),
   content: longString.optional(),
+}).strict();
+
+// --- Spell schemas ---
+
+const spellEntityTypeSchema = z.enum([
+  'maestro', 'skill', 'team-member', 'task', 'doc', 'session', 'custom-prompt'
+]);
+
+export const invokeSpellSchema = z.object({
+  entityType: spellEntityTypeSchema,
+  entityId: safeId,
+  spellName: z.string().min(1).max(100),
+  targetSessionId: safeId,
+  projectId: safeId,
+}).strict();
+
+export const listSpellEntitiesQuerySchema = z.object({
+  projectId: safeId,
+}).strict();
+
+export const listSpellDefinitionsQuerySchema = z.object({
+  entityType: spellEntityTypeSchema.optional(),
+}).strict();
+
+export const createCustomPromptSchema = z.object({
+  name: shortString,
+  description: z.string().max(500).optional(),
+  icon: z.string().max(10).optional(),
+  content: longString,
+  tags: z.array(z.string().max(50)).max(10).optional(),
+  entityType: spellEntityTypeSchema.optional(),
+}).strict();
+
+export const updateCustomPromptSchema = z.object({
+  name: shortString.optional(),
+  description: z.string().max(500).optional(),
+  icon: z.string().max(10).optional(),
+  content: longString.optional(),
+  tags: z.array(z.string().max(50)).max(10).optional(),
+  entityType: spellEntityTypeSchema.optional(),
 }).strict();
 
 // --- Middleware factories ---
@@ -390,5 +435,48 @@ export function validateQuery(schema: z.ZodSchema) {
       });
     }
     next();
+  };
+}
+
+// --- Pagination ---
+
+export const paginationQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
+export interface PaginationParams {
+  limit: number;
+  offset: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    offset: number;
+    limit: number;
+    total: number;
+    hasMore: boolean;
+  };
+}
+
+export function extractPagination(query: Record<string, any>): PaginationParams {
+  return {
+    limit: Number(query.limit) || 100,
+    offset: Number(query.offset) || 0,
+  };
+}
+
+export function paginate<T>(items: T[], params: PaginationParams): PaginatedResponse<T> {
+  const total = items.length;
+  const sliced = items.slice(params.offset, params.offset + params.limit);
+  return {
+    data: sliced,
+    pagination: {
+      offset: params.offset,
+      limit: params.limit,
+      total,
+      hasMore: params.offset + params.limit < total,
+    },
   };
 }

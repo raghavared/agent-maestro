@@ -1,6 +1,7 @@
 import React, { useRef, useMemo, useEffect } from "react";
 import { useSessionStore, getActive, getSortedSessions } from "../../stores/useSessionStore";
 import { useProjectStore } from "../../stores/useProjectStore";
+import { useProjectDialogStore } from "../../stores/useProjectDialogStore";
 import { useSshStore } from "../../stores/useSshStore";
 import { usePersistentSessionStore } from "../../stores/usePersistentSessionStore";
 import { useAgentShortcutStore } from "../../stores/useAgentShortcutStore";
@@ -32,6 +33,7 @@ import { RecordingsListModal } from "../modals/RecordingsListModal";
 import { ReplayModal } from "../modals/ReplayModal";
 import { AgentModalViewer } from "../modals/AgentModalViewer";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { SpellPicker } from "../maestro/SpellPicker";
 import { normalizeSmartQuotes } from "../../app/utils/string";
 
 export function AppModals() {
@@ -71,27 +73,29 @@ export function AppModals() {
   // Project store
   const projects = useProjectStore((s) => s.projects);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
-  const projectOpen = useProjectStore((s) => s.projectOpen);
-  const setProjectOpen = useProjectStore((s) => s.setProjectOpen);
-  const projectMode = useProjectStore((s) => s.projectMode);
-  const projectTitle = useProjectStore((s) => s.projectTitle);
-  const setProjectTitle = useProjectStore((s) => s.setProjectTitle);
-  const projectBasePath = useProjectStore((s) => s.projectBasePath);
-  const setProjectBasePath = useProjectStore((s) => s.setProjectBasePath);
-  const projectEnvironmentId = useProjectStore((s) => s.projectEnvironmentId);
-  const setProjectEnvironmentId = useProjectStore((s) => s.setProjectEnvironmentId);
-  const projectAssetsEnabled = useProjectStore((s) => s.projectAssetsEnabled);
-  const setProjectAssetsEnabled = useProjectStore((s) => s.setProjectAssetsEnabled);
-  const projectSoundInstrument = useProjectStore((s) => s.projectSoundInstrument);
-  const setProjectSoundInstrument = useProjectStore((s) => s.setProjectSoundInstrument);
-  const projectSoundConfig = useProjectStore((s) => s.projectSoundConfig);
-  const setProjectSoundConfig = useProjectStore((s) => s.setProjectSoundConfig);
-  const confirmDeleteProjectOpen = useProjectStore((s) => s.confirmDeleteProjectOpen);
-  const setConfirmDeleteProjectOpen = useProjectStore((s) => s.setConfirmDeleteProjectOpen);
-  const deleteProjectError = useProjectStore((s) => s.deleteProjectError);
-  const deleteProjectId = useProjectStore((s) => s.deleteProjectId);
   const onProjectSubmit = useProjectStore((s) => s.onProjectSubmit);
   const deleteActiveProject = useProjectStore((s) => s.deleteActiveProject);
+
+  // Project dialog store
+  const projectOpen = useProjectDialogStore((s) => s.projectOpen);
+  const setProjectOpen = useProjectDialogStore((s) => s.setProjectOpen);
+  const projectMode = useProjectDialogStore((s) => s.projectMode);
+  const projectTitle = useProjectDialogStore((s) => s.projectTitle);
+  const setProjectTitle = useProjectDialogStore((s) => s.setProjectTitle);
+  const projectBasePath = useProjectDialogStore((s) => s.projectBasePath);
+  const setProjectBasePath = useProjectDialogStore((s) => s.setProjectBasePath);
+  const projectEnvironmentId = useProjectDialogStore((s) => s.projectEnvironmentId);
+  const setProjectEnvironmentId = useProjectDialogStore((s) => s.setProjectEnvironmentId);
+  const projectAssetsEnabled = useProjectDialogStore((s) => s.projectAssetsEnabled);
+  const setProjectAssetsEnabled = useProjectDialogStore((s) => s.setProjectAssetsEnabled);
+  const projectSoundInstrument = useProjectDialogStore((s) => s.projectSoundInstrument);
+  const setProjectSoundInstrument = useProjectDialogStore((s) => s.setProjectSoundInstrument);
+  const projectSoundConfig = useProjectDialogStore((s) => s.projectSoundConfig);
+  const setProjectSoundConfig = useProjectDialogStore((s) => s.setProjectSoundConfig);
+  const confirmDeleteProjectOpen = useProjectDialogStore((s) => s.confirmDeleteProjectOpen);
+  const setConfirmDeleteProjectOpen = useProjectDialogStore((s) => s.setConfirmDeleteProjectOpen);
+  const deleteProjectError = useProjectDialogStore((s) => s.deleteProjectError);
+  const deleteProjectId = useProjectDialogStore((s) => s.deleteProjectId);
 
   // SSH store
   const sshManagerOpen = useSshStore((s) => s.sshManagerOpen);
@@ -672,6 +676,9 @@ export function AppModals() {
           onSendNext={() => void sendNextReplayStep()}
         />
       )}
+
+      {/* Spell picker */}
+      <SpellPicker />
 
       {/* Agent-generated modals */}
       {activeModals.map((modal) => (

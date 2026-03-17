@@ -41,6 +41,8 @@ export const ProjectKanbanRow = React.memo(function ProjectKanbanRow({
 
     const { dragState, dragOverColumn, onCardPointerDown, registerColumn } = useBoardDrag(handleDrop);
 
+    const handleSelectTask = useCallback((task: MaestroTask) => onSelectTask(task.id), [onSelectTask]);
+
     const columnData = useMemo(() => {
         const rootTasks = tasks.filter((t) => !t.parentId);
         const grouped = new Map<TaskStatus, BoardTask[]>();
@@ -137,8 +139,8 @@ export const ProjectKanbanRow = React.memo(function ProjectKanbanRow({
                                             task={task}
                                             isDragging={dragState?.taskId === task.id}
                                             onPointerDown={onCardPointerDown}
-                                            onClick={() => onSelectTask(task.id)}
-                                            onWorkOn={() => onWorkOnTask(task)}
+                                            onClick={handleSelectTask}
+                                            onWorkOn={onWorkOnTask}
                                         />
                                     ))}
                                     {colTasks.length === 0 && (

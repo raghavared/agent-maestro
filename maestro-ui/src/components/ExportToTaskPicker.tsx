@@ -22,7 +22,7 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
   const newTaskInputRef = useRef<HTMLInputElement>(null);
 
   const projectTasks = useMemo(() => {
-    const all = Array.from(tasks.values())
+    const all = Object.values(tasks)
       .filter((t) => t.projectId === activeProjectId && t.status !== "cancelled" && t.status !== "archived");
     all.sort((a, b) => b.updatedAt - a.updatedAt);
     return all;

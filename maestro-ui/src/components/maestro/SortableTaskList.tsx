@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
   DndContext,
   closestCenter,
@@ -18,12 +18,15 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { TaskTreeNode } from "../../app/types/maestro";
 
+// Phase 2: Module-scope constant
+const PERMANENT_DELETE_OPTIONS = { showPermanentDelete: true } as const;
+
 type SortableTaskItemProps = {
   id: string;
   children: React.ReactNode;
 };
 
-function SortableTaskItem({ id, children }: SortableTaskItemProps) {
+const SortableTaskItem = React.memo(function SortableTaskItem({ id, children }: SortableTaskItemProps) {
   const {
     attributes,
     listeners,
@@ -33,12 +36,13 @@ function SortableTaskItem({ id, children }: SortableTaskItemProps) {
     isDragging,
   } = useSortable({ id });
 
-  const style: React.CSSProperties = {
+  const style = useMemo<React.CSSProperties>(() => ({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : 1,
     cursor: isDragging ? "grabbing" : undefined,
-  };
+    willChange: isDragging ? "transform" : "auto",
+  }), [transform, transition, isDragging]);
 
   return (
     <div
@@ -51,7 +55,7 @@ function SortableTaskItem({ id, children }: SortableTaskItemProps) {
       {children}
     </div>
   );
-}
+});
 
 type SortableTaskListProps = {
   roots: TaskTreeNode[];
@@ -103,7 +107,7 @@ export function SortableTaskList({
     [roots, onReorder]
   );
 
-  const ids = roots.map((r) => r.id);
+  const ids = useMemo(() => roots.map((r) => r.id), [roots]);
 
   return (
     <DndContext
@@ -125,7 +129,7 @@ export function SortableTaskList({
                 node,
                 0,
                 showPermanentDelete
-                  ? { showPermanentDelete: true }
+                  ? PERMANENT_DELETE_OPTIONS
                   : undefined
               )}
             </SortableTaskItem>

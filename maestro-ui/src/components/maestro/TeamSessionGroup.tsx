@@ -5,15 +5,15 @@ import { useUIStore } from '../../stores/useUIStore';
 
 interface TeamSessionGroupProps {
   group: TeamGroup;
-  maestroSessions: Map<string, MaestroSession>;
-  maestroTasks: Map<string, MaestroTask>;
-  teamsMap: Map<string, Team>;
+  maestroSessions: Record<string, MaestroSession>;
+  maestroTasks: Record<string, MaestroTask>;
+  teamsMap: Record<string, Team>;
   renderSessionItem: (isWorker?: boolean) => React.ReactNode;
   renderAllSessionItems: () => React.ReactNode;
   renderCoordinatorOnly: () => React.ReactNode;
 }
 
-export function TeamSessionGroup({
+export const TeamSessionGroup = React.memo(function TeamSessionGroup({
   group,
   maestroSessions,
   maestroTasks,
@@ -25,7 +25,7 @@ export function TeamSessionGroup({
   const [collapsed, setCollapsed] = useState(false);
 
   // Resolve the coordinator maestro session
-  const coordMaestroSession = maestroSessions.get(group.coordinatorMaestroSessionId);
+  const coordMaestroSession = maestroSessions[group.coordinatorMaestroSessionId];
 
   // Build group label
   const groupLabel = useMemo(() => {
@@ -43,7 +43,7 @@ export function TeamSessionGroup({
   // Collect worker snapshots for member chips
   const workerChips = useMemo(() => {
     return group.workerMaestroSessionIds.map(msId => {
-      const ms = maestroSessions.get(msId);
+      const ms = maestroSessions[msId];
       const snap = ms?.teamMemberSnapshots?.[0] || ms?.teamMemberSnapshot;
       return {
         msId,
@@ -59,7 +59,7 @@ export function TeamSessionGroup({
     const allMsIds = [group.coordinatorMaestroSessionId, ...group.workerMaestroSessionIds];
     const taskIds = new Set<string>();
     for (const msId of allMsIds) {
-      const ms = maestroSessions.get(msId);
+      const ms = maestroSessions[msId];
       if (ms?.taskIds) {
         for (const tid of ms.taskIds) taskIds.add(tid);
       }
@@ -69,7 +69,7 @@ export function TeamSessionGroup({
     let done = 0;
     let total = 0;
     for (const tid of taskIds) {
-      const task = maestroTasks.get(tid);
+      const task = maestroTasks[tid];
       if (task) {
         total++;
         if (task.status === 'completed') done++;
@@ -155,4 +155,4 @@ export function TeamSessionGroup({
       </div>
     </div>
   );
-}
+});

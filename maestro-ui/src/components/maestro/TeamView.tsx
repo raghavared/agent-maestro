@@ -52,7 +52,7 @@ export const TeamView = React.memo(function TeamView({
   const slots: SlotInfo[] = useMemo(() => {
     const result: SlotInfo[] = [];
 
-    const coordMs = maestroSessions.get(group.coordinatorMaestroSessionId);
+    const coordMs = maestroSessions[group.coordinatorMaestroSessionId];
     const coordSnap = coordMs?.teamMemberSnapshots?.[0] || (coordMs as any)?.teamMemberSnapshot;
     if (group.coordinatorLocalSessionId) {
       result.push({
@@ -70,7 +70,7 @@ export const TeamView = React.memo(function TeamView({
       const localId = group.workerLocalSessionIds[i];
       if (!localId) continue;
 
-      const ms = maestroSessions.get(msId);
+      const ms = maestroSessions[msId];
       const snap = ms?.teamMemberSnapshots?.[0] || (ms as any)?.teamMemberSnapshot;
       result.push({
         localSessionId: localId,
@@ -153,7 +153,7 @@ export const TeamView = React.memo(function TeamView({
   // --- Team label ---
   const teamLabel = useMemo(() => {
     if (group.teamName) return `${group.teamAvatar || '\u{1F46A}'} ${group.teamName}`;
-    const coordMs = maestroSessions.get(group.coordinatorMaestroSessionId);
+    const coordMs = maestroSessions[group.coordinatorMaestroSessionId];
     const coordSnap = coordMs?.teamMemberSnapshots?.[0] || (coordMs as any)?.teamMemberSnapshot;
     if (coordSnap) return `${coordSnap.avatar} ${coordSnap.name}`;
     return coordMs?.name || 'Team';

@@ -34,7 +34,7 @@ export function TaskDetailOverlay() {
     // Only show overlay for the currently active project
     if (!overlay || overlay.projectId !== activeProjectId) return null;
 
-    const task = tasks.get(overlay.taskId);
+    const task = tasks[overlay.taskId];
     const project = projects.find((p) => p.id === overlay.projectId);
 
     if (!task || !project) return null;
@@ -56,7 +56,7 @@ export function TaskDetailOverlay() {
     };
 
     const handleToggleSubtask = async (subtaskId: string) => {
-        const subtask = tasks.get(subtaskId);
+        const subtask = tasks[subtaskId];
         if (!subtask) return;
         const newStatus = subtask.status === "completed" ? "todo" : "completed";
         await updateTask(subtaskId, { status: newStatus });

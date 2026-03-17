@@ -1318,11 +1318,17 @@
 
 .sessionHistoryDropdown__row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     padding: 8px 14px;
     border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.04);
     transition: background 0.12s ease;
+}
+.sessionHistoryDropdown__row .sessionHistoryDropdown__dot {
+    margin-top: 5px;
+}
+.sessionHistoryDropdown__row .sessionHistoryDropdown__resumeBtn {
+    margin-top: 2px;
 }
 
 .sessionHistoryDropdown__row:hover {
@@ -1360,6 +1366,18 @@
 .sessionHistoryDropdown__meta {
     font-size: 10px;
     color: var(--terminal-text-dim);
+}
+
+.sessionHistoryDropdown__tasks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 3px;
+}
+.sessionHistoryDropdown__tasks .sessionTaskChip {
+    max-width: 120px;
+    font-size: 9px;
+    padding: 1px 6px 1px 4px;
 }
 
 .sessionHistoryDropdown__resumeBtn {

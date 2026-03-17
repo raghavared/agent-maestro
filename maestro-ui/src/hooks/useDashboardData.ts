@@ -146,6 +146,18 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: 'rgba(120, 180, 255, 0.5)',
 };
 
+// ── Helpers ──
+
+function safeDate(value: unknown): Date | null {
+  if (value == null) return null;
+  const d = new Date(value as number);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function safeDateOrEpoch(value: unknown): Date {
+  return safeDate(value) ?? new Date(0);
+}
+
 // ── Main Hook ──
 
 export function useDashboardData(
@@ -161,18 +173,26 @@ export function useDashboardData(
 
     // Filter root tasks (no parentId) within time range
     const rootTasks = tasks.filter((t) => !t.parentId);
-    const filteredTasks = rootTasks.filter((t) =>
-      isWithinInterval(new Date(t.createdAt), interval) ||
-      (t.completedAt && isWithinInterval(new Date(t.completedAt), interval)) ||
-      (t.status !== 'completed' && t.status !== 'cancelled')
-    );
+    const filteredTasks = rootTasks.filter((t) => {
+      const created = safeDate(t.createdAt);
+      const completed = safeDate(t.completedAt);
+      return (
+        (created && isWithinInterval(created, interval)) ||
+        (completed && isWithinInterval(completed, interval)) ||
+        (t.status !== 'completed' && t.status !== 'cancelled')
+      );
+    });
 
     // Filter sessions within time range
-    const filteredSessions = sessions.filter((s) =>
-      isWithinInterval(new Date(s.startedAt), interval) ||
-      (s.completedAt && isWithinInterval(new Date(s.completedAt), interval)) ||
-      (s.status !== 'completed' && s.status !== 'failed' && s.status !== 'stopped')
-    );
+    const filteredSessions = sessions.filter((s) => {
+      const started = safeDate(s.startedAt);
+      const completed = safeDate(s.completedAt);
+      return (
+        (started && isWithinInterval(started, interval)) ||
+        (completed && isWithinInterval(completed, interval)) ||
+        (s.status !== 'completed' && s.status !== 'failed' && s.status !== 'stopped')
+      );
+    });
 
     // ── Overview Metrics ──
     const completedTasks = filteredTasks.filter((t) => t.status === 'completed').length;
@@ -186,12 +206,13 @@ export function useDashboardData(
     const tasksWithDueDate = filteredTasks.filter((t) => t.dueDate);
     const overdueTasks = tasksWithDueDate.filter((t) => {
       if (!t.dueDate || t.status === 'completed' || t.status === 'cancelled') return false;
-      return isBefore(parseISO(t.dueDate), startOfDay(now));
+      const due = safeDate(parseISO(t.dueDate));
+      return due && isBefore(due, startOfDay(now));
     }).length;
     const upcomingDueTasks = tasksWithDueDate.filter((t) => {
       if (!t.dueDate || t.status === 'completed' || t.status === 'cancelled') return false;
-      const due = parseISO(t.dueDate);
-      return isWithinInterval(due, { start: startOfDay(now), end: endOfDay(subDays(now, -7)) });
+      const due = safeDate(parseISO(t.dueDate));
+      return due && isWithinInterval(due, { start: startOfDay(now), end: endOfDay(subDays(now, -7)) });
     }).length;
 
     const overview: OverviewMetrics = {
@@ -214,14 +235,20 @@ export function useDashboardData(
     };
 
     // ── Daily Data ──
-    const days = timeRange.preset === 'all'
-      ? eachDayOfInterval({
-          start: filteredTasks.length > 0
-            ? new Date(Math.min(...filteredTasks.map((t) => t.createdAt), ...filteredSessions.map((s) => s.startedAt)))
-            : subDays(now, 30),
-          end: now,
-        })
-      : eachDayOfInterval({ start, end: now < end ? now : end });
+    let daysStart: Date;
+    if (timeRange.preset === 'all') {
+      const allTimestamps = [
+        ...filteredTasks.map((t) => t.createdAt).filter((v) => typeof v === 'number' && isFinite(v)),
+        ...filteredSessions.map((s) => s.startedAt).filter((v) => typeof v === 'number' && isFinite(v)),
+      ];
+      daysStart = allTimestamps.length > 0 ? new Date(Math.min(...allTimestamps)) : subDays(now, 30);
+    } else {
+      daysStart = start;
+    }
+    const daysEnd = now < end ? now : end;
+    // Guard: ensure start <= end to prevent RangeError in eachDayOfInterval
+    if (daysStart > daysEnd) daysStart = daysEnd;
+    const days = eachDayOfInterval({ start: daysStart, end: daysEnd });
 
     const dailyData: DailyDataPoint[] = days.map((day) => {
       const dayStart = startOfDay(day).getTime();
@@ -286,16 +313,23 @@ export function useDashboardData(
 
     const activityByDay = new Map<string, number>();
     for (const task of rootTasks) {
-      if (task.completedAt) {
-        const key = format(new Date(task.completedAt), 'yyyy-MM-dd');
+      const completedDate = safeDate(task.completedAt);
+      if (completedDate) {
+        const key = format(completedDate, 'yyyy-MM-dd');
         activityByDay.set(key, (activityByDay.get(key) ?? 0) + 2); // weight completions
       }
-      const createdKey = format(new Date(task.createdAt), 'yyyy-MM-dd');
-      activityByDay.set(createdKey, (activityByDay.get(createdKey) ?? 0) + 1);
+      const createdDate = safeDate(task.createdAt);
+      if (createdDate) {
+        const createdKey = format(createdDate, 'yyyy-MM-dd');
+        activityByDay.set(createdKey, (activityByDay.get(createdKey) ?? 0) + 1);
+      }
     }
     for (const session of sessions) {
-      const key = format(new Date(session.startedAt), 'yyyy-MM-dd');
-      activityByDay.set(key, (activityByDay.get(key) ?? 0) + 1);
+      const startedDate = safeDate(session.startedAt);
+      if (startedDate) {
+        const key = format(startedDate, 'yyyy-MM-dd');
+        activityByDay.set(key, (activityByDay.get(key) ?? 0) + 1);
+      }
     }
 
     const maxActivity = Math.max(1, ...activityByDay.values());
@@ -309,25 +343,28 @@ export function useDashboardData(
 
     // ── Due Date Items ──
     const dueDateItems: DueDateItem[] = filteredTasks
-      .filter((t) => t.dueDate && t.status !== 'completed' && t.status !== 'cancelled')
-      .map((t) => ({
-        taskId: t.id,
-        title: t.title,
-        dueDate: t.dueDate!,
-        status: t.status,
-        priority: t.priority,
-        projectName: (t as BoardTask).projectName,
-        projectColor: (t as BoardTask).projectColor,
-        isOverdue: isBefore(parseISO(t.dueDate!), startOfDay(now)),
-      }))
+      .filter((t) => t.dueDate && t.status !== 'completed' && t.status !== 'cancelled' && safeDate(parseISO(t.dueDate!)))
+      .map((t) => {
+        const due = parseISO(t.dueDate!);
+        return {
+          taskId: t.id,
+          title: t.title,
+          dueDate: t.dueDate!,
+          status: t.status,
+          priority: t.priority,
+          projectName: (t as BoardTask).projectName,
+          projectColor: (t as BoardTask).projectColor,
+          isOverdue: isBefore(due, startOfDay(now)),
+        };
+      })
       .sort((a, b) => parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime());
 
     // ── Avg Completion Time ──
-    const completedWithTimes = rootTasks.filter((t) => t.completedAt && t.startedAt);
+    const completedWithTimes = rootTasks.filter((t) => safeDate(t.completedAt) && safeDate(t.startedAt));
     const avgCompletionTimeMinutes = completedWithTimes.length > 0
       ? Math.round(
           completedWithTimes.reduce(
-            (sum, t) => sum + differenceInMinutes(new Date(t.completedAt!), new Date(t.startedAt!)),
+            (sum, t) => sum + differenceInMinutes(safeDateOrEpoch(t.completedAt), safeDateOrEpoch(t.startedAt)),
             0,
           ) / completedWithTimes.length,
         )

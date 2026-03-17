@@ -29,3 +29,6 @@ maestro-ui/src-tauri/binaries/maestro-server-*
 .claude/
 
 AGENTS.md
+
+# Firebase service account keys
+*-firebase-adminsdk-*.json

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
-import { MaestroProject, ProjectSoundConfig } from '../app/types/maestro';
+import { MaestroProject } from '../app/types/maestro';
 import { EnvironmentConfig } from '../app/types/app';
 import { defaultProjectState, envVarsForProjectId } from '../app/utils/env';
 import { maestroClient } from '../utils/MaestroClient';
@@ -9,6 +9,7 @@ import { useSessionStore } from './useSessionStore';
 import { useUIStore } from './useUIStore';
 import { useEnvironmentStore } from './useEnvironmentStore';
 import { useAssetStore } from './useAssetStore';
+import { useProjectDialogStore } from './useProjectDialogStore';
 import { DEFAULT_SOUND_INSTRUMENT } from '../app/constants/defaults';
 
 // Module-level ref (not reactive state)
@@ -18,32 +19,12 @@ interface ProjectState {
   projects: MaestroProject[];
   activeProjectId: string;
   activeSessionByProject: Record<string, string>;
-  projectOpen: boolean;
-  projectMode: 'new' | 'rename';
-  projectTitle: string;
-  projectBasePath: string;
-  projectEnvironmentId: string;
-  projectAssetsEnabled: boolean;
-  projectSoundInstrument: string;
-  projectSoundConfig: ProjectSoundConfig | undefined;
-  confirmDeleteProjectOpen: boolean;
-  deleteProjectError: string | null;
-  deleteProjectId: string | null;
   closedProjectIds: string[];
   setProjects: (projects: MaestroProject[] | ((prev: MaestroProject[]) => MaestroProject[])) => void;
   setActiveProjectId: (id: string) => void;
   setActiveSessionByProject: (
     v: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>),
   ) => void;
-  setProjectOpen: (open: boolean) => void;
-  setProjectMode: (mode: 'new' | 'rename') => void;
-  setProjectTitle: (title: string) => void;
-  setProjectBasePath: (path: string) => void;
-  setProjectEnvironmentId: (id: string) => void;
-  setProjectAssetsEnabled: (enabled: boolean) => void;
-  setProjectSoundInstrument: (instrument: string) => void;
-  setProjectSoundConfig: (config: ProjectSoundConfig | undefined) => void;
-  setConfirmDeleteProjectOpen: (open: boolean) => void;
   setClosedProjectIds: (ids: string[] | ((prev: string[]) => string[])) => void;
   selectProject: (projectId: string) => void;
   moveProject: (projectId: string, targetProjectId: string, position: 'before' | 'after') => void;
@@ -79,17 +60,6 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     projects: initial.projects,
     activeProjectId: initial.activeProjectId,
     activeSessionByProject: {},
-    projectOpen: false,
-    projectMode: 'new',
-    projectTitle: '',
-    projectBasePath: '',
-    projectEnvironmentId: '',
-    projectAssetsEnabled: true,
-    projectSoundInstrument: DEFAULT_SOUND_INSTRUMENT,
-    projectSoundConfig: undefined,
-    confirmDeleteProjectOpen: false,
-    deleteProjectError: null,
-    deleteProjectId: null,
     closedProjectIds: [],
 
     setProjects: (projects) =>
@@ -101,15 +71,6 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       set((s) => ({
         activeSessionByProject: typeof v === 'function' ? v(s.activeSessionByProject) : v,
       })),
-    setProjectOpen: (open) => set({ projectOpen: open }),
-    setProjectMode: (mode) => set({ projectMode: mode }),
-    setProjectTitle: (title) => set({ projectTitle: title }),
-    setProjectBasePath: (path) => set({ projectBasePath: path }),
-    setProjectEnvironmentId: (id) => set({ projectEnvironmentId: id }),
-    setProjectAssetsEnabled: (enabled) => set({ projectAssetsEnabled: enabled }),
-    setProjectSoundInstrument: (instrument) => set({ projectSoundInstrument: instrument }),
-    setProjectSoundConfig: (config) => set({ projectSoundConfig: config }),
-    setConfirmDeleteProjectOpen: (open) => set({ confirmDeleteProjectOpen: open }),
     setClosedProjectIds: (ids) =>
       set((s) => ({
         closedProjectIds: typeof ids === 'function' ? ids(s.closedProjectIds) : ids,
@@ -139,16 +100,15 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     openNewProject: () => {
       useSessionStore.getState().setNewOpen(false);
       const homeDir = useUIStore.getState().homeDir;
-      set({
-        projectMode: 'new',
-        projectTitle: '',
-        projectBasePath: homeDir ?? '',
-        projectEnvironmentId: '',
-        projectAssetsEnabled: true,
-        projectSoundInstrument: DEFAULT_SOUND_INSTRUMENT,
-        projectSoundConfig: undefined,
-        projectOpen: true,
-      });
+      const dlg = useProjectDialogStore.getState();
+      dlg.setProjectMode('new');
+      dlg.setProjectTitle('');
+      dlg.setProjectBasePath(homeDir ?? '');
+      dlg.setProjectEnvironmentId('');
+      dlg.setProjectAssetsEnabled(true);
+      dlg.setProjectSoundInstrument(DEFAULT_SOUND_INSTRUMENT);
+      dlg.setProjectSoundConfig(undefined);
+      dlg.setProjectOpen(true);
     },
 
     openProjectSettings: (projectId) => {
@@ -156,16 +116,15 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       const project = projects.find((p) => p.id === projectId);
       if (!project) return;
       useSessionStore.getState().setNewOpen(false);
-      set({
-        projectMode: 'rename',
-        projectTitle: project.name,
-        projectBasePath: project.basePath ?? '',
-        projectEnvironmentId: project.environmentId ?? '',
-        projectAssetsEnabled: project.assetsEnabled ?? true,
-        projectSoundInstrument: project.soundConfig?.instrument ?? project.soundInstrument ?? DEFAULT_SOUND_INSTRUMENT,
-        projectSoundConfig: project.soundConfig,
-        projectOpen: true,
-      });
+      const dlg = useProjectDialogStore.getState();
+      dlg.setProjectMode('rename');
+      dlg.setProjectTitle(project.name);
+      dlg.setProjectBasePath(project.basePath ?? '');
+      dlg.setProjectEnvironmentId(project.environmentId ?? '');
+      dlg.setProjectAssetsEnabled(project.assetsEnabled ?? true);
+      dlg.setProjectSoundInstrument(project.soundConfig?.instrument ?? project.soundInstrument ?? DEFAULT_SOUND_INSTRUMENT);
+      dlg.setProjectSoundConfig(project.soundConfig);
+      dlg.setProjectOpen(true);
     },
 
     openRenameProject: () => {
@@ -174,17 +133,17 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
     onProjectSubmit: async (e) => {
       e.preventDefault();
+      const { activeProjectId, projects } = get();
+      const dlg = useProjectDialogStore.getState();
       const {
         projectTitle,
         projectBasePath,
         projectMode,
-        activeProjectId,
         projectEnvironmentId,
         projectAssetsEnabled,
         projectSoundInstrument,
         projectSoundConfig,
-        projects,
-      } = get();
+      } = dlg;
       const title = projectTitle.trim();
       if (!title) return;
 
@@ -227,8 +186,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
                   }
                 : p,
             ),
-            projectOpen: false,
           }));
+          dlg.setProjectOpen(false);
         } catch (err) {
           reportError('Failed to update project', err);
         }
@@ -255,9 +214,9 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         };
         set((s) => ({
           projects: [...s.projects, project],
-          projectOpen: false,
           activeProjectId: serverProject.id,
         }));
+        dlg.setProjectOpen(false);
 
         try {
           await ensureAutoAssets(validatedBasePath, serverProject.id, projectAssetsEnabled);
@@ -297,7 +256,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
           const parts: string[] = [];
           if (tasks.length > 0) parts.push(`${tasks.length} task${tasks.length > 1 ? 's' : ''}`);
           if (projectSessions.length > 0) parts.push(`${projectSessions.length} active session${projectSessions.length > 1 ? 's' : ''}`);
-          set({
+          useProjectDialogStore.setState({
             deleteProjectError: `Cannot delete "${project.name}": project has ${parts.join(' and ')}. Remove them first.`,
             deleteProjectId: projectId,
             confirmDeleteProjectOpen: true,
@@ -305,13 +264,13 @@ export const useProjectStore = create<ProjectState>((set, get) => {
           return;
         }
 
-        set({
+        useProjectDialogStore.setState({
           deleteProjectError: null,
           deleteProjectId: projectId,
           confirmDeleteProjectOpen: true,
         });
       } catch {
-        set({
+        useProjectDialogStore.setState({
           deleteProjectError: null,
           deleteProjectId: projectId,
           confirmDeleteProjectOpen: true,
@@ -320,9 +279,10 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     },
 
     deleteActiveProject: async () => {
-      const { deleteProjectId, projects } = get();
-      const projectId = deleteProjectId;
+      const dlg = useProjectDialogStore.getState();
+      const projectId = dlg.deleteProjectId;
       if (!projectId) return;
+      const { projects } = get();
       const project = projects.find((p) => p.id === projectId);
       if (!project) return;
 
@@ -359,10 +319,12 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         set((s) => ({
           projects: [],
           activeProjectId: '',
-          confirmDeleteProjectOpen: false,
-          deleteProjectId: null,
           closedProjectIds: s.closedProjectIds.filter((id) => id !== projectId),
         }));
+        useProjectDialogStore.setState({
+          confirmDeleteProjectOpen: false,
+          deleteProjectId: null,
+        });
         setActiveId(null);
         return;
       }
@@ -371,10 +333,12 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       set((s) => ({
         projects: remaining,
         activeProjectId: nextProjectId,
-        confirmDeleteProjectOpen: false,
-        deleteProjectId: null,
         closedProjectIds: s.closedProjectIds.filter((id) => id !== projectId),
       }));
+      useProjectDialogStore.setState({
+        confirmDeleteProjectOpen: false,
+        deleteProjectId: null,
+      });
       setActiveId(pickActiveSessionId(nextProjectId));
     },
 

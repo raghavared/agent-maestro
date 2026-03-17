@@ -71,11 +71,19 @@ const CODEX_MESSAGE_TEXT_TYPES = new Set([
  */
 export class LogDigestService {
   private pathCache = new Map<string, PathCacheEntry>();
+  private static readonly MAX_PATH_CACHE_SIZE = 500;
 
   constructor(
     private sessionService: SessionService,
     private projectRepo: IProjectRepository,
   ) {}
+
+  /**
+   * Clear the path cache. Called during container shutdown.
+   */
+  shutdown(): void {
+    this.pathCache.clear();
+  }
 
   // ── Public API ───────────────────────────────────────────
 
@@ -194,6 +202,7 @@ export class LogDigestService {
             const match = header.match(SESSION_ID_REGEX);
             if (match && match[1] === sessionId) {
               this.pathCache.set(sessionId, { path: filePath, source: 'claude', resolvedAt: Date.now() });
+              this.evictOldestIfOverLimit();
               return filePath;
             }
           } catch {
@@ -222,6 +231,7 @@ export class LogDigestService {
 
         if (match && match[1] === sessionId) {
           this.pathCache.set(sessionId, { path: filePath, source: 'codex', resolvedAt: Date.now() });
+          this.evictOldestIfOverLimit();
           return filePath;
         }
       } catch {
@@ -787,6 +797,16 @@ export class LogDigestService {
   }
 
   // ── Helpers ──────────────────────────────────────────────
+
+  /**
+   * Evict the oldest pathCache entry if over the max size limit.
+   */
+  private evictOldestIfOverLimit(): void {
+    if (this.pathCache.size > LogDigestService.MAX_PATH_CACHE_SIZE) {
+      const oldestKey = this.pathCache.keys().next().value;
+      if (oldestKey) this.pathCache.delete(oldestKey);
+    }
+  }
 
   private mapSessionState(status: string, needsInput?: { active: boolean }): 'active' | 'idle' | 'needs_input' {
     if (needsInput?.active) return 'needs_input';

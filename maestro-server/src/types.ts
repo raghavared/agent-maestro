@@ -86,10 +86,12 @@ export interface Project {
 
 // Team Member entity (first-class, separate from Task)
 export type TeamMemberStatus = 'active' | 'archived';
+export type TeamMemberScope = 'project' | 'global';
 
 export interface TeamMember {
   id: string;                          // "tm_<timestamp>_<random>" or deterministic for defaults
   projectId: string;
+  scope?: TeamMemberScope;             // 'project' (default) or 'global' — global members shared across all projects
   name: string;                        // "Worker", "Coordinator", "Frontend Dev"
   role: string;                        // "Default executor", "Task orchestrator"
   identity?: string;                   // Custom instructions / persona prompt (optional; empty means no persona)
@@ -141,6 +143,7 @@ export interface TeamMemberSnapshot {
 
 export interface CreateTeamMemberPayload {
   projectId: string;
+  scope?: TeamMemberScope;
   name: string;
   role: string;
   identity?: string;
@@ -170,6 +173,7 @@ export interface UpdateTeamMemberPayload {
   strategy?: string;
   skillIds?: string[];
   status?: TeamMemberStatus;
+  scope?: TeamMemberScope;
   capabilities?: TeamMember['capabilities'];
   commandPermissions?: TeamMember['commandPermissions'];
   workflowTemplateId?: string;
@@ -374,6 +378,76 @@ export interface SessionEvent {
   timestamp: number;
   type: string;
   data?: any;
+}
+
+// Spell types
+export type SpellEntityType = 'maestro' | 'skill' | 'team-member' | 'task' | 'doc' | 'session' | 'custom-prompt';
+
+export interface SpellDefinition {
+  name: string;
+  entityType: SpellEntityType;
+  label: string;
+  description: string;
+  icon?: string;
+  promptTemplate: string;
+}
+
+export interface SpellEntity {
+  id: string;
+  type: SpellEntityType;
+  name: string;
+  description?: string;
+  icon?: string;
+  availableSpells: string[];
+  metadata?: Record<string, any>;
+}
+
+export interface SpellInvocationPayload {
+  entityType: SpellEntityType;
+  entityId: string;
+  spellName: string;
+  targetSessionId: string;
+  projectId: string;
+}
+
+export interface SpellInvocationResult {
+  success: boolean;
+  prompt: string;
+  entityType: SpellEntityType;
+  entityId: string;
+  spellName: string;
+  targetSessionId: string;
+  timestamp: number;
+}
+
+export interface CustomPrompt {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  content: string;
+  tags?: string[];
+  entityType?: SpellEntityType;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CreateCustomPromptPayload {
+  name: string;
+  description?: string;
+  icon?: string;
+  content: string;
+  tags?: string[];
+  entityType?: SpellEntityType;
+}
+
+export interface UpdateCustomPromptPayload {
+  name?: string;
+  description?: string;
+  icon?: string;
+  content?: string;
+  tags?: string[];
+  entityType?: SpellEntityType;
 }
 
 // API request/response types
