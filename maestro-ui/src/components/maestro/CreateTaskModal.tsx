@@ -336,6 +336,7 @@ export function CreateTaskModal({
                                     <ClaudeCodeSkillsSelector
                                         selectedSkills={form.selectedSkills}
                                         onSelectionChange={form.setSelectedSkills}
+                                        projectPath={project?.basePath || project?.workingDir || undefined}
                                     />
                                 )}
                                 {form.activeTab === 'sessions' && isEditMode && (
