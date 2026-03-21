@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { MentionsInput, Mention } from 'react-mentions';
 import { AgentTool, AgentMode, ModelType, TeamMember, TeamMemberScope, CreateTeamMemberPayload, UpdateTeamMemberPayload, InstrumentType } from "../../app/types/maestro";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { useProjectStore } from "../../stores/useProjectStore";
 import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
 import { soundManager, getNotesForDisplay } from "../../services/soundManager";
 import type { SoundCategory } from "../../services/soundManager";
@@ -276,6 +277,12 @@ type TeamMemberModalProps = {
 export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: TeamMemberModalProps) {
     const isEditMode = !!teamMember;
     const isDefault = teamMember?.isDefault ?? false;
+
+    // Resolve project working directory for local skill discovery
+    const projectWorkingDir = useProjectStore(s => {
+        const project = s.projects.find(p => p.id === projectId);
+        return project?.basePath || project?.workingDir || undefined;
+    });
 
     // Form state
     const [name, setName] = useState("");
@@ -757,7 +764,7 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                         )}
 
                         {activeTab === 'skills' && (
-                            <ClaudeCodeSkillsSelector selectedSkills={selectedSkills} onSelectionChange={setSelectedSkills} />
+                            <ClaudeCodeSkillsSelector selectedSkills={selectedSkills} onSelectionChange={setSelectedSkills} projectPath={projectWorkingDir} />
                         )}
 
                         {activeTab === 'permissions' && (
