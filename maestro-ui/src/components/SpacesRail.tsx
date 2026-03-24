@@ -52,13 +52,13 @@ function RailSessionButton({
     session: RailSession;
     isActive: boolean;
     onSelect: () => void;
-    maestroSessions: Map<string, any>;
+    maestroSessions: Record<string, any>;
 }) {
     const effect = getProcessEffectById(session.effectId);
     const isWorking = Boolean(effect && session.agentWorking && !session.exited && !session.closing);
     const isExited = Boolean(session.exited || session.closing);
 
-    const maestroSession = session.maestroSessionId ? maestroSessions.get(session.maestroSessionId) : null;
+    const maestroSession = session.maestroSessionId ? maestroSessions[session.maestroSessionId] ?? null : null;
     const needsInput = Boolean(maestroSession?.needsInput?.active);
     const isCompleted = maestroSession?.status === 'completed' || maestroSession?.status === 'stopped';
 

@@ -172,6 +172,7 @@
 /* Session Items (Left Panel) */
 .sessionList {
   gap: 4px;
+  contain: content;
 }
 
 .sessionItem {

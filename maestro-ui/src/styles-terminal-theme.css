@@ -590,6 +590,12 @@
   max-width: 100%;
   width: 100%;
   overflow: hidden;
+  contain: content;
+}
+
+.terminalTaskRow {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 44px;
 }
 
 .terminalTaskHeader {

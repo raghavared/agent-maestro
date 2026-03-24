@@ -1,0 +1,510 @@
+/* ═══════════════════════════════════════════════════
+   SPELLS — Terminal Overlay Button & Picker
+   ═══════════════════════════════════════════════════ */
+
+/* ─── Spell Button (Terminal Overlay) ─── */
+
+.spellButton {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 100;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  color: var(--theme-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+  backdrop-filter: blur(4px);
+}
+
+.spellButton:hover {
+  opacity: 1;
+  border-color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.3);
+  transform: scale(1.1);
+}
+
+.spellButton:active {
+  transform: scale(0.95);
+}
+
+.spellButton__icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ─── Spell Picker Backdrop ─── */
+
+.spellPicker__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  animation: spellFadeIn 0.1s ease-out;
+}
+
+/* ─── Spell Picker Modal ─── */
+
+.spellPicker {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(520px, calc(100% - 32px));
+  max-height: 70vh;
+  background: linear-gradient(180deg,
+    var(--style-surface-2, rgba(16, 21, 30, 0.98)),
+    var(--style-surface-1, rgba(10, 14, 22, 0.98)));
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.2);
+  border-radius: var(--style-radius-xl, 16px);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(var(--theme-primary-rgb), 0.06),
+    0 0 30px rgba(var(--theme-primary-rgb), 0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 1001;
+  animation: spellSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes spellSlideIn {
+  from {
+    transform: translate(-50%, -48%) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes spellFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ─── Header ─── */
+
+.spellPicker__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.spellPicker__title {
+  font-family: var(--style-font-ui, 'JetBrains Mono', monospace);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-primary);
+  letter-spacing: var(--style-letter-spacing, 0.5px);
+  text-transform: var(--style-text-transform, uppercase);
+}
+
+.spellPicker__close {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: all 0.15s ease;
+}
+
+.spellPicker__close:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+/* ─── Type Tabs ─── */
+
+.spellPicker__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 16px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.spellPicker__tab {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--style-radius-sm, 6px);
+  color: var(--muted);
+  font-family: var(--style-font-ui, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.spellPicker__tab:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.spellPicker__tab--active {
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  border-color: rgba(var(--theme-primary-rgb), 0.25);
+  color: var(--theme-primary);
+}
+
+/* ─── Entity List ─── */
+
+.spellPicker__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  min-height: 0;
+}
+
+.spellPicker__list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.spellPicker__list::-webkit-scrollbar-thumb {
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  border-radius: 3px;
+}
+
+.spellPicker__list::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--theme-primary-rgb), 0.25);
+}
+
+/* ─── Sections (grouped view) ─── */
+
+.spellPicker__section {
+  margin-bottom: 12px;
+}
+
+.spellPicker__sectionHeader {
+  font-family: var(--style-font-ui, 'JetBrains Mono', monospace);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 6px 12px 4px;
+}
+
+/* ─── Entity Row ─── */
+
+.spellPicker__entity {
+  margin-bottom: 1px;
+}
+
+.spellPicker__entityRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--style-radius-sm, 6px);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--style-font-ui, 'JetBrains Mono', monospace);
+  font-size: 13px;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.spellPicker__entityRow:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.spellPicker__entityRow:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spellPicker__entityRow--recent {
+  opacity: 0.8;
+}
+
+.spellPicker__entityRow--recent:hover {
+  opacity: 1;
+}
+
+.spellPicker__entityIcon {
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.spellPicker__entityLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spellPicker__entityType {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--muted);
+  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.spellPicker__entityExpand {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.spellPicker__spellBadge {
+  flex-shrink: 0;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  color: var(--theme-primary);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.2);
+}
+
+/* ─── Spell List (expanded) ─── */
+
+.spellPicker__spellList {
+  padding-left: 42px;
+  margin-bottom: 4px;
+}
+
+.spellPicker__spellRow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-left: 2px solid rgba(var(--theme-primary-rgb), 0.15);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--style-font-ui, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  text-align: left;
+  transition: all 0.1s ease;
+}
+
+.spellPicker__spellRow:hover {
+  color: var(--theme-primary);
+  border-left-color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.spellPicker__spellRow:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spellPicker__spellName {
+  font-size: 12px;
+}
+
+/* ─── Empty State ─── */
+
+.spellPicker__empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+/* ─── Create Button ─── */
+
+.spellPicker__createBtn {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 5px 12px;
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.25);
+  border-radius: var(--style-radius-sm, 6px);
+  color: var(--theme-primary);
+  font-family: var(--style-font-ui, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.spellPicker__createBtn:hover {
+  background: rgba(var(--theme-primary-rgb), 0.2);
+  border-color: var(--theme-primary);
+}
+
+/* ─── Create Form ─── */
+
+.spellPicker__createForm {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.spellPicker__formField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spellPicker__formLabel {
+  font-family: var(--style-font-ui, 'JetBrains Mono', monospace);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.spellPicker__formInput {
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--style-radius-sm, 6px);
+  color: var(--text);
+  font-family: var(--style-font-ui, 'JetBrains Mono', monospace);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.spellPicker__formInput:focus {
+  border-color: rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.spellPicker__formInput--icon {
+  width: 60px;
+  text-align: center;
+}
+
+.spellPicker__formTextarea {
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--style-radius-sm, 6px);
+  color: var(--text);
+  font-family: var(--style-font-ui, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.spellPicker__formTextarea:focus {
+  border-color: rgba(var(--theme-primary-rgb), 0.4);
+}
+
+.spellPicker__formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.spellPicker__formBtnCancel {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--style-radius-sm, 6px);
+  color: var(--muted);
+  font-family: var(--style-font-ui, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.spellPicker__formBtnCancel:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text);
+}
+
+.spellPicker__formBtnSave {
+  padding: 6px 14px;
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+  border-radius: var(--style-radius-sm, 6px);
+  color: var(--theme-primary);
+  font-family: var(--style-font-ui, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.spellPicker__formBtnSave:hover:not(:disabled) {
+  background: rgba(var(--theme-primary-rgb), 0.25);
+  border-color: var(--theme-primary);
+}
+
+.spellPicker__formBtnSave:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ─── Delete Button ─── */
+
+.spellPicker__entityDelete {
+  flex-shrink: 0;
+  display: none;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.spellPicker__entityRow:hover .spellPicker__entityDelete {
+  display: flex;
+}
+
+.spellPicker__entityDelete:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* ─── Default Badge ─── */
+
+.spellPicker__defaultBadge {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  opacity: 0.5;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}

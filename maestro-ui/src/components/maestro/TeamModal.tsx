@@ -28,13 +28,13 @@ export function TeamModal({ isOpen, onClose, projectId, team }: TeamModalProps) 
     const teamsMap = useMaestroStore(s => s.teams);
 
     const activeMembers = React.useMemo(() => {
-        return Array.from(teamMembersMap.values()).filter(
+        return Object.values(teamMembersMap).filter(
             m => m.projectId === projectId && m.status === 'active'
         );
     }, [teamMembersMap, projectId]);
 
     const otherTeams = React.useMemo(() => {
-        return Array.from(teamsMap.values()).filter(
+        return Object.values(teamsMap).filter(
             t => t.projectId === projectId && (!team || t.id !== team.id)
         );
     }, [teamsMap, projectId, team]);
@@ -47,13 +47,13 @@ export function TeamModal({ isOpen, onClose, projectId, team }: TeamModalProps) 
         const findAncestors = (teamId: string) => {
             if (visited.has(teamId)) return;
             visited.add(teamId);
-            const t = teamsMap.get(teamId);
+            const t = teamsMap[teamId];
             if (t?.parentTeamId) {
                 ancestors.add(t.parentTeamId);
                 findAncestors(t.parentTeamId);
             }
             // Also check: any team that lists this team as a sub-team is a parent
-            for (const [id, other] of teamsMap) {
+            for (const [id, other] of Object.entries(teamsMap)) {
                 if (other.subTeamIds.includes(teamId)) {
                     ancestors.add(id);
                     findAncestors(id);

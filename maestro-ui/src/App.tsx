@@ -8,6 +8,7 @@ import * as DEFAULTS from "./app/constants/defaults";
 import { useUIStore } from "./stores/useUIStore";
 import { useSessionStore, initSessionStoreRefs } from "./stores/useSessionStore";
 import { useProjectStore, initActiveSessionSync } from "./stores/useProjectStore";
+import { useProjectDialogStore } from "./stores/useProjectDialogStore";
 import { usePromptStore } from "./stores/usePromptStore";
 import { useAgentShortcutStore } from "./stores/useAgentShortcutStore";
 import { usePersistentSessionStore } from "./stores/usePersistentSessionStore";
@@ -30,7 +31,9 @@ import { useTeamMemberSoundSync } from "./hooks/useTeamMemberSoundSync";
 import { useSoundEffects } from "./hooks/useSoundEffects";
 
 // Components
-import { CommandPalette } from "./CommandPalette";
+const LazyCommandPalette = React.lazy(() =>
+  import("./CommandPalette").then(m => ({ default: m.CommandPalette }))
+);
 import { ProjectTabBar } from "./components/ProjectTabBar";
 import { AppLeftPanel } from "./components/AppLeftPanel";
 import { SpacesPanel } from "./components/SpacesPanel";
@@ -39,8 +42,12 @@ import { AppModals } from "./components/app/AppModals";
 import { AppWorkspace } from "./components/app/AppWorkspace";
 import { ConfirmActionModal } from "./components/modals/ConfirmActionModal";
 import { StartupSettingsOverlay } from "./components/StartupSettingsOverlay";
-import { Board } from "./components/maestro/MultiProjectBoard";
-import { TeamView } from "./components/maestro/TeamView";
+const LazyBoard = React.lazy(() =>
+  import("./components/maestro/MultiProjectBoard").then(m => ({ default: m.Board }))
+);
+const LazyTeamView = React.lazy(() =>
+  import("./components/maestro/TeamView").then(m => ({ default: m.TeamView }))
+);
 import { buildTeamGroups } from "./utils/teamGrouping";
 import { useSpacesStore } from "./stores/useSpacesStore";
 import { UpdateBanner } from "./components/UpdateBanner";
@@ -189,7 +196,7 @@ export default function App() {
   // ---------- projects ----------
   const projects = useProjectStore((s) => s.projects);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
-  const setProjectOpen = useProjectStore((s) => s.setProjectOpen);
+  const setProjectOpen = useProjectDialogStore((s) => s.setProjectOpen);
   const selectProject = useProjectStore((s) => s.selectProject);
   const openNewProject = useProjectStore((s) => s.openNewProject);
   const checkAndDeleteProject = useProjectStore((s) => s.checkAndDeleteProject);
@@ -268,7 +275,7 @@ export default function App() {
     const result = new Map<string, boolean>();
     for (const s of sessions) {
       if (!s.maestroSessionId) continue;
-      const ms = maestroSessions.get(s.maestroSessionId);
+      const ms = maestroSessions[s.maestroSessionId];
       if (ms?.needsInput?.active) {
         result.set(s.projectId, true);
       }
@@ -590,27 +597,33 @@ export default function App() {
 
       {/* -------- Multi-Project Board -------- */}
       {showMultiProjectBoard && (
-        <Board
-          onClose={() => setShowMultiProjectBoard(false)}
-          onSelectTask={handleBoardSelectTask}
-          onUpdateTaskStatus={handleBoardUpdateTaskStatus}
-          onWorkOnTask={handleBoardWorkOnTask}
-          onCreateMaestroSession={createMaestroSession}
-        />
+        <React.Suspense fallback={null}>
+          <LazyBoard
+            onClose={() => setShowMultiProjectBoard(false)}
+            onSelectTask={handleBoardSelectTask}
+            onUpdateTaskStatus={handleBoardUpdateTaskStatus}
+            onWorkOnTask={handleBoardWorkOnTask}
+            onCreateMaestroSession={createMaestroSession}
+          />
+        </React.Suspense>
       )}
 
       {/* -------- Team View -------- */}
       {teamViewGroup && (
-        <TeamView
-          group={teamViewGroup}
-          registry={registry}
-          onClose={() => setTeamViewGroupId(null)}
-          onSelectSession={handleSelectSession}
-        />
+        <React.Suspense fallback={null}>
+          <LazyTeamView
+            group={teamViewGroup}
+            registry={registry}
+            onClose={() => setTeamViewGroupId(null)}
+            onSelectSession={handleSelectSession}
+          />
+        </React.Suspense>
       )}
 
       {/* -------- Command Palette -------- */}
-      <CommandPalette />
+      <React.Suspense fallback={null}>
+        <LazyCommandPalette />
+      </React.Suspense>
       <ConfirmActionModal
         isOpen={confirmCloseAppOpen}
         title="Close App and All Running Sessions?"

@@ -116,6 +116,13 @@ const COMMAND_DEFINITIONS: Array<Omit<CommandCatalogEntry, 'syntax'>> = [
   { id: 'show:modal', description: 'Show HTML modal in UI', group: 'show', allowedModes: ALL_MODES },
   { id: 'modal:events', description: 'Listen for modal user actions', group: 'modal', allowedModes: ALL_MODES },
 
+  // Spell commands
+  { id: 'spell:entities', description: 'List available spell entities', group: 'spell', allowedModes: ALL_MODES },
+  { id: 'spell:list', description: 'List spells for entity or all', group: 'spell', allowedModes: ALL_MODES },
+  { id: 'spell:invoke', description: 'Invoke a spell on a target session', group: 'spell', allowedModes: ALL_MODES },
+  { id: 'spell:create', description: 'Create a custom prompt spell', group: 'spell', allowedModes: ALL_MODES },
+  { id: 'spell:delete', description: 'Delete a custom prompt spell', group: 'spell', allowedModes: ALL_MODES },
+
   // Internal commands
   { id: 'track-file', description: 'Track file modification', group: 'root', allowedModes: ALL_MODES, isCore: true, hiddenFromPrompt: true },
   { id: 'debug-prompt', description: 'Show system and task prompts sent to agent', group: 'root', allowedModes: ALL_MODES, isCore: true, hiddenFromPrompt: true },
@@ -211,6 +218,13 @@ const COMMAND_SYNTAX_MAP: Record<string, string> = {
   'team:remove-sub-team': 'maestro team remove-sub-team <teamId> <subTeamId>',
   'team:tree': 'maestro team tree <teamId>',
 
+  // Spell commands
+  'spell:entities': 'maestro spell entities [--type <entityType>] [--project <projectId>]',
+  'spell:list': 'maestro spell list [entityId] [--type <entityType>]',
+  'spell:invoke': 'maestro spell invoke <entityId> [spellName] --target <sessionId> [--args <json>]',
+  'spell:create': 'maestro spell create "<name>" --prompt "<text>" [--description "<text>"]',
+  'spell:delete': 'maestro spell delete <entityId>',
+
   // Init commands
   'worker:init': 'maestro worker init',
   'orchestrator:init': 'maestro orchestrator init',
@@ -249,6 +263,7 @@ export const COMMAND_GROUP_META: Record<string, { prefix: string; description: s
   orchestrator: { prefix: 'maestro orchestrator', description: 'Orchestrator initialization' },
   show: { prefix: 'maestro show', description: 'UI display' },
   modal: { prefix: 'maestro modal', description: 'Modal interaction' },
+  spell: { prefix: 'maestro spell', description: 'Spell management and invocation' },
 };
 
 export function getCommandCatalog(): CommandCatalogEntry[] {

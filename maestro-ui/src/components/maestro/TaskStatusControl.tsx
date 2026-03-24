@@ -39,7 +39,7 @@ const SESSION_STATUS_LABELS: Record<TaskSessionStatus, string> = {
   skipped: "Skipped",
 };
 
-export function TaskStatusControl({
+export const TaskStatusControl = React.memo(function TaskStatusControl({
   taskId,
   currentStatus,
   taskSessionStatuses,
@@ -201,4 +201,4 @@ export function TaskStatusControl({
       </div>
     </div>
   );
-}
+});

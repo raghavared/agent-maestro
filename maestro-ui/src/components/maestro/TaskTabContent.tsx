@@ -13,7 +13,7 @@ type TaskTabContentProps = {
     onNewTask?: () => void;
 };
 
-export const TaskTabContent: React.FC<TaskTabContentProps> = ({
+export const TaskTabContent: React.FC<TaskTabContentProps> = React.memo(({
     loading,
     emptyMessage,
     emptySubMessage,
@@ -80,4 +80,4 @@ export const TaskTabContent: React.FC<TaskTabContentProps> = ({
             </div>
         </div>
     );
-};
+});

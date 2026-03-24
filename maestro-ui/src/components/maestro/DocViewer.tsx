@@ -2,7 +2,9 @@ import React, { useMemo, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { DocEntry } from "../../app/types/maestro";
-import { MermaidDiagram } from "./MermaidDiagram";
+const LazyMermaidDiagram = React.lazy(() =>
+  import("./MermaidDiagram").then(m => ({ default: m.MermaidDiagram }))
+);
 
 interface DocViewerProps {
   doc: DocEntry;
@@ -53,7 +55,11 @@ const markdownComponents = {
 
     // Render mermaid/diagram code blocks as visual diagrams
     if (isDiagramLanguage(lang)) {
-      return <MermaidDiagram chart={codeString} />;
+      return (
+        <React.Suspense fallback={<pre><code>{codeString}</code></pre>}>
+          <LazyMermaidDiagram chart={codeString} />
+        </React.Suspense>
+      );
     }
 
     // Also auto-detect mermaid-like content in unlabeled code blocks
@@ -66,7 +72,11 @@ const markdownComponents = {
       "C4Container", "C4Component", "C4Deployment",
     ];
     if (match === null && mermaidKeywords.some((kw) => firstLine.startsWith(kw))) {
-      return <MermaidDiagram chart={codeString} />;
+      return (
+        <React.Suspense fallback={<pre><code>{codeString}</code></pre>}>
+          <LazyMermaidDiagram chart={codeString} />
+        </React.Suspense>
+      );
     }
 
     // For inline code, render as-is

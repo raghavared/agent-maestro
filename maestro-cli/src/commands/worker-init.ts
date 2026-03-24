@@ -108,38 +108,33 @@ export class WorkerInitCommand {
    */
   private async autoUpdateSessionStatus(manifest: MaestroManifest, sessionId: string): Promise<void> {
     try {
-      // Update the SESSION status from 'spawning' to 'working'
-      await api.patch(`/api/sessions/${sessionId}`, {
-        status: 'working',
-      });
+      const debugLog = (msg: string) => {
+        if (process.env.MAESTRO_DEBUG === 'true') console.error(msg);
+      };
+
+      // Fire all API calls in parallel
+      const promises: Promise<void>[] = [
+        api.patch(`/api/sessions/${sessionId}`, { status: 'working' }).then(() => {}).catch((err: unknown) => {
+          debugLog(`[worker-init] Failed to update session status: ${err instanceof Error ? err.message : String(err)}`);
+        }),
+      ];
 
       for (const task of manifest.tasks) {
-        // Update task's main status to in_progress
-        try {
-          await api.patch(`/api/tasks/${task.id}`, {
-            status: 'in_progress',
-          });
-        } catch (err: unknown) {
-          if (process.env.MAESTRO_DEBUG === 'true') {
-            const message = err instanceof Error ? err.message : String(err);
-            console.error(`[worker-init] Failed to update task ${task.id} status: ${message}`);
-          }
-        }
-
-        // Update task's per-session status to working
-        try {
-          await api.patch(`/api/tasks/${task.id}`, {
+        promises.push(
+          api.patch(`/api/tasks/${task.id}`, { status: 'in_progress' }).then(() => {}).catch((err: unknown) => {
+            debugLog(`[worker-init] Failed to update task ${task.id} status: ${err instanceof Error ? err.message : String(err)}`);
+          }),
+          api.patch(`/api/tasks/${task.id}`, {
             sessionStatus: 'working',
             updateSource: 'session',
             sessionId,
-          });
-        } catch (err: unknown) {
-          if (process.env.MAESTRO_DEBUG === 'true') {
-            const message = err instanceof Error ? err.message : String(err);
-            console.error(`[worker-init] Failed to update task ${task.id} session status: ${message}`);
-          }
-        }
+          }).then(() => {}).catch((err: unknown) => {
+            debugLog(`[worker-init] Failed to update task ${task.id} session status: ${err instanceof Error ? err.message : String(err)}`);
+          }),
+        );
       }
+
+      await Promise.all(promises);
     } catch (err: unknown) {
       if (process.env.MAESTRO_DEBUG === 'true') {
         const message = err instanceof Error ? err.message : String(err);

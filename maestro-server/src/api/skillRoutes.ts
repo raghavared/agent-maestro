@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import { ISkillLoader } from '../domain/services/ISkillLoader';
 import { MultiScopeSkillLoader, SkillWithMeta } from '../infrastructure/skills/MultiScopeSkillLoader';
+import { cacheControl } from './middleware/cacheControl';
+import { validateQuery, paginationQuerySchema, extractPagination, paginate } from './validation';
 
 /**
  * Create skill routes using the ISkillLoader.
@@ -13,35 +15,42 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
    * Returns array of available skills with full metadata (Claude Code format).
    * Supports optional ?projectPath= query parameter for project-scoped skills.
    */
-  router.get('/skills', async (req: Request, res: Response) => {
+  router.get('/skills', cacheControl(300), validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
     try {
       const projectPath = req.query.projectPath as string | undefined;
+      const includeContent = req.query.fields === 'full';
 
       // If the loader supports multi-scope and we can use it, prefer loadAllWithScope
       if (skillLoader instanceof MultiScopeSkillLoader) {
         const scopedSkills = await skillLoader.loadAllWithScope(projectPath);
 
-        const skills = scopedSkills.map((skill: SkillWithMeta) => ({
-          id: skill.manifest.name,
-          name: skill.manifest.name,
-          description: skill.manifest.description || '',
-          version: skill.manifest.version || '1.0.0',
-          triggers: skill.manifest.config?.triggers,
-          role: skill.manifest.config?.role,
-          skillScope: skill.meta.scope,
-          skillSource: skill.meta.source,
-          skillPath: skill.meta.path,
-          outputFormat: skill.manifest.config?.outputFormat,
-          language: skill.manifest.config?.language,
-          framework: skill.manifest.config?.framework,
-          tags: skill.manifest.config?.tags,
-          category: skill.manifest.config?.category,
-          license: skill.manifest.license,
-          content: skill.instructions,
-          hasReferences: false,
-          referenceCount: 0,
-        }));
+        const skills = scopedSkills.map((skill: SkillWithMeta) => {
+          const base: Record<string, any> = {
+            id: skill.manifest.name,
+            name: skill.manifest.name,
+            description: skill.manifest.description || '',
+            version: skill.manifest.version || '1.0.0',
+            triggers: skill.manifest.config?.triggers,
+            role: skill.manifest.config?.role,
+            skillScope: skill.meta.scope,
+            skillSource: skill.meta.source,
+            skillPath: skill.meta.path,
+            outputFormat: skill.manifest.config?.outputFormat,
+            language: skill.manifest.config?.language,
+            framework: skill.manifest.config?.framework,
+            tags: skill.manifest.config?.tags,
+            category: skill.manifest.config?.category,
+            license: skill.manifest.license,
+            hasReferences: false,
+            referenceCount: 0,
+          };
+          if (includeContent) base.content = skill.instructions;
+          return base;
+        });
 
+        if (req.query.limit || req.query.offset) {
+          return res.json(paginate(skills, extractPagination(req.query)));
+        }
         return res.json(skills);
       }
 
@@ -53,7 +62,7 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
         try {
           const skill = await skillLoader.load(id);
           if (skill && skill.manifest) {
-            skills.push({
+            const base: Record<string, any> = {
               id,
               name: skill.manifest.name || id,
               description: skill.manifest.description || '',
@@ -67,16 +76,21 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
               tags: skill.manifest.config?.tags,
               category: skill.manifest.config?.category,
               license: skill.manifest.license,
-              content: skill.instructions,
               hasReferences: false,
               referenceCount: 0,
-            });
+            };
+            if (includeContent) base.content = skill.instructions;
+            skills.push(base);
           }
         } catch (err) {
         }
       }
 
-      res.json(skills);
+      if (req.query.limit || req.query.offset) {
+        res.json(paginate(skills, extractPagination(req.query)));
+      } else {
+        res.json(skills);
+      }
     } catch (err) {
       res.json([]);
     }
@@ -86,7 +100,7 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
    * GET /api/skills/:id
    * Returns a single skill by ID
    */
-  router.get('/skills/:id', async (req: Request, res: Response) => {
+  router.get('/skills/:id', cacheControl(300), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
       const skill = await skillLoader.load(id);
@@ -121,7 +135,7 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
    * GET /api/skills/mode/:mode
    * Returns skills for a specific mode (execute or coordinate)
    */
-  router.get('/skills/mode/:mode', async (req: Request, res: Response) => {
+  router.get('/skills/mode/:mode', cacheControl(300), async (req: Request, res: Response) => {
     try {
       const mode = req.params.mode as string;
 

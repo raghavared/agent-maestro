@@ -1,3 +1,5 @@
+import { existsSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import { Config } from './infrastructure/config';
 import { ConsoleLogger } from './infrastructure/common/ConsoleLogger';
 import { TimestampIdGenerator } from './infrastructure/common/TimestampIdGenerator';
@@ -10,6 +12,7 @@ import { FileSystemTaskListRepository } from './infrastructure/repositories/File
 import { FileSystemOrderingRepository } from './infrastructure/repositories/FileSystemOrderingRepository';
 import { FileSystemTeamMemberRepository } from './infrastructure/repositories/FileSystemTeamMemberRepository';
 import { FileSystemTeamRepository } from './infrastructure/repositories/FileSystemTeamRepository';
+import { FileSystemCustomPromptRepository } from './infrastructure/repositories/FileSystemCustomPromptRepository';
 import { MultiScopeSkillLoader } from './infrastructure/skills/MultiScopeSkillLoader';
 import { ProjectService } from './application/services/ProjectService';
 import { TaskService } from './application/services/TaskService';
@@ -20,6 +23,7 @@ import { LogDigestService } from './application/services/LogDigestService';
 import { OrderingService } from './application/services/OrderingService';
 import { TeamMemberService } from './application/services/TeamMemberService';
 import { TeamService } from './application/services/TeamService';
+import { SpellService } from './application/services/SpellService';
 import { ILogger } from './domain/common/ILogger';
 import { IIdGenerator } from './domain/common/IIdGenerator';
 import { IEventBus } from './domain/events/IEventBus';
@@ -31,6 +35,7 @@ import { ISessionRepository } from './domain/repositories/ISessionRepository';
 import { IOrderingRepository } from './domain/repositories/IOrderingRepository';
 import { ITeamMemberRepository } from './domain/repositories/ITeamMemberRepository';
 import { ITeamRepository } from './domain/repositories/ITeamRepository';
+import { ICustomPromptRepository } from './domain/repositories/ICustomPromptRepository';
 import { ISkillLoader } from './domain/services/ISkillLoader';
 
 /**
@@ -38,8 +43,14 @@ import { ISkillLoader } from './domain/services/ISkillLoader';
  * Scans all tasks and deletes any with taskType === 'team-member'.
  * This is safe to run multiple times (idempotent).
  */
-async function migrateTeamMemberTasks(taskRepo: ITaskRepository, logger: ILogger): Promise<void> {
+async function migrateTeamMemberTasks(taskRepo: ITaskRepository, logger: ILogger, dataDir: string): Promise<void> {
   try {
+    const sentinelPath = join(dataDir, '.migrated-team-member-tasks');
+    if (existsSync(sentinelPath)) {
+      logger.info('Team member task migration already completed, skipping.');
+      return;
+    }
+
     logger.info('Running team member task migration...');
 
     // Get all tasks
@@ -61,6 +72,9 @@ async function migrateTeamMemberTasks(taskRepo: ITaskRepository, logger: ILogger
     } else {
       logger.info('Migration complete: no old team member tasks found');
     }
+
+    // Write sentinel file so we skip on subsequent startups
+    writeFileSync(sentinelPath, new Date().toISOString());
   } catch (err) {
     logger.error('Error during team member task migration:', err instanceof Error ? err : new Error(String(err)));
     // Don't throw - allow server to start even if migration fails
@@ -88,6 +102,7 @@ export interface Container {
   orderingRepo: IOrderingRepository;
   teamMemberRepo: ITeamMemberRepository;
   teamRepo: ITeamRepository;
+  customPromptRepo: ICustomPromptRepository;
 
   // Loaders
   skillLoader: ISkillLoader;
@@ -101,6 +116,7 @@ export interface Container {
   orderingService: OrderingService;
   teamMemberService: TeamMemberService;
   teamService: TeamService;
+  spellService: SpellService;
 
   // Lifecycle
   initialize(): Promise<void>;
@@ -134,6 +150,7 @@ export async function createContainer(): Promise<Container> {
   const orderingRepo = new FileSystemOrderingRepository(config.dataDir, logger);
   const teamMemberRepo = new FileSystemTeamMemberRepository(config.dataDir, idGenerator, logger);
   const teamRepo = new FileSystemTeamRepository(config.dataDir, idGenerator, logger);
+  const customPromptRepo = new FileSystemCustomPromptRepository(config.dataDir, idGenerator, logger);
 
   // 4. Loaders
   const skillLoader = new MultiScopeSkillLoader(logger);
@@ -147,6 +164,16 @@ export async function createContainer(): Promise<Container> {
   const orderingService = new OrderingService(orderingRepo);
   const teamMemberService = new TeamMemberService(teamMemberRepo, eventBus, idGenerator);
   const teamService = new TeamService(teamRepo, teamMemberRepo, eventBus, idGenerator);
+  const spellService = new SpellService(
+    projectRepo,
+    taskRepo,
+    sessionRepo,
+    teamMemberRepo,
+    skillLoader,
+    customPromptRepo,
+    eventBus,
+    idGenerator,
+  );
 
   const container: Container = {
     config,
@@ -160,6 +187,7 @@ export async function createContainer(): Promise<Container> {
     orderingRepo,
     teamMemberRepo,
     teamRepo,
+    customPromptRepo,
     skillLoader,
     projectService,
     taskService,
@@ -169,27 +197,34 @@ export async function createContainer(): Promise<Container> {
     orderingService,
     teamMemberService,
     teamService,
+    spellService,
 
     async initialize() {
       logger.info('Initializing container...');
 
-      // Initialize repositories
-      await projectRepo.initialize();
-      await taskRepo.initialize();
-      await taskListRepo.initialize();
-      await sessionRepo.initialize();
-      await orderingRepo.initialize();
-      await teamMemberRepo.initialize();
-      await teamRepo.initialize();
+      // Initialize repositories in parallel
+      await Promise.all([
+        projectRepo.initialize(),
+        taskRepo.initialize(),
+        taskListRepo.initialize(),
+        sessionRepo.initialize(),
+        orderingRepo.initialize(),
+        teamMemberRepo.initialize(),
+        teamRepo.initialize(),
+        customPromptRepo.initialize(),
+      ]);
 
-      // Migration: Delete old team member tasks (one-time migration)
-      await migrateTeamMemberTasks(taskRepo, logger);
+      // Migration: Delete old team member tasks (skip if already done)
+      await migrateTeamMemberTasks(taskRepo, logger, config.dataDir);
 
       logger.info('Container initialized');
     },
 
     async shutdown() {
       logger.info('Shutting down container...');
+      logDigestService.shutdown();
+      (skillLoader as MultiScopeSkillLoader).shutdown();
+      sessionRepo.shutdown();
       eventBus.removeAllListeners();
       logger.info('Container shutdown complete');
     }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   BarChart,
   Bar,
@@ -209,7 +209,7 @@ function DueDateList({ items }: { items: DueDateItem[] }) {
               </span>
             )}
             <span className={`dashDueDate ${item.isOverdue ? 'dashDueDate--overdue' : ''}`}>
-              {item.isOverdue ? 'Overdue: ' : ''}{format(parseISO(item.dueDate), 'MMM dd')}
+              {item.isOverdue ? 'Overdue: ' : ''}{(() => { try { return format(parseISO(item.dueDate), 'MMM dd'); } catch { return item.dueDate; } })()}
             </span>
           </div>
         </div>
@@ -277,6 +277,43 @@ function formatDuration(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+// Phase 2: Module-scope static constant
+const TIME_RANGE_PRESETS: { value: TimeRangePreset; label: string }[] = [
+  { value: '7d', label: '7D' },
+  { value: '14d', label: '14D' },
+  { value: '30d', label: '30D' },
+  { value: '90d', label: '90D' },
+  { value: '6m', label: '6M' },
+  { value: '1y', label: '1Y' },
+  { value: 'all', label: 'All' },
+];
+
+// ── Lazy Visible wrapper (IntersectionObserver) ──
+
+function LazyVisible({ children, minHeight = 200 }: { children: React.ReactNode; minHeight?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '100px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  if (!visible) return <div ref={ref} style={{ minHeight }} />;
+  return <>{children}</>;
+}
+
 // ── Main Dashboard Component ──
 
 export const Dashboard = React.memo(function Dashboard({
@@ -288,16 +325,6 @@ export const Dashboard = React.memo(function Dashboard({
   const [preset, setPreset] = useState<TimeRangePreset>('30d');
   const timeRange = useMemo(() => getTimeRange(preset), [preset]);
   const data = useDashboardData(tasks, sessions, teamMembers, timeRange);
-
-  const presets: { value: TimeRangePreset; label: string }[] = [
-    { value: '7d', label: '7D' },
-    { value: '14d', label: '14D' },
-    { value: '30d', label: '30D' },
-    { value: '90d', label: '90D' },
-    { value: '6m', label: '6M' },
-    { value: '1y', label: '1Y' },
-    { value: 'all', label: 'All' },
-  ];
 
   // Compute tick interval for X axis based on data length
   const xAxisInterval = data.dailyData.length > 60 ? Math.floor(data.dailyData.length / 10)
@@ -311,7 +338,7 @@ export const Dashboard = React.memo(function Dashboard({
       <div className="dashTimeBar">
         <span className="dashTimeLabel">Time Range</span>
         <div className="dashTimePresets">
-          {presets.map((p) => (
+          {TIME_RANGE_PRESETS.map((p) => (
             <button
               key={p.value}
               className={`dashTimeBtn ${preset === p.value ? 'dashTimeBtn--active' : ''}`}
@@ -342,102 +369,31 @@ export const Dashboard = React.memo(function Dashboard({
       </div>
 
       {/* Task Activity Over Time */}
-      <div className="dashSection">
-        <div className="dashSectionHeader">
-          <h3 className="dashSectionTitle">Task Activity</h3>
-        </div>
-        <div className="dashChartWrap">
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={data.dailyData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gradCreated" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#00d9ff" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#00d9ff" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gradCompleted" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#4ade80" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#4ade80" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(var(--theme-primary-rgb), 0.06)" />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 10, fill: 'rgba(var(--theme-primary-rgb), 0.3)' }}
-                tickLine={false}
-                axisLine={{ stroke: 'rgba(var(--theme-primary-rgb), 0.08)' }}
-                interval={xAxisInterval}
-              />
-              <YAxis
-                tick={{ fontSize: 10, fill: 'rgba(var(--theme-primary-rgb), 0.3)' }}
-                tickLine={false}
-                axisLine={false}
-                allowDecimals={false}
-              />
-              <Tooltip content={<ChartTooltip />} />
-              <Area type="monotone" dataKey="tasksCreated" name="Created" stroke="#00d9ff" fill="url(#gradCreated)" strokeWidth={2} dot={false} />
-              <Area type="monotone" dataKey="tasksCompleted" name="Completed" stroke="#4ade80" fill="url(#gradCompleted)" strokeWidth={2} dot={false} />
-              <Legend
-                verticalAlign="top"
-                align="right"
-                height={30}
-                iconType="circle"
-                iconSize={8}
-                wrapperStyle={{ fontSize: 11, color: 'rgba(var(--theme-primary-rgb), 0.5)' }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Two Column: Tasks by Status + Priority */}
-      <div className="dashRow">
-        <div className="dashSection dashSection--half">
+      <LazyVisible minHeight={270}>
+        <div className="dashSection">
           <div className="dashSectionHeader">
-            <h3 className="dashSectionTitle">Tasks by Status</h3>
+            <h3 className="dashSectionTitle">Task Activity</h3>
           </div>
           <div className="dashChartWrap">
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={data.tasksByStatus}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  dataKey="count"
-                  nameKey="status"
-                  stroke="none"
-                  paddingAngle={2}
-                >
-                  {data.tasksByStatus.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip content={<ChartTooltip />} />
-                <Legend
-                  verticalAlign="bottom"
-                  iconType="circle"
-                  iconSize={8}
-                  wrapperStyle={{ fontSize: 11, color: 'rgba(var(--theme-primary-rgb), 0.5)' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="dashSection dashSection--half">
-          <div className="dashSectionHeader">
-            <h3 className="dashSectionTitle">Tasks by Priority</h3>
-          </div>
-          <div className="dashChartWrap">
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={data.tasksByPriority} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={data.dailyData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradCreated" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#00d9ff" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#00d9ff" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gradCompleted" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4ade80" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#4ade80" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(var(--theme-primary-rgb), 0.06)" />
                 <XAxis
-                  dataKey="priority"
-                  tick={{ fontSize: 11, fill: 'rgba(var(--theme-primary-rgb), 0.4)' }}
+                  dataKey="label"
+                  tick={{ fontSize: 10, fill: 'rgba(var(--theme-primary-rgb), 0.3)' }}
                   tickLine={false}
                   axisLine={{ stroke: 'rgba(var(--theme-primary-rgb), 0.08)' }}
+                  interval={xAxisInterval}
                 />
                 <YAxis
                   tick={{ fontSize: 10, fill: 'rgba(var(--theme-primary-rgb), 0.3)' }}
@@ -446,80 +402,161 @@ export const Dashboard = React.memo(function Dashboard({
                   allowDecimals={false}
                 />
                 <Tooltip content={<ChartTooltip />} />
-                <Bar dataKey="count" name="Tasks" radius={[4, 4, 0, 0]}>
-                  {data.tasksByPriority.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Bar>
+                <Area type="monotone" dataKey="tasksCreated" name="Created" stroke="#00d9ff" fill="url(#gradCreated)" strokeWidth={2} dot={false} />
+                <Area type="monotone" dataKey="tasksCompleted" name="Completed" stroke="#4ade80" fill="url(#gradCompleted)" strokeWidth={2} dot={false} />
+                <Legend
+                  verticalAlign="top"
+                  align="right"
+                  height={30}
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: 11, color: 'rgba(var(--theme-primary-rgb), 0.5)' }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </LazyVisible>
+
+      {/* Two Column: Tasks by Status + Priority */}
+      <LazyVisible minHeight={260}>
+        <div className="dashRow">
+          <div className="dashSection dashSection--half">
+            <div className="dashSectionHeader">
+              <h3 className="dashSectionTitle">Tasks by Status</h3>
+            </div>
+            <div className="dashChartWrap">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={data.tasksByStatus}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    dataKey="count"
+                    nameKey="status"
+                    stroke="none"
+                    paddingAngle={2}
+                  >
+                    {data.tasksByStatus.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<ChartTooltip />} />
+                  <Legend
+                    verticalAlign="bottom"
+                    iconType="circle"
+                    iconSize={8}
+                    wrapperStyle={{ fontSize: 11, color: 'rgba(var(--theme-primary-rgb), 0.5)' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="dashSection dashSection--half">
+            <div className="dashSectionHeader">
+              <h3 className="dashSectionTitle">Tasks by Priority</h3>
+            </div>
+            <div className="dashChartWrap">
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={data.tasksByPriority} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(var(--theme-primary-rgb), 0.06)" />
+                  <XAxis
+                    dataKey="priority"
+                    tick={{ fontSize: 11, fill: 'rgba(var(--theme-primary-rgb), 0.4)' }}
+                    tickLine={false}
+                    axisLine={{ stroke: 'rgba(var(--theme-primary-rgb), 0.08)' }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: 'rgba(var(--theme-primary-rgb), 0.3)' }}
+                    tickLine={false}
+                    axisLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar dataKey="count" name="Tasks" radius={[4, 4, 0, 0]}>
+                    {data.tasksByPriority.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      </LazyVisible>
+
+      {/* Session Activity */}
+      <LazyVisible minHeight={250}>
+        <div className="dashSection">
+          <div className="dashSectionHeader">
+            <h3 className="dashSectionTitle">Session Activity</h3>
+          </div>
+          <div className="dashChartWrap">
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={data.dailyData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(var(--theme-primary-rgb), 0.06)" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 10, fill: 'rgba(var(--theme-primary-rgb), 0.3)' }}
+                  tickLine={false}
+                  axisLine={{ stroke: 'rgba(var(--theme-primary-rgb), 0.08)' }}
+                  interval={xAxisInterval}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: 'rgba(var(--theme-primary-rgb), 0.3)' }}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip content={<ChartTooltip />} />
+                <Bar dataKey="sessionsSpawned" name="Spawned" fill="#a78bfa" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="sessionsCompleted" name="Completed" fill="#4ade80" radius={[3, 3, 0, 0]} />
+                <Legend
+                  verticalAlign="top"
+                  align="right"
+                  height={30}
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: 11, color: 'rgba(var(--theme-primary-rgb), 0.5)' }}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
-      </div>
-
-      {/* Session Activity */}
-      <div className="dashSection">
-        <div className="dashSectionHeader">
-          <h3 className="dashSectionTitle">Session Activity</h3>
-        </div>
-        <div className="dashChartWrap">
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={data.dailyData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(var(--theme-primary-rgb), 0.06)" />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 10, fill: 'rgba(var(--theme-primary-rgb), 0.3)' }}
-                tickLine={false}
-                axisLine={{ stroke: 'rgba(var(--theme-primary-rgb), 0.08)' }}
-                interval={xAxisInterval}
-              />
-              <YAxis
-                tick={{ fontSize: 10, fill: 'rgba(var(--theme-primary-rgb), 0.3)' }}
-                tickLine={false}
-                axisLine={false}
-                allowDecimals={false}
-              />
-              <Tooltip content={<ChartTooltip />} />
-              <Bar dataKey="sessionsSpawned" name="Spawned" fill="#a78bfa" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="sessionsCompleted" name="Completed" fill="#4ade80" radius={[3, 3, 0, 0]} />
-              <Legend
-                verticalAlign="top"
-                align="right"
-                height={30}
-                iconType="circle"
-                iconSize={8}
-                wrapperStyle={{ fontSize: 11, color: 'rgba(var(--theme-primary-rgb), 0.5)' }}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      </LazyVisible>
 
       {/* Two Column: Due Dates + Calendar */}
-      <div className="dashRow">
-        <div className="dashSection dashSection--half">
-          <div className="dashSectionHeader">
-            <h3 className="dashSectionTitle">Upcoming Deadlines</h3>
+      <LazyVisible minHeight={200}>
+        <div className="dashRow">
+          <div className="dashSection dashSection--half">
+            <div className="dashSectionHeader">
+              <h3 className="dashSectionTitle">Upcoming Deadlines</h3>
+            </div>
+            <DueDateList items={data.dueDateItems} />
           </div>
-          <DueDateList items={data.dueDateItems} />
-        </div>
 
-        <div className="dashSection dashSection--half">
-          <div className="dashSectionHeader">
-            <h3 className="dashSectionTitle">Activity Heatmap</h3>
+          <div className="dashSection dashSection--half">
+            <div className="dashSectionHeader">
+              <h3 className="dashSectionTitle">Activity Heatmap</h3>
+            </div>
+            <CalendarHeatmap data={data.calendarData} />
           </div>
-          <CalendarHeatmap data={data.calendarData} />
         </div>
-      </div>
+      </LazyVisible>
 
       {/* Team Member Stats */}
       {teamMembers.length > 0 && (
-        <div className="dashSection">
-          <div className="dashSectionHeader">
-            <h3 className="dashSectionTitle">Team Members</h3>
+        <LazyVisible minHeight={200}>
+          <div className="dashSection">
+            <div className="dashSectionHeader">
+              <h3 className="dashSectionTitle">Team Members</h3>
+            </div>
+            <TeamMemberStatsView stats={data.teamMemberStats} />
           </div>
-          <TeamMemberStatsView stats={data.teamMemberStats} />
-        </div>
+        </LazyVisible>
       )}
     </div>
   );

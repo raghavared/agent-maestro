@@ -77,13 +77,14 @@ export function registerTeamMemberCommands(program: Command) {
                         console.log('No team members found.');
                     } else {
                         outputTable(
-                            ['ID', 'Name', 'Role', 'Mode', 'Status', 'Default'],
+                            ['ID', 'Name', 'Role', 'Mode', 'Status', 'Scope', 'Default'],
                             filtered.map(m => [
                                 m.id,
                                 `${m.avatar} ${m.name}`,
                                 m.role,
                                 m.mode || 'worker',
                                 m.status,
+                                m.scope === 'global' ? 'global' : 'project',
                                 m.isDefault ? 'yes' : 'no',
                             ])
                         );
@@ -127,6 +128,7 @@ export function registerTeamMemberCommands(program: Command) {
                     outputKeyValue('Agent Tool', member.agentTool || 'claude-code');
                     outputKeyValue('Permission Mode', member.permissionMode || 'default');
                     outputKeyValue('Default', member.isDefault ? 'yes' : 'no');
+                    outputKeyValue('Scope', member.scope === 'global' ? 'global' : 'project');
                     outputKeyValue('Status', member.status);
                     if (member.identity) {
                         outputKeyValue('Identity', member.identity || '');
@@ -181,7 +183,8 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--permission-mode <mode>', 'Update permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Update identity/persona instructions')
         .option('--skills <skills>', 'Update assigned skill IDs (comma-separated, e.g. react-expert,frontend-design)')
-        .action(async (teamMemberId: string, cmdOpts: { name?: string; role?: string; avatar?: string; mode?: string; model?: string; agentTool?: string; permissionMode?: string; identity?: string; skills?: string }) => {
+        .option('--scope <scope>', 'Update scope: project or global')
+        .action(async (teamMemberId: string, cmdOpts: { name?: string; role?: string; avatar?: string; mode?: string; model?: string; agentTool?: string; permissionMode?: string; identity?: string; skills?: string; scope?: string }) => {
             await guardCommand('team-member:edit');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -234,6 +237,14 @@ export function registerTeamMemberCommands(program: Command) {
             if (cmdOpts.permissionMode) updates.permissionMode = cmdOpts.permissionMode;
             if (cmdOpts.identity) updates.identity = cmdOpts.identity.trim();
             if (cmdOpts.skills) updates.skillIds = cmdOpts.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
+            if (cmdOpts.scope) {
+                if (!['project', 'global'].includes(cmdOpts.scope)) {
+                    const err = { message: `Invalid scope "${cmdOpts.scope}". Must be: project or global` };
+                    if (isJson) { outputErrorJSON(err); process.exit(1); }
+                    else { console.error(err.message); process.exit(1); }
+                }
+                updates.scope = cmdOpts.scope;
+            }
 
             // Check that at least one field is being updated
             const fieldCount = Object.keys(updates).length - 1; // exclude projectId
@@ -594,7 +605,8 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--permission-mode <mode>', 'Permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Custom identity/persona instructions')
         .option('--skills <skills>', 'Comma-separated skill IDs to assign (e.g. react-expert,frontend-design)')
-        .action(async (name: string, cmdOpts: { role: string; avatar: string; mode: string; model?: string; agentTool?: string; permissionMode?: string; identity?: string; skills?: string }) => {
+        .option('--global', 'Make this team member available across all projects')
+        .action(async (name: string, cmdOpts: { role: string; avatar: string; mode: string; model?: string; agentTool?: string; permissionMode?: string; identity?: string; skills?: string; global?: boolean }) => {
             await guardCommand('team-member:create');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -655,6 +667,10 @@ export function registerTeamMemberCommands(program: Command) {
 
                 if (cmdOpts.skills) {
                     payload.skillIds = cmdOpts.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
+                }
+
+                if (cmdOpts.global) {
+                    payload.scope = 'global';
                 }
 
                 const member = await api.post<TeamMemberResponse>('/api/team-members', payload);

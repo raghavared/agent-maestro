@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { TeamMember, AgentTool } from "../../app/types/maestro";
 
 type TeamMemberListProps = {
@@ -124,6 +124,13 @@ function TeamMemberRow({
                         </span>
                     )}
 
+                    {/* Global scope indicator */}
+                    {member.scope === 'global' && (
+                        <span className="terminalMetaBadge terminalMetaBadge--status" style={{ opacity: 0.8 }}>
+                            {'\uD83C\uDF10'} GLOBAL
+                        </span>
+                    )}
+
                     {/* Default indicator */}
                     {member.isDefault && (
                         <span className="terminalMetaBadge terminalMetaBadge--status terminalMetaBadge--status-in_progress">
@@ -244,10 +251,19 @@ export function TeamMemberList({
     const [showArchived, setShowArchived] = useState(false);
     const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
-    const activeMembers = teamMembers.filter(m => m.status === 'active');
-    const archivedMembers = teamMembers.filter(m => m.status === 'archived');
-    const defaultMembers = activeMembers.filter(m => m.isDefault);
-    const customMembers = activeMembers.filter(m => !m.isDefault);
+    const { defaultMembers, customMembers, globalMembers, archivedMembers } = useMemo(() => {
+        const result: { defaultMembers: TeamMember[]; customMembers: TeamMember[]; globalMembers: TeamMember[]; archivedMembers: TeamMember[] } = {
+            defaultMembers: [], customMembers: [], globalMembers: [], archivedMembers: [],
+        };
+        for (const m of teamMembers) {
+            if (m.status === 'archived') result.archivedMembers.push(m);
+            else if (m.scope === 'global' && m.status === 'active') result.globalMembers.push(m);
+            else if (m.status === 'active' && m.isDefault) result.defaultMembers.push(m);
+            else if (m.status === 'active') result.customMembers.push(m);
+        }
+        return result;
+    }, [teamMembers]);
+    const activeMembers = defaultMembers.length + customMembers.length + globalMembers.length > 0 ? [...defaultMembers, ...customMembers, ...globalMembers] : [];
 
     const renderMemberRow = (member: TeamMember, options?: { isArchived?: boolean }) => (
         <TeamMemberRow
@@ -277,6 +293,25 @@ export function TeamMemberList({
             {customMembers.length > 0 && (
                 <div className="terminalTaskList">
                     {customMembers.map(member => renderMemberRow(member))}
+                </div>
+            )}
+
+            {/* Global members section */}
+            {globalMembers.length > 0 && (
+                <div>
+                    <div style={{
+                        padding: '4px 12px',
+                        fontSize: '9px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        opacity: 0.5,
+                        borderTop: (defaultMembers.length > 0 || customMembers.length > 0) ? '1px solid var(--theme-border)' : 'none',
+                    }}>
+                        {'\uD83C\uDF10'} Global Members
+                    </div>
+                    <div className="terminalTaskList">
+                        {globalMembers.map(member => renderMemberRow(member))}
+                    </div>
                 </div>
             )}
 

@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useEffect, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { MentionsInput, Mention } from 'react-mentions';
-import { AgentTool, AgentMode, ModelType, TeamMember, CreateTeamMemberPayload, UpdateTeamMemberPayload, InstrumentType } from "../../app/types/maestro";
+import { AgentTool, AgentMode, ModelType, TeamMember, TeamMemberScope, CreateTeamMemberPayload, UpdateTeamMemberPayload, InstrumentType } from "../../app/types/maestro";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { useProjectStore } from "../../stores/useProjectStore";
 import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
 import { soundManager, getNotesForDisplay } from "../../services/soundManager";
 import type { SoundCategory } from "../../services/soundManager";
@@ -277,6 +278,12 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
     const isEditMode = !!teamMember;
     const isDefault = teamMember?.isDefault ?? false;
 
+    // Resolve project working directory for local skill discovery
+    const projectWorkingDir = useProjectStore(s => {
+        const project = s.projects.find(p => p.id === projectId);
+        return project?.basePath || project?.workingDir || undefined;
+    });
+
     // Form state
     const [name, setName] = useState("");
     const [role, setRole] = useState("");
@@ -297,6 +304,7 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
     const [customWorkflow, setCustomWorkflow] = useState('');
     const [permissionMode, setPermissionMode] = useState<'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions'>('acceptEdits');
     const [soundInstrument, setSoundInstrument] = useState<InstrumentType>('piano');
+    const [scope, setScope] = useState<TeamMemberScope>('project');
 
     // Agent tool dropdown
     const [showAgentDropdown, setShowAgentDropdown] = useState(false);
@@ -357,6 +365,7 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                 setWorkflowTemplateId(teamMember.workflowTemplateId || '');
             }
             setSoundInstrument(teamMember.soundInstrument || 'piano');
+            setScope(teamMember.scope || 'project');
         } else {
             // Create mode defaults — auto-assign a random instrument for variety
             setName("");
@@ -375,10 +384,11 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
             setCustomWorkflow('');
             // Auto-assign instrument based on existing team members for ensemble diversity
             const existingTeamMembers = useMaestroStore.getState().teamMembers;
-            const existingInstruments = Array.from(existingTeamMembers.values())
+            const existingInstruments = Object.values(existingTeamMembers)
                 .map(m => m.soundInstrument)
                 .filter((i): i is InstrumentType => !!i);
             setSoundInstrument(assignRandomInstrument(existingInstruments));
+            setScope('project');
         }
         setError(null);
         setActiveTab(null);
@@ -453,6 +463,7 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                     skillIds: selectedSkills,
                     capabilities,
                     soundInstrument,
+                    scope,
                     ...(cmdPerms && { commandPermissions: cmdPerms }),
                     workflowTemplateId: useCustomWorkflow ? undefined : (workflowTemplateId || undefined),
                     customWorkflow: useCustomWorkflow && customWorkflow.trim() ? customWorkflow.trim() : undefined,
@@ -467,6 +478,7 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                     identity: identity.trim(),
                     agentTool, model, mode, permissionMode, capabilities,
                     soundInstrument,
+                    ...(scope === 'global' && { scope: 'global' as const }),
                     ...(selectedSkills.length > 0 && { skillIds: selectedSkills }),
                     ...(cmdPerms && { commandPermissions: cmdPerms }),
                     ...(useCustomWorkflow && customWorkflow.trim()
@@ -616,6 +628,30 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                                     </div>
                                 )}
                             </div>
+                            {/* Global scope toggle — not available for defaults */}
+                            {!isDefault && (
+                                <div style={{ flexShrink: 0 }}>
+                                    <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Scope</div>
+                                    <button
+                                        type="button"
+                                        className={`themedSegmentedBtn ${scope === 'global' ? 'active' : ''}`}
+                                        onClick={() => setScope(prev => prev === 'global' ? 'project' : 'global')}
+                                        style={{
+                                            padding: '5px 10px', fontSize: '10px',
+                                            border: `1px solid ${scope === 'global' ? 'var(--theme-primary)' : 'var(--theme-border)'}`,
+                                            borderRadius: '4px',
+                                            background: scope === 'global' ? 'rgba(var(--theme-primary-rgb), 0.1)' : 'transparent',
+                                            color: scope === 'global' ? 'var(--theme-primary)' : 'var(--theme-text)',
+                                            cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: '4px',
+                                        }}
+                                        disabled={isSaving}
+                                        title={scope === 'global' ? 'This member is shared across all projects' : 'Click to make this member available in all projects'}
+                                    >
+                                        {'\uD83C\uDF10'} {scope === 'global' ? 'Global' : 'Project'}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -728,7 +764,7 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                         )}
 
                         {activeTab === 'skills' && (
-                            <ClaudeCodeSkillsSelector selectedSkills={selectedSkills} onSelectionChange={setSelectedSkills} />
+                            <ClaudeCodeSkillsSelector selectedSkills={selectedSkills} onSelectionChange={setSelectedSkills} projectPath={projectWorkingDir} />
                         )}
 
                         {activeTab === 'permissions' && (

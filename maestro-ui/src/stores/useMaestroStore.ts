@@ -41,20 +41,20 @@ export interface AgentModal {
 }
 
 interface MaestroState {
-  tasks: Map<string, MaestroTask>;
-  taskLists: Map<string, TaskList>;
-  sessions: Map<string, MaestroSession>;
-  teamMembers: Map<string, TeamMember>;
-  teams: Map<string, Team>;
+  tasks: Record<string, MaestroTask>;
+  taskLists: Record<string, TaskList>;
+  sessions: Record<string, MaestroSession>;
+  teamMembers: Record<string, TeamMember>;
+  teams: Record<string, Team>;
   activeModals: AgentModal[];
-  loading: Set<string>;
-  errors: Map<string, string>;
+  loading: Record<string, boolean>;
+  errors: Record<string, string>;
   wsConnected: boolean;
   activeProjectIdRef: string | null;
   // Ordering state
-  taskOrdering: Map<string, string[]>;    // projectId -> orderedIds
-  sessionOrdering: Map<string, string[]>; // projectId -> orderedIds
-  taskListOrdering: Map<string, string[]>; // projectId -> ordered list ids
+  taskOrdering: Record<string, string[]>;    // projectId -> orderedIds
+  sessionOrdering: Record<string, string[]>; // projectId -> orderedIds
+  taskListOrdering: Record<string, string[]>; // projectId -> ordered list ids
   // Workflow templates
   workflowTemplates: WorkflowTemplate[];
   // Last used team member per task (persisted to localStorage)
@@ -114,7 +114,72 @@ interface MaestroState {
   resumeSession: (sessionId: string) => Promise<void>;
 }
 
+// Module-level debounce timer for lastUsedTeamMember localStorage persistence
+let lastUsedTeamMemberSaveTimer: number | null = null;
+
+// Debounced entity refetch — collects IDs for 200ms then fetches once per ID
+const pendingTaskRefetches = new Set<string>();
+const pendingSessionRefetches = new Set<string>();
+let taskRefetchTimer: ReturnType<typeof setTimeout> | null = null;
+let sessionRefetchTimer: ReturnType<typeof setTimeout> | null = null;
+const REFETCH_DEBOUNCE_MS = 200;
+
+function debouncedFetchTask(taskId: string, fetchFn: (id: string) => void) {
+  pendingTaskRefetches.add(taskId);
+  if (!taskRefetchTimer) {
+    taskRefetchTimer = setTimeout(() => {
+      taskRefetchTimer = null;
+      const ids = [...pendingTaskRefetches];
+      pendingTaskRefetches.clear();
+      ids.forEach(fetchFn);
+    }, REFETCH_DEBOUNCE_MS);
+  }
+}
+
+function debouncedFetchSession(sessionId: string, fetchFn: (id: string) => void) {
+  pendingSessionRefetches.add(sessionId);
+  if (!sessionRefetchTimer) {
+    sessionRefetchTimer = setTimeout(() => {
+      sessionRefetchTimer = null;
+      const ids = [...pendingSessionRefetches];
+      pendingSessionRefetches.clear();
+      ids.forEach(fetchFn);
+    }, REFETCH_DEBOUNCE_MS);
+  }
+}
+
 export const useMaestroStore = create<MaestroState>((set, get) => {
+  // --- Batched set() for WebSocket handlers ---
+  // Accumulates pure state updates within a single microtask, then flushes them
+  // as a single set() call so N WebSocket messages → 1 subscriber notification.
+  type PendingUpdate = (state: MaestroState) => Partial<MaestroState>;
+  let pendingUpdates: PendingUpdate[] = [];
+  let batchScheduled = false;
+
+  function batchSet(updater: PendingUpdate) {
+    pendingUpdates.push(updater);
+    if (!batchScheduled) {
+      batchScheduled = true;
+      queueMicrotask(() => {
+        batchScheduled = false;
+        const updates = pendingUpdates;
+        pendingUpdates = [];
+        if (updates.length === 0) return;
+        if (updates.length === 1) {
+          set(updates[0]);
+          return;
+        }
+        set((state) => {
+          let merged: Partial<MaestroState> = {};
+          for (const fn of updates) {
+            Object.assign(merged, fn(state));
+          }
+          return merged;
+        });
+      });
+    }
+  }
+
   // High-frequency events to exclude from detailed logging (reduce noise)
   const HIGH_FREQUENCY_EVENTS = new Set([
     'heartbeat',
@@ -144,17 +209,19 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
 
   const setLoading = (key: string, isLoading: boolean) => {
     set((prev) => {
-      const loading = new Set(prev.loading);
-      if (isLoading) loading.add(key); else loading.delete(key);
-      return { loading };
+      if (isLoading === !!prev.loading[key]) return prev;
+      if (isLoading) return { loading: { ...prev.loading, [key]: true } };
+      const { [key]: _, ...rest } = prev.loading;
+      return { loading: rest };
     });
   };
 
   const setError = (key: string, error: string | null) => {
     set((prev) => {
-      const errors = new Map(prev.errors);
-      if (error) errors.set(key, error); else errors.delete(key);
-      return { errors };
+      if (!error && !prev.errors[key]) return prev;
+      if (error) return { errors: { ...prev.errors, [key]: error } };
+      const { [key]: _, ...rest } = prev.errors;
+      return { errors: rest };
     });
   };
 
@@ -176,244 +243,301 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     }
   };
 
+  /** Process a single WebSocket message (extracted for batched array support). */
+  const handleSingleMessage = (message: any) => {
+    const shouldLogDetails = !HIGH_FREQUENCY_EVENTS.has(message.event);
+
+    switch (message.event) {
+      case 'task:created':
+      case 'task:updated': {
+        const taskData = message.data;
+        // Ensure taskSessionStatuses is always an object (never null/undefined)
+        if (!taskData.taskSessionStatuses || typeof taskData.taskSessionStatuses !== 'object') {
+          taskData.taskSessionStatuses = {};
+        }
+        batchSet((prev) => ({ tasks: { ...prev.tasks, [taskData.id]: taskData } }));
+        // Play sound for event
+        playEventSound(message.event as any);
+        break;
+      }
+      case 'task:deleted': {
+        batchSet((prev) => {
+          const { [message.data.id]: _, ...tasks } = prev.tasks;
+          return { tasks };
+        });
+        // Play sound for event
+        playEventSound(message.event as any);
+        break;
+      }
+      case 'session:created': {
+        const session = normalizeSession(message.data.session || message.data);
+        batchSet((prev) => ({ sessions: { ...prev.sessions, [session.id]: session } }));
+        // Play sound using team member instruments when available
+        playSessionAwareSound(message.event, session);
+        break;
+      }
+      case 'session:updated': {
+        const updatedSession = normalizeSession(message.data);
+        batchSet((prev) => ({ sessions: { ...prev.sessions, [updatedSession.id]: updatedSession } }));
+        // Play sound using team member instruments (only if not a high-frequency update)
+        if (shouldLogDetails) {
+          playSessionAwareSound(message.event, updatedSession);
+        }
+        break;
+      }
+      case 'session:status_changed': {
+        // Lightweight status-only update — patch existing session in-place
+        const { id, status, lastActivity, needsInput } = message.data;
+        const existing = get().sessions[id];
+        if (existing) {
+          const updated = { ...existing, status, lastActivity, needsInput };
+          batchSet((prev) => ({ sessions: { ...prev.sessions, [id]: updated } }));
+        }
+        break;
+      }
+      case 'session:deleted': {
+        // Grab session before removing so we can play its team member sounds
+        const deletedSession = get().sessions[message.data.id];
+        batchSet((prev) => {
+          const { [message.data.id]: _, ...sessions } = prev.sessions;
+          return { sessions };
+        });
+        playSessionAwareSound(message.event, deletedSession || message.data);
+        break;
+      }
+      case 'session:spawn': {
+        const session = normalizeSession(message.data.session || message.data);
+        if (!session?.id) {
+          break;
+        }
+        set((prev) => ({ sessions: { ...prev.sessions, [session.id]: session } }));
+        void useSessionStore.getState().handleSpawnTerminalSession({
+          maestroSessionId: session.id,
+          name: session.name || '',
+          command: message.data.command ?? null,
+          args: [],
+          cwd: message.data.cwd || '',
+          envVars: message.data.envVars || {},
+          projectId: message.data.projectId || '',
+        });
+        playSessionAwareSound('session:created', session);
+        break;
+      }
+      case 'session:resume': {
+        const session = normalizeSession(message.data.session || message.data);
+        if (!session?.id) {
+          break;
+        }
+        set((prev) => ({ sessions: { ...prev.sessions, [session.id]: session } }));
+
+        // Find and remove existing exited terminal tab for this maestro session
+        const sessionStore = useSessionStore.getState();
+        const existingTerminal = sessionStore.sessions.find(
+          (s) => s.maestroSessionId === session.id
+        );
+        if (existingTerminal && existingTerminal.exited) {
+          sessionStore.setSessions((prev) =>
+            prev.filter((s) => s.id !== existingTerminal.id)
+          );
+        }
+
+        // Spawn new terminal (replaces the removed one)
+        void sessionStore.handleSpawnTerminalSession({
+          maestroSessionId: session.id,
+          name: session.name || '',
+          command: message.data.command ?? null,
+          args: [],
+          cwd: message.data.cwd || '',
+          envVars: message.data.envVars || {},
+          projectId: message.data.projectId || '',
+        });
+        playSessionAwareSound('session:created', session);
+        break;
+      }
+      case 'session:prompt_send': {
+        const { sessionId: maestroSessionId, content, mode: promptMode, senderSessionId } = message.data;
+
+        // Trigger flying dot animation
+        usePromptAnimationStore.getState().addAnimation({
+          senderMaestroSessionId: senderSessionId || null,
+          targetMaestroSessionId: maestroSessionId,
+          content: content || '',
+        });
+
+        const sessions = useSessionStore.getState().sessions;
+        const terminalSession = sessions.find(
+          (s) => s.maestroSessionId === maestroSessionId && !s.exited
+        );
+        if (!terminalSession) {
+          break;
+        }
+        // Write directly to PTY with 'system' source to distinguish programmatic input from user keyboard input
+        const ptyId = terminalSession.id;
+        const text = content.replace(/[\r\n]+$/, '');
+        (async () => {
+          try {
+            if (promptMode === 'paste') {
+              await invoke('write_to_session', { id: ptyId, data: text, source: 'system' });
+            } else {
+              if (text) {
+                await invoke('write_to_session', { id: ptyId, data: text, source: 'system' });
+                await new Promise(r => setTimeout(r, 200));
+              }
+              await invoke('write_to_session', { id: ptyId, data: '\r', source: 'system' });
+            }
+          } catch {
+            // best-effort write to session – ignore failures
+          }
+        })();
+        break;
+      }
+      case 'spell:invoked': {
+        const { sessionId: maestroSessionId, content, entityType, entityId, spellName } = message.data;
+
+        // Find terminal session for this maestro session
+        const spellSessions = useSessionStore.getState().sessions;
+        const terminalSession = spellSessions.find(
+          (s) => s.maestroSessionId === maestroSessionId && !s.exited
+        );
+        if (!terminalSession) break;
+
+        // Inject prompt into PTY (same pattern as session:prompt_send)
+        const spellPtyId = terminalSession.id;
+        const spellText = content.replace(/[\r\n]+$/, '');
+        (async () => {
+          try {
+            if (spellText) {
+              await invoke('write_to_session', { id: spellPtyId, data: spellText, source: 'system' });
+              await new Promise(r => setTimeout(r, 200));
+            }
+            await invoke('write_to_session', { id: spellPtyId, data: '\r', source: 'system' });
+          } catch {
+            // best-effort
+          }
+        })();
+
+        // Trigger prompt animation
+        usePromptAnimationStore.getState().addAnimation({
+          senderMaestroSessionId: null,
+          targetMaestroSessionId: maestroSessionId,
+          content: `[Spell: ${spellName}] ${content.slice(0, 50)}...`,
+        });
+
+        break;
+      }
+      case 'task:session_added':
+      case 'task:session_removed': {
+        if (message.data?.taskId) debouncedFetchTask(message.data.taskId, get().fetchTask);
+        // Use session's team member sounds if available
+        const tsSession = message.data?.sessionId ? get().sessions[message.data.sessionId] : null;
+        playSessionAwareSound(message.event, tsSession || null);
+        break;
+      }
+      case 'session:task_added':
+      case 'session:task_removed': {
+        if (message.data?.sessionId) debouncedFetchSession(message.data.sessionId, get().fetchSession);
+        // Use session's team member sounds if available
+        const stSession = message.data?.sessionId ? get().sessions[message.data.sessionId] : null;
+        playSessionAwareSound(message.event, stSession || null);
+        break;
+      }
+      // Notification events — play dedicated sounds using team member ensemble if available
+      case 'notify:task_completed':
+      case 'notify:task_failed':
+      case 'notify:task_blocked':
+      case 'notify:task_session_completed':
+      case 'notify:task_session_failed':
+      case 'notify:session_completed':
+      case 'notify:session_failed':
+      case 'notify:needs_input':
+      case 'notify:progress': {
+        // Try to get team member IDs from the associated session for ensemble sound
+        const sessionId = message.data?.sessionId;
+        let teamMemberIds: string[] = [];
+        if (sessionId) {
+          const session = get().sessions[sessionId];
+          if (session?.teamMemberIds?.length) {
+            teamMemberIds = session.teamMemberIds;
+          } else if (session?.teamMemberId) {
+            teamMemberIds = [session.teamMemberId];
+          }
+        }
+        if (teamMemberIds.length > 0) {
+          soundManager.playSessionEventSound(message.event as any, teamMemberIds).catch(() => { /* best-effort sound */ });
+        } else {
+          playEventSound(message.event as any);
+        }
+        break;
+      }
+      case 'session:modal': {
+        const modalData = message.data as AgentModal;
+        get().showAgentModal(modalData);
+        break;
+      }
+      case 'team_member:created':
+      case 'team_member:updated':
+      case 'team_member:archived': {
+        const teamMember = message.data;
+        batchSet((prev) => ({ teamMembers: { ...prev.teamMembers, [teamMember.id]: teamMember } }));
+        // Sync instrument with sound manager
+        if (teamMember.soundInstrument) {
+          soundManager.registerTeamMember(teamMember.id, teamMember.soundInstrument);
+        }
+        // Play sound for event
+        playEventSound(message.event as any);
+        break;
+      }
+      case 'team_member:deleted': {
+        batchSet((prev) => {
+          const { [message.data.id]: _, ...teamMembers } = prev.teamMembers;
+          return { teamMembers };
+        });
+        // Unregister from sound manager
+        soundManager.unregisterTeamMember(message.data.id);
+        // Play sound for event
+        playEventSound(message.event as any);
+        break;
+      }
+      case 'task_list:created':
+      case 'task_list:updated':
+      case 'task_list:reordered': {
+        const taskList = message.data;
+        batchSet((prev) => ({ taskLists: { ...prev.taskLists, [taskList.id]: taskList } }));
+        break;
+      }
+      case 'task_list:deleted': {
+        batchSet((prev) => {
+          const { [message.data.id]: _, ...taskLists } = prev.taskLists;
+          return { taskLists };
+        });
+        break;
+      }
+      case 'team:created':
+      case 'team:updated':
+      case 'team:archived': {
+        const team = message.data;
+        batchSet((prev) => ({ teams: { ...prev.teams, [team.id]: team } }));
+        playEventSound(message.event as any);
+        break;
+      }
+      case 'team:deleted': {
+        batchSet((prev) => {
+          const { [message.data.id]: _, ...teams } = prev.teams;
+          return { teams };
+        });
+        playEventSound(message.event as any);
+        break;
+      }
+    }
+  };
+
+  /** Handle incoming WebSocket message — supports both single-object and batched array formats. */
   const handleMessage = (event: MessageEvent) => {
     try {
-      const message = JSON.parse(event.data);
-      const shouldLogDetails = !HIGH_FREQUENCY_EVENTS.has(message.event);
-
-      switch (message.event) {
-        case 'task:created':
-        case 'task:updated': {
-          const taskData = message.data;
-          // Ensure taskSessionStatuses is always an object (never null/undefined)
-          if (!taskData.taskSessionStatuses || typeof taskData.taskSessionStatuses !== 'object') {
-            taskData.taskSessionStatuses = {};
-          }
-          set((prev) => ({ tasks: new Map(prev.tasks).set(taskData.id, taskData) }));
-          // Play sound for event
-          playEventSound(message.event as any);
-          break;
-        }
-        case 'task:deleted':
-          set((prev) => { const tasks = new Map(prev.tasks); tasks.delete(message.data.id); return { tasks }; });
-          // Play sound for event
-          playEventSound(message.event as any);
-          break;
-        case 'session:created': {
-          const session = normalizeSession(message.data.session || message.data);
-          set((prev) => ({ sessions: new Map(prev.sessions).set(session.id, session) }));
-          // Play sound using team member instruments when available
-          playSessionAwareSound(message.event, session);
-          break;
-        }
-        case 'session:updated': {
-          const updatedSession = normalizeSession(message.data);
-          set((prev) => ({ sessions: new Map(prev.sessions).set(updatedSession.id, updatedSession) }));
-          // Play sound using team member instruments (only if not a high-frequency update)
-          if (shouldLogDetails) {
-            playSessionAwareSound(message.event, updatedSession);
-          }
-          break;
-        }
-        case 'session:deleted': {
-          // Grab session before removing so we can play its team member sounds
-          const deletedSession = get().sessions.get(message.data.id);
-          set((prev) => { const sessions = new Map(prev.sessions); sessions.delete(message.data.id); return { sessions }; });
-          playSessionAwareSound(message.event, deletedSession || message.data);
-          break;
-        }
-        case 'session:spawn': {
-          const session = normalizeSession(message.data.session || message.data);
-          if (!session?.id) {
-            break;
-          }
-          set((prev) => ({ sessions: new Map(prev.sessions).set(session.id, session) }));
-          void useSessionStore.getState().handleSpawnTerminalSession({
-            maestroSessionId: session.id,
-            name: session.name || '',
-            command: message.data.command ?? null,
-            args: [],
-            cwd: message.data.cwd || '',
-            envVars: message.data.envVars || {},
-            projectId: message.data.projectId || '',
-          });
-          playSessionAwareSound('session:created', session);
-          break;
-        }
-        case 'session:resume': {
-          const session = normalizeSession(message.data.session || message.data);
-          if (!session?.id) {
-            break;
-          }
-          set((prev) => ({ sessions: new Map(prev.sessions).set(session.id, session) }));
-
-          // Find and remove existing exited terminal tab for this maestro session
-          const sessionStore = useSessionStore.getState();
-          const existingTerminal = sessionStore.sessions.find(
-            (s) => s.maestroSessionId === session.id
-          );
-          if (existingTerminal && existingTerminal.exited) {
-            sessionStore.setSessions((prev) =>
-              prev.filter((s) => s.id !== existingTerminal.id)
-            );
-          }
-
-          // Spawn new terminal (replaces the removed one)
-          void sessionStore.handleSpawnTerminalSession({
-            maestroSessionId: session.id,
-            name: session.name || '',
-            command: message.data.command ?? null,
-            args: [],
-            cwd: message.data.cwd || '',
-            envVars: message.data.envVars || {},
-            projectId: message.data.projectId || '',
-          });
-          playSessionAwareSound('session:created', session);
-          break;
-        }
-        case 'session:prompt_send': {
-          const { sessionId: maestroSessionId, content, mode: promptMode, senderSessionId } = message.data;
-
-          // Trigger flying dot animation
-          usePromptAnimationStore.getState().addAnimation({
-            senderMaestroSessionId: senderSessionId || null,
-            targetMaestroSessionId: maestroSessionId,
-            content: content || '',
-          });
-
-          const sessions = useSessionStore.getState().sessions;
-          const terminalSession = sessions.find(
-            (s) => s.maestroSessionId === maestroSessionId && !s.exited
-          );
-          if (!terminalSession) {
-            break;
-          }
-          // Write directly to PTY with 'system' source to distinguish programmatic input from user keyboard input
-          const ptyId = terminalSession.id;
-          const text = content.replace(/[\r\n]+$/, '');
-          (async () => {
-            try {
-              if (promptMode === 'paste') {
-                await invoke('write_to_session', { id: ptyId, data: text, source: 'system' });
-              } else {
-                if (text) {
-                  await invoke('write_to_session', { id: ptyId, data: text, source: 'system' });
-                  await new Promise(r => setTimeout(r, 200));
-                }
-                await invoke('write_to_session', { id: ptyId, data: '\r', source: 'system' });
-              }
-            } catch {
-              // best-effort write to session – ignore failures
-            }
-          })();
-          break;
-        }
-        case 'task:session_added':
-        case 'task:session_removed': {
-          if (message.data?.taskId) get().fetchTask(message.data.taskId);
-          // Use session's team member sounds if available
-          const tsSession = message.data?.sessionId ? get().sessions.get(message.data.sessionId) : null;
-          playSessionAwareSound(message.event, tsSession || null);
-          break;
-        }
-        case 'session:task_added':
-        case 'session:task_removed': {
-          if (message.data?.sessionId) get().fetchSession(message.data.sessionId);
-          // Use session's team member sounds if available
-          const stSession = message.data?.sessionId ? get().sessions.get(message.data.sessionId) : null;
-          playSessionAwareSound(message.event, stSession || null);
-          break;
-        }
-        // Notification events — play dedicated sounds using team member ensemble if available
-        case 'notify:task_completed':
-        case 'notify:task_failed':
-        case 'notify:task_blocked':
-        case 'notify:task_session_completed':
-        case 'notify:task_session_failed':
-        case 'notify:session_completed':
-        case 'notify:session_failed':
-        case 'notify:needs_input':
-        case 'notify:progress': {
-          // Try to get team member IDs from the associated session for ensemble sound
-          const sessionId = message.data?.sessionId;
-          let teamMemberIds: string[] = [];
-          if (sessionId) {
-            const session = get().sessions.get(sessionId);
-            if (session?.teamMemberIds?.length) {
-              teamMemberIds = session.teamMemberIds;
-            } else if (session?.teamMemberId) {
-              teamMemberIds = [session.teamMemberId];
-            }
-          }
-          if (teamMemberIds.length > 0) {
-            soundManager.playSessionEventSound(message.event as any, teamMemberIds).catch(() => { /* best-effort sound */ });
-          } else {
-            playEventSound(message.event as any);
-          }
-          break;
-        }
-        case 'session:modal': {
-          const modalData = message.data as AgentModal;
-          get().showAgentModal(modalData);
-          break;
-        }
-        case 'team_member:created':
-        case 'team_member:updated':
-        case 'team_member:archived': {
-          const teamMember = message.data;
-          set((prev) => ({ teamMembers: new Map(prev.teamMembers).set(teamMember.id, teamMember) }));
-          // Sync instrument with sound manager
-          if (teamMember.soundInstrument) {
-            soundManager.registerTeamMember(teamMember.id, teamMember.soundInstrument);
-          }
-          // Play sound for event
-          playEventSound(message.event as any);
-          break;
-        }
-        case 'team_member:deleted': {
-          set((prev) => {
-            const teamMembers = new Map(prev.teamMembers);
-            teamMembers.delete(message.data.id);
-            return { teamMembers };
-          });
-          // Unregister from sound manager
-          soundManager.unregisterTeamMember(message.data.id);
-          // Play sound for event
-          playEventSound(message.event as any);
-          break;
-        }
-        case 'task_list:created':
-        case 'task_list:updated':
-        case 'task_list:reordered': {
-          const taskList = message.data;
-          set((prev) => ({ taskLists: new Map(prev.taskLists).set(taskList.id, taskList) }));
-          break;
-        }
-        case 'task_list:deleted': {
-          set((prev) => {
-            const taskLists = new Map(prev.taskLists);
-            taskLists.delete(message.data.id);
-            return { taskLists };
-          });
-          break;
-        }
-        case 'team:created':
-        case 'team:updated':
-        case 'team:archived': {
-          const team = message.data;
-          set((prev) => ({ teams: new Map(prev.teams).set(team.id, team) }));
-          playEventSound(message.event as any);
-          break;
-        }
-        case 'team:deleted': {
-          set((prev) => {
-            const teams = new Map(prev.teams);
-            teams.delete(message.data.id);
-            return { teams };
-          });
-          playEventSound(message.event as any);
-          break;
-        }
+      const parsed = JSON.parse(event.data);
+      const messages = Array.isArray(parsed) ? parsed : [parsed];
+      for (const message of messages) {
+        handleSingleMessage(message);
       }
     } catch {
       // best-effort WebSocket message handling – ignore parse/processing errors
@@ -459,7 +583,9 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         // broadcast session:prompt_send to ws1+ws2+ws3, tripling PTY injection.
         if (globalWs !== ws) return;
 
-        const delay = Math.min(1000 * Math.pow(2, globalReconnectAttempts), 30000);
+        const baseDelay = Math.min(1000 * Math.pow(2, globalReconnectAttempts), 30000);
+        const jitter = Math.random() * baseDelay * 0.5; // 0-50% jitter
+        const delay = baseDelay + jitter;
         set({ wsConnected: false });
         globalConnecting = false;
         globalWs = null;
@@ -485,19 +611,19 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
   };
 
   return {
-    tasks: new Map(),
-    taskLists: new Map(),
-    sessions: new Map(),
-    teamMembers: new Map(),
-    teams: new Map(),
+    tasks: {},
+    taskLists: {},
+    sessions: {},
+    teamMembers: {},
+    teams: {},
     activeModals: [],
-    loading: new Set(),
-    errors: new Map(),
+    loading: {},
+    errors: {},
     wsConnected: false,
     activeProjectIdRef: null,
-    taskOrdering: new Map(),
-    sessionOrdering: new Map(),
-    taskListOrdering: new Map(),
+    taskOrdering: {},
+    sessionOrdering: {},
+    taskListOrdering: {},
     workflowTemplates: [],
     lastUsedTeamMember: loadLastUsedTeamMember(),
 
@@ -509,14 +635,14 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       try {
         const tasks = await maestroClient.getTasks(projectId);
         set((prev) => {
-          const taskMap = new Map(prev.tasks);
-          tasks.forEach((task) => {
+          const updated = { ...prev.tasks };
+          for (const task of tasks) {
             if (!task.taskSessionStatuses || typeof task.taskSessionStatuses !== 'object') {
               task.taskSessionStatuses = {};
             }
-            taskMap.set(task.id, task);
-          });
-          return { tasks: taskMap };
+            updated[task.id] = task;
+          }
+          return { tasks: updated };
         });
       } catch (err) {
         setError(key, err instanceof Error ? err.message : String(err));
@@ -534,7 +660,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         if (!task.taskSessionStatuses || typeof task.taskSessionStatuses !== 'object') {
           task.taskSessionStatuses = {};
         }
-        set((prev) => ({ tasks: new Map(prev.tasks).set(task.id, task) }));
+        set((prev) => ({ tasks: { ...prev.tasks, [task.id]: task } }));
       } catch (err) {
         setError(key, err instanceof Error ? err.message : String(err));
       } finally {
@@ -549,25 +675,25 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       try {
         const lists = await maestroClient.getTaskLists(projectId);
         set((prev) => {
-          const taskLists = new Map(prev.taskLists);
-          // Remove old entries for this project
-          for (const [id, list] of taskLists) {
-            if (list.projectId === projectId) {
-              taskLists.delete(id);
-            }
+          // Remove old entries for this project, then add fresh data
+          const taskLists: Record<string, TaskList> = {};
+          for (const [id, list] of Object.entries(prev.taskLists)) {
+            if (list.projectId !== projectId) taskLists[id] = list;
           }
-          lists.forEach((list) => taskLists.set(list.id, list));
-          const nextOrdering = new Map(prev.taskListOrdering);
-          const existing = nextOrdering.get(projectId);
+          for (const list of lists) {
+            taskLists[list.id] = list;
+          }
+          const existing = prev.taskListOrdering[projectId];
+          let nextOrdering: Record<string, string[]>;
           if (!existing || existing.length === 0) {
-            nextOrdering.set(projectId, lists.map((list) => list.id));
+            nextOrdering = { ...prev.taskListOrdering, [projectId]: lists.map((list) => list.id) };
           } else {
             const listIds = lists.map((list) => list.id);
             const merged = [
               ...existing.filter((id) => listIds.includes(id)),
               ...listIds.filter((id) => !existing.includes(id)),
             ];
-            nextOrdering.set(projectId, merged);
+            nextOrdering = { ...prev.taskListOrdering, [projectId]: merged };
           }
           return { taskLists, taskListOrdering: nextOrdering };
         });
@@ -584,7 +710,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       setError(key, null);
       try {
         const list = await maestroClient.getTaskList(listId);
-        set((prev) => ({ taskLists: new Map(prev.taskLists).set(list.id, list) }));
+        set((prev) => ({ taskLists: { ...prev.taskLists, [list.id]: list } }));
       } catch (err) {
         setError(key, err instanceof Error ? err.message : String(err));
       } finally {
@@ -599,9 +725,11 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       try {
         const sessions = await maestroClient.getSessions(taskId);
         set((prev) => {
-          const sessionMap = new Map(prev.sessions);
-          sessions.forEach((session) => sessionMap.set(session.id, normalizeSession(session)));
-          return { sessions: sessionMap };
+          const updated = { ...prev.sessions };
+          for (const session of sessions) {
+            updated[session.id] = normalizeSession(session);
+          }
+          return { sessions: updated };
         });
       } catch (err) {
         setError(key, err instanceof Error ? err.message : String(err));
@@ -616,9 +744,9 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       setError(key, null);
       try {
         const session = normalizeSession(await maestroClient.getSession(sessionId));
-        set((prev) => ({ sessions: new Map(prev.sessions).set(session.id, session) }));
+        set((prev) => ({ sessions: { ...prev.sessions, [session.id]: session } }));
         for (const taskId of session.taskIds) {
-          if (!get().tasks.has(taskId)) get().fetchTask(taskId);
+          if (!get().tasks[taskId]) get().fetchTask(taskId);
         }
       } catch (err) {
         setError(key, err instanceof Error ? err.message : String(err));
@@ -633,7 +761,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       if (!task.taskSessionStatuses || typeof task.taskSessionStatuses !== 'object') {
         task.taskSessionStatuses = {};
       }
-      set((prev) => ({ tasks: new Map(prev.tasks).set(task.id, task) }));
+      set((prev) => ({ tasks: { ...prev.tasks, [task.id]: task } }));
       return task;
     },
     updateTask: async (taskId, updates) => {
@@ -642,57 +770,58 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       if (!task.taskSessionStatuses || typeof task.taskSessionStatuses !== 'object') {
         task.taskSessionStatuses = {};
       }
-      set((prev) => ({ tasks: new Map(prev.tasks).set(task.id, task) }));
+      set((prev) => ({ tasks: { ...prev.tasks, [task.id]: task } }));
       return task;
     },
     deleteTask: async (taskId) => {
       await maestroClient.deleteTask(taskId);
       // Optimistic update — remove from store immediately instead of waiting for WebSocket event
-      set((prev) => { const tasks = new Map(prev.tasks); tasks.delete(taskId); return { tasks }; });
+      set((prev) => {
+        const { [taskId]: _, ...tasks } = prev.tasks;
+        return { tasks };
+      });
     },
     createTaskList: async (data) => {
       const list = await maestroClient.createTaskList(data);
       set((prev) => {
-        const taskLists = new Map(prev.taskLists).set(list.id, list);
-        const taskListOrdering = new Map(prev.taskListOrdering);
-        const existing = taskListOrdering.get(list.projectId) || [];
-        if (!existing.includes(list.id)) {
-          taskListOrdering.set(list.projectId, [...existing, list.id]);
-        }
-        return { taskLists, taskListOrdering };
+        const existing = prev.taskListOrdering[list.projectId] || [];
+        return {
+          taskLists: { ...prev.taskLists, [list.id]: list },
+          taskListOrdering: existing.includes(list.id)
+            ? prev.taskListOrdering
+            : { ...prev.taskListOrdering, [list.projectId]: [...existing, list.id] },
+        };
       });
       return list;
     },
     updateTaskList: async (listId, updates) => {
-      const prevList = get().taskLists.get(listId);
+      const prevList = get().taskLists[listId];
       if (prevList) {
-        set((prev) => {
-          const taskLists = new Map(prev.taskLists);
-          taskLists.set(listId, { ...prevList, ...updates });
-          return { taskLists };
-        });
+        set((prev) => ({
+          taskLists: { ...prev.taskLists, [listId]: { ...prevList, ...updates } },
+        }));
       }
       try {
         const list = await maestroClient.updateTaskList(listId, updates);
-        set((prev) => ({ taskLists: new Map(prev.taskLists).set(list.id, list) }));
+        set((prev) => ({ taskLists: { ...prev.taskLists, [list.id]: list } }));
         return list;
       } catch (err) {
         if (prevList) {
-          set((prev) => ({ taskLists: new Map(prev.taskLists).set(listId, prevList) }));
+          set((prev) => ({ taskLists: { ...prev.taskLists, [listId]: prevList } }));
         }
         throw err;
       }
     },
     deleteTaskList: async (listId) => {
-      const prevList = get().taskLists.get(listId);
+      const prevList = get().taskLists[listId];
       if (prevList) {
         set((prev) => {
-          const taskLists = new Map(prev.taskLists);
-          taskLists.delete(listId);
-          const taskListOrdering = new Map(prev.taskListOrdering);
-          const existing = taskListOrdering.get(prevList.projectId) || [];
-          taskListOrdering.set(prevList.projectId, existing.filter((id) => id !== listId));
-          return { taskLists, taskListOrdering };
+          const { [listId]: _, ...taskLists } = prev.taskLists;
+          const existing = prev.taskListOrdering[prevList.projectId] || [];
+          return {
+            taskLists,
+            taskListOrdering: { ...prev.taskListOrdering, [prevList.projectId]: existing.filter((id) => id !== listId) },
+          };
         });
       }
       try {
@@ -700,73 +829,67 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       } catch (err) {
         if (prevList) {
           set((prev) => {
-            const taskLists = new Map(prev.taskLists).set(listId, prevList);
-            const taskListOrdering = new Map(prev.taskListOrdering);
-            const existing = taskListOrdering.get(prevList.projectId) || [];
-            if (!existing.includes(listId)) {
-              taskListOrdering.set(prevList.projectId, [...existing, listId]);
-            }
-            return { taskLists, taskListOrdering };
+            const existing = prev.taskListOrdering[prevList.projectId] || [];
+            return {
+              taskLists: { ...prev.taskLists, [listId]: prevList },
+              taskListOrdering: existing.includes(listId)
+                ? prev.taskListOrdering
+                : { ...prev.taskListOrdering, [prevList.projectId]: [...existing, listId] },
+            };
           });
         }
         throw err;
       }
     },
     addTaskToList: async (listId, taskId) => {
-      const prevList = get().taskLists.get(listId);
+      const prevList = get().taskLists[listId];
       if (!prevList) {
         throw new Error('Task list not found');
       }
       if (!prevList.orderedTaskIds.includes(taskId)) {
-        set((prev) => {
-          const taskLists = new Map(prev.taskLists);
-          taskLists.set(listId, { ...prevList, orderedTaskIds: [...prevList.orderedTaskIds, taskId] });
-          return { taskLists };
-        });
+        set((prev) => ({
+          taskLists: { ...prev.taskLists, [listId]: { ...prevList, orderedTaskIds: [...prevList.orderedTaskIds, taskId] } },
+        }));
       }
       try {
         const list = await maestroClient.addTaskToList(listId, taskId);
-        set((prev) => ({ taskLists: new Map(prev.taskLists).set(list.id, list) }));
+        set((prev) => ({ taskLists: { ...prev.taskLists, [list.id]: list } }));
       } catch (err) {
         if (prevList) {
-          set((prev) => ({ taskLists: new Map(prev.taskLists).set(listId, prevList) }));
+          set((prev) => ({ taskLists: { ...prev.taskLists, [listId]: prevList } }));
         }
         throw err;
       }
     },
     removeTaskFromList: async (listId, taskId) => {
-      const prevList = get().taskLists.get(listId);
+      const prevList = get().taskLists[listId];
       if (!prevList) {
         throw new Error('Task list not found');
       }
-      set((prev) => {
-        const taskLists = new Map(prev.taskLists);
-        taskLists.set(listId, { ...prevList, orderedTaskIds: prevList.orderedTaskIds.filter((id) => id !== taskId) });
-        return { taskLists };
-      });
+      set((prev) => ({
+        taskLists: { ...prev.taskLists, [listId]: { ...prevList, orderedTaskIds: prevList.orderedTaskIds.filter((id) => id !== taskId) } },
+      }));
       try {
         const list = await maestroClient.removeTaskFromList(listId, taskId);
-        set((prev) => ({ taskLists: new Map(prev.taskLists).set(list.id, list) }));
+        set((prev) => ({ taskLists: { ...prev.taskLists, [list.id]: list } }));
       } catch (err) {
-        set((prev) => ({ taskLists: new Map(prev.taskLists).set(listId, prevList) }));
+        set((prev) => ({ taskLists: { ...prev.taskLists, [listId]: prevList } }));
         throw err;
       }
     },
     reorderTaskListTasks: async (listId, orderedTaskIds) => {
-      const prevList = get().taskLists.get(listId);
+      const prevList = get().taskLists[listId];
       if (!prevList) {
         throw new Error('Task list not found');
       }
-      set((prev) => {
-        const taskLists = new Map(prev.taskLists);
-        taskLists.set(listId, { ...prevList, orderedTaskIds });
-        return { taskLists };
-      });
+      set((prev) => ({
+        taskLists: { ...prev.taskLists, [listId]: { ...prevList, orderedTaskIds } },
+      }));
       try {
         const list = await maestroClient.reorderTaskListTasks(listId, orderedTaskIds);
-        set((prev) => ({ taskLists: new Map(prev.taskLists).set(list.id, list) }));
+        set((prev) => ({ taskLists: { ...prev.taskLists, [list.id]: list } }));
       } catch (err) {
-        set((prev) => ({ taskLists: new Map(prev.taskLists).set(listId, prevList) }));
+        set((prev) => ({ taskLists: { ...prev.taskLists, [listId]: prevList } }));
         throw err;
       }
     },
@@ -777,16 +900,13 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     removeTaskFromSession: async (sessionId, taskId) => { await maestroClient.removeTaskFromSession(sessionId, taskId); },
 
     clearNeedsInput: (maestroSessionId) => {
-      const session = get().sessions.get(maestroSessionId);
+      const session = get().sessions[maestroSessionId];
       if (!session?.needsInput?.active) return;
       // Optimistically update local state
       set((prev) => {
-        const sessions = new Map(prev.sessions);
-        const s = sessions.get(maestroSessionId);
-        if (s) {
-          sessions.set(maestroSessionId, { ...s, needsInput: { active: false } });
-        }
-        return { sessions };
+        const s = prev.sessions[maestroSessionId];
+        if (!s) return prev;
+        return { sessions: { ...prev.sessions, [maestroSessionId]: { ...s, needsInput: { active: false } } } };
       });
       // PATCH server
       maestroClient.updateSession(maestroSessionId, { needsInput: { active: false } }).catch(() => { /* best-effort server update */ });
@@ -797,7 +917,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       if (!activeId) return;
       const activeLocalSession = useSessionStore.getState().sessions.find((s) => s.id === activeId);
       if (!activeLocalSession?.maestroSessionId) return;
-      const maestroSession = get().sessions.get(activeLocalSession.maestroSessionId);
+      const maestroSession = get().sessions[activeLocalSession.maestroSessionId];
       if (!maestroSession?.needsInput?.active) return;
       const { activeProjectIdRef } = get();
       if (activeProjectIdRef !== maestroSession.projectId) return;
@@ -819,17 +939,17 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     },
 
     clearCache: () => set({
-      tasks: new Map(),
-      taskLists: new Map(),
-      sessions: new Map(),
-      teamMembers: new Map(),
-      teams: new Map(),
+      tasks: {},
+      taskLists: {},
+      sessions: {},
+      teamMembers: {},
+      teams: {},
       activeModals: [],
-      loading: new Set(),
-      errors: new Map(),
-      taskOrdering: new Map(),
-      sessionOrdering: new Map(),
-      taskListOrdering: new Map(),
+      loading: {},
+      errors: {},
+      taskOrdering: {},
+      sessionOrdering: {},
+      taskListOrdering: {},
       workflowTemplates: [],
     }),
 
@@ -850,11 +970,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     fetchTaskOrdering: async (projectId) => {
       try {
         const ordering = await maestroClient.getOrdering(projectId, 'task');
-        set((prev) => {
-          const taskOrdering = new Map(prev.taskOrdering);
-          taskOrdering.set(projectId, ordering.orderedIds);
-          return { taskOrdering };
-        });
+        set((prev) => ({ taskOrdering: { ...prev.taskOrdering, [projectId]: ordering.orderedIds } }));
       } catch {
       }
     },
@@ -862,22 +978,14 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     fetchSessionOrdering: async (projectId) => {
       try {
         const ordering = await maestroClient.getOrdering(projectId, 'session');
-        set((prev) => {
-          const sessionOrdering = new Map(prev.sessionOrdering);
-          sessionOrdering.set(projectId, ordering.orderedIds);
-          return { sessionOrdering };
-        });
+        set((prev) => ({ sessionOrdering: { ...prev.sessionOrdering, [projectId]: ordering.orderedIds } }));
       } catch {
       }
     },
 
     saveTaskOrdering: async (projectId, orderedIds) => {
       // Optimistic update
-      set((prev) => {
-        const taskOrdering = new Map(prev.taskOrdering);
-        taskOrdering.set(projectId, orderedIds);
-        return { taskOrdering };
-      });
+      set((prev) => ({ taskOrdering: { ...prev.taskOrdering, [projectId]: orderedIds } }));
       try {
         await maestroClient.saveOrdering(projectId, 'task', orderedIds);
       } catch {
@@ -886,11 +994,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
 
     saveSessionOrdering: async (projectId, orderedIds) => {
       // Optimistic update
-      set((prev) => {
-        const sessionOrdering = new Map(prev.sessionOrdering);
-        sessionOrdering.set(projectId, orderedIds);
-        return { sessionOrdering };
-      });
+      set((prev) => ({ sessionOrdering: { ...prev.sessionOrdering, [projectId]: orderedIds } }));
       try {
         await maestroClient.saveOrdering(projectId, 'session', orderedIds);
       } catch {
@@ -900,21 +1004,13 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     fetchTaskListOrdering: async (projectId) => {
       try {
         const ordering = await maestroClient.getTaskListOrdering(projectId);
-        set((prev) => {
-          const taskListOrdering = new Map(prev.taskListOrdering);
-          taskListOrdering.set(projectId, ordering.orderedIds);
-          return { taskListOrdering };
-        });
+        set((prev) => ({ taskListOrdering: { ...prev.taskListOrdering, [projectId]: ordering.orderedIds } }));
       } catch {
       }
     },
 
     saveTaskListOrdering: async (projectId, orderedIds) => {
-      set((prev) => {
-        const taskListOrdering = new Map(prev.taskListOrdering);
-        taskListOrdering.set(projectId, orderedIds);
-        return { taskListOrdering };
-      });
+      set((prev) => ({ taskListOrdering: { ...prev.taskListOrdering, [projectId]: orderedIds } }));
       try {
         await maestroClient.saveTaskListOrdering(projectId, orderedIds);
       } catch {
@@ -933,14 +1029,14 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         const teamMembers = await maestroClient.getTeamMembers(projectId);
         set((prev) => {
           // Remove old entries for this project, then add fresh data
-          const teamMemberMap = new Map(prev.teamMembers);
-          for (const [id, tm] of teamMemberMap) {
-            if (tm.projectId === projectId) {
-              teamMemberMap.delete(id);
-            }
+          const filtered: Record<string, TeamMember> = {};
+          for (const [id, tm] of Object.entries(prev.teamMembers)) {
+            if (tm.projectId !== projectId) filtered[id] = tm;
           }
-          teamMembers.forEach((tm) => teamMemberMap.set(tm.id, tm));
-          return { teamMembers: teamMemberMap };
+          for (const tm of teamMembers) {
+            filtered[tm.id] = tm;
+          }
+          return { teamMembers: filtered };
         });
       } catch (err) {
         setError(key, err instanceof Error ? err.message : String(err));
@@ -951,21 +1047,20 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
 
     createTeamMember: async (data) => {
       const teamMember = await maestroClient.createTeamMember(data);
-      set((prev) => ({ teamMembers: new Map(prev.teamMembers).set(teamMember.id, teamMember) }));
+      set((prev) => ({ teamMembers: { ...prev.teamMembers, [teamMember.id]: teamMember } }));
       return teamMember;
     },
 
     updateTeamMember: async (id, projectId, updates) => {
       const teamMember = await maestroClient.updateTeamMember(id, projectId, updates);
-      set((prev) => ({ teamMembers: new Map(prev.teamMembers).set(teamMember.id, teamMember) }));
+      set((prev) => ({ teamMembers: { ...prev.teamMembers, [teamMember.id]: teamMember } }));
       return teamMember;
     },
 
     deleteTeamMember: async (id, projectId) => {
       await maestroClient.deleteTeamMember(id, projectId);
       set((prev) => {
-        const teamMembers = new Map(prev.teamMembers);
-        teamMembers.delete(id);
+        const { [id]: _, ...teamMembers } = prev.teamMembers;
         return { teamMembers };
       });
     },
@@ -986,15 +1081,20 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     },
 
     setLastUsedTeamMember: (taskId, teamMemberId) => {
-      set((prev) => {
-        const lastUsedTeamMember = { ...prev.lastUsedTeamMember, [taskId]: teamMemberId };
-        // Persist to localStorage
+      set((prev) => ({
+        lastUsedTeamMember: { ...prev.lastUsedTeamMember, [taskId]: teamMemberId },
+      }));
+      // Debounced localStorage persistence (500ms)
+      if (lastUsedTeamMemberSaveTimer) clearTimeout(lastUsedTeamMemberSaveTimer);
+      lastUsedTeamMemberSaveTimer = window.setTimeout(() => {
+        lastUsedTeamMemberSaveTimer = null;
         try {
-          localStorage.setItem('maestro:lastUsedTeamMember', JSON.stringify(lastUsedTeamMember));
-        } catch {
-        }
-        return { lastUsedTeamMember };
-      });
+          localStorage.setItem(
+            'maestro:lastUsedTeamMember',
+            JSON.stringify(get().lastUsedTeamMember),
+          );
+        } catch { /* best-effort */ }
+      }, 500);
     },
 
     // ==================== TEAMS ====================
@@ -1006,15 +1106,15 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       try {
         const teams = await maestroClient.getTeams(projectId);
         set((prev) => {
-          const teamMap = new Map(prev.teams);
           // Remove old entries for this project, then add fresh data
-          for (const [id, t] of teamMap) {
-            if (t.projectId === projectId) {
-              teamMap.delete(id);
-            }
+          const filtered: Record<string, Team> = {};
+          for (const [id, t] of Object.entries(prev.teams)) {
+            if (t.projectId !== projectId) filtered[id] = t;
           }
-          teams.forEach((t) => teamMap.set(t.id, t));
-          return { teams: teamMap };
+          for (const t of teams) {
+            filtered[t.id] = t;
+          }
+          return { teams: filtered };
         });
       } catch (err) {
         setError(key, err instanceof Error ? err.message : String(err));
@@ -1025,21 +1125,20 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
 
     createTeam: async (data) => {
       const team = await maestroClient.createTeam(data);
-      set((prev) => ({ teams: new Map(prev.teams).set(team.id, team) }));
+      set((prev) => ({ teams: { ...prev.teams, [team.id]: team } }));
       return team;
     },
 
     updateTeam: async (id, projectId, updates) => {
       const team = await maestroClient.updateTeam(id, projectId, updates);
-      set((prev) => ({ teams: new Map(prev.teams).set(team.id, team) }));
+      set((prev) => ({ teams: { ...prev.teams, [team.id]: team } }));
       return team;
     },
 
     deleteTeam: async (id, projectId) => {
       await maestroClient.deleteTeam(id, projectId);
       set((prev) => {
-        const teams = new Map(prev.teams);
-        teams.delete(id);
+        const { [id]: _, ...teams } = prev.teams;
         return { teams };
       });
     },

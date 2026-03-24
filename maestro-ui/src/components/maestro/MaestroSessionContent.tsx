@@ -8,7 +8,7 @@ import { QueueStatusDisplay, type QueueState } from "./QueueStatusDisplay";
 interface MaestroSessionContentProps {
   session: MaestroSession;
   tasks: MaestroTask[];
-  allTasks: Map<string, MaestroTask>;
+  allTasks: Record<string, MaestroTask>;
   queueState?: QueueState;
   loading?: boolean;
   onJumpToTask?: (taskId: string) => void;
@@ -56,7 +56,7 @@ function buildFullTaskTree(tasks: MaestroTask[]): TaskTreeNode[] {
   return roots;
 }
 
-function TreeTaskNodeContent({
+const TreeTaskNodeContent = React.memo(function TreeTaskNodeContent({
   node,
   isLast,
   prefix,
@@ -111,7 +111,7 @@ function TreeTaskNodeContent({
       ))}
     </>
   );
-}
+});
 
 function formatTimeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -124,7 +124,7 @@ function formatTimeAgo(timestamp: number): string {
 
 type SessionTab = 'tasks' | 'timeline' | 'details';
 
-export function MaestroSessionContent({
+export const MaestroSessionContent = React.memo(function MaestroSessionContent({
   session,
   tasks,
   allTasks,
@@ -146,15 +146,15 @@ export function MaestroSessionContent({
     );
     return rootTasks.map((task) => ({
       task,
-      subtasks: Array.from(allTasks.values()).filter((t) => t.parentId === task.id),
+      subtasks: Object.values(allTasks).filter((t) => t.parentId === task.id),
     }));
   }, [tasks, allTasks]);
 
-  // Create tasks map for QueueStatusDisplay
+  // Create tasks record for QueueStatusDisplay
   const tasksMap = useMemo(() => {
-    const map = new Map<string, MaestroTask>();
-    tasks.forEach((t) => map.set(t.id, t));
-    return map;
+    const record: Record<string, MaestroTask> = {};
+    for (const t of tasks) record[t.id] = t;
+    return record;
   }, [tasks]);
 
   if (loading) {
@@ -350,4 +350,4 @@ export function MaestroSessionContent({
       </div>
     </div>
   );
-}
+});

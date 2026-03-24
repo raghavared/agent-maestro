@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
+import compression from 'compression';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import { WebSocketServer } from 'ws';
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
@@ -17,6 +17,7 @@ import { createTeamMemberRoutes } from './api/teamMemberRoutes';
 import { createTeamRoutes } from './api/teamRoutes';
 import { createWorkflowTemplateRoutes } from './api/workflowTemplateRoutes';
 import { createMasterRoutes } from './api/masterRoutes';
+import { createSpellRoutes } from './api/spellRoutes';
 import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
 import { errorHandler } from './api/middleware/errorHandler';
 
@@ -42,9 +43,11 @@ async function startServer() {
         'tauri://localhost',
         'http://localhost:1420',
         'http://localhost:3000',
+        'http://localhost:3002',
         'http://localhost:5173',
         'http://127.0.0.1:1420',
         'http://127.0.0.1:3000',
+        'http://127.0.0.1:3002',
         'http://127.0.0.1:5173'
       ];
 
@@ -63,30 +66,14 @@ async function startServer() {
   // JSON body parser with size limit (50mb for image uploads)
   app.use(express.json({ limit: '50mb' }));
 
-  // Rate limiting (applied after CORS so preflight OPTIONS always get CORS headers)
-  const generalLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    limit: 1000,
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
-    skip: (req: Request) => req.method === 'OPTIONS',
-  });
-  const writeLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    limit: 200,
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
-    skip: (req: Request) => req.method === 'OPTIONS',
-  });
-  app.use(generalLimiter);
-
-  // Apply stricter rate limiting to write routes
-  app.use('/api', (req: Request, res: Response, next: NextFunction) => {
-    if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) {
-      return writeLimiter(req, res, next);
-    }
-    next();
-  });
+  // Compression middleware (skip SSE streams)
+  app.use(compression({
+    threshold: 1024,
+    filter: (req, res) => {
+      if (req.headers.accept === 'text/event-stream') return false;
+      return compression.filter(req, res);
+    },
+  }));
 
   // Health check
   app.get('/health', (req: Request, res: Response) => {
@@ -147,6 +134,10 @@ async function startServer() {
   app.use('/api', teamRoutes);
   app.use('/api/workflow-templates', createWorkflowTemplateRoutes());
 
+  // Spell routes
+  const spellRoutes = createSpellRoutes(container.spellService);
+  app.use('/api', spellRoutes);
+
   // Master project cross-project routes
   const masterRoutes = createMasterRoutes(projectService, taskService, sessionService);
   app.use('/api', masterRoutes);
@@ -170,7 +161,22 @@ async function startServer() {
   });
 
   // Start WebSocket server with event bus bridge
-  const wss = new WebSocketServer({ server });
+  const MAX_WS_CLIENTS = parseInt(process.env.MAX_WS_CLIENTS || '50', 10);
+  const wss = new WebSocketServer({
+    server,
+    maxPayload: 1024 * 1024, // 1MB max inbound message
+    verifyClient: (_info: any, cb: (result: boolean, code?: number, message?: string) => void) => {
+      if (wss.clients.size >= MAX_WS_CLIENTS) {
+        logger.warn('WebSocket connection rejected: max clients reached', {
+          current: wss.clients.size,
+          max: MAX_WS_CLIENTS,
+        });
+        cb(false, 429, 'Too many WebSocket connections');
+      } else {
+        cb(true);
+      }
+    },
+  });
   wsBridge = new WebSocketBridge(wss, eventBus, logger);
 
   // Graceful shutdown handler
@@ -192,6 +198,9 @@ async function startServer() {
         client.close();
       });
 
+      // Clean up WebSocket bridge event listeners
+      wsBridge.shutdown();
+
       wss.close(() => {});
 
       // Shutdown container (cleans up event bus)
@@ -208,8 +217,8 @@ async function startServer() {
     }
   };
 
-  process.on('SIGINT', gracefulShutdown);
-  process.on('SIGTERM', gracefulShutdown);
+  process.once('SIGINT', gracefulShutdown);
+  process.once('SIGTERM', gracefulShutdown);
 
   return { app, server, container };
 }

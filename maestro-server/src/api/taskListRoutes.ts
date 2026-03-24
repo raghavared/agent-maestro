@@ -11,6 +11,9 @@ import {
   reorderTaskListSchema,
   idParamSchema,
   idAndTaskIdParamSchema,
+  paginationQuerySchema,
+  extractPagination,
+  paginate,
 } from './validation';
 
 /**
@@ -20,11 +23,15 @@ export function createTaskListRoutes(taskListService: TaskListService) {
   const router = express.Router();
 
   // List task lists (optionally by projectId)
-  router.get('/task-lists', validateQuery(listTaskListsQuerySchema), async (req: Request, res: Response) => {
+  router.get('/task-lists', validateQuery(listTaskListsQuerySchema.merge(paginationQuerySchema)), async (req: Request, res: Response) => {
     try {
       const projectId = req.query.projectId as string | undefined;
       const lists = await taskListService.listTaskLists(projectId ? { projectId } : undefined);
-      res.json(lists);
+      if (req.query.limit || req.query.offset) {
+        res.json(paginate(lists, extractPagination(req.query)));
+      } else {
+        res.json(lists);
+      }
     } catch (err: unknown) {
       handleRouteError(err, res);
     }

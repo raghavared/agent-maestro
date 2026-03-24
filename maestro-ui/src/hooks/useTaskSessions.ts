@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useMaestroStore } from '../stores/useMaestroStore';
 import type { MaestroSession } from '../app/types/maestro';
 
@@ -9,10 +10,9 @@ import type { MaestroSession } from '../app/types/maestro';
  * @returns Object with sessions array, loading state, and error
  */
 export function useTaskSessions(taskId: string | null | undefined) {
-    const sessions = useMaestroStore(s => s.sessions);
-    const loadingSet = useMaestroStore(s => s.loading);
-    const errors = useMaestroStore(s => s.errors);
-    const fetchSessions = useMaestroStore(s => s.fetchSessions);
+    const { sessions, loadingSet, errors, fetchSessions } = useMaestroStore(
+        useShallow(s => ({ sessions: s.sessions, loadingSet: s.loading, errors: s.errors, fetchSessions: s.fetchSessions }))
+    );
 
     // Fetch sessions for this task
     useEffect(() => {
@@ -24,7 +24,7 @@ export function useTaskSessions(taskId: string | null | undefined) {
     // Filter sessions that include this task
     const filteredSessions = useMemo(() => {
         if (!taskId) return [];
-        return Array.from(sessions.values()).filter(
+        return Object.values(sessions).filter(
             session => {
                 if (!session?.taskIds || !Array.isArray(session.taskIds)) {
                     return false;
@@ -34,8 +34,8 @@ export function useTaskSessions(taskId: string | null | undefined) {
         );
     }, [sessions, taskId]);
 
-    const loading = taskId ? loadingSet.has(`sessions:task:${taskId}`) : false;
-    const error = taskId ? errors.get(`sessions:task:${taskId}`) : undefined;
+    const loading = taskId ? !!loadingSet[`sessions:task:${taskId}`] : false;
+    const error = taskId ? errors[`sessions:task:${taskId}`] : undefined;
 
     return {
         sessions: filteredSessions,

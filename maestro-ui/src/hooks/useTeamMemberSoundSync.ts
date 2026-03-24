@@ -22,7 +22,7 @@ export function useTeamMemberSoundSync() {
     const currentIds = new Set<string>();
 
     // Register all current team members' instruments
-    teamMembers.forEach((member) => {
+    Object.values(teamMembers).forEach((member) => {
       currentIds.add(member.id);
       if (member.soundInstrument) {
         soundManager.registerTeamMember(member.id, member.soundInstrument as InstrumentType);

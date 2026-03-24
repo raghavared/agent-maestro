@@ -4,6 +4,7 @@ import {
     AgentTool, ModelType, TeamMember, MemberLaunchOverride,
 } from "../../app/types/maestro";
 import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
+import { useProjectStore } from "../../stores/useProjectStore";
 import {
     getEffectiveCommandEnabled,
     isCommandAllowedForMode,
@@ -87,6 +88,12 @@ export function TeamLaunchConfigModal({
     onSave,
     onSaveAsTeam,
 }: TeamLaunchConfigModalProps) {
+    // Resolve project working directory for local skill discovery
+    const projectWorkingDir = useProjectStore(s => {
+        const project = s.projects.find(p => p.id === projectId);
+        return project?.basePath || project?.workingDir || undefined;
+    });
+
     // Build initial configs from team members
     const buildInitialConfigs = useCallback((): Record<string, MemberConfig> => {
         const configs: Record<string, MemberConfig> = {};
@@ -312,6 +319,7 @@ export function TeamLaunchConfigModal({
                                                     <ClaudeCodeSkillsSelector
                                                         selectedSkills={config.skillIds}
                                                         onSelectionChange={(skills) => updateConfig(member.id, { skillIds: skills })}
+                                                        projectPath={projectWorkingDir}
                                                     />
                                                 </div>
 

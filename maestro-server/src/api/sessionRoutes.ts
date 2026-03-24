@@ -28,6 +28,9 @@ import {
   idParamSchema,
   idAndTaskIdParamSchema,
   idAndModalIdParamSchema,
+  paginationQuerySchema,
+  extractPagination,
+  paginate,
 } from './validation';
 
 function resolveMaestroCliRuntime(cliPathOverride?: string): { maestroBin: string; monorepoRoot: string | null } {
@@ -135,6 +138,9 @@ async function generateManifestViaCLI(options: {
     spawnEnv.MAESTRO_DELEGATE_PERMISSION_MODE = options.delegatePermissionMode;
   }
 
+  const MANIFEST_TIMEOUT_MS = 60_000;
+  const MAX_OUTPUT_BYTES = 10 * 1024;
+
   return new Promise((resolve, reject) => {
     // Raise file descriptor limit before spawning to prevent "low max file
     // descriptors" errors from Claude Code (macOS default of 2560 is too low).
@@ -154,10 +160,24 @@ async function generateManifestViaCLI(options: {
     let stdout = '';
     let stderr = '';
 
-    child.stdout?.on('data', (data) => { stdout += data.toString(); });
-    child.stderr?.on('data', (data) => { stderr += data.toString(); });
+    // Cap stdout/stderr to prevent unbounded string growth
+    child.stdout?.on('data', (data) => {
+      stdout += data.toString();
+      if (stdout.length > MAX_OUTPUT_BYTES) stdout = stdout.slice(-MAX_OUTPUT_BYTES);
+    });
+    child.stderr?.on('data', (data) => {
+      stderr += data.toString();
+      if (stderr.length > MAX_OUTPUT_BYTES) stderr = stderr.slice(-MAX_OUTPUT_BYTES);
+    });
+
+    // Timeout: SIGTERM then SIGKILL if still alive
+    const killTimer = setTimeout(() => {
+      child.kill('SIGTERM');
+      setTimeout(() => { if (!child.killed) child.kill('SIGKILL'); }, 5000);
+    }, MANIFEST_TIMEOUT_MS);
 
     child.on('exit', async (code) => {
+      clearTimeout(killTimer);
       if (code === 0) {
         try {
           const manifestContent = await readFile(manifestPath, 'utf-8');
@@ -177,6 +197,7 @@ async function generateManifestViaCLI(options: {
     });
 
     child.on('error', (error) => {
+      clearTimeout(killTimer);
       reject(new Error(`Failed to spawn maestro CLI: ${error.message}`));
     });
   });
@@ -220,6 +241,29 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     // Root coordinators can message their direct team sessions.
     return Boolean(target.parentSessionId && target.parentSessionId === sender.id);
   };
+
+  // Summary DTO for list views — strips env, events, timeline, metadata
+  function toSessionSummary(session: any): Record<string, any> {
+    return {
+      id: session.id,
+      name: session.name,
+      status: session.status,
+      projectId: session.projectId,
+      taskIds: session.taskIds,
+      parentSessionId: session.parentSessionId,
+      rootSessionId: session.rootSessionId,
+      teamSessionId: session.teamSessionId,
+      teamMemberIds: session.teamMemberIds,
+      teamMemberSnapshots: session.teamMemberSnapshots,
+      teamMemberSnapshot: session.teamMemberSnapshot,
+      teamMemberId: session.teamMemberId,
+      isMasterSession: session.isMasterSession,
+      startedAt: session.startedAt,
+      completedAt: session.completedAt,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+    };
+  }
 
   const resolveSenderName = (session: any): string => {
     const fromPrimarySnapshot = session?.teamMemberSnapshot?.name;
@@ -271,7 +315,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
   // List sessions
   // Helper: enrich session with team member snapshots if missing
-  async function enrichSessionWithSnapshots(session: any): Promise<any> {
+  async function enrichSessionWithSnapshots(session: any, teamMemberMapOverride?: Map<string, any>): Promise<any> {
     if (session.teamMemberSnapshots?.length > 0 || session.teamMemberSnapshot) return session;
     const meta = session.metadata;
     if (!meta) return session;
@@ -279,14 +323,23 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       ? meta.teamMemberIds
       : (meta.teamMemberId ? [meta.teamMemberId] : []);
     if (tmIds.length === 0) return session;
+
+    let resolveTeamMember: (id: string) => any | undefined;
+    if (teamMemberMapOverride) {
+      resolveTeamMember = (id) => teamMemberMapOverride.get(id);
+    } else {
+      // Fallback: batch fetch for this project
+      const allMembers = await teamMemberRepo.findByProjectId(session.projectId);
+      const localMap = new Map(allMembers.map((m: any) => [m.id, m]));
+      resolveTeamMember = (id) => localMap.get(id);
+    }
+
     const snapshots: TeamMemberSnapshot[] = [];
     for (const tmId of tmIds) {
-      try {
-        const tm = await teamMemberRepo.findById(session.projectId, tmId);
-        if (tm) {
-          snapshots.push({ name: tm.name, avatar: tm.avatar, role: tm.role, model: tm.model, agentTool: tm.agentTool });
-        }
-      } catch { /* skip */ }
+      const tm = resolveTeamMember(tmId);
+      if (tm) {
+        snapshots.push({ name: tm.name, avatar: tm.avatar, role: tm.role, model: tm.model, agentTool: tm.agentTool });
+      }
     }
     if (snapshots.length === 0) return session;
     // Return a shallow clone to avoid mutating the repository's in-memory cache
@@ -298,7 +351,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     return enriched;
   }
 
-  router.get('/sessions', validateQuery(listSessionsQuerySchema), async (req: Request, res: Response) => {
+  router.get('/sessions', validateQuery(listSessionsQuerySchema.merge(paginationQuerySchema)), async (req: Request, res: Response) => {
     try {
       const filter: SessionFilter = {};
 
@@ -327,10 +380,31 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         sessions = sessions.filter(s => s.status !== 'completed');
       }
 
-      // Enrich sessions with team member snapshots
-      const enrichedSessions = await Promise.all(sessions.map(s => enrichSessionWithSnapshots(s)));
+      // Preload team members for all projects in the result set
+      const projectIds = [...new Set(sessions.map((s) => s.projectId).filter(Boolean))];
+      const teamMembersByProject = new Map<string, Map<string, any>>();
+      await Promise.all(
+        projectIds.map(async (pid) => {
+          const members = await teamMemberRepo.findByProjectId(pid);
+          teamMembersByProject.set(pid, new Map(members.map((m: any) => [m.id, m])));
+        })
+      );
 
-      res.json(enrichedSessions);
+      // Enrich sessions with team member snapshots
+      const enrichedSessions = await Promise.all(
+        sessions.map((s) => enrichSessionWithSnapshots(s, teamMembersByProject.get(s.projectId)))
+      );
+
+      // Return summary DTOs by default, full objects when ?fields=full
+      const result = req.query.fields === 'full'
+        ? enrichedSessions
+        : enrichedSessions.map(toSessionSummary);
+
+      if (req.query.limit || req.query.offset) {
+        res.json(paginate(result, extractPagination(req.query)));
+      } else {
+        res.json(result);
+      }
     } catch (err: unknown) {
       handleRouteError(err, res);
     }
@@ -648,8 +722,10 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
 
       const sessionId = req.params.id as string;
-      const session = await sessionService.getSession(sessionId);
-      const senderSession = await sessionService.getSession(senderSessionId);
+      const [session, senderSession] = await Promise.all([
+        sessionService.getSession(sessionId),
+        sessionService.getSession(senderSessionId),
+      ]);
 
       if (!canCommunicateWithinTeamBoundary(senderSession, session)) {
         return res.status(403).json({
@@ -847,19 +923,28 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         }
       }
 
-      // Verify all tasks exist and collect task-level team member IDs as fallback
-      const verifiedTasks: any[] = [];
-      for (const taskId of taskIds) {
-        const task = await taskRepo.findById(taskId);
-        if (!task) {
+      // Verify all tasks exist (parallel fetch) and collect task-level team member IDs as fallback
+      let verifiedTasks: any[];
+      try {
+        verifiedTasks = await Promise.all(
+          taskIds.map(async (taskId: string) => {
+            const task = await taskRepo.findById(taskId);
+            if (!task) {
+              throw Object.assign(new Error(`Task ${taskId} not found`), { taskId, statusCode: 404 });
+            }
+            return task;
+          })
+        );
+      } catch (err: any) {
+        if (err.statusCode === 404) {
           return res.status(404).json({
             error: true,
             code: 'task_not_found',
-            message: `Task ${taskId} not found`,
-            details: { taskId }
+            message: err.message,
+            details: { taskId: err.taskId }
           });
         }
-        verifiedTasks.push(task);
+        throw err;
       }
 
       // Inherit memberOverrides from task when not provided in request
@@ -902,10 +987,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         effectiveDelegateTeamMemberIds = effectiveDelegateTeamMemberIds.filter((id) => id !== selfId);
       }
 
+      // Batch-fetch all project team members once (used for coordinator fallback + defaults loop)
+      const projectTeamMembers = await teamMemberRepo.findByProjectId(projectId);
+      const teamMemberMap = new Map(projectTeamMembers.map((m) => [m.id, m]));
+
       // Coordinator modes must include exactly one self identity profile for prompt normalization.
       // If none was provided/resolved, pick a deterministic active coordinator member from the project.
       if (requestedCoordinatorMode && effectiveTeamMemberIds.length === 0) {
-        const projectTeamMembers = await teamMemberRepo.findByProjectId(projectId);
         const activeTeamMembers = projectTeamMembers.filter((member) => member.status !== 'archived');
         const coordinatorSelf =
           activeTeamMembers.find((member) => isCoordinatorMode(String(member.mode || ''))) ||
@@ -931,9 +1019,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       if (effectiveTeamMemberIds.length > 0 && projectId) {
         let highestModelPower = 0;
         for (const tmId of effectiveTeamMemberIds) {
-          try {
-            const teamMember = await teamMemberRepo.findById(projectId, tmId);
-            if (teamMember && teamMember.status !== 'archived') {
+          const teamMember = teamMemberMap.get(tmId);
+          if (teamMember && teamMember.status !== 'archived') {
               // Apply per-member overrides if provided
               const override = normalizedMemberOverrides && normalizedMemberOverrides[tmId];
               const effectiveModel = override?.model || teamMember.model;
@@ -974,8 +1061,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
                 agentTool: effectiveAgentTool,
                 permissionMode: effectivePermissionMode,
               });
-            }
-          } catch (err) {
           }
         }
       }
@@ -1068,10 +1153,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         }
       }
 
-      // Collect referenceTaskIds from all tasks being spawned
+      // Collect referenceTaskIds from already-verified tasks (no re-fetch needed)
       const allReferenceTaskIds: string[] = [];
-      for (const taskId of taskIds) {
-        const task = await taskRepo.findById(taskId);
+      for (const task of verifiedTasks) {
         if (task?.referenceTaskIds && task.referenceTaskIds.length > 0) {
           for (const refId of task.referenceTaskIds) {
             if (!allReferenceTaskIds.includes(refId)) {
@@ -1203,10 +1287,10 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       await eventBus.emit('session:spawn', spawnEvent);
 
-      // Emit task:session_added events
-      for (const taskId of taskIds) {
-        await eventBus.emit('task:session_added', { taskId, sessionId: session.id });
-      }
+      // Emit task:session_added events (parallelized)
+      await Promise.all(
+        taskIds.map((taskId: string) => eventBus.emit('task:session_added', { taskId, sessionId: session.id }))
+      );
 
       res.status(201).json({
         success: true,
@@ -1288,9 +1372,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const skillsToUse: string[] = session.metadata?.skills || [];
       const resolvedModel: string | undefined = session.metadata?.model || undefined;
 
+      const resumeTasks = await Promise.all(session.taskIds.map((taskId: string) => taskRepo.findById(taskId)));
       const allReferenceTaskIds: string[] = [];
-      for (const taskId of session.taskIds) {
-        const task = await taskRepo.findById(taskId);
+      for (const task of resumeTasks) {
         if (task?.referenceTaskIds && task.referenceTaskIds.length > 0) {
           for (const refId of task.referenceTaskIds) {
             if (!allReferenceTaskIds.includes(refId)) {
@@ -1377,14 +1461,10 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         finalEnvVars.MAESTRO_MANIFEST_PATH = manifestPath;
       }
 
-      // Update session status to spawning
+      // Update session status to spawning and add timeline event in one call
       await sessionService.updateSession(session.id, {
         status: 'spawning',
         env: finalEnvVars,
-      });
-
-      // Add timeline event
-      await sessionService.updateSession(session.id, {
         timeline: [
           ...(session.timeline || []),
           {

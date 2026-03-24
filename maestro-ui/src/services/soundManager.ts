@@ -688,11 +688,11 @@ class SoundManager {
 
       audio.addEventListener('ended', () => {
         this.activeSounds.delete(audio);
-      });
+      }, { once: true });
 
       audio.addEventListener('error', () => {
         this.activeSounds.delete(audio);
-      });
+      }, { once: true });
 
       await audio.play();
     } catch {

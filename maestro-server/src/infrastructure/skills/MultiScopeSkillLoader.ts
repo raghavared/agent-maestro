@@ -30,6 +30,7 @@ export interface SkillWithMeta extends Skill {
 export class MultiScopeSkillLoader implements ISkillLoader {
   private globalScopes: ScopeConfig[];
   private loaderCache: Map<string, ClaudeCodeSkillLoader> = new Map();
+  private static readonly MAX_LOADER_CACHE_SIZE = 20;
 
   constructor(private logger: ILogger) {
     const home = os.homedir();
@@ -47,8 +48,26 @@ export class MultiScopeSkillLoader implements ISkillLoader {
     if (!loader) {
       loader = new ClaudeCodeSkillLoader(dir, this.logger);
       this.loaderCache.set(dir, loader);
+      // Evict oldest entry if over limit
+      if (this.loaderCache.size > MultiScopeSkillLoader.MAX_LOADER_CACHE_SIZE) {
+        const oldest = this.loaderCache.keys().next().value;
+        if (oldest) {
+          this.loaderCache.get(oldest)?.clearCache();
+          this.loaderCache.delete(oldest);
+        }
+      }
     }
     return loader;
+  }
+
+  /**
+   * Clear all loader caches. Called during container shutdown.
+   */
+  shutdown(): void {
+    for (const loader of this.loaderCache.values()) {
+      loader.clearCache();
+    }
+    this.loaderCache.clear();
   }
 
   /**

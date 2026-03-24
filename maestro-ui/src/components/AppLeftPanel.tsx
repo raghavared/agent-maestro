@@ -12,6 +12,7 @@ import { useSpacesStore } from "../stores/useSpacesStore";
 import { isSshCommandLine, sshTargetFromCommandLine } from "../app/utils/ssh";
 import { createMaestroSession } from "../services/maestroService";
 import { useTasks } from "../hooks/useTasks";
+import { ErrorBoundary } from "./ErrorBoundary";
 import * as DEFAULTS from "../app/constants/defaults";
 
 function sectionToPrimaryTab(section: IconRailSection): PrimaryTab | null {
@@ -104,11 +105,11 @@ export const AppLeftPanel: React.FC = () => {
         [tasks],
     );
     const memberCount = useMemo(
-        () => Array.from(teamMembersMap.values()).filter((tm) => tm.projectId === activeProjectId && tm.status !== "archived").length,
+        () => Object.values(teamMembersMap).filter((tm) => tm.projectId === activeProjectId && tm.status !== "archived").length,
         [teamMembersMap, activeProjectId],
     );
     const teamCount = useMemo(
-        () => Array.from(teamsMap.values()).filter((t) => t.projectId === activeProjectId && t.status === "active").length,
+        () => Object.values(teamsMap).filter((t) => t.projectId === activeProjectId && t.status === "active").length,
         [teamsMap, activeProjectId],
     );
 
@@ -178,15 +179,17 @@ export const AppLeftPanel: React.FC = () => {
                 )}
 
                 {showFiles && (
-                    <FileExplorerPanel
-                        isOpen={true}
-                        provider={activeIsSsh ? "ssh" : "local"}
-                        sshTarget={activeIsSsh ? activeSshTarget : null}
-                        rootDir={fileExplorerRootDir}
-                        activeFilePath={activeWorkspaceView.codeEditorActiveFilePath}
-                        onSelectFile={handleSelectFileAsSpace}
-                        onClose={handleClose}
-                    />
+                    <ErrorBoundary name="FileExplorer">
+                        <FileExplorerPanel
+                            isOpen={true}
+                            provider={activeIsSsh ? "ssh" : "local"}
+                            sshTarget={activeIsSsh ? activeSshTarget : null}
+                            rootDir={fileExplorerRootDir}
+                            activeFilePath={activeWorkspaceView.codeEditorActiveFilePath}
+                            onSelectFile={handleSelectFileAsSpace}
+                            onClose={handleClose}
+                        />
+                    </ErrorBoundary>
                 )}
             </div>
         </div>

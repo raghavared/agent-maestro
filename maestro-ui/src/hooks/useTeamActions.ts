@@ -1,11 +1,12 @@
 import { useMemo, useEffect, useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useMaestroStore } from "../stores/useMaestroStore";
 import { MaestroProject, MaestroTask, TeamMember, Team, CreateMaestroSessionInput, CreateTaskPayload } from "../app/types/maestro";
 
-export function useTeamActions(projectId: string, project: MaestroProject, teamMembersMap: Map<string, TeamMember>, onCreateMaestroSession: (input: CreateMaestroSessionInput) => Promise<void>, createTask: (input: CreateTaskPayload) => Promise<MaestroTask>, onError: (msg: string) => void) {
-    const teamsMap = useMaestroStore(s => s.teams);
-    const fetchTeams = useMaestroStore(s => s.fetchTeams);
-    const wsConnected = useMaestroStore(s => s.wsConnected);
+export function useTeamActions(projectId: string, project: MaestroProject, teamMembersMap: Record<string, TeamMember>, onCreateMaestroSession: (input: CreateMaestroSessionInput) => Promise<void>, createTask: (input: CreateTaskPayload) => Promise<MaestroTask>, onError: (msg: string) => void) {
+    const { teamsMap, fetchTeams, wsConnected } = useMaestroStore(
+        useShallow(s => ({ teamsMap: s.teams, fetchTeams: s.fetchTeams, wsConnected: s.wsConnected }))
+    );
 
     useEffect(() => {
         if (projectId) {
@@ -14,7 +15,7 @@ export function useTeamActions(projectId: string, project: MaestroProject, teamM
     }, [projectId, fetchTeams, wsConnected]);
 
     const teams = useMemo(() => {
-        return Array.from(teamsMap.values()).filter(t => t.projectId === projectId);
+        return Object.values(teamsMap).filter(t => t.projectId === projectId);
     }, [teamsMap, projectId]);
 
     const activeTeams = useMemo(() => {
@@ -28,7 +29,7 @@ export function useTeamActions(projectId: string, project: MaestroProject, teamM
 
     const handleRun = useCallback(async (team: Team) => {
         try {
-            const leader = teamMembersMap.get(team.leaderId);
+            const leader = teamMembersMap[team.leaderId];
             if (!leader) { onError("Team has no valid leader"); return; }
 
             const task = await createTask({

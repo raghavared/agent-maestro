@@ -6,6 +6,9 @@ import { ISessionRepository, SessionFilter } from '../../domain/repositories/ISe
 import { IIdGenerator } from '../../domain/common/IIdGenerator';
 import { ILogger } from '../../domain/common/ILogger';
 import { NotFoundError } from '../../domain/common/Errors';
+import { atomicWriteFile } from './utils/atomicWrite';
+import { loadFilesParallel } from './utils/parallelFileLoader';
+import { WriteBatcher } from './utils/writeBatcher';
 
 /**
  * Lightweight metadata index entry for fast filtering without full session load.
@@ -18,6 +21,7 @@ interface SessionIndexEntry {
   parentSessionId: string | null;
   rootSessionId: string;
   teamSessionId: string | null;
+  createdAt: number;
 }
 
 /** Statuses that indicate a session is terminal and can be evicted from memory. */
@@ -39,6 +43,17 @@ export class FileSystemSessionRepository implements ISessionRepository {
   /** Lightweight index of all sessions for fast filtering without full load. */
   private sessionIndex: Map<string, SessionIndexEntry>;
   private initialized: boolean = false;
+  private pruneTimer: NodeJS.Timeout | null = null;
+
+  // Phase 2: Secondary indexes
+  private projectSessionIndex: Map<string, Set<string>> = new Map();
+  private taskSessionIndex: Map<string, Set<string>> = new Map();
+
+  // Phase 3: Write batching
+  private writeBatcher: WriteBatcher;
+
+  private static readonly MAX_INDEX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+  private static readonly PRUNE_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
   constructor(
     private dataDir: string,
@@ -49,6 +64,7 @@ export class FileSystemSessionRepository implements ISessionRepository {
     this.sessionDocsDir = path.join(dataDir, 'session-docs');
     this.sessions = new Map();
     this.sessionIndex = new Map();
+    this.writeBatcher = new WriteBatcher({ flushIntervalMs: 500 });
   }
 
   /**
@@ -63,7 +79,75 @@ export class FileSystemSessionRepository implements ISessionRepository {
       parentSessionId: session.parentSessionId ?? null,
       rootSessionId: session.rootSessionId ?? session.id,
       teamSessionId: session.teamSessionId ?? null,
+      createdAt: session.startedAt ?? Date.now(),
     };
+  }
+
+  // --- Secondary index helpers ---
+
+  private addToSecondaryIndexes(entry: SessionIndexEntry): void {
+    if (!this.projectSessionIndex.has(entry.projectId)) {
+      this.projectSessionIndex.set(entry.projectId, new Set());
+    }
+    this.projectSessionIndex.get(entry.projectId)!.add(entry.id);
+    for (const taskId of entry.taskIds) {
+      if (!this.taskSessionIndex.has(taskId)) {
+        this.taskSessionIndex.set(taskId, new Set());
+      }
+      this.taskSessionIndex.get(taskId)!.add(entry.id);
+    }
+  }
+
+  private removeFromSecondaryIndexes(entry: SessionIndexEntry): void {
+    this.projectSessionIndex.get(entry.projectId)?.delete(entry.id);
+    if (this.projectSessionIndex.get(entry.projectId)?.size === 0) {
+      this.projectSessionIndex.delete(entry.projectId);
+    }
+    for (const taskId of entry.taskIds) {
+      this.taskSessionIndex.get(taskId)?.delete(entry.id);
+      if (this.taskSessionIndex.get(taskId)?.size === 0) {
+        this.taskSessionIndex.delete(taskId);
+      }
+    }
+  }
+
+  private updateSecondaryIndexes(oldEntry: SessionIndexEntry | null, newEntry: SessionIndexEntry): void {
+    if (oldEntry) this.removeFromSecondaryIndexes(oldEntry);
+    this.addToSecondaryIndexes(newEntry);
+  }
+
+  /**
+   * Evict terminal sessions older than MAX_INDEX_AGE_MS from the in-memory index.
+   * Data remains on disk and can be loaded on-demand.
+   */
+  private pruneStaleIndex(): void {
+    const cutoff = Date.now() - FileSystemSessionRepository.MAX_INDEX_AGE_MS;
+    let pruned = 0;
+    for (const [id, entry] of this.sessionIndex) {
+      if (TERMINAL_STATUSES.has(entry.status) && entry.createdAt < cutoff) {
+        this.removeFromSecondaryIndexes(entry);
+        this.sessionIndex.delete(id);
+        pruned++;
+      }
+    }
+    if (pruned > 0) {
+      this.logger.info(`Pruned ${pruned} stale session index entries`);
+    }
+  }
+
+  /**
+   * Clean up timers and clear in-memory caches.
+   */
+  async shutdown(): Promise<void> {
+    if (this.pruneTimer) {
+      clearInterval(this.pruneTimer);
+      this.pruneTimer = null;
+    }
+    await this.writeBatcher.destroy();
+    this.sessions.clear();
+    this.sessionIndex.clear();
+    this.projectSessionIndex.clear();
+    this.taskSessionIndex.clear();
   }
 
   /**
@@ -128,7 +212,7 @@ export class FileSystemSessionRepository implements ISessionRepository {
 
       const migrated = await this.migrateSession(session);
       if (migrated) {
-        await this.saveSession(session as Session);
+        await this.saveSessionDirect(session as Session);
       }
 
       return session as Session;
@@ -157,7 +241,10 @@ export class FileSystemSessionRepository implements ISessionRepository {
    * Save session to disk and update index. Cache in memory only if active.
    */
   private async saveAndCache(session: Session): Promise<void> {
-    this.sessionIndex.set(session.id, this.buildIndexEntry(session));
+    const oldEntry = this.sessionIndex.get(session.id) ?? null;
+    const newEntry = this.buildIndexEntry(session);
+    this.sessionIndex.set(session.id, newEntry);
+    this.updateSecondaryIndexes(oldEntry, newEntry);
     if (TERMINAL_STATUSES.has(session.status)) {
       this.sessions.delete(session.id);
     } else {
@@ -171,17 +258,31 @@ export class FileSystemSessionRepository implements ISessionRepository {
    * using the in-memory cache where available and lazy-loading the rest.
    */
   private async resolveSessionIds(ids: string[]): Promise<Session[]> {
-    const results: Session[] = [];
+    const cached: Session[] = [];
+    const toLoad: string[] = [];
+
     for (const id of ids) {
-      const cached = this.sessions.get(id);
-      if (cached) {
-        results.push(cached);
+      const session = this.sessions.get(id);
+      if (session) {
+        cached.push(session);
       } else {
-        const loaded = await this.loadSessionFromDisk(id);
-        if (loaded) results.push(loaded);
+        toLoad.push(id);
       }
     }
-    return results;
+
+    if (toLoad.length === 0) return cached;
+
+    const { successes } = await loadFilesParallel(
+      toLoad,
+      async (id) => {
+        const session = await this.loadSessionFromDisk(id);
+        if (!session) throw new Error(`Session ${id} not found on disk`);
+        return session;
+      },
+      { concurrency: 50 }
+    );
+
+    return [...cached, ...successes];
   }
 
   /**
@@ -197,36 +298,48 @@ export class FileSystemSessionRepository implements ISessionRepository {
 
       const files = await fs.readdir(this.sessionsDir);
       const sessionFiles = files.filter(f => f.endsWith('.json'));
+      const filePaths = sessionFiles.map(f => path.join(this.sessionsDir, f));
+
+      // Load all session files in parallel
+      const { successes, failures } = await loadFilesParallel(
+        filePaths,
+        async (filePath) => {
+          const data = await fs.readFile(filePath, 'utf-8');
+          return JSON.parse(data) as any;
+        },
+        { concurrency: 50 }
+      );
+
+      for (const failure of failures) {
+        this.logger.warn(`Failed to load session file: ${failure.path}`, { error: failure.error.message });
+      }
 
       let activeCount = 0;
       let terminalCount = 0;
 
-      for (const file of sessionFiles) {
-        try {
-          const data = await fs.readFile(path.join(this.sessionsDir, file), 'utf-8');
-          const session = JSON.parse(data) as any;
+      for (const session of successes) {
+        const migrated = await this.migrateSession(session);
 
-          const migrated = await this.migrateSession(session);
+        const entry = this.buildIndexEntry(session as Session);
+        this.sessionIndex.set(session.id, entry);
+        this.addToSecondaryIndexes(entry);
 
-          // Build index entry for ALL sessions
-          this.sessionIndex.set(session.id, this.buildIndexEntry(session as Session));
+        if (!TERMINAL_STATUSES.has(session.status)) {
+          this.sessions.set(session.id, session as Session);
+          activeCount++;
+        } else {
+          terminalCount++;
+        }
 
-          // Only keep active sessions in memory
-          if (!TERMINAL_STATUSES.has(session.status)) {
-            this.sessions.set(session.id, session as Session);
-            activeCount++;
-          } else {
-            terminalCount++;
-          }
-
-          // Persist migrated session
-          if (migrated) {
-            await this.saveSession(session as Session);
-          }
-        } catch (err) {
-          this.logger.warn(`Failed to load session file: ${file}`, { error: (err as Error).message });
+        if (migrated) {
+          await this.saveSessionDirect(session as Session);
         }
       }
+
+      // Start periodic pruning of stale terminal sessions from index
+      this.pruneTimer = setInterval(() => this.pruneStaleIndex(), FileSystemSessionRepository.PRUNE_INTERVAL_MS);
+      // Run initial prune
+      this.pruneStaleIndex();
 
       this.logger.info(`Loaded ${activeCount} active sessions, indexed ${terminalCount} terminal sessions (${activeCount + terminalCount} total)`);
       this.initialized = true;
@@ -242,12 +355,20 @@ export class FileSystemSessionRepository implements ISessionRepository {
     }
   }
 
+  /** Direct write — used for migrations during init */
+  private async saveSessionDirect(session: Session): Promise<void> {
+    const filePath = path.join(this.sessionsDir, `${session.id}.json`);
+    await atomicWriteFile(filePath, JSON.stringify(session));
+  }
+
+  /** Batched write — used for normal operations */
   private async saveSession(session: Session): Promise<void> {
     const filePath = path.join(this.sessionsDir, `${session.id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(session, null, 2));
+    this.writeBatcher.markDirty(session.id, filePath, JSON.stringify(session));
   }
 
   private async deleteSessionFile(id: string): Promise<void> {
+    await this.writeBatcher.flush();
     const filePath = path.join(this.sessionsDir, `${id}.json`);
     try {
       await fs.unlink(filePath);
@@ -316,20 +437,16 @@ export class FileSystemSessionRepository implements ISessionRepository {
 
   async findByProjectId(projectId: string): Promise<Session[]> {
     await this.ensureInitialized();
-    const matchingIds: string[] = [];
-    for (const [id, entry] of this.sessionIndex) {
-      if (entry.projectId === projectId) matchingIds.push(id);
-    }
-    return this.resolveSessionIds(matchingIds);
+    const sessionIds = this.projectSessionIndex.get(projectId);
+    if (!sessionIds) return [];
+    return this.resolveSessionIds([...sessionIds]);
   }
 
   async findByTaskId(taskId: string): Promise<Session[]> {
     await this.ensureInitialized();
-    const matchingIds: string[] = [];
-    for (const [id, entry] of this.sessionIndex) {
-      if (entry.taskIds.includes(taskId)) matchingIds.push(id);
-    }
-    return this.resolveSessionIds(matchingIds);
+    const sessionIds = this.taskSessionIndex.get(taskId);
+    if (!sessionIds) return [];
+    return this.resolveSessionIds([...sessionIds]);
   }
 
   async findByStatus(status: SessionStatus): Promise<Session[]> {
@@ -411,10 +528,12 @@ export class FileSystemSessionRepository implements ISessionRepository {
   async delete(id: string): Promise<void> {
     await this.ensureInitialized();
 
-    if (!this.sessionIndex.has(id) && !this.sessions.has(id)) {
+    const entry = this.sessionIndex.get(id);
+    if (!entry && !this.sessions.has(id)) {
       throw new NotFoundError('Session', id);
     }
 
+    if (entry) this.removeFromSecondaryIndexes(entry);
     this.sessions.delete(id);
     this.sessionIndex.delete(id);
     await this.deleteSessionFile(id);
@@ -446,10 +565,7 @@ export class FileSystemSessionRepository implements ISessionRepository {
 
   async existsByProjectId(projectId: string): Promise<boolean> {
     await this.ensureInitialized();
-    for (const entry of this.sessionIndex.values()) {
-      if (entry.projectId === projectId) return true;
-    }
-    return false;
+    return (this.projectSessionIndex.get(projectId)?.size ?? 0) > 0;
   }
 
   async count(): Promise<number> {

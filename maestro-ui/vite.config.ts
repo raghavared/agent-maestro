@@ -13,6 +13,21 @@ export default defineConfig({
     target: "es2021",
     sourcemap: Boolean(process.env.TAURI_DEBUG),
     minify: process.env.TAURI_DEBUG ? false : "esbuild",
+    reportCompressedSize: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-monaco': ['monaco-editor', '@monaco-editor/react'],
+          'vendor-excalidraw': ['@excalidraw/excalidraw'],
+          'vendor-mermaid': ['mermaid'],
+          'vendor-recharts': ['recharts'],
+          'vendor-xterm': ['xterm', 'xterm-addon-fit'],
+          'vendor-markdown': ['react-markdown', 'remark-gfm'],
+          'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+        },
+      },
+    },
   },
 });
 

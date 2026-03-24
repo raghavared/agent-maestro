@@ -27,6 +27,10 @@ import type {
     CreateTeamPayload,
     UpdateTeamPayload,
     WorkflowTemplate,
+    SpellDefinition,
+    SpellEntity,
+    SpellEntityType,
+    SpellInvocation,
 } from '../app/types/maestro';
 
 import { API_BASE_URL } from './serverConfig';
@@ -572,6 +576,46 @@ class MaestroClient {
      */
     async getWorkflowTemplate(id: string): Promise<WorkflowTemplate> {
         return this.fetch<WorkflowTemplate>(`/workflow-templates/${encodeURIComponent(id)}`);
+    }
+
+    // ==================== SPELLS ====================
+
+    async getSpellDefinitions(): Promise<SpellDefinition[]> {
+        return this.fetch<SpellDefinition[]>('/spells/definitions');
+    }
+
+    async getSpellEntities(type: SpellEntityType, projectId?: string): Promise<SpellEntity[]> {
+        const params = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
+        return this.fetch<SpellEntity[]>(`/spells/entities/${type}${params}`);
+    }
+
+    async invokeSpell(invocation: SpellInvocation): Promise<void> {
+        await this.fetch<{ success: boolean }>('/spells/invoke', {
+            method: 'POST',
+            body: JSON.stringify(invocation),
+        });
+    }
+
+    async getCustomPrompts(): Promise<SpellEntity[]> {
+        return this.fetch<SpellEntity[]>('/spells/custom-prompts');
+    }
+
+    async createCustomPrompt(data: { name: string; content: string; description?: string; icon?: string; entityType?: SpellEntityType; tags?: string[] }): Promise<any> {
+        return this.fetch<any>('/spells/custom-prompts', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async updateCustomPrompt(id: string, data: { name?: string; content?: string; description?: string; icon?: string; entityType?: SpellEntityType; tags?: string[] }): Promise<any> {
+        return this.fetch<any>(`/spells/custom-prompts/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async deleteCustomPrompt(id: string): Promise<void> {
+        await this.fetch<{ success: boolean }>(`/spells/custom-prompts/${id}`, { method: 'DELETE' });
     }
 
 }

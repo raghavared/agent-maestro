@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { TeamMemberService } from '../application/services/TeamMemberService';
 import { handleRouteError } from './middleware/errorHandler';
-import { validateBody, validateParams, idParamSchema, createTeamMemberSchema, updateTeamMemberSchema } from './validation';
+import { validateBody, validateParams, validateQuery, idParamSchema, createTeamMemberSchema, updateTeamMemberSchema, paginationQuerySchema, extractPagination, paginate } from './validation';
 
 /**
  * Create team member routes using the TeamMemberService.
@@ -12,22 +12,38 @@ export function createTeamMemberRoutes(teamMemberService: TeamMemberService) {
 
   /**
    * GET /team-members?projectId=X
-   * List all team members (defaults merged + custom)
+   * GET /team-members?scope=global  (list only global members)
+   * List all team members (defaults merged + custom + global)
    */
-  router.get('/team-members', async (req: Request, res: Response) => {
+  router.get('/team-members', validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
     try {
       const projectId = req.query.projectId as string;
+      const scope = req.query.scope as string;
 
-      if (!projectId) {
+      if (!projectId && scope !== 'global') {
         return res.status(400).json({
           error: true,
-          message: 'projectId query parameter is required',
+          message: 'projectId query parameter is required (or use scope=global)',
           code: 'VALIDATION_ERROR'
         });
       }
 
-      const members = await teamMemberService.getProjectTeamMembers(projectId);
-      res.json(members);
+      let members;
+      if (scope === 'global') {
+        // Return only global members
+        const allMembers = projectId
+          ? await teamMemberService.getProjectTeamMembers(projectId)
+          : await teamMemberService.getGlobalTeamMembers();
+        members = allMembers.filter(m => m.scope === 'global');
+      } else {
+        members = await teamMemberService.getProjectTeamMembers(projectId);
+      }
+
+      if (req.query.limit || req.query.offset) {
+        res.json(paginate(members, extractPagination(req.query)));
+      } else {
+        res.json(members);
+      }
     } catch (err: unknown) {
       handleRouteError(err, res);
     }
@@ -202,6 +218,38 @@ export function createTeamMemberRoutes(teamMemberService: TeamMemberService) {
       }
 
       const member = await teamMemberService.appendMemory(projectId, id, validEntries);
+      res.json(member);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
+    }
+  });
+
+  /**
+   * PATCH /team-members/:id/scope
+   * Toggle team member scope between 'project' and 'global'
+   */
+  router.patch('/team-members/:id/scope', async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const { projectId, scope } = req.body;
+
+      if (!projectId) {
+        return res.status(400).json({
+          error: true,
+          message: 'projectId is required in request body',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      if (!scope || !['project', 'global'].includes(scope)) {
+        return res.status(400).json({
+          error: true,
+          message: 'scope must be "project" or "global"',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      const member = await teamMemberService.updateTeamMember(projectId, id, { scope });
       res.json(member);
     } catch (err: unknown) {
       handleRouteError(err, res);

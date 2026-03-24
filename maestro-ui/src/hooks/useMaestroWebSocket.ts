@@ -1,3 +1,8 @@
+/**
+ * @deprecated Use useMaestroStore's WebSocket connection instead.
+ * This hook is unused and will be removed in a future version.
+ * See useMaestroStore.initWebSocket() for the active implementation.
+ */
 import { useEffect, useRef, useCallback, useState } from 'react';
 import type { MaestroTask, MaestroSession } from '../app/types/maestro';
 import { WS_URL } from '../utils/serverConfig';
@@ -120,8 +125,10 @@ export function useMaestroWebSocket(callbacks: MaestroWebSocketCallbacks = {}) {
                 globalConnecting = false;
                 globalWs = null;
 
-                // Attempt to reconnect with exponential backoff
-                const delay = Math.min(1000 * Math.pow(2, globalReconnectAttempts), 30000);
+                // Attempt to reconnect with exponential backoff + jitter
+                const baseDelay = Math.min(1000 * Math.pow(2, globalReconnectAttempts), 30000);
+                const jitter = Math.random() * baseDelay * 0.5; // 0-50% jitter
+                const delay = baseDelay + jitter;
 
                 if (globalReconnectTimeout) {
                     clearTimeout(globalReconnectTimeout);
@@ -142,8 +149,10 @@ export function useMaestroWebSocket(callbacks: MaestroWebSocketCallbacks = {}) {
         // Create listener for this hook instance
         const listener = (event: MessageEvent) => {
             try {
-                const message = JSON.parse(event.data) as WebSocketEvent;
+                const parsed = JSON.parse(event.data);
+                const messages = Array.isArray(parsed) ? parsed : [parsed];
 
+                for (const message of messages as WebSocketEvent[]) {
                 const callbacks = callbacksRef.current;
                 switch (message.event) {
                     case 'task:created':
@@ -217,6 +226,7 @@ export function useMaestroWebSocket(callbacks: MaestroWebSocketCallbacks = {}) {
                         callbacks.onSessionModal?.(message.data);
                         break;
                 }
+                } // end for loop
             } catch {
             }
         };

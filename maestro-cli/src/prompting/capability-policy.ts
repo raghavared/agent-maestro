@@ -24,6 +24,7 @@ export interface CapabilityFlags {
   canUseMasterCommands: boolean;
   canPromptOtherSessions: boolean;
   canUseModal: boolean;
+  canUseSpells: boolean;
 }
 
 export interface CapabilitySet {
@@ -169,6 +170,7 @@ function buildCapabilityFlags(
     canUseMasterCommands: allowed.has('master:projects') || allowed.has('master:context'),
     canPromptOtherSessions: isCoordinatedMode(mode) && allowed.has('session:prompt'),
     canUseModal: allowed.has('show:modal') || allowed.has('modal:events'),
+    canUseSpells: allowed.has('spell:invoke') || allowed.has('spell:list') || allowed.has('spell:entities'),
   };
 
   if (overrides) {

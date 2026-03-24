@@ -74,7 +74,7 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId, a
   const getLogFilePath = useCallback((f: ClaudeLogFile) => f.relativePath ?? f.filename, []);
   const getFileDisplayName = useCallback((f: ClaudeLogFile) => {
     if (f.maestroSessionId) {
-      const session = maestroSessions.get(f.maestroSessionId);
+      const session = maestroSessions[f.maestroSessionId];
       if (session?.name) {
         return `${session.name} (${formatFileSize(f.size)})`;
       }
