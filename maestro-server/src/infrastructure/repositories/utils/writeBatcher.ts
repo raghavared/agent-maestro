@@ -23,6 +23,17 @@ export class WriteBatcher {
     this.flushTimer = setTimeout(() => this.flush(), this.flushIntervalMs);
   }
 
+  /**
+   * Flush a single entity's pending write to disk.
+   * Call this before loading an entity from disk to avoid stale reads.
+   */
+  async flushEntity(entityId: string): Promise<void> {
+    const entry = this.dirtyEntities.get(entityId);
+    if (!entry) return;
+    this.dirtyEntities.delete(entityId);
+    await atomicWriteFile(entry.filePath, entry.data);
+  }
+
   async flush(): Promise<void> {
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);

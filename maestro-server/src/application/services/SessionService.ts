@@ -5,6 +5,7 @@ import { IProjectRepository } from '../../domain/repositories/IProjectRepository
 import { IEventBus } from '../../domain/events/IEventBus';
 import { IIdGenerator } from '../../domain/common/IIdGenerator';
 import { ValidationError, NotFoundError } from '../../domain/common/Errors';
+import { GitWorktreeService } from './GitWorktreeService';
 
 /**
  * Application service for session operations.
@@ -213,6 +214,23 @@ export class SessionService {
       message: 'Session ended',
     };
     await this.sessionRepo.addTimelineEvent(id, stopEvent);
+
+    // Clean up git worktree if session had one
+    if (session.metadata?.worktreePath && session.metadata?.worktreeBranch) {
+      try {
+        const project = await this.projectRepo.findById(session.projectId);
+        if (project) {
+          const gitWorktreeService = new GitWorktreeService();
+          await gitWorktreeService.removeWorktree(
+            project.workingDir,
+            session.metadata.worktreePath,
+            session.metadata.worktreeBranch
+          );
+        }
+      } catch (err) {
+        console.warn(`[SessionService] Failed to clean up worktree for session ${id}:`, err);
+      }
+    }
 
     // Remove session ID from all associated tasks
     for (const taskId of session.taskIds) {

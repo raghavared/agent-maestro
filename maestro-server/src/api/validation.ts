@@ -99,6 +99,7 @@ export const createTaskSchema = z.object({
   teamMemberIds: z.array(safeId).optional(),
   memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
   dangerousMode: z.boolean().optional(),
+  useWorktree: z.boolean().optional(),
 }).strict();
 
 export const updateTaskSchema = z.object({
@@ -119,6 +120,7 @@ export const updateTaskSchema = z.object({
   teamMemberIds: z.array(safeId).optional(),
   memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
   dangerousMode: z.boolean().optional(),
+  useWorktree: z.boolean().optional(),
 }).strict();
 
 export const addTaskDocSchema = z.object({
@@ -317,6 +319,7 @@ export const spawnSessionSchema = z.object({
   memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
   permissionMode: permissionModeSchema.optional(),
   delegatePermissionMode: permissionModeSchema.optional(),
+  useWorktree: z.boolean().optional(),
 }).strict();
 
 // --- Template schemas ---
