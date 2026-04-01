@@ -743,6 +743,18 @@ export const TaskListItem = React.memo(function TaskListItem({
                             {task.dangerousMode ? '\u26A0 YOLO' : '\uD83D\uDEE1\uFE0F'}
                         </button>
 
+                        <button
+                            type="button"
+                            className={`terminalWorktreeToggle ${task.useWorktree ? 'terminalWorktreeToggle--on' : ''}`}
+                            title={task.useWorktree ? 'Git worktree ON — click to disable' : 'Enable git worktree isolation'}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                updateTask(task.id, { useWorktree: !task.useWorktree });
+                            }}
+                        >
+                            {task.useWorktree ? '🌿 worktree' : '📁'}
+                        </button>
+
                         <span className="terminalTaskMetaFill" />
                         <span className="terminalTimeAgo">{formatTimeAgo(task.updatedAt)}</span>
                     </div>

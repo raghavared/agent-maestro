@@ -107,4 +107,10 @@ export interface ITaskRepository {
    * @returns Number of tasks
    */
   count(): Promise<number>;
+
+  /**
+   * Flush any pending writes to disk.
+   * Ensures all in-memory changes are persisted before external processes read them.
+   */
+  flush(): Promise<void>;
 }

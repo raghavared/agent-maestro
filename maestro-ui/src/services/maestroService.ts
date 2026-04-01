@@ -32,8 +32,9 @@ export async function createMaestroSession(input: {
     memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member launch overrides
     permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
     delegatePermissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
+    useWorktree?: boolean;
   }): Promise<TerminalSession> {
-    const { task, tasks, skillIds, project, mode, teamMemberIds, teamMemberId, delegateTeamMemberIds, agentTool, model, memberOverrides, permissionMode, delegatePermissionMode } = input;
+    const { task, tasks, skillIds, project, mode, teamMemberIds, teamMemberId, delegateTeamMemberIds, agentTool, model, memberOverrides, permissionMode, delegatePermissionMode, useWorktree } = input;
 
     // Normalize to array (support both single and multi-task)
     const taskList = tasks || (task ? [task] : []);
@@ -85,6 +86,7 @@ export async function createMaestroSession(input: {
         ...(memberOverrides && Object.keys(memberOverrides).length > 0 ? { memberOverrides } : {}),
         ...(permissionMode ? { permissionMode } : {}),
         ...(delegatePermissionMode ? { delegatePermissionMode } : {}),
+        ...(useWorktree ? { useWorktree: true } : {}),
       });
 
       // Return a placeholder session - the actual UI session will be created

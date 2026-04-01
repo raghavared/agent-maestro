@@ -230,6 +230,9 @@ export class FileSystemSessionRepository implements ISessionRepository {
     if (cached) return cached;
 
     if (this.sessionIndex.has(id)) {
+      // Flush any pending writes for this session before reading from disk
+      // to avoid stale reads (e.g. terminal sessions evicted from cache mid-operation)
+      await this.writeBatcher.flushEntity(id);
       const loaded = await this.loadSessionFromDisk(id);
       if (loaded) return loaded;
     }
@@ -271,6 +274,9 @@ export class FileSystemSessionRepository implements ISessionRepository {
     }
 
     if (toLoad.length === 0) return cached;
+
+    // Flush any pending writes for sessions we're about to load from disk
+    await Promise.all(toLoad.map(id => this.writeBatcher.flushEntity(id)));
 
     const { successes } = await loadFilesParallel(
       toLoad,
@@ -429,6 +435,8 @@ export class FileSystemSessionRepository implements ISessionRepository {
 
     // Check index — if it exists, lazy-load from disk
     if (this.sessionIndex.has(id)) {
+      // Flush any pending writes for this session before reading from disk
+      await this.writeBatcher.flushEntity(id);
       return await this.loadSessionFromDisk(id);
     }
 

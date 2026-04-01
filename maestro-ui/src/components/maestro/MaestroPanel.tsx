@@ -408,6 +408,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
                 ...(task.memberOverrides ? { memberOverrides: task.memberOverrides } : {}),
                 ...(task.dangerousMode ? { permissionMode: 'bypassPermissions' as const } : {}),
+                ...(task.useWorktree ? { useWorktree: true } : {}),
             });
         } catch (err: any) {
             setError(`Failed to open terminal: ${err.message}`);

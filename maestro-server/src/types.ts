@@ -273,6 +273,9 @@ export interface Task {
   // Run this task with --dangerously-skip-permissions
   dangerousMode?: boolean;
 
+  // Spawn sessions in an isolated git worktree
+  useWorktree?: boolean;
+
   // Due date for the task (ISO date string "YYYY-MM-DD" or null)
   dueDate: string | null;
 
@@ -464,6 +467,7 @@ export interface CreateTaskPayload {
   teamMemberIds?: string[];
   memberOverrides?: Record<string, MemberLaunchOverride>;
   dangerousMode?: boolean;
+  useWorktree?: boolean;
   dueDate?: string;
 }
 
@@ -486,6 +490,7 @@ export interface UpdateTaskPayload {
   dueDate?: string | null;
   memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member launch overrides
   dangerousMode?: boolean;
+  useWorktree?: boolean;
   images?: TaskImage[];
   // NOTE: timeline removed - use session timeline via /sessions/:id/timeline
   // Update source tracking
@@ -553,6 +558,7 @@ export interface SpawnSessionPayload {
   memberOverrides?: Record<string, MemberLaunchOverride>; // Per-member launch overrides
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   delegatePermissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
+  useWorktree?: boolean;
 }
 
 // Spawn request event (emitted by server to UI)

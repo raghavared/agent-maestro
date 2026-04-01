@@ -5,6 +5,7 @@ import { join, resolve as resolvePath, delimiter as pathDelimiter } from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import { SessionService } from '../application/services/SessionService';
+import { GitWorktreeService } from '../application/services/GitWorktreeService';
 import { LogDigestService } from '../application/services/LogDigestService';
 import { IProjectRepository } from '../domain/repositories/IProjectRepository';
 import { ITaskRepository } from '../domain/repositories/ITaskRepository';
@@ -218,6 +219,7 @@ interface SessionRouteDependencies {
  */
 export function createSessionRoutes(deps: SessionRouteDependencies) {
   const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, eventBus, config } = deps;
+  const gitWorktreeService = new GitWorktreeService();
   const router = express.Router();
 
   const resolveSessionMode = (session: any): string => {
@@ -786,6 +788,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         memberOverrides,                 // Per-member launch overrides: Record<string, MemberLaunchOverride>
         permissionMode: requestedPermissionMode,           // Session-level permission mode override
         delegatePermissionMode: requestedDelegatePermissionMode, // Permission mode for spawned workers
+        useWorktree: requestedUseWorktree,  // Spawn in an isolated git worktree
       } = req.body;
 
       let normalizedMemberOverrides: Record<string, MemberLaunchOverride> | undefined =
@@ -947,6 +950,12 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         throw err;
       }
 
+      // Inherit useWorktree from task when not provided in request
+      let useWorktree = requestedUseWorktree;
+      if (useWorktree === undefined && verifiedTasks.length > 0 && verifiedTasks[0].useWorktree) {
+        useWorktree = true;
+      }
+
       // Inherit memberOverrides from task when not provided in request
       // This ensures stored launch-config overrides are applied when spawning from task list
       if (!normalizedMemberOverrides && verifiedTasks.length === 1 && verifiedTasks[0].memberOverrides) {
@@ -1093,6 +1102,18 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         });
       }
 
+      // Validate git repo if worktree requested
+      if (useWorktree) {
+        const isGit = await gitWorktreeService.isGitRepo(project.workingDir);
+        if (!isGit) {
+          return res.status(400).json({
+            error: true,
+            code: 'not_a_git_repo',
+            message: `Cannot use worktree: ${project.workingDir} is not a git repository`
+          });
+        }
+      }
+
       const skillsToUse = skills && Array.isArray(skills) ? skills : [];
 
       // Create session with suppressed created event
@@ -1133,6 +1154,36 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         _suppressCreatedEvent: true
       });
 
+      // Create git worktree if requested
+      let worktreeResult: { worktreePath: string; branchName: string } | null = null;
+      if (useWorktree) {
+        try {
+          worktreeResult = await gitWorktreeService.createWorktree(project.workingDir, session.id);
+          // Store worktree metadata on session
+          await sessionService.updateSession(session.id, {
+            env: {
+              ...session.env,
+              MAESTRO_WORKTREE_PATH: worktreeResult.worktreePath,
+              MAESTRO_WORKTREE_BRANCH: worktreeResult.branchName,
+              MAESTRO_PROJECT_DIR: project.workingDir,
+            },
+          });
+          // Also update in-memory metadata
+          if (!session.metadata) (session as any).metadata = {};
+          (session as any).metadata.worktreePath = worktreeResult.worktreePath;
+          (session as any).metadata.worktreeBranch = worktreeResult.branchName;
+        } catch (wtErr: unknown) {
+          // Worktree creation failed — clean up session and return error
+          try { await sessionService.deleteSession(session.id); } catch { /* ignore cleanup error */ }
+          const msg = wtErr instanceof Error ? wtErr.message : 'Unknown error';
+          return res.status(500).json({
+            error: true,
+            code: 'worktree_creation_failed',
+            message: `Failed to create git worktree: ${msg}`
+          });
+        }
+      }
+
       // Ensure coordinator session has teamSessionId = its own ID on first spawn
       if (isSessionSpawned) {
         try {
@@ -1164,6 +1215,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           }
         }
       }
+
+      // Flush pending task writes so the CLI subprocess can read them from disk
+      await taskRepo.flush();
 
       // Generate manifest
       let manifestPath: string;
@@ -1217,7 +1271,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const resolvedAgentTool = resolvedAgentToolFromMember || 'claude-code';
       const initCommand = isCoordinatorMode(resolvedMode) ? 'orchestrator' : 'worker';
       const command = `maestro ${initCommand} init`;
-      const cwd = project.workingDir;
+      const cwd = worktreeResult?.worktreePath || project.workingDir;
       const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime(config.manifestGenerator.cliPath);
 
       // Pass through auth-related API keys from server environment
@@ -1254,6 +1308,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         // Pass through auth API keys so spawned agents can authenticate
         ...authEnvVars,
       };
+
+      // Add worktree env vars if worktree was created
+      if (worktreeResult) {
+        finalEnvVars.MAESTRO_WORKTREE_PATH = worktreeResult.worktreePath;
+        finalEnvVars.MAESTRO_WORKTREE_BRANCH = worktreeResult.branchName;
+        finalEnvVars.MAESTRO_PROJECT_DIR = project.workingDir;
+      }
 
       // Ensure the init command resolves to the same CLI runtime used for manifest generation.
       const runtimePathForInit = prependNodeModulesBin(process.env.PATH, monorepoRoot);
@@ -1364,7 +1425,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         });
       }
 
-      const cwd = project.workingDir;
+      const cwd = session.metadata?.worktreePath || project.workingDir;
       const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime(config.manifestGenerator.cliPath);
 
       // Regenerate manifest so MAESTRO_MANIFEST_PATH points to a valid file
@@ -1383,6 +1444,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           }
         }
       }
+
+      // Flush pending task writes so the CLI subprocess can read them from disk
+      await taskRepo.flush();
 
       let manifestPath: string | undefined;
       try {
@@ -1454,6 +1518,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       if (project.isMaster === true) {
         finalEnvVars.MAESTRO_IS_MASTER = 'true';
+      }
+
+      // Add worktree env vars if session has worktree metadata
+      if (session.metadata?.worktreePath) {
+        finalEnvVars.MAESTRO_WORKTREE_PATH = session.metadata.worktreePath;
+        finalEnvVars.MAESTRO_WORKTREE_BRANCH = session.metadata.worktreeBranch || '';
+        finalEnvVars.MAESTRO_PROJECT_DIR = project.workingDir;
       }
 
       // Update manifest path if regeneration succeeded
