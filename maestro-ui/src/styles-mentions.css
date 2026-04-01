@@ -205,3 +205,50 @@
 .suggestionItem.focused::before {
     opacity: 1;
 }
+
+/* ===================================
+   SKILL SUGGESTION ITEMS
+   =================================== */
+
+.suggestionItem--skill {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    white-space: normal;
+    padding: 6px 12px;
+}
+
+.suggestionItem--skill::before {
+    content: '/';
+}
+
+.skillSuggestionName {
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.skillSuggestionScope {
+    display: inline-block;
+    font-size: 9px;
+    padding: 0px 4px;
+    border: 1px solid var(--theme-border, rgba(0, 51, 0, 1));
+    color: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.5);
+    border-radius: 2px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.skillSuggestionDesc {
+    font-size: 10px;
+    color: rgba(var(--theme-text-rgb, 240, 244, 248), 0.45);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    display: block;
+}
+
+.suggestionItem--skill:hover .skillSuggestionDesc,
+.suggestionItem--skill.focused .skillSuggestionDesc {
+    color: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.5);
+}

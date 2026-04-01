@@ -1,11 +1,14 @@
 import React from "react";
 import { MentionsInput, Mention } from 'react-mentions';
 
+type SkillSuggestion = { id: string; display: string; description?: string; scope?: string };
+
 type TaskDescriptionFieldProps = {
     prompt: string;
     onPromptChange: (value: string) => void;
     onKeyDown: (e: React.KeyboardEvent) => void;
     files: { id: string; display: string }[];
+    skills?: SkillSuggestion[];
     isOverlay: boolean;
     children?: React.ReactNode; // For reference task chips/button rendered above textarea
 };
@@ -15,6 +18,7 @@ export function TaskDescriptionField({
     onPromptChange,
     onKeyDown,
     files,
+    skills = [],
     isOverlay,
     children,
 }: TaskDescriptionFieldProps) {
@@ -87,7 +91,7 @@ export function TaskDescriptionField({
                     value={prompt}
                     onChange={(e) => onPromptChange(e.target.value)}
                     style={mentionsStyle}
-                    placeholder="Describe the requirements... Use @ to tag files"
+                    placeholder="Describe the requirements... Use @ to tag files, / to add skills"
                     className="mentionsInput"
                     onKeyDown={onKeyDown}
                 >
@@ -97,6 +101,25 @@ export function TaskDescriptionField({
                         renderSuggestion={(entry, _search, _highlightedDisplay, _index, focused) => (
                             <div className={`suggestionItem ${focused ? 'focused' : ''}`}>
                                 {entry.display}
+                            </div>
+                        )}
+                    />
+                    <Mention
+                        trigger="/"
+                        data={skills}
+                        renderSuggestion={(entry, _search, _highlightedDisplay, _index, focused) => (
+                            <div className={`suggestionItem suggestionItem--skill ${focused ? 'focused' : ''}`}>
+                                <span className="skillSuggestionName">{entry.display}</span>
+                                {(entry as SkillSuggestion).scope && (
+                                    <span className="skillSuggestionScope">
+                                        {(entry as SkillSuggestion).scope === 'project' ? 'proj' : 'global'}
+                                    </span>
+                                )}
+                                {(entry as SkillSuggestion).description && (
+                                    <span className="skillSuggestionDesc">
+                                        {(entry as SkillSuggestion).description}
+                                    </span>
+                                )}
                             </div>
                         )}
                     />
