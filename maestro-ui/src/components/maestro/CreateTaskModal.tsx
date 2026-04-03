@@ -7,6 +7,7 @@ import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useTaskForm } from "../../hooks/useTaskForm";
 import { useReferenceTaskPicker } from "../../hooks/useReferenceTaskPicker";
 import { useFileAutocomplete } from "../../hooks/useFileAutocomplete";
+import { useSkillAutocomplete } from "../../hooks/useSkillAutocomplete";
 
 // Sub-components
 import { TaskFormHeader } from "./task-modal/TaskFormHeader";
@@ -86,6 +87,7 @@ export function CreateTaskModal({
     const form = useTaskForm(mode, isOpen, task);
     const refPicker = useReferenceTaskPicker(project?.id);
     const files = useFileAutocomplete(project?.basePath, isOpen);
+    const skills = useSkillAutocomplete(project?.basePath, isOpen);
     const stagedFileInputRef = useRef<HTMLInputElement>(null);
     const tasks = useMaestroStore(s => s.tasks);
     const teamMembersMap = useMaestroStore(s => s.teamMembers);
@@ -240,6 +242,7 @@ export function CreateTaskModal({
                                     onPromptChange={form.setPrompt}
                                     onKeyDown={handleKeyDown}
                                     files={files}
+                                    skills={skills}
                                     isOverlay={isOverlay}
                                 >
                                     {isEditMode && task ? (

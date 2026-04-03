@@ -266,6 +266,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
       dueDate: input.dueDate || null,
       memberOverrides: input.memberOverrides,
       dangerousMode: input.dangerousMode,
+      useWorktree: input.useWorktree,
     };
 
     this.tasks.set(task.id, task);
@@ -434,6 +435,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
     if (updates.dueDate !== undefined) task.dueDate = updates.dueDate;
     if (updates.memberOverrides !== undefined) task.memberOverrides = updates.memberOverrides;
     if (updates.dangerousMode !== undefined) task.dangerousMode = updates.dangerousMode;
+    if (updates.useWorktree !== undefined) task.useWorktree = updates.useWorktree;
 
     if (updates.status !== undefined) {
       task.status = updates.status;
@@ -516,5 +518,9 @@ export class FileSystemTaskRepository implements ITaskRepository {
   async count(): Promise<number> {
     await this.ensureInitialized();
     return this.tasks.size;
+  }
+
+  async flush(): Promise<void> {
+    await this.writeBatcher.flush();
   }
 }

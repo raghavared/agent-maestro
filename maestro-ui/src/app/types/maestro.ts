@@ -327,6 +327,9 @@ export interface MaestroTask {
   // Run this task with --dangerously-skip-permissions
   dangerousMode?: boolean;
 
+  // Spawn sessions in an isolated git worktree
+  useWorktree?: boolean;
+
   // Due date for the task (ISO date string "YYYY-MM-DD" or null)
   dueDate?: string | null;
 
@@ -421,6 +424,7 @@ export interface UpdateTaskPayload {
   teamMemberIds?: string[];
   dueDate?: string | null;
   dangerousMode?: boolean;
+  useWorktree?: boolean;
   // NOTE: timeline moved to Session - use addTimelineEvent on session
   completedAt?: number | null;
 }
@@ -530,6 +534,7 @@ export interface SpawnSessionPayload {
   memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member overrides keyed by teamMemberId
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   delegatePermissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
+  useWorktree?: boolean;
 }
 
 /** Input shape for the UI-level session creation callback used by hooks/components. */
@@ -547,6 +552,7 @@ export interface CreateMaestroSessionInput {
   memberOverrides?: Record<string, MemberLaunchOverride>;
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   delegatePermissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
+  useWorktree?: boolean;
 }
 
 export interface SpawnSessionResponse {
