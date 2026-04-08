@@ -41,18 +41,9 @@ async function startServer() {
     origin: (origin, callback) => {
       const allowedOrigins = [
         'tauri://localhost',
-        'http://localhost:1420',
-        'http://localhost:3000',
-        'http://localhost:3002',
-        'http://localhost:5173',
-        'http://127.0.0.1:1420',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3002',
-        'http://127.0.0.1:5173'
       ];
-
-      // Allow requests with no origin (like mobile apps or curl)
-      if (!origin || allowedOrigins.includes(origin)) {
+      // In development, allow any localhost origin
+      if (!origin || allowedOrigins.includes(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || '')) {
         callback(null, true);
       } else {
         callback(new Error(`Origin ${origin} not allowed by CORS`));
