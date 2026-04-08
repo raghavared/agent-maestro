@@ -103,7 +103,7 @@ export const createTaskSchema = z.object({
 }).strict();
 
 export const updateTaskSchema = z.object({
-  title: shortString.optional(),
+  title: z.string().optional(),
   description: longString.optional(),
   status: taskStatusSchema.optional(),
   sessionStatus: taskSessionStatusSchema.optional(),  // Backward compat for session-source updates
