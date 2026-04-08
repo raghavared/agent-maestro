@@ -417,39 +417,28 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     const handleCreateTask = useCallback(async (taskData: any) => {
         try {
-            // If task was auto-created, fetch from store instead of creating
-            let newTask;
-            if (taskData._existingTaskId) {
-                const storeTasks = useMaestroStore.getState().tasks;
-                newTask = storeTasks[taskData._existingTaskId];
-                if (!newTask) {
-                    // Fallback: fetch from server
-                    newTask = await maestroClient.getTask(taskData._existingTaskId);
-                }
-            } else {
-                newTask = await createTask({
-                    projectId,
-                    title: taskData.title,
-                    description: taskData.description,
-                    priority: taskData.priority,
-                    skillIds: taskData.skillIds,
-                    referenceTaskIds: taskData.referenceTaskIds,
-                    parentId: taskData.parentId,
-                    teamMemberId: taskData.teamMemberId,
-                    teamMemberIds: taskData.teamMemberIds,
-                    memberOverrides: taskData.memberOverrides,
-                });
-                if (taskData._stagedFiles?.length > 0) {
-                    for (const file of taskData._stagedFiles) {
-                        try {
-                            await maestroClient.uploadTaskImage(newTask.id, file);
-                        } catch (uploadErr) {
-                            console.error(`Failed to upload task image "${file.name}":`, uploadErr);
-                        }
+            const newTask = await createTask({
+                projectId,
+                title: taskData.title,
+                description: taskData.description,
+                priority: taskData.priority,
+                skillIds: taskData.skillIds,
+                referenceTaskIds: taskData.referenceTaskIds,
+                parentId: taskData.parentId,
+                teamMemberId: taskData.teamMemberId,
+                teamMemberIds: taskData.teamMemberIds,
+                memberOverrides: taskData.memberOverrides,
+            });
+            if (taskData._stagedFiles?.length > 0) {
+                for (const file of taskData._stagedFiles) {
+                    try {
+                        await maestroClient.uploadTaskImage(newTask.id, file);
+                    } catch (uploadErr) {
+                        console.error(`Failed to upload task image "${file.name}":`, uploadErr);
                     }
                 }
             }
-            if (taskData.startImmediately && newTask) {
+            if (taskData.startImmediately) {
                 if (taskData.memberOverrides && !newTask.memberOverrides) {
                     newTask.memberOverrides = taskData.memberOverrides;
                 }
@@ -459,6 +448,11 @@ export const MaestroPanel = React.memo(function MaestroPanel({
             setError("Failed to create task");
         }
     }, [createTask, projectId, handleWorkOnTask]);
+
+    const handleStartTask = useCallback(async (taskId: string) => {
+        const task = useMaestroStore.getState().tasks[taskId];
+        if (task) await handleWorkOnTask(task);
+    }, [handleWorkOnTask]);
 
     const handleAssignTeamMember = useCallback(async (taskId: string, teamMemberId: string) => {
         try { await updateTask(taskId, { teamMemberId, teamMemberIds: [teamMemberId] }); } catch { setError("Failed to assign team member"); }
@@ -731,6 +725,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 isOpen={showCreateModal}
                 onClose={() => { setShowCreateModal(false); setSubtaskParentId(null); }}
                 onCreate={handleCreateTask}
+                onStartTask={handleStartTask}
                 project={project}
                 parentId={subtaskParentId ?? undefined}
                 parentTitle={subtaskParentTitle}

@@ -31,6 +31,7 @@ let globalConnecting = false;
 let globalReconnectTimeout: number | null = null;
 let globalReconnectAttempts = 0;
 
+
 export interface AgentModal {
   sessionId: string;
   modalId: string;
@@ -255,9 +256,14 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         if (!taskData.taskSessionStatuses || typeof taskData.taskSessionStatuses !== 'object') {
           taskData.taskSessionStatuses = {};
         }
+        const prevTask = get().tasks[taskData.id];
         batchSet((prev) => ({ tasks: { ...prev.tasks, [taskData.id]: taskData } }));
-        // Play sound for event
-        playEventSound(message.event as any);
+        // Only play sound on task creation or status change — not on field edits (title, description, etc.)
+        const isNew = message.event === 'task:created' && !prevTask;
+        const statusChanged = prevTask && prevTask.status !== taskData.status;
+        if (isNew || statusChanged) {
+          playEventSound(message.event as any);
+        }
         break;
       }
       case 'task:deleted': {

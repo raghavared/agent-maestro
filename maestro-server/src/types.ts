@@ -281,6 +281,9 @@ export interface Task {
 
   // Images attached to this task
   images?: TaskImage[];
+
+  // Client-generated idempotency key for deduplicating draft auto-creates
+  clientRequestId?: string;
 }
 
 export interface Session {
@@ -469,6 +472,7 @@ export interface CreateTaskPayload {
   dangerousMode?: boolean;
   useWorktree?: boolean;
   dueDate?: string;
+  clientRequestId?: string;
 }
 
 export type UpdateSource = 'user' | 'session';

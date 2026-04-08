@@ -339,6 +339,9 @@ export interface MaestroTask {
   // Images attached to this task
   images?: TaskImage[];
 
+  // Client-generated idempotency key for deduplicating draft auto-creates
+  clientRequestId?: string;
+
   // UI/Populated Fields (Optional)
   subtasks?: MaestroTask[];
   sessionCount?: number; // UI computed field
@@ -405,6 +408,7 @@ export interface CreateTaskPayload {
   teamMemberIds?: string[];
   memberOverrides?: Record<string, MemberLaunchOverride>;
   dueDate?: string;
+  clientRequestId?: string;
 }
 
 export interface UpdateTaskPayload {

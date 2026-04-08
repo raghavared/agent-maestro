@@ -1,7 +1,6 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { MaestroTask, MaestroProject, TeamMember, MemberLaunchOverride } from "../../app/types/maestro";
-import { maestroClient } from "../../utils/MaestroClient";
 import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useTaskForm } from "../../hooks/useTaskForm";
@@ -9,6 +8,7 @@ import { useReferenceTaskPicker } from "../../hooks/useReferenceTaskPicker";
 import { useFileAutocomplete } from "../../hooks/useFileAutocomplete";
 import { useSkillAutocomplete } from "../../hooks/useSkillAutocomplete";
 import { useAutoSave } from "../../hooks/useAutoSave";
+import { useDraftTaskLifecycle } from "../../hooks/useDraftTaskLifecycle";
 
 // Sub-components
 import { TaskFormHeader } from "./task-modal/TaskFormHeader";
@@ -43,6 +43,7 @@ type CreateTaskModalProps = {
         teamMemberIds?: string[];
         memberOverrides?: Record<string, MemberLaunchOverride>;
     }) => Promise<void> | void;
+    onStartTask?: (taskId: string) => Promise<void> | void;
     project: MaestroProject;
     parentId?: string;
     parentTitle?: string;
@@ -65,6 +66,7 @@ export function CreateTaskModal({
     isOpen,
     onClose,
     onCreate,
+    onStartTask,
     project,
     parentId,
     parentTitle,
@@ -85,7 +87,6 @@ export function CreateTaskModal({
 
     // ==================== HOOKS ====================
 
-    const form = useTaskForm(mode, isOpen, task);
     const refPicker = useReferenceTaskPicker(project?.id);
     const files = useFileAutocomplete(project?.basePath, isOpen);
     const skills = useSkillAutocomplete(project?.basePath, isOpen);
@@ -97,28 +98,9 @@ export function CreateTaskModal({
         [teamMembersMap, project?.id]
     );
 
-    // ==================== AUTO-CREATE (create mode) ====================
-    const [autoCreatedTask, setAutoCreatedTask] = useState<MaestroTask | null>(null);
-    const autoCreatedTaskRef = useRef<MaestroTask | null>(null);
-    const autoCreateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const isAutoCreatingRef = useRef(false);
-    const autoCreatePromiseRef = useRef<Promise<MaestroTask | null> | null>(null);
-
-    const effectiveEditMode = isEditMode || !!autoCreatedTask;
-    const effectiveTask = isEditMode ? task : autoCreatedTask;
-
-    // Reset auto-create state when modal closes or switches to create mode
-    useEffect(() => {
-        if (!isOpen || mode !== "create") {
-            setAutoCreatedTask(null);
-            autoCreatedTaskRef.current = null;
-            isAutoCreatingRef.current = false;
-            autoCreatePromiseRef.current = null;
-        }
-    }, [isOpen, mode]);
+    // ==================== DRAFT LIFECYCLE ====================
 
     const getAutoTitle = useCallback(() => {
-        if (form.title.trim()) return form.title.trim();
         const storeTasks = useMaestroStore.getState().tasks;
         const projectTasks = Object.values(storeTasks).filter(
             (t: MaestroTask) => t.projectId === project?.id
@@ -127,71 +109,78 @@ export function CreateTaskModal({
         const existingTitles = new Set(projectTasks.map((t: MaestroTask) => t.title));
         while (existingTitles.has(`Untitled ${n}`)) n++;
         return `Untitled ${n}`;
-    }, [form.title, project?.id]);
+    }, [project?.id]);
 
-    // Auto-create effect: create task on server after 1s of typing in create mode
+    // We need a ref to read form state at create time (avoids stale closures)
+    const formStateRef = useRef({
+        title: "", prompt: "", priority: "medium" as string,
+        selectedTeamMemberIds: [] as string[], selectedSkills: [] as string[],
+        selectedReferenceTasks: [] as MaestroTask[],
+    });
+
+    const draft = useDraftTaskLifecycle({
+        projectId: project?.id,
+        parentId,
+        enabled: mode === "create" && isOpen,
+        getFormData: () => ({
+            title: formStateRef.current.title.trim() || getAutoTitle(),
+            description: formStateRef.current.prompt,
+            priority: formStateRef.current.priority as any,
+            skillIds: formStateRef.current.selectedSkills.length > 0 ? formStateRef.current.selectedSkills : undefined,
+            referenceTaskIds: formStateRef.current.selectedReferenceTasks.length > 0
+                ? formStateRef.current.selectedReferenceTasks.map(t => t.id) : undefined,
+            teamMemberId: formStateRef.current.selectedTeamMemberIds.length === 1 ? formStateRef.current.selectedTeamMemberIds[0] : undefined,
+            teamMemberIds: formStateRef.current.selectedTeamMemberIds.length > 0 ? formStateRef.current.selectedTeamMemberIds : undefined,
+        }),
+    }) as ReturnType<typeof useDraftTaskLifecycle> & { _triggerAutoCreate: () => void; _uploadStagedImages: (taskId: string, files: File[]) => Promise<void> };
+
+    const form = useTaskForm(mode, isOpen, task, draft.draftTask);
+
+    // Keep formStateRef in sync (read at create time, not in a stale closure)
+    formStateRef.current = {
+        title: form.title,
+        prompt: form.prompt,
+        priority: form.priority,
+        selectedTeamMemberIds: form.selectedTeamMemberIds,
+        selectedSkills: form.selectedSkills,
+        selectedReferenceTasks: refPicker.selectedReferenceTasks,
+    };
+
+    const effectiveEditMode = isEditMode || draft.phase === "created";
+    const effectiveTask = isEditMode ? task : draft.draftTask;
+
+    // Trigger auto-create when user starts typing in create mode
     useEffect(() => {
-        if (mode !== "create" || autoCreatedTask || isAutoCreatingRef.current) return;
+        if (mode !== "create" || draft.phase !== "idle") return;
         const hasContent = form.title.trim() !== "" || form.prompt.trim() !== "";
-        if (!hasContent) return;
+        if (hasContent) {
+            draft._triggerAutoCreate();
+        }
+    }, [mode, draft.phase, form.title, form.prompt]);
 
-        if (autoCreateTimerRef.current) clearTimeout(autoCreateTimerRef.current);
-        autoCreateTimerRef.current = setTimeout(() => {
-            if (isAutoCreatingRef.current) return;
-            isAutoCreatingRef.current = true;
-            const promise = (async () => {
-                try {
-                    const storeCreateTask = useMaestroStore.getState().createTask;
-                    const newTask = await storeCreateTask({
-                        projectId: project.id,
-                        title: getAutoTitle(),
-                        description: form.prompt,
-                        priority: form.priority,
-                        parentId: parentId || undefined,
-                        skillIds: form.selectedSkills.length > 0 ? form.selectedSkills : undefined,
-                        referenceTaskIds: refPicker.selectedReferenceTasks.length > 0
-                            ? refPicker.selectedReferenceTasks.map(t => t.id) : undefined,
-                        teamMemberId: form.selectedTeamMemberIds.length === 1 ? form.selectedTeamMemberIds[0] : undefined,
-                        teamMemberIds: form.selectedTeamMemberIds.length > 0 ? form.selectedTeamMemberIds : undefined,
-                    });
-                    setAutoCreatedTask(newTask);
-                    autoCreatedTaskRef.current = newTask;
-                    isAutoCreatingRef.current = false;
-                    if (form.stagedImageFiles.length > 0) {
-                        for (const file of form.stagedImageFiles) {
-                            try { await maestroClient.uploadTaskImage(newTask.id, file); } catch { /* silent */ }
-                        }
-                    }
-                    return newTask;
-                } catch {
-                    isAutoCreatingRef.current = false;
-                    return null;
-                }
-            })();
-            autoCreatePromiseRef.current = promise;
-        }, 1000);
-
-        return () => {
-            if (autoCreateTimerRef.current) clearTimeout(autoCreateTimerRef.current);
-        };
-    }, [mode, autoCreatedTask, form.title, form.prompt, form.priority, form.selectedTeamMemberIds, form.selectedSkills, project?.id, parentId, refPicker.selectedReferenceTasks]);
+    // Upload staged images after draft creation
+    useEffect(() => {
+        if (draft.phase === "created" && draft.draftTaskId && form.stagedImageFiles.length > 0) {
+            draft._uploadStagedImages(draft.draftTaskId, form.stagedImageFiles);
+        }
+    }, [draft.phase, draft.draftTaskId]);
 
     // ==================== AUTO-SAVE ====================
+
     const autoSaveFn = useCallback(async () => {
-        if (!effectiveEditMode || !effectiveTask) return;
+        const targetTask = effectiveTask;
+        if (!targetTask) return;
 
         const refIds = refPicker.selectedReferenceTasks.map(t => t.id);
-        const updates = form.getUpdateDiff(refIds, teamMembers, autoCreatedTask || undefined);
+        const updates = form.getUpdateDiff(refIds, teamMembers);
         if (!updates) return;
 
-        if (onUpdateTask) {
-            await onUpdateTask(effectiveTask.id, updates);
-        } else if (autoCreatedTask) {
-            const updateTask = useMaestroStore.getState().updateTask;
-            const updated = await updateTask(autoCreatedTask.id, updates);
-            setAutoCreatedTask(updated);
+        if (isEditMode && onUpdateTask) {
+            await onUpdateTask(targetTask.id, updates);
+        } else {
+            await useMaestroStore.getState().updateTask(targetTask.id, updates);
         }
-    }, [effectiveEditMode, effectiveTask, autoCreatedTask, onUpdateTask, form, refPicker.selectedReferenceTasks, teamMembers]);
+    }, [effectiveTask, isEditMode, onUpdateTask, form, refPicker.selectedReferenceTasks, teamMembers]);
 
     const { status: autoSaveStatus, saveNow } = useAutoSave({
         changeVersion: form.changeVersion,
@@ -208,6 +197,7 @@ export function CreateTaskModal({
                 const refTasks: MaestroTask[] = [];
                 for (const refId of task.referenceTaskIds!) {
                     try {
+                        const { default: maestroClient } = await import("../../utils/MaestroClient").then(m => ({ default: m.maestroClient }));
                         const t = await maestroClient.getTask(refId);
                         refTasks.push(t);
                     } catch { /* skip if task not found */ }
@@ -230,11 +220,13 @@ export function CreateTaskModal({
 
     const handleClose = async () => {
         if (effectiveEditMode) {
+            // Auto-save any pending changes before closing
             if (form.hasUnsavedContent) {
                 await saveNow();
             }
             onClose();
-        } else if (form.hasUnsavedContent) {
+        } else if (form.hasUnsavedContent || draft.phase !== "idle") {
+            // Has content but no draft yet, or draft is creating — ask to discard
             form.setShowConfirmDialog(true);
         } else {
             onClose();
@@ -242,16 +234,7 @@ export function CreateTaskModal({
     };
 
     const handleConfirmDiscard = async () => {
-        if (autoCreateTimerRef.current) clearTimeout(autoCreateTimerRef.current);
-        // Delete orphaned auto-created task from server
-        if (autoCreatedTask) {
-            try {
-                const deleteTask = useMaestroStore.getState().deleteTask;
-                await deleteTask(autoCreatedTask.id);
-            } catch { /* silent - task cleanup is best-effort */ }
-            setAutoCreatedTask(null);
-            autoCreatedTaskRef.current = null;
-        }
+        await draft.discard();
         form.resetForm();
         refPicker.reset();
         onClose();
@@ -259,58 +242,38 @@ export function CreateTaskModal({
 
     const handleToggleLaunchConfig = () => {
         if (!form.showLaunchConfig) {
-            // Initialize configs for selected members, restoring saved overrides if editing
             const savedOverrides = isEditMode ? task?.memberOverrides : undefined;
             for (const id of form.selectedTeamMemberIds) {
                 form.initMemberConfig(id, teamMembers, savedOverrides);
             }
-            form.setActiveTab(null); // close any open tab
+            form.setActiveTab(null);
         }
         form.setShowLaunchConfig(!form.showLaunchConfig);
     };
 
     const handleSubmit = async (startImmediately: boolean) => {
-        // If auto-create is in-flight, wait for it to finish
-        if (isAutoCreatingRef.current && !autoCreatedTaskRef.current && autoCreatePromiseRef.current) {
-            if (autoCreateTimerRef.current) clearTimeout(autoCreateTimerRef.current);
-            await autoCreatePromiseRef.current;
-        }
+        // Draft path: task already exists (or will be created) on server
+        if (draft.phase !== "idle") {
+            const taskId = await draft.ensureCreated();
+            if (!taskId) return; // creation failed
 
-        const currentAutoCreatedTask = autoCreatedTaskRef.current || autoCreatedTask;
-
-        if (currentAutoCreatedTask) {
+            // Save any pending changes
             if (form.hasUnsavedContent) {
                 await saveNow();
             }
-            if (startImmediately) {
-                const overrides = form.getMemberOverrides(teamMembers);
-                await onCreate({
-                    title: form.title.trim() || "Untitled",
-                    description: form.prompt,
-                    priority: form.priority,
-                    startImmediately: true,
-                    skillIds: form.selectedSkills.length > 0 ? form.selectedSkills : undefined,
-                    referenceTaskIds: refPicker.selectedReferenceTasks.length > 0
-                        ? refPicker.selectedReferenceTasks.map(t => t.id) : undefined,
-                    parentId,
-                    teamMemberId: form.selectedTeamMemberIds.length === 1 ? form.selectedTeamMemberIds[0] : undefined,
-                    teamMemberIds: form.selectedTeamMemberIds.length > 0 ? form.selectedTeamMemberIds : undefined,
-                    ...(overrides && { memberOverrides: overrides }),
-                    _existingTaskId: currentAutoCreatedTask.id,
-                } as any);
+
+            if (startImmediately && onStartTask) {
+                await onStartTask(taskId);
             }
+
             form.resetForm();
             refPicker.reset();
-            setAutoCreatedTask(null);
-            autoCreatedTaskRef.current = null;
-            autoCreatePromiseRef.current = null;
             onClose();
             return;
         }
 
-        // Normal create flow
+        // Normal create flow (user submitted before auto-create fired — rare but possible)
         if (!form.title.trim() && !form.prompt.trim()) return;
-        if (autoCreateTimerRef.current) clearTimeout(autoCreateTimerRef.current);
 
         const payload = form.getCreatePayload(
             startImmediately,
@@ -318,7 +281,6 @@ export function CreateTaskModal({
             parentId,
         );
 
-        // Attach member overrides if configured
         const overrides = form.getMemberOverrides(teamMembers);
         if (overrides) {
             (payload as any).memberOverrides = overrides;
@@ -556,7 +518,7 @@ export function CreateTaskModal({
                     showLaunchConfig={form.showLaunchConfig}
                     onToggleLaunchConfig={handleToggleLaunchConfig}
                     autoSaveStatus={effectiveEditMode ? autoSaveStatus : undefined}
-                    autoCreatedTask={autoCreatedTask}
+                    isDraft={draft.phase === "created"}
                 />
             </div>
 

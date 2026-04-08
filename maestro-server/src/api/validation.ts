@@ -100,6 +100,7 @@ export const createTaskSchema = z.object({
   memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
   dangerousMode: z.boolean().optional(),
   useWorktree: z.boolean().optional(),
+  clientRequestId: z.string().max(200).optional(),
 }).strict();
 
 export const updateTaskSchema = z.object({

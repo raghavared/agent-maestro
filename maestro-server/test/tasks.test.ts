@@ -61,6 +61,27 @@ describe('TaskService', () => {
       expect(task.description).toBe('A task with description but no title');
     });
 
+    it('should deduplicate tasks with same clientRequestId', async () => {
+      const task1 = await container.taskService.createTask({
+        projectId, title: 'Draft', clientRequestId: 'req-abc-123',
+      });
+      const task2 = await container.taskService.createTask({
+        projectId, title: 'Draft duplicate', clientRequestId: 'req-abc-123',
+      });
+      expect(task2.id).toBe(task1.id);
+      expect(task2.title).toBe('Draft'); // returns original, not the new title
+    });
+
+    it('should allow different clientRequestIds to create separate tasks', async () => {
+      const task1 = await container.taskService.createTask({
+        projectId, title: 'Draft 1', clientRequestId: 'req-111',
+      });
+      const task2 = await container.taskService.createTask({
+        projectId, title: 'Draft 2', clientRequestId: 'req-222',
+      });
+      expect(task1.id).not.toBe(task2.id);
+    });
+
     it('should create a task with parentId', async () => {
       const parent = await container.taskService.createTask(
         createTestTask(projectId, { title: 'Parent Task' })
