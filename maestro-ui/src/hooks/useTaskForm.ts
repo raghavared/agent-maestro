@@ -202,7 +202,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         if (!targetTask) return null;
         if (!overrideTask && (!isEditMode || !task)) return null;
         const updates: Partial<MaestroTask> = {};
-        if (title !== targetTask.title) updates.title = title.trim();
+        if (title.trim() && title !== targetTask.title) updates.title = title.trim();
         if (prompt !== (targetTask.description || "")) updates.description = prompt;
         if (priority !== targetTask.priority) updates.priority = priority;
         const currentIds = targetTask.teamMemberIds || (targetTask.teamMemberId ? [targetTask.teamMemberId] : []);
