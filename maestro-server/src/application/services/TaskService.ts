@@ -33,6 +33,15 @@ export class TaskService {
       throw new NotFoundError('Project', input.projectId);
     }
 
+    // Idempotency: if clientRequestId provided, check for existing task
+    if (input.clientRequestId) {
+      const existing = await this.taskRepo.findAll({ projectId: input.projectId });
+      const match = existing.find(t => t.clientRequestId === input.clientRequestId);
+      if (match) {
+        return match;
+      }
+    }
+
     // Verify parent task exists if specified
     if (input.parentId) {
       const parentTask = await this.taskRepo.findById(input.parentId);

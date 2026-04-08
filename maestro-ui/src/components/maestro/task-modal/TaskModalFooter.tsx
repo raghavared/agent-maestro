@@ -1,5 +1,5 @@
 import React from "react";
-import { TeamMember, MaestroTask } from "../../../app/types/maestro";
+import { TeamMember } from "../../../app/types/maestro";
 import { AutoSaveStatus } from "../../../hooks/useAutoSave";
 import { TeamMemberSelector } from "./TeamMemberSelector";
 
@@ -16,7 +16,7 @@ type TaskModalFooterProps = {
     showLaunchConfig: boolean;
     onToggleLaunchConfig: () => void;
     autoSaveStatus?: AutoSaveStatus;
-    autoCreatedTask?: MaestroTask | null;
+    isDraft?: boolean;
 };
 
 function AutoSaveIndicator({ status }: { status: AutoSaveStatus }) {
@@ -43,10 +43,9 @@ export function TaskModalFooter({
     showLaunchConfig,
     onToggleLaunchConfig,
     autoSaveStatus,
-    autoCreatedTask,
+    isDraft,
 }: TaskModalFooterProps) {
     const hasMembers = selectedTeamMemberIds.length > 0;
-    const isAutoCreated = !isEditMode && !!autoCreatedTask;
 
     return (
         <div className="themedFormActions" style={{ flexWrap: 'wrap' }}>
@@ -99,11 +98,11 @@ export function TaskModalFooter({
                             {'\u2699'}
                         </button>
                     )}
-                    {isAutoCreated && autoSaveStatus && <AutoSaveIndicator status={autoSaveStatus} />}
+                    {isDraft && autoSaveStatus && <AutoSaveIndicator status={autoSaveStatus} />}
                     <button type="button" className="themedBtn" onClick={onClose}>
-                        {isAutoCreated ? "Close" : "Cancel"}
+                        {isDraft ? "Close" : "Cancel"}
                     </button>
-                    {isAutoCreated ? (
+                    {isDraft ? (
                         <button
                             type="button"
                             className="themedBtn themedBtnSuccess"

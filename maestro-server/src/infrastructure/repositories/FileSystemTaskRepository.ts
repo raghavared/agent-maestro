@@ -267,6 +267,7 @@ export class FileSystemTaskRepository implements ITaskRepository {
       memberOverrides: input.memberOverrides,
       dangerousMode: input.dangerousMode,
       useWorktree: input.useWorktree,
+      clientRequestId: input.clientRequestId,
     };
 
     this.tasks.set(task.id, task);

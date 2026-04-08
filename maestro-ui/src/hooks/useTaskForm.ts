@@ -3,8 +3,9 @@ import { TaskPriority, MaestroTask, MemberLaunchOverride, TeamMember, TaskImage 
 import { maestroClient } from "../utils/MaestroClient";
 import { MemberConfig, buildDefaultMemberConfig, buildMemberConfigFromOverride, buildOverridesFromConfigs } from "../components/maestro/task-modal/LaunchConfigPanel";
 
-export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: MaestroTask) {
+export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: MaestroTask, draftTask?: MaestroTask | null) {
     const isEditMode = mode === "edit" && !!task;
+    const baselineTask = task || draftTask || null;
 
     const [changeVersion, setChangeVersion] = useState(0);
     const bumpVersion = useCallback(() => setChangeVersion(v => v + 1), []);
@@ -92,21 +93,20 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     }, [mode, isOpen]);
 
     const hasUnsavedContent = useMemo(() => {
-        if (mode === "create") {
-            return title.trim() !== "" || prompt.trim() !== "" || dueDate !== "";
-        }
-        if (isEditMode && task) {
+        if (baselineTask) {
+            // Compare form fields against server state (works for both edit and draft)
             return (
-                title !== task.title ||
-                prompt !== (task.description || "") ||
-                priority !== task.priority ||
-                dueDate !== (task.dueDate || "") ||
-                JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(task.teamMemberIds || (task.teamMemberId ? [task.teamMemberId] : [])) ||
-                JSON.stringify(selectedSkills) !== JSON.stringify(task.skillIds || [])
+                title !== baselineTask.title ||
+                prompt !== (baselineTask.description || "") ||
+                priority !== baselineTask.priority ||
+                dueDate !== (baselineTask.dueDate || "") ||
+                JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(baselineTask.teamMemberIds || (baselineTask.teamMemberId ? [baselineTask.teamMemberId] : [])) ||
+                JSON.stringify(selectedSkills) !== JSON.stringify(baselineTask.skillIds || [])
             );
         }
-        return false;
-    }, [mode, isEditMode, task, title, prompt, priority, dueDate, selectedTeamMemberIds, selectedSkills]);
+        // No baseline — pure create mode, no draft yet
+        return title.trim() !== "" || prompt.trim() !== "";
+    }, [baselineTask, title, prompt, priority, dueDate, selectedTeamMemberIds, selectedSkills]);
 
     const isValid = title.trim() !== "" && prompt.trim() !== "";
 
@@ -197,27 +197,26 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         _stagedFiles: stagedImageFiles.length > 0 ? stagedImageFiles : undefined,
     });
 
-    const getUpdateDiff = (referenceTaskIds: string[], teamMembers?: TeamMember[], overrideTask?: MaestroTask): Partial<MaestroTask> | null => {
-        const targetTask = overrideTask || task;
-        if (!targetTask) return null;
-        if (!overrideTask && (!isEditMode || !task)) return null;
+    const getUpdateDiff = (referenceTaskIds: string[], teamMembers?: TeamMember[]): Partial<MaestroTask> | null => {
+        if (!baselineTask) return null;
         const updates: Partial<MaestroTask> = {};
-        if (title.trim() && title !== targetTask.title) updates.title = title.trim();
-        if (prompt !== (targetTask.description || "")) updates.description = prompt;
-        if (priority !== targetTask.priority) updates.priority = priority;
-        const currentIds = targetTask.teamMemberIds || (targetTask.teamMemberId ? [targetTask.teamMemberId] : []);
+        // Skip title update if form title is empty — preserve the auto-generated "Untitled N"
+        if (title.trim() && title !== baselineTask.title) updates.title = title.trim();
+        if (prompt !== (baselineTask.description || "")) updates.description = prompt;
+        if (priority !== baselineTask.priority) updates.priority = priority;
+        const currentIds = baselineTask.teamMemberIds || (baselineTask.teamMemberId ? [baselineTask.teamMemberId] : []);
         if (JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(currentIds)) {
             updates.teamMemberIds = selectedTeamMemberIds.length > 0 ? selectedTeamMemberIds : undefined;
             updates.teamMemberId = selectedTeamMemberIds.length === 1 ? selectedTeamMemberIds[0] : undefined;
         }
-        const currentDueDate = targetTask.dueDate || "";
+        const currentDueDate = baselineTask.dueDate || "";
         if (dueDate !== currentDueDate) updates.dueDate = dueDate || null;
-        if (JSON.stringify(selectedSkills) !== JSON.stringify(targetTask.skillIds || [])) updates.skillIds = selectedSkills;
-        if (JSON.stringify(referenceTaskIds) !== JSON.stringify(targetTask.referenceTaskIds || [])) updates.referenceTaskIds = referenceTaskIds;
+        if (JSON.stringify(selectedSkills) !== JSON.stringify(baselineTask.skillIds || [])) updates.skillIds = selectedSkills;
+        if (JSON.stringify(referenceTaskIds) !== JSON.stringify(baselineTask.referenceTaskIds || [])) updates.referenceTaskIds = referenceTaskIds;
         // Include memberOverrides if launch config was modified
         if (teamMembers && Object.keys(memberConfigs).length > 0) {
             const overrides = buildOverridesFromConfigs(memberConfigs, teamMembers);
-            if (JSON.stringify(overrides) !== JSON.stringify(targetTask.memberOverrides || {})) {
+            if (JSON.stringify(overrides) !== JSON.stringify(baselineTask.memberOverrides || {})) {
                 updates.memberOverrides = Object.keys(overrides).length > 0 ? overrides : undefined;
             }
         }
