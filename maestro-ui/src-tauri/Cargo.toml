@@ -6,7 +6,7 @@ authors = ["you"]
 edition = "2021"
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "~2.5", features = [] }
 
 [dependencies]
 base64 = "0.22"
@@ -16,10 +16,10 @@ rand_core = "0.6"
 portable-pty = "0.8.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tauri = { version = "2", features = ["tray-icon", "devtools"] }
-tauri-plugin-shell = "2"
-tauri-plugin-dialog = "2.6.0"
-tauri-plugin-drag = "2.1.0"
+tauri = { version = "~2.10", features = ["tray-icon", "devtools"] }
+tauri-plugin-shell = "~2.3"
+tauri-plugin-dialog = "~2.7"
+tauri-plugin-drag = "~2.1"
 dirs = "5"
 regex = "1"
 
