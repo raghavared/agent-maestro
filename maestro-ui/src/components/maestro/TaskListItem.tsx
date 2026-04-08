@@ -427,9 +427,10 @@ export const TaskListItem = React.memo(function TaskListItem({
                         e.stopPropagation();
                         onSelect();
                     }}
-                    title={task.title}
+                    title={task.title || "Untitled"}
+                    style={!task.title ? { opacity: 0.5, fontStyle: 'italic' } : undefined}
                 >
-                    {task.title}
+                    {task.title || "Untitled"}
                 </span>
 
                 {/* Doc count badge */}
