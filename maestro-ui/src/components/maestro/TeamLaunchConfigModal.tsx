@@ -25,8 +25,11 @@ const MODELS_BY_TOOL: Record<AgentTool, { value: ModelType; label: string }[]> =
         { value: "haiku", label: "Haiku" },
         { value: "sonnet", label: "Sonnet" },
         { value: "opus", label: "Opus" },
+        { value: "claude-opus-4-7", label: "Claude Opus 4.7" },
+        { value: "claude-opus-4-7[1m]", label: "Claude Opus 4.7 [1M]" },
     ],
     "codex": [
+        { value: "gpt-5.4", label: "GPT 5.4" },
         { value: "gpt-5.3-codex", label: "GPT 5.3" },
         { value: "gpt-5.2-codex", label: "GPT 5.2" },
     ],
@@ -38,7 +41,7 @@ const MODELS_BY_TOOL: Record<AgentTool, { value: ModelType; label: string }[]> =
 
 const DEFAULT_MODEL: Record<string, string> = {
     "claude-code": "sonnet",
-    "codex": "gpt-5.3-codex",
+    "codex": "gpt-5.4",
     "gemini": "gemini-3-pro-preview",
 };
 

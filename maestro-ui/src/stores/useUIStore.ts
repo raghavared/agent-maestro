@@ -76,12 +76,12 @@ function readClampedFromStorage(key: string, min: number, max: number, fallback:
   return fallback;
 }
 
-export type IconRailSection = 'tasks' | 'members' | 'teams' | 'skills' | 'lists' | 'files' | null;
+export type IconRailSection = 'tasks' | 'members' | 'teams' | 'skills' | 'lists' | 'graphs' | 'files' | null;
 
 function readIconRailSection(): IconRailSection {
   try {
     const raw = localStorage.getItem(DEFAULTS.STORAGE_ICON_RAIL_SECTION_KEY);
-    if (raw && ['tasks', 'members', 'teams', 'skills', 'lists', 'files'].includes(raw)) {
+    if (raw && ['tasks', 'members', 'teams', 'skills', 'lists', 'graphs', 'files'].includes(raw)) {
       return raw as IconRailSection;
     }
   } catch {

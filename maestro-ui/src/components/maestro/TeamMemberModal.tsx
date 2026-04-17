@@ -46,9 +46,12 @@ const MODELS_BY_TOOL: Partial<Record<AgentTool, { value: ModelType; label: strin
         { value: "sonnet", label: "Sonnet" },
         { value: "sonnet[1m]", label: "Sonnet [1M]" },
         { value: "opus", label: "Opus" },
+        { value: "claude-opus-4-7", label: "Claude Opus 4.7" },
+        { value: "claude-opus-4-7[1m]", label: "Claude Opus 4.7 [1M]" },
         { value: "opus[1m]", label: "Opus [1M]" },
     ],
     "codex": [
+        { value: "gpt-5.4", label: "GPT 5.4" },
         { value: "gpt-5.3-codex", label: "GPT 5.3 Codex" },
         { value: "gpt-5.2-codex", label: "GPT 5.2 Codex" },
     ],
@@ -60,7 +63,7 @@ const MODELS_BY_TOOL: Partial<Record<AgentTool, { value: ModelType; label: strin
 
 const DEFAULT_MODEL: Record<string, string> = {
     "claude-code": "sonnet",
-    "codex": "gpt-5.3-codex",
+    "codex": "gpt-5.4",
     "gemini": "gemini-3-pro-preview",
 };
 
@@ -105,6 +108,21 @@ const DEFAULT_CONFIGS: Record<string, {
                 "team-member:create": true,
                 "team-member:list": true,
                 "team-member:get": true,
+            },
+        },
+    },
+    standup: {
+        name: "Standup", role: "Team roster auditor and optimizer", avatar: "\u{1F4CB}",
+        identity: "You are the team standup agent. You audit and optimize the team roster — review all members, merge duplicates, remove redundant ones, update stale configs, and identify gaps. You present a diff-style report and wait for confirmation before making changes.",
+        agentTool: "claude-code", model: "opus", mode: "worker",
+        commandPermissions: {
+            commands: {
+                "team-member:list": true,
+                "team-member:get": true,
+                "team-member:create": true,
+                "team-member:edit": true,
+                "team-member:archive": true,
+                "team-member:delete": true,
             },
         },
     },

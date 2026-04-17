@@ -1,7 +1,7 @@
 import React from "react";
 import { TeamMember } from "../../app/types/maestro";
 
-export type PrimaryTab = "tasks" | "lists" | "team" | "skills";
+export type PrimaryTab = "tasks" | "lists" | "team" | "skills" | "graphs";
 export type TaskSubTab = "current" | "pinned" | "completed" | "archived";
 export type SkillSubTab = "browse" | "installed" | "marketplace";
 export type TeamSubTab = "members" | "teams";
@@ -26,8 +26,11 @@ type PanelIconBarProps = {
     onNewTaskList: () => void;
     onNewTeamMember: () => void;
     onNewTeam?: () => void;
+    onNewGraph?: () => void;
+    onTeamStandup?: () => void;
     teamCount?: number;
     taskListCount?: number;
+    graphCount?: number;
     hidePrimaryTabs?: boolean;
 };
 
@@ -51,8 +54,11 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
     onNewTaskList,
     onNewTeamMember,
     onNewTeam,
+    onNewGraph,
+    onTeamStandup,
     teamCount = 0,
     taskListCount = 0,
+    graphCount = 0,
     hidePrimaryTabs = false,
 }) => {
 
@@ -108,6 +114,19 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                         <circle cx="6" cy="15" r="1" fill="currentColor" />
                     </svg>
                     Lists
+                </button>
+                <button type="button"
+                    className={`maestroPanelPrimaryTab ${primaryTab === "graphs" ? "maestroPanelPrimaryTabActive" : ""}`}
+                    onClick={() => onPrimaryTabChange("graphs")}
+                >
+                    <svg className="maestroPanelTabIcon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <circle cx="5" cy="5" r="2.5" />
+                        <circle cx="15" cy="5" r="2.5" />
+                        <circle cx="10" cy="15" r="2.5" />
+                        <path d="M7.2 6.2L8.5 12.8" strokeLinecap="round" />
+                        <path d="M12.8 6.2L11.5 12.8" strokeLinecap="round" />
+                    </svg>
+                    Graphs
                 </button>
             </div>}
 
@@ -193,6 +212,15 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                             <span className="maestroPanelSubTabPlus">+</span>
                             New Member
                         </button>
+                        {onTeamStandup && (
+                            <button type="button"
+                                className="maestroPanelSubTab maestroPanelSubTab--action"
+                                onClick={onTeamStandup}
+                                title="Run a team standup to audit and optimize the roster"
+                            >
+                                Standup
+                            </button>
+                        )}
                         <div className="maestroPanelSubTab maestroPanelSubTab--stat">
                             Members
                             <span className="maestroPanelSubTabCount">{activeTeamCount}</span>
@@ -212,6 +240,22 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                         <div className="maestroPanelSubTab maestroPanelSubTab--stat">
                             Teams
                             <span className="maestroPanelSubTabCount">{teamCount}</span>
+                        </div>
+                    </>
+                )}
+
+                {primaryTab === "graphs" && (
+                    <>
+                        <button type="button"
+                            className="maestroPanelSubTab maestroPanelSubTab--action"
+                            onClick={onNewGraph}
+                        >
+                            <span className="maestroPanelSubTabPlus">+</span>
+                            New Graph
+                        </button>
+                        <div className="maestroPanelSubTab maestroPanelSubTab--stat">
+                            Graphs
+                            <span className="maestroPanelSubTabCount">{graphCount}</span>
                         </div>
                     </>
                 )}

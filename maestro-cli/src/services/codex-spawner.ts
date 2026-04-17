@@ -31,6 +31,7 @@ export class CodexSpawner {
 
   /** All supported Codex models */
   static readonly MODELS = [
+    'gpt-5.4',
     'gpt-5.3-codex',
     'gpt-5.2-codex',
     'gpt-5.1-codex-max',
@@ -52,16 +53,18 @@ export class CodexSpawner {
     }
     // Map Claude model names to Codex equivalents
     switch (model) {
+      case 'claude-opus-4-7[1m]':
+      case 'claude-opus-4-7':
       case 'opus':
       case 'opus[1m]':
-        return 'gpt-5.3-codex';
+        return 'gpt-5.4';
       case 'sonnet':
       case 'sonnet[1m]':
         return 'gpt-5.2-codex';
       case 'haiku':
         return 'gpt-5.1-codex-mini';
       default:
-        return 'gpt-5.3-codex';
+        return 'gpt-5.4';
     }
   }
 

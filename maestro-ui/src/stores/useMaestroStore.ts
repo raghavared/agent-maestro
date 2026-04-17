@@ -518,6 +518,14 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         });
         break;
       }
+      case 'task_graph:created':
+      case 'task_graph:updated':
+      case 'task_graph:deleted': {
+        // Delegate to the task graph store
+        const { useTaskGraphStore } = require('./useTaskGraphStore');
+        useTaskGraphStore.getState().handleWsEvent(message.event, message.data);
+        break;
+      }
       case 'team:created':
       case 'team:updated':
       case 'team:archived': {

@@ -72,6 +72,34 @@ export function useTeamMemberActions(projectId: string, project: MaestroProject,
         }
     }, [projectId, project, createTask, onCreateMaestroSession, onError]);
 
+    const handleTeamStandup = useCallback(async () => {
+        try {
+            const standupMember = teamMembers.find(
+                (tm) => tm.isDefault && tm.name === 'Standup'
+            );
+            if (!standupMember) {
+                onError('Standup team member not found. Try refreshing.');
+                return;
+            }
+            const task = await createTask({
+                projectId,
+                title: 'Team Standup',
+                description: 'Audit and optimize the team roster: review all members, merge duplicates, remove redundant ones, update stale configs, and identify gaps.',
+                priority: 'medium',
+                teamMemberId: standupMember.id,
+            });
+            await onCreateMaestroSession({
+                task,
+                project,
+                mode: 'worker',
+                teamMemberId: standupMember.id,
+            });
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            onError(`Failed to start team standup: ${message}`);
+        }
+    }, [teamMembers, projectId, project, createTask, onCreateMaestroSession, onError]);
+
     return {
         teamMembers,
         teamMembersMap,
@@ -80,5 +108,6 @@ export function useTeamMemberActions(projectId: string, project: MaestroProject,
         handleUnarchive,
         handleDelete,
         handleRun,
+        handleTeamStandup,
     };
 }

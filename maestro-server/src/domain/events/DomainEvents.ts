@@ -1,4 +1,4 @@
-import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember, Team, TaskList, SpellInvocationResult, CustomPrompt } from '../../types';
+import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember, Team, TaskList, TaskGraph, SpellInvocationResult, CustomPrompt } from '../../types';
 
 /**
  * Type-safe domain event definitions.
@@ -397,6 +397,10 @@ export interface TypedEventMap {
   'custom_prompt:created': CustomPrompt;
   'custom_prompt:updated': CustomPrompt;
   'custom_prompt:deleted': { id: string };
+  // Task graph events
+  'task_graph:created': TaskGraph;
+  'task_graph:updated': TaskGraph;
+  'task_graph:deleted': { id: string; projectId: string };
 }
 
 /**

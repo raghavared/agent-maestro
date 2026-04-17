@@ -13,6 +13,9 @@ import type {
     CreateTaskListPayload,
     UpdateTaskListPayload,
     TaskListOrdering,
+    TaskGraph,
+    CreateTaskGraphPayload,
+    UpdateTaskGraphPayload,
     CreateSessionPayload,
     UpdateSessionPayload,
     SpawnSessionPayload,
@@ -244,6 +247,42 @@ class MaestroClient {
         return this.fetch<TaskList>(`/task-lists/${listId}/reorder`, {
             method: 'PUT',
             body: JSON.stringify({ orderedTaskIds }),
+        });
+    }
+
+    // --- Task Graph API ---
+
+    async fetchTaskGraphs(projectId: string): Promise<TaskGraph[]> {
+        return this.fetch<TaskGraph[]>(`/task-graphs?projectId=${encodeURIComponent(projectId)}`);
+    }
+
+    async fetchTaskGraph(id: string): Promise<TaskGraph> {
+        return this.fetch<TaskGraph>(`/task-graphs/${id}`);
+    }
+
+    async createTaskGraph(data: CreateTaskGraphPayload): Promise<TaskGraph> {
+        return this.fetch<TaskGraph>('/task-graphs', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async updateTaskGraph(id: string, updates: UpdateTaskGraphPayload): Promise<TaskGraph> {
+        return this.fetch<TaskGraph>(`/task-graphs/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(updates),
+        });
+    }
+
+    async deleteTaskGraph(id: string): Promise<{ success: boolean }> {
+        return this.fetch<{ success: boolean }>(`/task-graphs/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async validateTaskGraph(id: string): Promise<{ valid: boolean; errors: string[]; topologicalOrder?: string[]; parallelLayers?: string[][] }> {
+        return this.fetch(`/task-graphs/${id}/validate`, {
+            method: 'POST',
         });
     }
 

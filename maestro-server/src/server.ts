@@ -9,6 +9,7 @@ import { createContainer, Container } from './container';
 import { createProjectRoutes } from './api/projectRoutes';
 import { createTaskRoutes } from './api/taskRoutes';
 import { createTaskListRoutes } from './api/taskListRoutes';
+import { createTaskGraphRoutes } from './api/taskGraphRoutes';
 import { createSessionRoutes } from './api/sessionRoutes';
 
 import { createSkillRoutes } from './api/skillRoutes';
@@ -26,7 +27,7 @@ async function startServer() {
   const container = await createContainer();
   await container.initialize();
 
-  const { config, logger, eventBus, projectService, taskService, taskListService, sessionService, logDigestService, orderingService, teamMemberService, teamService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
+  const { config, logger, eventBus, projectService, taskService, taskListService, taskGraphService, sessionService, logDigestService, orderingService, teamMemberService, teamService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
 
   // Create Express app
   const app = express();
@@ -93,6 +94,7 @@ async function startServer() {
   const projectRoutes = createProjectRoutes(projectService);
   const taskRoutes = createTaskRoutes(taskService, sessionService, config.dataDir);
   const taskListRoutes = createTaskListRoutes(taskListService);
+  const taskGraphRoutes = createTaskGraphRoutes(taskGraphService);
   const sessionRoutes = createSessionRoutes({
     sessionService,
     logDigestService,
@@ -118,6 +120,7 @@ async function startServer() {
   app.use('/api', projectRoutes);
   app.use('/api', taskRoutes);
   app.use('/api', taskListRoutes);
+  app.use('/api', taskGraphRoutes);
   app.use('/api', sessionRoutes);
   app.use('/api', skillRoutes);
   app.use('/api', orderingRoutes);
