@@ -11,7 +11,7 @@ export function useReferenceTaskPicker(projectId: string | undefined) {
     const [loading, setLoading] = useState(false);
     const [displayCount, setDisplayCount] = useState(5);
 
-    // Fetch tasks with docs when picker opens
+    // Fetch all tasks when picker opens
     useEffect(() => {
         if (!showPicker || !projectId) return;
         let cancelled = false;
@@ -21,22 +21,26 @@ export function useReferenceTaskPicker(projectId: string | undefined) {
             try {
                 const tasks = await maestroClient.getTasks(projectId);
                 const sorted = tasks.sort((a, b) => b.updatedAt - a.updatedAt);
-                const withDocs: RefTaskCandidate[] = [];
-                for (const t of sorted) {
+                const allCandidates: RefTaskCandidate[] = sorted
+                    .slice(0, 50)
+                    .map(t => ({ ...t, docCount: 0 }));
+                if (!cancelled) {
+                    setCandidates(allCandidates);
+                    setLoading(false);
+                }
+                // Fetch doc counts in background for display
+                for (const candidate of allCandidates) {
                     if (cancelled) return;
                     try {
-                        const docs = await maestroClient.getTaskDocs(t.id);
-                        if (docs.length > 0) {
-                            withDocs.push({ ...t, docCount: docs.length });
+                        const docs = await maestroClient.getTaskDocs(candidate.id);
+                        if (docs.length > 0 && !cancelled) {
+                            setCandidates(prev =>
+                                prev.map(c => c.id === candidate.id ? { ...c, docCount: docs.length } : c)
+                            );
                         }
                     } catch {
                         // skip tasks where docs fetch fails
                     }
-                    if (withDocs.length >= 20) break;
-                }
-                if (!cancelled) {
-                    setCandidates(withDocs);
-                    setLoading(false);
                 }
             } catch {
                 if (!cancelled) setLoading(false);

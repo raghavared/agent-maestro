@@ -78,6 +78,8 @@ const AGENT_TOOLS: { id: AgentTool; label: string; symbol: string; models: { id:
             { id: 'sonnet' as ClaudeModel, label: 'Sonnet' },
             { id: 'sonnet[1m]' as ClaudeModel, label: 'Sonnet [1M]' },
             { id: 'opus' as ClaudeModel, label: 'Opus' },
+            { id: 'claude-opus-4-7' as ClaudeModel, label: 'Claude Opus 4.7' },
+            { id: 'claude-opus-4-7[1m]' as ClaudeModel, label: 'Claude Opus 4.7 [1M]' },
             { id: 'opus[1m]' as ClaudeModel, label: 'Opus [1M]' },
         ],
     },
@@ -86,6 +88,7 @@ const AGENT_TOOLS: { id: AgentTool; label: string; symbol: string; models: { id:
         label: 'Codex',
         symbol: '◇',
         models: [
+            { id: 'gpt-5.4' as CodexModel, label: 'GPT 5.4' },
             { id: 'gpt-5.2-codex' as CodexModel, label: 'GPT 5.2' },
             { id: 'gpt-5.3-codex' as CodexModel, label: 'GPT 5.3' },
         ],

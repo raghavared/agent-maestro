@@ -12,9 +12,9 @@ export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coord
 export type LegacyAgentMode = 'execute' | 'coordinate';
 export type AgentModeInput = AgentMode | LegacyAgentMode;
 // Claude models
-export type ClaudeModel = 'haiku' | 'sonnet' | 'sonnet[1m]' | 'opus' | 'opus[1m]';
+export type ClaudeModel = 'haiku' | 'sonnet' | 'sonnet[1m]' | 'opus' | 'opus[1m]' | 'claude-opus-4-7' | 'claude-opus-4-7[1m]';
 // Codex models
-export type CodexModel = 'gpt-5.3-codex' | 'gpt-5.2-codex';
+export type CodexModel = 'gpt-5.4' | 'gpt-5.3-codex' | 'gpt-5.2-codex';
 // Gemini models
 export type GeminiModel = 'gemini-3-pro-preview' | 'gemini-2.5-pro';
 // Union of all supported models
@@ -454,6 +454,59 @@ export interface UpdateTaskListPayload {
   name?: string;
   description?: string;
   orderedTaskIds?: string[];
+}
+
+// Task Graph types
+export type TaskGraphStatus = 'draft' | 'ready' | 'running' | 'completed' | 'failed' | 'paused';
+
+export interface TaskGraphNode {
+  taskId: string;
+  position: { x: number; y: number };
+  teamMemberId?: string;
+  memberOverrides?: MemberLaunchOverride;
+}
+
+export interface TaskGraphEdge {
+  id: string;
+  sourceTaskId: string;
+  targetTaskId: string;
+  label?: string;
+}
+
+export interface TaskGraph {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string;
+  nodes: TaskGraphNode[];
+  edges: TaskGraphEdge[];
+  coordinatorTeamMemberId?: string;
+  coordinatorModel?: string;
+  status: TaskGraphStatus;
+  executionSessionId?: string;
+  lastRunAt?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CreateTaskGraphPayload {
+  projectId: string;
+  name: string;
+  description?: string;
+  nodes?: TaskGraphNode[];
+  edges?: TaskGraphEdge[];
+  coordinatorTeamMemberId?: string;
+  coordinatorModel?: string;
+}
+
+export interface UpdateTaskGraphPayload {
+  name?: string;
+  description?: string;
+  nodes?: TaskGraphNode[];
+  edges?: TaskGraphEdge[];
+  coordinatorTeamMemberId?: string;
+  coordinatorModel?: string;
+  status?: TaskGraphStatus;
 }
 
 export interface CreateSessionPayload {

@@ -166,6 +166,47 @@ export const reorderTaskListSchema = z.object({
   orderedTaskIds: z.array(safeId),
 }).strict();
 
+// --- Task Graph schemas ---
+
+const taskGraphNodeSchema = z.object({
+  taskId: safeId,
+  position: z.object({ x: z.number(), y: z.number() }),
+  teamMemberId: safeId.optional(),
+  memberOverrides: memberLaunchOverrideSchema.optional(),
+}).strict();
+
+const taskGraphEdgeSchema = z.object({
+  id: z.string().max(100),
+  sourceTaskId: safeId,
+  targetTaskId: safeId,
+  label: z.string().max(200).optional(),
+}).strict();
+
+export const createTaskGraphSchema = z.object({
+  projectId: safeId,
+  name: shortString,
+  description: longString.optional(),
+  nodes: z.array(taskGraphNodeSchema).optional(),
+  edges: z.array(taskGraphEdgeSchema).optional(),
+  coordinatorTeamMemberId: safeId.optional(),
+  coordinatorModel: z.string().optional(),
+}).strict();
+
+export const updateTaskGraphSchema = z.object({
+  name: shortString.optional(),
+  description: longString.optional(),
+  nodes: z.array(taskGraphNodeSchema).optional(),
+  edges: z.array(taskGraphEdgeSchema).optional(),
+  coordinatorTeamMemberId: safeId.optional(),
+  coordinatorModel: z.string().optional(),
+  status: z.enum(['draft', 'ready']).optional(),
+}).strict();
+
+export const listTaskGraphsQuerySchema = z.object({
+  projectId: safeId.optional(),
+  status: z.string().optional(),
+}).strict();
+
 // --- Team member schemas ---
 
 export const teamMemberScopeSchema = z.enum(['project', 'global']);

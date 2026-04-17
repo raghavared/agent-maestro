@@ -185,6 +185,15 @@ export class WebSocketBridge {
       'custom_prompt:created',
       'custom_prompt:updated',
       'custom_prompt:deleted',
+      // Task list events
+      'task_list:created',
+      'task_list:updated',
+      'task_list:reordered',
+      'task_list:deleted',
+      // Task graph events
+      'task_graph:created',
+      'task_graph:updated',
+      'task_graph:deleted',
     ];
 
     // Subscribe to each event, deferring via queueMicrotask to avoid blocking emit()
