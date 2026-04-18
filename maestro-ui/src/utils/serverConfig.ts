@@ -1,34 +1,135 @@
 // Maestro server connection configuration
 // Single source of truth for API and WebSocket URLs.
 //
-// If VITE_WS_URL is not set, it is derived from VITE_API_URL (or its default)
-// so the two can never accidentally point at different ports.
+// Runtime env values are normalized here because malformed values can surface as
+// opaque browser errors such as "The string did not match the expected pattern."
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4567/api';
+const DEFAULT_SERVER_URL = "http://localhost:4567";
+const DEFAULT_API_BASE_URL = `${DEFAULT_SERVER_URL}/api`;
+const DEFAULT_WS_URL = "ws://localhost:4567";
 
-function deriveWsUrl(apiUrl: string): string {
+function stripWrappingQuotes(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+
+  const pairs: Array<[string, string]> = [
+    ['"', '"'],
+    ["'", "'"],
+    ["`", "`"],
+  ];
+
+  for (const [start, end] of pairs) {
+    if (trimmed.startsWith(start) && trimmed.endsWith(end) && trimmed.length >= 2) {
+      return trimmed.slice(1, -1).trim();
+    }
+  }
+
+  return trimmed;
+}
+
+function normalizeCandidate(raw: string | null | undefined): string | null {
+  if (typeof raw !== "string") return null;
+  const cleaned = stripWrappingQuotes(raw);
+  return cleaned || null;
+}
+
+function parseAbsoluteUrl(raw: string | null | undefined): URL | null {
+  const candidate = normalizeCandidate(raw);
+  if (!candidate) return null;
+
   try {
-    const url = new URL(apiUrl);
-    const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${url.host}`;
+    const parsed = new URL(candidate);
+    if (!["http:", "https:", "ws:", "wss:"].includes(parsed.protocol)) {
+      return null;
+    }
+    return parsed;
   } catch {
-    return 'ws://localhost:4567';
+    return null;
   }
 }
 
-function deriveServerUrl(apiUrl: string): string {
-  try {
-    const url = new URL(apiUrl);
-    return `${url.protocol}//${url.host}`;
-  } catch {
-    return 'http://localhost:4567';
-  }
+function normalizePathname(pathname: string): string {
+  const trimmed = pathname.replace(/\/+$/, "");
+  return trimmed === "" ? "/" : trimmed;
 }
 
-const WS_URL = import.meta.env.VITE_WS_URL || deriveWsUrl(API_BASE_URL);
+function buildUrl(origin: string, pathname: string, search = ""): string {
+  const normalizedPath = normalizePathname(pathname);
+  return `${origin}${normalizedPath === "/" ? "" : normalizedPath}${search}`;
+}
+
+export function deriveWsUrl(apiUrl: string): string {
+  const parsed = parseAbsoluteUrl(apiUrl);
+  if (!parsed) {
+    return DEFAULT_WS_URL;
+  }
+
+  const protocol = parsed.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${parsed.host}`;
+}
+
+export function deriveServerUrl(apiUrl: string): string {
+  const parsed = parseAbsoluteUrl(apiUrl);
+  if (!parsed) {
+    return DEFAULT_SERVER_URL;
+  }
+
+  return `${parsed.protocol}//${parsed.host}`;
+}
+
+export function normalizeApiBaseUrl(raw: string | null | undefined): string {
+  const parsed = parseAbsoluteUrl(raw);
+  if (!parsed) {
+    return DEFAULT_API_BASE_URL;
+  }
+
+  const origin = `${parsed.protocol}//${parsed.host}`;
+  const pathname = normalizePathname(parsed.pathname);
+
+  if (pathname === "/") {
+    return `${origin}/api`;
+  }
+
+  return buildUrl(origin, pathname);
+}
+
+export function normalizeWsUrl(
+  rawWsUrl: string | null | undefined,
+  apiBaseUrl: string,
+): string {
+  const parsed = parseAbsoluteUrl(rawWsUrl);
+  if (!parsed) {
+    return deriveWsUrl(apiBaseUrl);
+  }
+
+  if (parsed.protocol === "ws:" || parsed.protocol === "wss:") {
+    return buildUrl(`${parsed.protocol}//${parsed.host}`, parsed.pathname, parsed.search);
+  }
+
+  if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+    const protocol = parsed.protocol === "https:" ? "wss:" : "ws:";
+    return buildUrl(`${protocol}//${parsed.host}`, parsed.pathname, parsed.search);
+  }
+
+  return deriveWsUrl(apiBaseUrl);
+}
+
+const rawApiBaseUrl = normalizeCandidate(import.meta.env.VITE_API_URL);
+const rawWsUrl = normalizeCandidate(import.meta.env.VITE_WS_URL);
+
+const API_BASE_URL = normalizeApiBaseUrl(rawApiBaseUrl);
+const WS_URL = normalizeWsUrl(rawWsUrl, API_BASE_URL);
 
 // Base server URL without /api path (e.g. "http://localhost:2357")
 // Used for MAESTRO_API_URL env var passed to CLI workers
 const SERVER_URL = deriveServerUrl(API_BASE_URL);
 
-export { API_BASE_URL, WS_URL, SERVER_URL };
+if (rawApiBaseUrl && API_BASE_URL !== rawApiBaseUrl) {
+  console.warn(`[serverConfig] Invalid VITE_API_URL "${rawApiBaseUrl}", falling back to ${API_BASE_URL}`);
+}
+
+if (rawWsUrl && WS_URL !== rawWsUrl) {
+  console.warn(`[serverConfig] Invalid VITE_WS_URL "${rawWsUrl}", falling back to ${WS_URL}`);
+}
+
+export { API_BASE_URL, WS_URL, SERVER_URL, DEFAULT_API_BASE_URL, DEFAULT_WS_URL, DEFAULT_SERVER_URL };

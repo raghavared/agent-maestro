@@ -8,6 +8,7 @@ import { FileSystemProjectRepository } from './infrastructure/repositories/FileS
 import { FileSystemTaskRepository } from './infrastructure/repositories/FileSystemTaskRepository';
 import { FileSystemSessionRepository } from './infrastructure/repositories/FileSystemSessionRepository';
 import { FileSystemTaskListRepository } from './infrastructure/repositories/FileSystemTaskListRepository';
+import { FileSystemTaskGraphRepository } from './infrastructure/repositories/FileSystemTaskGraphRepository';
 
 import { FileSystemOrderingRepository } from './infrastructure/repositories/FileSystemOrderingRepository';
 import { FileSystemTeamMemberRepository } from './infrastructure/repositories/FileSystemTeamMemberRepository';
@@ -18,6 +19,7 @@ import { ProjectService } from './application/services/ProjectService';
 import { TaskService } from './application/services/TaskService';
 import { SessionService } from './application/services/SessionService';
 import { TaskListService } from './application/services/TaskListService';
+import { TaskGraphService } from './application/services/TaskGraphService';
 import { LogDigestService } from './application/services/LogDigestService';
 
 import { OrderingService } from './application/services/OrderingService';
@@ -30,6 +32,7 @@ import { IEventBus } from './domain/events/IEventBus';
 import { IProjectRepository } from './domain/repositories/IProjectRepository';
 import { ITaskRepository } from './domain/repositories/ITaskRepository';
 import { ITaskListRepository } from './domain/repositories/ITaskListRepository';
+import { ITaskGraphRepository } from './domain/repositories/ITaskGraphRepository';
 import { ISessionRepository } from './domain/repositories/ISessionRepository';
 
 import { IOrderingRepository } from './domain/repositories/IOrderingRepository';
@@ -98,6 +101,7 @@ export interface Container {
   projectRepo: IProjectRepository;
   taskRepo: ITaskRepository;
   taskListRepo: ITaskListRepository;
+  taskGraphRepo: ITaskGraphRepository;
   sessionRepo: ISessionRepository;
   orderingRepo: IOrderingRepository;
   teamMemberRepo: ITeamMemberRepository;
@@ -111,6 +115,7 @@ export interface Container {
   projectService: ProjectService;
   taskService: TaskService;
   taskListService: TaskListService;
+  taskGraphService: TaskGraphService;
   sessionService: SessionService;
   logDigestService: LogDigestService;
   orderingService: OrderingService;
@@ -139,6 +144,7 @@ export async function createContainer(): Promise<Container> {
   const taskRepo = new FileSystemTaskRepository(config.dataDir, idGenerator, logger);
   const sessionRepo = new FileSystemSessionRepository(config.dataDir, idGenerator, logger);
   const taskListRepo = new FileSystemTaskListRepository(config.dataDir, idGenerator, logger);
+  const taskGraphRepo = new FileSystemTaskGraphRepository(config.dataDir, idGenerator, logger);
   const projectRepo = new FileSystemProjectRepository(
     config.dataDir,
     idGenerator,
@@ -159,6 +165,7 @@ export async function createContainer(): Promise<Container> {
   const projectService = new ProjectService(projectRepo, eventBus);
   const taskService = new TaskService(taskRepo, projectRepo, eventBus, idGenerator, taskListRepo);
   const taskListService = new TaskListService(taskListRepo, projectRepo, taskRepo, eventBus);
+  const taskGraphService = new TaskGraphService(taskGraphRepo, projectRepo, taskRepo, eventBus);
   const sessionService = new SessionService(sessionRepo, taskRepo, projectRepo, eventBus, idGenerator);
   const logDigestService = new LogDigestService(sessionService, projectRepo);
   const orderingService = new OrderingService(orderingRepo);
@@ -183,6 +190,7 @@ export async function createContainer(): Promise<Container> {
     projectRepo,
     taskRepo,
     taskListRepo,
+    taskGraphRepo,
     sessionRepo,
     orderingRepo,
     teamMemberRepo,
@@ -192,6 +200,7 @@ export async function createContainer(): Promise<Container> {
     projectService,
     taskService,
     taskListService,
+    taskGraphService,
     sessionService,
     logDigestService,
     orderingService,
@@ -207,6 +216,7 @@ export async function createContainer(): Promise<Container> {
         projectRepo.initialize(),
         taskRepo.initialize(),
         taskListRepo.initialize(),
+        taskGraphRepo.initialize(),
         sessionRepo.initialize(),
         orderingRepo.initialize(),
         teamMemberRepo.initialize(),

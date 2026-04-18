@@ -34,6 +34,61 @@ export interface UpdateTaskListPayload {
   orderedTaskIds?: string[];
 }
 
+// Task graph types (DAG-based task execution)
+export type TaskGraphStatus = 'draft' | 'ready' | 'running' | 'completed' | 'failed' | 'paused';
+
+export interface TaskGraphNode {
+  taskId: string;
+  position: { x: number; y: number };
+  teamMemberId?: string;
+  memberOverrides?: MemberLaunchOverride;
+}
+
+export interface TaskGraphEdge {
+  id: string;
+  sourceTaskId: string;
+  targetTaskId: string;
+  label?: string;
+}
+
+export interface TaskGraph {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string;
+  nodes: TaskGraphNode[];
+  edges: TaskGraphEdge[];
+  coordinatorTeamMemberId?: string;
+  coordinatorModel?: string;
+  status: TaskGraphStatus;
+  executionSessionId?: string;
+  lastRunAt?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CreateTaskGraphPayload {
+  projectId: string;
+  name: string;
+  description?: string;
+  nodes?: TaskGraphNode[];
+  edges?: TaskGraphEdge[];
+  coordinatorTeamMemberId?: string;
+  coordinatorModel?: string;
+}
+
+export interface UpdateTaskGraphPayload {
+  name?: string;
+  description?: string;
+  nodes?: TaskGraphNode[];
+  edges?: TaskGraphEdge[];
+  coordinatorTeamMemberId?: string;
+  coordinatorModel?: string;
+  status?: TaskGraphStatus;
+  executionSessionId?: string;
+  lastRunAt?: number;
+}
+
 // Worker strategy types
 export type WorkerStrategy = 'simple' | 'tree';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
