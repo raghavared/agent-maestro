@@ -29,6 +29,7 @@ const MODELS_BY_TOOL: Record<AgentTool, { value: ModelType; label: string }[]> =
         { value: "claude-opus-4-7[1m]", label: "Claude Opus 4.7 [1M]" },
     ],
     "codex": [
+        { value: "gpt-5.5", label: "GPT 5.5" },
         { value: "gpt-5.4", label: "GPT 5.4" },
         { value: "gpt-5.3-codex", label: "GPT 5.3" },
         { value: "gpt-5.2-codex", label: "GPT 5.2" },

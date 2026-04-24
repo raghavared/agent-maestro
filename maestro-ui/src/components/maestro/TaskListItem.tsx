@@ -88,6 +88,7 @@ const AGENT_TOOLS: { id: AgentTool; label: string; symbol: string; models: { id:
         label: 'Codex',
         symbol: '◇',
         models: [
+            { id: 'gpt-5.5' as CodexModel, label: 'GPT 5.5' },
             { id: 'gpt-5.4' as CodexModel, label: 'GPT 5.4' },
             { id: 'gpt-5.2-codex' as CodexModel, label: 'GPT 5.2' },
             { id: 'gpt-5.3-codex' as CodexModel, label: 'GPT 5.3' },
