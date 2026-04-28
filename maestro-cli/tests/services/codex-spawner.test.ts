@@ -3,7 +3,7 @@ import { CodexSpawner } from '../../src/services/codex-spawner.js';
 import type { MaestroManifest } from '../../src/types/manifest.js';
 
 describe('CodexSpawner', () => {
-  const manifest: MaestroManifest = {
+  const createManifest = (model: string): MaestroManifest => ({
     manifestVersion: '1.0',
     mode: 'worker',
     tasks: [{
@@ -15,19 +15,23 @@ describe('CodexSpawner', () => {
       createdAt: '2026-02-02T00:00:00Z',
     }],
     session: {
-      model: 'gpt-5.5',
+      model,
       permissionMode: 'acceptEdits',
     },
-  };
+  });
 
-  it('includes Codex 5.5 in the supported model catalog', () => {
+  it('includes both Codex 5.4 and 5.5 in the supported model catalog', () => {
+    expect(CodexSpawner.MODELS).toContain('gpt-5.4');
     expect(CodexSpawner.MODELS).toContain('gpt-5.5');
   });
 
-  it('passes Codex 5.5 through to the Codex CLI model flag', () => {
-    const args = new CodexSpawner().buildCodexArgs(manifest);
+  it.each(['gpt-5.4', 'gpt-5.5'])(
+    'passes %s through to the Codex CLI model flag',
+    (model) => {
+      const args = new CodexSpawner().buildCodexArgs(createManifest(model));
 
-    expect(args).toContain('--model');
-    expect(args).toContain('gpt-5.5');
-  });
+      expect(args).toContain('--model');
+      expect(args).toContain(model);
+    }
+  );
 });
