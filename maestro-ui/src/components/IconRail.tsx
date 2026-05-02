@@ -16,6 +16,7 @@ const railItems: { section: Exclude<IconRailSection, null>; label: string }[] = 
     { section: "teams", label: "Teams" },
     { section: "skills", label: "Skills" },
     { section: "lists", label: "Lists" },
+    { section: "graphs", label: "Graphs" },
     { section: "files", label: "Files" },
 ];
 
@@ -61,6 +62,16 @@ function getSvgForSection(section: string): React.ReactNode {
                     <circle cx="6" cy="5" r="1" fill="currentColor" />
                     <circle cx="6" cy="10" r="1" fill="currentColor" />
                     <circle cx="6" cy="15" r="1" fill="currentColor" />
+                </svg>
+            );
+        case "graphs":
+            return (
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18">
+                    <circle cx="5" cy="5" r="2.5" />
+                    <circle cx="15" cy="5" r="2.5" />
+                    <circle cx="10" cy="15" r="2.5" />
+                    <path d="M7.2 6.2L8.5 12.8" strokeLinecap="round" />
+                    <path d="M12.8 6.2L11.5 12.8" strokeLinecap="round" />
                 </svg>
             );
         case "files":

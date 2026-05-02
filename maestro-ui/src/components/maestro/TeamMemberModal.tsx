@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useLayoutEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { MentionsInput, Mention } from 'react-mentions';
 import { AgentTool, AgentMode, ModelType, TeamMember, TeamMemberScope, CreateTeamMemberPayload, UpdateTeamMemberPayload, InstrumentType } from "../../app/types/maestro";
@@ -13,6 +13,7 @@ import {
     isCommandAllowedForMode,
     toggleCommandOverride,
 } from "../../utils/commandPermissions";
+import { useAutoSave, AutoSaveStatus } from "../../hooks/useAutoSave";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -45,9 +46,12 @@ const MODELS_BY_TOOL: Partial<Record<AgentTool, { value: ModelType; label: strin
         { value: "sonnet", label: "Sonnet" },
         { value: "sonnet[1m]", label: "Sonnet [1M]" },
         { value: "opus", label: "Opus" },
+        { value: "claude-opus-4-7", label: "Claude Opus 4.7" },
+        { value: "claude-opus-4-7[1m]", label: "Claude Opus 4.7 [1M]" },
         { value: "opus[1m]", label: "Opus [1M]" },
     ],
     "codex": [
+        { value: "gpt-5.4", label: "GPT 5.4" },
         { value: "gpt-5.3-codex", label: "GPT 5.3 Codex" },
         { value: "gpt-5.2-codex", label: "GPT 5.2 Codex" },
     ],
@@ -59,7 +63,7 @@ const MODELS_BY_TOOL: Partial<Record<AgentTool, { value: ModelType; label: strin
 
 const DEFAULT_MODEL: Record<string, string> = {
     "claude-code": "sonnet",
-    "codex": "gpt-5.3-codex",
+    "codex": "gpt-5.4",
     "gemini": "gemini-3-pro-preview",
 };
 
@@ -104,6 +108,21 @@ const DEFAULT_CONFIGS: Record<string, {
                 "team-member:create": true,
                 "team-member:list": true,
                 "team-member:get": true,
+            },
+        },
+    },
+    standup: {
+        name: "Standup", role: "Team roster auditor and optimizer", avatar: "\u{1F4CB}",
+        identity: "You are the team standup agent. You audit and optimize the team roster — review all members, merge duplicates, remove redundant ones, update stale configs, and identify gaps. You present a diff-style report and wait for confirmation before making changes.",
+        agentTool: "claude-code", model: "opus", mode: "worker",
+        commandPermissions: {
+            commands: {
+                "team-member:list": true,
+                "team-member:get": true,
+                "team-member:create": true,
+                "team-member:edit": true,
+                "team-member:archive": true,
+                "team-member:delete": true,
             },
         },
     },
@@ -308,6 +327,12 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
     const [soundInstrument, setSoundInstrument] = useState<InstrumentType>('piano');
     const [scope, setScope] = useState<TeamMemberScope>('project');
 
+    // Auto-save tracking
+    const [changeVersion, setChangeVersion] = useState(0);
+    const bumpVersion = useCallback(() => setChangeVersion(v => v + 1), []);
+    const populateCounterRef = useRef(0);
+    const lastPopulateCounterRef = useRef(0);
+
     // Agent tool dropdown
     const [showAgentDropdown, setShowAgentDropdown] = useState(false);
     const agentBtnRef = useRef<HTMLButtonElement>(null);
@@ -337,9 +362,11 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
     const filteredTemplates = workflowTemplates.filter(t => t.mode === mode);
     const selectedTemplateObj = workflowTemplates.find(t => t.id === workflowTemplateId);
 
-    // ─── Populate form ────────────────────────────────────────────────
+    // ─── Populate form ───────────────────────────────────���────────────
     useEffect(() => {
         if (!isOpen) return;
+        populateCounterRef.current++;
+        setChangeVersion(0);
         if (teamMember) {
             setName(teamMember.name);
             setRole(teamMember.role);
@@ -398,6 +425,69 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
         setShowAgentDropdown(false);
     }, [isOpen, teamMember]);
 
+    // ─── Auto-save (edit mode) ─────────────────────────────────────────
+    const hasUnsavedChanges = useMemo(() => {
+        if (!isEditMode || !teamMember) return false;
+        return (
+            name !== teamMember.name ||
+            role !== teamMember.role ||
+            avatar !== teamMember.avatar ||
+            identity !== teamMember.identity ||
+            agentTool !== (teamMember.agentTool || "claude-code") ||
+            model !== ((teamMember.model || "sonnet") as ModelType) ||
+            mode !== (teamMember.mode || "worker") ||
+            permissionMode !== (teamMember.permissionMode || "acceptEdits") ||
+            JSON.stringify(selectedSkills) !== JSON.stringify(teamMember.skillIds || []) ||
+            JSON.stringify(capabilities) !== JSON.stringify(
+                teamMember.capabilities
+                    ? { ...getDefaultCapabilities(teamMember.mode || 'worker'), ...teamMember.capabilities }
+                    : getDefaultCapabilities(teamMember.mode || 'worker')
+            ) ||
+            JSON.stringify(commandOverrides) !== JSON.stringify(teamMember.commandPermissions?.commands || {}) ||
+            soundInstrument !== (teamMember.soundInstrument || 'piano') ||
+            scope !== (teamMember.scope || 'project')
+        );
+    }, [isEditMode, teamMember, name, role, avatar, identity, agentTool, model, mode, permissionMode, selectedSkills, capabilities, commandOverrides, soundInstrument, scope]);
+
+    const autoSaveFn = useCallback(async () => {
+        if (!isEditMode || !teamMember) return;
+        const cmdPerms = Object.keys(commandOverrides).length > 0
+            ? { commands: commandOverrides }
+            : undefined;
+        const payload: UpdateTeamMemberPayload = {
+            name: name.trim(),
+            role: role.trim(),
+            avatar: avatar.trim() || "\u{1F916}",
+            identity: identity.trim(),
+            agentTool, model, mode, permissionMode,
+            skillIds: selectedSkills,
+            capabilities,
+            soundInstrument,
+            scope,
+            ...(cmdPerms && { commandPermissions: cmdPerms }),
+            workflowTemplateId: useCustomWorkflow ? undefined : (workflowTemplateId || undefined),
+            customWorkflow: useCustomWorkflow && customWorkflow.trim() ? customWorkflow.trim() : undefined,
+        };
+        await updateTeamMember(teamMember.id, projectId, payload);
+    }, [isEditMode, teamMember, name, role, avatar, identity, agentTool, model, mode, permissionMode, selectedSkills, capabilities, commandOverrides, soundInstrument, scope, useCustomWorkflow, workflowTemplateId, customWorkflow, updateTeamMember, projectId]);
+
+    const { status: autoSaveStatus, saveNow: saveTeamMemberNow } = useAutoSave({
+        changeVersion,
+        hasChanges: hasUnsavedChanges,
+        saveFn: autoSaveFn,
+        debounceMs: 1000,
+        enabled: isEditMode,
+    });
+
+    // Bump version on field changes (skip populate-triggered changes)
+    useEffect(() => {
+        if (populateCounterRef.current !== lastPopulateCounterRef.current) {
+            lastPopulateCounterRef.current = populateCounterRef.current;
+            return;
+        }
+        if (isEditMode) bumpVersion();
+    }, [name, role, avatar, identity, agentTool, model, mode, permissionMode, selectedSkills, capabilities, commandOverrides, soundInstrument, scope]);
+
     // ─── Handlers ─────────────────────────────────────────────────────
     const handleCapabilityToggle = useCallback((key: string) => {
         setCapabilities(prev => ({ ...prev, [key]: !prev[key] }));
@@ -417,8 +507,12 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
 
     const toggleTab = (tab: string) => setActiveTab(prev => prev === tab ? null : tab);
 
-    const handleClose = () => {
-        if (!isSaving) onClose();
+    const handleClose = async () => {
+        if (isSaving) return;
+        if (isEditMode && hasUnsavedChanges) {
+            await saveTeamMemberNow();
+        }
+        onClose();
     };
 
     const handleResetToDefault = () => {
@@ -500,7 +594,8 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
             e.preventDefault();
-            handleSubmit();
+            if (isEditMode) saveTeamMemberNow();
+            else handleSubmit();
         }
     };
 
@@ -1054,20 +1149,24 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                                 Reset Default
                             </button>
                         )}
+                        {isEditMode && autoSaveStatus !== "idle" && (
+                            <span style={{ fontSize: '10px', color: autoSaveStatus === 'error' ? 'var(--theme-error, #e55)' : 'var(--theme-text-secondary)', opacity: 0.7, marginRight: '4px' }}>
+                                {autoSaveStatus === "saving" ? "Saving..." : autoSaveStatus === "saved" ? "Saved" : "Save error"}
+                            </span>
+                        )}
                         <button type="button" className="themedBtn" onClick={handleClose} disabled={isSaving}>
-                            Cancel
+                            {isEditMode ? "Close" : "Cancel"}
                         </button>
-                        <button
-                            type="button"
-                            className="themedBtn themedBtnPrimary"
-                            onClick={handleSubmit}
-                            disabled={isSaving || !name.trim() || !role.trim()}
-                        >
-                            {isSaving
-                                ? (isEditMode ? "Saving..." : "Creating...")
-                                : (isEditMode ? "Save" : "Create Member")
-                            }
-                        </button>
+                        {!isEditMode && (
+                            <button
+                                type="button"
+                                className="themedBtn themedBtnPrimary"
+                                onClick={handleSubmit}
+                                disabled={isSaving || !name.trim() || !role.trim()}
+                            >
+                                {isSaving ? "Creating..." : "Create Member"}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

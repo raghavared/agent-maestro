@@ -78,6 +78,8 @@ const AGENT_TOOLS: { id: AgentTool; label: string; symbol: string; models: { id:
             { id: 'sonnet' as ClaudeModel, label: 'Sonnet' },
             { id: 'sonnet[1m]' as ClaudeModel, label: 'Sonnet [1M]' },
             { id: 'opus' as ClaudeModel, label: 'Opus' },
+            { id: 'claude-opus-4-7' as ClaudeModel, label: 'Claude Opus 4.7' },
+            { id: 'claude-opus-4-7[1m]' as ClaudeModel, label: 'Claude Opus 4.7 [1M]' },
             { id: 'opus[1m]' as ClaudeModel, label: 'Opus [1M]' },
         ],
     },
@@ -86,6 +88,7 @@ const AGENT_TOOLS: { id: AgentTool; label: string; symbol: string; models: { id:
         label: 'Codex',
         symbol: '◇',
         models: [
+            { id: 'gpt-5.4' as CodexModel, label: 'GPT 5.4' },
             { id: 'gpt-5.2-codex' as CodexModel, label: 'GPT 5.2' },
             { id: 'gpt-5.3-codex' as CodexModel, label: 'GPT 5.3' },
         ],
@@ -427,9 +430,10 @@ export const TaskListItem = React.memo(function TaskListItem({
                         e.stopPropagation();
                         onSelect();
                     }}
-                    title={task.title}
+                    title={task.title || "Untitled"}
+                    style={!task.title ? { opacity: 0.5, fontStyle: 'italic' } : undefined}
                 >
-                    {task.title}
+                    {task.title || "Untitled"}
                 </span>
 
                 {/* Doc count badge */}

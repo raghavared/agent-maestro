@@ -116,7 +116,7 @@ export function ReferenceTaskPicker({
                             </div>
                         ) : candidates.length === 0 ? (
                             <div style={{ padding: '8px 12px', fontSize: '11px', opacity: 0.5 }}>
-                                No tasks with docs found
+                                No tasks found
                             </div>
                         ) : (
                             <>
@@ -136,9 +136,11 @@ export function ReferenceTaskPicker({
                                                 <span className="themedDropdownLabel" style={{ flex: 1 }}>
                                                     {candidate.title.length > 45 ? candidate.title.slice(0, 45) + '...' : candidate.title}
                                                 </span>
-                                                <span style={{ fontSize: '9px', opacity: 0.5, flexShrink: 0 }}>
-                                                    {candidate.docCount} doc{candidate.docCount !== 1 ? 's' : ''}
-                                                </span>
+                                                {candidate.docCount > 0 && (
+                                                    <span style={{ fontSize: '9px', opacity: 0.5, flexShrink: 0 }}>
+                                                        {candidate.docCount} doc{candidate.docCount !== 1 ? 's' : ''}
+                                                    </span>
+                                                )}
                                                 {isSelected && (
                                                     <span className="themedDropdownCheck">{'\u2713'}</span>
                                                 )}

@@ -9,6 +9,7 @@ import { createContainer, Container } from './container';
 import { createProjectRoutes } from './api/projectRoutes';
 import { createTaskRoutes } from './api/taskRoutes';
 import { createTaskListRoutes } from './api/taskListRoutes';
+import { createTaskGraphRoutes } from './api/taskGraphRoutes';
 import { createSessionRoutes } from './api/sessionRoutes';
 
 import { createSkillRoutes } from './api/skillRoutes';
@@ -26,7 +27,7 @@ async function startServer() {
   const container = await createContainer();
   await container.initialize();
 
-  const { config, logger, eventBus, projectService, taskService, taskListService, sessionService, logDigestService, orderingService, teamMemberService, teamService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
+  const { config, logger, eventBus, projectService, taskService, taskListService, taskGraphService, sessionService, logDigestService, orderingService, teamMemberService, teamService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
 
   // Create Express app
   const app = express();
@@ -41,18 +42,9 @@ async function startServer() {
     origin: (origin, callback) => {
       const allowedOrigins = [
         'tauri://localhost',
-        'http://localhost:1420',
-        'http://localhost:3000',
-        'http://localhost:3002',
-        'http://localhost:5173',
-        'http://127.0.0.1:1420',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3002',
-        'http://127.0.0.1:5173'
       ];
-
-      // Allow requests with no origin (like mobile apps or curl)
-      if (!origin || allowedOrigins.includes(origin)) {
+      // In development, allow any localhost origin
+      if (!origin || allowedOrigins.includes(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || '')) {
         callback(null, true);
       } else {
         callback(new Error(`Origin ${origin} not allowed by CORS`));
@@ -102,6 +94,7 @@ async function startServer() {
   const projectRoutes = createProjectRoutes(projectService);
   const taskRoutes = createTaskRoutes(taskService, sessionService, config.dataDir);
   const taskListRoutes = createTaskListRoutes(taskListService);
+  const taskGraphRoutes = createTaskGraphRoutes(taskGraphService);
   const sessionRoutes = createSessionRoutes({
     sessionService,
     logDigestService,
@@ -127,6 +120,7 @@ async function startServer() {
   app.use('/api', projectRoutes);
   app.use('/api', taskRoutes);
   app.use('/api', taskListRoutes);
+  app.use('/api', taskGraphRoutes);
   app.use('/api', sessionRoutes);
   app.use('/api', skillRoutes);
   app.use('/api', orderingRoutes);

@@ -94,6 +94,20 @@ const TEMPLATES: WorkflowTemplate[] = [
       { name: 'complete', instruction: 'When the full DAG is resolved:\n  maestro task report complete <parentTaskId> "<summary>"\n  maestro session report complete "<summary with wave count and parallelism stats>"' },
     ],
   },
+  {
+    id: 'coordinate-remote',
+    name: 'Coordinate Remote',
+    description: 'Remote-controlled coordination: gather state, respond to queries, spawn workers on demand.',
+    mode: 'coordinator',
+    builtIn: true,
+    phases: [
+      { name: 'assess', instruction: 'When prompted, immediately gather the current Maestro workspace state:\n  maestro task list\n  maestro session siblings\n  maestro team-member list\nSynthesize a concise status summary before taking action.' },
+      { name: 'respond', instruction: 'Answer the user\'s query or execute their command. If they want information, provide it concisely. If they want action (create tasks, spawn workers, coordinate work), proceed to the next phases.' },
+      { name: 'execute', instruction: 'For action requests:\n  1. Create tasks with clear descriptions: maestro task create "<title>" -d "<description>"\n  2. Pick the right team member and spawn: maestro session spawn --task <taskId> --team-member-id <tmId>\n  3. Track spawned sessions for follow-up.' },
+      { name: 'monitor', instruction: 'After spawning workers, actively monitor:\n  maestro session logs --my-workers\nReport progress back concisely. Escalate blockers immediately.' },
+      { name: 'complete', instruction: 'When the user\'s request is fulfilled or all spawned workers complete:\n  maestro session report complete "<summary of what was done>"' },
+    ],
+  },
 ];
 
 const TEMPLATE_MAP = new Map<string, WorkflowTemplate>(

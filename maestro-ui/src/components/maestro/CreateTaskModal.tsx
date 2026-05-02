@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { MaestroTask, MaestroProject, TeamMember, MemberLaunchOverride } from "../../app/types/maestro";
-import { maestroClient } from "../../utils/MaestroClient";
 import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useTaskForm } from "../../hooks/useTaskForm";
 import { useReferenceTaskPicker } from "../../hooks/useReferenceTaskPicker";
 import { useFileAutocomplete } from "../../hooks/useFileAutocomplete";
 import { useSkillAutocomplete } from "../../hooks/useSkillAutocomplete";
+import { useAutoSave } from "../../hooks/useAutoSave";
+import { useDraftTaskLifecycle } from "../../hooks/useDraftTaskLifecycle";
 
 // Sub-components
 import { TaskFormHeader } from "./task-modal/TaskFormHeader";
@@ -42,6 +43,7 @@ type CreateTaskModalProps = {
         teamMemberIds?: string[];
         memberOverrides?: Record<string, MemberLaunchOverride>;
     }) => Promise<void> | void;
+    onStartTask?: (taskId: string) => Promise<void> | void;
     project: MaestroProject;
     parentId?: string;
     parentTitle?: string;
@@ -64,6 +66,7 @@ export function CreateTaskModal({
     isOpen,
     onClose,
     onCreate,
+    onStartTask,
     project,
     parentId,
     parentTitle,
@@ -84,7 +87,6 @@ export function CreateTaskModal({
 
     // ==================== HOOKS ====================
 
-    const form = useTaskForm(mode, isOpen, task);
     const refPicker = useReferenceTaskPicker(project?.id);
     const files = useFileAutocomplete(project?.basePath, isOpen);
     const skills = useSkillAutocomplete(project?.basePath, isOpen);
@@ -96,6 +98,98 @@ export function CreateTaskModal({
         [teamMembersMap, project?.id]
     );
 
+    // ==================== DRAFT LIFECYCLE ====================
+
+    const getAutoTitle = useCallback(() => {
+        const storeTasks = useMaestroStore.getState().tasks;
+        const projectTasks = Object.values(storeTasks).filter(
+            (t: MaestroTask) => t.projectId === project?.id
+        );
+        let n = 1;
+        const existingTitles = new Set(projectTasks.map((t: MaestroTask) => t.title));
+        while (existingTitles.has(`Untitled ${n}`)) n++;
+        return `Untitled ${n}`;
+    }, [project?.id]);
+
+    // We need a ref to read form state at create time (avoids stale closures)
+    const formStateRef = useRef({
+        title: "", prompt: "", priority: "medium" as string,
+        selectedTeamMemberIds: [] as string[], selectedSkills: [] as string[],
+        selectedReferenceTasks: [] as MaestroTask[],
+    });
+
+    const draft = useDraftTaskLifecycle({
+        projectId: project?.id,
+        parentId,
+        enabled: mode === "create" && isOpen,
+        getFormData: () => ({
+            title: formStateRef.current.title.trim() || getAutoTitle(),
+            description: formStateRef.current.prompt,
+            priority: formStateRef.current.priority as any,
+            skillIds: formStateRef.current.selectedSkills.length > 0 ? formStateRef.current.selectedSkills : undefined,
+            referenceTaskIds: formStateRef.current.selectedReferenceTasks.length > 0
+                ? formStateRef.current.selectedReferenceTasks.map(t => t.id) : undefined,
+            teamMemberId: formStateRef.current.selectedTeamMemberIds.length === 1 ? formStateRef.current.selectedTeamMemberIds[0] : undefined,
+            teamMemberIds: formStateRef.current.selectedTeamMemberIds.length > 0 ? formStateRef.current.selectedTeamMemberIds : undefined,
+        }),
+    }) as ReturnType<typeof useDraftTaskLifecycle> & { _triggerAutoCreate: () => void; _uploadStagedImages: (taskId: string, files: File[]) => Promise<void> };
+
+    const form = useTaskForm(mode, isOpen, task, draft.draftTask);
+
+    // Keep formStateRef in sync (read at create time, not in a stale closure)
+    formStateRef.current = {
+        title: form.title,
+        prompt: form.prompt,
+        priority: form.priority,
+        selectedTeamMemberIds: form.selectedTeamMemberIds,
+        selectedSkills: form.selectedSkills,
+        selectedReferenceTasks: refPicker.selectedReferenceTasks,
+    };
+
+    const effectiveEditMode = isEditMode || draft.phase === "created";
+    const effectiveTask = isEditMode ? task : draft.draftTask;
+
+    // Trigger auto-create when user starts typing in create mode
+    useEffect(() => {
+        if (mode !== "create" || draft.phase !== "idle") return;
+        const hasContent = form.title.trim() !== "" || form.prompt.trim() !== "";
+        if (hasContent) {
+            draft._triggerAutoCreate();
+        }
+    }, [mode, draft.phase, form.title, form.prompt]);
+
+    // Upload staged images after draft creation
+    useEffect(() => {
+        if (draft.phase === "created" && draft.draftTaskId && form.stagedImageFiles.length > 0) {
+            draft._uploadStagedImages(draft.draftTaskId, form.stagedImageFiles);
+        }
+    }, [draft.phase, draft.draftTaskId]);
+
+    // ==================== AUTO-SAVE ====================
+
+    const autoSaveFn = useCallback(async () => {
+        const targetTask = effectiveTask;
+        if (!targetTask) return;
+
+        const refIds = refPicker.selectedReferenceTasks.map(t => t.id);
+        const updates = form.getUpdateDiff(refIds, teamMembers);
+        if (!updates) return;
+
+        if (isEditMode && onUpdateTask) {
+            await onUpdateTask(targetTask.id, updates);
+        } else {
+            await useMaestroStore.getState().updateTask(targetTask.id, updates);
+        }
+    }, [effectiveTask, isEditMode, onUpdateTask, form, refPicker.selectedReferenceTasks, teamMembers]);
+
+    const { status: autoSaveStatus, saveNow } = useAutoSave({
+        changeVersion: form.changeVersion,
+        hasChanges: effectiveEditMode ? form.hasUnsavedContent : false,
+        saveFn: autoSaveFn,
+        debounceMs: 1000,
+        enabled: effectiveEditMode,
+    });
+
     // Load reference tasks for edit mode
     useEffect(() => {
         if (isEditMode && task?.referenceTaskIds && task.referenceTaskIds.length > 0) {
@@ -103,6 +197,7 @@ export function CreateTaskModal({
                 const refTasks: MaestroTask[] = [];
                 for (const refId of task.referenceTaskIds!) {
                     try {
+                        const { default: maestroClient } = await import("../../utils/MaestroClient").then(m => ({ default: m.maestroClient }));
                         const t = await maestroClient.getTask(refId);
                         refTasks.push(t);
                     } catch { /* skip if task not found */ }
@@ -123,15 +218,23 @@ export function CreateTaskModal({
 
     // ==================== HANDLERS ====================
 
-    const handleClose = () => {
-        if (form.hasUnsavedContent) {
+    const handleClose = async () => {
+        if (effectiveEditMode) {
+            // Auto-save any pending changes before closing
+            if (form.hasUnsavedContent) {
+                await saveNow();
+            }
+            onClose();
+        } else if (form.hasUnsavedContent || draft.phase !== "idle") {
+            // Has content but no draft yet, or draft is creating — ask to discard
             form.setShowConfirmDialog(true);
         } else {
             onClose();
         }
     };
 
-    const handleConfirmDiscard = () => {
+    const handleConfirmDiscard = async () => {
+        await draft.discard();
         form.resetForm();
         refPicker.reset();
         onClose();
@@ -139,18 +242,38 @@ export function CreateTaskModal({
 
     const handleToggleLaunchConfig = () => {
         if (!form.showLaunchConfig) {
-            // Initialize configs for selected members, restoring saved overrides if editing
             const savedOverrides = isEditMode ? task?.memberOverrides : undefined;
             for (const id of form.selectedTeamMemberIds) {
                 form.initMemberConfig(id, teamMembers, savedOverrides);
             }
-            form.setActiveTab(null); // close any open tab
+            form.setActiveTab(null);
         }
         form.setShowLaunchConfig(!form.showLaunchConfig);
     };
 
     const handleSubmit = async (startImmediately: boolean) => {
-        if (!form.title.trim() || !form.prompt.trim()) return;
+        // Draft path: task already exists (or will be created) on server
+        if (draft.phase !== "idle") {
+            const taskId = await draft.ensureCreated();
+            if (!taskId) return; // creation failed
+
+            // Save any pending changes
+            if (form.hasUnsavedContent) {
+                await saveNow();
+            }
+
+            if (startImmediately && onStartTask) {
+                await onStartTask(taskId);
+            }
+
+            form.resetForm();
+            refPicker.reset();
+            onClose();
+            return;
+        }
+
+        // Normal create flow (user submitted before auto-create fired — rare but possible)
+        if (!form.title.trim() && !form.prompt.trim()) return;
 
         const payload = form.getCreatePayload(
             startImmediately,
@@ -158,7 +281,6 @@ export function CreateTaskModal({
             parentId,
         );
 
-        // Attach member overrides if configured
         const overrides = form.getMemberOverrides(teamMembers);
         if (overrides) {
             (payload as any).memberOverrides = overrides;
@@ -171,13 +293,8 @@ export function CreateTaskModal({
     };
 
     const handleSave = () => {
-        if (!isEditMode || !task) return;
-        const refIds = refPicker.selectedReferenceTasks.map(t => t.id);
-        const updates = form.getUpdateDiff(refIds, teamMembers);
-        if (updates) {
-            onUpdateTask?.(task.id, updates);
-        }
-        onClose();
+        if (!effectiveEditMode) return;
+        saveNow();
     };
 
     const handleAddSubtask = () => {
@@ -191,7 +308,7 @@ export function CreateTaskModal({
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
             e.preventDefault();
-            if (isEditMode) handleSave();
+            if (effectiveEditMode) saveNow();
             else handleSubmit(false);
         }
     };
@@ -200,7 +317,7 @@ export function CreateTaskModal({
 
     if (!isOpen) return null;
 
-    const subtasks = isEditMode && task ? (task.subtasks || []) : [];
+    const subtasks = effectiveEditMode && effectiveTask ? (effectiveTask.subtasks || []) : [];
 
     // ==================== RENDER ====================
 
@@ -211,8 +328,8 @@ export function CreateTaskModal({
                     title={form.title}
                     onTitleChange={form.setTitle}
                     onKeyDown={handleKeyDown}
-                    isEditMode={isEditMode}
-                    task={task}
+                    isEditMode={effectiveEditMode}
+                    task={effectiveTask || undefined}
                     isOverlay={isOverlay}
                     onClose={handleClose}
                     parentId={parentId}
@@ -245,10 +362,10 @@ export function CreateTaskModal({
                                     skills={skills}
                                     isOverlay={isOverlay}
                                 >
-                                    {isEditMode && task ? (
+                                    {effectiveEditMode && effectiveTask ? (
                                         <ImagesTab
                                             variant="bar"
-                                            taskId={task.id}
+                                            taskId={effectiveTask.id}
                                             images={form.taskImages}
                                             onImagesChange={form.setTaskImages}
                                         />
@@ -320,9 +437,9 @@ export function CreateTaskModal({
                             {/* Tab Content */}
                             {form.activeTab && (
                             <div className={`themedModalTabContent${isOverlay ? ' themedModalTabContent--overlay' : ''}`} style={!isOverlay ? { maxHeight: '200px', overflowY: 'auto', borderTop: '1px solid var(--theme-border)' } : undefined}>
-                                {form.activeTab === 'subtasks' && isEditMode && (
+                                {form.activeTab === 'subtasks' && effectiveEditMode && effectiveTask && (
                                     <SubtasksTab
-                                        taskId={task!.id}
+                                        taskId={effectiveTask.id}
                                         subtasks={subtasks}
                                         newSubtaskTitle={form.newSubtaskTitle}
                                         onNewSubtaskTitleChange={form.setNewSubtaskTitle}
@@ -342,9 +459,9 @@ export function CreateTaskModal({
                                         projectPath={project?.basePath || project?.workingDir || undefined}
                                     />
                                 )}
-                                {form.activeTab === 'sessions' && isEditMode && (
+                                {form.activeTab === 'sessions' && effectiveEditMode && effectiveTask && (
                                     <SessionsTab
-                                        taskId={task!.id}
+                                        taskId={effectiveTask.id}
                                         tasks={tasks}
                                         onJumpToSession={onJumpToSession}
                                     />
@@ -355,11 +472,11 @@ export function CreateTaskModal({
                                         onRemoveTask={refPicker.removeTask}
                                     />
                                 )}
-                                {form.activeTab === 'gen-docs' && isEditMode && (
+                                {form.activeTab === 'gen-docs' && effectiveEditMode && (
                                     <GeneratedDocsTab taskDocs={form.taskDocs} />
                                 )}
-                                {form.activeTab === 'timeline' && isEditMode && task && (
-                                    <TimelineTab taskId={task.id} />
+                                {form.activeTab === 'timeline' && effectiveEditMode && effectiveTask && (
+                                    <TimelineTab taskId={effectiveTask.id} />
                                 )}
                                 {form.activeTab === 'details' && (
                                     <DetailsTab
@@ -367,8 +484,8 @@ export function CreateTaskModal({
                                         onPriorityChange={form.setPriority}
                                         dueDate={form.dueDate}
                                         onDueDateChange={form.setDueDate}
-                                        isEditMode={isEditMode}
-                                        task={task}
+                                        isEditMode={effectiveEditMode}
+                                        task={effectiveTask || undefined}
                                     />
                                 )}
                             </div>
@@ -379,8 +496,8 @@ export function CreateTaskModal({
                             activeTab={form.activeTab}
                             onToggleTab={form.toggleTab}
                             onCloseTab={() => form.setActiveTab(null)}
-                            isEditMode={isEditMode}
-                            taskId={task?.id}
+                            isEditMode={effectiveEditMode}
+                            taskId={effectiveTask?.id}
                             selectedSkillsCount={form.selectedSkills.length}
                             selectedRefTasksCount={refPicker.selectedReferenceTasks.length}
                             taskDocsCount={form.taskDocs.length}
@@ -400,6 +517,8 @@ export function CreateTaskModal({
                     onWorkOn={onWorkOn}
                     showLaunchConfig={form.showLaunchConfig}
                     onToggleLaunchConfig={handleToggleLaunchConfig}
+                    autoSaveStatus={effectiveEditMode ? autoSaveStatus : undefined}
+                    isDraft={draft.phase === "created"}
                 />
             </div>
 

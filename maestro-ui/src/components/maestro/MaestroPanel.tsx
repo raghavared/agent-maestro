@@ -20,7 +20,9 @@ import { useUIStore } from "../../stores/useUIStore";
 import { Board } from "./MultiProjectBoard";
 import { SkillsPanel } from "./SkillsPanel";
 import { TaskListsPanel } from "./TaskListsPanel";
+import { TaskGraphPanel } from "./task-graph/TaskGraphPanel";
 import { useTaskLists } from "../../hooks/useTaskLists";
+import { useTaskGraphStore } from "../../stores/useTaskGraphStore";
 
 // Extracted hooks
 import { useExecutionMode } from "../../hooks/useExecutionMode";
@@ -220,6 +222,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     );
 
     const { taskLists: taskListArray } = useTaskLists(projectId);
+    const graphCount = Object.values(useTaskGraphStore.getState().graphs).filter(g => g.projectId === projectId).length;
 
     // Session task highlighting
     const activeTerminalId = useSessionStore(s => s.activeId);
@@ -256,6 +259,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [slidingOutTasks, setSlidingOutTasks] = React.useState<Set<string>>(new Set());
     const [showBoard, setShowBoard] = React.useState(false);
     const [taskListCreateSignal, setTaskListCreateSignal] = React.useState(0);
+    const [graphCreateSignal, setGraphCreateSignal] = React.useState(0);
     const [teamMemberCreateSignal, setTeamMemberCreateSignal] = React.useState(0);
     const [searchQuery, setSearchQuery] = React.useState("");
 
@@ -272,7 +276,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     const regularTasks = normalizedTasks;
 
-    const { teamMembers, teamMembersMap, teamMembersLoading, handleArchive: handleArchiveTeamMember, handleUnarchive: handleUnarchiveTeamMember, handleDelete: handleDeleteTeamMember, handleRun: handleRunTeamMember } = useTeamMemberActions(projectId, project, onCreateMaestroSession, createTask, (msg) => setError(msg));
+    const { teamMembers, teamMembersMap, teamMembersLoading, handleArchive: handleArchiveTeamMember, handleUnarchive: handleUnarchiveTeamMember, handleDelete: handleDeleteTeamMember, handleRun: handleRunTeamMember, handleTeamStandup } = useTeamMemberActions(projectId, project, onCreateMaestroSession, createTask, (msg) => setError(msg));
 
     const { teams, activeTeams, topLevelTeams, handleRun: handleRunTeam } = useTeamActions(projectId, project, teamMembersMap, onCreateMaestroSession, createTask, (msg) => setError(msg));
 
@@ -449,6 +453,11 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         }
     }, [createTask, projectId, handleWorkOnTask]);
 
+    const handleStartTask = useCallback(async (taskId: string) => {
+        const task = useMaestroStore.getState().tasks[taskId];
+        if (task) await handleWorkOnTask(task);
+    }, [handleWorkOnTask]);
+
     const handleAssignTeamMember = useCallback(async (taskId: string, teamMemberId: string) => {
         try { await updateTask(taskId, { teamMemberId, teamMemberIds: [teamMemberId] }); } catch { setError("Failed to assign team member"); }
     }, [updateTask]);
@@ -611,8 +620,11 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                     onNewTaskList={() => setTaskListCreateSignal(prev => prev + 1)}
                     onNewTeamMember={() => setTeamMemberCreateSignal(prev => prev + 1)}
                     onNewTeam={() => {}}
+                    onNewGraph={() => { setPrimaryTab("graphs"); setGraphCreateSignal(prev => prev + 1); }}
+                    onTeamStandup={handleTeamStandup}
                     teamCount={activeTeams.length}
                     taskListCount={taskListArray.length}
+                    graphCount={graphCount}
                     {...(forcedPrimaryTab ? { hidePrimaryTabs: true } : {})}
                 />
 
@@ -687,6 +699,9 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 {/* Lists Tab */}
                 {primaryTab === "lists" && <TaskListsPanel projectId={projectId} createListSignal={taskListCreateSignal} />}
 
+                {/* Graphs Tab */}
+                {primaryTab === "graphs" && <TaskGraphPanel projectId={projectId} createGraphSignal={graphCreateSignal} />}
+
                 {/* Team Tab */}
                 {primaryTab === "team" && (
                     <>
@@ -720,6 +735,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 isOpen={showCreateModal}
                 onClose={() => { setShowCreateModal(false); setSubtaskParentId(null); }}
                 onCreate={handleCreateTask}
+                onStartTask={handleStartTask}
                 project={project}
                 parentId={subtaskParentId ?? undefined}
                 parentTitle={subtaskParentTitle}

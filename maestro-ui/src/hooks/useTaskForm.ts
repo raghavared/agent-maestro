@@ -3,17 +3,28 @@ import { TaskPriority, MaestroTask, MemberLaunchOverride, TeamMember, TaskImage 
 import { maestroClient } from "../utils/MaestroClient";
 import { MemberConfig, buildDefaultMemberConfig, buildMemberConfigFromOverride, buildOverridesFromConfigs } from "../components/maestro/task-modal/LaunchConfigPanel";
 
-export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: MaestroTask) {
+export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: MaestroTask, draftTask?: MaestroTask | null) {
     const isEditMode = mode === "edit" && !!task;
+    const baselineTask = task || draftTask || null;
 
-    const [title, setTitle] = useState("");
-    const [prompt, setPrompt] = useState("");
-    const [priority, setPriority] = useState<TaskPriority>("medium");
-    const [selectedTeamMemberIds, setSelectedTeamMemberIds] = useState<string[]>([]);
-    const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+    const [changeVersion, setChangeVersion] = useState(0);
+    const bumpVersion = useCallback(() => setChangeVersion(v => v + 1), []);
+
+    const [title, _setTitle] = useState("");
+    const [prompt, _setPrompt] = useState("");
+    const [priority, _setPriority] = useState<TaskPriority>("medium");
+    const [selectedTeamMemberIds, _setSelectedTeamMemberIds] = useState<string[]>([]);
+    const [selectedSkills, _setSelectedSkills] = useState<string[]>([]);
     const [activeTab, setActiveTab] = useState<string | null>(null);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-    const [dueDate, setDueDate] = useState<string>("");
+    const [dueDate, _setDueDate] = useState<string>("");
+
+    const setTitle = useCallback((v: string) => { _setTitle(v); bumpVersion(); }, [bumpVersion]);
+    const setPrompt = useCallback((v: string) => { _setPrompt(v); bumpVersion(); }, [bumpVersion]);
+    const setPriority = useCallback((v: TaskPriority) => { _setPriority(v); bumpVersion(); }, [bumpVersion]);
+    const setSelectedTeamMemberIds = useCallback((v: string[] | ((prev: string[]) => string[])) => { _setSelectedTeamMemberIds(v); bumpVersion(); }, [bumpVersion]);
+    const setSelectedSkills = useCallback((v: string[] | ((prev: string[]) => string[])) => { _setSelectedSkills(v); bumpVersion(); }, [bumpVersion]);
+    const setDueDate = useCallback((v: string) => { _setDueDate(v); bumpVersion(); }, [bumpVersion]);
 
     // Subtask state
     const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
@@ -36,16 +47,16 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     // Pre-fill form when task changes in edit mode
     useEffect(() => {
         if (isEditMode && task) {
-            setTitle(task.title);
-            setPrompt(task.description || "");
-            setPriority(task.priority);
-            setSelectedTeamMemberIds(
+            _setTitle(task.title);
+            _setPrompt(task.description || "");
+            _setPriority(task.priority);
+            _setSelectedTeamMemberIds(
                 task.teamMemberIds && task.teamMemberIds.length > 0
                     ? task.teamMemberIds
                     : task.teamMemberId ? [task.teamMemberId] : []
             );
-            setSelectedSkills(task.skillIds || []);
-            setDueDate(task.dueDate || "");
+            _setSelectedSkills(task.skillIds || []);
+            _setDueDate(task.dueDate || "");
         }
     }, [isEditMode, isOpen, task?.id, task?.title, task?.description, task?.priority, task?.teamMemberId, JSON.stringify(task?.teamMemberIds), JSON.stringify(task?.referenceTaskIds), task?.dueDate]);
 
@@ -70,31 +81,32 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     // Reset form when switching to create mode
     useEffect(() => {
         if (mode === "create" && isOpen) {
-            setTitle("");
-            setPrompt("");
-            setPriority("medium");
-            setSelectedTeamMemberIds([]);
-            setSelectedSkills([]);
-            setDueDate("");
+            _setTitle("");
+            _setPrompt("");
+            _setPriority("medium");
+            _setSelectedTeamMemberIds([]);
+            _setSelectedSkills([]);
+            _setDueDate("");
             setActiveTab(null);
+            setChangeVersion(0);
         }
     }, [mode, isOpen]);
 
     const hasUnsavedContent = useMemo(() => {
-        if (mode === "create") {
-            return title.trim() !== "" || prompt.trim() !== "" || dueDate !== "";
-        }
-        if (isEditMode && task) {
+        if (baselineTask) {
+            // Compare form fields against server state (works for both edit and draft)
             return (
-                title !== task.title ||
-                prompt !== (task.description || "") ||
-                priority !== task.priority ||
-                dueDate !== (task.dueDate || "") ||
-                JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(task.teamMemberIds || (task.teamMemberId ? [task.teamMemberId] : []))
+                title !== baselineTask.title ||
+                prompt !== (baselineTask.description || "") ||
+                priority !== baselineTask.priority ||
+                dueDate !== (baselineTask.dueDate || "") ||
+                JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(baselineTask.teamMemberIds || (baselineTask.teamMemberId ? [baselineTask.teamMemberId] : [])) ||
+                JSON.stringify(selectedSkills) !== JSON.stringify(baselineTask.skillIds || [])
             );
         }
-        return false;
-    }, [mode, isEditMode, task, title, prompt, priority, dueDate, selectedTeamMemberIds]);
+        // No baseline — pure create mode, no draft yet
+        return title.trim() !== "" || prompt.trim() !== "";
+    }, [baselineTask, title, prompt, priority, dueDate, selectedTeamMemberIds, selectedSkills]);
 
     const isValid = title.trim() !== "" && prompt.trim() !== "";
 
@@ -152,22 +164,22 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     };
 
     const resetForm = () => {
-        setTitle("");
-        setPrompt("");
-        setPriority("medium");
-        setSelectedTeamMemberIds([]);
+        _setTitle("");
+        _setPrompt("");
+        _setPriority("medium");
+        _setSelectedTeamMemberIds([]);
         setActiveTab(null);
-        setSelectedSkills([]);
+        _setSelectedSkills([]);
         setShowConfirmDialog(false);
         setNewSubtaskTitle("");
         setShowSubtaskInput(false);
-        setDueDate("");
+        _setDueDate("");
         setShowLaunchConfig(false);
         setMemberConfigs({});
         setTaskImages([]);
-        stagedImagePreviews.forEach(url => URL.revokeObjectURL(url));
+        setStagedImagePreviews(prev => { prev.forEach(url => URL.revokeObjectURL(url)); return []; });
         setStagedImageFiles([]);
-        setStagedImagePreviews([]);
+        setChangeVersion(0);
     };
 
     const getCreatePayload = (startImmediately: boolean, referenceTaskIds?: string[], parentId?: string) => ({
@@ -186,24 +198,25 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     });
 
     const getUpdateDiff = (referenceTaskIds: string[], teamMembers?: TeamMember[]): Partial<MaestroTask> | null => {
-        if (!isEditMode || !task) return null;
+        if (!baselineTask) return null;
         const updates: Partial<MaestroTask> = {};
-        if (title.trim() && title !== task.title) updates.title = title.trim();
-        if (prompt !== (task.description || "")) updates.description = prompt;
-        if (priority !== task.priority) updates.priority = priority;
-        const currentIds = task.teamMemberIds || (task.teamMemberId ? [task.teamMemberId] : []);
+        // Skip title update if form title is empty — preserve the auto-generated "Untitled N"
+        if (title.trim() && title !== baselineTask.title) updates.title = title.trim();
+        if (prompt !== (baselineTask.description || "")) updates.description = prompt;
+        if (priority !== baselineTask.priority) updates.priority = priority;
+        const currentIds = baselineTask.teamMemberIds || (baselineTask.teamMemberId ? [baselineTask.teamMemberId] : []);
         if (JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(currentIds)) {
             updates.teamMemberIds = selectedTeamMemberIds.length > 0 ? selectedTeamMemberIds : undefined;
             updates.teamMemberId = selectedTeamMemberIds.length === 1 ? selectedTeamMemberIds[0] : undefined;
         }
-        const currentDueDate = task.dueDate || "";
+        const currentDueDate = baselineTask.dueDate || "";
         if (dueDate !== currentDueDate) updates.dueDate = dueDate || null;
-        if (JSON.stringify(selectedSkills) !== JSON.stringify(task.skillIds || [])) updates.skillIds = selectedSkills;
-        if (JSON.stringify(referenceTaskIds) !== JSON.stringify(task.referenceTaskIds || [])) updates.referenceTaskIds = referenceTaskIds;
+        if (JSON.stringify(selectedSkills) !== JSON.stringify(baselineTask.skillIds || [])) updates.skillIds = selectedSkills;
+        if (JSON.stringify(referenceTaskIds) !== JSON.stringify(baselineTask.referenceTaskIds || [])) updates.referenceTaskIds = referenceTaskIds;
         // Include memberOverrides if launch config was modified
         if (teamMembers && Object.keys(memberConfigs).length > 0) {
             const overrides = buildOverridesFromConfigs(memberConfigs, teamMembers);
-            if (JSON.stringify(overrides) !== JSON.stringify(task.memberOverrides || {})) {
+            if (JSON.stringify(overrides) !== JSON.stringify(baselineTask.memberOverrides || {})) {
                 updates.memberOverrides = Object.keys(overrides).length > 0 ? overrides : undefined;
             }
         }
@@ -211,6 +224,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     };
 
     return {
+        changeVersion,
         title, setTitle,
         prompt, setPrompt,
         priority, setPriority,
