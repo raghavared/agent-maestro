@@ -546,8 +546,8 @@ export function registerSessionCommands(program: Command) {
         .option('--name <name>', 'Session name (auto-generated if not provided)')
         .option('--reason <reason>', 'Reason for spawning this session')
         .option('--include-related', 'Include related tasks in context')
-        .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)')
-        .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5, or native model names)')
+        .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, hermes, or gemini)')
+        .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5, hermes-default, or native model names)')
         .option('--team-member-id <id>', 'Team member ID to run this session')
         .option('--subject <subject>', 'Initial directive subject (embedded in manifest for guaranteed delivery)')
         .option('--message <message>', 'Initial directive message body (requires --subject)')
@@ -605,7 +605,7 @@ export function registerSessionCommands(program: Command) {
                 const sessionName = cmdOpts.name || generateSessionName(task, skill);
 
                 // Validate agent tool if provided
-                const validAgentTools = ['claude-code', 'codex', 'gemini'];
+                const validAgentTools = ['claude-code', 'codex', 'hermes', 'gemini'];
                 if (cmdOpts.agentTool && !validAgentTools.includes(cmdOpts.agentTool)) {
                     throw new Error(`Invalid agent tool "${cmdOpts.agentTool}". Must be one of: ${validAgentTools.join(', ')}`);
                 }

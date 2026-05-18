@@ -1,0 +1,116 @@
+import { randomBytes } from 'crypto';
+import type { MaestroManifest } from '../types/manifest.js';
+import type { SpawnResult, SpawnOptions } from './claude-spawner.js';
+import { prepareSpawnerEnvironment } from './spawner-env.js';
+import { PromptComposer, type PromptEnvelope } from '../prompting/prompt-composer.js';
+import { spawnWithUlimit } from './spawn-with-ulimit.js';
+
+const HERMES_DEFAULT_MODEL = 'hermes-default';
+
+/**
+ * HermesSpawner - Spawns Nous Hermes Agent CLI sessions with manifests.
+ *
+ * Hermes accepts a single non-interactive query via `hermes chat --query`.
+ * Maestro sends the composed system prompt and task context as one structured
+ * prompt so Hermes can still receive the same role and coordination guidance
+ * as Claude, Codex, and Gemini.
+ */
+export class HermesSpawner {
+  private promptComposer: PromptComposer;
+
+  constructor() {
+    this.promptComposer = new PromptComposer();
+  }
+
+  prepareEnvironment(
+    manifest: MaestroManifest,
+    sessionId: string
+  ): Record<string, string> {
+    return prepareSpawnerEnvironment(manifest, sessionId);
+  }
+
+  static readonly MODELS = [
+    HERMES_DEFAULT_MODEL,
+    'anthropic/claude-sonnet-4.6',
+    'openai/gpt-5.5',
+    'openai/gpt-5.4',
+    'gpt-5.4',
+  ] as const;
+
+  private shouldUseYolo(permissionMode: string): boolean {
+    return permissionMode === 'acceptEdits' || permissionMode === 'bypassPermissions';
+  }
+
+  buildHermesPrompt(systemPrompt: string, taskContext: string): string {
+    return `[SYSTEM INSTRUCTIONS]\n${systemPrompt}\n\n[TASK]\n${taskContext}`;
+  }
+
+  buildHermesArgs(
+    manifest: MaestroManifest,
+    _sessionId: string,
+    systemPrompt: string,
+    taskContext: string,
+  ): string[] {
+    const args: string[] = ['chat'];
+
+    const model = manifest.session.model;
+    if (model && model !== HERMES_DEFAULT_MODEL) {
+      args.push('--model', model);
+    }
+
+    if (manifest.session.maxTurns) {
+      args.push('--max-turns', manifest.session.maxTurns.toString());
+    }
+
+    if (this.shouldUseYolo(manifest.session.permissionMode)) {
+      args.push('--yolo');
+    }
+
+    args.push('--query', this.buildHermesPrompt(systemPrompt, taskContext));
+
+    return args;
+  }
+
+  buildPromptEnvelope(
+    manifest: MaestroManifest,
+    sessionId: string,
+  ): PromptEnvelope {
+    return this.promptComposer.compose(manifest, { sessionId });
+  }
+
+  async spawn(
+    manifest: MaestroManifest,
+    sessionId: string,
+    options: SpawnOptions = {}
+  ): Promise<SpawnResult> {
+    const envelope = this.buildPromptEnvelope(manifest, sessionId);
+    const env = {
+      ...this.prepareEnvironment(manifest, sessionId),
+      ...(options.env || {}),
+    };
+    const args = this.buildHermesArgs(manifest, sessionId, envelope.system, envelope.task);
+    const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
+
+    const hermesProcess = spawnWithUlimit('hermes', args, {
+      cwd,
+      env,
+      stdio: options.interactive ? 'inherit' : 'pipe',
+    });
+
+    const sendInput = (text: string) => {
+      if (hermesProcess.stdin && !hermesProcess.stdin.destroyed) {
+        hermesProcess.stdin.write(text + '\n');
+      }
+    };
+
+    return {
+      sessionId,
+      process: hermesProcess,
+      sendInput,
+    };
+  }
+
+  generateSessionId(): string {
+    return `session-${Date.now()}-${randomBytes(4).toString('hex')}`;
+  }
+}

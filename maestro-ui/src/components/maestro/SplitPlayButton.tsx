@@ -1,6 +1,7 @@
 import React, { useState, useRef, useLayoutEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { TeamMember, AgentMode, AgentTool } from "../../app/types/maestro";
+import { AGENT_TOOL_SHORT_LABELS, AGENT_TOOL_SYMBOLS } from "../../app/constants/agentTools";
 
 type SplitPlayButtonProps = {
     onPlayDefault: () => void;
@@ -20,15 +21,7 @@ const MODE_LABELS: Record<string, string> = {
     coordinate: 'coord',
 };
 
-const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
-    "claude-code": "Claude",
-    "codex": "Codex",
-};
-
-const AGENT_TOOL_SYMBOLS: Partial<Record<AgentTool, string>> = {
-    "claude-code": "◈",
-    "codex": "◇",
-};
+const AGENT_TOOL_LABELS = AGENT_TOOL_SHORT_LABELS;
 
 function getMemberBadgeLabel(member: TeamMember): string {
     if (member.mode) return MODE_LABELS[member.mode];

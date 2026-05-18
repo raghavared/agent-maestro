@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback, useLayoutEffect, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType, ClaudeModel, CodexModel } from "../../app/types/maestro";
+import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType } from "../../app/types/maestro";
+import { AGENT_TOOL_OPTIONS } from "../../app/constants/agentTools";
 import { useTaskSessions } from "../../hooks/useTaskSessions";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useSpacesStore } from "../../stores/useSpacesStore";
@@ -68,33 +69,7 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
     stopped: "Stopped",
 };
 
-const AGENT_TOOLS: { id: AgentTool; label: string; symbol: string; models: { id: ModelType; label: string }[] }[] = [
-    {
-        id: 'claude-code',
-        label: 'Claude Code',
-        symbol: '◈',
-        models: [
-            { id: 'haiku' as ClaudeModel, label: 'Haiku' },
-            { id: 'sonnet' as ClaudeModel, label: 'Sonnet' },
-            { id: 'sonnet[1m]' as ClaudeModel, label: 'Sonnet [1M]' },
-            { id: 'opus' as ClaudeModel, label: 'Opus' },
-            { id: 'claude-opus-4-7' as ClaudeModel, label: 'Claude Opus 4.7' },
-            { id: 'claude-opus-4-7[1m]' as ClaudeModel, label: 'Claude Opus 4.7 [1M]' },
-            { id: 'opus[1m]' as ClaudeModel, label: 'Opus [1M]' },
-        ],
-    },
-    {
-        id: 'codex',
-        label: 'Codex',
-        symbol: '◇',
-        models: [
-            { id: 'gpt-5.5' as CodexModel, label: 'GPT 5.5' },
-            { id: 'gpt-5.4' as CodexModel, label: 'GPT 5.4' },
-            { id: 'gpt-5.2-codex' as CodexModel, label: 'GPT 5.2' },
-            { id: 'gpt-5.3-codex' as CodexModel, label: 'GPT 5.3' },
-        ],
-    },
-];
+const AGENT_TOOLS = AGENT_TOOL_OPTIONS;
 
 function formatTimeAgo(timestamp: number): string {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);

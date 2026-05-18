@@ -214,7 +214,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
     },
     agentTool: {
       type: 'string',
-      enum: ['claude-code', 'codex', 'gemini'],
+      enum: ['claude-code', 'codex', 'hermes', 'gemini'],
       nullable: true,
       description: 'Agent tool to use for this session (defaults to claude-code)',
     },
@@ -249,7 +249,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
           model: { type: 'string', nullable: true },
           agentTool: {
             type: 'string',
-            enum: ['claude-code', 'codex', 'gemini'],
+            enum: ['claude-code', 'codex', 'hermes', 'gemini'],
             nullable: true,
           },
           capabilities: {
@@ -417,7 +417,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
           model: { type: 'string', nullable: true },
           agentTool: {
             type: 'string',
-            enum: ['claude-code', 'codex', 'gemini'],
+            enum: ['claude-code', 'codex', 'hermes', 'gemini'],
             nullable: true,
           },
           memory: {

@@ -12,7 +12,7 @@ A `TeamMemberData` has these fields:
 - `avatar` — emoji or icon
 - `skillIds?` — assigned skills
 - `model?` — preferred model
-- `agentTool?` — which CLI tool to use (claude-code, codex, gemini)
+- `agentTool?` — which CLI tool to use (claude-code, codex, hermes, gemini)
 
 Team members are **stored as tasks** with `taskType: 'team-member'` and a `teamMemberMetadata` sub-object containing `role`, `identity`, and `avatar`.
 
@@ -31,7 +31,7 @@ The `buildTeamMembers` method (lines 365-384) renders as:
     <identity>persona prompt</identity>
     <avatar>emoji</avatar>
     <model>preferred model</model>
-    <agent_tool>claude-code|codex|gemini</agent_tool>
+    <agent_tool>claude-code|codex|hermes|gemini</agent_tool>
   </team_member>
 </team_members>
 ```

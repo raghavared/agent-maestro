@@ -92,7 +92,7 @@ export interface UpdateTaskGraphPayload {
 // Worker strategy types
 export type WorkerStrategy = 'simple' | 'tree';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
-export type AgentTool = 'claude-code' | 'codex' | 'gemini';
+export type AgentTool = 'claude-code' | 'codex' | 'hermes' | 'gemini';
 
 // Four-mode model types
 export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coordinated-coordinator';
@@ -152,7 +152,7 @@ export interface TeamMember {
   identity?: string;                   // Custom instructions / persona prompt (optional; empty means no persona)
   avatar: string;                      // Emoji: "🔧", "🎯", "🎨"
   model?: string;                      // "opus", "sonnet", "haiku"
-  agentTool?: AgentTool;               // "claude-code", "codex", "gemini"
+  agentTool?: AgentTool;               // "claude-code", "codex", "hermes", "gemini"
   mode?: AgentMode;                    // "execute" or "coordinate"
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   strategy?: string;                   // Deprecated: kept for backward compatibility
@@ -634,4 +634,3 @@ export interface SpawnRequestEvent {
   rootSessionId?: string;                // Top-most session ID in the spawn chain
   _isSpawnCreated?: boolean;             // Backward compatibility flag
 }
-

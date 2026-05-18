@@ -2,6 +2,7 @@ import type { MaestroManifest, AgentTool } from '../types/manifest.js';
 import { ClaudeSpawner, type SpawnResult, type SpawnOptions } from './claude-spawner.js';
 import { CodexSpawner } from './codex-spawner.js';
 import { GeminiSpawner } from './gemini-spawner.js';
+import { HermesSpawner } from './hermes-spawner.js';
 import { randomBytes } from 'crypto';
 import { AGENT_TOOL_DISPLAY_NAMES } from '../prompts/index.js';
 
@@ -26,11 +27,12 @@ export class AgentSpawner implements IAgentSpawner {
   private _claudeSpawner?: ClaudeSpawner;
   private _codexSpawner?: CodexSpawner;
   private _geminiSpawner?: GeminiSpawner;
+  private _hermesSpawner?: HermesSpawner;
 
   /**
    * Get the appropriate spawner for a manifest (lazy-initialized)
    */
-  private getSpawner(manifest: MaestroManifest): ClaudeSpawner | CodexSpawner | GeminiSpawner {
+  private getSpawner(manifest: MaestroManifest): ClaudeSpawner | CodexSpawner | GeminiSpawner | HermesSpawner {
     const agentTool = manifest.agentTool || 'claude-code';
 
     switch (agentTool) {
@@ -38,6 +40,8 @@ export class AgentSpawner implements IAgentSpawner {
         return (this._codexSpawner ??= new CodexSpawner());
       case 'gemini':
         return (this._geminiSpawner ??= new GeminiSpawner());
+      case 'hermes':
+        return (this._hermesSpawner ??= new HermesSpawner());
       case 'claude-code':
       default:
         return (this._claudeSpawner ??= new ClaudeSpawner());

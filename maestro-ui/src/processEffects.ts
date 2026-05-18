@@ -12,6 +12,7 @@ export type ProcessEffect = {
 export const PROCESS_EFFECTS: ProcessEffect[] = [
   { id: "codex", label: "codex", matchCommands: ["codex"], idleAfterMs: 2000, iconSrc: codexIcon },
   { id: "claude", label: "claude", matchCommands: ["claude"], idleAfterMs: 2000, iconSrc: claudeIcon },
+  { id: "hermes", label: "hermes", matchCommands: ["hermes"], idleAfterMs: 2000 },
 ];
 
 function normalizeCommandToken(token: string): string {

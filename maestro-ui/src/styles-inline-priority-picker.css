@@ -212,6 +212,18 @@
   border-color: rgba(16, 185, 129, 0.25);
 }
 
+.terminalMetaBadge--agent-hermes {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.terminalMetaBadge--agent-gemini {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
 /* Model Badge (shows effective model next to team member) */
 .terminalMetaBadge--model {
   font-size: 9px;
@@ -2415,4 +2427,3 @@
   border-radius: 3px;
   animation: blinkAlert 1s infinite;
 }
-

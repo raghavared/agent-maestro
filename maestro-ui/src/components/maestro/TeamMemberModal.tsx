@@ -14,6 +14,12 @@ import {
     toggleCommandOverride,
 } from "../../utils/commandPermissions";
 import { useAutoSave, AutoSaveStatus } from "../../hooks/useAutoSave";
+import {
+    AGENT_TOOLS,
+    AGENT_TOOL_LABELS,
+    DEFAULT_MODEL_BY_AGENT_TOOL,
+    MODELS_BY_AGENT_TOOL,
+} from "../../app/constants/agentTools";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -33,40 +39,8 @@ const COMMAND_GROUPS = [
     { key: 'modal', label: 'Modal', commands: ['modal:events'] },
 ] as const;
 
-const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex", "gemini"];
-const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
-    "claude-code": "Claude Code",
-    "codex": "OpenAI Codex",
-    "gemini": "Google Gemini",
-};
-
-const MODELS_BY_TOOL: Partial<Record<AgentTool, { value: ModelType; label: string }[]>> = {
-    "claude-code": [
-        { value: "haiku", label: "Haiku" },
-        { value: "sonnet", label: "Sonnet" },
-        { value: "sonnet[1m]", label: "Sonnet [1M]" },
-        { value: "opus", label: "Opus" },
-        { value: "claude-opus-4-7", label: "Claude Opus 4.7" },
-        { value: "claude-opus-4-7[1m]", label: "Claude Opus 4.7 [1M]" },
-        { value: "opus[1m]", label: "Opus [1M]" },
-    ],
-    "codex": [
-        { value: "gpt-5.5", label: "GPT 5.5" },
-        { value: "gpt-5.4", label: "GPT 5.4" },
-        { value: "gpt-5.3-codex", label: "GPT 5.3 Codex" },
-        { value: "gpt-5.2-codex", label: "GPT 5.2 Codex" },
-    ],
-    "gemini": [
-        { value: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview" },
-        { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-    ],
-};
-
-const DEFAULT_MODEL: Record<string, string> = {
-    "claude-code": "sonnet",
-    "codex": "gpt-5.4",
-    "gemini": "gemini-3-pro-preview",
-};
+const MODELS_BY_TOOL = MODELS_BY_AGENT_TOOL;
+const DEFAULT_MODEL = DEFAULT_MODEL_BY_AGENT_TOOL;
 
 const DEFAULT_CONFIGS: Record<string, {
     name: string;

@@ -715,8 +715,8 @@ export function registerManifestCommands(program: any): void {
     .requiredOption('--project-id <id>', 'Project ID')
     .requiredOption('--task-ids <ids>', 'Comma-separated task IDs')
     .option('--skills <skills>', 'Comma-separated skills', 'maestro-worker')
-    .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5, gemini-3-pro-preview)', 'sonnet')
-    .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)', 'claude-code')
+    .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5, hermes-default, gemini-3-pro-preview)', 'sonnet')
+    .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, hermes, or gemini)', 'claude-code')
     .option('--reference-task-ids <ids>', 'Comma-separated reference task IDs for context')
     .option('--team-member-id <id>', 'Team member ID for this session')
     .option('--team-member-ids <ids>', 'Comma-separated team member IDs (for coordinate mode)')
@@ -734,7 +734,7 @@ export function registerManifestCommands(program: any): void {
       }
 
       // Validate agent tool
-      const validTools = ['claude-code', 'codex', 'gemini'];
+      const validTools = ['claude-code', 'codex', 'hermes', 'gemini'];
       if (options.agentTool && !validTools.includes(options.agentTool)) {
         process.exit(1);
       }

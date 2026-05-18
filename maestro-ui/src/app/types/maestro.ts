@@ -17,9 +17,11 @@ export type ClaudeModel = 'haiku' | 'sonnet' | 'sonnet[1m]' | 'opus' | 'opus[1m]
 export type CodexModel = 'gpt-5.5' | 'gpt-5.4' | 'gpt-5.3-codex' | 'gpt-5.2-codex';
 // Gemini models
 export type GeminiModel = 'gemini-3-pro-preview' | 'gemini-2.5-pro';
+// Hermes models
+export type HermesModel = 'hermes-default' | 'anthropic/claude-sonnet-4.6' | 'openai/gpt-5.5' | 'openai/gpt-5.4' | 'gpt-5.4';
 // Union of all supported models
-export type ModelType = ClaudeModel | CodexModel | GeminiModel;
-export type AgentTool = 'claude-code' | 'codex' | 'gemini';
+export type ModelType = ClaudeModel | CodexModel | GeminiModel | HermesModel;
+export type AgentTool = 'claude-code' | 'codex' | 'hermes' | 'gemini';
 
 // Strategy types
 export type WorkerStrategy = 'simple' | 'queue';

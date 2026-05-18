@@ -154,6 +154,31 @@ describe('Manifest Schema Validation', () => {
       expect(result.errors).toBeUndefined();
     });
 
+    it('should validate manifest with Hermes agent tool', () => {
+      const manifest = {
+        manifestVersion: '1.0',
+        mode: 'execute',
+        agentTool: 'hermes',
+        tasks: [{
+          id: 'task-1',
+          title: 'Test task',
+          description: 'Test description',
+          acceptanceCriteria: ['Done'],
+          projectId: 'proj-1',
+          createdAt: '2026-02-02T00:00:00Z',
+        }],
+        session: {
+          model: 'hermes-default',
+          permissionMode: 'acceptEdits',
+        },
+      };
+
+      const result = validateManifest(manifest);
+
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeUndefined();
+    });
+
     it('should validate manifest without skills field (optional)', () => {
       const manifest = {
         manifestVersion: '1.0',

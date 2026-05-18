@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { TeamMember, AgentTool } from "../../app/types/maestro";
+import { AGENT_TOOL_LABELS, AGENT_TOOL_SYMBOLS } from "../../app/constants/agentTools";
 
 type TeamMemberListProps = {
     teamMembers: TeamMember[];
@@ -9,16 +10,6 @@ type TeamMemberListProps = {
     onDelete?: (memberId: string) => void | Promise<void>;
     onNewMember: () => void;
     onRun?: (member: TeamMember) => void | Promise<void>;
-};
-
-const AGENT_TOOL_SYMBOLS: Partial<Record<AgentTool, string>> = {
-    "claude-code": "◈",
-    "codex": "◇",
-};
-
-const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
-    "claude-code": "Claude Code",
-    "codex": "OpenAI Codex",
 };
 
 function getModelDisplayLabel(model?: string, agentTool?: AgentTool): string {
@@ -35,6 +26,9 @@ function getModelDisplayLabel(model?: string, agentTool?: AgentTool): string {
         "gpt-5.4": "5.4",
         "gpt-5.3-codex": "5.3-codex",
         "gpt-5.2-codex": "5.2-codex",
+        "hermes-default": "Hermes default",
+        "anthropic/claude-sonnet-4.6": "Claude Sonnet 4.6",
+        "openai/gpt-5.4": "OpenAI GPT 5.4",
     };
     return modelLabels[model] || model;
 }
