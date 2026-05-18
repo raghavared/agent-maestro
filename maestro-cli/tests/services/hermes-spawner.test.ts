@@ -49,6 +49,8 @@ describe('HermesSpawner', () => {
       '--max-turns',
       '42',
       '--yolo',
+      '--source',
+      'maestro',
       '--query',
       '[SYSTEM INSTRUCTIONS]\nsystem prompt\n\n[TASK]\ntask prompt',
     ]);
@@ -89,6 +91,26 @@ describe('HermesSpawner', () => {
     expect(args).toContain('openai-codex');
     expect(args).toContain('--model');
     expect(args).toContain('gpt-5.5');
+  });
+
+  it('spawns interactive Hermes as a real CLI with Maestro context in the system prompt', async () => {
+    const result = await new HermesSpawner().spawn(manifest, 'session-123', {
+      cwd: '/tmp/project',
+      interactive: true,
+    });
+
+    expect(result.sessionId).toBe('session-123');
+    expect(spawnWithUlimit).toHaveBeenCalledWith(
+      'hermes',
+      expect.arrayContaining(['chat', '--source', 'maestro']),
+      expect.objectContaining({
+        cwd: '/tmp/project',
+        env: expect.objectContaining({
+          HERMES_EPHEMERAL_SYSTEM_PROMPT: expect.stringContaining('<maestro_system_prompt'),
+        }),
+        stdio: 'inherit',
+      }),
+    );
   });
 
   it('routes Hermes manifests through the agent spawner factory', async () => {

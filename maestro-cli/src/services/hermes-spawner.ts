@@ -88,12 +88,7 @@ export class HermesSpawner {
     return { model };
   }
 
-  buildHermesArgs(
-    manifest: MaestroManifest,
-    _sessionId: string,
-    systemPrompt: string,
-    taskContext: string,
-  ): string[] {
+  buildHermesBaseArgs(manifest: MaestroManifest): string[] {
     const args: string[] = ['chat'];
 
     const modelOverride = this.resolveModelOverride(manifest.session.model);
@@ -111,6 +106,19 @@ export class HermesSpawner {
     if (this.shouldUseYolo(manifest.session.permissionMode)) {
       args.push('--yolo');
     }
+
+    args.push('--source', 'maestro');
+
+    return args;
+  }
+
+  buildHermesArgs(
+    manifest: MaestroManifest,
+    _sessionId: string,
+    systemPrompt: string,
+    taskContext: string,
+  ): string[] {
+    const args = this.buildHermesBaseArgs(manifest);
 
     args.push('--query', this.buildHermesPrompt(systemPrompt, taskContext));
 
@@ -134,12 +142,21 @@ export class HermesSpawner {
       ...this.prepareEnvironment(manifest, sessionId),
       ...(options.env || {}),
     };
-    const args = this.buildHermesArgs(manifest, sessionId, envelope.system, envelope.task);
+    const interactive = options.interactive === true;
+    const args = interactive
+      ? this.buildHermesBaseArgs(manifest)
+      : this.buildHermesArgs(manifest, sessionId, envelope.system, envelope.task);
+    const spawnEnv = interactive
+      ? {
+          ...env,
+          HERMES_EPHEMERAL_SYSTEM_PROMPT: this.buildHermesPrompt(envelope.system, envelope.task),
+        }
+      : env;
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
 
     const hermesProcess = spawnWithUlimit('hermes', args, {
       cwd,
-      env,
+      env: spawnEnv,
       stdio: options.interactive ? 'inherit' : 'pipe',
     });
 
