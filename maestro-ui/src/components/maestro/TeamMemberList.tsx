@@ -31,6 +31,7 @@ function getModelDisplayLabel(model?: string, agentTool?: AgentTool): string {
         "claude-opus-4-7": "Opus 4.7",
         "claude-opus-4-7[1m]": "Opus 4.7 [1M]",
         "opus[1m]": "Opus [1M]",
+        "gpt-5.5": "5.5",
         "gpt-5.4": "5.4",
         "gpt-5.3-codex": "5.3-codex",
         "gpt-5.2-codex": "5.2-codex",

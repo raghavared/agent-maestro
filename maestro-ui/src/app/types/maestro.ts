@@ -14,7 +14,7 @@ export type AgentModeInput = AgentMode | LegacyAgentMode;
 // Claude models
 export type ClaudeModel = 'haiku' | 'sonnet' | 'sonnet[1m]' | 'opus' | 'opus[1m]' | 'claude-opus-4-7' | 'claude-opus-4-7[1m]';
 // Codex models
-export type CodexModel = 'gpt-5.4' | 'gpt-5.3-codex' | 'gpt-5.2-codex';
+export type CodexModel = 'gpt-5.5' | 'gpt-5.4' | 'gpt-5.3-codex' | 'gpt-5.2-codex';
 // Gemini models
 export type GeminiModel = 'gemini-3-pro-preview' | 'gemini-2.5-pro';
 // Union of all supported models

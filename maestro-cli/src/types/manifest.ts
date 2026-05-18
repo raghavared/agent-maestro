@@ -293,7 +293,7 @@ export interface TaskData {
  * Session configuration for Claude Code
  */
 export interface SessionConfig {
-  /** Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.4, gemini-3-pro-preview) */
+  /** Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5, gemini-3-pro-preview) */
   model: string;
 
   /** Permission mode for the session */

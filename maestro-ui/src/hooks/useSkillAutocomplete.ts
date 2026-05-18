@@ -11,10 +11,10 @@ export function useSkillAutocomplete(projectPath: string | null | undefined, isO
             maestroClient.getSkills(projectPath || undefined)
                 .then(skillsList => {
                     setSkills(skillsList.map(s => ({
-                        id: s.id,
-                        display: s.name,
-                        description: s.description,
-                        scope: s.skillScope,
+                        id: String(s.id || ''),
+                        display: String(s.name || s.id || ''),
+                        description: typeof s.description === 'string' ? s.description : '',
+                        scope: typeof s.skillScope === 'string' ? s.skillScope : undefined,
                     })));
                 })
                 .catch(() => {});

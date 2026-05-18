@@ -107,21 +107,26 @@ export function TaskDescriptionField({
                     <Mention
                         trigger="/"
                         data={skills}
-                        renderSuggestion={(entry, _search, _highlightedDisplay, _index, focused) => (
-                            <div className={`suggestionItem suggestionItem--skill ${focused ? 'focused' : ''}`}>
-                                <span className="skillSuggestionName">{entry.display}</span>
-                                {(entry as SkillSuggestion).scope && (
-                                    <span className="skillSuggestionScope">
-                                        {(entry as SkillSuggestion).scope === 'project' ? 'proj' : 'global'}
-                                    </span>
-                                )}
-                                {(entry as SkillSuggestion).description && (
-                                    <span className="skillSuggestionDesc">
-                                        {(entry as SkillSuggestion).description}
-                                    </span>
-                                )}
-                            </div>
-                        )}
+                        renderSuggestion={(entry, _search, _highlightedDisplay, _index, focused) => {
+                            const skill = entry as SkillSuggestion;
+                            const desc = typeof skill.description === 'string' ? skill.description : '';
+                            const scope = typeof skill.scope === 'string' ? skill.scope : '';
+                            return (
+                                <div className={`suggestionItem suggestionItem--skill ${focused ? 'focused' : ''}`}>
+                                    <span className="skillSuggestionName">{String(entry.display || '')}</span>
+                                    {scope && (
+                                        <span className="skillSuggestionScope">
+                                            {scope === 'project' ? 'proj' : 'global'}
+                                        </span>
+                                    )}
+                                    {desc && (
+                                        <span className="skillSuggestionDesc">
+                                            {desc}
+                                        </span>
+                                    )}
+                                </div>
+                            );
+                        }}
                     />
                 </MentionsInput>
             </div>

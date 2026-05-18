@@ -547,7 +547,7 @@ export function registerSessionCommands(program: Command) {
         .option('--reason <reason>', 'Reason for spawning this session')
         .option('--include-related', 'Include related tasks in context')
         .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)')
-        .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.4, or native model names)')
+        .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5, or native model names)')
         .option('--team-member-id <id>', 'Team member ID to run this session')
         .option('--subject <subject>', 'Initial directive subject (embedded in manifest for guaranteed delivery)')
         .option('--message <message>', 'Initial directive message body (requires --subject)')

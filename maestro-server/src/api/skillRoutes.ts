@@ -5,6 +5,26 @@ import { cacheControl } from './middleware/cacheControl';
 import { validateQuery, paginationQuerySchema, extractPagination, paginate } from './validation';
 
 /**
+ * Safely coerce a value to a string. Returns fallback if the value is
+ * null/undefined or not a primitive (e.g. an object parsed from YAML).
+ */
+function safeString(value: unknown, fallback = ''): string {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  // Objects / arrays — stringify to avoid React error #31 when the UI renders them
+  return fallback;
+}
+
+/**
+ * Safely coerce a value to a string array. Filters out non-string entries.
+ */
+function safeStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((v): v is string => typeof v === 'string');
+}
+
+/**
  * Create skill routes using the ISkillLoader.
  */
 export function createSkillRoutes(skillLoader: ISkillLoader) {
@@ -26,25 +46,25 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
 
         const skills = scopedSkills.map((skill: SkillWithMeta) => {
           const base: Record<string, any> = {
-            id: skill.manifest.name,
-            name: skill.manifest.name,
-            description: skill.manifest.description || '',
-            version: skill.manifest.version || '1.0.0',
-            triggers: skill.manifest.config?.triggers,
-            role: skill.manifest.config?.role,
+            id: safeString(skill.manifest.name, 'unknown'),
+            name: safeString(skill.manifest.name, 'unknown'),
+            description: safeString(skill.manifest.description),
+            version: safeString(skill.manifest.version, '1.0.0'),
+            triggers: safeStringArray(skill.manifest.config?.triggers),
+            role: safeString(skill.manifest.config?.role) || undefined,
             skillScope: skill.meta.scope,
             skillSource: skill.meta.source,
             skillPath: skill.meta.path,
-            outputFormat: skill.manifest.config?.outputFormat,
-            language: skill.manifest.config?.language,
-            framework: skill.manifest.config?.framework,
-            tags: skill.manifest.config?.tags,
-            category: skill.manifest.config?.category,
-            license: skill.manifest.license,
+            outputFormat: safeString(skill.manifest.config?.outputFormat) || undefined,
+            language: safeString(skill.manifest.config?.language) || undefined,
+            framework: safeString(skill.manifest.config?.framework) || undefined,
+            tags: safeStringArray(skill.manifest.config?.tags),
+            category: safeString(skill.manifest.config?.category) || undefined,
+            license: safeString(skill.manifest.license) || undefined,
             hasReferences: false,
             referenceCount: 0,
           };
-          if (includeContent) base.content = skill.instructions;
+          if (includeContent) base.content = safeString(skill.instructions);
           return base;
         });
 
@@ -64,22 +84,22 @@ export function createSkillRoutes(skillLoader: ISkillLoader) {
           if (skill && skill.manifest) {
             const base: Record<string, any> = {
               id,
-              name: skill.manifest.name || id,
-              description: skill.manifest.description || '',
-              version: skill.manifest.version || '1.0.0',
-              triggers: skill.manifest.config?.triggers,
-              role: skill.manifest.config?.role,
-              scope: skill.manifest.config?.scope,
-              outputFormat: skill.manifest.config?.outputFormat,
-              language: skill.manifest.config?.language,
-              framework: skill.manifest.config?.framework,
-              tags: skill.manifest.config?.tags,
-              category: skill.manifest.config?.category,
-              license: skill.manifest.license,
+              name: safeString(skill.manifest.name, id),
+              description: safeString(skill.manifest.description),
+              version: safeString(skill.manifest.version, '1.0.0'),
+              triggers: safeStringArray(skill.manifest.config?.triggers),
+              role: safeString(skill.manifest.config?.role) || undefined,
+              scope: safeString(skill.manifest.config?.scope) || undefined,
+              outputFormat: safeString(skill.manifest.config?.outputFormat) || undefined,
+              language: safeString(skill.manifest.config?.language) || undefined,
+              framework: safeString(skill.manifest.config?.framework) || undefined,
+              tags: safeStringArray(skill.manifest.config?.tags),
+              category: safeString(skill.manifest.config?.category) || undefined,
+              license: safeString(skill.manifest.license) || undefined,
               hasReferences: false,
               referenceCount: 0,
             };
-            if (includeContent) base.content = skill.instructions;
+            if (includeContent) base.content = safeString(skill.instructions);
             skills.push(base);
           }
         } catch (err) {
