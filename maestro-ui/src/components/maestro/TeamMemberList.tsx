@@ -28,7 +28,9 @@ function getModelDisplayLabel(model?: string, agentTool?: AgentTool): string {
         "gpt-5.2-codex": "5.2-codex",
         "hermes-default": "Hermes default",
         "anthropic/claude-sonnet-4.6": "Claude Sonnet 4.6",
-        "openai/gpt-5.4": "OpenAI GPT 5.4",
+        "openai/gpt-5.5": "Codex OAuth GPT 5.5",
+        "openai/gpt-5.4": "Codex OAuth GPT 5.4",
+        "gpt-5.3-codex-spark": "Codex OAuth GPT 5.3 Codex Spark",
     };
     return modelLabels[model] || model;
 }

@@ -20,5 +20,9 @@ describe('agent tool UI constants', () => {
       value: 'hermes-default',
       label: 'Hermes default',
     });
+    expect(MODELS_BY_AGENT_TOOL.hermes).toContainEqual({
+      value: 'openai/gpt-5.5',
+      label: 'Codex OAuth GPT 5.5',
+    });
   });
 });

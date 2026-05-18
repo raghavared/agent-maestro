@@ -54,7 +54,7 @@ describe('HermesSpawner', () => {
     ]);
   });
 
-  it('passes explicit Hermes models through to the CLI', () => {
+  it('routes Anthropic Hermes models to the Anthropic provider', () => {
     const spawner = new HermesSpawner();
 
     const args = spawner.buildHermesArgs({
@@ -66,9 +66,29 @@ describe('HermesSpawner', () => {
       },
     }, 'session-123', 'system prompt', 'task prompt');
 
+    expect(args).toContain('--provider');
+    expect(args).toContain('anthropic');
     expect(args).toContain('--model');
-    expect(args).toContain('anthropic/claude-sonnet-4.6');
+    expect(args).toContain('claude-sonnet-4.6');
     expect(args).not.toContain('--yolo');
+  });
+
+  it('routes OpenAI Hermes models to the Codex OAuth provider', () => {
+    const spawner = new HermesSpawner();
+
+    const args = spawner.buildHermesArgs({
+      ...manifest,
+      session: {
+        ...manifest.session,
+        model: 'openai/gpt-5.5',
+        permissionMode: 'interactive',
+      },
+    }, 'session-123', 'system prompt', 'task prompt');
+
+    expect(args).toContain('--provider');
+    expect(args).toContain('openai-codex');
+    expect(args).toContain('--model');
+    expect(args).toContain('gpt-5.5');
   });
 
   it('routes Hermes manifests through the agent spawner factory', async () => {

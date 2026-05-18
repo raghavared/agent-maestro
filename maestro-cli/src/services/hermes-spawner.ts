@@ -7,6 +7,11 @@ import { spawnWithUlimit } from './spawn-with-ulimit.js';
 
 const HERMES_DEFAULT_MODEL = 'hermes-default';
 
+type HermesModelOverride = {
+  provider?: string;
+  model?: string;
+};
+
 /**
  * HermesSpawner - Spawns Nous Hermes Agent CLI sessions with manifests.
  *
@@ -34,6 +39,8 @@ export class HermesSpawner {
     'anthropic/claude-sonnet-4.6',
     'openai/gpt-5.5',
     'openai/gpt-5.4',
+    'gpt-5.3-codex',
+    'gpt-5.3-codex-spark',
     'gpt-5.4',
   ] as const;
 
@@ -45,6 +52,42 @@ export class HermesSpawner {
     return `[SYSTEM INSTRUCTIONS]\n${systemPrompt}\n\n[TASK]\n${taskContext}`;
   }
 
+  resolveModelOverride(model?: string): HermesModelOverride {
+    if (!model || model === HERMES_DEFAULT_MODEL) {
+      return {};
+    }
+
+    if (model.startsWith('openai/')) {
+      return {
+        provider: 'openai-codex',
+        model: model.split('/', 2)[1],
+      };
+    }
+
+    if (model.startsWith('gpt-')) {
+      return {
+        provider: 'openai-codex',
+        model,
+      };
+    }
+
+    if (model.startsWith('anthropic/')) {
+      return {
+        provider: 'anthropic',
+        model: model.split('/', 2)[1],
+      };
+    }
+
+    if (model.startsWith('claude-')) {
+      return {
+        provider: 'anthropic',
+        model,
+      };
+    }
+
+    return { model };
+  }
+
   buildHermesArgs(
     manifest: MaestroManifest,
     _sessionId: string,
@@ -53,9 +96,12 @@ export class HermesSpawner {
   ): string[] {
     const args: string[] = ['chat'];
 
-    const model = manifest.session.model;
-    if (model && model !== HERMES_DEFAULT_MODEL) {
-      args.push('--model', model);
+    const modelOverride = this.resolveModelOverride(manifest.session.model);
+    if (modelOverride.provider) {
+      args.push('--provider', modelOverride.provider);
+    }
+    if (modelOverride.model) {
+      args.push('--model', modelOverride.model);
     }
 
     if (manifest.session.maxTurns) {

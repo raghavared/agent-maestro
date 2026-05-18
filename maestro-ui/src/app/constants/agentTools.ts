@@ -29,10 +29,11 @@ export const MODELS_BY_AGENT_TOOL: Record<AgentTool, { value: ModelType; label: 
   ],
   hermes: [
     { value: "hermes-default", label: "Hermes default" },
-    { value: "anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6" },
-    { value: "openai/gpt-5.5", label: "OpenAI GPT 5.5" },
-    { value: "openai/gpt-5.4", label: "OpenAI GPT 5.4" },
-    { value: "gpt-5.4", label: "GPT 5.4" },
+    { value: "openai/gpt-5.5", label: "Codex OAuth GPT 5.5" },
+    { value: "openai/gpt-5.4", label: "Codex OAuth GPT 5.4" },
+    { value: "gpt-5.3-codex", label: "Codex OAuth GPT 5.3 Codex" },
+    { value: "gpt-5.3-codex-spark", label: "Codex OAuth GPT 5.3 Codex Spark" },
+    { value: "anthropic/claude-sonnet-4.6", label: "Anthropic Claude Sonnet 4.6" },
   ],
   gemini: [
     { value: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview" },
