@@ -15,10 +15,10 @@ type HermesModelOverride = {
 /**
  * HermesSpawner - Spawns Nous Hermes Agent CLI sessions with manifests.
  *
- * Hermes does not expose the same "initial prompt argument and remain in the
- * REPL" mode as Claude Code or Codex. For interactive Maestro task sessions we
- * run the initial task through `hermes chat --query`, then resume the same
- * Hermes conversation in interactive mode.
+ * Hermes exposes `--query` as a single-query non-interactive mode. For
+ * interactive Maestro task sessions we launch the normal Hermes chat UI and
+ * inject the Maestro system/task context as an ephemeral system prompt so the
+ * terminal stays usable exactly like running `hermes` directly.
  */
 export class HermesSpawner {
   private promptComposer: PromptComposer;
@@ -125,17 +125,6 @@ export class HermesSpawner {
     return args;
   }
 
-  buildInteractiveHermesArgs(manifest: MaestroManifest): string[] {
-    const script = [
-      'hermes "$@" --query "$MAESTRO_HERMES_INITIAL_PROMPT"',
-      'status=$?',
-      'if [ "$status" -ne 0 ]; then exit "$status"; fi',
-      'exec hermes "$@" --continue',
-    ].join('\n');
-
-    return ['-c', script, 'sh', ...this.buildHermesBaseArgs(manifest)];
-  }
-
   buildPromptEnvelope(
     manifest: MaestroManifest,
     sessionId: string,
@@ -155,18 +144,17 @@ export class HermesSpawner {
     };
     const interactive = options.interactive === true;
     const args = interactive
-      ? this.buildInteractiveHermesArgs(manifest)
+      ? this.buildHermesBaseArgs(manifest)
       : this.buildHermesArgs(manifest, sessionId, envelope.system, envelope.task);
     const spawnEnv = interactive
       ? {
           ...env,
-          HERMES_EPHEMERAL_SYSTEM_PROMPT: envelope.system,
-          MAESTRO_HERMES_INITIAL_PROMPT: envelope.task,
+          HERMES_EPHEMERAL_SYSTEM_PROMPT: this.buildHermesPrompt(envelope.system, envelope.task),
         }
       : env;
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();
 
-    const hermesProcess = spawnWithUlimit(interactive ? '/bin/sh' : 'hermes', args, {
+    const hermesProcess = spawnWithUlimit('hermes', args, {
       cwd,
       env: spawnEnv,
       stdio: options.interactive ? 'inherit' : 'pipe',

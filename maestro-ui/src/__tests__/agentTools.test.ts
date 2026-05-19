@@ -29,7 +29,7 @@ describe('agent tool UI constants', () => {
 
   it('pins Hermes in the default quick-launch shortcuts', () => {
     expect(DEFAULT_AGENT_SHORTCUT_IDS).toEqual(
-      expect.arrayContaining(['codex', 'claude', 'hermes']),
+      expect.arrayContaining(['codex', 'claude', 'hermes', 'gemini']),
     );
   });
 });

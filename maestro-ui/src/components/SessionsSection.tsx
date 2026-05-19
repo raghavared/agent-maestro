@@ -918,21 +918,22 @@ export const SessionsSection = React.memo(function SessionsSection({
       <div className="agentShortcutRow" role="toolbar" aria-label="Quick launch">
         <button
           type="button"
-          className="agentShortcutBtn"
+          className="agentShortcutBtn agentShortcutBtn--icon"
           onClick={onOpenNewSession}
+          aria-label="New terminal"
           title="New terminal"
         >
           <span className="agentShortcutIconFallback" aria-hidden="true">
             {">_"}
           </span>
-          <span className="agentShortcutLabel">Terminal</span>
         </button>
         {agentShortcuts.map((effect) => (
           <button
             key={effect.id}
             type="button"
-            className="agentShortcutBtn"
+            className={`agentShortcutBtn agentShortcutBtn--icon agentShortcutBtn--${effect.id}`}
             onClick={() => onQuickStart(effect)}
+            aria-label={`Start ${effect.label}`}
             title={`Start ${effect.label}`}
           >
             {effect.iconSrc ? (
@@ -942,7 +943,6 @@ export const SessionsSection = React.memo(function SessionsSection({
                 {"\u25B6"}
               </span>
             )}
-            <span className="agentShortcutLabel">{effect.label}</span>
           </button>
         ))}
       </div>
