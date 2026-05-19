@@ -55,9 +55,9 @@ export function SkillsPanel({ project }: SkillsPanelProps) {
             const q = searchQuery.toLowerCase();
             return (
                 skill.name.toLowerCase().includes(q) ||
-                skill.description.toLowerCase().includes(q) ||
-                skill.triggers?.some(t => t.toLowerCase().includes(q)) ||
-                skill.tags?.some(t => t.toLowerCase().includes(q))
+                (typeof skill.description === 'string' && skill.description.toLowerCase().includes(q)) ||
+                (Array.isArray(skill.triggers) && skill.triggers.some(t => typeof t === 'string' && t.toLowerCase().includes(q))) ||
+                (Array.isArray(skill.tags) && skill.tags.some(t => typeof t === 'string' && t.toLowerCase().includes(q)))
             );
         });
 
@@ -101,22 +101,22 @@ export function SkillsPanel({ project }: SkillsPanelProps) {
                     </div>
                 </div>
                 <div className="skillsPanelCardDesc">
-                    {skill.description || 'No description'}
+                    {typeof skill.description === 'string' ? skill.description : 'No description'}
                 </div>
 
                 {isExpanded && (
                     <div className="skillsPanelCardDetails">
-                        {skill.triggers && skill.triggers.length > 0 && (
+                        {Array.isArray(skill.triggers) && skill.triggers.length > 0 && (
                             <div className="skillsPanelDetailRow">
                                 <span className="skillsPanelDetailLabel">triggers:</span>
-                                <span>{skill.triggers.join(', ')}</span>
+                                <span>{skill.triggers.filter(t => typeof t === 'string').join(', ')}</span>
                             </div>
                         )}
-                        {skill.tags && skill.tags.length > 0 && (
+                        {Array.isArray(skill.tags) && skill.tags.length > 0 && (
                             <div className="skillsPanelDetailRow">
                                 <span className="skillsPanelDetailLabel">tags:</span>
                                 <span className="skillsPanelTags">
-                                    {skill.tags.map(tag => (
+                                    {skill.tags.filter((t): t is string => typeof t === 'string').map(tag => (
                                         <span key={tag} className="skillsPanelTag">{tag}</span>
                                     ))}
                                 </span>

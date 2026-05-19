@@ -396,6 +396,7 @@ export class ManifestGeneratorCLICommand {
         // Multi-identity: fetch all and build profiles array
         const profiles: TeamMemberProfile[] = [];
         const MODEL_POWER: Record<string, number> = {
+          'gpt-5.5': 5.5,
           'claude-opus-4-7[1m]': 5.2,
           'claude-opus-4-7': 5,
           'gpt-5.4': 4.7,
@@ -714,7 +715,7 @@ export function registerManifestCommands(program: any): void {
     .requiredOption('--project-id <id>', 'Project ID')
     .requiredOption('--task-ids <ids>', 'Comma-separated task IDs')
     .option('--skills <skills>', 'Comma-separated skills', 'maestro-worker')
-    .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.4, gemini-3-pro-preview)', 'sonnet')
+    .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5, gemini-3-pro-preview)', 'sonnet')
     .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)', 'claude-code')
     .option('--reference-task-ids <ids>', 'Comma-separated reference task IDs for context')
     .option('--team-member-id <id>', 'Team member ID for this session')

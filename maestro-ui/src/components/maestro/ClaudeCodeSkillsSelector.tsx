@@ -103,20 +103,20 @@ export function ClaudeCodeSkillsSelector({ selectedSkills, onSelectionChange, pr
                 {isExpanded && (
                     <div className="claudeCodeSkillDetails">
                         <div className="claudeCodeSkillDescription">
-                            {skill.description}
+                            {typeof skill.description === 'string' ? skill.description : 'No description'}
                         </div>
 
-                        {skill.triggers && skill.triggers.length > 0 && (
+                        {Array.isArray(skill.triggers) && skill.triggers.length > 0 && (
                             <div className="claudeCodeSkillTriggers">
                                 <strong>Triggers:</strong>{" "}
-                                {skill.triggers.join(", ")}
+                                {skill.triggers.filter(t => typeof t === 'string').join(", ")}
                             </div>
                         )}
 
-                        {skill.tags && skill.tags.length > 0 && (
+                        {Array.isArray(skill.tags) && skill.tags.length > 0 && (
                             <div className="claudeCodeSkillTags">
                                 <strong>Tags:</strong>{" "}
-                                {skill.tags.join(", ")}
+                                {skill.tags.filter(t => typeof t === 'string').join(", ")}
                             </div>
                         )}
 

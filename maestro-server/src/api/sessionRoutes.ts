@@ -1022,6 +1022,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       // Fetch team member defaults from the effective members (after task-level fallback)
       const MODEL_POWER: Record<string, number> = {
+        'gpt-5.5': 5.5,
         'claude-opus-4-7[1m]': 5.2,
         'claude-opus-4-7': 5,
         'gpt-5.4': 4.7,

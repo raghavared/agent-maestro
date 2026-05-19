@@ -31,6 +31,7 @@ export class CodexSpawner {
 
   /** All supported Codex models */
   static readonly MODELS = [
+    'gpt-5.5',
     'gpt-5.4',
     'gpt-5.3-codex',
     'gpt-5.2-codex',
