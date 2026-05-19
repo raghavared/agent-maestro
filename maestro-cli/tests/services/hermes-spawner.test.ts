@@ -93,7 +93,21 @@ describe('HermesSpawner', () => {
     expect(args).toContain('gpt-5.5');
   });
 
-  it('spawns interactive Hermes as the real chat UI with Maestro context in the system prompt', async () => {
+  it('builds interactive Hermes TUI args with the task as the startup query', () => {
+    const spawner = new HermesSpawner();
+    const args = spawner.buildInteractiveHermesArgs(manifest, '<maestro_task_prompt>task</maestro_task_prompt>');
+
+    expect(args).toEqual(expect.arrayContaining([
+      'chat',
+      '--tui',
+      '--query',
+      '<maestro_task_prompt>task</maestro_task_prompt>',
+      '--source',
+      'maestro',
+    ]));
+  });
+
+  it('spawns interactive Hermes TUI with Maestro task context as the visible startup query', async () => {
     const result = await new HermesSpawner().spawn(manifest, 'session-123', {
       cwd: '/tmp/project',
       interactive: true,
@@ -102,7 +116,7 @@ describe('HermesSpawner', () => {
     expect(result.sessionId).toBe('session-123');
     expect(spawnWithUlimit).toHaveBeenCalledWith(
       'hermes',
-      expect.arrayContaining(['chat', '--source', 'maestro']),
+      expect.arrayContaining(['chat', '--tui', '--query', expect.stringContaining('<maestro_task_prompt'), '--source', 'maestro']),
       expect.objectContaining({
         cwd: '/tmp/project',
         env: expect.objectContaining({

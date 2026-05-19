@@ -15,10 +15,10 @@ type HermesModelOverride = {
 /**
  * HermesSpawner - Spawns Nous Hermes Agent CLI sessions with manifests.
  *
- * Hermes exposes `--query` as a single-query non-interactive mode. For
- * interactive Maestro task sessions we launch the normal Hermes chat UI and
- * inject the Maestro system/task context as an ephemeral system prompt so the
- * terminal stays usable exactly like running `hermes` directly.
+ * Classic Hermes uses `--query` as a single-query non-interactive mode. The
+ * Hermes TUI supports startup queries, so interactive Maestro task sessions
+ * use `hermes chat --tui --query <task>`: the task is visible as the first user
+ * message and the chat remains interactive afterward.
  */
 export class HermesSpawner {
   private promptComposer: PromptComposer;
@@ -125,6 +125,12 @@ export class HermesSpawner {
     return args;
   }
 
+  buildInteractiveHermesArgs(manifest: MaestroManifest, taskContext: string): string[] {
+    const args = this.buildHermesBaseArgs(manifest);
+    args.push('--tui', '--query', taskContext);
+    return args;
+  }
+
   buildPromptEnvelope(
     manifest: MaestroManifest,
     sessionId: string,
@@ -144,12 +150,12 @@ export class HermesSpawner {
     };
     const interactive = options.interactive === true;
     const args = interactive
-      ? this.buildHermesBaseArgs(manifest)
+      ? this.buildInteractiveHermesArgs(manifest, envelope.task)
       : this.buildHermesArgs(manifest, sessionId, envelope.system, envelope.task);
     const spawnEnv = interactive
       ? {
           ...env,
-          HERMES_EPHEMERAL_SYSTEM_PROMPT: this.buildHermesPrompt(envelope.system, envelope.task),
+          HERMES_EPHEMERAL_SYSTEM_PROMPT: envelope.system,
         }
       : env;
     const cwd = options.cwd || manifest.session.workingDirectory || process.cwd();

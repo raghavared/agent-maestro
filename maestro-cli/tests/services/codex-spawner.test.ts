@@ -34,4 +34,16 @@ describe('CodexSpawner', () => {
       expect(args).toContain(model);
     }
   );
+
+  it('does not pass unsupported max-turns to the Codex CLI', () => {
+    const args = new CodexSpawner().buildCodexArgs({
+      ...createManifest('gpt-5.5'),
+      session: {
+        ...createManifest('gpt-5.5').session,
+        maxTurns: 1,
+      },
+    });
+
+    expect(args).not.toContain('--max-turns');
+  });
 });

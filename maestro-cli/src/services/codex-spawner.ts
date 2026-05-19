@@ -136,11 +136,6 @@ export class CodexSpawner {
       args.push('--cd', manifest.session.workingDirectory);
     }
 
-    // Add max turns if specified
-    if (manifest.session.maxTurns) {
-      args.push('--max-turns', manifest.session.maxTurns.toString());
-    }
-
     return args;
   }
 
