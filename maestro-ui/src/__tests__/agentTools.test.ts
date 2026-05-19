@@ -5,6 +5,7 @@ import {
   DEFAULT_MODEL_BY_AGENT_TOOL,
   MODELS_BY_AGENT_TOOL,
 } from '../app/constants/agentTools';
+import { DEFAULT_AGENT_SHORTCUT_IDS } from '../app/constants/defaults';
 
 describe('agent tool UI constants', () => {
   it('exposes Hermes beside Claude and Codex in user-facing pickers', () => {
@@ -24,5 +25,11 @@ describe('agent tool UI constants', () => {
       value: 'openai/gpt-5.5',
       label: 'Codex OAuth GPT 5.5',
     });
+  });
+
+  it('pins Hermes in the default quick-launch shortcuts', () => {
+    expect(DEFAULT_AGENT_SHORTCUT_IDS).toEqual(
+      expect.arrayContaining(['codex', 'claude', 'hermes']),
+    );
   });
 });
