@@ -13,6 +13,7 @@ import {
 import {
     AGENT_TOOLS,
     AGENT_TOOL_LABELS,
+    createLaunchConfig,
     DEFAULT_MODEL_BY_AGENT_TOOL,
     MODELS_BY_AGENT_TOOL,
 } from "../../app/constants/agentTools";
@@ -153,11 +154,17 @@ export function TeamLaunchConfigModal({
             if (!member) continue;
 
             const override: MemberLaunchOverride = {};
-            if (config.agentTool !== (member.agentTool || 'claude-code')) override.agentTool = config.agentTool;
-            if (config.model !== (member.model || DEFAULT_MODEL[member.agentTool || 'claude-code'])) override.model = config.model;
+            const modelChanged = config.model !== (member.model || DEFAULT_MODEL[member.agentTool || 'claude-code']);
+            const toolChanged = config.agentTool !== (member.agentTool || 'claude-code');
 
             const expectedPerm = config.isDangerous ? 'bypassPermissions' : (member.permissionMode === 'bypassPermissions' ? 'acceptEdits' : member.permissionMode);
-            if (expectedPerm !== member.permissionMode) override.permissionMode = expectedPerm as any;
+            const accessChanged = expectedPerm !== member.permissionMode;
+            if (toolChanged || modelChanged || accessChanged) {
+                override.launchConfig = {
+                    ...createLaunchConfig(config.agentTool, config.model),
+                    ...(accessChanged ? { accessMode: expectedPerm === 'bypassPermissions' ? 'fullAccess' : 'acceptEdits' } : {}),
+                };
+            }
 
             const origSkills = member.skillIds || [];
             if (JSON.stringify(config.skillIds.sort()) !== JSON.stringify([...origSkills].sort())) {

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback, useLayoutEffect, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType } from "../../app/types/maestro";
-import { AGENT_TOOL_OPTIONS } from "../../app/constants/agentTools";
+import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, WorkerStrategy, OrchestratorStrategy, AgentTool, LaunchConfig, LaunchProvider, LaunchReasoningEffort, LaunchSpeed } from "../../app/types/maestro";
+import { AGENT_TOOL_OPTIONS, createLaunchConfig, formatLaunchConfigLabel, getReasoningOptionsForProvider, supportsLaunchSpeed, SPEED_OPTIONS } from "../../app/constants/agentTools";
 import { useTaskSessions } from "../../hooks/useTaskSessions";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useSpacesStore } from "../../stores/useSpacesStore";
@@ -13,7 +13,7 @@ type TaskListItemProps = {
     task: MaestroTask;
     onSelect: () => void;
     onWorkOn: () => void;
-    onWorkOnWithOverride?: (agentTool: AgentTool, model: ModelType) => void;
+    onWorkOnWithOverride?: (launchConfig: LaunchConfig) => void;
     onWorkOnWithTeamMember?: (teamMemberId: string, strategy?: WorkerStrategy | OrchestratorStrategy) => void;
     onAssignTeamMember?: (teamMemberId: string) => void;
     onOpenCreateTeamMember?: () => void;
@@ -115,7 +115,7 @@ export const TaskListItem = React.memo(function TaskListItem({
     const [isUpdatingTeamMember, setIsUpdatingTeamMember] = useState(false);
     const [showLaunchDropdown, setShowLaunchDropdown] = useState(false);
     const [expandedTool, setExpandedTool] = useState<AgentTool | null>(null);
-    const [launchOverride, setLaunchOverride] = useState<{ agentTool: AgentTool; model: ModelType } | null>(null);
+    const [launchOverride, setLaunchOverride] = useState<LaunchConfig | null>(null);
     const statusDropdownRef = useRef<HTMLDivElement>(null);
     const priorityDropdownRef = useRef<HTMLDivElement>(null);
     const teamMemberDropdownRef = useRef<HTMLDivElement>(null);
@@ -229,6 +229,9 @@ export const TaskListItem = React.memo(function TaskListItem({
 
     const assignedTeamMember = assignedTeamMembers.length > 0 ? assignedTeamMembers[0] : undefined;
     const effectiveModel = launchOverride?.model || assignedTeamMember?.model || null;
+    const effectiveModelLabel = launchOverride
+        ? formatLaunchConfigLabel(launchOverride)
+        : (effectiveModel || 'default');
     const isSubtask = task.parentId !== null;
 
     // For subtasks, also fetch parent task sessions
@@ -342,6 +345,20 @@ export const TaskListItem = React.memo(function TaskListItem({
         onToggleChildrenCollapse?.();
     };
 
+    const updateLaunchProviderOption = (
+        provider: LaunchProvider,
+        patch: Partial<Pick<LaunchConfig, 'reasoningEffort' | 'speed'>>,
+    ) => {
+        const tool = AGENT_TOOLS.find((entry) => entry.provider === provider);
+        if (!tool) return;
+        setLaunchOverride((current) => {
+            const base = current?.provider === provider
+                ? current
+                : createLaunchConfig(tool.id, tool.models[0]?.id || 'sonnet');
+            return { ...base, ...patch };
+        });
+    };
+
     const handleDragStart = useCallback((e: React.DragEvent) => {
         const content = task.initialPrompt || task.description || '';
         const text = `[Task: ${task.title}] ${content}`;
@@ -439,12 +456,12 @@ export const TaskListItem = React.memo(function TaskListItem({
                         onClick={(e) => {
                             e.stopPropagation();
                             if (launchOverride) {
-                                onWorkOnWithOverride?.(launchOverride.agentTool, launchOverride.model);
+                                onWorkOnWithOverride?.(launchOverride);
                             } else {
                                 onWorkOn();
                             }
                         }}
-                        title={launchOverride ? `Run with ${launchOverride.model}` : "Run task"}
+                        title={launchOverride ? `Run with ${formatLaunchConfigLabel(launchOverride)}` : "Run task"}
                     >
                         ▶
                     </button>
@@ -659,9 +676,9 @@ export const TaskListItem = React.memo(function TaskListItem({
                                     setShowLaunchDropdown(!showLaunchDropdown);
                                     setExpandedTool(null);
                                 }}
-                                title={effectiveModel ? `Model: ${effectiveModel}` : 'No model set'}
+                                title={effectiveModel ? `Model: ${effectiveModelLabel}` : 'No model set'}
                             >
-                                {effectiveModel || 'default'}
+                                {effectiveModelLabel}
                                 <span className="terminalMetaBadgeCaret">{showLaunchDropdown ? '▴' : '▾'}</span>
                             </button>
                             {showLaunchDropdown && launchDropdownPos && createPortal(
@@ -691,18 +708,52 @@ export const TaskListItem = React.memo(function TaskListItem({
                                                         {tool.models.map((model) => (
                                                             <button type="button"
                                                                 key={model.id}
-                                                                className={`terminalLaunchDropdown__model ${launchOverride?.model === model.id && launchOverride?.agentTool === tool.id ? 'terminalLaunchDropdown__model--selected' : ''}`}
+                                                                className={`terminalLaunchDropdown__model ${launchOverride?.model === model.id && launchOverride?.provider === tool.provider ? 'terminalLaunchDropdown__model--selected' : ''}`}
                                                                 onClick={() => {
                                                                     setShowLaunchDropdown(false);
-                                                                    setLaunchOverride({ agentTool: tool.id, model: model.id });
+                                                                    setLaunchOverride((current) => createLaunchConfig(tool.id, model.id, current?.provider === tool.provider ? current : undefined));
                                                                 }}
                                                             >
                                                                 {model.label}
-                                                                {launchOverride?.model === model.id && launchOverride?.agentTool === tool.id && (
+                                                                {launchOverride?.model === model.id && launchOverride?.provider === tool.provider && (
                                                                     <span className="terminalStatusCheck"> ✓</span>
                                                                 )}
                                                             </button>
                                                         ))}
+                                                        {getReasoningOptionsForProvider(tool.provider).length > 0 && (
+                                                            <div className="terminalLaunchDropdown__section">
+                                                                <div className="terminalLaunchDropdown__sectionTitle">Intelligence</div>
+                                                                {getReasoningOptionsForProvider(tool.provider).map((option) => (
+                                                                    <button type="button"
+                                                                        key={option.value}
+                                                                        className={`terminalLaunchDropdown__model ${launchOverride?.provider === tool.provider && launchOverride.reasoningEffort === option.value ? 'terminalLaunchDropdown__model--selected' : ''}`}
+                                                                        onClick={() => updateLaunchProviderOption(tool.provider, { reasoningEffort: option.value as LaunchReasoningEffort })}
+                                                                    >
+                                                                        {option.label}
+                                                                        {launchOverride?.provider === tool.provider && launchOverride.reasoningEffort === option.value && (
+                                                                            <span className="terminalStatusCheck"> ✓</span>
+                                                                        )}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        {supportsLaunchSpeed(tool.provider, launchOverride?.provider === tool.provider ? String(launchOverride.model) : tool.models[0]?.id) && (
+                                                            <div className="terminalLaunchDropdown__section">
+                                                                <div className="terminalLaunchDropdown__sectionTitle">Speed</div>
+                                                                {SPEED_OPTIONS.map((option) => (
+                                                                    <button type="button"
+                                                                        key={option.value}
+                                                                        className={`terminalLaunchDropdown__model ${launchOverride?.provider === tool.provider && (launchOverride.speed || 'standard') === option.value ? 'terminalLaunchDropdown__model--selected' : ''}`}
+                                                                        onClick={() => updateLaunchProviderOption(tool.provider, { speed: option.value as LaunchSpeed })}
+                                                                    >
+                                                                        {option.label}
+                                                                        {launchOverride?.provider === tool.provider && (launchOverride.speed || 'standard') === option.value && (
+                                                                            <span className="terminalStatusCheck"> ✓</span>
+                                                                        )}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>

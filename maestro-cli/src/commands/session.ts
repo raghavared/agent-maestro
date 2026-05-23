@@ -12,6 +12,44 @@ import ora from 'ora';
 import { readFileSync } from 'fs';
 import WebSocket from 'ws';
 import chalk from 'chalk';
+import type { LaunchConfig } from '../types/manifest.js';
+
+function parseLaunchConfig(value?: string): LaunchConfig | undefined {
+    if (!value) return undefined;
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(value);
+    } catch {
+        throw new Error('Invalid --launch-config JSON');
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Invalid --launch-config: expected an object');
+    }
+
+    const candidate = parsed as Record<string, unknown>;
+    const validProviders = ['claude', 'openai', 'hermes', 'gemini'];
+    const validEfforts = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+    const validSpeeds = ['standard', 'fast'];
+    const validAccessModes = ['safe', 'acceptEdits', 'plan', 'fullAccess'];
+
+    if (typeof candidate.provider !== 'string' || !validProviders.includes(candidate.provider)) {
+        throw new Error(`Invalid --launch-config provider. Must be one of: ${validProviders.join(', ')}`);
+    }
+    if (typeof candidate.model !== 'string' || candidate.model.length === 0) {
+        throw new Error('Invalid --launch-config model. Must be a non-empty string');
+    }
+    if (candidate.reasoningEffort !== undefined && (typeof candidate.reasoningEffort !== 'string' || !validEfforts.includes(candidate.reasoningEffort))) {
+        throw new Error(`Invalid --launch-config reasoningEffort. Must be one of: ${validEfforts.join(', ')}`);
+    }
+    if (candidate.speed !== undefined && (typeof candidate.speed !== 'string' || !validSpeeds.includes(candidate.speed))) {
+        throw new Error(`Invalid --launch-config speed. Must be one of: ${validSpeeds.join(', ')}`);
+    }
+    if (candidate.accessMode !== undefined && (typeof candidate.accessMode !== 'string' || !validAccessModes.includes(candidate.accessMode))) {
+        throw new Error(`Invalid --launch-config accessMode. Must be one of: ${validAccessModes.join(', ')}`);
+    }
+
+    return candidate as unknown as LaunchConfig;
+}
 
 /**
  * Build comprehensive session context for spawning
@@ -546,8 +584,7 @@ export function registerSessionCommands(program: Command) {
         .option('--name <name>', 'Session name (auto-generated if not provided)')
         .option('--reason <reason>', 'Reason for spawning this session')
         .option('--include-related', 'Include related tasks in context')
-        .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, hermes, or gemini)')
-        .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5, hermes-default, or native model names)')
+        .option('--launch-config <json>', 'Canonical launch config JSON: provider, model, reasoningEffort, speed, accessMode')
         .option('--team-member-id <id>', 'Team member ID to run this session')
         .option('--subject <subject>', 'Initial directive subject (embedded in manifest for guaranteed delivery)')
         .option('--message <message>', 'Initial directive message body (requires --subject)')
@@ -603,12 +640,7 @@ export function registerSessionCommands(program: Command) {
 
                 // Generate session name if not provided
                 const sessionName = cmdOpts.name || generateSessionName(task, skill);
-
-                // Validate agent tool if provided
-                const validAgentTools = ['claude-code', 'codex', 'hermes', 'gemini'];
-                if (cmdOpts.agentTool && !validAgentTools.includes(cmdOpts.agentTool)) {
-                    throw new Error(`Invalid agent tool "${cmdOpts.agentTool}". Must be one of: ${validAgentTools.join(', ')}`);
-                }
+                const launchConfig = parseLaunchConfig(cmdOpts.launchConfig);
 
                 // Prepare spawn request with spawnSource and mode
                 const spawnRequest: Record<string, unknown> = {
@@ -639,14 +671,8 @@ export function registerSessionCommands(program: Command) {
                     spawnRequest.teamMemberId = resolvedTeamMemberId;
                 }
 
-                // Include agent tool if specified
-                if (cmdOpts.agentTool) {
-                    spawnRequest.agentTool = cmdOpts.agentTool;
-                }
-
-                // Include model if specified
-                if (cmdOpts.model) {
-                    spawnRequest.model = cmdOpts.model;
+                if (launchConfig) {
+                    spawnRequest.launchConfig = launchConfig;
                 }
 
                 const spinner3 = !isJson ? ora('Requesting session spawn...').start() : null;
@@ -656,13 +682,16 @@ export function registerSessionCommands(program: Command) {
                 if (isJson) {
                     outputJSON(result);
                 } else {
-                    const toolDisplay = cmdOpts.agentTool || 'claude-code';
-                    const modelDisplay = cmdOpts.model || 'sonnet';
                     console.log(`Spawning ${skill} session: ${sessionName}`);
                     console.log(`   Task: ${task.title}`);
                     console.log(`   Priority: ${task.priority}`);
-                    console.log(`   Agent Tool: ${toolDisplay}`);
-                    console.log(`   Model: ${modelDisplay}`);
+                    if (launchConfig) {
+                        console.log(`   Provider: ${launchConfig.provider}`);
+                        console.log(`   Model: ${launchConfig.model}`);
+                        if (launchConfig.reasoningEffort) console.log(`   Intelligence: ${launchConfig.reasoningEffort}`);
+                        if (launchConfig.speed) console.log(`   Speed: ${launchConfig.speed}`);
+                        if (launchConfig.accessMode) console.log(`   Access: ${launchConfig.accessMode}`);
+                    }
                     console.log(`   Session ID: ${result.sessionId}`);
                     console.log('');
                     console.log('   Waiting for Agent Maestro to open terminal window...');

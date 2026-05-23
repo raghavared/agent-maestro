@@ -89,13 +89,14 @@ export class GeminiSpawner {
    */
   buildGeminiArgs(manifest: MaestroManifest): string[] {
     const args: string[] = [];
+    const launchConfig = manifest.session.launchConfig || manifest.launchConfig;
 
     // Set model
-    const model = this.mapModel(manifest.session.model);
+    const model = this.mapModel(launchConfig?.model || manifest.session.model);
     args.push('--model', model);
 
     // Set approval mode based on permission mode
-    const approvalMode = this.mapApprovalMode(manifest.session.permissionMode);
+    const approvalMode = this.mapApprovalMode(launchConfig?.accessMode === 'fullAccess' ? 'bypassPermissions' : manifest.session.permissionMode);
     args.push('--approval-mode', approvalMode);
 
     return args;

@@ -57,6 +57,18 @@ export function resolveTeamContextLensForMode(mode: AgentModeInput): TeamContext
 
 /** Supported agent tools */
 export type AgentTool = 'claude-code' | 'codex' | 'hermes' | 'gemini';
+export type LaunchProvider = 'claude' | 'openai' | 'hermes' | 'gemini';
+export type LaunchReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type LaunchSpeed = 'standard' | 'fast';
+export type LaunchAccessMode = 'safe' | 'acceptEdits' | 'plan' | 'fullAccess';
+
+export interface LaunchConfig {
+  provider: LaunchProvider;
+  model: string;
+  reasoningEffort?: LaunchReasoningEffort;
+  speed?: LaunchSpeed;
+  accessMode?: LaunchAccessMode;
+}
 
 /**
  * Main manifest interface - contains all configuration for a Maestro session
@@ -82,6 +94,9 @@ export interface MaestroManifest {
 
   /** Agent tool to use for this session (defaults to 'claude-code') */
   agentTool?: AgentTool;
+
+  /** Canonical provider/model/capability config for launch-time agent selection */
+  launchConfig?: LaunchConfig;
 
   /** Reference task IDs for context (docs from these tasks are provided to the agent) */
   referenceTaskIds?: string[];
@@ -310,6 +325,9 @@ export interface SessionConfig {
 
   /** Working directory for the session (defaults to project root) */
   workingDirectory?: string;
+
+  /** Canonical provider/model/capability config for the spawned CLI */
+  launchConfig?: LaunchConfig;
 
   /**
    * Explicit list of allowed commands for this session.

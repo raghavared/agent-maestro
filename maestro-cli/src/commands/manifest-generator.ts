@@ -7,6 +7,7 @@ import type {
   TeamMemberProfile,
   MasterProjectInfo,
   AgentMode,
+  LaunchConfig,
 } from '../types/manifest.js';
 import { normalizeMode, isCoordinatorMode } from '../types/manifest.js';
 import { DEFAULT_ACCEPTANCE_CRITERIA, MODE_VALIDATION_ERROR, AGENT_TOOL_VALIDATION_PREFIX } from '../prompts/index.js';
@@ -44,6 +45,7 @@ export interface SessionOptions {
   maxTurns?: number;
   timeout?: number;
   workingDirectory?: string;
+  launchConfig?: LaunchConfig;
   context?: AdditionalContext;
 }
 
@@ -72,9 +74,7 @@ type MemberPermissionMode = SessionOptions['permissionMode'];
 type MemberCommandPermissions = NonNullable<MaestroManifest['teamMemberCommandPermissions']>;
 
 interface MemberLaunchOverride {
-  agentTool?: AgentTool;
-  model?: string;
-  permissionMode?: MemberPermissionMode;
+  launchConfig?: LaunchConfig;
   skillIds?: string[];
   commandPermissions?: MemberCommandPermissions;
 }
@@ -118,6 +118,56 @@ function mergeCommandPermissions(
   return result;
 }
 
+function agentToolForProvider(provider: LaunchConfig['provider']): AgentTool {
+  switch (provider) {
+    case 'claude':
+      return 'claude-code';
+    case 'openai':
+      return 'codex';
+    case 'hermes':
+      return 'hermes';
+    case 'gemini':
+      return 'gemini';
+  }
+}
+
+function permissionModeForAccessMode(accessMode?: LaunchConfig['accessMode']): MemberPermissionMode | undefined {
+  switch (accessMode) {
+    case 'fullAccess':
+      return 'bypassPermissions';
+    case 'acceptEdits':
+      return 'acceptEdits';
+    case 'plan':
+      return 'readOnly';
+    case 'safe':
+      return 'interactive';
+    default:
+      return undefined;
+  }
+}
+
+function parseLaunchConfig(raw: string | undefined): LaunchConfig | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!isRecord(parsed) || typeof parsed.provider !== 'string' || typeof parsed.model !== 'string') {
+      return undefined;
+    }
+    if (!['claude', 'openai', 'hermes', 'gemini'].includes(parsed.provider)) {
+      return undefined;
+    }
+    return {
+      provider: parsed.provider as LaunchConfig['provider'],
+      model: parsed.model,
+      ...(typeof parsed.reasoningEffort === 'string' ? { reasoningEffort: parsed.reasoningEffort as LaunchConfig['reasoningEffort'] } : {}),
+      ...(typeof parsed.speed === 'string' ? { speed: parsed.speed as LaunchConfig['speed'] } : {}),
+      ...(typeof parsed.accessMode === 'string' ? { accessMode: parsed.accessMode as LaunchConfig['accessMode'] } : {}),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 function parseMemberOverrides(raw: string | undefined): Record<string, MemberLaunchOverride> {
   if (!raw) return {};
 
@@ -141,10 +191,11 @@ function parseMemberOverrides(raw: string | undefined): Record<string, MemberLau
         }
       }
 
+      const launchConfig = isRecord(value.launchConfig)
+        ? parseLaunchConfig(JSON.stringify(value.launchConfig))
+        : undefined;
       const override: MemberLaunchOverride = {
-        ...(typeof value.agentTool === 'string' ? { agentTool: value.agentTool as AgentTool } : {}),
-        ...(typeof value.model === 'string' ? { model: value.model } : {}),
-        ...(typeof value.permissionMode === 'string' ? { permissionMode: value.permissionMode as MemberPermissionMode } : {}),
+        ...(launchConfig ? { launchConfig } : {}),
         ...(Array.isArray(value.skillIds)
           ? { skillIds: value.skillIds.filter((entry): entry is string => typeof entry === 'string') }
           : {}),
@@ -169,9 +220,11 @@ function applyMemberOverride(teamMember: any, override: MemberLaunchOverride | u
 
   return {
     ...teamMember,
-    ...(override.agentTool !== undefined ? { agentTool: override.agentTool } : {}),
-    ...(override.model !== undefined ? { model: override.model } : {}),
-    ...(override.permissionMode !== undefined ? { permissionMode: override.permissionMode } : {}),
+    ...(override.launchConfig !== undefined ? {
+      agentTool: agentToolForProvider(override.launchConfig.provider),
+      model: override.launchConfig.model,
+      ...(permissionModeForAccessMode(override.launchConfig.accessMode) ? { permissionMode: permissionModeForAccessMode(override.launchConfig.accessMode) } : {}),
+    } : {}),
     ...(override.skillIds !== undefined ? { skillIds: override.skillIds } : {}),
     ...(mergedCommandPermissions ? { commandPermissions: mergedCommandPermissions } : {}),
   };
@@ -260,8 +313,8 @@ export class ManifestGeneratorCLICommand {
     taskIds: string[];
     skills?: string[];
     output: string;
-    model?: string;
     agentTool?: AgentTool;
+    launchConfig?: LaunchConfig;
     referenceTaskIds?: string[];
     teamMemberIds?: string[];
     teamMemberId?: string;
@@ -277,10 +330,8 @@ export class ManifestGeneratorCLICommand {
       // 2. Fetch project
       const project = await this.fetchProject(options.projectId);
 
-      // 3. Resolve model from CLI option (set by team member via server) or default to 'sonnet'
-      // Track whether the model was explicitly set vs defaulted, so team member overrides can take precedence
-      const hasExplicitModel = !!options.model;
-      const resolvedModel = options.model || 'sonnet';
+      const hasExplicitModel = !!options.launchConfig;
+      const resolvedModel = options.launchConfig?.model || 'sonnet';
 
       // 4. Build session options
       const sessionOptions: SessionOptions = {
@@ -288,6 +339,7 @@ export class ManifestGeneratorCLICommand {
         permissionMode: 'acceptEdits',
         thinkingMode: 'auto',
         workingDirectory: project.workingDir,
+        ...(options.launchConfig ? { launchConfig: options.launchConfig } : {}),
         context: {
           custom: {
             taskIds: options.taskIds,
@@ -349,6 +401,12 @@ export class ManifestGeneratorCLICommand {
       // Add agent tool to manifest (if specified)
       if (options.agentTool) {
         manifest.agentTool = options.agentTool;
+      }
+      if (options.launchConfig) {
+        manifest.launchConfig = options.launchConfig;
+        manifest.session.launchConfig = options.launchConfig;
+        manifest.agentTool = agentToolForProvider(options.launchConfig.provider);
+        manifest.session.permissionMode = permissionModeForAccessMode(options.launchConfig.accessMode) || manifest.session.permissionMode;
       }
 
       // Add reference task IDs to manifest (if specified)
@@ -630,6 +688,7 @@ export class ManifestGenerator {
         ...(options.maxTurns && { maxTurns: options.maxTurns }),
         ...(options.timeout && { timeout: options.timeout }),
         ...(options.workingDirectory && { workingDirectory: options.workingDirectory }),
+        ...(options.launchConfig && { launchConfig: options.launchConfig }),
       },
       ...(options.context && { context: options.context }),
     };
@@ -715,7 +774,7 @@ export function registerManifestCommands(program: any): void {
     .requiredOption('--project-id <id>', 'Project ID')
     .requiredOption('--task-ids <ids>', 'Comma-separated task IDs')
     .option('--skills <skills>', 'Comma-separated skills', 'maestro-worker')
-    .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5, hermes-default, gemini-3-pro-preview)', 'sonnet')
+    .option('--launch-config <json>', 'Canonical launch config JSON: provider, model, reasoningEffort, speed, accessMode')
     .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, hermes, or gemini)', 'claude-code')
     .option('--reference-task-ids <ids>', 'Comma-separated reference task IDs for context')
     .option('--team-member-id <id>', 'Team member ID for this session')
@@ -739,6 +798,12 @@ export function registerManifestCommands(program: any): void {
         process.exit(1);
       }
 
+      const launchConfig = parseLaunchConfig(options.launchConfig);
+      if (options.launchConfig && !launchConfig) {
+        console.error('Invalid launch config JSON');
+        process.exit(1);
+      }
+
       // Parse reference task IDs if provided
       const referenceTaskIds = options.referenceTaskIds
         ? options.referenceTaskIds.split(',').map((id: string) => id.trim()).filter(Boolean)
@@ -757,7 +822,7 @@ export function registerManifestCommands(program: any): void {
         taskIds,
         skills,
         output: options.output,
-        model: options.model,
+        launchConfig,
         agentTool: options.agentTool !== 'claude-code' ? options.agentTool : undefined,
         referenceTaskIds,
         teamMemberId: options.teamMemberId,

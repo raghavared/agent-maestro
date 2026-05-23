@@ -164,7 +164,7 @@ const COMMAND_SYNTAX_MAP: Record<string, string> = {
   'session:siblings': 'maestro session siblings',
   'session:info': 'maestro session info [sessionId]',
   'session:watch': 'maestro session watch <sessionId1>,<sessionId2>,...',
-  'session:spawn': 'maestro session spawn --task <id> [--team-member-id <tmId>] [--model <model>] [--agent-tool <tool>]',
+  'session:spawn': 'maestro session spawn --task <id> [--team-member-id <tmId>] [--launch-config <json>]',
   'session:logs': 'maestro session logs [ids] [--my-workers] [--last <n>] [--full] [--max-length <n>]',
   'session:prompt': 'maestro session prompt <targetSessionId> --message "<text>" [--mode send|paste]',
   'session:register': 'maestro session register',

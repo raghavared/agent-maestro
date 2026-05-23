@@ -12,16 +12,58 @@ export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coord
 export type LegacyAgentMode = 'execute' | 'coordinate';
 export type AgentModeInput = AgentMode | LegacyAgentMode;
 // Claude models
-export type ClaudeModel = 'haiku' | 'sonnet' | 'sonnet[1m]' | 'opus' | 'opus[1m]' | 'claude-opus-4-7' | 'claude-opus-4-7[1m]';
+export type ClaudeModel =
+  | 'haiku'
+  | 'sonnet'
+  | 'sonnet[1m]'
+  | 'opus'
+  | 'opus[1m]'
+  | 'claude-opus-4-7'
+  | 'claude-opus-4-7[1m]'
+  | 'claude-sonnet-4-6'
+  | 'claude-haiku-4-5'
+  | 'claude-opus-4-6';
 // Codex models
-export type CodexModel = 'gpt-5.5' | 'gpt-5.4' | 'gpt-5.3-codex' | 'gpt-5.2-codex';
+export type CodexModel =
+  | 'gpt-5.5'
+  | 'gpt-5.4'
+  | 'gpt-5.4-mini'
+  | 'gpt-5.3-codex'
+  | 'gpt-5.3-codex-spark'
+  | 'gpt-5.2'
+  | 'gpt-5.2-codex';
 // Gemini models
 export type GeminiModel = 'gemini-3-pro-preview' | 'gemini-2.5-pro';
 // Hermes models
-export type HermesModel = 'hermes-default' | 'anthropic/claude-sonnet-4.6' | 'openai/gpt-5.5' | 'openai/gpt-5.4' | 'gpt-5.4' | 'gpt-5.3-codex' | 'gpt-5.3-codex-spark';
+export type HermesModel =
+  | 'hermes-default'
+  | 'anthropic/claude-sonnet-4.6'
+  | 'openai/gpt-5.5'
+  | 'openai/gpt-5.4'
+  | 'openai/gpt-5.4-mini'
+  | 'openai/gpt-5.3-codex'
+  | 'openai/gpt-5.3-codex-spark'
+  | 'openai/gpt-5.2'
+  | 'gpt-5.4'
+  | 'gpt-5.4-mini'
+  | 'gpt-5.3-codex'
+  | 'gpt-5.3-codex-spark'
+  | 'gpt-5.2';
 // Union of all supported models
 export type ModelType = ClaudeModel | CodexModel | GeminiModel | HermesModel;
 export type AgentTool = 'claude-code' | 'codex' | 'hermes' | 'gemini';
+export type LaunchProvider = 'claude' | 'openai' | 'hermes' | 'gemini';
+export type LaunchReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type LaunchSpeed = 'standard' | 'fast';
+export type LaunchAccessMode = 'safe' | 'acceptEdits' | 'plan' | 'fullAccess';
+
+export interface LaunchConfig {
+  provider: LaunchProvider;
+  model: ModelType | string;
+  reasoningEffort?: LaunchReasoningEffort;
+  speed?: LaunchSpeed;
+  accessMode?: LaunchAccessMode;
+}
 
 // Strategy types
 export type WorkerStrategy = 'simple' | 'queue';
@@ -566,9 +608,7 @@ export interface ClaudeCodeSkill {
 
 // Per-member launch override for team launch configuration
 export interface MemberLaunchOverride {
-  agentTool?: AgentTool;
-  model?: ModelType;
-  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
+  launchConfig?: LaunchConfig;
   skillIds?: string[];
   commandPermissions?: {
     groups?: Record<string, boolean>;
@@ -588,8 +628,7 @@ export interface SpawnSessionPayload {
   teamMemberId?: string;              // Team member running this session (backward compat)
   teamMemberIds?: string[];           // Multiple team member identities for this session
   delegateTeamMemberIds?: string[];   // Team member IDs for coordination delegation pool
-  agentTool?: AgentTool;              // Override agent tool for this run
-  model?: ModelType;                  // Override model for this run
+  launchConfig?: LaunchConfig;        // Canonical launch override for this run
   memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member overrides keyed by teamMemberId
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   delegatePermissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
@@ -606,8 +645,7 @@ export interface CreateMaestroSessionInput {
   teamMemberId?: string;
   teamMemberIds?: string[];
   delegateTeamMemberIds?: string[];
-  agentTool?: AgentTool;
-  model?: ModelType;
+  launchConfig?: LaunchConfig;
   memberOverrides?: Record<string, MemberLaunchOverride>;
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   delegatePermissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';

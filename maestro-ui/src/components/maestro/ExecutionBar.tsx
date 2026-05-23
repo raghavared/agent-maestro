@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { TeamMember, AgentTool, ModelType, MemberLaunchOverride } from "../../app/types/maestro";
+import { TeamMember, AgentTool, LaunchConfig, LaunchProvider, LaunchReasoningEffort, LaunchSpeed, MemberLaunchOverride } from "../../app/types/maestro";
 import { TeamLaunchConfigModal } from "./TeamLaunchConfigModal";
-import { AGENT_TOOL_OPTIONS } from "../../app/constants/agentTools";
+import { AGENT_TOOL_OPTIONS, createLaunchConfig, DEFAULT_MODEL_BY_AGENT_TOOL, getReasoningOptionsForProvider, supportsLaunchSpeed, SPEED_OPTIONS } from "../../app/constants/agentTools";
 
 type ExecutionMode = 'none' | 'execute' | 'orchestrate';
 
-type LaunchOverride = { agentTool: AgentTool; model: ModelType };
+type LaunchOverride = LaunchConfig;
 
 const AGENT_TOOLS = AGENT_TOOL_OPTIONS;
 
@@ -302,6 +302,31 @@ export function ExecutionBar({
         setLaunchOverride(null);
     };
 
+    const updateLaunchProviderOption = (
+        provider: LaunchProvider,
+        patch: Partial<Pick<LaunchConfig, 'reasoningEffort' | 'speed'>>,
+    ) => {
+        const tool = AGENT_TOOLS.find((entry) => entry.provider === provider);
+        if (!tool) return;
+        setLaunchOverride((current) => {
+            const base = current?.provider === provider
+                ? current
+                : createLaunchConfig(tool.id, tool.models[0]?.id || 'sonnet');
+            return { ...base, ...patch };
+        });
+    };
+
+    const launchConfigWithAccess = (config: LaunchOverride | null, memberId: string | null, fullAccess: boolean): LaunchOverride | null => {
+        if (!fullAccess) return config;
+        if (config) return { ...config, accessMode: 'fullAccess' };
+        const member = memberId ? activeMembers.find((entry) => entry.id === memberId) : undefined;
+        const tool = member?.agentTool || 'claude-code';
+        return {
+            ...createLaunchConfig(tool, member?.model || DEFAULT_MODEL_BY_AGENT_TOOL[tool]),
+            accessMode: 'fullAccess',
+        };
+    };
+
     if (!isActive) {
         return (
             <div className="executionBar executionBar--inactive">
@@ -354,18 +379,52 @@ export function ExecutionBar({
                                 {tool.models.map((model) => (
                                     <button type="button"
                                         key={model.id}
-                                        className={`terminalLaunchDropdown__model ${launchOverride?.model === model.id && launchOverride?.agentTool === tool.id ? 'terminalLaunchDropdown__model--selected' : ''}`}
+                                        className={`terminalLaunchDropdown__model ${launchOverride?.model === model.id && launchOverride?.provider === tool.provider ? 'terminalLaunchDropdown__model--selected' : ''}`}
                                         onClick={() => {
                                             setShowLaunchDropdown(false);
-                                            setLaunchOverride({ agentTool: tool.id, model: model.id });
+                                            setLaunchOverride((current) => createLaunchConfig(tool.id, model.id, current?.provider === tool.provider ? current : undefined));
                                         }}
                                     >
                                         {model.label}
-                                        {launchOverride?.model === model.id && launchOverride?.agentTool === tool.id && (
+                                        {launchOverride?.model === model.id && launchOverride?.provider === tool.provider && (
                                             <span style={{ marginLeft: 'auto', color: 'var(--terminal-green)' }}> ✓</span>
                                         )}
                                     </button>
                                 ))}
+                                {getReasoningOptionsForProvider(tool.provider).length > 0 && (
+                                    <div className="terminalLaunchDropdown__section">
+                                        <div className="terminalLaunchDropdown__sectionTitle">Intelligence</div>
+                                        {getReasoningOptionsForProvider(tool.provider).map((option) => (
+                                            <button type="button"
+                                                key={option.value}
+                                                className={`terminalLaunchDropdown__model ${launchOverride?.provider === tool.provider && launchOverride.reasoningEffort === option.value ? 'terminalLaunchDropdown__model--selected' : ''}`}
+                                                onClick={() => updateLaunchProviderOption(tool.provider, { reasoningEffort: option.value as LaunchReasoningEffort })}
+                                            >
+                                                {option.label}
+                                                {launchOverride?.provider === tool.provider && launchOverride.reasoningEffort === option.value && (
+                                                    <span style={{ marginLeft: 'auto', color: 'var(--terminal-green)' }}> ✓</span>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                {supportsLaunchSpeed(tool.provider, launchOverride?.provider === tool.provider ? String(launchOverride.model) : tool.models[0]?.id) && (
+                                    <div className="terminalLaunchDropdown__section">
+                                        <div className="terminalLaunchDropdown__sectionTitle">Speed</div>
+                                        {SPEED_OPTIONS.map((option) => (
+                                            <button type="button"
+                                                key={option.value}
+                                                className={`terminalLaunchDropdown__model ${launchOverride?.provider === tool.provider && (launchOverride.speed || 'standard') === option.value ? 'terminalLaunchDropdown__model--selected' : ''}`}
+                                                onClick={() => updateLaunchProviderOption(tool.provider, { speed: option.value as LaunchSpeed })}
+                                            >
+                                                {option.label}
+                                                {launchOverride?.provider === tool.provider && (launchOverride.speed || 'standard') === option.value && (
+                                                    <span style={{ marginLeft: 'auto', color: 'var(--terminal-green)' }}> ✓</span>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -381,7 +440,7 @@ export function ExecutionBar({
                                 setLaunchOverride(null);
                             }}
                         >
-                            ✕ Clear override
+                            Clear override
                         </button>
                     </>
                 )}
@@ -398,9 +457,9 @@ export function ExecutionBar({
             onOrchestrate(
                 selectedCoordinatorId || undefined,
                 selectedWorkerIds.size > 0 ? Array.from(selectedWorkerIds) : undefined,
-                launchOverride || undefined,
+                launchConfigWithAccess(launchOverride, selectedCoordinatorId, coordinatorDangerous) || undefined,
                 Object.keys(overrides).length > 0 ? overrides : undefined,
-                coordinatorDangerous ? 'bypassPermissions' : undefined,
+                undefined,
                 workersDangerous ? 'bypassPermissions' : undefined,
             );
         };
@@ -473,9 +532,9 @@ export function ExecutionBar({
                                 onClick={() => onOrchestrate(
                                     selectedCoordinatorId || undefined,
                                     selectedWorkerIds.size > 0 ? Array.from(selectedWorkerIds) : undefined,
-                                    launchOverride || undefined,
+                                    launchConfigWithAccess(launchOverride, selectedCoordinatorId, coordinatorDangerous) || undefined,
                                     pendingMemberOverrides || undefined,
-                                    coordinatorDangerous ? 'bypassPermissions' : undefined,
+                                    undefined,
                                     workersDangerous ? 'bypassPermissions' : undefined,
                                 )}
                                 disabled={selectedCount === 0}

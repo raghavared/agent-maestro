@@ -114,21 +114,34 @@ export class CodexSpawner {
     const args: string[] = [];
 
     // Set model
-    const model = this.mapModel(manifest.session.model);
+    const launchConfig = manifest.session.launchConfig || manifest.launchConfig;
+    const model = this.mapModel(launchConfig?.model || manifest.session.model);
     args.push('--model', model);
 
-    if (manifest.session.permissionMode === 'bypassPermissions') {
+    const permissionMode = launchConfig?.accessMode === 'fullAccess'
+      ? 'bypassPermissions'
+      : manifest.session.permissionMode;
+
+    if (permissionMode === 'bypassPermissions') {
       // Use --dangerously-bypass-approvals-and-sandbox for full bypass mode
       // This skips all confirmation prompts and runs without sandboxing
       args.push('--dangerously-bypass-approvals-and-sandbox');
     } else {
       // Set approval policy based on permission mode
-      const approval = this.mapApprovalPolicy(manifest.session.permissionMode);
+      const approval = this.mapApprovalPolicy(permissionMode);
       args.push('--ask-for-approval', approval);
 
       // Set sandbox mode based on permission mode
-      const sandbox = this.mapSandboxMode(manifest.session.permissionMode);
+      const sandbox = this.mapSandboxMode(permissionMode);
       args.push('--sandbox', sandbox);
+    }
+
+    if (launchConfig?.reasoningEffort && launchConfig.reasoningEffort !== 'max') {
+      args.push('-c', `model_reasoning_effort=${JSON.stringify(launchConfig.reasoningEffort)}`);
+    }
+    if (launchConfig?.speed === 'fast' && (model === 'gpt-5.5' || model === 'gpt-5.4')) {
+      args.push('-c', 'service_tier="fast"');
+      args.push('-c', 'features.fast_mode=true');
     }
 
     // Set working directory if specified

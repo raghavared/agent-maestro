@@ -979,9 +979,25 @@
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.terminalLaunchDropdown__section {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 4px;
+}
+
+.terminalLaunchDropdown__sectionTitle {
+  padding: 6px 10px 3px 30px;
+  color: var(--terminal-text-dim);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
 .terminalLaunchDropdown__model {
   width: 100%;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 6px 10px 6px 30px;
   background: transparent;
   border: none;

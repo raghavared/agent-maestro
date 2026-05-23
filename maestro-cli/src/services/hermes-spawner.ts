@@ -90,8 +90,9 @@ export class HermesSpawner {
 
   buildHermesBaseArgs(manifest: MaestroManifest): string[] {
     const args: string[] = ['chat'];
+    const launchConfig = manifest.session.launchConfig || manifest.launchConfig;
 
-    const modelOverride = this.resolveModelOverride(manifest.session.model);
+    const modelOverride = this.resolveModelOverride(launchConfig?.model || manifest.session.model);
     if (modelOverride.provider) {
       args.push('--provider', modelOverride.provider);
     }
@@ -103,7 +104,7 @@ export class HermesSpawner {
       args.push('--max-turns', manifest.session.maxTurns.toString());
     }
 
-    if (this.shouldUseYolo(manifest.session.permissionMode)) {
+    if (launchConfig?.accessMode === 'fullAccess' || this.shouldUseYolo(manifest.session.permissionMode)) {
       args.push('--yolo');
     }
 

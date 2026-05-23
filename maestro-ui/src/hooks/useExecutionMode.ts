@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { MaestroTask, MaestroProject, AgentTool, ModelType, MemberLaunchOverride, CreateMaestroSessionInput, CreateTeamPayload } from "../app/types/maestro";
+import { MaestroTask, MaestroProject, LaunchConfig, MemberLaunchOverride, CreateMaestroSessionInput, CreateTeamPayload } from "../app/types/maestro";
 
 type CreateSessionFn = (input: CreateMaestroSessionInput) => Promise<void>;
 
@@ -36,7 +36,7 @@ export function useExecutionMode(
         setSelectedAgentByTask(prev => ({ ...prev, [taskId]: agentId }));
     }, []);
 
-    const handleBatchExecute = useCallback(async (teamMemberId?: string, override?: { agentTool: AgentTool; model: ModelType }, memberOverrides?: Record<string, MemberLaunchOverride>, permissionMode?: string) => {
+    const handleBatchExecute = useCallback(async (teamMemberId?: string, launchConfig?: LaunchConfig, memberOverrides?: Record<string, MemberLaunchOverride>, permissionMode?: string) => {
         const selectedTasks = normalizedTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
 
@@ -45,7 +45,7 @@ export function useExecutionMode(
                 tasks: selectedTasks,
                 project,
                 teamMemberId,
-                ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
+                ...(launchConfig ? { launchConfig } : {}),
                 ...(memberOverrides && Object.keys(memberOverrides).length > 0 ? { memberOverrides } : {}),
                 ...(permissionMode ? { permissionMode: permissionMode as any } : {}),
             });
@@ -58,7 +58,7 @@ export function useExecutionMode(
         }
     }, [normalizedTasks, selectedForExecution, project, onCreateMaestroSession, onError]);
 
-    const handleBatchOrchestrate = useCallback(async (coordinatorId?: string, workerIds?: string[], override?: { agentTool: AgentTool; model: ModelType }, memberOverrides?: Record<string, MemberLaunchOverride>, permissionMode?: string, delegatePermissionMode?: string) => {
+    const handleBatchOrchestrate = useCallback(async (coordinatorId?: string, workerIds?: string[], launchConfig?: LaunchConfig, memberOverrides?: Record<string, MemberLaunchOverride>, permissionMode?: string, delegatePermissionMode?: string) => {
         const selectedTasks = regularTasks.filter(t => selectedForExecution.has(t.id));
         if (selectedTasks.length === 0) return;
 
@@ -70,7 +70,7 @@ export function useExecutionMode(
                 skillIds: ['maestro-orchestrator'],
                 teamMemberId: coordinatorId,
                 delegateTeamMemberIds: workerIds && workerIds.length > 0 ? workerIds : undefined,
-                ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
+                ...(launchConfig ? { launchConfig } : {}),
                 ...(memberOverrides && Object.keys(memberOverrides).length > 0 ? { memberOverrides } : {}),
                 ...(permissionMode ? { permissionMode: permissionMode as any } : {}),
                 ...(delegatePermissionMode ? { delegatePermissionMode: delegatePermissionMode as any } : {}),

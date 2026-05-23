@@ -93,6 +93,18 @@ export interface UpdateTaskGraphPayload {
 export type WorkerStrategy = 'simple' | 'tree';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
 export type AgentTool = 'claude-code' | 'codex' | 'hermes' | 'gemini';
+export type LaunchProvider = 'claude' | 'openai' | 'hermes' | 'gemini';
+export type LaunchReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type LaunchSpeed = 'standard' | 'fast';
+export type LaunchAccessMode = 'safe' | 'acceptEdits' | 'plan' | 'fullAccess';
+
+export interface LaunchConfig {
+  provider: LaunchProvider;
+  model: string;
+  reasoningEffort?: LaunchReasoningEffort;
+  speed?: LaunchSpeed;
+  accessMode?: LaunchAccessMode;
+}
 
 // Four-mode model types
 export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coordinated-coordinator';
@@ -118,9 +130,7 @@ export function normalizeMode(mode: string, hasCoordinator?: boolean): AgentMode
 
 // Per-member launch override for team launch configuration
 export interface MemberLaunchOverride {
-  agentTool?: AgentTool;
-  model?: string;
-  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
+  launchConfig?: LaunchConfig;
   skillIds?: string[];
   commandPermissions?: {
     groups?: Record<string, boolean>;
@@ -607,8 +617,7 @@ export interface SpawnSessionPayload {
   teamMemberId?: string;                // Team member running this session (backward compat)
   teamMemberIds?: string[];             // Multiple team member identities for this session
   delegateTeamMemberIds?: string[];     // Team member IDs for coordination delegation pool
-  agentTool?: AgentTool;                // Override agent tool for this run
-  model?: string;                       // Override model for this run
+  launchConfig?: LaunchConfig;          // Canonical launch override for this run
   initialDirective?: {
     subject: string;
     message: string;

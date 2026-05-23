@@ -12,7 +12,7 @@ import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
 import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
-import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, MemberLaunchOverride, isCoordinatorMode, normalizeMode } from '../types';
+import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, MemberLaunchOverride, LaunchConfig, isCoordinatorMode, normalizeMode } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
 import { SessionFilter } from '../domain/repositories/ISessionRepository';
 import { handleRouteError } from './middleware/errorHandler';
@@ -66,7 +66,7 @@ async function generateManifestViaCLI(options: {
   taskIds: string[];
   skills: string[];
   sessionId: string;
-  model?: string;
+  launchConfig?: LaunchConfig;
   agentTool?: AgentTool;
   referenceTaskIds?: string[];
   teamMemberIds?: string[];
@@ -81,7 +81,7 @@ async function generateManifestViaCLI(options: {
   sessionDir?: string;
   cliPathOverride?: string;
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective, memberOverrides, cliPathOverride } = options;
+  const { mode, projectId, taskIds, skills, sessionId, launchConfig, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective, memberOverrides, cliPathOverride } = options;
 
   const resolvedSessionDir = options.sessionDir ?? join(homedir(), '.maestro', 'sessions');
   const maestroDir = join(resolvedSessionDir, sessionId);
@@ -96,7 +96,7 @@ async function generateManifestViaCLI(options: {
     '--task-ids', taskIds.join(','),
     '--skills', skills.join(','),
     '--output', manifestPath,
-    ...(model ? ['--model', model] : []),
+    ...(launchConfig ? ['--launch-config', JSON.stringify(launchConfig)] : []),
     ...(agentTool && agentTool !== 'claude-code' ? ['--agent-tool', agentTool] : []),
     ...(referenceTaskIds && referenceTaskIds.length > 0 ? ['--reference-task-ids', referenceTaskIds.join(',')] : []),
     ...(teamMemberIds && teamMemberIds.length > 0 ? ['--team-member-ids', teamMemberIds.join(',')] : []),
@@ -202,6 +202,48 @@ async function generateManifestViaCLI(options: {
       reject(new Error(`Failed to spawn maestro CLI: ${error.message}`));
     });
   });
+}
+
+function agentToolForProvider(provider: LaunchConfig['provider']): AgentTool {
+  switch (provider) {
+    case 'claude':
+      return 'claude-code';
+    case 'openai':
+      return 'codex';
+    case 'hermes':
+      return 'hermes';
+    case 'gemini':
+      return 'gemini';
+  }
+}
+
+function permissionModeForAccessMode(accessMode?: LaunchConfig['accessMode']): 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions' | undefined {
+  switch (accessMode) {
+    case 'fullAccess':
+      return 'bypassPermissions';
+    case 'acceptEdits':
+      return 'acceptEdits';
+    case 'plan':
+      return 'readOnly';
+    case 'safe':
+      return 'interactive';
+    default:
+      return undefined;
+  }
+}
+
+function providerForAgentTool(agentTool?: AgentTool): LaunchConfig['provider'] {
+  switch (agentTool) {
+    case 'codex':
+      return 'openai';
+    case 'hermes':
+      return 'hermes';
+    case 'gemini':
+      return 'gemini';
+    case 'claude-code':
+    default:
+      return 'claude';
+  }
 }
 
 interface SessionRouteDependencies {
@@ -782,14 +824,16 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         teamMemberIds,          // Multiple team member identities for this session
         delegateTeamMemberIds,  // Team member IDs for coordination delegation pool
         teamMemberId,           // Single team member assigned to this task (backward compat)
-        agentTool: requestedAgentTool,   // Override agent tool for this run
-        model: requestedModel,           // Override model for this run
+        launchConfig: requestedLaunchConfig, // Canonical launch override for this run
         initialDirective,                // { subject, message, fromSessionId } for guaranteed delivery
         memberOverrides,                 // Per-member launch overrides: Record<string, MemberLaunchOverride>
-        permissionMode: requestedPermissionMode,           // Session-level permission mode override
+        permissionMode: rawRequestedPermissionMode,           // Session-level permission mode override
         delegatePermissionMode: requestedDelegatePermissionMode, // Permission mode for spawned workers
         useWorktree: requestedUseWorktree,  // Spawn in an isolated git worktree
       } = req.body;
+
+      const requestedPermissionMode =
+        permissionModeForAccessMode(requestedLaunchConfig?.accessMode) || rawRequestedPermissionMode;
 
       let normalizedMemberOverrides: Record<string, MemberLaunchOverride> | undefined =
         memberOverrides && typeof memberOverrides === 'object' && !Array.isArray(memberOverrides)
@@ -1049,9 +1093,11 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           if (teamMember && teamMember.status !== 'archived') {
               // Apply per-member overrides if provided
               const override = normalizedMemberOverrides && normalizedMemberOverrides[tmId];
-              const effectiveModel = override?.model || teamMember.model;
-              const effectiveAgentTool = override?.agentTool || teamMember.agentTool;
-              const effectivePermissionMode = override?.permissionMode || teamMember.permissionMode;
+              const effectiveModel = override?.launchConfig?.model || teamMember.model;
+              const effectiveAgentTool = override?.launchConfig
+                ? agentToolForProvider(override.launchConfig.provider)
+                : teamMember.agentTool;
+              const effectivePermissionMode = permissionModeForAccessMode(override?.launchConfig?.accessMode) || teamMember.permissionMode;
               const effectiveSkillIds = override?.skillIds || teamMember.skillIds;
               const effectiveCommandPermissions = override?.commandPermissions
                 ? { ...teamMember.commandPermissions, ...override.commandPermissions }
@@ -1105,9 +1151,25 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const hasCoordinator = !!resolvedParentSessionId;
       const resolvedMode: AgentMode = normalizeMode(rawMode, hasCoordinator);
 
-      // Resolve model and agentTool: request overrides > team member defaults
-      const resolvedModel = requestedModel || teamMemberDefaults.model;
-      const resolvedAgentToolFromMember = requestedAgentTool || teamMemberDefaults.agentTool;
+      // Resolve launch config and agent tool: explicit launch config wins over team member defaults.
+      const resolvedLaunchConfig: LaunchConfig | undefined = requestedLaunchConfig || (
+        teamMemberDefaults.model
+          ? {
+              provider: teamMemberDefaults.agentTool === 'codex'
+                ? 'openai'
+                : teamMemberDefaults.agentTool === 'hermes'
+                  ? 'hermes'
+                  : teamMemberDefaults.agentTool === 'gemini'
+                    ? 'gemini'
+                    : 'claude',
+              model: teamMemberDefaults.model,
+            }
+          : undefined
+      );
+      const resolvedModel = resolvedLaunchConfig?.model || teamMemberDefaults.model;
+      const resolvedAgentToolFromMember = resolvedLaunchConfig
+        ? agentToolForProvider(resolvedLaunchConfig.provider)
+        : teamMemberDefaults.agentTool;
 
       // Get project
       const project = await projectRepo.findById(projectId);
@@ -1158,6 +1220,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           mode: resolvedMode,
           agentTool: resolvedAgentToolFromMember || 'claude-code',
           model: resolvedModel || null,
+          launchConfig: resolvedLaunchConfig || null,
           teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : null,
           teamMemberIds: effectiveTeamMemberIds.length > 0 ? effectiveTeamMemberIds : null,
           context: context || {},
@@ -1247,7 +1310,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           taskIds,
           skills: skillsToUse,
           sessionId: session.id,
-          model: resolvedModel,
+          launchConfig: resolvedLaunchConfig,
           agentTool: resolvedAgentToolFromMember,
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
           // Multi-identity: pass teamMemberIds for multi-member sessions
@@ -1473,7 +1536,12 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           taskIds: session.taskIds,
           skills: skillsToUse,
           sessionId: session.id,
-          model: resolvedModel,
+          launchConfig: resolvedModel
+            ? {
+                provider: providerForAgentTool(agentTool),
+                model: resolvedModel,
+              }
+            : undefined,
           agentTool: agentTool,
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
           teamMemberIds: session.metadata?.teamMemberIds || undefined,
