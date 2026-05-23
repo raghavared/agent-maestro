@@ -1,13 +1,14 @@
 import React, { useState, useRef, useMemo, useCallback, useLayoutEffect, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, WorkerStrategy, OrchestratorStrategy, AgentTool, LaunchConfig, LaunchProvider, LaunchReasoningEffort, LaunchSpeed } from "../../app/types/maestro";
-import { AGENT_TOOL_OPTIONS, createLaunchConfig, formatLaunchConfigLabel, getReasoningOptionsForProvider, supportsLaunchSpeed, SPEED_OPTIONS } from "../../app/constants/agentTools";
+import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, WorkerStrategy, OrchestratorStrategy, AgentTool, LaunchConfig } from "../../app/types/maestro";
+import { formatLaunchConfigLabel, getAgentToolForLaunchConfig } from "../../app/constants/agentTools";
 import { useTaskSessions } from "../../hooks/useTaskSessions";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useSpacesStore } from "../../stores/useSpacesStore";
 import { useSessionStore } from "../../stores/useSessionStore";
 import { ConfirmActionModal } from "../modals/ConfirmActionModal";
 import { maestroClient } from "../../utils/MaestroClient";
+import { LaunchConfigDropdown } from "./LaunchConfigDropdown";
 
 type TaskListItemProps = {
     task: MaestroTask;
@@ -68,8 +69,6 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
     failed: "Failed",
     stopped: "Stopped",
 };
-
-const AGENT_TOOLS = AGENT_TOOL_OPTIONS;
 
 function formatTimeAgo(timestamp: number): string {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -164,24 +163,21 @@ export const TaskListItem = React.memo(function TaskListItem({
         const btn = launchBtnRef.current;
         if (!btn) return null;
         const rect = btn.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const spaceAbove = rect.top;
-
-        // Use left positioning (clamped so the dropdown doesn't overflow the viewport)
-        const dropdownWidth = 180;
-        let left = rect.left;
-        if (left + dropdownWidth > window.innerWidth - 8) {
-            left = window.innerWidth - dropdownWidth - 8;
-        }
-
-        if (spaceBelow >= 200 || spaceBelow >= spaceAbove) {
-            return { top: rect.bottom + 4, left, openDirection: 'down' as const };
-        } else {
-            return { bottom: (window.innerHeight - rect.top) + 4, left, openDirection: 'up' as const };
-        }
+        const menuWidth = Math.min(540, window.innerWidth - 16);
+        const menuHeight = Math.min(460, window.innerHeight - 16);
+        const gap = 8;
+        const rightSpace = window.innerWidth - rect.right;
+        const leftSpace = rect.left;
+        let left = rightSpace >= menuWidth + gap
+            ? rect.right + gap
+            : leftSpace >= menuWidth + gap
+                ? rect.left - menuWidth - gap
+                : Math.min(Math.max(8, rect.left), window.innerWidth - menuWidth - 8);
+        const top = Math.min(Math.max(8, rect.top - 12), window.innerHeight - menuHeight - 8);
+        return { top, left, openDirection: 'side' as const };
     }, []);
 
-    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' } | null>(null);
+    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' | 'side' } | null>(null);
 
     useLayoutEffect(() => {
         if (showLaunchDropdown) {
@@ -343,20 +339,6 @@ export const TaskListItem = React.memo(function TaskListItem({
     const handleSubtaskAction = (e: React.MouseEvent) => {
         e.stopPropagation();
         onToggleChildrenCollapse?.();
-    };
-
-    const updateLaunchProviderOption = (
-        provider: LaunchProvider,
-        patch: Partial<Pick<LaunchConfig, 'reasoningEffort' | 'speed'>>,
-    ) => {
-        const tool = AGENT_TOOLS.find((entry) => entry.provider === provider);
-        if (!tool) return;
-        setLaunchOverride((current) => {
-            const base = current?.provider === provider
-                ? current
-                : createLaunchConfig(tool.id, tool.models[0]?.id || 'sonnet');
-            return { ...base, ...patch };
-        });
     };
 
     const handleDragStart = useCallback((e: React.DragEvent) => {
@@ -673,8 +655,11 @@ export const TaskListItem = React.memo(function TaskListItem({
                                 className={`terminalMetaBadge terminalMetaBadge--model terminalMetaBadge--clickable ${launchOverride ? 'terminalMetaBadge--model-override' : ''} ${showLaunchDropdown ? 'terminalMetaBadge--open' : ''}`}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    setShowLaunchDropdown(!showLaunchDropdown);
-                                    setExpandedTool(null);
+                                    const willOpen = !showLaunchDropdown;
+                                    setShowLaunchDropdown(willOpen);
+                                    if (willOpen) {
+                                        setExpandedTool(getAgentToolForLaunchConfig(launchOverride || undefined) || 'claude-code');
+                                    }
                                 }}
                                 title={effectiveModel ? `Model: ${effectiveModelLabel}` : 'No model set'}
                             >
@@ -687,77 +672,22 @@ export const TaskListItem = React.memo(function TaskListItem({
                                     <div
                                         className={`terminalLaunchDropdown terminalLaunchDropdown--fixed ${launchDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
                                         style={{
-                                            ...(launchDropdownPos.openDirection === 'down' ? { top: launchDropdownPos.top } : { bottom: launchDropdownPos.bottom }),
+                                            ...(launchDropdownPos.openDirection === 'side'
+                                                ? { top: launchDropdownPos.top }
+                                                : launchDropdownPos.openDirection === 'down'
+                                                    ? { top: launchDropdownPos.top }
+                                                    : { bottom: launchDropdownPos.bottom }),
                                             left: launchDropdownPos.left,
                                         }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
-                                        <div className="terminalLaunchDropdown__header">Launch With</div>
-                                        {AGENT_TOOLS.map((tool) => (
-                                            <div key={tool.id} className="terminalLaunchDropdown__toolGroup">
-                                                <button type="button"
-                                                    className={`terminalLaunchDropdown__tool ${expandedTool === tool.id ? 'terminalLaunchDropdown__tool--expanded' : ''}`}
-                                                    onClick={() => setExpandedTool(expandedTool === tool.id ? null : tool.id)}
-                                                >
-                                                    <span className="terminalLaunchDropdown__toolSymbol">{tool.symbol}</span>
-                                                    <span className="terminalLaunchDropdown__toolLabel">{tool.label}</span>
-                                                    <span className="terminalLaunchDropdown__toolCaret">{expandedTool === tool.id ? '▴' : '▸'}</span>
-                                                </button>
-                                                {expandedTool === tool.id && (
-                                                    <div className="terminalLaunchDropdown__models">
-                                                        {tool.models.map((model) => (
-                                                            <button type="button"
-                                                                key={model.id}
-                                                                className={`terminalLaunchDropdown__model ${launchOverride?.model === model.id && launchOverride?.provider === tool.provider ? 'terminalLaunchDropdown__model--selected' : ''}`}
-                                                                onClick={() => {
-                                                                    setShowLaunchDropdown(false);
-                                                                    setLaunchOverride((current) => createLaunchConfig(tool.id, model.id, current?.provider === tool.provider ? current : undefined));
-                                                                }}
-                                                            >
-                                                                {model.label}
-                                                                {launchOverride?.model === model.id && launchOverride?.provider === tool.provider && (
-                                                                    <span className="terminalStatusCheck"> ✓</span>
-                                                                )}
-                                                            </button>
-                                                        ))}
-                                                        {getReasoningOptionsForProvider(tool.provider).length > 0 && (
-                                                            <div className="terminalLaunchDropdown__section">
-                                                                <div className="terminalLaunchDropdown__sectionTitle">Intelligence</div>
-                                                                {getReasoningOptionsForProvider(tool.provider).map((option) => (
-                                                                    <button type="button"
-                                                                        key={option.value}
-                                                                        className={`terminalLaunchDropdown__model ${launchOverride?.provider === tool.provider && launchOverride.reasoningEffort === option.value ? 'terminalLaunchDropdown__model--selected' : ''}`}
-                                                                        onClick={() => updateLaunchProviderOption(tool.provider, { reasoningEffort: option.value as LaunchReasoningEffort })}
-                                                                    >
-                                                                        {option.label}
-                                                                        {launchOverride?.provider === tool.provider && launchOverride.reasoningEffort === option.value && (
-                                                                            <span className="terminalStatusCheck"> ✓</span>
-                                                                        )}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                        {supportsLaunchSpeed(tool.provider, launchOverride?.provider === tool.provider ? String(launchOverride.model) : tool.models[0]?.id) && (
-                                                            <div className="terminalLaunchDropdown__section">
-                                                                <div className="terminalLaunchDropdown__sectionTitle">Speed</div>
-                                                                {SPEED_OPTIONS.map((option) => (
-                                                                    <button type="button"
-                                                                        key={option.value}
-                                                                        className={`terminalLaunchDropdown__model ${launchOverride?.provider === tool.provider && (launchOverride.speed || 'standard') === option.value ? 'terminalLaunchDropdown__model--selected' : ''}`}
-                                                                        onClick={() => updateLaunchProviderOption(tool.provider, { speed: option.value as LaunchSpeed })}
-                                                                    >
-                                                                        {option.label}
-                                                                        {launchOverride?.provider === tool.provider && (launchOverride.speed || 'standard') === option.value && (
-                                                                            <span className="terminalStatusCheck"> ✓</span>
-                                                                        )}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
+                                        <LaunchConfigDropdown
+                                            launchConfig={launchOverride}
+                                            activeTool={expandedTool}
+                                            onActiveToolChange={setExpandedTool}
+                                            onLaunchConfigChange={setLaunchOverride}
+                                            onClear={() => setLaunchOverride(null)}
+                                        />
                                     </div>
                                 </>,
                                 document.body

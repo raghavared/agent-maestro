@@ -901,7 +901,8 @@
   background: #0a0a0a;
   border: 1px solid var(--theme-primary);
   border-radius: 4px;
-  min-width: 180px;
+  width: min(540px, calc(100vw - 16px));
+  max-height: min(460px, calc(100vh - 16px));
   z-index: 100;
   box-shadow:
     0 0 20px rgba(var(--theme-primary-rgb), 0.4),
@@ -915,8 +916,56 @@
   z-index: 10001;
 }
 
+.terminalLaunchDropdown__layout {
+  display: grid;
+  grid-template-columns: minmax(160px, 190px) minmax(0, 1fr);
+  max-height: inherit;
+  min-height: 260px;
+}
+
+.terminalLaunchDropdown__providers {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminalLaunchDropdown__details {
+  min-width: 0;
+  overflow-y: auto;
+  background: rgba(8, 12, 10, 0.96);
+  padding-bottom: 8px;
+}
+
+.terminalLaunchDropdown__detailsHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--theme-primary-rgb), 0.07);
+}
+
+.terminalLaunchDropdown__detailsTitle {
+  color: var(--terminal-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.terminalLaunchDropdown__detailsMeta {
+  margin-left: auto;
+  color: var(--terminal-green);
+  font-size: 9px;
+  font-weight: 600;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .terminalLaunchDropdown__header {
-  padding: 6px 10px;
+  padding: 8px 10px;
   font-size: 9px;
   font-weight: 600;
   color: var(--terminal-text-dim);
@@ -937,10 +986,11 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
+  gap: 7px;
+  padding: 9px 10px;
   background: transparent;
   border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   color: var(--terminal-text);
   font-family: inherit;
   font-size: 11px;
@@ -955,7 +1005,8 @@
 }
 
 .terminalLaunchDropdown__tool--expanded {
-  background: rgba(var(--theme-primary-rgb), 0.08);
+  background: rgba(var(--theme-primary-rgb), 0.14);
+  color: var(--terminal-green);
 }
 
 .terminalLaunchDropdown__toolSymbol {
@@ -965,7 +1016,19 @@
 }
 
 .terminalLaunchDropdown__toolLabel {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.terminalLaunchDropdown__toolMeta {
+  color: var(--terminal-text-dim);
+  font-size: 8px;
+  font-weight: 600;
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .terminalLaunchDropdown__toolCaret {
@@ -981,11 +1044,11 @@
 
 .terminalLaunchDropdown__section {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding-top: 4px;
+  padding: 8px 10px 2px;
 }
 
 .terminalLaunchDropdown__sectionTitle {
-  padding: 6px 10px 3px 30px;
+  padding: 0 0 6px;
   color: var(--terminal-text-dim);
   font-size: 9px;
   text-transform: uppercase;
@@ -993,36 +1056,118 @@
   opacity: 0.7;
 }
 
+.terminalLaunchDropdown__optionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.terminalLaunchDropdown__optionGrid--compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .terminalLaunchDropdown__model {
   width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px 6px 30px;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  color: var(--terminal-text-dim);
+  min-height: 34px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 4px;
+  color: var(--terminal-text);
   font-family: inherit;
   font-size: 10px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   text-align: left;
+  min-width: 0;
 }
 
 .terminalLaunchDropdown__model:last-child {
-  border-bottom: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .terminalLaunchDropdown__model:hover {
   background: rgba(var(--theme-primary-rgb), 0.15);
   color: var(--terminal-green);
-  padding-left: 34px;
+  border-color: rgba(var(--theme-primary-rgb), 0.32);
 }
 
 .terminalLaunchDropdown__model--selected {
   color: var(--terminal-green);
   background: rgba(var(--theme-primary-rgb), 0.1);
+  border-color: rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.terminalLaunchDropdown__model--withDescription {
+  min-height: 48px;
+}
+
+.terminalLaunchDropdown__modelLabel,
+.terminalLaunchDropdown__modelDescription {
+  display: block;
+}
+
+.terminalLaunchDropdown__modelDescription {
+  color: var(--terminal-text-dim);
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-top: 2px;
+}
+
+.terminalLaunchDropdown__aliases {
+  margin: 8px 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 8px;
+}
+
+.terminalLaunchDropdown__aliases summary {
+  cursor: pointer;
+  color: var(--terminal-text-dim);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+
+.terminalLaunchDropdown__clear {
+  margin-top: auto;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: var(--terminal-text-dim);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 9px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.terminalLaunchDropdown__clear:hover {
+  color: var(--terminal-green);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+}
+
+@media (max-width: 640px) {
+  .terminalLaunchDropdown__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .terminalLaunchDropdown__providers {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .terminalLaunchDropdown__optionGrid,
+  .terminalLaunchDropdown__optionGrid--compact {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Pin Button */

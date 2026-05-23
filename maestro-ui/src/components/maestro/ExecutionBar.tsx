@@ -1,14 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { TeamMember, AgentTool, LaunchConfig, LaunchProvider, LaunchReasoningEffort, LaunchSpeed, MemberLaunchOverride } from "../../app/types/maestro";
+import { TeamMember, AgentTool, LaunchConfig, MemberLaunchOverride } from "../../app/types/maestro";
 import { TeamLaunchConfigModal } from "./TeamLaunchConfigModal";
-import { AGENT_TOOL_OPTIONS, createLaunchConfig, DEFAULT_MODEL_BY_AGENT_TOOL, getReasoningOptionsForProvider, supportsLaunchSpeed, SPEED_OPTIONS } from "../../app/constants/agentTools";
+import { createLaunchConfig, DEFAULT_MODEL_BY_AGENT_TOOL } from "../../app/constants/agentTools";
+import { LaunchConfigDropdown } from "./LaunchConfigDropdown";
 
 type ExecutionMode = 'none' | 'execute' | 'orchestrate';
 
 type LaunchOverride = LaunchConfig;
-
-const AGENT_TOOLS = AGENT_TOOL_OPTIONS;
 
 type ExecutionBarProps = {
     isActive: boolean;
@@ -251,7 +250,7 @@ export function ExecutionBar({
     const [showLaunchDropdown, setShowLaunchDropdown] = useState(false);
     const [expandedTool, setExpandedTool] = useState<AgentTool | null>(null);
     const launchBtnRef = useRef<HTMLButtonElement>(null);
-    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' } | null>(null);
+    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' | 'side' } | null>(null);
 
     // Launch config modal state
     const [showConfigModal, setShowConfigModal] = useState(false);
@@ -263,20 +262,18 @@ export function ExecutionBar({
         const btn = launchBtnRef.current;
         if (!btn) return null;
         const rect = btn.getBoundingClientRect();
-        let left = rect.left;
-        // Clamp so dropdown doesn't overflow right edge
-        const menuWidth = 200;
-        if (left + menuWidth > window.innerWidth) {
-            left = window.innerWidth - menuWidth - 8;
-        }
-        if (left < 4) left = 4;
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const spaceAbove = rect.top;
-        if (spaceAbove >= 200 || spaceAbove >= spaceBelow) {
-            return { bottom: (window.innerHeight - rect.top) + 4, left, openDirection: 'up' as const };
-        } else {
-            return { top: rect.bottom + 4, left, openDirection: 'down' as const };
-        }
+        const menuWidth = Math.min(540, window.innerWidth - 16);
+        const menuHeight = Math.min(460, window.innerHeight - 16);
+        const gap = 8;
+        const rightSpace = window.innerWidth - rect.right;
+        const leftSpace = rect.left;
+        const left = rightSpace >= menuWidth + gap
+            ? rect.right + gap
+            : leftSpace >= menuWidth + gap
+                ? rect.left - menuWidth - gap
+                : Math.min(Math.max(8, rect.left), window.innerWidth - menuWidth - 8);
+        const top = Math.min(Math.max(8, rect.top - 12), window.innerHeight - menuHeight - 8);
+        return { top, left, openDirection: 'side' as const };
     }, []);
 
     useLayoutEffect(() => {
@@ -300,20 +297,6 @@ export function ExecutionBar({
     const handleSelectCoordinator = (id: string | null) => {
         setSelectedCoordinatorId(id);
         setLaunchOverride(null);
-    };
-
-    const updateLaunchProviderOption = (
-        provider: LaunchProvider,
-        patch: Partial<Pick<LaunchConfig, 'reasoningEffort' | 'speed'>>,
-    ) => {
-        const tool = AGENT_TOOLS.find((entry) => entry.provider === provider);
-        if (!tool) return;
-        setLaunchOverride((current) => {
-            const base = current?.provider === provider
-                ? current
-                : createLaunchConfig(tool.id, tool.models[0]?.id || 'sonnet');
-            return { ...base, ...patch };
-        });
     };
 
     const launchConfigWithAccess = (config: LaunchOverride | null, memberId: string | null, fullAccess: boolean): LaunchOverride | null => {
@@ -356,94 +339,22 @@ export function ExecutionBar({
             <div
                 className={`terminalLaunchDropdown terminalLaunchDropdown--fixed ${launchDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
                 style={{
-                    ...(launchDropdownPos.openDirection === 'down'
+                    ...(launchDropdownPos.openDirection === 'side'
+                        ? { top: launchDropdownPos.top }
+                        : launchDropdownPos.openDirection === 'down'
                         ? { top: launchDropdownPos.top }
                         : { bottom: launchDropdownPos.bottom }),
                     left: launchDropdownPos.left,
                 }}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="terminalLaunchDropdown__header">Launch With</div>
-                {AGENT_TOOLS.map((tool) => (
-                    <div key={tool.id} className="terminalLaunchDropdown__toolGroup">
-                        <button type="button"
-                            className={`terminalLaunchDropdown__tool ${expandedTool === tool.id ? 'terminalLaunchDropdown__tool--expanded' : ''}`}
-                            onClick={() => setExpandedTool(expandedTool === tool.id ? null : tool.id)}
-                        >
-                            <span className="terminalLaunchDropdown__toolSymbol">{tool.symbol}</span>
-                            <span className="terminalLaunchDropdown__toolLabel">{tool.label}</span>
-                            <span className="terminalLaunchDropdown__toolCaret">{expandedTool === tool.id ? '▴' : '▸'}</span>
-                        </button>
-                        {expandedTool === tool.id && (
-                            <div className="terminalLaunchDropdown__models">
-                                {tool.models.map((model) => (
-                                    <button type="button"
-                                        key={model.id}
-                                        className={`terminalLaunchDropdown__model ${launchOverride?.model === model.id && launchOverride?.provider === tool.provider ? 'terminalLaunchDropdown__model--selected' : ''}`}
-                                        onClick={() => {
-                                            setShowLaunchDropdown(false);
-                                            setLaunchOverride((current) => createLaunchConfig(tool.id, model.id, current?.provider === tool.provider ? current : undefined));
-                                        }}
-                                    >
-                                        {model.label}
-                                        {launchOverride?.model === model.id && launchOverride?.provider === tool.provider && (
-                                            <span style={{ marginLeft: 'auto', color: 'var(--terminal-green)' }}> ✓</span>
-                                        )}
-                                    </button>
-                                ))}
-                                {getReasoningOptionsForProvider(tool.provider).length > 0 && (
-                                    <div className="terminalLaunchDropdown__section">
-                                        <div className="terminalLaunchDropdown__sectionTitle">Intelligence</div>
-                                        {getReasoningOptionsForProvider(tool.provider).map((option) => (
-                                            <button type="button"
-                                                key={option.value}
-                                                className={`terminalLaunchDropdown__model ${launchOverride?.provider === tool.provider && launchOverride.reasoningEffort === option.value ? 'terminalLaunchDropdown__model--selected' : ''}`}
-                                                onClick={() => updateLaunchProviderOption(tool.provider, { reasoningEffort: option.value as LaunchReasoningEffort })}
-                                            >
-                                                {option.label}
-                                                {launchOverride?.provider === tool.provider && launchOverride.reasoningEffort === option.value && (
-                                                    <span style={{ marginLeft: 'auto', color: 'var(--terminal-green)' }}> ✓</span>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                                {supportsLaunchSpeed(tool.provider, launchOverride?.provider === tool.provider ? String(launchOverride.model) : tool.models[0]?.id) && (
-                                    <div className="terminalLaunchDropdown__section">
-                                        <div className="terminalLaunchDropdown__sectionTitle">Speed</div>
-                                        {SPEED_OPTIONS.map((option) => (
-                                            <button type="button"
-                                                key={option.value}
-                                                className={`terminalLaunchDropdown__model ${launchOverride?.provider === tool.provider && (launchOverride.speed || 'standard') === option.value ? 'terminalLaunchDropdown__model--selected' : ''}`}
-                                                onClick={() => updateLaunchProviderOption(tool.provider, { speed: option.value as LaunchSpeed })}
-                                            >
-                                                {option.label}
-                                                {launchOverride?.provider === tool.provider && (launchOverride.speed || 'standard') === option.value && (
-                                                    <span style={{ marginLeft: 'auto', color: 'var(--terminal-green)' }}> ✓</span>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                ))}
-                {launchOverride && (
-                    <>
-                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
-                        <button type="button"
-                            className="terminalLaunchDropdown__model"
-                            style={{ color: 'var(--terminal-text-dim)', paddingLeft: 10 }}
-                            onClick={() => {
-                                setShowLaunchDropdown(false);
-                                setLaunchOverride(null);
-                            }}
-                        >
-                            Clear override
-                        </button>
-                    </>
-                )}
+                <LaunchConfigDropdown
+                    launchConfig={launchOverride}
+                    activeTool={expandedTool}
+                    onActiveToolChange={setExpandedTool}
+                    onLaunchConfigChange={setLaunchOverride}
+                    onClear={() => setLaunchOverride(null)}
+                />
             </div>
         </>,
         document.body
