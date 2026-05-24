@@ -6,6 +6,8 @@ import {
   DEFAULT_MODEL_BY_AGENT_TOOL,
   formatProviderModelLabel,
   MODELS_BY_AGENT_TOOL,
+  sanitizeLaunchConfig,
+  supportsLaunchSpeed,
 } from '../app/constants/agentTools';
 import { DEFAULT_AGENT_SHORTCUT_IDS } from '../app/constants/defaults';
 
@@ -47,5 +49,34 @@ describe('agent tool UI constants', () => {
   it('formats task launch badges as Provider/Model', () => {
     expect(formatProviderModelLabel('claude-code', 'claude-opus-4-7')).toBe('Claude/Opus 4.7');
     expect(formatProviderModelLabel('codex', 'gpt-5.5')).toBe('OpenAI/Codex 5.5');
+  });
+
+  it('limits speed to supported OpenAI Codex models', () => {
+    expect(supportsLaunchSpeed('claude', 'claude-opus-4-7')).toBe(false);
+    expect(supportsLaunchSpeed('openai', 'gpt-5.5')).toBe(true);
+    expect(supportsLaunchSpeed('openai', 'gpt-5.4-mini')).toBe(false);
+  });
+
+  it('sanitizes provider-specific launch settings', () => {
+    expect(sanitizeLaunchConfig({
+      provider: 'claude',
+      model: 'claude-opus-4-7',
+      reasoningEffort: 'max',
+      speed: 'fast',
+    })).toEqual({
+      provider: 'claude',
+      model: 'claude-opus-4-7',
+      reasoningEffort: 'max',
+    });
+
+    expect(sanitizeLaunchConfig({
+      provider: 'gemini',
+      model: 'gemini-2.5-pro',
+      reasoningEffort: 'high',
+      speed: 'fast',
+    })).toEqual({
+      provider: 'gemini',
+      model: 'gemini-2.5-pro',
+    });
   });
 });

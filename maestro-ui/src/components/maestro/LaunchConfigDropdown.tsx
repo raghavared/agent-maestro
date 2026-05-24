@@ -5,6 +5,7 @@ import {
     createLaunchConfig,
     formatLaunchConfigLabel,
     getReasoningOptionsForProvider,
+    sanitizeLaunchConfig,
     SPEED_OPTIONS,
     supportsLaunchSpeed,
 } from "../../app/constants/agentTools";
@@ -49,7 +50,7 @@ export function LaunchConfigDropdown({
             const base = current?.provider === selectedTool.provider
                 ? current
                 : createLaunchConfig(selectedTool.id, selectedTool.models[0]?.id || "sonnet");
-            return { ...base, ...patch };
+            return sanitizeLaunchConfig({ ...base, ...patch }) || base;
         });
     };
 
@@ -60,9 +61,7 @@ export function LaunchConfigDropdown({
                 model,
                 current?.provider === selectedTool.provider ? current : undefined,
             );
-            return speedSupported || supportsLaunchSpeed(selectedTool.provider, model)
-                ? base
-                : { ...base, speed: undefined };
+            return sanitizeLaunchConfig(base) || base;
         });
     };
 

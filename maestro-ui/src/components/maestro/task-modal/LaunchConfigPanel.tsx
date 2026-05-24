@@ -12,6 +12,7 @@ import {
     AGENT_TOOLS,
     AGENT_TOOL_LABELS,
     createLaunchConfig,
+    createLaunchConfigFromLegacy,
     DEFAULT_MODEL_BY_AGENT_TOOL,
     MODELS_BY_AGENT_TOOL,
 } from "../../../app/constants/agentTools";
@@ -64,7 +65,12 @@ export function buildDefaultMemberConfig(member: TeamMember): MemberConfig {
 }
 
 export function buildMemberConfigFromOverride(member: TeamMember, override: MemberLaunchOverride): MemberConfig {
-    const launchConfig = override.launchConfig;
+    const launchConfig = override.launchConfig || createLaunchConfigFromLegacy(
+        override.agentTool,
+        override.model || member.model,
+        override.reasoningEffort,
+        override.permissionMode,
+    );
     const providerTool = launchConfig?.provider === 'openai'
         ? 'codex'
         : launchConfig?.provider === 'claude'

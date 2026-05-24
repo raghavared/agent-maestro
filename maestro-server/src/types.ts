@@ -131,6 +131,10 @@ export function normalizeMode(mode: string, hasCoordinator?: boolean): AgentMode
 // Per-member launch override for team launch configuration
 export interface MemberLaunchOverride {
   launchConfig?: LaunchConfig;
+  agentTool?: AgentTool;               // Legacy launch override; normalized into launchConfig
+  model?: string;                      // Legacy launch override; normalized into launchConfig
+  reasoningEffort?: LaunchReasoningEffort; // Legacy launch override; normalized into launchConfig
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   skillIds?: string[];
   commandPermissions?: {
     groups?: Record<string, boolean>;
@@ -618,6 +622,9 @@ export interface SpawnSessionPayload {
   teamMemberIds?: string[];             // Multiple team member identities for this session
   delegateTeamMemberIds?: string[];     // Team member IDs for coordination delegation pool
   launchConfig?: LaunchConfig;          // Canonical launch override for this run
+  agentTool?: AgentTool;                // Legacy launch override; normalized into launchConfig
+  model?: string;                       // Legacy launch override; normalized into launchConfig
+  reasoningEffort?: LaunchReasoningEffort; // Legacy launch override; normalized into launchConfig
   initialDirective?: {
     subject: string;
     message: string;

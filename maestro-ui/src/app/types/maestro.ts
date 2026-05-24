@@ -609,6 +609,10 @@ export interface ClaudeCodeSkill {
 // Per-member launch override for team launch configuration
 export interface MemberLaunchOverride {
   launchConfig?: LaunchConfig;
+  agentTool?: AgentTool;
+  model?: ModelType | string;
+  reasoningEffort?: LaunchReasoningEffort;
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   skillIds?: string[];
   commandPermissions?: {
     groups?: Record<string, boolean>;
@@ -629,6 +633,9 @@ export interface SpawnSessionPayload {
   teamMemberIds?: string[];           // Multiple team member identities for this session
   delegateTeamMemberIds?: string[];   // Team member IDs for coordination delegation pool
   launchConfig?: LaunchConfig;        // Canonical launch override for this run
+  agentTool?: AgentTool;              // Legacy launch override; normalized by server
+  model?: ModelType | string;         // Legacy launch override; normalized by server
+  reasoningEffort?: LaunchReasoningEffort; // Legacy launch override; normalized by server
   memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member overrides keyed by teamMemberId
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   delegatePermissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';

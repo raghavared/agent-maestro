@@ -12,7 +12,7 @@ import ora from 'ora';
 import { readFileSync } from 'fs';
 import WebSocket from 'ws';
 import chalk from 'chalk';
-import type { LaunchConfig } from '../types/manifest.js';
+import type { AgentTool, LaunchConfig } from '../types/manifest.js';
 
 function parseLaunchConfig(value?: string): LaunchConfig | undefined {
     if (!value) return undefined;
@@ -48,7 +48,103 @@ function parseLaunchConfig(value?: string): LaunchConfig | undefined {
         throw new Error(`Invalid --launch-config accessMode. Must be one of: ${validAccessModes.join(', ')}`);
     }
 
-    return candidate as unknown as LaunchConfig;
+    return sanitizeLaunchConfig(candidate as unknown as LaunchConfig);
+}
+
+function providerForAgentTool(agentTool?: AgentTool): LaunchConfig['provider'] {
+    switch (agentTool) {
+        case 'codex':
+            return 'openai';
+        case 'hermes':
+            return 'hermes';
+        case 'gemini':
+            return 'gemini';
+        case 'claude-code':
+        default:
+            return 'claude';
+    }
+}
+
+function accessModeForPermissionMode(permissionMode?: string): LaunchConfig['accessMode'] | undefined {
+    switch (permissionMode) {
+        case 'bypassPermissions':
+            return 'fullAccess';
+        case 'acceptEdits':
+            return 'acceptEdits';
+        case 'readOnly':
+            return 'plan';
+        case 'interactive':
+            return 'safe';
+        default:
+            return undefined;
+    }
+}
+
+function getValidReasoningEfforts(provider: LaunchConfig['provider']): LaunchConfig['reasoningEffort'][] {
+    switch (provider) {
+        case 'claude':
+            return ['low', 'medium', 'high', 'xhigh', 'max'];
+        case 'openai':
+            return ['low', 'medium', 'high', 'xhigh'];
+        default:
+            return [];
+    }
+}
+
+function supportsLaunchSpeed(provider: LaunchConfig['provider'], model?: string): boolean {
+    return provider === 'openai' && (model === 'gpt-5.5' || model === 'gpt-5.4');
+}
+
+function defaultModelForAgentTool(agentTool: AgentTool): string {
+    switch (agentTool) {
+        case 'codex':
+            return 'gpt-5.5';
+        case 'hermes':
+            return 'hermes-default';
+        case 'gemini':
+            return 'gemini-2.5-pro';
+        case 'claude-code':
+        default:
+            return 'claude-opus-4-7';
+    }
+}
+
+function sanitizeLaunchConfig(config?: LaunchConfig): LaunchConfig | undefined {
+    if (!config?.provider || !config.model) return undefined;
+    const validReasoning = getValidReasoningEfforts(config.provider);
+    const reasoningEffort = config.reasoningEffort && validReasoning.includes(config.reasoningEffort)
+        ? config.reasoningEffort
+        : undefined;
+    const speed = config.speed && supportsLaunchSpeed(config.provider, config.model)
+        ? config.speed
+        : undefined;
+    const accessMode = config.accessMode && ['safe', 'acceptEdits', 'plan', 'fullAccess'].includes(config.accessMode)
+        ? config.accessMode
+        : undefined;
+
+    return {
+        provider: config.provider,
+        model: config.model,
+        ...(reasoningEffort ? { reasoningEffort } : {}),
+        ...(speed ? { speed } : {}),
+        ...(accessMode ? { accessMode } : {}),
+    };
+}
+
+function launchConfigFromLegacy(
+    agentTool?: AgentTool,
+    model?: string,
+    reasoningEffort?: LaunchConfig['reasoningEffort'],
+    permissionMode?: string,
+): LaunchConfig | undefined {
+    const tool = agentTool || (model ? 'claude-code' : undefined);
+    if (!tool) return undefined;
+    return sanitizeLaunchConfig({
+        provider: providerForAgentTool(tool),
+        model: model || defaultModelForAgentTool(tool),
+        reasoningEffort,
+        accessMode: accessModeForPermissionMode(permissionMode),
+    });
 }
 
 /**
@@ -585,6 +681,10 @@ export function registerSessionCommands(program: Command) {
         .option('--reason <reason>', 'Reason for spawning this session')
         .option('--include-related', 'Include related tasks in context')
         .option('--launch-config <json>', 'Canonical launch config JSON: provider, model, reasoningEffort, speed, accessMode')
+        .option('--agent-tool <tool>', 'Legacy agent tool override; converted to canonical launch config')
+        .option('--model <model>', 'Legacy model override; converted to canonical launch config')
+        .option('--reasoning-effort <effort>', 'Legacy reasoning effort override; converted to canonical launch config')
+        .option('--permission-mode <mode>', 'Legacy permission mode override; converted to canonical launch config')
         .option('--team-member-id <id>', 'Team member ID to run this session')
         .option('--subject <subject>', 'Initial directive subject (embedded in manifest for guaranteed delivery)')
         .option('--message <message>', 'Initial directive message body (requires --subject)')
@@ -640,7 +740,17 @@ export function registerSessionCommands(program: Command) {
 
                 // Generate session name if not provided
                 const sessionName = cmdOpts.name || generateSessionName(task, skill);
-                const launchConfig = parseLaunchConfig(cmdOpts.launchConfig);
+                const validTools: AgentTool[] = ['claude-code', 'codex', 'hermes', 'gemini'];
+                if (cmdOpts.agentTool && !validTools.includes(cmdOpts.agentTool)) {
+                    throw new Error(`Invalid --agent-tool. Must be one of: ${validTools.join(', ')}`);
+                }
+                const launchConfig = parseLaunchConfig(cmdOpts.launchConfig)
+                    || launchConfigFromLegacy(
+                        cmdOpts.agentTool,
+                        cmdOpts.model,
+                        cmdOpts.reasoningEffort,
+                        cmdOpts.permissionMode,
+                    );
 
                 // Prepare spawn request with spawnSource and mode
                 const spawnRequest: Record<string, unknown> = {

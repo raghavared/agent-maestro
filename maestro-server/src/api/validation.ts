@@ -87,9 +87,14 @@ const launchConfigSchema = z.object({
 
 const memberLaunchOverrideSchema = z.object({
   launchConfig: launchConfigSchema.optional(),
+  agentTool: z.enum(['claude-code', 'codex', 'hermes', 'gemini']).optional(),
+  model: z.string().min(1).max(200).optional(),
+  reasoningEffort: launchReasoningEffortSchema.optional(),
+  permissionMode: permissionModeSchema.optional(),
   skillIds: z.array(z.string()).optional(),
   commandPermissions: z.object({
-    commands: z.record(z.string(), z.boolean()),
+    groups: z.record(z.string(), z.boolean()).optional(),
+    commands: z.record(z.string(), z.boolean()).optional(),
   }).optional(),
 }).strict();
 
@@ -359,6 +364,9 @@ export const spawnSessionSchema = z.object({
   strategy: allStrategySchema.optional().default('simple'),
   context: z.record(z.string(), z.unknown()).optional(),
   launchConfig: launchConfigSchema.optional(),
+  agentTool: z.enum(['claude-code', 'codex', 'hermes', 'gemini']).optional(),
+  model: z.string().min(1).max(200).optional(),
+  reasoningEffort: launchReasoningEffortSchema.optional(),
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
   delegateTeamMemberIds: z.array(safeId).optional(),

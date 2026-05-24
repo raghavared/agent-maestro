@@ -75,6 +75,10 @@ type MemberCommandPermissions = NonNullable<MaestroManifest['teamMemberCommandPe
 
 interface MemberLaunchOverride {
   launchConfig?: LaunchConfig;
+  agentTool?: AgentTool;
+  model?: string;
+  reasoningEffort?: LaunchConfig['reasoningEffort'];
+  permissionMode?: MemberPermissionMode;
   skillIds?: string[];
   commandPermissions?: MemberCommandPermissions;
 }
@@ -146,6 +150,104 @@ function permissionModeForAccessMode(accessMode?: LaunchConfig['accessMode']): M
   }
 }
 
+function accessModeForPermissionMode(permissionMode?: string): LaunchConfig['accessMode'] | undefined {
+  switch (permissionMode) {
+    case 'bypassPermissions':
+      return 'fullAccess';
+    case 'acceptEdits':
+      return 'acceptEdits';
+    case 'readOnly':
+      return 'plan';
+    case 'interactive':
+      return 'safe';
+    default:
+      return undefined;
+  }
+}
+
+function providerForAgentTool(agentTool?: AgentTool): LaunchConfig['provider'] {
+  switch (agentTool) {
+    case 'codex':
+      return 'openai';
+    case 'hermes':
+      return 'hermes';
+    case 'gemini':
+      return 'gemini';
+    case 'claude-code':
+    default:
+      return 'claude';
+  }
+}
+
+function getValidReasoningEfforts(provider: LaunchConfig['provider']): LaunchConfig['reasoningEffort'][] {
+  switch (provider) {
+    case 'claude':
+      return ['low', 'medium', 'high', 'xhigh', 'max'];
+    case 'openai':
+      return ['low', 'medium', 'high', 'xhigh'];
+    default:
+      return [];
+  }
+}
+
+function supportsLaunchSpeed(provider: LaunchConfig['provider'], model?: string): boolean {
+  return provider === 'openai' && (model === 'gpt-5.5' || model === 'gpt-5.4');
+}
+
+function defaultModelForAgentTool(agentTool: AgentTool): string {
+  switch (agentTool) {
+    case 'codex':
+      return 'gpt-5.5';
+    case 'hermes':
+      return 'hermes-default';
+    case 'gemini':
+      return 'gemini-2.5-pro';
+    case 'claude-code':
+    default:
+      return 'claude-opus-4-7';
+  }
+}
+
+function sanitizeLaunchConfig(config?: LaunchConfig | null): LaunchConfig | undefined {
+  if (!config?.provider || !config.model) return undefined;
+  if (!['claude', 'openai', 'hermes', 'gemini'].includes(config.provider)) return undefined;
+
+  const validReasoning = getValidReasoningEfforts(config.provider);
+  const reasoningEffort = config.reasoningEffort && validReasoning.includes(config.reasoningEffort)
+    ? config.reasoningEffort
+    : undefined;
+  const speed = config.speed && supportsLaunchSpeed(config.provider, config.model)
+    ? config.speed
+    : undefined;
+  const accessMode = config.accessMode && ['safe', 'acceptEdits', 'plan', 'fullAccess'].includes(config.accessMode)
+    ? config.accessMode
+    : undefined;
+
+  return {
+    provider: config.provider,
+    model: config.model,
+    ...(reasoningEffort ? { reasoningEffort } : {}),
+    ...(speed ? { speed } : {}),
+    ...(accessMode ? { accessMode } : {}),
+  };
+}
+
+function launchConfigFromLegacy(
+  agentTool?: AgentTool,
+  model?: string,
+  reasoningEffort?: LaunchConfig['reasoningEffort'],
+  permissionMode?: string,
+): LaunchConfig | undefined {
+  const tool = agentTool || (model ? 'claude-code' : undefined);
+  if (!tool) return undefined;
+  return sanitizeLaunchConfig({
+    provider: providerForAgentTool(tool),
+    model: model || defaultModelForAgentTool(tool),
+    reasoningEffort,
+    accessMode: accessModeForPermissionMode(permissionMode),
+  });
+}
+
 function parseLaunchConfig(raw: string | undefined): LaunchConfig | undefined {
   if (!raw) return undefined;
   try {
@@ -156,13 +258,13 @@ function parseLaunchConfig(raw: string | undefined): LaunchConfig | undefined {
     if (!['claude', 'openai', 'hermes', 'gemini'].includes(parsed.provider)) {
       return undefined;
     }
-    return {
+    return sanitizeLaunchConfig({
       provider: parsed.provider as LaunchConfig['provider'],
       model: parsed.model,
       ...(typeof parsed.reasoningEffort === 'string' ? { reasoningEffort: parsed.reasoningEffort as LaunchConfig['reasoningEffort'] } : {}),
       ...(typeof parsed.speed === 'string' ? { speed: parsed.speed as LaunchConfig['speed'] } : {}),
       ...(typeof parsed.accessMode === 'string' ? { accessMode: parsed.accessMode as LaunchConfig['accessMode'] } : {}),
-    };
+    });
   } catch {
     return undefined;
   }
@@ -193,7 +295,12 @@ function parseMemberOverrides(raw: string | undefined): Record<string, MemberLau
 
       const launchConfig = isRecord(value.launchConfig)
         ? parseLaunchConfig(JSON.stringify(value.launchConfig))
-        : undefined;
+        : launchConfigFromLegacy(
+            typeof value.agentTool === 'string' ? value.agentTool as AgentTool : undefined,
+            typeof value.model === 'string' ? value.model : undefined,
+            typeof value.reasoningEffort === 'string' ? value.reasoningEffort as LaunchConfig['reasoningEffort'] : undefined,
+            typeof value.permissionMode === 'string' ? value.permissionMode : undefined,
+          );
       const override: MemberLaunchOverride = {
         ...(launchConfig ? { launchConfig } : {}),
         ...(Array.isArray(value.skillIds)
@@ -776,6 +883,9 @@ export function registerManifestCommands(program: any): void {
     .option('--skills <skills>', 'Comma-separated skills', 'maestro-worker')
     .option('--launch-config <json>', 'Canonical launch config JSON: provider, model, reasoningEffort, speed, accessMode')
     .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, hermes, or gemini)', 'claude-code')
+    .option('--model <model>', 'Legacy model override; converted to canonical launch config')
+    .option('--reasoning-effort <effort>', 'Legacy reasoning effort override; converted to canonical launch config')
+    .option('--permission-mode <mode>', 'Legacy permission mode override; converted to canonical launch config')
     .option('--reference-task-ids <ids>', 'Comma-separated reference task IDs for context')
     .option('--team-member-id <id>', 'Team member ID for this session')
     .option('--team-member-ids <ids>', 'Comma-separated team member IDs (for coordinate mode)')
@@ -798,7 +908,11 @@ export function registerManifestCommands(program: any): void {
         process.exit(1);
       }
 
-      const launchConfig = parseLaunchConfig(options.launchConfig);
+      const hasLegacyLaunchOverride = !!options.model || !!options.reasoningEffort || !!options.permissionMode || options.agentTool !== 'claude-code';
+      const launchConfig = parseLaunchConfig(options.launchConfig)
+        || (hasLegacyLaunchOverride
+          ? launchConfigFromLegacy(options.agentTool, options.model, options.reasoningEffort, options.permissionMode)
+          : undefined);
       if (options.launchConfig && !launchConfig) {
         console.error('Invalid launch config JSON');
         process.exit(1);

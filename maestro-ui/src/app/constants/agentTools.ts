@@ -140,14 +140,55 @@ export function getReasoningOptionsForProvider(provider: LaunchProvider): Array<
   return [];
 }
 
+export function getReasoningValuesForProvider(provider: LaunchProvider): LaunchReasoningEffort[] {
+  return getReasoningOptionsForProvider(provider).map((option) => option.value);
+}
+
 export function supportsLaunchSpeed(provider: LaunchProvider, model?: string): boolean {
-  if (provider === "claude") {
-    return model ? model.includes("opus-4-7") || model.includes("opus-4-6") : true;
-  }
   if (provider === "openai") {
     return model === "gpt-5.5" || model === "gpt-5.4";
   }
   return false;
+}
+
+export function accessModeFromPermissionMode(permissionMode?: string): LaunchConfig["accessMode"] | undefined {
+  switch (permissionMode) {
+    case "bypassPermissions":
+      return "fullAccess";
+    case "acceptEdits":
+      return "acceptEdits";
+    case "readOnly":
+      return "plan";
+    case "interactive":
+      return "safe";
+    default:
+      return undefined;
+  }
+}
+
+export function sanitizeLaunchConfig(config?: Partial<LaunchConfig> | null): LaunchConfig | undefined {
+  if (!config?.provider || !config.model) return undefined;
+  if (!["claude", "openai", "hermes", "gemini"].includes(config.provider)) return undefined;
+
+  const provider = config.provider as LaunchProvider;
+  const validReasoningValues = getReasoningValuesForProvider(provider);
+  const reasoningEffort = config.reasoningEffort && validReasoningValues.includes(config.reasoningEffort)
+    ? config.reasoningEffort
+    : undefined;
+  const speed = config.speed && supportsLaunchSpeed(provider, String(config.model))
+    ? config.speed
+    : undefined;
+  const accessMode = config.accessMode && ["safe", "acceptEdits", "plan", "fullAccess"].includes(config.accessMode)
+    ? config.accessMode
+    : undefined;
+
+  return {
+    provider,
+    model: config.model,
+    ...(reasoningEffort ? { reasoningEffort } : {}),
+    ...(speed ? { speed } : {}),
+    ...(accessMode ? { accessMode } : {}),
+  };
 }
 
 const MODEL_LABEL_OVERRIDES: Record<string, string> = {
@@ -180,11 +221,27 @@ export function formatProviderModelLabel(agentTool?: AgentTool, model?: string):
 }
 
 export function createLaunchConfig(agentTool: AgentTool, model: ModelType | string, existing?: Partial<LaunchConfig>): LaunchConfig {
-  return {
+  return sanitizeLaunchConfig({
     ...existing,
     provider: AGENT_TOOL_TO_PROVIDER[agentTool],
     model,
-  };
+  })!;
+}
+
+export function createLaunchConfigFromLegacy(
+  agentTool?: AgentTool,
+  model?: ModelType | string,
+  reasoningEffort?: LaunchReasoningEffort,
+  permissionMode?: string,
+): LaunchConfig | undefined {
+  const tool = agentTool || (model ? "claude-code" : undefined);
+  if (!tool) return undefined;
+  return sanitizeLaunchConfig({
+    provider: AGENT_TOOL_TO_PROVIDER[tool],
+    model: model || DEFAULT_MODEL_BY_AGENT_TOOL[tool],
+    reasoningEffort,
+    accessMode: accessModeFromPermissionMode(permissionMode),
+  });
 }
 
 export function getAgentToolForLaunchConfig(config?: Pick<LaunchConfig, "provider">): AgentTool | undefined {
