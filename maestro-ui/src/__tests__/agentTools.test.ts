@@ -5,6 +5,7 @@ import {
   CODEX_REASONING_EFFORT_OPTIONS,
   DEFAULT_MODEL_BY_AGENT_TOOL,
   formatProviderModelLabel,
+  getReasoningOptionsForProvider,
   MODELS_BY_AGENT_TOOL,
   sanitizeLaunchConfig,
   supportsLaunchSpeed,
@@ -12,6 +13,12 @@ import {
 import { DEFAULT_AGENT_SHORTCUT_IDS } from '../app/constants/defaults';
 
 describe('agent tool UI constants', () => {
+  const claudeModels = MODELS_BY_AGENT_TOOL['claude-code'].map((model) => model.value);
+  const codexModels = MODELS_BY_AGENT_TOOL.codex.map((model) => model.value);
+  const claudeReasoningEfforts = ['low', 'medium', 'high', 'xhigh', 'max'];
+  const codexReasoningEfforts = ['low', 'medium', 'high', 'xhigh'];
+  const fastCodexModels = ['gpt-5.5', 'gpt-5.4'];
+
   it('exposes Hermes beside Claude and Codex in user-facing pickers', () => {
     expect(AGENT_TOOL_OPTIONS.map((tool) => tool.id)).toEqual(
       expect.arrayContaining(['claude-code', 'codex', 'hermes']),
@@ -44,6 +51,69 @@ describe('agent tool UI constants', () => {
       'high',
       'xhigh',
     ]);
+  });
+
+  it('matches Claude CLI effort support and excludes speed', () => {
+    expect(getReasoningOptionsForProvider('claude').map((item) => item.value)).toEqual(claudeReasoningEfforts);
+
+    for (const model of claudeModels) {
+      expect(supportsLaunchSpeed('claude', model)).toBe(false);
+      for (const effort of claudeReasoningEfforts) {
+        expect(sanitizeLaunchConfig({
+          provider: 'claude',
+          model,
+          reasoningEffort: effort as any,
+          speed: 'fast',
+          accessMode: 'fullAccess',
+        })).toEqual({
+          provider: 'claude',
+          model,
+          reasoningEffort: effort,
+          accessMode: 'fullAccess',
+        });
+      }
+    }
+
+    expect(sanitizeLaunchConfig({
+      provider: 'claude',
+      model: 'claude-opus-4-7',
+      reasoningEffort: 'minimal' as any,
+    })).toEqual({
+      provider: 'claude',
+      model: 'claude-opus-4-7',
+    });
+  });
+
+  it('matches Codex CLI reasoning and speed-tier support', () => {
+    expect(getReasoningOptionsForProvider('openai').map((item) => item.value)).toEqual(codexReasoningEfforts);
+
+    for (const model of codexModels) {
+      for (const effort of codexReasoningEfforts) {
+        const sanitized = sanitizeLaunchConfig({
+          provider: 'openai',
+          model,
+          reasoningEffort: effort as any,
+          speed: 'fast',
+          accessMode: 'acceptEdits',
+        });
+        expect(sanitized).toEqual({
+          provider: 'openai',
+          model,
+          reasoningEffort: effort,
+          ...(fastCodexModels.includes(model) ? { speed: 'fast' } : {}),
+          accessMode: 'acceptEdits',
+        });
+      }
+    }
+
+    expect(sanitizeLaunchConfig({
+      provider: 'openai',
+      model: 'gpt-5.5',
+      reasoningEffort: 'max',
+    })).toEqual({
+      provider: 'openai',
+      model: 'gpt-5.5',
+    });
   });
 
   it('formats task launch badges as Provider/Model', () => {

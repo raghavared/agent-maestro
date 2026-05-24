@@ -83,6 +83,21 @@ export class ClaudeSpawner {
     }
   }
 
+  private permissionModeFromAccessMode(accessMode?: string): string | undefined {
+    switch (accessMode) {
+      case 'fullAccess':
+        return 'bypassPermissions';
+      case 'acceptEdits':
+        return 'acceptEdits';
+      case 'plan':
+        return 'readOnly';
+      case 'safe':
+        return 'interactive';
+      default:
+        return undefined;
+    }
+  }
+
   /**
    * Get plugin directory for a mode
    *
@@ -153,9 +168,7 @@ export class ClaudeSpawner {
     args.push('--model', launchConfig?.model || manifest.session.model);
 
     // Add permission mode
-    const permissionMode = launchConfig?.accessMode === 'fullAccess'
-      ? 'bypassPermissions'
-      : manifest.session.permissionMode;
+    const permissionMode = this.permissionModeFromAccessMode(launchConfig?.accessMode) || manifest.session.permissionMode;
     if (permissionMode) {
       if (permissionMode === 'bypassPermissions') {
         // Use --dangerously-skip-permissions for full bypass mode
@@ -166,7 +179,7 @@ export class ClaudeSpawner {
       }
     }
 
-    if (launchConfig?.reasoningEffort && launchConfig.reasoningEffort !== 'minimal') {
+    if (launchConfig?.reasoningEffort && ['low', 'medium', 'high', 'xhigh', 'max'].includes(launchConfig.reasoningEffort)) {
       args.push('--effort', launchConfig.reasoningEffort);
     }
 

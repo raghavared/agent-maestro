@@ -33,13 +33,10 @@ export class CodexSpawner {
   static readonly MODELS = [
     'gpt-5.5',
     'gpt-5.4',
+    'gpt-5.4-mini',
     'gpt-5.3-codex',
-    'gpt-5.2-codex',
-    'gpt-5.1-codex-max',
-    'gpt-5.1-codex-mini',
-    'gpt-5.1-codex',
-    'gpt-5-codex',
-    'gpt-5-codex-mini',
+    'gpt-5.3-codex-spark',
+    'gpt-5.2',
   ] as const;
 
   /**
@@ -48,6 +45,18 @@ export class CodexSpawner {
    * Otherwise map Claude model names to a sensible default.
    */
   private mapModel(model: string): string {
+    switch (model) {
+      case 'gpt-5.2-codex':
+      case 'gpt-5.1-codex':
+      case 'gpt-5-codex':
+        return 'gpt-5.2';
+      case 'gpt-5.1-codex-max':
+        return 'gpt-5.3-codex';
+      case 'gpt-5.1-codex-mini':
+      case 'gpt-5-codex-mini':
+        return 'gpt-5.4-mini';
+    }
+
     // Pass through if already a native Codex/OpenAI model
     if (model.startsWith('gpt-')) {
       return model;
@@ -107,6 +116,21 @@ export class CodexSpawner {
     }
   }
 
+  private permissionModeFromAccessMode(accessMode?: string): string | undefined {
+    switch (accessMode) {
+      case 'fullAccess':
+        return 'bypassPermissions';
+      case 'acceptEdits':
+        return 'acceptEdits';
+      case 'plan':
+        return 'readOnly';
+      case 'safe':
+        return 'interactive';
+      default:
+        return undefined;
+    }
+  }
+
   /**
    * Build Codex CLI arguments
    */
@@ -118,9 +142,7 @@ export class CodexSpawner {
     const model = this.mapModel(launchConfig?.model || manifest.session.model);
     args.push('--model', model);
 
-    const permissionMode = launchConfig?.accessMode === 'fullAccess'
-      ? 'bypassPermissions'
-      : manifest.session.permissionMode;
+    const permissionMode = this.permissionModeFromAccessMode(launchConfig?.accessMode) || manifest.session.permissionMode;
 
     if (permissionMode === 'bypassPermissions') {
       // Use --dangerously-bypass-approvals-and-sandbox for full bypass mode
@@ -136,12 +158,11 @@ export class CodexSpawner {
       args.push('--sandbox', sandbox);
     }
 
-    if (launchConfig?.reasoningEffort && launchConfig.reasoningEffort !== 'max') {
+    if (launchConfig?.reasoningEffort && ['low', 'medium', 'high', 'xhigh'].includes(launchConfig.reasoningEffort)) {
       args.push('-c', `model_reasoning_effort=${JSON.stringify(launchConfig.reasoningEffort)}`);
     }
     if (launchConfig?.speed === 'fast' && (model === 'gpt-5.5' || model === 'gpt-5.4')) {
       args.push('-c', 'service_tier="fast"');
-      args.push('-c', 'features.fast_mode=true');
     }
 
     // Set working directory if specified

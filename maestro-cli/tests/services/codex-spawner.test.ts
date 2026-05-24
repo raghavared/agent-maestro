@@ -3,7 +3,18 @@ import { CodexSpawner } from '../../src/services/codex-spawner.js';
 import type { MaestroManifest } from '../../src/types/manifest.js';
 
 describe('CodexSpawner', () => {
-  const createManifest = (model: string): MaestroManifest => ({
+  const officialCodexModels = [
+    'gpt-5.5',
+    'gpt-5.4',
+    'gpt-5.4-mini',
+    'gpt-5.3-codex',
+    'gpt-5.3-codex-spark',
+    'gpt-5.2',
+  ];
+  const codexReasoningEfforts = ['low', 'medium', 'high', 'xhigh'];
+  const fastTierModels = ['gpt-5.5', 'gpt-5.4'];
+
+  const createManifest = (model: string, launchConfig?: MaestroManifest['launchConfig']): MaestroManifest => ({
     manifestVersion: '1.0',
     mode: 'worker',
     tasks: [{
@@ -17,16 +28,16 @@ describe('CodexSpawner', () => {
     session: {
       model,
       permissionMode: 'acceptEdits',
+      ...(launchConfig ? { launchConfig } : {}),
     },
   });
 
-  it('includes both Codex 5.4 and 5.5 in the supported model catalog', () => {
-    expect(CodexSpawner.MODELS).toContain('gpt-5.4');
-    expect(CodexSpawner.MODELS).toContain('gpt-5.5');
+  it('matches the visible official Codex CLI model catalog', () => {
+    expect([...CodexSpawner.MODELS]).toEqual(officialCodexModels);
   });
 
-  it.each(['gpt-5.4', 'gpt-5.5'])(
-    'passes %s through to the Codex CLI model flag',
+  it.each(officialCodexModels)(
+    'passes official model %s through to the Codex CLI model flag',
     (model) => {
       const args = new CodexSpawner().buildCodexArgs(createManifest(model));
 
@@ -34,6 +45,83 @@ describe('CodexSpawner', () => {
       expect(args).toContain(model);
     }
   );
+
+  it.each([
+    ['gpt-5.2-codex', 'gpt-5.2'],
+    ['gpt-5.1-codex', 'gpt-5.2'],
+    ['gpt-5-codex', 'gpt-5.2'],
+    ['gpt-5.1-codex-max', 'gpt-5.3-codex'],
+    ['gpt-5.1-codex-mini', 'gpt-5.4-mini'],
+    ['gpt-5-codex-mini', 'gpt-5.4-mini'],
+  ])('maps legacy Codex model %s to supported official model %s', (legacyModel, expectedModel) => {
+    const args = new CodexSpawner().buildCodexArgs(createManifest(legacyModel));
+
+    expect(args[args.indexOf('--model') + 1]).toBe(expectedModel);
+  });
+
+  it.each(officialCodexModels.flatMap((model) => codexReasoningEfforts.map((effort) => [model, effort])))(
+    'passes supported reasoning effort for official model %s at %s',
+    (model, effort) => {
+      const args = new CodexSpawner().buildCodexArgs(createManifest(model, {
+        provider: 'openai',
+        model,
+        reasoningEffort: effort as any,
+      }));
+
+      expect(args).toContain(`model_reasoning_effort=${JSON.stringify(effort)}`);
+    },
+  );
+
+  it.each(['minimal', 'max'])('does not pass unsupported Codex reasoning effort %s', (effort) => {
+    const args = new CodexSpawner().buildCodexArgs(createManifest('gpt-5.5', {
+      provider: 'openai',
+      model: 'gpt-5.5',
+      reasoningEffort: effort as any,
+    }));
+
+    expect(args.some((arg) => arg.startsWith('model_reasoning_effort='))).toBe(false);
+  });
+
+  it.each(officialCodexModels)('only enables fast service tier for Codex fast-tier model support: %s', (model) => {
+    const args = new CodexSpawner().buildCodexArgs(createManifest(model, {
+      provider: 'openai',
+      model,
+      speed: 'fast',
+    }));
+
+    const hasFastTier = args.includes('service_tier="fast"');
+    expect(hasFastTier).toBe(fastTierModels.includes(model));
+    expect(args).not.toContain('features.fast_mode=true');
+  });
+
+  it.each([
+    ['safe', ['--ask-for-approval', 'untrusted', '--sandbox', 'workspace-write']],
+    ['acceptEdits', ['--ask-for-approval', 'never', '--sandbox', 'workspace-write']],
+    ['plan', ['--ask-for-approval', 'untrusted', '--sandbox', 'read-only']],
+  ])('maps canonical access mode %s to official Codex CLI permission flags', (accessMode, expectedFlags) => {
+    const args = new CodexSpawner().buildCodexArgs(createManifest('gpt-5.5', {
+      provider: 'openai',
+      model: 'gpt-5.5',
+      accessMode: accessMode as any,
+    }));
+
+    for (const expectedFlag of expectedFlags) {
+      expect(args).toContain(expectedFlag);
+    }
+    expect(args).not.toContain('--dangerously-bypass-approvals-and-sandbox');
+  });
+
+  it('maps canonical full access mode to the official Codex bypass flag', () => {
+    const args = new CodexSpawner().buildCodexArgs(createManifest('gpt-5.5', {
+      provider: 'openai',
+      model: 'gpt-5.5',
+      accessMode: 'fullAccess',
+    }));
+
+    expect(args).toContain('--dangerously-bypass-approvals-and-sandbox');
+    expect(args).not.toContain('--ask-for-approval');
+    expect(args).not.toContain('--sandbox');
+  });
 
   it('does not pass unsupported max-turns to the Codex CLI', () => {
     const args = new CodexSpawner().buildCodexArgs({
