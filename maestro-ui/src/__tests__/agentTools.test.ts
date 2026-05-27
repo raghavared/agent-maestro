@@ -6,6 +6,7 @@ import {
   DEFAULT_MODEL_BY_AGENT_TOOL,
   createLaunchConfigFromLegacy,
   formatProviderModelLabel,
+  getModelDisplayLabel,
   getReasoningOptionsForProvider,
   MODELS_BY_AGENT_TOOL,
   sanitizeLaunchConfig,
@@ -169,5 +170,16 @@ describe('agent tool UI constants', () => {
       provider: 'claude',
       model: 'opus',
     });
+  });
+
+  it('keeps legacy model names supported without showing alias choices in pickers', () => {
+    expect(MODELS_BY_AGENT_TOOL['claude-code'].map((model) => model.value)).not.toEqual(
+      expect.arrayContaining(['sonnet', 'sonnet[1m]', 'opus', 'opus[1m]', 'haiku']),
+    );
+    expect(MODELS_BY_AGENT_TOOL.codex.map((model) => model.value)).not.toContain('gpt-5.2-codex');
+
+    expect(getModelDisplayLabel('sonnet')).toBe('Sonnet');
+    expect(getModelDisplayLabel('opus[1m]')).toBe('Opus 1M');
+    expect(getModelDisplayLabel('gpt-5.2-codex')).toBe('Codex 5.2');
   });
 });

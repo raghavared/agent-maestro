@@ -20,12 +20,6 @@ export const MODELS_BY_AGENT_TOOL: Record<AgentTool, { value: ModelType; label: 
     { value: "claude-sonnet-4-6", label: "Sonnet 4.6" },
     { value: "claude-haiku-4-5", label: "Haiku 4.5" },
     { value: "claude-opus-4-6", label: "Opus 4.6 Legacy" },
-    // Compatibility aliases retained for existing saved team members/tasks.
-    { value: "opus", label: "Opus (Alias)" },
-    { value: "opus[1m]", label: "Opus 1M (Alias)" },
-    { value: "sonnet", label: "Sonnet (Alias)" },
-    { value: "sonnet[1m]", label: "Sonnet 1M (Alias)" },
-    { value: "haiku", label: "Haiku (Alias)" },
   ],
   codex: [
     { value: "gpt-5.5", label: "GPT-5.5" },
@@ -34,8 +28,6 @@ export const MODELS_BY_AGENT_TOOL: Record<AgentTool, { value: ModelType; label: 
     { value: "gpt-5.3-codex", label: "GPT-5.3-Codex" },
     { value: "gpt-5.3-codex-spark", label: "GPT-5.3-Codex-Spark" },
     { value: "gpt-5.2", label: "GPT-5.2" },
-    // Compatibility alias retained for existing saved team members/tasks.
-    { value: "gpt-5.2-codex", label: "GPT-5.2-Codex (Alias)" },
   ],
   hermes: [
     { value: "hermes-default", label: "Hermes default" },
@@ -197,6 +189,11 @@ const MODEL_LABEL_OVERRIDES: Record<string, string> = {
   "claude-sonnet-4-6": "Sonnet 4.6",
   "claude-haiku-4-5": "Haiku 4.5",
   "claude-opus-4-6": "Opus 4.6 Legacy",
+  "opus": "Opus",
+  "opus[1m]": "Opus 1M",
+  "sonnet": "Sonnet",
+  "sonnet[1m]": "Sonnet 1M",
+  "haiku": "Haiku",
   "gpt-5.5": "Codex 5.5",
   "gpt-5.4": "Codex 5.4",
   "gpt-5.4-mini": "Codex 5.4 Mini",

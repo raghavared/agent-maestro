@@ -21,10 +21,6 @@ type LaunchConfigDropdownProps = {
 
 const DEFAULT_TOOL: AgentTool = "claude-code";
 
-function isAliasModel(model: { label: string; value: string }) {
-    return model.label.includes("(Alias)");
-}
-
 export function LaunchConfigDropdown({
     launchConfig,
     activeTool,
@@ -38,8 +34,6 @@ export function LaunchConfigDropdown({
         || AGENT_TOOL_OPTIONS.find((tool) => tool.id === DEFAULT_TOOL)
         || AGENT_TOOL_OPTIONS[0];
 
-    const primaryModels = selectedTool.models.filter((model) => !isAliasModel(model));
-    const aliasModels = selectedTool.models.filter(isAliasModel);
     const currentModel = launchConfig?.provider === selectedTool.provider
         ? launchConfig.model
         : selectedTool.models[0]?.id;
@@ -121,7 +115,7 @@ export function LaunchConfigDropdown({
                 <div className="terminalLaunchDropdown__section">
                     <div className="terminalLaunchDropdown__sectionTitle">Model</div>
                     <div className="terminalLaunchDropdown__optionGrid">
-                        {primaryModels.map(renderModelButton)}
+                        {selectedTool.models.map(renderModelButton)}
                     </div>
                 </div>
 
@@ -172,14 +166,6 @@ export function LaunchConfigDropdown({
                     </div>
                 )}
 
-                {aliasModels.length > 0 && (
-                    <details className="terminalLaunchDropdown__aliases">
-                        <summary>Aliases</summary>
-                        <div className="terminalLaunchDropdown__optionGrid">
-                            {aliasModels.map(renderModelButton)}
-                        </div>
-                    </details>
-                )}
             </div>
         </div>
     );
