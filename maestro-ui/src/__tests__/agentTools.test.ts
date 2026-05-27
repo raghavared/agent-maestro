@@ -4,6 +4,7 @@ import {
   AGENT_TOOL_LABELS,
   CODEX_REASONING_EFFORT_OPTIONS,
   DEFAULT_MODEL_BY_AGENT_TOOL,
+  createLaunchConfigFromLegacy,
   formatProviderModelLabel,
   getReasoningOptionsForProvider,
   MODELS_BY_AGENT_TOOL,
@@ -147,6 +148,26 @@ describe('agent tool UI constants', () => {
     })).toEqual({
       provider: 'gemini',
       model: 'gemini-2.5-pro',
+    });
+  });
+
+  it('normalizes legacy team-member launch fields without requiring a new storage shape', () => {
+    expect(createLaunchConfigFromLegacy('claude-code', 'sonnet', undefined, 'acceptEdits')).toEqual({
+      provider: 'claude',
+      model: 'sonnet',
+      accessMode: 'acceptEdits',
+    });
+
+    expect(createLaunchConfigFromLegacy('codex', 'gpt-5.2-codex', 'high', 'bypassPermissions')).toEqual({
+      provider: 'openai',
+      model: 'gpt-5.2-codex',
+      reasoningEffort: 'high',
+      accessMode: 'fullAccess',
+    });
+
+    expect(createLaunchConfigFromLegacy(undefined, 'opus', undefined, undefined)).toEqual({
+      provider: 'claude',
+      model: 'opus',
     });
   });
 });

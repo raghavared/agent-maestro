@@ -16,6 +16,7 @@ type LaunchConfigDropdownProps = {
     onActiveToolChange: Dispatch<SetStateAction<AgentTool | null>>;
     onLaunchConfigChange: Dispatch<SetStateAction<LaunchConfig | null>>;
     onClear?: () => void;
+    showAdvancedOptions?: boolean;
 };
 
 const DEFAULT_TOOL: AgentTool = "claude-code";
@@ -30,6 +31,7 @@ export function LaunchConfigDropdown({
     onActiveToolChange,
     onLaunchConfigChange,
     onClear,
+    showAdvancedOptions = true,
 }: LaunchConfigDropdownProps) {
     const selectedTool = AGENT_TOOL_OPTIONS.find((tool) => tool.id === activeTool)
         || AGENT_TOOL_OPTIONS.find((tool) => tool.provider === launchConfig?.provider)
@@ -123,7 +125,7 @@ export function LaunchConfigDropdown({
                     </div>
                 </div>
 
-                {reasoningOptions.length > 0 && (
+                {showAdvancedOptions && reasoningOptions.length > 0 && (
                     <div className="terminalLaunchDropdown__section">
                         <div className="terminalLaunchDropdown__sectionTitle">Intelligence</div>
                         <div className="terminalLaunchDropdown__optionGrid terminalLaunchDropdown__optionGrid--compact">
@@ -145,7 +147,7 @@ export function LaunchConfigDropdown({
                     </div>
                 )}
 
-                {speedSupported && (
+                {showAdvancedOptions && speedSupported && (
                     <div className="terminalLaunchDropdown__section">
                         <div className="terminalLaunchDropdown__sectionTitle">Speed</div>
                         <div className="terminalLaunchDropdown__optionGrid">
