@@ -105,7 +105,7 @@ function defaultModelForAgentTool(agentTool: AgentTool): string {
             return 'gemini-2.5-pro';
         case 'claude-code':
         default:
-            return 'claude-opus-4-7';
+            return 'claude-opus-4-8';
     }
 }
 

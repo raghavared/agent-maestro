@@ -35,6 +35,18 @@ describe('agent tool UI constants', () => {
       label: 'Hermes default',
     });
     expect(MODELS_BY_AGENT_TOOL.hermes).toContainEqual({
+      value: 'anthropic:claude-opus-4-8',
+      label: 'Anthropic Claude Opus 4.8',
+    });
+    expect(MODELS_BY_AGENT_TOOL.hermes).toContainEqual({
+      value: 'nous:anthropic/claude-opus-4.8',
+      label: 'Nous Claude Opus 4.8',
+    });
+    expect(MODELS_BY_AGENT_TOOL.hermes).toContainEqual({
+      value: 'openrouter:anthropic/claude-opus-4.8',
+      label: 'OpenRouter Claude Opus 4.8',
+    });
+    expect(MODELS_BY_AGENT_TOOL.hermes).toContainEqual({
       value: 'openai/gpt-5.5',
       label: 'Codex OAuth GPT 5.5',
     });
@@ -56,6 +68,11 @@ describe('agent tool UI constants', () => {
   });
 
   it('matches Claude CLI effort support and excludes speed', () => {
+    expect(DEFAULT_MODEL_BY_AGENT_TOOL['claude-code']).toBe('claude-opus-4-8');
+    expect(MODELS_BY_AGENT_TOOL['claude-code'][0]).toEqual({
+      value: 'claude-opus-4-8',
+      label: 'Opus 4.8',
+    });
     expect(getReasoningOptionsForProvider('claude').map((item) => item.value)).toEqual(claudeReasoningEfforts);
 
     for (const model of claudeModels) {
@@ -78,11 +95,11 @@ describe('agent tool UI constants', () => {
 
     expect(sanitizeLaunchConfig({
       provider: 'claude',
-      model: 'claude-opus-4-7',
+      model: 'claude-opus-4-8',
       reasoningEffort: 'minimal' as any,
     })).toEqual({
       provider: 'claude',
-      model: 'claude-opus-4-7',
+      model: 'claude-opus-4-8',
     });
   });
 
@@ -119,12 +136,16 @@ describe('agent tool UI constants', () => {
   });
 
   it('formats task launch badges as Provider/Model', () => {
+    expect(formatProviderModelLabel('claude-code', 'claude-opus-4-8')).toBe('Claude/Opus 4.8');
     expect(formatProviderModelLabel('claude-code', 'claude-opus-4-7')).toBe('Claude/Opus 4.7');
+    expect(formatProviderModelLabel('hermes', 'anthropic:claude-opus-4-8')).toBe('Hermes/Claude Opus 4.8');
     expect(formatProviderModelLabel('codex', 'gpt-5.5')).toBe('OpenAI/Codex 5.5');
   });
 
   it('limits speed to supported OpenAI Codex models', () => {
+    expect(supportsLaunchSpeed('claude', 'claude-opus-4-8')).toBe(false);
     expect(supportsLaunchSpeed('claude', 'claude-opus-4-7')).toBe(false);
+    expect(supportsLaunchSpeed('hermes', 'anthropic:claude-opus-4-8')).toBe(false);
     expect(supportsLaunchSpeed('openai', 'gpt-5.5')).toBe(true);
     expect(supportsLaunchSpeed('openai', 'gpt-5.4-mini')).toBe(false);
   });
@@ -132,13 +153,23 @@ describe('agent tool UI constants', () => {
   it('sanitizes provider-specific launch settings', () => {
     expect(sanitizeLaunchConfig({
       provider: 'claude',
-      model: 'claude-opus-4-7',
+      model: 'claude-opus-4-8',
       reasoningEffort: 'max',
       speed: 'fast',
     })).toEqual({
       provider: 'claude',
-      model: 'claude-opus-4-7',
+      model: 'claude-opus-4-8',
       reasoningEffort: 'max',
+    });
+
+    expect(sanitizeLaunchConfig({
+      provider: 'hermes',
+      model: 'anthropic:claude-opus-4-8',
+      reasoningEffort: 'high',
+      speed: 'fast',
+    })).toEqual({
+      provider: 'hermes',
+      model: 'anthropic:claude-opus-4-8',
     });
 
     expect(sanitizeLaunchConfig({

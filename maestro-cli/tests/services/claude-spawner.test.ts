@@ -137,6 +137,7 @@ describe('ClaudeSpawner', () => {
 
   describe('buildClaudeArgs', () => {
     const officialClaudeModels = [
+      'claude-opus-4-8',
       'claude-opus-4-7',
       'claude-opus-4-7[1m]',
       'claude-sonnet-4-6',
@@ -228,7 +229,7 @@ describe('ClaudeSpawner', () => {
           ...workerManifest.session,
           launchConfig: {
             provider: 'claude',
-            model: 'claude-opus-4-7',
+            model: 'claude-opus-4-8',
             reasoningEffort: 'minimal' as any,
           },
         },
@@ -249,7 +250,7 @@ describe('ClaudeSpawner', () => {
           permissionMode: 'bypassPermissions',
           launchConfig: {
             provider: 'claude',
-            model: 'claude-opus-4-7',
+            model: 'claude-opus-4-8',
             accessMode: accessMode as any,
           },
         },
@@ -267,7 +268,7 @@ describe('ClaudeSpawner', () => {
           ...workerManifest.session,
           launchConfig: {
             provider: 'claude',
-            model: 'claude-opus-4-7',
+            model: 'claude-opus-4-8',
             accessMode: 'fullAccess',
           },
         },

@@ -75,6 +75,60 @@ describe('HermesSpawner', () => {
     expect(args).not.toContain('--yolo');
   });
 
+  it('routes Hermes Opus 4.8 to native Anthropic with the official hyphenated model id', () => {
+    const spawner = new HermesSpawner();
+
+    const args = spawner.buildHermesArgs({
+      ...manifest,
+      session: {
+        ...manifest.session,
+        model: 'anthropic:claude-opus-4-8',
+        permissionMode: 'interactive',
+      },
+    }, 'session-123', 'system prompt', 'task prompt');
+
+    expect(args).toContain('--provider');
+    expect(args[args.indexOf('--provider') + 1]).toBe('anthropic');
+    expect(args).toContain('--model');
+    expect(args[args.indexOf('--model') + 1]).toBe('claude-opus-4-8');
+  });
+
+  it('routes Hermes Opus 4.8 to Nous Portal with the provider-qualified model id', () => {
+    const spawner = new HermesSpawner();
+
+    const args = spawner.buildHermesArgs({
+      ...manifest,
+      session: {
+        ...manifest.session,
+        model: 'nous:anthropic/claude-opus-4.8',
+        permissionMode: 'interactive',
+      },
+    }, 'session-123', 'system prompt', 'task prompt');
+
+    expect(args).toContain('--provider');
+    expect(args[args.indexOf('--provider') + 1]).toBe('nous');
+    expect(args).toContain('--model');
+    expect(args[args.indexOf('--model') + 1]).toBe('anthropic/claude-opus-4.8');
+  });
+
+  it('routes Hermes Opus 4.8 to OpenRouter with the provider-qualified model id', () => {
+    const spawner = new HermesSpawner();
+
+    const args = spawner.buildHermesArgs({
+      ...manifest,
+      session: {
+        ...manifest.session,
+        model: 'openrouter:anthropic/claude-opus-4.8',
+        permissionMode: 'interactive',
+      },
+    }, 'session-123', 'system prompt', 'task prompt');
+
+    expect(args).toContain('--provider');
+    expect(args[args.indexOf('--provider') + 1]).toBe('openrouter');
+    expect(args).toContain('--model');
+    expect(args[args.indexOf('--model') + 1]).toBe('anthropic/claude-opus-4.8');
+  });
+
   it('routes OpenAI Hermes models to the Codex OAuth provider', () => {
     const spawner = new HermesSpawner();
 

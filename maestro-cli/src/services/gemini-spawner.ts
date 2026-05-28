@@ -51,6 +51,7 @@ export class GeminiSpawner {
     }
     // Map Claude model names to Gemini equivalents
     switch (model) {
+      case 'claude-opus-4-8':
       case 'claude-opus-4-7[1m]':
       case 'claude-opus-4-7':
       case 'opus':

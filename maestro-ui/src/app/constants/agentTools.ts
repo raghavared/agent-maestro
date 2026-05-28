@@ -15,6 +15,7 @@ const withIds = (models: { value: ModelType; label: string }[]) =>
 
 export const MODELS_BY_AGENT_TOOL: Record<AgentTool, { value: ModelType; label: string }[]> = {
   "claude-code": [
+    { value: "claude-opus-4-8", label: "Opus 4.8" },
     { value: "claude-opus-4-7", label: "Opus 4.7" },
     { value: "claude-opus-4-7[1m]", label: "Opus 4.7 1M" },
     { value: "claude-sonnet-4-6", label: "Sonnet 4.6" },
@@ -31,6 +32,9 @@ export const MODELS_BY_AGENT_TOOL: Record<AgentTool, { value: ModelType; label: 
   ],
   hermes: [
     { value: "hermes-default", label: "Hermes default" },
+    { value: "anthropic:claude-opus-4-8", label: "Anthropic Claude Opus 4.8" },
+    { value: "nous:anthropic/claude-opus-4.8", label: "Nous Claude Opus 4.8" },
+    { value: "openrouter:anthropic/claude-opus-4.8", label: "OpenRouter Claude Opus 4.8" },
     { value: "openai/gpt-5.5", label: "Codex OAuth GPT 5.5" },
     { value: "openai/gpt-5.4", label: "Codex OAuth GPT 5.4" },
     { value: "openai/gpt-5.4-mini", label: "Codex OAuth GPT 5.4 Mini" },
@@ -46,7 +50,7 @@ export const MODELS_BY_AGENT_TOOL: Record<AgentTool, { value: ModelType; label: 
 };
 
 export const DEFAULT_MODEL_BY_AGENT_TOOL: Record<AgentTool, ModelType> = {
-  "claude-code": "claude-opus-4-7",
+  "claude-code": "claude-opus-4-8",
   codex: "gpt-5.5",
   hermes: "hermes-default",
   gemini: "gemini-2.5-pro",
@@ -184,6 +188,7 @@ export function sanitizeLaunchConfig(config?: Partial<LaunchConfig> | null): Lau
 }
 
 const MODEL_LABEL_OVERRIDES: Record<string, string> = {
+  "claude-opus-4-8": "Opus 4.8",
   "claude-opus-4-7": "Opus 4.7",
   "claude-opus-4-7[1m]": "Opus 4.7 1M",
   "claude-sonnet-4-6": "Sonnet 4.6",
@@ -201,6 +206,10 @@ const MODEL_LABEL_OVERRIDES: Record<string, string> = {
   "gpt-5.3-codex-spark": "Codex 5.3 Spark",
   "gpt-5.2": "Codex 5.2",
   "gpt-5.2-codex": "Codex 5.2",
+  "anthropic:claude-opus-4-8": "Claude Opus 4.8",
+  "nous:anthropic/claude-opus-4.8": "Claude Opus 4.8",
+  "openrouter:anthropic/claude-opus-4.8": "Claude Opus 4.8",
+  "anthropic/claude-opus-4.8": "Claude Opus 4.8",
   "gemini-2.5-pro": "Gemini 2.5 Pro",
   "gemini-3-pro-preview": "Gemini 3 Pro Preview",
 };

@@ -319,7 +319,7 @@ function defaultModelForAgentTool(agentTool: AgentTool): string {
       return 'gemini-2.5-pro';
     case 'claude-code':
     default:
-      return 'claude-opus-4-7';
+      return 'claude-opus-4-8';
   }
 }
 
@@ -1212,6 +1212,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       // Fetch team member defaults from the effective members (after task-level fallback)
       const MODEL_POWER: Record<string, number> = {
+        'claude-opus-4-8': 5.8,
         'gpt-5.5': 5.5,
         'claude-opus-4-7[1m]': 5.2,
         'claude-opus-4-7': 5,

@@ -36,6 +36,11 @@ export class HermesSpawner {
 
   static readonly MODELS = [
     HERMES_DEFAULT_MODEL,
+    'anthropic:claude-opus-4-8',
+    'nous:anthropic/claude-opus-4.8',
+    'openrouter:anthropic/claude-opus-4.8',
+    'anthropic/claude-opus-4.8',
+    'claude-opus-4-8',
     'anthropic/claude-sonnet-4.6',
     'openai/gpt-5.5',
     'openai/gpt-5.4',
@@ -55,6 +60,15 @@ export class HermesSpawner {
   resolveModelOverride(model?: string): HermesModelOverride {
     if (!model || model === HERMES_DEFAULT_MODEL) {
       return {};
+    }
+
+    const explicitProviderSeparator = model.indexOf(':');
+    if (explicitProviderSeparator > 0) {
+      const provider = model.slice(0, explicitProviderSeparator);
+      const modelName = model.slice(explicitProviderSeparator + 1);
+      if (provider && modelName) {
+        return { provider, model: modelName };
+      }
     }
 
     if (model.startsWith('openai/')) {
