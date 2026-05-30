@@ -1,18 +1,20 @@
 import React, { useState, useRef, useMemo, useCallback, useLayoutEffect, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType, ClaudeModel, CodexModel } from "../../app/types/maestro";
+import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, WorkerStrategy, OrchestratorStrategy, AgentTool, LaunchConfig } from "../../app/types/maestro";
+import { formatLaunchConfigLabel, getAgentToolForLaunchConfig, pickTopMember } from "../../app/constants/agentTools";
 import { useTaskSessions } from "../../hooks/useTaskSessions";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useSpacesStore } from "../../stores/useSpacesStore";
 import { useSessionStore } from "../../stores/useSessionStore";
 import { ConfirmActionModal } from "../modals/ConfirmActionModal";
 import { maestroClient } from "../../utils/MaestroClient";
+import { LaunchConfigDropdown } from "./LaunchConfigDropdown";
 
 type TaskListItemProps = {
     task: MaestroTask;
     onSelect: () => void;
     onWorkOn: () => void;
-    onWorkOnWithOverride?: (agentTool: AgentTool, model: ModelType) => void;
+    onWorkOnWithOverride?: (launchConfig: LaunchConfig) => void;
     onWorkOnWithTeamMember?: (teamMemberId: string, strategy?: WorkerStrategy | OrchestratorStrategy) => void;
     onAssignTeamMember?: (teamMemberId: string) => void;
     onOpenCreateTeamMember?: () => void;
@@ -68,34 +70,6 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
     stopped: "Stopped",
 };
 
-const AGENT_TOOLS: { id: AgentTool; label: string; symbol: string; models: { id: ModelType; label: string }[] }[] = [
-    {
-        id: 'claude-code',
-        label: 'Claude Code',
-        symbol: '◈',
-        models: [
-            { id: 'haiku' as ClaudeModel, label: 'Haiku' },
-            { id: 'sonnet' as ClaudeModel, label: 'Sonnet' },
-            { id: 'sonnet[1m]' as ClaudeModel, label: 'Sonnet [1M]' },
-            { id: 'opus' as ClaudeModel, label: 'Opus' },
-            { id: 'claude-opus-4-7' as ClaudeModel, label: 'Claude Opus 4.7' },
-            { id: 'claude-opus-4-7[1m]' as ClaudeModel, label: 'Claude Opus 4.7 [1M]' },
-            { id: 'opus[1m]' as ClaudeModel, label: 'Opus [1M]' },
-        ],
-    },
-    {
-        id: 'codex',
-        label: 'Codex',
-        symbol: '◇',
-        models: [
-            { id: 'gpt-5.5' as CodexModel, label: 'GPT 5.5' },
-            { id: 'gpt-5.4' as CodexModel, label: 'GPT 5.4' },
-            { id: 'gpt-5.2-codex' as CodexModel, label: 'GPT 5.2' },
-            { id: 'gpt-5.3-codex' as CodexModel, label: 'GPT 5.3' },
-        ],
-    },
-];
-
 function formatTimeAgo(timestamp: number): string {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
 
@@ -140,7 +114,7 @@ export const TaskListItem = React.memo(function TaskListItem({
     const [isUpdatingTeamMember, setIsUpdatingTeamMember] = useState(false);
     const [showLaunchDropdown, setShowLaunchDropdown] = useState(false);
     const [expandedTool, setExpandedTool] = useState<AgentTool | null>(null);
-    const [launchOverride, setLaunchOverride] = useState<{ agentTool: AgentTool; model: ModelType } | null>(null);
+    const [launchOverride, setLaunchOverride] = useState<LaunchConfig | null>(null);
     const statusDropdownRef = useRef<HTMLDivElement>(null);
     const priorityDropdownRef = useRef<HTMLDivElement>(null);
     const teamMemberDropdownRef = useRef<HTMLDivElement>(null);
@@ -189,24 +163,21 @@ export const TaskListItem = React.memo(function TaskListItem({
         const btn = launchBtnRef.current;
         if (!btn) return null;
         const rect = btn.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const spaceAbove = rect.top;
-
-        // Use left positioning (clamped so the dropdown doesn't overflow the viewport)
-        const dropdownWidth = 180;
-        let left = rect.left;
-        if (left + dropdownWidth > window.innerWidth - 8) {
-            left = window.innerWidth - dropdownWidth - 8;
-        }
-
-        if (spaceBelow >= 200 || spaceBelow >= spaceAbove) {
-            return { top: rect.bottom + 4, left, openDirection: 'down' as const };
-        } else {
-            return { bottom: (window.innerHeight - rect.top) + 4, left, openDirection: 'up' as const };
-        }
+        const menuWidth = Math.min(540, window.innerWidth - 16);
+        const menuHeight = Math.min(460, window.innerHeight - 16);
+        const gap = 8;
+        const rightSpace = window.innerWidth - rect.right;
+        const leftSpace = rect.left;
+        let left = rightSpace >= menuWidth + gap
+            ? rect.right + gap
+            : leftSpace >= menuWidth + gap
+                ? rect.left - menuWidth - gap
+                : Math.min(Math.max(8, rect.left), window.innerWidth - menuWidth - 8);
+        const top = Math.min(Math.max(8, rect.top - 12), window.innerHeight - menuHeight - 8);
+        return { top, left, openDirection: 'side' as const };
     }, []);
 
-    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' } | null>(null);
+    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' | 'side' } | null>(null);
 
     useLayoutEffect(() => {
         if (showLaunchDropdown) {
@@ -252,8 +223,13 @@ export const TaskListItem = React.memo(function TaskListItem({
         [effectiveTeamMemberIds, teamMembersMap]
     );
 
-    const assignedTeamMember = assignedTeamMembers.length > 0 ? assignedTeamMembers[0] : undefined;
+    // Mirror the server: the "top" member (most-powerful model) is what launches,
+    // not simply the first assigned. Keeps the badge consistent with the spawn.
+    const assignedTeamMember = pickTopMember(assignedTeamMembers);
     const effectiveModel = launchOverride?.model || assignedTeamMember?.model || null;
+    const effectiveModelLabel = launchOverride
+        ? formatLaunchConfigLabel(launchOverride)
+        : (effectiveModel || 'default');
     const isSubtask = task.parentId !== null;
 
     // For subtasks, also fetch parent task sessions
@@ -464,12 +440,12 @@ export const TaskListItem = React.memo(function TaskListItem({
                         onClick={(e) => {
                             e.stopPropagation();
                             if (launchOverride) {
-                                onWorkOnWithOverride?.(launchOverride.agentTool, launchOverride.model);
+                                onWorkOnWithOverride?.(launchOverride);
                             } else {
                                 onWorkOn();
                             }
                         }}
-                        title={launchOverride ? `Run with ${launchOverride.model}` : "Run task"}
+                        title={launchOverride ? `Run with ${formatLaunchConfigLabel(launchOverride)}` : "Run task"}
                     >
                         ▶
                     </button>
@@ -681,12 +657,15 @@ export const TaskListItem = React.memo(function TaskListItem({
                                 className={`terminalMetaBadge terminalMetaBadge--model terminalMetaBadge--clickable ${launchOverride ? 'terminalMetaBadge--model-override' : ''} ${showLaunchDropdown ? 'terminalMetaBadge--open' : ''}`}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    setShowLaunchDropdown(!showLaunchDropdown);
-                                    setExpandedTool(null);
+                                    const willOpen = !showLaunchDropdown;
+                                    setShowLaunchDropdown(willOpen);
+                                    if (willOpen) {
+                                        setExpandedTool(getAgentToolForLaunchConfig(launchOverride || undefined) || 'claude-code');
+                                    }
                                 }}
-                                title={effectiveModel ? `Model: ${effectiveModel}` : 'No model set'}
+                                title={effectiveModel ? `Model: ${effectiveModelLabel}` : 'No model set'}
                             >
-                                {effectiveModel || 'default'}
+                                {effectiveModelLabel}
                                 <span className="terminalMetaBadgeCaret">{showLaunchDropdown ? '▴' : '▾'}</span>
                             </button>
                             {showLaunchDropdown && launchDropdownPos && createPortal(
@@ -695,43 +674,22 @@ export const TaskListItem = React.memo(function TaskListItem({
                                     <div
                                         className={`terminalLaunchDropdown terminalLaunchDropdown--fixed ${launchDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
                                         style={{
-                                            ...(launchDropdownPos.openDirection === 'down' ? { top: launchDropdownPos.top } : { bottom: launchDropdownPos.bottom }),
+                                            ...(launchDropdownPos.openDirection === 'side'
+                                                ? { top: launchDropdownPos.top }
+                                                : launchDropdownPos.openDirection === 'down'
+                                                    ? { top: launchDropdownPos.top }
+                                                    : { bottom: launchDropdownPos.bottom }),
                                             left: launchDropdownPos.left,
                                         }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
-                                        <div className="terminalLaunchDropdown__header">Launch With</div>
-                                        {AGENT_TOOLS.map((tool) => (
-                                            <div key={tool.id} className="terminalLaunchDropdown__toolGroup">
-                                                <button type="button"
-                                                    className={`terminalLaunchDropdown__tool ${expandedTool === tool.id ? 'terminalLaunchDropdown__tool--expanded' : ''}`}
-                                                    onClick={() => setExpandedTool(expandedTool === tool.id ? null : tool.id)}
-                                                >
-                                                    <span className="terminalLaunchDropdown__toolSymbol">{tool.symbol}</span>
-                                                    <span className="terminalLaunchDropdown__toolLabel">{tool.label}</span>
-                                                    <span className="terminalLaunchDropdown__toolCaret">{expandedTool === tool.id ? '▴' : '▸'}</span>
-                                                </button>
-                                                {expandedTool === tool.id && (
-                                                    <div className="terminalLaunchDropdown__models">
-                                                        {tool.models.map((model) => (
-                                                            <button type="button"
-                                                                key={model.id}
-                                                                className={`terminalLaunchDropdown__model ${launchOverride?.model === model.id && launchOverride?.agentTool === tool.id ? 'terminalLaunchDropdown__model--selected' : ''}`}
-                                                                onClick={() => {
-                                                                    setShowLaunchDropdown(false);
-                                                                    setLaunchOverride({ agentTool: tool.id, model: model.id });
-                                                                }}
-                                                            >
-                                                                {model.label}
-                                                                {launchOverride?.model === model.id && launchOverride?.agentTool === tool.id && (
-                                                                    <span className="terminalStatusCheck"> ✓</span>
-                                                                )}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
+                                        <LaunchConfigDropdown
+                                            launchConfig={launchOverride}
+                                            activeTool={expandedTool}
+                                            onActiveToolChange={setExpandedTool}
+                                            onLaunchConfigChange={setLaunchOverride}
+                                            onClear={() => setLaunchOverride(null)}
+                                        />
                                     </div>
                                 </>,
                                 document.body

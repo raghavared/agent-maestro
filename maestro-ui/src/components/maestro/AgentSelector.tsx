@@ -10,7 +10,7 @@ type AgentSelectorProps = {
 // Show available agents including "which" (spawn terminal without command)
 const MAESTRO_AGENTS = [
     ...PROCESS_EFFECTS.filter(e =>
-        e.id === 'claude' || e.id === 'codex'
+        e.id === 'claude' || e.id === 'codex' || e.id === 'hermes'
     ),
     {
         id: 'which',
@@ -25,6 +25,7 @@ const MAESTRO_AGENTS = [
 const AGENT_ICONS: Record<string, string> = {
     claude: '◉',
     codex: '◆',
+    hermes: '✶',
     which: '◇'
 };
 

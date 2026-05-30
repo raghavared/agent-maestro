@@ -186,6 +186,46 @@
   min-width: 0;
 }
 
+.tmModal__launchButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: min(360px, 100%);
+  padding: 6px 10px;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.28);
+  border-radius: 4px;
+  background: rgba(var(--theme-primary-rgb), 0.05);
+  color: var(--theme-primary);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tmModal__launchButton:hover,
+.tmModal__launchButton--open {
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  border-color: rgba(var(--theme-primary-rgb), 0.58);
+  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.18);
+}
+
+.tmModal__launchButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.tmModal__launchButtonLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tmModal__footerRight {
   display: flex;
   align-items: center;
@@ -219,7 +259,11 @@
 
   .tmModal__footerLeft {
     width: 100%;
-    flex-wrap: wrap;
+  }
+
+  .tmModal__launchButton {
+    width: 100%;
+    max-width: none;
   }
 
   .tmModal__footerRight {

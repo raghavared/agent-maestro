@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useRef, useCallback } from "react";
-import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy, AgentTool, ModelType, MemberLaunchOverride, AgentModeInput } from "../../app/types/maestro";
+import { MaestroTask, MaestroProject, TaskTreeNode, WorkerStrategy, OrchestratorStrategy, AgentTool, LaunchConfig, MemberLaunchOverride, AgentModeInput } from "../../app/types/maestro";
 import { TaskListItem } from "./TaskListItem";
 import { TaskFilters, SortByOption } from "./TaskFilters";
 import { SortableTaskList } from "./SortableTaskList";
@@ -23,6 +23,7 @@ import { TaskListsPanel } from "./TaskListsPanel";
 import { TaskGraphPanel } from "./task-graph/TaskGraphPanel";
 import { useTaskLists } from "../../hooks/useTaskLists";
 import { useTaskGraphStore } from "../../stores/useTaskGraphStore";
+import { createLaunchConfig, DEFAULT_MODEL_BY_AGENT_TOOL } from "../../app/constants/agentTools";
 
 // Extracted hooks
 import { useExecutionMode } from "../../hooks/useExecutionMode";
@@ -49,7 +50,7 @@ interface TaskNodeRendererProps {
     currentSessionTaskIds: Set<string>;
     projectId: string;
     onSelectTask: (taskId: string) => void;
-    onWorkOnTask: (task: MaestroTask, override?: { agentTool: AgentTool; model: ModelType }) => void;
+    onWorkOnTask: (task: MaestroTask, launchConfig?: LaunchConfig) => void;
     onAssignTeamMember: (taskId: string, tmId: string) => void;
     onJumpToSession?: (sid: string) => void;
     onNavigateToTask: (taskId: string) => void;
@@ -77,7 +78,7 @@ const TaskNodeRenderer = React.memo(function TaskNodeRenderer({
                 task={node}
                 onSelect={() => onSelectTask(node.id)}
                 onWorkOn={() => onWorkOnTask(node)}
-                onWorkOnWithOverride={(agentTool: AgentTool, model: ModelType) => onWorkOnTask(node, { agentTool, model })}
+                onWorkOnWithOverride={(launchConfig: LaunchConfig) => onWorkOnTask(node, launchConfig)}
                 onAssignTeamMember={(tmId: string) => onAssignTeamMember(node.id, tmId)}
                 onOpenCreateTeamMember={NOOP}
                 onJumpToSession={(sid) => onJumpToSession?.(sid)}
@@ -175,7 +176,7 @@ type MaestroPanelProps = {
     onClose: () => void;
     projectId: string;
     project: MaestroProject;
-    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy | OrchestratorStrategy; mode?: AgentModeInput; teamMemberIds?: string[]; teamMemberId?: string; delegateTeamMemberIds?: string[]; agentTool?: AgentTool; model?: ModelType; memberOverrides?: Record<string, MemberLaunchOverride> }) => Promise<any>;
+    onCreateMaestroSession: (input: { task?: MaestroTask; tasks?: MaestroTask[]; project: MaestroProject; skillIds?: string[]; strategy?: WorkerStrategy | OrchestratorStrategy; mode?: AgentModeInput; teamMemberIds?: string[]; teamMemberId?: string; delegateTeamMemberIds?: string[]; launchConfig?: LaunchConfig; memberOverrides?: Record<string, MemberLaunchOverride> }) => Promise<any>;
     onJumpToSession?: (maestroSessionId: string) => void;
     onAddTaskToSession?: (taskId: string) => void;
     forcedPrimaryTab?: PrimaryTab;
@@ -397,7 +398,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         try { await deleteTask(taskId); } catch { setError("Failed to delete task"); }
     }, [deleteTask]);
 
-    const handleWorkOnTask = useCallback(async (task: MaestroTask, override?: { agentTool: AgentTool; model: ModelType }) => {
+    const handleWorkOnTask = useCallback(async (task: MaestroTask, launchConfig?: LaunchConfig) => {
         const effectiveIds = task.teamMemberIds && task.teamMemberIds.length > 0
             ? task.teamMemberIds
             : task.teamMemberId ? [task.teamMemberId] : [];
@@ -405,13 +406,21 @@ export const MaestroPanel = React.memo(function MaestroPanel({
         const teamMemberIds = effectiveIds.length > 1 ? effectiveIds : undefined;
         const member = teamMemberId ? teamMembersMap[teamMemberId] : null;
         const mode = member?.mode || 'worker';
+        const effectiveLaunchConfig = task.dangerousMode
+            ? {
+                ...(launchConfig || createLaunchConfig(
+                    member?.agentTool || 'claude-code',
+                    member?.model || DEFAULT_MODEL_BY_AGENT_TOOL[member?.agentTool || 'claude-code'],
+                )),
+                accessMode: 'fullAccess' as const,
+            }
+            : launchConfig;
 
         try {
             await onCreateMaestroSession({
                 task, project, mode, teamMemberId, teamMemberIds,
-                ...(override ? { agentTool: override.agentTool, model: override.model } : {}),
+                ...(effectiveLaunchConfig ? { launchConfig: effectiveLaunchConfig } : {}),
                 ...(task.memberOverrides ? { memberOverrides: task.memberOverrides } : {}),
-                ...(task.dangerousMode ? { permissionMode: 'bypassPermissions' as const } : {}),
                 ...(task.useWorktree ? { useWorktree: true } : {}),
             });
         } catch (err: any) {

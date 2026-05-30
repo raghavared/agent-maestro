@@ -157,7 +157,7 @@ maestro debug-prompt --manifest | grep agentTool
 Update the team member:
 ```bash
 maestro team-member edit <team-member-id>
-# Set agentTool to: claude-code, codex, or gemini
+# Set agentTool to: claude-code, codex, hermes, or gemini
 ```
 
 Or specify when spawning:

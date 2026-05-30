@@ -178,8 +178,8 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--role <role>', 'Update role description')
         .option('--avatar <emoji>', 'Update avatar emoji')
         .option('--mode <mode>', 'Update agent mode: worker, coordinator, coordinated-worker, coordinated-coordinator')
-        .option('--model <model>', 'Update model (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5)')
-        .option('--agent-tool <tool>', 'Update agent tool (claude-code, codex, or gemini)')
+        .option('--model <model>', 'Update model (e.g. sonnet, claude-opus-4-8, claude-opus-4-7[1m], gpt-5.5, hermes-default)')
+        .option('--agent-tool <tool>', 'Update agent tool (claude-code, codex, hermes, or gemini)')
         .option('--permission-mode <mode>', 'Update permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Update identity/persona instructions')
         .option('--skills <skills>', 'Update assigned skill IDs (comma-separated, e.g. react-expert,frontend-design)')
@@ -208,7 +208,7 @@ export function registerTeamMemberCommands(program: Command) {
 
             // Validate agent tool if provided
             if (cmdOpts.agentTool) {
-                const validAgentTools = ['claude-code', 'codex', 'gemini'];
+                const validAgentTools = ['claude-code', 'codex', 'hermes', 'gemini'];
                 if (!validAgentTools.includes(cmdOpts.agentTool)) {
                     const err = { message: `Invalid agent tool "${cmdOpts.agentTool}". Must be one of: ${validAgentTools.join(', ')}` };
                     if (isJson) { outputErrorJSON(err); process.exit(1); }
@@ -600,8 +600,8 @@ export function registerTeamMemberCommands(program: Command) {
         .requiredOption('--role <role>', 'Role description for the team member')
         .requiredOption('--avatar <emoji>', 'Avatar emoji for the team member')
         .requiredOption('--mode <mode>', 'Agent mode: worker, coordinator, coordinated-worker, coordinated-coordinator')
-        .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5, or native model names)')
-        .option('--agent-tool <tool>', 'Agent tool (claude-code, codex, or gemini)', 'claude-code')
+        .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-8, claude-opus-4-7[1m], gpt-5.5, hermes-default, or native model names)')
+        .option('--agent-tool <tool>', 'Agent tool (claude-code, codex, hermes, or gemini)', 'claude-code')
         .option('--permission-mode <mode>', 'Permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Custom identity/persona instructions')
         .option('--skills <skills>', 'Comma-separated skill IDs to assign (e.g. react-expert,frontend-design)')
@@ -627,7 +627,7 @@ export function registerTeamMemberCommands(program: Command) {
             }
 
             // Validate agent tool
-            const validAgentTools = ['claude-code', 'codex', 'gemini'];
+            const validAgentTools = ['claude-code', 'codex', 'hermes', 'gemini'];
             if (cmdOpts.agentTool && !validAgentTools.includes(cmdOpts.agentTool)) {
                 const err = { message: `Invalid agent tool "${cmdOpts.agentTool}". Must be one of: ${validAgentTools.join(', ')}` };
                 if (isJson) { outputErrorJSON(err); process.exit(1); }

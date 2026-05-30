@@ -72,14 +72,29 @@ export const masterToggleSchema = z.object({
 // --- Shared schemas ---
 
 const permissionModeSchema = z.enum(['acceptEdits', 'interactive', 'readOnly', 'bypassPermissions']);
+const launchProviderSchema = z.enum(['claude', 'openai', 'hermes', 'gemini']);
+const launchReasoningEffortSchema = z.enum(['minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
+const launchSpeedSchema = z.enum(['standard', 'fast']);
+const launchAccessModeSchema = z.enum(['safe', 'acceptEdits', 'plan', 'fullAccess']);
+
+const launchConfigSchema = z.object({
+  provider: launchProviderSchema,
+  model: z.string().min(1).max(200),
+  reasoningEffort: launchReasoningEffortSchema.optional(),
+  speed: launchSpeedSchema.optional(),
+  accessMode: launchAccessModeSchema.optional(),
+}).strict();
 
 const memberLaunchOverrideSchema = z.object({
-  agentTool: z.string().optional(),
-  model: z.string().optional(),
+  launchConfig: launchConfigSchema.optional(),
+  agentTool: z.enum(['claude-code', 'codex', 'hermes', 'gemini']).optional(),
+  model: z.string().min(1).max(200).optional(),
+  reasoningEffort: launchReasoningEffortSchema.optional(),
   permissionMode: permissionModeSchema.optional(),
   skillIds: z.array(z.string()).optional(),
   commandPermissions: z.object({
-    commands: z.record(z.string(), z.boolean()),
+    groups: z.record(z.string(), z.boolean()).optional(),
+    commands: z.record(z.string(), z.boolean()).optional(),
   }).optional(),
 }).strict();
 
@@ -348,8 +363,10 @@ export const spawnSessionSchema = z.object({
   mode: agentModeSchema.optional().default('worker'),
   strategy: allStrategySchema.optional().default('simple'),
   context: z.record(z.string(), z.unknown()).optional(),
-  model: modelSchema.optional(),
-  agentTool: z.string().optional(),
+  launchConfig: launchConfigSchema.optional(),
+  agentTool: z.enum(['claude-code', 'codex', 'hermes', 'gemini']).optional(),
+  model: z.string().min(1).max(200).optional(),
+  reasoningEffort: launchReasoningEffortSchema.optional(),
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
   delegateTeamMemberIds: z.array(safeId).optional(),

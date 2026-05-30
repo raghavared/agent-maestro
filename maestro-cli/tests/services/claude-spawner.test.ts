@@ -136,6 +136,21 @@ describe('ClaudeSpawner', () => {
   });
 
   describe('buildClaudeArgs', () => {
+    const officialClaudeModels = [
+      'claude-opus-4-8',
+      'claude-opus-4-7',
+      'claude-opus-4-7[1m]',
+      'claude-sonnet-4-6',
+      'claude-haiku-4-5',
+      'claude-opus-4-6',
+      'opus',
+      'opus[1m]',
+      'sonnet',
+      'sonnet[1m]',
+      'haiku',
+    ];
+    const claudeReasoningEfforts = ['low', 'medium', 'high', 'xhigh', 'max'];
+
     it('should include --plugin-dir for worker mode', async () => {
       const args = await spawner.buildClaudeArgs(workerManifest);
 
@@ -166,6 +181,101 @@ describe('ClaudeSpawner', () => {
 
       expect(args).toContain('--model');
       expect(args).toContain('sonnet');
+    });
+
+    it.each(officialClaudeModels)('passes Claude model %s through to the official --model flag', async (model) => {
+      const args = await spawner.buildClaudeArgs({
+        ...workerManifest,
+        session: {
+          ...workerManifest.session,
+          launchConfig: {
+            provider: 'claude',
+            model,
+          },
+        },
+      });
+
+      expect(args[args.indexOf('--model') + 1]).toBe(model);
+    });
+
+    it.each(officialClaudeModels.flatMap((model) => claudeReasoningEfforts.map((effort) => [model, effort])))(
+      'passes supported Claude effort for model %s at %s',
+      async (model, effort) => {
+        const args = await spawner.buildClaudeArgs({
+          ...workerManifest,
+          session: {
+            ...workerManifest.session,
+            launchConfig: {
+              provider: 'claude',
+              model,
+              reasoningEffort: effort as any,
+              speed: 'fast' as any,
+            },
+          },
+        });
+
+        expect(args[args.indexOf('--model') + 1]).toBe(model);
+        expect(args).toContain('--effort');
+        expect(args[args.indexOf('--effort') + 1]).toBe(effort);
+        expect(args).not.toContain('--speed');
+        expect(args).not.toContain('fast');
+      },
+    );
+
+    it('does not pass unsupported minimal effort to Claude', async () => {
+      const args = await spawner.buildClaudeArgs({
+        ...workerManifest,
+        session: {
+          ...workerManifest.session,
+          launchConfig: {
+            provider: 'claude',
+            model: 'claude-opus-4-8',
+            reasoningEffort: 'minimal' as any,
+          },
+        },
+      });
+
+      expect(args).not.toContain('--effort');
+    });
+
+    it.each([
+      ['safe', 'default'],
+      ['acceptEdits', 'acceptEdits'],
+      ['plan', 'plan'],
+    ])('maps canonical access mode %s to official Claude permission mode %s', async (accessMode, permissionMode) => {
+      const args = await spawner.buildClaudeArgs({
+        ...workerManifest,
+        session: {
+          ...workerManifest.session,
+          permissionMode: 'bypassPermissions',
+          launchConfig: {
+            provider: 'claude',
+            model: 'claude-opus-4-8',
+            accessMode: accessMode as any,
+          },
+        },
+      });
+
+      expect(args).toContain('--permission-mode');
+      expect(args[args.indexOf('--permission-mode') + 1]).toBe(permissionMode);
+      expect(args).not.toContain('--dangerously-skip-permissions');
+    });
+
+    it('maps canonical full access mode to the official Claude bypass flag', async () => {
+      const args = await spawner.buildClaudeArgs({
+        ...workerManifest,
+        session: {
+          ...workerManifest.session,
+          launchConfig: {
+            provider: 'claude',
+            model: 'claude-opus-4-8',
+            accessMode: 'fullAccess',
+          },
+        },
+      });
+
+      expect(args).toContain('--dangerously-skip-permissions');
+      expect(args).not.toContain('--permission-mode');
     });
 
     it('should include max turns when specified', async () => {

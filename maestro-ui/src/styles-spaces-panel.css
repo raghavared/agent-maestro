@@ -620,27 +620,36 @@
   font-size: 12px;
 }
 
+.agentShortcutBtn--icon {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  justify-content: center;
+}
+
 .agentShortcutBtn:hover {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.14);
 }
 
 .agentShortcutIcon {
-  width: 14px;
-  height: 14px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
   display: block;
+  object-fit: contain;
 }
 
 .agentShortcutIconFallback {
-  width: 14px;
-  height: 14px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .agentShortcutLabel {
@@ -1340,4 +1349,3 @@
   color: var(--text);
   background: rgba(255, 255, 255, 0.06);
 }
-

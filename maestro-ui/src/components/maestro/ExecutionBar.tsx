@@ -1,39 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { TeamMember, AgentTool, ModelType, ClaudeModel, CodexModel, MemberLaunchOverride } from "../../app/types/maestro";
+import { TeamMember, AgentTool, LaunchConfig, MemberLaunchOverride } from "../../app/types/maestro";
 import { TeamLaunchConfigModal } from "./TeamLaunchConfigModal";
+import { createLaunchConfig, DEFAULT_MODEL_BY_AGENT_TOOL } from "../../app/constants/agentTools";
+import { LaunchConfigDropdown } from "./LaunchConfigDropdown";
 
 type ExecutionMode = 'none' | 'execute' | 'orchestrate';
 
-type LaunchOverride = { agentTool: AgentTool; model: ModelType };
-
-const AGENT_TOOLS: { id: AgentTool; label: string; symbol: string; models: { id: ModelType; label: string }[] }[] = [
-    {
-        id: 'claude-code',
-        label: 'Claude Code',
-        symbol: '◈',
-        models: [
-            { id: 'haiku' as ClaudeModel, label: 'Haiku' },
-            { id: 'sonnet' as ClaudeModel, label: 'Sonnet' },
-            { id: 'sonnet[1m]' as ClaudeModel, label: 'Sonnet [1M]' },
-            { id: 'opus' as ClaudeModel, label: 'Opus' },
-            { id: 'claude-opus-4-7' as ClaudeModel, label: 'Claude Opus 4.7' },
-            { id: 'claude-opus-4-7[1m]' as ClaudeModel, label: 'Claude Opus 4.7 [1M]' },
-            { id: 'opus[1m]' as ClaudeModel, label: 'Opus [1M]' },
-        ],
-    },
-    {
-        id: 'codex',
-        label: 'Codex',
-        symbol: '◇',
-        models: [
-            { id: 'gpt-5.5' as CodexModel, label: 'GPT 5.5' },
-            { id: 'gpt-5.4' as CodexModel, label: 'GPT 5.4' },
-            { id: 'gpt-5.2-codex' as CodexModel, label: 'GPT 5.2' },
-            { id: 'gpt-5.3-codex' as CodexModel, label: 'GPT 5.3' },
-        ],
-    },
-];
+type LaunchOverride = LaunchConfig;
 
 type ExecutionBarProps = {
     isActive: boolean;
@@ -276,7 +250,7 @@ export function ExecutionBar({
     const [showLaunchDropdown, setShowLaunchDropdown] = useState(false);
     const [expandedTool, setExpandedTool] = useState<AgentTool | null>(null);
     const launchBtnRef = useRef<HTMLButtonElement>(null);
-    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' } | null>(null);
+    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top?: number; bottom?: number; left: number; openDirection: 'down' | 'up' | 'side' } | null>(null);
 
     // Launch config modal state
     const [showConfigModal, setShowConfigModal] = useState(false);
@@ -288,20 +262,18 @@ export function ExecutionBar({
         const btn = launchBtnRef.current;
         if (!btn) return null;
         const rect = btn.getBoundingClientRect();
-        let left = rect.left;
-        // Clamp so dropdown doesn't overflow right edge
-        const menuWidth = 200;
-        if (left + menuWidth > window.innerWidth) {
-            left = window.innerWidth - menuWidth - 8;
-        }
-        if (left < 4) left = 4;
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const spaceAbove = rect.top;
-        if (spaceAbove >= 200 || spaceAbove >= spaceBelow) {
-            return { bottom: (window.innerHeight - rect.top) + 4, left, openDirection: 'up' as const };
-        } else {
-            return { top: rect.bottom + 4, left, openDirection: 'down' as const };
-        }
+        const menuWidth = Math.min(540, window.innerWidth - 16);
+        const menuHeight = Math.min(460, window.innerHeight - 16);
+        const gap = 8;
+        const rightSpace = window.innerWidth - rect.right;
+        const leftSpace = rect.left;
+        const left = rightSpace >= menuWidth + gap
+            ? rect.right + gap
+            : leftSpace >= menuWidth + gap
+                ? rect.left - menuWidth - gap
+                : Math.min(Math.max(8, rect.left), window.innerWidth - menuWidth - 8);
+        const top = Math.min(Math.max(8, rect.top - 12), window.innerHeight - menuHeight - 8);
+        return { top, left, openDirection: 'side' as const };
     }, []);
 
     useLayoutEffect(() => {
@@ -325,6 +297,17 @@ export function ExecutionBar({
     const handleSelectCoordinator = (id: string | null) => {
         setSelectedCoordinatorId(id);
         setLaunchOverride(null);
+    };
+
+    const launchConfigWithAccess = (config: LaunchOverride | null, memberId: string | null, fullAccess: boolean): LaunchOverride | null => {
+        if (!fullAccess) return config;
+        if (config) return { ...config, accessMode: 'fullAccess' };
+        const member = memberId ? activeMembers.find((entry) => entry.id === memberId) : undefined;
+        const tool = member?.agentTool || 'claude-code';
+        return {
+            ...createLaunchConfig(tool, member?.model || DEFAULT_MODEL_BY_AGENT_TOOL[tool]),
+            accessMode: 'fullAccess',
+        };
     };
 
     if (!isActive) {
@@ -356,60 +339,22 @@ export function ExecutionBar({
             <div
                 className={`terminalLaunchDropdown terminalLaunchDropdown--fixed ${launchDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
                 style={{
-                    ...(launchDropdownPos.openDirection === 'down'
+                    ...(launchDropdownPos.openDirection === 'side'
+                        ? { top: launchDropdownPos.top }
+                        : launchDropdownPos.openDirection === 'down'
                         ? { top: launchDropdownPos.top }
                         : { bottom: launchDropdownPos.bottom }),
                     left: launchDropdownPos.left,
                 }}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="terminalLaunchDropdown__header">Launch With</div>
-                {AGENT_TOOLS.map((tool) => (
-                    <div key={tool.id} className="terminalLaunchDropdown__toolGroup">
-                        <button type="button"
-                            className={`terminalLaunchDropdown__tool ${expandedTool === tool.id ? 'terminalLaunchDropdown__tool--expanded' : ''}`}
-                            onClick={() => setExpandedTool(expandedTool === tool.id ? null : tool.id)}
-                        >
-                            <span className="terminalLaunchDropdown__toolSymbol">{tool.symbol}</span>
-                            <span className="terminalLaunchDropdown__toolLabel">{tool.label}</span>
-                            <span className="terminalLaunchDropdown__toolCaret">{expandedTool === tool.id ? '▴' : '▸'}</span>
-                        </button>
-                        {expandedTool === tool.id && (
-                            <div className="terminalLaunchDropdown__models">
-                                {tool.models.map((model) => (
-                                    <button type="button"
-                                        key={model.id}
-                                        className={`terminalLaunchDropdown__model ${launchOverride?.model === model.id && launchOverride?.agentTool === tool.id ? 'terminalLaunchDropdown__model--selected' : ''}`}
-                                        onClick={() => {
-                                            setShowLaunchDropdown(false);
-                                            setLaunchOverride({ agentTool: tool.id, model: model.id });
-                                        }}
-                                    >
-                                        {model.label}
-                                        {launchOverride?.model === model.id && launchOverride?.agentTool === tool.id && (
-                                            <span style={{ marginLeft: 'auto', color: 'var(--terminal-green)' }}> ✓</span>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                ))}
-                {launchOverride && (
-                    <>
-                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
-                        <button type="button"
-                            className="terminalLaunchDropdown__model"
-                            style={{ color: 'var(--terminal-text-dim)', paddingLeft: 10 }}
-                            onClick={() => {
-                                setShowLaunchDropdown(false);
-                                setLaunchOverride(null);
-                            }}
-                        >
-                            ✕ Clear override
-                        </button>
-                    </>
-                )}
+                <LaunchConfigDropdown
+                    launchConfig={launchOverride}
+                    activeTool={expandedTool}
+                    onActiveToolChange={setExpandedTool}
+                    onLaunchConfigChange={setLaunchOverride}
+                    onClear={() => setLaunchOverride(null)}
+                />
             </div>
         </>,
         document.body
@@ -423,9 +368,9 @@ export function ExecutionBar({
             onOrchestrate(
                 selectedCoordinatorId || undefined,
                 selectedWorkerIds.size > 0 ? Array.from(selectedWorkerIds) : undefined,
-                launchOverride || undefined,
+                launchConfigWithAccess(launchOverride, selectedCoordinatorId, coordinatorDangerous) || undefined,
                 Object.keys(overrides).length > 0 ? overrides : undefined,
-                coordinatorDangerous ? 'bypassPermissions' : undefined,
+                undefined,
                 workersDangerous ? 'bypassPermissions' : undefined,
             );
         };
@@ -498,9 +443,9 @@ export function ExecutionBar({
                                 onClick={() => onOrchestrate(
                                     selectedCoordinatorId || undefined,
                                     selectedWorkerIds.size > 0 ? Array.from(selectedWorkerIds) : undefined,
-                                    launchOverride || undefined,
+                                    launchConfigWithAccess(launchOverride, selectedCoordinatorId, coordinatorDangerous) || undefined,
                                     pendingMemberOverrides || undefined,
-                                    coordinatorDangerous ? 'bypassPermissions' : undefined,
+                                    undefined,
                                     workersDangerous ? 'bypassPermissions' : undefined,
                                 )}
                                 disabled={selectedCount === 0}

@@ -92,7 +92,19 @@ export interface UpdateTaskGraphPayload {
 // Worker strategy types
 export type WorkerStrategy = 'simple' | 'tree';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
-export type AgentTool = 'claude-code' | 'codex' | 'gemini';
+export type AgentTool = 'claude-code' | 'codex' | 'hermes' | 'gemini';
+export type LaunchProvider = 'claude' | 'openai' | 'hermes' | 'gemini';
+export type LaunchReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type LaunchSpeed = 'standard' | 'fast';
+export type LaunchAccessMode = 'safe' | 'acceptEdits' | 'plan' | 'fullAccess';
+
+export interface LaunchConfig {
+  provider: LaunchProvider;
+  model: string;
+  reasoningEffort?: LaunchReasoningEffort;
+  speed?: LaunchSpeed;
+  accessMode?: LaunchAccessMode;
+}
 
 // Four-mode model types
 export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coordinated-coordinator';
@@ -118,8 +130,10 @@ export function normalizeMode(mode: string, hasCoordinator?: boolean): AgentMode
 
 // Per-member launch override for team launch configuration
 export interface MemberLaunchOverride {
-  agentTool?: AgentTool;
-  model?: string;
+  launchConfig?: LaunchConfig;
+  agentTool?: AgentTool;               // Legacy launch override; normalized into launchConfig
+  model?: string;                      // Legacy launch override; normalized into launchConfig
+  reasoningEffort?: LaunchReasoningEffort; // Legacy launch override; normalized into launchConfig
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   skillIds?: string[];
   commandPermissions?: {
@@ -152,7 +166,7 @@ export interface TeamMember {
   identity?: string;                   // Custom instructions / persona prompt (optional; empty means no persona)
   avatar: string;                      // Emoji: "🔧", "🎯", "🎨"
   model?: string;                      // "opus", "sonnet", "haiku"
-  agentTool?: AgentTool;               // "claude-code", "codex", "gemini"
+  agentTool?: AgentTool;               // "claude-code", "codex", "hermes", "gemini"
   mode?: AgentMode;                    // "execute" or "coordinate"
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   strategy?: string;                   // Deprecated: kept for backward compatibility
@@ -607,8 +621,10 @@ export interface SpawnSessionPayload {
   teamMemberId?: string;                // Team member running this session (backward compat)
   teamMemberIds?: string[];             // Multiple team member identities for this session
   delegateTeamMemberIds?: string[];     // Team member IDs for coordination delegation pool
-  agentTool?: AgentTool;                // Override agent tool for this run
-  model?: string;                       // Override model for this run
+  launchConfig?: LaunchConfig;          // Canonical launch override for this run
+  agentTool?: AgentTool;                // Legacy launch override; normalized into launchConfig
+  model?: string;                       // Legacy launch override; normalized into launchConfig
+  reasoningEffort?: LaunchReasoningEffort; // Legacy launch override; normalized into launchConfig
   initialDirective?: {
     subject: string;
     message: string;
@@ -634,4 +650,3 @@ export interface SpawnRequestEvent {
   rootSessionId?: string;                // Top-most session ID in the spawn chain
   _isSpawnCreated?: boolean;             // Backward compatibility flag
 }
-

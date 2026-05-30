@@ -56,7 +56,19 @@ export function resolveTeamContextLensForMode(mode: AgentModeInput): TeamContext
 }
 
 /** Supported agent tools */
-export type AgentTool = 'claude-code' | 'codex' | 'gemini';
+export type AgentTool = 'claude-code' | 'codex' | 'hermes' | 'gemini';
+export type LaunchProvider = 'claude' | 'openai' | 'hermes' | 'gemini';
+export type LaunchReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type LaunchSpeed = 'standard' | 'fast';
+export type LaunchAccessMode = 'safe' | 'acceptEdits' | 'plan' | 'fullAccess';
+
+export interface LaunchConfig {
+  provider: LaunchProvider;
+  model: string;
+  reasoningEffort?: LaunchReasoningEffort;
+  speed?: LaunchSpeed;
+  accessMode?: LaunchAccessMode;
+}
 
 /**
  * Main manifest interface - contains all configuration for a Maestro session
@@ -82,6 +94,9 @@ export interface MaestroManifest {
 
   /** Agent tool to use for this session (defaults to 'claude-code') */
   agentTool?: AgentTool;
+
+  /** Canonical provider/model/capability config for launch-time agent selection */
+  launchConfig?: LaunchConfig;
 
   /** Reference task IDs for context (docs from these tasks are provided to the agent) */
   referenceTaskIds?: string[];
@@ -293,7 +308,7 @@ export interface TaskData {
  * Session configuration for Claude Code
  */
 export interface SessionConfig {
-  /** Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5, gemini-3-pro-preview) */
+  /** Model to use (e.g. sonnet, claude-opus-4-8, claude-opus-4-7[1m], gpt-5.5, hermes-default, gemini-3-pro-preview) */
   model: string;
 
   /** Permission mode for the session */
@@ -310,6 +325,9 @@ export interface SessionConfig {
 
   /** Working directory for the session (defaults to project root) */
   workingDirectory?: string;
+
+  /** Canonical provider/model/capability config for the spawned CLI */
+  launchConfig?: LaunchConfig;
 
   /**
    * Explicit list of allowed commands for this session.

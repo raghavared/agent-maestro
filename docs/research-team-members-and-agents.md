@@ -29,7 +29,7 @@ interface TeamMember {
   identity?: string;             // Custom persona/instructions prompt
   avatar: string;                // Emoji identifier (e.g., "⚡", "🎯")
   model?: string;                // opus, sonnet, haiku
-  agentTool?: string;            // claude-code, codex, gemini
+  agentTool?: string;            // claude-code, codex, hermes, gemini
   mode?: AgentMode;              // worker | coordinator | coordinated-worker | coordinated-coordinator
   permissionMode?: string;       // acceptEdits | interactive | readOnly | bypassPermissions
   skillIds?: string[];           // Assigned skills
@@ -358,7 +358,7 @@ An experimental feature (requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, v2.1
 | **Persistent Memory** | ✅ String array, survives sessions | ⚠️ Via agent definition files | ⚠️ Via agent definition files |
 | **Custom Persona/Instructions** | ✅ Identity field per member | ✅ Via agent markdown files | ✅ Via agent markdown files |
 | **Model Selection** | ✅ Per-member (opus/sonnet/haiku) | ✅ Per-agent definition | ✅ Per-teammate |
-| **Multi-Tool Support** | ✅ claude-code, codex, gemini | ❌ Claude Code only | ❌ Claude Code only |
+| **Multi-Tool Support** | ✅ claude-code, codex, hermes, gemini | ❌ Claude Code only | ❌ Claude Code only |
 | **Permission Control** | ✅ Fine-grained command + group level | ✅ Tool allowlist/denylist | ✅ Basic permission modes |
 | **Skills System** | ✅ Skill IDs assigned per member | ✅ Skills in agent definitions | ❌ Not applicable |
 | **Hierarchical Orchestration** | ✅ 4-mode model with nesting | ❌ No nesting allowed | ❌ Flat team |

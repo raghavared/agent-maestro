@@ -83,6 +83,21 @@ export class ClaudeSpawner {
     }
   }
 
+  private permissionModeFromAccessMode(accessMode?: string): string | undefined {
+    switch (accessMode) {
+      case 'fullAccess':
+        return 'bypassPermissions';
+      case 'acceptEdits':
+        return 'acceptEdits';
+      case 'plan':
+        return 'readOnly';
+      case 'safe':
+        return 'interactive';
+      default:
+        return undefined;
+    }
+  }
+
   /**
    * Get plugin directory for a mode
    *
@@ -147,18 +162,25 @@ export class ClaudeSpawner {
       args.push('--session-id', claudeSessionId);
     }
 
+    const launchConfig = manifest.session.launchConfig || manifest.launchConfig;
+
     // Add model
-    args.push('--model', manifest.session.model);
+    args.push('--model', launchConfig?.model || manifest.session.model);
 
     // Add permission mode
-    if (manifest.session.permissionMode) {
-      if (manifest.session.permissionMode === 'bypassPermissions') {
+    const permissionMode = this.permissionModeFromAccessMode(launchConfig?.accessMode) || manifest.session.permissionMode;
+    if (permissionMode) {
+      if (permissionMode === 'bypassPermissions') {
         // Use --dangerously-skip-permissions for full bypass mode
         args.push('--dangerously-skip-permissions');
       } else {
-        const claudePermMode = this.mapPermissionMode(manifest.session.permissionMode);
+        const claudePermMode = this.mapPermissionMode(permissionMode);
         args.push('--permission-mode', claudePermMode);
       }
+    }
+
+    if (launchConfig?.reasoningEffort && ['low', 'medium', 'high', 'xhigh', 'max'].includes(launchConfig.reasoningEffort)) {
+      args.push('--effort', launchConfig.reasoningEffort);
     }
 
     // Add max turns if specified

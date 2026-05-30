@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { MentionsInput, Mention } from 'react-mentions';
-import { AgentTool, AgentMode, ModelType, TeamMember, TeamMemberScope, CreateTeamMemberPayload, UpdateTeamMemberPayload, InstrumentType } from "../../app/types/maestro";
+import { AgentTool, AgentMode, ModelType, TeamMember, TeamMemberScope, CreateTeamMemberPayload, UpdateTeamMemberPayload, InstrumentType, LaunchConfig, LaunchAccessMode } from "../../app/types/maestro";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useProjectStore } from "../../stores/useProjectStore";
 import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
@@ -14,6 +14,14 @@ import {
     toggleCommandOverride,
 } from "../../utils/commandPermissions";
 import { useAutoSave, AutoSaveStatus } from "../../hooks/useAutoSave";
+import {
+    DEFAULT_MODEL_BY_AGENT_TOOL,
+    createLaunchConfigFromLegacy,
+    formatLaunchConfigLabel,
+    getAgentToolForLaunchConfig,
+    sanitizeLaunchConfig,
+} from "../../app/constants/agentTools";
+import { LaunchConfigDropdown } from "./LaunchConfigDropdown";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -33,40 +41,7 @@ const COMMAND_GROUPS = [
     { key: 'modal', label: 'Modal', commands: ['modal:events'] },
 ] as const;
 
-const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex", "gemini"];
-const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
-    "claude-code": "Claude Code",
-    "codex": "OpenAI Codex",
-    "gemini": "Google Gemini",
-};
-
-const MODELS_BY_TOOL: Partial<Record<AgentTool, { value: ModelType; label: string }[]>> = {
-    "claude-code": [
-        { value: "haiku", label: "Haiku" },
-        { value: "sonnet", label: "Sonnet" },
-        { value: "sonnet[1m]", label: "Sonnet [1M]" },
-        { value: "opus", label: "Opus" },
-        { value: "claude-opus-4-7", label: "Claude Opus 4.7" },
-        { value: "claude-opus-4-7[1m]", label: "Claude Opus 4.7 [1M]" },
-        { value: "opus[1m]", label: "Opus [1M]" },
-    ],
-    "codex": [
-        { value: "gpt-5.5", label: "GPT 5.5" },
-        { value: "gpt-5.4", label: "GPT 5.4" },
-        { value: "gpt-5.3-codex", label: "GPT 5.3 Codex" },
-        { value: "gpt-5.2-codex", label: "GPT 5.2 Codex" },
-    ],
-    "gemini": [
-        { value: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview" },
-        { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-    ],
-};
-
-const DEFAULT_MODEL: Record<string, string> = {
-    "claude-code": "sonnet",
-    "codex": "gpt-5.4",
-    "gemini": "gemini-3-pro-preview",
-};
+const DEFAULT_MODEL = DEFAULT_MODEL_BY_AGENT_TOOL;
 
 const DEFAULT_CONFIGS: Record<string, {
     name: string;
@@ -136,6 +111,21 @@ function getDefaultCapabilities(mode: AgentMode): Record<string, boolean> {
         can_report_task_level: true,
         can_report_session_level: true,
     };
+}
+
+function permissionModeFromAccessMode(accessMode?: LaunchAccessMode): TeamMember['permissionMode'] | undefined {
+    switch (accessMode) {
+        case 'fullAccess':
+            return 'bypassPermissions';
+        case 'acceptEdits':
+            return 'acceptEdits';
+        case 'plan':
+            return 'readOnly';
+        case 'safe':
+            return 'interactive';
+        default:
+            return undefined;
+    }
 }
 
 // ─── MentionsInput Style ──────────────────────────────────────────────────────
@@ -334,21 +324,33 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
     const populateCounterRef = useRef(0);
     const lastPopulateCounterRef = useRef(0);
 
-    // Agent tool dropdown
-    const [showAgentDropdown, setShowAgentDropdown] = useState(false);
-    const agentBtnRef = useRef<HTMLButtonElement>(null);
-    const [agentDropdownPos, setAgentDropdownPos] = useState<{ top: number; left: number } | null>(null);
+    // Launch configuration dropdown
+    const [showLaunchDropdown, setShowLaunchDropdown] = useState(false);
+    const [activeLaunchTool, setActiveLaunchTool] = useState<AgentTool | null>("claude-code");
+    const launchBtnRef = useRef<HTMLButtonElement>(null);
+    const [launchDropdownPos, setLaunchDropdownPos] = useState<{ top: number; left: number } | null>(null);
 
-    const computeAgentDropdownPos = useCallback(() => {
-        const btn = agentBtnRef.current;
+    const computeLaunchDropdownPos = useCallback(() => {
+        const btn = launchBtnRef.current;
         if (!btn) return null;
         const rect = btn.getBoundingClientRect();
-        return { top: rect.bottom + 4, left: rect.left };
+        const menuWidth = Math.min(540, window.innerWidth - 16);
+        const menuHeight = Math.min(460, window.innerHeight - 16);
+        const gap = 8;
+        const rightSpace = window.innerWidth - rect.right;
+        const leftSpace = rect.left;
+        const left = rightSpace >= menuWidth + gap
+            ? rect.right + gap
+            : leftSpace >= menuWidth + gap
+                ? rect.left - menuWidth - gap
+                : Math.min(Math.max(8, rect.left), window.innerWidth - menuWidth - 8);
+        const top = Math.min(Math.max(8, rect.top - 12), window.innerHeight - menuHeight - 8);
+        return { top, left };
     }, []);
 
     useLayoutEffect(() => {
-        if (showAgentDropdown) setAgentDropdownPos(computeAgentDropdownPos());
-    }, [showAgentDropdown, computeAgentDropdownPos]);
+        if (showLaunchDropdown) setLaunchDropdownPos(computeLaunchDropdownPos());
+    }, [showLaunchDropdown, computeLaunchDropdownPos]);
 
     // Store
     const createTeamMember = useMaestroStore(s => s.createTeamMember);
@@ -423,7 +425,8 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
         setError(null);
         setActiveTab(null);
         setExpandedGroups(new Set());
-        setShowAgentDropdown(false);
+        setShowLaunchDropdown(false);
+        setActiveLaunchTool(teamMember?.agentTool || "claude-code");
     }, [isOpen, teamMember]);
 
     // ─── Auto-save (edit mode) ─────────────────────────────────────────
@@ -600,10 +603,53 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
         }
     };
 
-    if (!isOpen) return null;
-
-    const availableModels = MODELS_BY_TOOL[agentTool] || [];
     const memoryEntries = teamMember?.memory || [];
+    const launchConfig = useMemo(
+        () => createLaunchConfigFromLegacy(agentTool, model, undefined, permissionMode) || null,
+        [agentTool, model, permissionMode],
+    );
+    const launchLabel = formatLaunchConfigLabel(launchConfig || undefined);
+    const handleLaunchConfigChange: React.Dispatch<React.SetStateAction<LaunchConfig | null>> = (action) => {
+        const next = typeof action === 'function' ? action(launchConfig) : action;
+        const sanitized = sanitizeLaunchConfig(next);
+        if (!sanitized) return;
+        const nextTool = getAgentToolForLaunchConfig(sanitized);
+        if (nextTool) {
+            setAgentTool(nextTool);
+            setActiveLaunchTool(nextTool);
+        }
+        setModel(sanitized.model as ModelType);
+        const nextPermissionMode = permissionModeFromAccessMode(sanitized.accessMode);
+        if (nextPermissionMode) setPermissionMode(nextPermissionMode);
+    };
+
+    const launchDropdownPortal = showLaunchDropdown && launchDropdownPos && createPortal(
+        <>
+            <div
+                className="terminalInlineStatusOverlay"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setShowLaunchDropdown(false);
+                }}
+            />
+            <div
+                className="terminalLaunchDropdown terminalLaunchDropdown--fixed"
+                style={{ top: launchDropdownPos.top, left: launchDropdownPos.left }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <LaunchConfigDropdown
+                    launchConfig={launchConfig}
+                    activeTool={activeLaunchTool}
+                    onActiveToolChange={setActiveLaunchTool}
+                    onLaunchConfigChange={handleLaunchConfigChange}
+                    showAdvancedOptions={false}
+                />
+            </div>
+        </>,
+        document.body
+    );
+
+    if (!isOpen) return null;
 
     // ─── Render ───────────────────────────────────────────────────────
 
@@ -1080,63 +1126,29 @@ export function TeamMemberModal({ isOpen, onClose, projectId, teamMember }: Team
                         </button>
                     )}
                 </div>
+                {launchDropdownPortal}
 
                 {/* ── Footer ────────────────────────────────────────── */}
                 <div className="tmModal__footer">
                     <div className="tmModal__footerLeft">
-                        <div className="themedDropdownPicker" style={{ position: 'relative', flexShrink: 0 }}>
-                            <button
-                                ref={agentBtnRef}
-                                type="button"
-                                className={`themedDropdownButton ${showAgentDropdown ? 'themedDropdownButton--open' : ''}`}
-                                onClick={(e) => { e.stopPropagation(); setShowAgentDropdown(!showAgentDropdown); }}
-                                disabled={isSaving}
-                            >
-                                {AGENT_TOOL_LABELS[agentTool]}
-                                <span className="themedDropdownCaret">{showAgentDropdown ? '\u25B4' : '\u25BE'}</span>
-                            </button>
-                            {showAgentDropdown && agentDropdownPos && createPortal(
-                                <>
-                                    <div className="themedDropdownOverlay" onClick={(e) => { e.stopPropagation(); setShowAgentDropdown(false); }} />
-                                    <div
-                                        className="themedDropdownMenu"
-                                        style={{ top: agentDropdownPos.top, left: agentDropdownPos.left }}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        {AGENT_TOOLS.map(tool => (
-                                            <button type="button"
-                                                key={tool}
-                                                className={`themedDropdownOption ${tool === agentTool ? 'themedDropdownOption--current' : ''}`}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setAgentTool(tool);
-                                                    setModel(DEFAULT_MODEL[tool] as ModelType);
-                                                    setShowAgentDropdown(false);
-                                                }}
-                                            >
-                                                <span className="themedDropdownLabel">{AGENT_TOOL_LABELS[tool]}</span>
-                                                {tool === agentTool && <span className="themedDropdownCheck">{'\u2713'}</span>}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </>,
-                                document.body
-                            )}
-                        </div>
-                        <div className="themedSegmentedControl" style={{ margin: 0, flexShrink: 0 }}>
-                            {availableModels.map(m => (
-                                <button
-                                    key={m.value}
-                                    type="button"
-                                    className={`themedSegmentedBtn ${model === m.value ? "active" : ""}`}
-                                    onClick={() => setModel(m.value)}
-                                    style={{ padding: '2px 8px', fontSize: '10px' }}
-                                    disabled={isSaving}
-                                >
-                                    {m.label}
-                                </button>
-                            ))}
-                        </div>
+                        <button
+                            ref={launchBtnRef}
+                            type="button"
+                            className={`tmModal__launchButton ${showLaunchDropdown ? 'tmModal__launchButton--open' : ''}`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                const willOpen = !showLaunchDropdown;
+                                setShowLaunchDropdown(willOpen);
+                                if (willOpen) {
+                                    setActiveLaunchTool(getAgentToolForLaunchConfig(launchConfig || undefined) || agentTool || 'claude-code');
+                                }
+                            }}
+                            disabled={isSaving}
+                            title={launchLabel}
+                        >
+                            <span className="tmModal__launchButtonLabel">{launchLabel}</span>
+                            <span className="themedDropdownCaret">{showLaunchDropdown ? '\u25B4' : '\u25BE'}</span>
+                        </button>
                     </div>
                     <div className="tmModal__footerRight">
                         {isEditMode && isDefault && (
