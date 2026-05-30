@@ -3,11 +3,15 @@ import type { MaestroManifest } from '../../src/types/manifest.js';
 import { AgentSpawner } from '../../src/services/agent-spawner.js';
 import { HermesSpawner } from '../../src/services/hermes-spawner.js';
 
-const spawnWithUlimit = vi.fn(() => ({
-  stdin: {
-    destroyed: false,
-    write: vi.fn(),
-  },
+// vi.mock is hoisted above module-scope declarations, so the mocked variable must
+// be created via vi.hoisted() to avoid a temporal-dead-zone ReferenceError.
+const { spawnWithUlimit } = vi.hoisted(() => ({
+  spawnWithUlimit: vi.fn(() => ({
+    stdin: {
+      destroyed: false,
+      write: vi.fn(),
+    },
+  })),
 }));
 
 vi.mock('../../src/services/spawn-with-ulimit.js', () => ({

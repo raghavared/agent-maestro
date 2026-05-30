@@ -321,7 +321,7 @@ function getValidReasoningEfforts(provider: LaunchConfig['provider']): LaunchCon
     case 'claude':
       return ['low', 'medium', 'high', 'xhigh', 'max'];
     case 'openai':
-      return ['low', 'medium', 'high', 'xhigh'];
+      return ['minimal', 'low', 'medium', 'high', 'xhigh'];
     default:
       return [];
   }
@@ -381,7 +381,11 @@ function launchConfigFromLegacy(
   if (!tool) return undefined;
 
   return sanitizeLaunchConfig({
-    provider: providerForAgentTool(tool),
+    // The model name is authoritative for provider inference (consistent with the
+    // team-member collapse path); fall back to the agentTool only when the model
+    // name does not clearly map to a provider. Prevents e.g. a gpt-* model that
+    // carries no explicit agentTool from being launched as Claude.
+    provider: providerForModel(model) || providerForAgentTool(tool),
     model: model || defaultModelForAgentTool(tool),
     reasoningEffort,
     accessMode: accessModeForPermissionMode(permissionMode),
@@ -395,8 +399,15 @@ function normalizeMemberLaunchOverrides(memberOverrides: unknown): Record<string
   for (const [memberId, value] of Object.entries(memberOverrides as Record<string, MemberLaunchOverride>)) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
 
-    const launchConfig = sanitizeLaunchConfig(value.launchConfig)
-      || launchConfigFromLegacy(value.agentTool, value.model, value.reasoningEffort, value.permissionMode);
+    const sanitized = sanitizeLaunchConfig(value.launchConfig);
+    // When a (partially migrated) override carries a launchConfig without an
+    // accessMode but still has a legacy permissionMode, fold the permissionMode
+    // into the launchConfig so it is not silently dropped.
+    const launchConfig = sanitized
+      ? (!sanitized.accessMode && value.permissionMode
+          ? { ...sanitized, accessMode: accessModeForPermissionMode(value.permissionMode) }
+          : sanitized)
+      : launchConfigFromLegacy(value.agentTool, value.model, value.reasoningEffort, value.permissionMode);
     const override: MemberLaunchOverride = {
       ...(launchConfig ? { launchConfig } : {}),
       ...(Array.isArray(value.skillIds) ? { skillIds: value.skillIds } : {}),
@@ -1101,7 +1112,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       if (spawnSource === 'session' && parentSession && !normalizedMemberOverrides) {
         const parentOverrides = parentSession.metadata?.memberOverrides;
         if (parentOverrides && typeof parentOverrides === 'object' && !Array.isArray(parentOverrides)) {
-          normalizedMemberOverrides = parentOverrides;
+          // Migrate legacy {agentTool, model} shapes into canonical launchConfig so
+          // pre-PR#83 coordinator overrides are not silently ignored downstream.
+          normalizedMemberOverrides = normalizeMemberLaunchOverrides(parentOverrides) ?? undefined;
         }
       }
 
@@ -1173,7 +1186,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       if (!normalizedMemberOverrides && verifiedTasks.length === 1 && verifiedTasks[0].memberOverrides) {
         const taskOverrides = verifiedTasks[0].memberOverrides;
         if (typeof taskOverrides === 'object' && !Array.isArray(taskOverrides)) {
-          normalizedMemberOverrides = taskOverrides;
+          // Migrate legacy {agentTool, model} shapes into canonical launchConfig so
+          // pre-PR#83 task overrides are not silently ignored downstream.
+          normalizedMemberOverrides = normalizeMemberLaunchOverrides(taskOverrides) ?? undefined;
         }
       }
 
@@ -1303,6 +1318,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         }
       }
 
+      // Fall back to the winning team member's stored permissionMode when neither the
+      // request nor a parent-delegate mode supplied one. Without this, a team member's
+      // configured access level (e.g. bypassPermissions) is silently dropped at spawn.
+      if (!resolvedPermissionMode && teamMemberDefaults.permissionMode) {
+        resolvedPermissionMode = teamMemberDefaults.permissionMode;
+      }
+
       // Resolve mode with four-mode normalization
       const rawMode = (requestedMode as string) || teamMemberDefaults.mode || 'worker';
       const validModes = ['worker', 'coordinator', 'coordinated-worker', 'coordinated-coordinator', 'execute', 'coordinate'];
@@ -1388,7 +1410,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           teamMemberIds: effectiveTeamMemberIds.length > 0 ? effectiveTeamMemberIds : null,
           context: context || {},
           ...(normalizedMemberOverrides && Object.keys(normalizedMemberOverrides).length > 0 ? { memberOverrides: normalizedMemberOverrides } : {}),
-          ...(requestedPermissionMode ? { permissionMode: requestedPermissionMode } : {}),
+          // Persist the RESOLVED permissionMode (request → parent-delegate → team-member)
+          // so resume can faithfully reconstruct the session's access level.
+          ...(resolvedPermissionMode ? { permissionMode: resolvedPermissionMode } : {}),
           ...(requestedDelegatePermissionMode ? { delegatePermissionMode: requestedDelegatePermissionMode } : {}),
         },
         parentSessionId: resolvedParentSessionId,
@@ -1674,7 +1698,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       // Regenerate manifest so MAESTRO_MANIFEST_PATH points to a valid file
       const mode = session.metadata?.mode || 'worker';
       const skillsToUse: string[] = session.metadata?.skills || [];
-      const resolvedModel: string | undefined = session.metadata?.model || undefined;
+      // Prefer the full launchConfig stored at spawn time so accessMode and
+      // reasoningEffort survive resume; fall back to the legacy model string.
+      const storedLaunchConfig = session.metadata?.launchConfig
+        ? sanitizeLaunchConfig(session.metadata.launchConfig as LaunchConfig)
+        : undefined;
+      const resolvedModel: string | undefined = storedLaunchConfig?.model || session.metadata?.model || undefined;
+      const resumePermissionMode = (session.metadata?.permissionMode as string | undefined) || undefined;
 
       const resumeTasks = await Promise.all(session.taskIds.map((taskId: string) => taskRepo.findById(taskId)));
       const allReferenceTaskIds: string[] = [];
@@ -1699,16 +1729,18 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           taskIds: session.taskIds,
           skills: skillsToUse,
           sessionId: session.id,
-          launchConfig: resolvedModel
-            ? sanitizeLaunchConfig({
-                provider: providerForModel(resolvedModel) || providerForAgentTool(agentTool),
-                model: resolvedModel,
-              })
-            : undefined,
+          launchConfig: storedLaunchConfig
+            ?? (resolvedModel
+              ? sanitizeLaunchConfig({
+                  provider: providerForModel(resolvedModel) || providerForAgentTool(agentTool),
+                  model: resolvedModel,
+                })
+              : undefined),
           agentTool: agentTool,
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
           teamMemberIds: session.metadata?.teamMemberIds || undefined,
           teamMemberId: session.metadata?.teamMemberId || undefined,
+          permissionMode: resumePermissionMode,
           serverUrl: config.serverUrl,
           isMaster: project.isMaster === true,
           sessionDir: config.sessionDir,
@@ -1754,6 +1786,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         MAESTRO_MODE: mode,
         DATA_DIR: config.dataDir,
         SESSION_DIR: config.sessionDir,
+        // Carry the stored permission mode forward so resumed agents keep their access level.
+        ...(resumePermissionMode ? { MAESTRO_PERMISSION_MODE: resumePermissionMode } : {}),
         ...authEnvVars,
       };
 

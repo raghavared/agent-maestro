@@ -77,17 +77,26 @@ const launchReasoningEffortSchema = z.enum(['minimal', 'low', 'medium', 'high', 
 const launchSpeedSchema = z.enum(['standard', 'fast']);
 const launchAccessModeSchema = z.enum(['safe', 'acceptEdits', 'plan', 'fullAccess']);
 
+// NOTE: intentionally NOT `.strict()`. launchConfig is the canonical, evolving
+// launch shape; a newer/older UI may send extra keys (e.g. a future `temperature`).
+// Unknown keys are stripped by Zod's default behavior, and `sanitizeLaunchConfig`
+// re-derives the object from a strict allow-list before use — so dropping `.strict()`
+// here buys forward/backward compatibility without weakening runtime safety.
 const launchConfigSchema = z.object({
   provider: launchProviderSchema,
   model: z.string().min(1).max(200),
   reasoningEffort: launchReasoningEffortSchema.optional(),
   speed: launchSpeedSchema.optional(),
   accessMode: launchAccessModeSchema.optional(),
-}).strict();
+});
 
 const memberLaunchOverrideSchema = z.object({
   launchConfig: launchConfigSchema.optional(),
-  agentTool: z.enum(['claude-code', 'codex', 'hermes', 'gemini']).optional(),
+  // Free string (not a strict enum) for backward compatibility with legacy/custom
+  // agentTool values persisted before PR #83 (e.g. 'claude'). Route-level
+  // normalization (launchConfigFromLegacy/providerForAgentTool) safely defaults
+  // unknown tools to the Claude provider.
+  agentTool: z.string().max(100).optional(),
   model: z.string().min(1).max(200).optional(),
   reasoningEffort: launchReasoningEffortSchema.optional(),
   permissionMode: permissionModeSchema.optional(),
@@ -364,7 +373,9 @@ export const spawnSessionSchema = z.object({
   strategy: allStrategySchema.optional().default('simple'),
   context: z.record(z.string(), z.unknown()).optional(),
   launchConfig: launchConfigSchema.optional(),
-  agentTool: z.enum(['claude-code', 'codex', 'hermes', 'gemini']).optional(),
+  // Free string (not a strict enum) so legacy clients/persisted spawn payloads
+  // with older agentTool values still validate; normalized server-side.
+  agentTool: z.string().max(100).optional(),
   model: z.string().min(1).max(200).optional(),
   reasoningEffort: launchReasoningEffortSchema.optional(),
   teamMemberId: safeId.optional(),
