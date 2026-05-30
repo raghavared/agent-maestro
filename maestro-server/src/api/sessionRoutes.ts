@@ -279,6 +279,28 @@ function providerForAgentTool(agentTool?: AgentTool): LaunchConfig['provider'] {
   }
 }
 
+// Infer the provider a model belongs to from its name. Model names are
+// provider-specific, so the model the user picked is authoritative for
+// choosing the tool — this prevents launching a Claude model on Codex.
+// Returns undefined when the name does not clearly map to a provider.
+function providerForModel(model?: string): LaunchConfig['provider'] | undefined {
+  if (!model) return undefined;
+  const m = model.toLowerCase();
+  if (m.startsWith('claude') || m.startsWith('opus') || m.startsWith('sonnet') || m.startsWith('haiku')) {
+    return 'claude';
+  }
+  if (m.startsWith('gpt') || /^o\d/.test(m)) {
+    return 'openai';
+  }
+  if (m.startsWith('gemini')) {
+    return 'gemini';
+  }
+  if (m.startsWith('hermes')) {
+    return 'hermes';
+  }
+  return undefined;
+}
+
 function accessModeForPermissionMode(permissionMode?: string): LaunchConfig['accessMode'] | undefined {
   switch (permissionMode) {
     case 'bypassPermissions':
@@ -1234,7 +1256,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const teamMemberSnapshots: TeamMemberSnapshot[] = [];
 
       if (effectiveTeamMemberIds.length > 0 && projectId) {
-        let highestModelPower = 0;
+        let highestModelPower = -1;
+        let hasWinner = false;
         for (const tmId of effectiveTeamMemberIds) {
           const teamMember = teamMemberMap.get(tmId);
           if (teamMember && teamMember.status !== 'archived') {
@@ -1254,21 +1277,17 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
               if (!teamMemberDefaults.mode && teamMember.mode) {
                 teamMemberDefaults.mode = teamMember.mode as AgentMode;
               }
-              // Model: most powerful wins (using overridden model)
-              const power = MODEL_POWER[effectiveModel || ''] || 0;
-              if (power > highestModelPower) {
+              // Winning member: most powerful model wins, and model + agentTool +
+              // permissionMode are all taken from that SAME member so they stay coherent.
+              // Resolving these fields independently previously allowed the model to come
+              // from one member (e.g. claude-opus-4-8) and the tool from another (e.g. codex),
+              // producing a Claude model launched on Codex.
+              const power = effectiveModel ? (MODEL_POWER[effectiveModel] || 0) : -1;
+              if (!hasWinner || power > highestModelPower) {
+                hasWinner = true;
                 highestModelPower = power;
                 teamMemberDefaults.model = effectiveModel;
-              } else if (!teamMemberDefaults.model && effectiveModel) {
-                // Fallback: use any model if none resolved yet (handles non-standard model names)
-                teamMemberDefaults.model = effectiveModel;
-              }
-              // AgentTool: first non-default wins (using overridden tool)
-              if (!teamMemberDefaults.agentTool && effectiveAgentTool) {
                 teamMemberDefaults.agentTool = effectiveAgentTool;
-              }
-              // PermissionMode: first non-null wins (using overridden permission)
-              if (!teamMemberDefaults.permissionMode && effectivePermissionMode) {
                 teamMemberDefaults.permissionMode = effectivePermissionMode;
               }
               // Build snapshot for UI display (with overrides applied)
@@ -1302,13 +1321,10 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const resolvedLaunchConfig: LaunchConfig | undefined = requestedLaunchConfig || sanitizeLaunchConfig(
         teamMemberDefaults.model
           ? {
-              provider: teamMemberDefaults.agentTool === 'codex'
-                ? 'openai'
-                : teamMemberDefaults.agentTool === 'hermes'
-                  ? 'hermes'
-                  : teamMemberDefaults.agentTool === 'gemini'
-                    ? 'gemini'
-                    : 'claude',
+              // The model is authoritative: derive the provider from the model name
+              // and only fall back to the member's agentTool when the model is unrecognized.
+              provider: providerForModel(teamMemberDefaults.model)
+                || providerForAgentTool(teamMemberDefaults.agentTool),
               model: teamMemberDefaults.model,
             }
           : undefined
@@ -1685,7 +1701,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           sessionId: session.id,
           launchConfig: resolvedModel
             ? sanitizeLaunchConfig({
-                provider: providerForAgentTool(agentTool),
+                provider: providerForModel(resolvedModel) || providerForAgentTool(agentTool),
                 model: resolvedModel,
               })
             : undefined,

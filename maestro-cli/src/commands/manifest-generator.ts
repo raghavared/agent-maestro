@@ -179,6 +179,28 @@ function providerForAgentTool(agentTool?: AgentTool): LaunchConfig['provider'] {
   }
 }
 
+// Infer the provider a model belongs to from its name. Model names are
+// provider-specific, so the model is authoritative for choosing the tool —
+// this prevents a Claude model from being launched on Codex. Mirrors
+// providerForModel() in maestro-server/src/api/sessionRoutes.ts.
+function providerForModel(model?: string): LaunchConfig['provider'] | undefined {
+  if (!model) return undefined;
+  const m = model.toLowerCase();
+  if (m.startsWith('claude') || m.startsWith('opus') || m.startsWith('sonnet') || m.startsWith('haiku')) {
+    return 'claude';
+  }
+  if (m.startsWith('gpt') || /^o\d/.test(m)) {
+    return 'openai';
+  }
+  if (m.startsWith('gemini')) {
+    return 'gemini';
+  }
+  if (m.startsWith('hermes')) {
+    return 'hermes';
+  }
+  return undefined;
+}
+
 function getValidReasoningEfforts(provider: LaunchConfig['provider']): LaunchConfig['reasoningEffort'][] {
   switch (provider) {
     case 'claude':
@@ -579,7 +601,13 @@ export class ManifestGeneratorCLICommand {
           'gpt-5-codex-mini': 1.5,
           'haiku': 1,
         };
-        let highestModelPower = 0;
+        // Winning member: the most-powerful model wins, and model + agentTool +
+        // permissionMode are all taken from that SAME member so they stay coherent.
+        // Resolving these independently previously let the model come from one
+        // member (e.g. claude-opus-4-8) and the tool from another (e.g. codex),
+        // producing a Claude model launched on Codex. Mirrors the server collapse.
+        let highestModelPower = -1;
+        let hasWinner = false;
         let resolvedModelFromProfiles: string | undefined;
         let resolvedAgentToolFromProfiles: AgentTool | undefined;
         let resolvedPermissionModeFromProfiles: string | undefined;
@@ -600,20 +628,12 @@ export class ManifestGeneratorCLICommand {
               memory: tm.memory,
             });
 
-            // Resolve model: most powerful wins
-            const power = MODEL_POWER[tm.model || ''] || 0;
-            if (power > highestModelPower) {
+            const power = tm.model ? (MODEL_POWER[tm.model] || 0) : -1;
+            if (!hasWinner || power > highestModelPower) {
+              hasWinner = true;
               highestModelPower = power;
               resolvedModelFromProfiles = tm.model;
-            }
-
-            // Resolve agentTool: first non-default wins
-            if (!resolvedAgentToolFromProfiles && tm.agentTool) {
               resolvedAgentToolFromProfiles = tm.agentTool;
-            }
-
-            // Resolve permissionMode: first non-null wins
-            if (!resolvedPermissionModeFromProfiles && tm.permissionMode) {
               resolvedPermissionModeFromProfiles = tm.permissionMode;
             }
 
@@ -625,19 +645,25 @@ export class ManifestGeneratorCLICommand {
         if (profiles.length > 0) {
           manifest.teamMemberProfiles = profiles;
 
-          // Override model with most powerful from profiles (if not explicitly set by launch settings)
-          if (resolvedModelFromProfiles && !hasExplicitModel) {
-            manifest.session.model = resolvedModelFromProfiles;
-          }
+          // The launchConfig (per-task badge override OR the server-resolved
+          // config) is authoritative: it already paired model + tool coherently.
+          // Only fall back to the profile collapse when no launchConfig was given.
+          if (!options.launchConfig) {
+            if (resolvedModelFromProfiles && !hasExplicitModel) {
+              manifest.session.model = resolvedModelFromProfiles;
+            }
 
-          // Override agentTool from profiles (if not already set)
-          if (resolvedAgentToolFromProfiles && !options.agentTool) {
-            manifest.agentTool = resolvedAgentToolFromProfiles;
-          }
+            // Derive the tool from the winning model so a Claude model can never
+            // launch on Codex; fall back to the member's own agentTool.
+            const collapsedProvider = providerForModel(resolvedModelFromProfiles)
+              || providerForAgentTool(resolvedAgentToolFromProfiles);
+            if (!options.agentTool) {
+              manifest.agentTool = agentToolForProvider(collapsedProvider);
+            }
 
-          // Override permissionMode from profiles (first member's setting wins)
-          if (resolvedPermissionModeFromProfiles) {
-            manifest.session.permissionMode = resolvedPermissionModeFromProfiles as any;
+            if (resolvedPermissionModeFromProfiles) {
+              manifest.session.permissionMode = resolvedPermissionModeFromProfiles as any;
+            }
           }
 
           // Merge capabilities: union (if any member allows, it's allowed)

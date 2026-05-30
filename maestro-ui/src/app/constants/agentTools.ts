@@ -56,6 +56,44 @@ export const DEFAULT_MODEL_BY_AGENT_TOOL: Record<AgentTool, ModelType> = {
   gemini: "gemini-2.5-pro",
 };
 
+// Relative capability ranking used to pick the "top" team member when a task
+// has several assigned. Must stay in sync with MODEL_POWER in
+// maestro-server/src/api/sessionRoutes.ts so the badge mirrors what launches.
+export const MODEL_POWER: Record<string, number> = {
+  "claude-opus-4-8": 5.8,
+  "gpt-5.5": 5.5,
+  "claude-opus-4-7[1m]": 5.2,
+  "claude-opus-4-7": 5,
+  "gpt-5.4": 4.7,
+  "opus[1m]": 4.5,
+  "gpt-5.3-codex": 4.2,
+  opus: 4,
+  "gpt-5.2-codex": 3.8,
+  "sonnet[1m]": 3,
+  "gpt-5.1-codex-max": 2.8,
+  sonnet: 2.5,
+  "gpt-5.1-codex": 2.3,
+  "gpt-5-codex": 2,
+  "gpt-5.1-codex-mini": 1.8,
+  "gpt-5-codex-mini": 1.5,
+  haiku: 1,
+};
+
+// Pick the most-powerful member by model rank, matching the server's resolution.
+// Ties / unranked models fall back to assignment order (first wins).
+export function pickTopMember<T extends { model?: string }>(members: T[]): T | undefined {
+  let top: T | undefined;
+  let topPower = -1;
+  for (const member of members) {
+    const power = member.model ? (MODEL_POWER[member.model] ?? 0) : -1;
+    if (!top || power > topPower) {
+      top = member;
+      topPower = power;
+    }
+  }
+  return top;
+}
+
 export const AGENT_TOOL_LABELS: Record<AgentTool, string> = {
   "claude-code": "Claude",
   codex: "OpenAI",

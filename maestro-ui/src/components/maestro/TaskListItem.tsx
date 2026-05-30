@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback, useLayoutEffect, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { MaestroTask, TaskStatus, TaskPriority, MaestroSessionStatus, DocEntry, WorkerStrategy, OrchestratorStrategy, AgentTool, LaunchConfig } from "../../app/types/maestro";
-import { formatLaunchConfigLabel, getAgentToolForLaunchConfig } from "../../app/constants/agentTools";
+import { formatLaunchConfigLabel, getAgentToolForLaunchConfig, pickTopMember } from "../../app/constants/agentTools";
 import { useTaskSessions } from "../../hooks/useTaskSessions";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useSpacesStore } from "../../stores/useSpacesStore";
@@ -223,7 +223,9 @@ export const TaskListItem = React.memo(function TaskListItem({
         [effectiveTeamMemberIds, teamMembersMap]
     );
 
-    const assignedTeamMember = assignedTeamMembers.length > 0 ? assignedTeamMembers[0] : undefined;
+    // Mirror the server: the "top" member (most-powerful model) is what launches,
+    // not simply the first assigned. Keeps the badge consistent with the spawn.
+    const assignedTeamMember = pickTopMember(assignedTeamMembers);
     const effectiveModel = launchOverride?.model || assignedTeamMember?.model || null;
     const effectiveModelLabel = launchOverride
         ? formatLaunchConfigLabel(launchOverride)
