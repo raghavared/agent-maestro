@@ -71,9 +71,12 @@ export class CodexSpawner {
         return 'gpt-5.4';
       case 'sonnet':
       case 'sonnet[1m]':
-        return 'gpt-5.2-codex';
+        // Map to a current Codex model. 'gpt-5.2-codex' was removed in PR #83 and
+        // would be passed verbatim to a CLI that no longer recognizes it.
+        return 'gpt-5.2';
       case 'haiku':
-        return 'gpt-5.1-codex-mini';
+        // 'gpt-5.1-codex-mini' was removed in PR #83; use its current equivalent.
+        return 'gpt-5.4-mini';
       default:
         return 'gpt-5.4';
     }

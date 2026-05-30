@@ -32,7 +32,7 @@ export async function createMaestroSession(input: {
     delegatePermissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
     useWorktree?: boolean;
   }): Promise<TerminalSession> {
-    const { task, tasks, skillIds, project, mode, teamMemberIds, teamMemberId, delegateTeamMemberIds, launchConfig, memberOverrides, permissionMode, delegatePermissionMode, useWorktree } = input;
+    const { task, tasks, skillIds, project, mode, strategy, teamMemberIds, teamMemberId, delegateTeamMemberIds, launchConfig, memberOverrides, permissionMode, delegatePermissionMode, useWorktree } = input;
 
     // Normalize to array (support both single and multi-task)
     const taskList = tasks || (task ? [task] : []);
@@ -84,6 +84,7 @@ export async function createMaestroSession(input: {
         ...(permissionMode ? { permissionMode } : {}),
         ...(delegatePermissionMode ? { delegatePermissionMode } : {}),
         ...(useWorktree ? { useWorktree: true } : {}),
+        ...(strategy ? { strategy } : {}),
       });
 
       // Return a placeholder session - the actual UI session will be created

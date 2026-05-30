@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import {
-    AgentTool, ModelType, TeamMember, MemberLaunchOverride,
+    AgentTool, ModelType, TeamMember, MemberLaunchOverride, LaunchAccessMode,
 } from "../../../app/types/maestro";
 import { ClaudeCodeSkillsSelector } from "../ClaudeCodeSkillsSelector";
 import {
@@ -9,6 +9,7 @@ import {
     toggleCommandOverride,
 } from "../../../utils/commandPermissions";
 import {
+    accessModeFromPermissionMode,
     AGENT_TOOLS,
     AGENT_TOOL_LABELS,
     createLaunchConfig,
@@ -37,6 +38,10 @@ export interface MemberConfig {
     agentTool: AgentTool;
     model: ModelType;
     isDangerous: boolean;
+    // The accessMode loaded from the existing config. The binary danger toggle
+    // cannot represent 'plan'/'safe', so we retain it to avoid clobbering those
+    // modes when the user re-saves without touching the toggle.
+    baseAccessMode?: LaunchAccessMode;
     skillIds: string[];
     commandOverrides: Record<string, boolean>;
 }
@@ -57,6 +62,7 @@ export function buildDefaultMemberConfig(member: TeamMember): MemberConfig {
         agentTool: tool,
         model: (member.model || DEFAULT_MODEL[tool] || 'sonnet') as ModelType,
         isDangerous: member.permissionMode === 'bypassPermissions',
+        baseAccessMode: accessModeFromPermissionMode(member.permissionMode),
         skillIds: member.skillIds ? [...member.skillIds] : [],
         commandOverrides: member.commandPermissions?.commands
             ? { ...member.commandPermissions.commands }
@@ -82,6 +88,7 @@ export function buildMemberConfigFromOverride(member: TeamMember, override: Memb
         agentTool: tool,
         model: (launchConfig?.model || member.model || DEFAULT_MODEL[tool] || 'sonnet') as ModelType,
         isDangerous: basePerm === 'bypassPermissions',
+        baseAccessMode: launchConfig?.accessMode ?? accessModeFromPermissionMode(member.permissionMode),
         skillIds: override.skillIds ? [...override.skillIds] : (member.skillIds ? [...member.skillIds] : []),
         commandOverrides: override.commandPermissions?.commands
             ? { ...override.commandPermissions.commands }
@@ -104,10 +111,21 @@ export function buildOverridesFromConfigs(
 
         const expectedPerm = config.isDangerous ? 'bypassPermissions' : (member.permissionMode === 'bypassPermissions' ? 'acceptEdits' : member.permissionMode);
         const accessChanged = expectedPerm !== member.permissionMode;
-        if (toolChanged || modelChanged || accessChanged) {
+        // The binary toggle can't represent 'plan'/'safe'. When the loaded config
+        // carried one of those (and it differs from the member's own default),
+        // preserve it on re-save instead of silently dropping it to acceptEdits.
+        const memberDefaultAccess = accessModeFromPermissionMode(member.permissionMode);
+        const preservedAccess = (!config.isDangerous
+            && (config.baseAccessMode === 'plan' || config.baseAccessMode === 'safe')
+            && config.baseAccessMode !== memberDefaultAccess)
+            ? config.baseAccessMode
+            : undefined;
+        if (toolChanged || modelChanged || accessChanged || preservedAccess) {
             override.launchConfig = {
                 ...createLaunchConfig(config.agentTool, config.model),
-                ...(accessChanged ? { accessMode: expectedPerm === 'bypassPermissions' ? 'fullAccess' : 'acceptEdits' } : {}),
+                ...(accessChanged
+                    ? { accessMode: expectedPerm === 'bypassPermissions' ? 'fullAccess' : 'acceptEdits' }
+                    : (preservedAccess ? { accessMode: preservedAccess } : {})),
             };
         }
 

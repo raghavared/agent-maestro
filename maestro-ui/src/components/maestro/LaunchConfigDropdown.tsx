@@ -88,7 +88,16 @@ export function LaunchConfigDropdown({
                             type="button"
                             key={tool.id}
                             className={`terminalLaunchDropdown__tool ${selected ? "terminalLaunchDropdown__tool--expanded" : ""}`}
-                            onClick={() => onActiveToolChange(tool.id)}
+                            onClick={() => {
+                                onActiveToolChange(tool.id);
+                                // Commit a provisional config for the newly selected provider so
+                                // switching panels (without clicking a model) doesn't leave the
+                                // launchConfig pointing at the previous provider.
+                                if (launchConfig?.provider !== tool.provider) {
+                                    const base = createLaunchConfig(tool.id, tool.models[0]?.id || "sonnet");
+                                    onLaunchConfigChange(sanitizeLaunchConfig(base) || base);
+                                }
+                            }}
                         >
                             <span className="terminalLaunchDropdown__toolSymbol">{tool.symbol}</span>
                             <span className="terminalLaunchDropdown__toolLabel">{tool.label}</span>

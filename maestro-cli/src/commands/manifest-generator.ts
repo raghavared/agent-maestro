@@ -206,7 +206,7 @@ function getValidReasoningEfforts(provider: LaunchConfig['provider']): LaunchCon
     case 'claude':
       return ['low', 'medium', 'high', 'xhigh', 'max'];
     case 'openai':
-      return ['low', 'medium', 'high', 'xhigh'];
+      return ['minimal', 'low', 'medium', 'high', 'xhigh'];
     default:
       return [];
   }
@@ -260,10 +260,15 @@ function launchConfigFromLegacy(
   reasoningEffort?: LaunchConfig['reasoningEffort'],
   permissionMode?: string,
 ): LaunchConfig | undefined {
-  const tool = agentTool || (model ? 'claude-code' : undefined);
+  // Default to claude-code when only a model or only a permissionMode is supplied,
+  // so a permissionMode-only legacy override still yields a launchConfig (carrying
+  // its accessMode) instead of being silently dropped.
+  const tool = agentTool || (model ? 'claude-code' : undefined) || (permissionMode ? 'claude-code' : undefined);
   if (!tool) return undefined;
   return sanitizeLaunchConfig({
-    provider: providerForAgentTool(tool),
+    // Model name is authoritative for provider inference (mirrors the server),
+    // falling back to the agentTool only when the model is unrecognized.
+    provider: providerForModel(model) || providerForAgentTool(tool),
     model: model || defaultModelForAgentTool(tool),
     reasoningEffort,
     accessMode: accessModeForPermissionMode(permissionMode),
@@ -527,9 +532,18 @@ export class ManifestGeneratorCLICommand {
       // Add skills to manifest root
       manifest.skills = options.skills || ['maestro-worker'];
 
-      // Add agent tool to manifest (if specified)
-      if (options.agentTool) {
+      // Add agent tool to manifest (if specified). When an agentTool is given
+      // without a launchConfig, derive a coherent launchConfig from it so the
+      // spawner resolves the correct model instead of falling through to the
+      // bare manifest.session.model default (which can yield a removed model
+      // string for non-Claude tools, e.g. 'sonnet' -> a stale Codex model).
+      if (options.agentTool && !options.launchConfig) {
         manifest.agentTool = options.agentTool;
+        const derivedLaunchConfig = launchConfigFromLegacy(options.agentTool, undefined, undefined, undefined);
+        if (derivedLaunchConfig) {
+          manifest.launchConfig = derivedLaunchConfig;
+          manifest.session.launchConfig = derivedLaunchConfig;
+        }
       }
       if (options.launchConfig) {
         manifest.launchConfig = options.launchConfig;
