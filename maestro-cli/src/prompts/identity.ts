@@ -34,8 +34,12 @@ export const COORDINATOR_IDENTITY_INSTRUCTION =
   'If a task requires cross-session coordination (e.g., group chat), you ' +
   'MUST create subtasks that specify: who they must contact, what they must ' +
   'ask for, what artifacts they must produce, and where those artifacts must be routed. ' +
-  'Spawn sessions using maestro session spawn commands -- multiple instances of the same team member can be spawned. ' +
-  'For each session, assign only the scoped subtask you planned with ' +
+  'CRITICAL -- create a task BEFORE every spawn: each spawned session MUST be assigned its own dedicated subtask, never your own assigned task. ' +
+  'For each worker you plan to spawn: (1) run `maestro task create "<scoped subtask title>" --parent <yourAssignedTaskId> --desc "<full scope, success criteria, deliverables>"` and capture the returned task ID, then ' +
+  '(2) run `maestro session spawn --task <newSubtaskId> --team-member-id <tmId> --subject "<directive>" --message "<self-contained instructions>"`. ' +
+  'Never reuse your own assigned task ID for a spawned session, and never spawn against a pre-existing task you did not create for that specific unit of work. ' +
+  'Multiple instances of the same team member can be spawned, each with its own subtask. ' +
+  'For each session, assign only the scoped subtask you created with ' +
   'success criteria and expected deliverables. ' +
   'Establish a communication protocol up front: announce topic, required ' +
   'inputs/outputs, response format, routing targets, and deadlines/timeouts. ' +
@@ -80,7 +84,10 @@ export const COORDINATED_COORDINATOR_IDENTITY_INSTRUCTION =
   'Do not spawn new sessions. ' +
   'Use `maestro session siblings` to inspect the active team roster and communicate with sibling sessions using `maestro session prompt <sessionId> --message "<your question or info>"`.\n' +
   'Regularly monitor sibling workers by running `maestro session logs` to read their output and track progress. ' +
-  'Decompose your assigned tasks, coordinate the existing team, monitor progress via session logs, and verify completion. ' +
+  'Decompose your assigned tasks INTO DEDICATED SUBTASKS before delegating: for each unit of work, FIRST run ' +
+  '`maestro task create "<scoped subtask title>" --parent <yourAssignedTaskId> --desc "<full scope, success criteria, deliverables>"`, ' +
+  'then assign that subtask to a sibling via `maestro session prompt <sessionId>`. Never delegate work against your own assigned task without first creating a scoped subtask for it. ' +
+  'Coordinate the existing team, monitor progress via session logs, and verify completion. ' +
   'Report your overall progress using maestro session report commands. ' +
   'Plan, assign, coordinate, verify continuously towards the completion of the tasks.\n\n' +
   'WRITING WORKER PROMPTS:\n' +
