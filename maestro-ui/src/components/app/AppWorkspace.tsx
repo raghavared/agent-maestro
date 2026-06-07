@@ -17,6 +17,8 @@ import {
 import { isSshCommandLine, sshTargetFromCommandLine } from "../../app/utils/ssh";
 import { SessionLogStrip } from "../session-log/SessionLogStrip";
 import { SpellButton } from "../maestro/SpellButton";
+import { ModeChip } from "../maestro/ModeChip";
+import { isCoordinatorRole } from "../../utils/coordinatorRole";
 import { isWhiteboardId, isDocumentId, isFileId } from "../../app/types/space";
 import type { WhiteboardSpace, DocumentSpace, FileSpace } from "../../app/types/space";
 const LazyExcalidrawBoard = React.lazy(() => import("../ExcalidrawBoard").then(m => ({ default: m.ExcalidrawBoard })));
@@ -45,6 +47,9 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
   const active = sessions.find((s) => s.id === activeId) ?? null;
   const maestroSessions = useMaestroStore((s) => s.sessions);
   const teamViewOpen = useUIStore((s) => s.teamViewGroupId) !== null;
+
+  const activeMaestroSession = active?.maestroSessionId ? maestroSessions[active.maestroSessionId] : null;
+  const activeIsCoordinator = isCoordinatorRole(activeMaestroSession?.mode);
 
   // --- Spaces store (whiteboards & documents) ---
   const allSpaces = useSpacesStore((s) => s.spaces);
@@ -246,6 +251,10 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
         {active?.maestroSessionId && (
           <SpellButton maestroSessionId={active.maestroSessionId} />
         )}
+        {/* Mode chip — shows current session role (coordinator / worker) */}
+        {activeMaestroSession && (
+          <ModeChip mode={activeMaestroSession.mode} />
+        )}
         {sessions.length === 0 && (
           <div className="terminalEmptyState">
             <div className="terminalEmptyAscii" aria-hidden="true">
@@ -274,7 +283,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
           <div
             key={s.id}
             data-terminal-id={s.id}
-            className={`terminalContainer ${s.id === activeId ? "" : "terminalHidden"}`}
+            className={`terminalContainer ${s.id === activeId ? "" : "terminalHidden"} ${s.id === activeId && activeIsCoordinator ? "coordinator-glow" : ""}`}
           >
             <SessionTerminal
               id={s.id}

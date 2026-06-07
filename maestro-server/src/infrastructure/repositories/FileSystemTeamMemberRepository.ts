@@ -773,6 +773,9 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
       if (cachedMember.isDefault) {
         throw new ForbiddenError('Cannot delete default team members');
       }
+      if (cachedMember.systemKind) {
+        throw new ForbiddenError('Cannot delete system team members');
+      }
 
       // Determine storage directory based on scope
       const storageProjectId = cachedMember.scope === 'global' ? GLOBAL_PROJECT_ID : cachedMember.projectId;
@@ -796,6 +799,9 @@ export class FileSystemTeamMemberRepository implements ITeamMemberRepository {
       if (member) {
         if (member.isDefault) {
           throw new ForbiddenError('Cannot delete default team members');
+        }
+        if (member.systemKind) {
+          throw new ForbiddenError('Cannot delete system team members');
         }
 
         const storageProjectId = member.scope === 'global' ? GLOBAL_PROJECT_ID : projectId;

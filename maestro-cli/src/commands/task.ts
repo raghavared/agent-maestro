@@ -7,6 +7,7 @@ import { guardCommand } from '../services/command-permissions.js';
 import type { TaskResponse, DocResponse } from '../types/api-responses.js';
 import ora from 'ora';
 import { readFileSync } from 'fs';
+import { resolveProjectScope } from '../utils/project-scope.js';
 
 export function registerTaskCommands(program: Command) {
     const task = program.command('task').description('Manage tasks');
@@ -15,11 +16,20 @@ export function registerTaskCommands(program: Command) {
         .description('List tasks with children. Optionally show a specific task and its subtree')
         .option('--status <status>', 'Filter by status')
         .option('--priority <priority>', 'Filter by priority')
-        .option('--all', 'Show all tasks (ignore project context)')
+        .option('--all', 'Alias for --all-projects (deprecated)')
+        .option('--project-id <id>', 'Filter by project ID (overrides global --project)')
+        .option('--all-projects', 'List tasks from all projects')
         .action(async (taskId, cmdOpts) => {
             await guardCommand('task:list');
             const globalOpts = program.opts();
-            const projectId = cmdOpts.all ? undefined : (globalOpts.project || config.projectId);
+            if (cmdOpts.all && !cmdOpts.allProjects) {
+                console.warn('Warning: --all is deprecated, use --all-projects instead');
+            }
+            const scope = resolveProjectScope(
+                { projectId: cmdOpts.projectId, allProjects: cmdOpts.allProjects || cmdOpts.all },
+                globalOpts,
+            );
+            const projectId = scope.projectId;
             const isJson = globalOpts.json;
             const spinner = !isJson ? ora('Fetching tasks...').start() : null;
 

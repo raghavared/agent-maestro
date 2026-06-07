@@ -504,10 +504,16 @@
 }
 
 .mpbSessionColumns .sessionBoardColumn {
-  flex: 1 1 0;
-  min-width: 80px;
+  flex: 1 0 360px;
+  min-width: 360px;
   max-width: none;
   min-height: 100%;
+}
+
+/* Collapsed columns stay narrow regardless of the min-width above */
+.mpbSessionColumns .mpbSessionColumnCollapsed {
+  flex: 0 0 40px;
+  min-width: 40px;
 }
 
 /* ── Collapsed Kanban Column (grouped view) ── */
@@ -622,12 +628,29 @@
 .mpbUnifiedSessionWrapper {
   display: flex;
   flex-direction: column;
-  flex: 1 1 0;
-  min-width: 80px;
+  flex: 1 0 360px;
+  min-width: 360px;
   min-height: 100%;
   transition: opacity 0.15s ease, border-color 0.15s ease;
   border: 2px solid transparent;
   border-radius: 6px;
+}
+
+/* When the inner session column is collapsed, shrink the wrapper to match */
+.mpbUnifiedSessionWrapper--collapsed {
+  flex: 0 0 40px;
+  min-width: 40px;
+}
+
+.mpbUnifiedSessionWrapper--collapsed .mpbUnifiedSessionBadge {
+  display: none;
+}
+
+/* Wrapper is a column flex, so make the collapsed column fill its height at 40px wide */
+.mpbUnifiedSessionWrapper--collapsed .mpbSessionColumnCollapsed {
+  flex: 1 1 auto;
+  width: 40px;
+  min-width: 40px;
 }
 
 .mpbUnifiedSessionWrapper--dragOver {

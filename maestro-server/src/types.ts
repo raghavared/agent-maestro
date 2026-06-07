@@ -157,9 +157,13 @@ export interface Project {
 export type TeamMemberStatus = 'active' | 'archived';
 export type TeamMemberScope = 'project' | 'global';
 
+// Discriminator for auto-seeded, non-deletable system team members.
+export type SystemTeamMemberKind = 'alexa-coordinator';
+
 export interface TeamMember {
   id: string;                          // "tm_<timestamp>_<random>" or deterministic for defaults
   projectId: string;
+  systemKind?: SystemTeamMemberKind;   // Set for auto-seeded system members (non-deletable, recreated on startup)
   scope?: TeamMemberScope;             // 'project' (default) or 'global' — global members shared across all projects
   name: string;                        // "Worker", "Coordinator", "Frontend Dev"
   role: string;                        // "Default executor", "Task orchestrator"
@@ -605,6 +609,16 @@ export interface UpdateSessionPayload {
   rootSessionId?: string | null;
   teamSessionId?: string | null;
   teamId?: string | null;
+  mode?: AgentMode;            // Update session mode (stored in metadata.mode)
+}
+
+/** Payload emitted on session:mode_changed event */
+export interface SessionModeChangedPayload {
+  sessionId: string;
+  mode: AgentMode;
+  previousMode: AgentMode;
+  changed: boolean;
+  timestamp: number;
 }
 
 // Spawn session payload (Server-Generated Manifests)

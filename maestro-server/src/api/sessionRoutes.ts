@@ -27,6 +27,7 @@ import {
   sessionTimelineSchema,
   listSessionsQuerySchema,
   spawnSessionSchema,
+  modeBodySchema,
   idParamSchema,
   idAndTaskIdParamSchema,
   idAndModalIdParamSchema,
@@ -411,6 +412,26 @@ function normalizeMemberLaunchOverrides(memberOverrides: unknown): Record<string
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
+type ModeRelation = 'standalone' | 'coordinated';
+type ModeRole = 'worker' | 'coordinator';
+
+function splitMode(mode: AgentMode): { relation: ModeRelation; role: ModeRole } {
+  switch (mode) {
+    case 'coordinator': return { relation: 'standalone', role: 'coordinator' };
+    case 'coordinated-worker': return { relation: 'coordinated', role: 'worker' };
+    case 'coordinated-coordinator': return { relation: 'coordinated', role: 'coordinator' };
+    case 'worker':
+    default: return { relation: 'standalone', role: 'worker' };
+  }
+}
+
+function combineMode(relation: ModeRelation, role: ModeRole): AgentMode {
+  if (relation === 'standalone' && role === 'coordinator') return 'coordinator';
+  if (relation === 'coordinated' && role === 'worker') return 'coordinated-worker';
+  if (relation === 'coordinated' && role === 'coordinator') return 'coordinated-coordinator';
+  return 'worker';
+}
+
 interface SessionRouteDependencies {
   sessionService: SessionService;
   logDigestService: LogDigestService;
@@ -428,28 +449,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, eventBus, config } = deps;
   const gitWorktreeService = new GitWorktreeService();
   const router = express.Router();
-
-  const resolveSessionMode = (session: any): string => {
-    const metadataMode = session?.metadata?.mode;
-    const envMode = session?.env?.MAESTRO_MODE;
-    return String(metadataMode || envMode || '').trim();
-  };
-
-  const canCommunicateWithinTeamBoundary = (sender: any, target: any): boolean => {
-    if (!sender || !target) return false;
-    if (sender.id === target.id) return false;
-
-    // Spawned sessions can message their parent coordinator and siblings (same parent).
-    if (sender.parentSessionId) {
-      if (target.id === sender.parentSessionId) {
-        return true;
-      }
-      return Boolean(target.parentSessionId && target.parentSessionId === sender.parentSessionId);
-    }
-
-    // Root coordinators can message their direct team sessions.
-    return Boolean(target.parentSessionId && target.parentSessionId === sender.id);
-  };
 
   // Summary DTO for list views — strips env, events, timeline, metadata
   function toSessionSummary(session: any): Record<string, any> {
@@ -570,9 +569,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       if (req.query.taskId) {
         filter.taskId = req.query.taskId as string;
       }
-      if (req.query.status) {
-        filter.status = req.query.status as SessionStatus;
-      }
       if (req.query.parentSessionId) {
         filter.parentSessionId = req.query.parentSessionId as string;
       }
@@ -585,8 +581,15 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       let sessions = await sessionService.listSessions(filter);
 
+      if (req.query.status) {
+        const statuses = (req.query.status as string).split(',').map(s => s.trim()).filter(Boolean) as SessionStatus[];
+        if (statuses.length > 0) {
+          sessions = sessions.filter(s => statuses.includes(s.status));
+        }
+      }
+
       if (req.query.active === 'true') {
-        sessions = sessions.filter(s => s.status !== 'completed');
+        sessions = sessions.filter(s => (['spawning', 'idle', 'working'] as SessionStatus[]).includes(s.status));
       }
 
       // Preload team members for all projects in the result set
@@ -664,6 +667,57 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const session = await sessionService.getSession(id);
       const enrichedSession = await enrichSessionWithSnapshots(session);
       res.json(enrichedSession);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
+    }
+  });
+
+  // Get session mode
+  router.get('/sessions/:id/mode', validateParams(idParamSchema), async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const session = await sessionService.getSession(id);
+      const mode: AgentMode = (session.metadata?.mode as AgentMode) || 'worker';
+      const { relation, role } = splitMode(mode);
+      res.json({ id, mode, relation, role });
+    } catch (err: unknown) {
+      handleRouteError(err, res);
+    }
+  });
+
+  // Change session mode (role only — relation is immutable)
+  router.post('/sessions/:id/mode', validateParams(idParamSchema), validateBody(modeBodySchema), async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const callerSessionId = req.headers['x-session-id'] as string | undefined;
+
+      if (!callerSessionId || callerSessionId !== id) {
+        return res.status(403).json({
+          error: true,
+          code: 'mode_self_only',
+          message: 'You can only flip your own role',
+        });
+      }
+
+      const session = await sessionService.getSession(id);
+      const currentMode: AgentMode = (session.metadata?.mode as AgentMode) || 'worker';
+      const { relation } = splitMode(currentMode);
+      const newMode = combineMode(relation, req.body.role);
+
+      if (newMode === currentMode) {
+        return res.json({ id, mode: currentMode, previousMode: currentMode, changed: false });
+      }
+
+      const { previousMode } = await sessionService.changeMode(id, newMode);
+      await eventBus.emit('session:mode_changed', {
+        sessionId: id,
+        mode: newMode,
+        previousMode,
+        changed: true,
+        timestamp: Date.now(),
+      });
+
+      res.json({ id, mode: newMode, previousMode, changed: true });
     } catch (err: unknown) {
       handleRouteError(err, res);
     }
@@ -936,15 +990,25 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         sessionService.getSession(senderSessionId),
       ]);
 
-      if (!canCommunicateWithinTeamBoundary(senderSession, session)) {
-        return res.status(403).json({
+      if (!senderSession) {
+        return res.status(404).json({
           error: true,
-          code: 'prompt_scope_violation',
-          message: 'Session prompt is limited to parent/sibling sessions (or direct team sessions for a root coordinator).',
-          details: {
-            senderSessionId,
-            targetSessionId: sessionId,
-          },
+          code: 'sender_not_found',
+          message: `Sender session ${senderSessionId} not found.`,
+        });
+      }
+      if (!session) {
+        return res.status(404).json({
+          error: true,
+          code: 'target_not_found',
+          message: `Target session ${sessionId} not found.`,
+        });
+      }
+      if (senderSession.id === session.id) {
+        return res.status(400).json({
+          error: true,
+          code: 'self_prompt_not_allowed',
+          message: 'A session cannot prompt itself.',
         });
       }
 
@@ -977,8 +1041,53 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   // Spawn session (complex endpoint - uses CLI for manifest generation)
   router.post('/sessions/spawn', validateBody(spawnSessionSchema), async (req: Request, res: Response) => {
     try {
+      // SPAWN GATE: when a session spawns another session, the sender must be a
+      // coordinator-role session. UI-initiated spawns (spawnSource === 'ui') are
+      // user-driven and have no sender session, so they bypass this gate.
+      const senderSessionId = req.headers['x-session-id'] as string | undefined;
+      const isSessionSpawn = req.body?.spawnSource === 'session';
+      let senderSession: any = null;
+
+      if (isSessionSpawn) {
+        if (!senderSessionId) {
+          return res.status(400).json({
+            error: true,
+            code: 'sender_session_required',
+            message: 'X-Session-Id required',
+          });
+        }
+
+        try {
+          senderSession = await sessionService.getSession(senderSessionId);
+        } catch {
+          return res.status(400).json({
+            error: true,
+            code: 'sender_session_not_found',
+            message: `Sender session ${senderSessionId} not found`,
+          });
+        }
+
+        const senderMode: AgentMode = (senderSession.metadata?.mode as AgentMode) || 'worker';
+        const senderRole = isCoordinatorMode(senderMode) ? 'coordinator' : 'worker';
+        if (senderRole !== 'coordinator') {
+          return res.status(403).json({
+            error: true,
+            code: 'spawn_requires_coordinator',
+            message: 'Spawning requires coordinator mode. Run `maestro coordinator enable` first.',
+          });
+        }
+      } else if (senderSessionId) {
+        // Best-effort resolve so the projectId fallback below still works when a
+        // session id is supplied on a non-session spawn; never gates the request.
+        try {
+          senderSession = await sessionService.getSession(senderSessionId);
+        } catch {
+          senderSession = null;
+        }
+      }
+
       const {
-        projectId,
+        projectId: bodyProjectId,
         taskIds,
         sessionName,
         skills,
@@ -1040,14 +1149,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           : (teamMemberId ? [teamMemberId] : []);
       }
 
-      // Validation
-      if (!projectId) {
-        return res.status(400).json({
-          error: true,
-          code: 'missing_project_id',
-          message: 'projectId is required'
-        });
-      }
+      // Resolve projectId: use body value or default to sender's project
+      const projectId: string = bodyProjectId || senderSession?.projectId;
 
       if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
         return res.status(400).json({
@@ -1123,20 +1226,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         ? (parentSession?.rootSessionId || parentSession?.id)
         : null;
 
-      if (resolvedParentSessionId) {
-        const parentMode = resolveSessionMode(parentSession);
-        if (parentMode === 'coordinated-coordinator') {
-          return res.status(403).json({
-            error: true,
-            code: 'spawn_forbidden_for_mode',
-            message: 'coordinated-coordinator sessions cannot spawn new sessions. Coordinate only with existing team members.',
-            details: {
-              parentSessionId: resolvedParentSessionId,
-              parentMode,
-            },
-          });
-        }
-      }
+      // Any session (any mode) may spawn new sessions — no mode-level guard rails.
 
       // Verify all tasks exist (parallel fetch) and collect task-level team member IDs as fallback
       let verifiedTasks: any[];
@@ -1629,15 +1719,11 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         });
       }
 
-      // Validate session is resumable
-      const resumableStatuses: SessionStatus[] = ['completed', 'stopped', 'failed', 'idle'];
-      if (!resumableStatuses.includes(session.status)) {
-        return res.status(400).json({
-          error: true,
-          code: 'session_not_resumable',
-          message: `Session status '${session.status}' is not resumable. Must be one of: ${resumableStatuses.join(', ')}`
-        });
-      }
+      // Resume is allowed from ANY status. The server-side `status` field is an
+      // unreliable, client-driven signal that frequently gets stuck at 'working'/
+      // 'spawning' when a terminal dies without the UI reporting it. Gating resume
+      // on it stranded ~24% of sessions. The terminal-exited state (UI) is the real
+      // liveness signal; the server should never block a resume on stale status.
 
       // Generate claudeSessionId if missing (pre-feature sessions get a fresh spawn)
       const hadClaudeSessionId = !!session.claudeSessionId;

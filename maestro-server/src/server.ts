@@ -19,6 +19,7 @@ import { createTeamRoutes } from './api/teamRoutes';
 import { createWorkflowTemplateRoutes } from './api/workflowTemplateRoutes';
 import { createMasterRoutes } from './api/masterRoutes';
 import { createSpellRoutes } from './api/spellRoutes';
+import { createAlexaRoutes } from './api/alexaRoutes';
 import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
 import { errorHandler } from './api/middleware/errorHandler';
 
@@ -135,6 +136,14 @@ async function startServer() {
   // Master project cross-project routes
   const masterRoutes = createMasterRoutes(projectService, taskService, sessionService);
   app.use('/api', masterRoutes);
+
+  // Voice / Alexa routes
+  const alexaRoutes = createAlexaRoutes({
+    announcementService: container.announcementService,
+    alexaIngressService: container.alexaIngressService,
+    logger,
+  });
+  app.use('/api', alexaRoutes);
 
   // Global error handling middleware
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

@@ -673,6 +673,8 @@ export interface SpawnSessionResponse {
 
 export type TaskTreeNode = MaestroTask & { children: TaskTreeNode[] };
 
+export type SessionTreeNode = MaestroSession & { children: SessionTreeNode[] };
+
 // Ordering (separate from task/session models - UI ordering only)
 export interface Ordering {
   projectId: string;

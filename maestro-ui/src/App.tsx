@@ -54,6 +54,7 @@ import { UpdateBanner } from "./components/UpdateBanner";
 import { PromptSendAnimationLayer } from "./components/PromptSendAnimation";
 import { createMaestroSession } from "./services/maestroService";
 import { TaskDetailOverlay } from "./components/maestro/TaskDetailOverlay";
+import { SessionDetailOverlay } from "./components/maestro/SessionDetailOverlay";
 import { STORAGE_SETUP_COMPLETE_KEY } from "./app/constants/defaults";
 
 // ---------------------------------------------------------------------------
@@ -544,6 +545,7 @@ export default function App() {
                   <div className="terminalArea">
                     <AppWorkspace registry={registry} pendingData={pendingData} />
                     <TaskDetailOverlay />
+                    <SessionDetailOverlay />
                     <AppModals />
                     <AppSlidePanel />
                   </div>

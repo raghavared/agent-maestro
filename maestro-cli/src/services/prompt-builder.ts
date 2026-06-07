@@ -54,9 +54,10 @@ export class PromptBuilder {
     if (teamContext) parts.push(teamContext);
     const coordinationContext = this.buildCoordinationContext(manifest);
     if (coordinationContext) parts.push(coordinationContext);
-    // Master project context (if this is a master session)
     const masterContext = this.buildMasterProjectContext(manifest);
     if (masterContext) parts.push(masterContext);
+    const coordinatorPromotion = this.buildCoordinatorPromotionBlock(manifest);
+    if (coordinatorPromotion) parts.push(coordinatorPromotion);
     // Note: commands_reference is injected by PromptComposer.
     parts.push('</maestro_system_prompt>');
     return parts.join('\n');
@@ -108,6 +109,8 @@ export class PromptBuilder {
     if (teamMembers) parts.push(teamMembers);
     const masterContext = this.buildMasterProjectContext(manifest);
     if (masterContext) parts.push(masterContext);
+    const coordinatorPromotion = this.buildCoordinatorPromotionBlock(manifest);
+    if (coordinatorPromotion) parts.push(coordinatorPromotion);
     parts.push('</maestro_system_prompt>');
     return parts.join('\n');
   }
@@ -850,10 +853,11 @@ export class PromptBuilder {
 
 
   private buildMasterProjectContext(manifest: MaestroManifest): string | null {
-    if (!manifest.isMaster) return null;
+    const hasMultipleProjects = manifest.masterProjects && manifest.masterProjects.length > 1;
+    if (!manifest.isMaster && !hasMultipleProjects) return null;
 
-    const lines: string[] = ['  <master_project_context>'];
-    lines.push('    <description>You are operating in a Master Project session. You have access to ALL projects in the workspace.</description>');
+    const lines: string[] = ['  <workspace_context>'];
+    lines.push('    <description>You can reach any session in any project in this workspace.</description>');
 
     if (manifest.masterProjects && manifest.masterProjects.length > 0) {
       lines.push('    <projects>');
@@ -877,11 +881,25 @@ export class PromptBuilder {
 
     lines.push('    <commands>');
     lines.push('      Use `maestro master projects` to list all projects.');
-    lines.push('      Use `maestro master tasks --project &lt;id&gt;` to view tasks in any project.');
-    lines.push('      Use `maestro master sessions --project &lt;id&gt;` to view sessions in any project.');
-    lines.push('      Use `maestro master context` for a full workspace overview.');
+    lines.push('      Use `maestro master sessions --active` to see live sessions across the workspace.');
+    lines.push('      Use `maestro session prompt &lt;id&gt; --message "..."` to message any session in any project.');
+    lines.push('      Use `maestro session logs &lt;id&gt;` to read any session\'s recent output.');
+    lines.push('      Use `maestro session spawn --project &lt;id&gt; ...` to spawn into another project (requires coordinator mode).');
     lines.push('    </commands>');
-    lines.push('  </master_project_context>');
+    lines.push('  </workspace_context>');
+    return lines.join('\n');
+  }
+
+  buildCoordinatorPromotionBlock(manifest: MaestroManifest): string | null {
+    const mode = manifest.mode;
+    const isWorker = mode === 'worker' || mode === 'coordinated-worker';
+    if (!isWorker) return null;
+
+    const lines: string[] = ['  <coordinator_promotion>'];
+    lines.push('  You are a worker. You can ping, read, and observe any session, but you cannot spawn new ones.');
+    lines.push('  If your task requires spawning helpers, run `maestro coordinator enable` first.');
+    lines.push('  This converts you to a coordinator for the rest of the session.');
+    lines.push('  </coordinator_promotion>');
     return lines.join('\n');
   }
 

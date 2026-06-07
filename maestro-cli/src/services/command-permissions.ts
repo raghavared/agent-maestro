@@ -145,10 +145,6 @@ export function getCachedPermissions(): CommandPermissions | null {
 }
 
 export async function guardCommand(commandName: string): Promise<void> {
-  if (commandName.startsWith('master:') && !config.isMaster) {
-    throw new Error(`Command '${commandName}' is only available in master sessions (MAESTRO_IS_MASTER=true).`);
-  }
-
   const permissions = await getOrLoadPermissions();
 
   if (!permissions.loadedFromManifest && permissions.resolution === 'no-manifest') {

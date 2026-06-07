@@ -365,6 +365,40 @@ describe('ClaudeSpawner', () => {
     });
   });
 
+  describe('buildResumeArgs', () => {
+    const CLAUDE_SESSION_ID = '11111111-2222-3333-4444-555555555555';
+
+    it('passes --resume with the claude session id, not --session-id', async () => {
+      const args = await spawner.buildResumeArgs(workerManifest, CLAUDE_SESSION_ID);
+
+      expect(args).toContain('--resume');
+      expect(args[args.indexOf('--resume') + 1]).toBe(CLAUDE_SESSION_ID);
+      expect(args).not.toContain('--session-id');
+    });
+
+    it('reapplies the launch config (model + permission mode) on resume', async () => {
+      const manifest: MaestroManifest = {
+        ...workerManifest,
+        session: {
+          ...workerManifest.session,
+          launchConfig: { provider: 'claude', model: 'opus' },
+          permissionMode: 'acceptEdits',
+        },
+      };
+
+      const args = await spawner.buildResumeArgs(manifest, CLAUDE_SESSION_ID);
+
+      expect(args[args.indexOf('--model') + 1]).toBe('opus');
+      expect(args).toContain('--permission-mode');
+    });
+
+    it('does not append a system prompt or task prompt on resume', async () => {
+      const args = await spawner.buildResumeArgs(workerManifest, CLAUDE_SESSION_ID);
+
+      expect(args).not.toContain('--append-system-prompt');
+    });
+  });
+
   describe('SpawnResult interface', () => {
     it('should define SpawnResult structure', () => {
       // This is a type check test

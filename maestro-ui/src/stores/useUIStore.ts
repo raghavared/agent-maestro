@@ -169,6 +169,10 @@ interface UIState {
   taskDetailOverlay: { taskId: string; projectId: string } | null;
   setTaskDetailOverlay: (overlay: { taskId: string; projectId: string } | null) => void;
 
+  // Session detail overlay (covers workspace area)
+  sessionDetailOverlay: { sessionId: string; projectId: string } | null;
+  setSessionDetailOverlay: (overlay: { sessionId: string; projectId: string } | null) => void;
+
   // App update
   appInfo: AppInfo | null;
   updatesOpen: boolean;
@@ -337,6 +341,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   // -- Task detail overlay --
   taskDetailOverlay: null,
   setTaskDetailOverlay: (overlay) => set({ taskDetailOverlay: overlay }),
+
+  sessionDetailOverlay: null,
+  setSessionDetailOverlay: (overlay) => set({ sessionDetailOverlay: overlay }),
 
   // -- App update --
   appInfo: null,

@@ -134,6 +134,24 @@ export class ClaudeSpawner {
    * @returns Array of CLI arguments
    */
   async buildClaudeArgs(manifest: MaestroManifest): Promise<string[]> {
+    const args = await this.buildBaseArgs(manifest);
+
+    // Add pre-generated Claude session ID for resume support
+    const claudeSessionId = process.env.MAESTRO_CLAUDE_SESSION_ID;
+    if (claudeSessionId) {
+      args.push('--session-id', claudeSessionId);
+    }
+
+    return args;
+  }
+
+  /**
+   * Build the launch-config Claude CLI arguments shared by fresh spawns and
+   * resumes: plugin dirs (hooks), skills, model, permission mode, reasoning
+   * effort, and max turns. Excludes session-identity flags (`--session-id` /
+   * `--resume`) and the prompt, which the caller appends.
+   */
+  async buildBaseArgs(manifest: MaestroManifest): Promise<string[]> {
     const args: string[] = [];
 
     // Add plugin directory (provides both hooks and skills)
@@ -154,12 +172,6 @@ export class ClaudeSpawner {
 
       // Graceful degradation: don't fail on missing/invalid skills
       // They're categorized but not preventing session spawn
-    }
-
-    // Add pre-generated Claude session ID for resume support
-    const claudeSessionId = process.env.MAESTRO_CLAUDE_SESSION_ID;
-    if (claudeSessionId) {
-      args.push('--session-id', claudeSessionId);
     }
 
     const launchConfig = manifest.session.launchConfig || manifest.launchConfig;
@@ -188,6 +200,18 @@ export class ClaudeSpawner {
       args.push('--max-turns', manifest.session.maxTurns.toString());
     }
 
+    return args;
+  }
+
+  /**
+   * Build Claude CLI arguments for resuming an existing conversation.
+   * Reapplies the full launch config (skills, model, permissions) and points
+   * Claude at the prior conversation via `--resume`. No system prompt or task
+   * prompt is appended — `--resume` restores the existing conversation.
+   */
+  async buildResumeArgs(manifest: MaestroManifest, claudeSessionId: string): Promise<string[]> {
+    const args = await this.buildBaseArgs(manifest);
+    args.push('--resume', claudeSessionId);
     return args;
   }
 

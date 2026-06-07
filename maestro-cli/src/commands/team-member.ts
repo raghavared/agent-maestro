@@ -7,6 +7,7 @@ import { guardCommand } from '../services/command-permissions.js';
 import { normalizeMode, type AgentModeInput } from '../types/manifest.js';
 import type { TeamMemberResponse } from '../types/api-responses.js';
 import ora from 'ora';
+import { resolveProjectScope } from '../utils/project-scope.js';
 
 export function registerTeamMemberCommands(program: Command) {
     const teamMember = program.command('team-member').description('Manage team members');
@@ -16,17 +17,17 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--all', 'Include archived members')
         .option('--status <status>', 'Filter by status: active or archived')
         .option('--mode <mode>', 'Filter by mode: worker, coordinator, coordinated-worker, coordinated-coordinator')
-        .action(async (cmdOpts: { all?: boolean; status?: string; mode?: string }) => {
+        .option('--project-id <id>', 'Filter by project ID (overrides global --project)')
+        .option('--all-projects', 'List team members from all projects')
+        .action(async (cmdOpts: { all?: boolean; status?: string; mode?: string; projectId?: string; allProjects?: boolean }) => {
             await guardCommand('team-member:list');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
-            const projectId = globalOpts.project || config.projectId;
-
-            if (!projectId) {
-                const err = { message: 'No project context found. Use --project <id> or set MAESTRO_PROJECT_ID.' };
-                if (isJson) { outputErrorJSON(err); process.exit(1); }
-                else { console.error(err.message); process.exit(1); }
-            }
+            const scope = resolveProjectScope(
+                { projectId: cmdOpts.projectId, allProjects: cmdOpts.allProjects },
+                globalOpts,
+            );
+            const projectId = scope.projectId;
 
             // Validate status filter
             if (cmdOpts.status && !['active', 'archived'].includes(cmdOpts.status)) {
@@ -49,7 +50,10 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Fetching team members...').start() : null;
 
             try {
-                const members = await api.get<TeamMemberResponse[]>(`/api/team-members?projectId=${projectId}`);
+                const endpoint = projectId
+                    ? `/api/team-members?projectId=${projectId}`
+                    : '/api/team-members';
+                const members = await api.get<TeamMemberResponse[]>(endpoint);
 
                 spinner?.stop();
 
@@ -104,16 +108,13 @@ export function registerTeamMemberCommands(program: Command) {
             const isJson = globalOpts.json;
             const projectId = globalOpts.project || config.projectId;
 
-            if (!projectId) {
-                const err = { message: 'No project context found. Use --project <id> or set MAESTRO_PROJECT_ID.' };
-                if (isJson) { outputErrorJSON(err); process.exit(1); }
-                else { console.error(err.message); process.exit(1); }
-            }
-
             const spinner = !isJson ? ora('Fetching team member...').start() : null;
 
             try {
-                const member = await api.get<TeamMemberResponse>(`/api/team-members/${teamMemberId}?projectId=${projectId}`);
+                const endpoint = projectId
+                    ? `/api/team-members/${teamMemberId}?projectId=${projectId}`
+                    : `/api/team-members/${teamMemberId}`;
+                const member = await api.get<TeamMemberResponse>(endpoint);
 
                 spinner?.stop();
 

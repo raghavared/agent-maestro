@@ -113,6 +113,7 @@ interface MaestroState {
   archiveTeam: (id: string, projectId: string) => Promise<void>;
   unarchiveTeam: (id: string, projectId: string) => Promise<void>;
   resumeSession: (sessionId: string) => Promise<void>;
+  updateSessionMode: (sessionId: string, mode: string) => void;
 }
 
 // Module-level debounce timer for lastUsedTeamMember localStorage persistence
@@ -336,15 +337,23 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         }
         set((prev) => ({ sessions: { ...prev.sessions, [session.id]: session } }));
 
-        // Find and remove existing exited terminal tab for this maestro session
+        // Resume is idempotent: replace ANY existing terminal(s) for this maestro
+        // session — not just exited ones. A crashed/working session often has a
+        // stale terminal tab that the UI never marked as exited; leaving it would
+        // duplicate tabs and leak the old PTY.
         const sessionStore = useSessionStore.getState();
-        const existingTerminal = sessionStore.sessions.find(
+        const existingTerminals = sessionStore.sessions.filter(
           (s) => s.maestroSessionId === session.id
         );
-        if (existingTerminal && existingTerminal.exited) {
-          sessionStore.setSessions((prev) =>
-            prev.filter((s) => s.id !== existingTerminal.id)
-          );
+        if (existingTerminals.length > 0) {
+          for (const term of existingTerminals) {
+            // Close the underlying PTY for any terminal still believed to be live.
+            if (!term.exited) {
+              sessionStore.cleanupSessionResources(term.id);
+            }
+          }
+          const staleIds = new Set(existingTerminals.map((s) => s.id));
+          sessionStore.setSessions((prev) => prev.filter((s) => !staleIds.has(s.id)));
         }
 
         // Spawn new terminal (replaces the removed one)
@@ -540,6 +549,15 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           return { teams };
         });
         playEventSound(message.event as any);
+        break;
+      }
+      case 'session:mode_changed': {
+        const { sessionId, mode } = message.data;
+        batchSet((prev) => {
+          const existing = prev.sessions[sessionId];
+          if (!existing) return {};
+          return { sessions: { ...prev.sessions, [sessionId]: { ...existing, mode } } };
+        });
         break;
       }
     }
@@ -1167,6 +1185,14 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
 
     resumeSession: async (sessionId: string) => {
       await maestroClient.resumeSession(sessionId);
+    },
+
+    updateSessionMode: (sessionId, mode) => {
+      set((prev) => {
+        const existing = prev.sessions[sessionId];
+        if (!existing) return prev;
+        return { sessions: { ...prev.sessions, [sessionId]: { ...existing, mode: mode as import('../app/types/maestro').AgentMode } } };
+      });
     },
 
     fetchWorkflowTemplates: async () => {

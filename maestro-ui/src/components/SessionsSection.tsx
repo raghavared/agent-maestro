@@ -28,10 +28,12 @@ import { MaestroSessionContent } from "./maestro/MaestroSessionContent";
 import { SessionDetailModal } from "./maestro/SessionDetailModal";
 import { SessionLogModal } from "./session-log/SessionLogModal";
 import { ConfirmActionModal } from "./modals/ConfirmActionModal";
-import { buildTeamGroups, getGroupedSessionOrder } from "../utils/teamGrouping";
-import { TeamSessionGroup } from "./maestro/TeamSessionGroup";
+import { buildTeamGroups } from "../utils/teamGrouping";
 import type { TeamColor } from "../app/constants/teamColors";
 import type { Space } from "../app/types/space";
+import { useSessionTree } from "../hooks/useSessionTree";
+import { SessionListItem, type SessionTileLinkInfo } from "./maestro/SessionListItem";
+import type { SessionTreeNode } from "../app/types/maestro";
 
 // Phase 2: Module-scope static constants
 const AGENT_TOOL_ICONS: Record<string, string> = {
@@ -450,7 +452,7 @@ const SessionItem = React.memo(function SessionItem({
               <Icon name="log" size={12} />
               <span>Logs</span>
             </button>
-            {maestroSession && ['completed', 'stopped', 'failed', 'idle'].includes(maestroSession.status)
+            {maestroSession
               && (maestroSession.metadata?.agentTool || 'claude-code') === 'claude-code' && (
               <button type="button"
                 className="sessionItemBottomBtn sessionItemBottomBtn--resume"
@@ -475,6 +477,87 @@ const SessionItem = React.memo(function SessionItem({
       )}
     </div>
     </SortableSessionItem>
+  );
+});
+
+// ==================== SESSION TREE RENDERER ====================
+interface SessionNodeRendererProps {
+  node: SessionTreeNode;
+  depth: number;
+  collapsedSessions: Set<string>;
+  maestroColorMap: Map<string, TeamColor>;
+  linkMap: Map<string, SessionTileLinkInfo>;
+  activeLocalSessionId: string | null;
+  maestroTasks: Record<string, MaestroTask>;
+  resumingSessionId: string | null;
+  onToggleCollapse: (sessionId: string) => void;
+  onOpenDetail: (sessionId: string) => void;
+  onJumpToTerminal: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;
+  onStop: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;
+  onResume: (sessionId: string) => void;
+}
+
+const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
+  node,
+  depth,
+  collapsedSessions,
+  maestroColorMap,
+  linkMap,
+  activeLocalSessionId,
+  maestroTasks,
+  resumingSessionId,
+  onToggleCollapse,
+  onOpenDetail,
+  onJumpToTerminal,
+  onStop,
+  onResume,
+}: SessionNodeRendererProps) {
+  const isCollapsed = collapsedSessions.has(node.id);
+  const link = linkMap.get(node.id) ?? null;
+  const teamColor = maestroColorMap.get(node.id) ?? null;
+  const isActiveTerminal = Boolean(link && link.localSessionId === activeLocalSessionId);
+
+  return (
+    <div className={`sessionTreeNode ${depth > 0 ? "sessionTreeNode--child" : ""}`}>
+      <SessionListItem
+        session={node}
+        depth={depth}
+        teamColor={teamColor}
+        childCount={node.children.length}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={() => onToggleCollapse(node.id)}
+        link={link}
+        isActiveTerminal={isActiveTerminal}
+        maestroTasks={maestroTasks}
+        onOpenDetail={onOpenDetail}
+        onJumpToTerminal={onJumpToTerminal}
+        onStop={onStop}
+        onResume={onResume}
+        isResuming={resumingSessionId === node.id}
+      />
+      {!isCollapsed && node.children.length > 0 && (
+        <div className="sessionTreeChildren">
+          {node.children.map((child) => (
+            <SessionNodeRenderer
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              collapsedSessions={collapsedSessions}
+              maestroColorMap={maestroColorMap}
+              linkMap={linkMap}
+              activeLocalSessionId={activeLocalSessionId}
+              maestroTasks={maestroTasks}
+              resumingSessionId={resumingSessionId}
+              onToggleCollapse={onToggleCollapse}
+              onOpenDetail={onOpenDetail}
+              onJumpToTerminal={onJumpToTerminal}
+              onStop={onStop}
+              onResume={onResume}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 });
 
@@ -584,10 +667,6 @@ export const SessionsSection = React.memo(function SessionsSection({
     return buildTeamGroups(sessions, maestroSessions, teamsMap);
   }, [sessions, maestroSessions, teamsMap]);
 
-  const { grouped: groupedSessions, ungrouped: ungroupedSessions } = useMemo(() => {
-    return getGroupedSessionOrder(sessions, teamGroupData.groups);
-  }, [sessions, teamGroupData.groups]);
-
   const [showHistory, setShowHistory] = React.useState(false);
   const historyBtnRef = React.useRef<HTMLButtonElement | null>(null);
   const [historyDropdownPos, setHistoryDropdownPos] = React.useState<{ top: number; right: number } | null>(null);
@@ -598,11 +677,13 @@ export const SessionsSection = React.memo(function SessionsSection({
     }
   }, [showHistory, computeDropdownPos]);
 
-  // Past sessions eligible for resume (completed/stopped/failed/idle)
+  // Past sessions available for resume. Resume is allowed from ANY status:
+  // the server-side `status` is unreliable and frequently sticks at 'working'/
+  // 'spawning' for sessions whose terminal has actually exited, so we never gate
+  // the history list on it — every session in the project is resumable here.
   const historySessions = useMemo(() => {
-    const resumableStatuses = new Set(['completed', 'stopped', 'failed', 'idle']);
     return Object.values(maestroSessions)
-      .filter(s => s.projectId === activeProjectId && resumableStatuses.has(s.status))
+      .filter(s => s.projectId === activeProjectId)
       .sort((a, b) => b.lastActivity - a.lastActivity);
   }, [maestroSessions, activeProjectId]);
 
@@ -702,25 +783,21 @@ export const SessionsSection = React.memo(function SessionsSection({
   const showSessions = activeFilters.has('sessions');
   const showDocuments = activeFilters.has('documents');
 
-  const filteredUngroupedSessions = useMemo(() => {
-    return ungroupedSessions.filter(s => {
-      const isMaestro = Boolean(s.maestroSessionId);
-      if (isMaestro) return showSessions;
-      return showTerminals;
-    });
-  }, [ungroupedSessions, showTerminals, showSessions]);
-
-  const filteredGroupedSessions = useMemo(() => {
-    // Team groups are maestro sessions, so filter by "sessions"
-    return showSessions ? groupedSessions : [];
-  }, [groupedSessions, showSessions]);
+  // Plain local terminals only (maestro sessions render via the tree below).
+  const filteredTerminalSessions = useMemo(() => {
+    if (!showTerminals) return [];
+    return sessions.filter((s) => !s.maestroSessionId);
+  }, [sessions, showTerminals]);
 
   const filteredSpaces = useMemo(() => {
     return showDocuments ? projectSpaces : [];
   }, [projectSpaces, showDocuments]);
 
-  // Phase 3: Memoize SortableContext items
-  const sortableSessionIds = useMemo(() => sessions.map((s) => s.id), [sessions]);
+  // Phase 3: Memoize SortableContext items (plain terminals only)
+  const sortableSessionIds = useMemo(
+    () => filteredTerminalSessions.map((s) => s.id),
+    [filteredTerminalSessions],
+  );
 
   // Phase 5: Stable callbacks for SessionItem
   const handleRequestClose = useCallback((session: Session) => {
@@ -743,6 +820,78 @@ export const SessionsSection = React.memo(function SessionsSection({
       setResumingSessionId(null);
     }
   }, [resumeSession]);
+
+  // ==================== MAESTRO SESSION TREE ====================
+  const [collapsedSessions, setCollapsedSessions] = React.useState<Set<string>>(new Set());
+  type SessionSubTab = 'active' | 'completed';
+  const [sessionSubTab, setSessionSubTab] = React.useState<SessionSubTab>('active');
+
+  const ACTIVE_STATUSES = useMemo(() => new Set(['working', 'idle', 'spawning']), []);
+
+  // All maestro sessions in this project (source of truth for the tree)
+  const projectMaestroSessions = useMemo(() => {
+    return Object.values(maestroSessions).filter((s) => s.projectId === activeProjectId);
+  }, [maestroSessions, activeProjectId]);
+
+  const { roots: sessionRoots } = useSessionTree(projectMaestroSessions);
+
+  // Filter roots by sub-tab; children are always shown under a visible root.
+  const visibleRoots = useMemo(() => {
+    return sessionRoots.filter((root) => {
+      const isActive = ACTIVE_STATUSES.has(root.status) || root.needsInput?.active;
+      return sessionSubTab === 'active' ? isActive : !isActive;
+    });
+  }, [sessionRoots, sessionSubTab, ACTIVE_STATUSES]);
+
+  // Map maestroSessionId -> team color (independent of nesting)
+  const maestroColorMap = useMemo(() => {
+    const map = new Map<string, TeamColor>();
+    for (const group of teamGroupData.groups) {
+      map.set(group.coordinatorMaestroSessionId, group.color);
+      for (const wId of group.workerMaestroSessionIds) {
+        map.set(wId, group.color);
+      }
+    }
+    return map;
+  }, [teamGroupData.groups]);
+
+  // Map maestroSessionId -> live local terminal info
+  const linkMap = useMemo(() => {
+    const map = new Map<string, SessionTileLinkInfo>();
+    for (const s of sessions) {
+      if (s.maestroSessionId) {
+        map.set(s.maestroSessionId, { localSessionId: s.id, exited: Boolean(s.exited) });
+      }
+    }
+    return map;
+  }, [sessions]);
+
+  const handleToggleSessionCollapse = useCallback((sessionId: string) => {
+    setCollapsedSessions((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) next.delete(sessionId);
+      else next.add(sessionId);
+      return next;
+    });
+  }, []);
+
+  const handleOpenSessionDetail = useCallback((maestroSessionId: string) => {
+    useUIStore.getState().setSessionDetailOverlay({ sessionId: maestroSessionId, projectId: activeProjectId });
+  }, [activeProjectId]);
+
+  const handleJumpToTerminal = useCallback((session: MaestroSession, link: SessionTileLinkInfo | null) => {
+    if (link && !link.exited) {
+      onSelectSession(link.localSessionId);
+    } else {
+      void handleResume(session.id);
+    }
+  }, [onSelectSession, handleResume]);
+
+  const handleStopSession = useCallback((_session: MaestroSession, link: SessionTileLinkInfo | null) => {
+    if (!link) return;
+    const localSession = sessions.find((s) => s.id === link.localSessionId);
+    if (localSession) handleRequestClose(localSession);
+  }, [sessions, handleRequestClose]);
 
   // Helper to render a session item using the extracted SessionItem component
   const renderSessionItem = useCallback((s: Session, teamColor: TeamColor | null) => {
@@ -961,49 +1110,73 @@ export const SessionsSection = React.memo(function SessionsSection({
         ))}
       </div>
 
+      {/* Sub-tabs for the maestro session tree */}
+      {showSessions && (
+        <div className="sessionSubTabs" role="tablist" aria-label="Session filter">
+          {(['active', 'completed'] as SessionSubTab[]).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              aria-selected={sessionSubTab === tab}
+              className={`sessionSubTabs__btn ${sessionSubTab === tab ? 'sessionSubTabs__btn--active' : ''}`}
+              onClick={() => setSessionSubTab(tab)}
+            >
+              {tab === 'active' ? 'Active' : 'Completed'}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="sessionList">
-        {sessions.length === 0 ? (
+        {sessions.length === 0 && projectMaestroSessions.length === 0 ? (
           <div className="empty">No sessions in this project.</div>
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-          <SortableContext
-            items={sortableSessionIds}
-            strategy={verticalListSortingStrategy}
-          >
-          {/* Grouped sessions (coordinator teams) */}
-          {filteredGroupedSessions.map(({ group, sessions: groupSess }) => {
-            const coordSession = groupSess[0]; // coordinator is always first
+          <>
+            {/* Maestro session tree (spawn-chain hierarchy) */}
+            {showSessions && (
+              visibleRoots.length === 0 ? (
+                <div className="empty">No {sessionSubTab} sessions.</div>
+              ) : (
+                <div className="sessionTree">
+                  {visibleRoots.map((root) => (
+                    <SessionNodeRenderer
+                      key={root.id}
+                      node={root}
+                      depth={0}
+                      collapsedSessions={collapsedSessions}
+                      maestroColorMap={maestroColorMap}
+                      linkMap={linkMap}
+                      activeLocalSessionId={activeSessionId}
+                      maestroTasks={maestroTasks}
+                      resumingSessionId={resumingSessionId}
+                      onToggleCollapse={handleToggleSessionCollapse}
+                      onOpenDetail={handleOpenSessionDetail}
+                      onJumpToTerminal={handleJumpToTerminal}
+                      onStop={handleStopSession}
+                      onResume={handleResume}
+                    />
+                  ))}
+                </div>
+              )
+            )}
 
-            return (
-              <TeamSessionGroup
-                key={group.teamSessionId}
-                group={group}
-                maestroSessions={maestroSessions}
-                maestroTasks={maestroTasks}
-                teamsMap={teamsMap}
-                renderSessionItem={() => null}
-                renderAllSessionItems={() => (
-                  <div className="teamGroupSessions">
-                    {groupSess.map((s) => renderSessionItem(s, group.color))}
-                  </div>
-                )}
-                renderCoordinatorOnly={() => (
-                  <div className="teamGroupSessions">
-                    {coordSession && renderSessionItem(coordSession, group.color)}
-                  </div>
-                )}
-              />
-            );
-          })}
-
-          {/* Ungrouped sessions (plain terminals, no coordinator) */}
-          {filteredUngroupedSessions.map((s) => renderSessionItem(s, null))}
-          </SortableContext>
-          </DndContext>
+            {/* Plain terminals (non-maestro) keep the sortable list */}
+            {showTerminals && filteredTerminalSessions.length > 0 && (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={sortableSessionIds}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {filteredTerminalSessions.map((s) => renderSessionItem(s, null))}
+                </SortableContext>
+              </DndContext>
+            )}
+          </>
         )}
       </div>
 
