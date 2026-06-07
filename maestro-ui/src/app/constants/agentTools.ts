@@ -278,7 +278,10 @@ export function createLaunchConfigFromLegacy(
   reasoningEffort?: LaunchReasoningEffort,
   permissionMode?: string,
 ): LaunchConfig | undefined {
-  const tool = agentTool || (model ? "claude-code" : undefined);
+  // Coerce the legacy bare provider name 'claude' (used by some pre-PR#83 persisted
+  // data) to the canonical 'claude-code' tool key so the override is not dropped.
+  const rawTool = (agentTool as string) === "claude" ? "claude-code" : agentTool;
+  const tool = rawTool || (model ? "claude-code" : undefined);
   if (!tool) return undefined;
   return sanitizeLaunchConfig({
     provider: AGENT_TOOL_TO_PROVIDER[tool],

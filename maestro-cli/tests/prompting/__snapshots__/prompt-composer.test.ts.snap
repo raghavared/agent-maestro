@@ -78,7 +78,7 @@ Report progress at important milestones and escalate blockers promptly using mae
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -193,7 +193,7 @@ Good pattern:
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-coordinator Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|update|complete|block|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -306,7 +306,7 @@ Good pattern:
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-coordinator Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|update|complete|block|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -450,7 +450,7 @@ Report progress at important milestones and escalate blockers promptly using mae
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -580,7 +580,7 @@ Report progress at important milestones and escalate blockers promptly using mae
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -712,7 +712,7 @@ Report progress at important milestones and escalate blockers promptly using mae
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -844,7 +844,7 @@ Report progress at important milestones and escalate blockers promptly using mae
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -956,7 +956,7 @@ Good pattern:
   </capability_summary>
   <commands_reference>
     ## Maestro coordinator Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|update|complete|block|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -1066,7 +1066,7 @@ Good pattern:
   </capability_summary>
   <commands_reference>
     ## Maestro coordinator Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|update|complete|block|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -1206,7 +1206,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
   </capability_summary>
   <commands_reference>
     ## Maestro worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -1332,7 +1332,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
   </capability_summary>
   <commands_reference>
     ## Maestro worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -1460,7 +1460,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
   </capability_summary>
   <commands_reference>
     ## Maestro worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -1588,7 +1588,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
   </capability_summary>
   <commands_reference>
     ## Maestro worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion

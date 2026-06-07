@@ -57,6 +57,40 @@ require_dir() {
   [ -d "$1" ] || die "Expected directory not found: $1"
 }
 
+# Stop any running Maestro instance before (re)installing.
+#
+# Why this matters: the desktop app spawns a bundled `maestro-server` sidecar at
+# launch. When an existing user updates the repo and re-runs this script, the new
+# app bundle is copied into /Applications, but macOS `open` simply REFOCUSES the
+# already-running instance instead of launching the freshly-built binary — so the
+# user keeps talking to the OLD server (and an orphaned sidecar from a prior run
+# can linger indefinitely). That manifests as stale-server errors after an update
+# (e.g. the server rejecting request fields the updated UI now sends).
+#
+# Quitting the app and reaping orphaned sidecars here guarantees the `open` at the
+# end of this script launches the new build. For a brand-new user nothing is
+# running, so every step is a harmless no-op.
+stop_running_maestro() {
+  info "Stopping any running Maestro instance (so the fresh build launches, not the old one)..."
+
+  # Graceful quit for whichever app name is installed.
+  for APP in "Maestro" "Maestro Prod" "Agent Maestro"; do
+    osascript -e "tell application \"${APP}\" to quit" >/dev/null 2>&1 || true
+  done
+  sleep 1
+
+  # Force-quit any lingering app process and orphaned server sidecars. `pkill -f`
+  # matches against the full command line; these patterns only hit Maestro's own
+  # processes, never this script or the build toolchain.
+  pkill -f "/Applications/Maestro.app/Contents/MacOS/" 2>/dev/null || true
+  pkill -f "/Applications/Maestro Prod.app/Contents/MacOS/" 2>/dev/null || true
+  pkill -f "/Applications/Agent Maestro.app/Contents/MacOS/" 2>/dev/null || true
+  pkill -f "maestro-server" 2>/dev/null || true
+  sleep 1
+
+  success "Stopped running Maestro instance (if any)"
+}
+
 # ── Check/Install Xcode Command Line Tools ────────────────
 
 info "Checking for Xcode Command Line Tools..."
@@ -256,6 +290,10 @@ success "Installed binaries to $(echo "$INSTALL_DIR/bin" | sed "s|$HOME|~|")"
 
 printf "\n"
 info "[6/6] Installing desktop app to /Applications..."
+
+# Quit any running instance BEFORE we replace the bundle and `open` the new one,
+# otherwise macOS refocuses the stale running app instead of launching the rebuild.
+stop_running_maestro
 
 require_dir "$APP_BUNDLE_DIR"
 

@@ -125,7 +125,9 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
             accessMode: { type: 'string', enum: ['safe', 'acceptEdits', 'plan', 'fullAccess'], nullable: true },
           },
           required: ['provider', 'model'],
-          additionalProperties: false,
+          // Tolerate extra/future launchConfig fields from older or newer writers;
+          // sanitizeLaunchConfig re-derives a strict shape before use.
+          additionalProperties: true,
           nullable: true,
         },
         allowedCommands: {
@@ -241,7 +243,9 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
         accessMode: { type: 'string', enum: ['safe', 'acceptEdits', 'plan', 'fullAccess'], nullable: true },
       },
       required: ['provider', 'model'],
-      additionalProperties: false,
+      // Tolerate extra/future launchConfig fields from older or newer writers;
+      // sanitizeLaunchConfig re-derives a strict shape before use.
+      additionalProperties: true,
       nullable: true,
     },
     referenceTaskIds: {
