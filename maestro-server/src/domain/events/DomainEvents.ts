@@ -1,4 +1,4 @@
-import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember, Team, TaskList, TaskGraph, SpellInvocationResult, CustomPrompt } from '../../types';
+import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember, Team, TaskList, TaskGraph, SpellInvocationResult, CustomPrompt, SessionModeChangedPayload } from '../../types';
 
 /**
  * Type-safe domain event definitions.
@@ -341,6 +341,7 @@ export interface TypedEventMap {
   'session:resume': SpawnRequestEvent;
   'session:updated': Session;
   'session:status_changed': { id: string; status: string; lastActivity: string; needsInput?: { active: boolean; message?: string } };
+  'session:mode_changed': SessionModeChangedPayload;
   'session:deleted': { id: string };
   'session:task_added': { sessionId: string; taskId: string };
   'session:task_removed': { sessionId: string; taskId: string };
