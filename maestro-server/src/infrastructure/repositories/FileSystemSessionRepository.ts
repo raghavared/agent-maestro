@@ -537,6 +537,9 @@ export class FileSystemSessionRepository implements ISessionRepository {
       if (!session.metadata) session.metadata = {};
       session.metadata.mode = updates.mode;
     }
+    if (updates.metadata !== undefined) {
+      session.metadata = { ...session.metadata, ...updates.metadata };
+    }
     if (updates.humanCompletedAt !== undefined) {
       session.humanCompletedAt = updates.humanCompletedAt;
     }

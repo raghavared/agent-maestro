@@ -728,3 +728,40 @@ export interface SpellInvokedEvent {
   entityId: string;
   spellName: string;
 }
+
+// ─── Git Types ───
+
+export interface GitFileChange {
+  path: string;
+  status: 'A' | 'M' | 'D' | 'R' | '?';
+  insertions: number;
+  deletions: number;
+}
+
+export interface GitDiffSummary {
+  branch: string;
+  baseBranch: string;
+  baseCommit: string;
+  ahead: number;
+  behind: number;
+  dirty: boolean;
+  filesChanged: number;
+  insertions: number;
+  deletions: number;
+  commitCount: number;
+  files: GitFileChange[];
+}
+
+export interface GitPrInfo {
+  url: string;
+  number: number;
+  state: 'OPEN' | 'MERGED' | 'CLOSED' | 'DRAFT';
+  checks?: 'passing' | 'failing' | 'pending' | 'none';
+  reviewDecision?: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null;
+}
+
+export interface GitCapabilities {
+  hasGit: boolean;
+  hasGh: boolean;
+  ghAuthed: boolean;
+}

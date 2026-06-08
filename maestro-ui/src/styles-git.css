@@ -1,0 +1,77 @@
+/* Git Panel styles — feature workers extend this file */
+
+.git-panel {
+  padding: 12px;
+  border-top: 1px solid var(--border-color, #333);
+  font-size: 12px;
+}
+
+.git-panel--compact {
+  padding: 8px;
+}
+
+.git-panel--loading,
+.git-panel--error {
+  color: var(--text-muted, #888);
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.git-panel--error {
+  color: var(--color-error, #f87171);
+}
+
+.git-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.git-panel__branch {
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  color: var(--text-primary, #e2e8f0);
+}
+
+.git-panel__base {
+  font-family: var(--font-mono, monospace);
+  color: var(--text-muted, #888);
+  font-size: 11px;
+}
+
+.git-panel__refresh-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted, #888);
+  font-size: 14px;
+  padding: 2px 4px;
+  margin-left: auto;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.git-panel__refresh-btn:hover {
+  color: var(--text-primary, #e2e8f0);
+  background: var(--hover-bg, rgba(255,255,255,0.05));
+}
+
+.git-panel__section {
+  margin-top: 10px;
+}
+
+.git-panel__section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #888);
+  margin-bottom: 6px;
+}
+
+.git-panel__stub {
+  color: var(--text-secondary, #aaa);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+}
