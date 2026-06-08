@@ -148,11 +148,21 @@ export const updateTaskSchema = z.object({
   useWorktree: z.boolean().optional(),
 }).strict();
 
+const docKindSchema = z.enum(['markdown', 'diagram']);
+
+// Allow larger content for diagram scene JSON (up to 10 MB)
+const docContentSchema = z.string().max(10_000_000).optional();
+
 export const addTaskDocSchema = z.object({
   title: shortString,
   filePath: z.string().min(1).max(2000),
-  content: z.string().max(100000).optional(),
+  content: docContentSchema,
+  kind: docKindSchema.optional(),
   sessionId: safeId,
+}).strict();
+
+export const updateDocContentSchema = z.object({
+  content: z.string().max(10_000_000),
 }).strict();
 
 export const taskTimelineSchema = z.object({

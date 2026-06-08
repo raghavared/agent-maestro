@@ -2,6 +2,53 @@
    SPELLS — Terminal Overlay Button & Picker
    ═══════════════════════════════════════════════════ */
 
+/* ─── Session Action Bar (Terminal Overlay) ─── */
+
+.sessionActionBar {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 100;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.sessionActionBtn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.3);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  color: var(--theme-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+  backdrop-filter: blur(4px);
+}
+
+.sessionActionBtn:hover {
+  opacity: 1;
+  border-color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.15);
+  box-shadow: 0 0 12px rgba(var(--theme-primary-rgb), 0.3);
+  transform: scale(1.1);
+}
+
+.sessionActionBtn:active {
+  transform: scale(0.95);
+}
+
+.sessionActionBtn__icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
 /* ─── Spell Button (Terminal Overlay) ─── */
 
 .spellButton {

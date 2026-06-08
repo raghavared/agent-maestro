@@ -416,6 +416,7 @@ export class SessionService {
     filePath: string,
     content?: string,
     taskId?: string,
+    kind?: 'markdown' | 'diagram',
   ): Promise<Session> {
     const session = await this.sessionRepo.findById(sessionId);
     if (!session) {
@@ -426,6 +427,7 @@ export class SessionService {
       id: this.idGenerator.generate('doc'),
       title,
       filePath,
+      kind,
       content,
       taskId,
       addedAt: Date.now(),
@@ -481,5 +483,38 @@ export class SessionService {
     }
 
     return hydratedDocs;
+  }
+
+  /**
+   * Overwrite the content of an existing doc (used to re-save diagram scene JSON).
+   */
+  async updateDocContent(sessionId: string, docId: string, content: string): Promise<boolean> {
+    const session = await this.sessionRepo.findById(sessionId);
+    if (!session) {
+      throw new NotFoundError('Session', sessionId);
+    }
+    return this.sessionRepo.updateDocContent(sessionId, docId, content);
+  }
+
+  /**
+   * Aggregate all docs across every session in a project, deduped by docId, content hydrated.
+   */
+  async getProjectDocsWithContent(projectId: string): Promise<DocEntry[]> {
+    const sessions = await this.sessionRepo.findByProjectId(projectId);
+    const seen = new Set<string>();
+    const result: DocEntry[] = [];
+
+    for (const session of sessions) {
+      const docs = await this.getSessionDocsWithContent(session.id);
+      for (const doc of docs) {
+        if (!seen.has(doc.id)) {
+          seen.add(doc.id);
+          result.push({ ...doc, sessionId: session.id, sessionName: session.name } as DocEntry & { sessionId: string; sessionName: string });
+        }
+      }
+    }
+
+    result.sort((a, b) => a.addedAt - b.addedAt);
+    return result;
   }
 }

@@ -2,11 +2,15 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useUIStore } from "../../stores/useUIStore";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useProjectStore } from "../../stores/useProjectStore";
+import { useSessionStore } from "../../stores/useSessionStore";
+import { useSpacesStore } from "../../stores/useSpacesStore";
 import { MaestroSessionStatus } from "../../app/types/maestro";
 import { SessionTimeline } from "./SessionTimeline";
 import { DocsList } from "./DocsList";
 import { StrategyBadge } from "./StrategyBadge";
 import { SessionDetailsSection } from "./SessionDetailsSection";
+import { SessionLiveIndicator } from "./SessionLiveIndicator";
+import { maestroClient } from "../../utils/MaestroClient";
 
 const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   spawning: "Spawning",
@@ -49,6 +53,28 @@ export function SessionDetailOverlay() {
 
   const sessionId = overlay?.sessionId;
   const session = sessionId ? sessions[sessionId] : undefined;
+  const openDocument = useSpacesStore(s => s.openDocument);
+  const setActiveId = useSessionStore(s => s.setActiveId);
+  const [isCreatingDiagram, setIsCreatingDiagram] = useState(false);
+
+  const handleCreateDiagram = useCallback(async () => {
+    if (!sessionId || !session || isCreatingDiagram) return;
+    setIsCreatingDiagram(true);
+    try {
+      const title = `Diagram ${new Date().toLocaleDateString()}`;
+      const doc = await maestroClient.addSessionDoc(sessionId, title, '{}', 'diagram');
+      // Refresh session to pick up new doc
+      fetchSession(sessionId);
+      const projectId = overlay?.projectId ?? '';
+      const spaceId = openDocument(projectId, doc);
+      setActiveId(spaceId);
+      setOverlay(null);
+    } catch {
+      // best-effort
+    } finally {
+      setIsCreatingDiagram(false);
+    }
+  }, [sessionId, session, isCreatingDiagram, fetchSession, overlay, openDocument, setActiveId, setOverlay]);
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
@@ -121,6 +147,11 @@ export function SessionDetailOverlay() {
                   <span className={`sessionDetailStatusBadge sessionDetailStatusBadge--${session.status} ${session.needsInput?.active ? "sessionDetailStatusBadge--needsInput" : ""}`}>
                     {session.needsInput?.active ? "Needs Input" : SESSION_STATUS_LABELS[session.status]}
                   </span>
+                  <SessionLiveIndicator
+                    maestroSessionId={session.id}
+                    status={session.status}
+                    needsInput={session.needsInput?.active}
+                  />
                   <StrategyBadge strategy={session.strategy} orchestratorStrategy={session.orchestratorStrategy} />
                   {session.model && <span className="sessionDetailModelBadge">{session.model.toUpperCase()}</span>}
                   {session.mode && <span className="sessionDetailModeBadge">{session.mode.toUpperCase()}</span>}
@@ -199,11 +230,21 @@ export function SessionDetailOverlay() {
               )
             ) : (
               <>
-                {session.docs && session.docs.length > 0 && (
-                  <div className="terminalModalSection">
-                    <DocsList docs={session.docs} />
+                <div className="terminalModalSection">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    {session.docs && session.docs.length > 0 && <DocsList docs={session.docs} />}
+                    <button
+                      type="button"
+                      className="themedBtn"
+                      style={{ padding: '3px 10px', fontSize: '11px', marginLeft: 'auto' }}
+                      disabled={isCreatingDiagram}
+                      onClick={handleCreateDiagram}
+                      title="Create a new diagram doc for this session"
+                    >
+                      {isCreatingDiagram ? '...' : '+ Diagram'}
+                    </button>
                   </div>
-                )}
+                </div>
                 <div className="terminalModalSection">
                   <h3 className="terminalModalSectionTitle">▸ Timeline</h3>
                   <div ref={timelineRef} className="sessionDetailTimelineScroller" onScroll={handleScroll}>

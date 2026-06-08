@@ -24,6 +24,7 @@ type SpacesRailProps = {
     onToggle: () => void;
     onOpenNewSession?: () => void;
     onOpenWhiteboard?: () => void;
+    onOpenResources?: () => void;
     onCloseSpace?: (id: string) => void;
     agentShortcuts?: ProcessEffect[];
     onQuickStart?: (effect: ProcessEffect) => void;
@@ -117,6 +118,15 @@ const FileCodeIcon: React.FC = () => (
     </svg>
 );
 
+const ResourcesIcon: React.FC = () => (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18">
+        <rect x="2" y="3" width="7" height="7" rx="1.5" />
+        <rect x="11" y="3" width="7" height="7" rx="1.5" />
+        <rect x="2" y="12" width="7" height="5" rx="1.5" />
+        <rect x="11" y="12" width="7" height="5" rx="1.5" />
+    </svg>
+);
+
 export const SpacesRail: React.FC<SpacesRailProps> = ({
     sessions,
     activeSessionId,
@@ -124,6 +134,7 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
     onToggle,
     onOpenNewSession,
     onOpenWhiteboard,
+    onOpenResources,
     onCloseSpace,
     agentShortcuts,
     onQuickStart,
@@ -176,6 +187,20 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
                     <span className="iconRailBadge">{totalCount > 99 ? "99+" : totalCount}</span>
                 )}
             </button>
+
+            <div className="spacesRailDivider" />
+
+            {onOpenResources && (
+                <button
+                    className="iconRailButton"
+                    onClick={onOpenResources}
+                    title="Project Resources"
+                    type="button"
+                    data-testid="rail-resources-btn"
+                >
+                    <ResourcesIcon />
+                </button>
+            )}
 
             <div className="spacesRailDivider" />
 

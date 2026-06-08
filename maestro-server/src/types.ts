@@ -438,6 +438,7 @@ export interface DocEntry {
   id: string;
   title: string;
   filePath: string;
+  kind?: 'markdown' | 'diagram';      // Default "markdown" for back-compat; "diagram" stores .excalidraw content
   content?: string;                   // Optional inline markdown content (deprecated: stored in separate files)
   contentFilePath?: string;           // Path to file storing doc content (replaces inline content)
   taskId?: string;                    // Which task this doc relates to

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { MaestroSession, WorkerStrategy } from "../../app/types/maestro";
+import { SessionLiveIndicator } from "./SessionLiveIndicator";
 
 interface SessionDetailsSectionProps {
   session: MaestroSession;
@@ -123,8 +124,15 @@ export function SessionDetailsSection({
           <div className="sessionDetailsGrid">
             <div className="sessionDetailsRow">
               <span className="sessionDetailsLabel">Status:</span>
-              <span className={`sessionDetailsValue sessionDetailsValue--status-${session.status}`}>
-                {session.status}
+              <span className="sessionDetailsValue sessionDetailsValue--statusLine">
+                <span className={`sessionDetailsValue--status-${session.status}`}>
+                  {session.status}
+                </span>
+                <SessionLiveIndicator
+                  maestroSessionId={session.id}
+                  status={session.status}
+                  needsInput={session.needsInput?.active}
+                />
               </span>
             </div>
 

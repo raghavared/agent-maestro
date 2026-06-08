@@ -36,6 +36,7 @@ import { useSessionTree } from "../hooks/useSessionTree";
 import { SessionListItem, type SessionTileLinkInfo } from "./maestro/SessionListItem";
 import type { SessionTreeNode } from "../app/types/maestro";
 import { resolveSessionTab, buildChildrenByParent, collectSubtreeIds as collectSubtreeIdsUtil, type SessionSubTab } from "../utils/sessionLifecycle";
+import { willOpenStatsOnClick } from "../utils/sessionClickRouting";
 
 // Quick-launch shortcut id → brand logo + display name.
 const SHORTCUT_AGENT_TOOL: Record<string, AgentTool> = {
@@ -65,6 +66,54 @@ const AGENT_TOOL_ICONS: Record<string, string> = {
   'codex': '/agent-icons/openai-codex-icon.png',
   'gemini': '/agent-icons/gemini-logo.png',
 };
+
+// Segmented filter tabs — icon + label. Each toggles one section independently.
+const FilterTerminalIcon = (
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="15" height="15">
+    <rect x="2" y="3" width="16" height="14" rx="2" />
+    <path d="M6 9l3 2-3 2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M11 13h4" strokeLinecap="round" />
+  </svg>
+);
+const FilterAgentsIcon = (
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="15" height="15">
+    <path d="M10 2.5l1.6 4.3 4.4 1.7-4.4 1.7L10 14.5 8.4 10.2 4 8.5l4.4-1.7L10 2.5z" strokeLinejoin="round" />
+    <path d="M15.5 13.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8z" strokeLinejoin="round" />
+  </svg>
+);
+const FilterDocsIcon = (
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="15" height="15">
+    <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
+    <path d="M12 2v4h4" />
+    <path d="M7 10h6M7 13h4" strokeLinecap="round" />
+  </svg>
+);
+const FilterDrawingsIcon = (
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="15" height="15">
+    <path d="M3 17l3.5-3.5M6.5 13.5l-2-2L14 2l2 2L6.5 13.5z" strokeLinejoin="round" />
+    <path d="M12 4l2 2" strokeLinecap="round" />
+  </svg>
+);
+const FilterFilesIcon = (
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="15" height="15">
+    <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
+    <path d="M12 2v4h4" />
+    <path d="M8 11l-2 2 2 2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M12 11l2 2-2 2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const SESSION_FILTER_TABS: {
+  id: 'terminals' | 'agents' | 'docs' | 'drawings' | 'files';
+  label: string;
+  icon: React.ReactNode;
+}[] = [
+  { id: 'terminals', label: 'Terminals', icon: FilterTerminalIcon },
+  { id: 'agents', label: 'Agents', icon: FilterAgentsIcon },
+  { id: 'docs', label: 'Docs', icon: FilterDocsIcon },
+  { id: 'drawings', label: 'Drawings', icon: FilterDrawingsIcon },
+  { id: 'files', label: 'Files', icon: FilterFilesIcon },
+];
 
 function isSshCommand(commandLine: string | null | undefined): boolean {
   const trimmed = commandLine?.trim() ?? "";
@@ -148,14 +197,12 @@ const SortableSessionItem = React.memo(function SortableSessionItem({ id, childr
 function VirtualizedHistoryList({
   historySessions,
   resumingSessionId,
-  setResumingSessionId,
   resumeSession,
   setShowHistory,
   maestroTasks,
 }: {
   historySessions: MaestroSession[];
   resumingSessionId: string | null;
-  setResumingSessionId: (id: string | null) => void;
   resumeSession: (id: string) => Promise<any>;
   setShowHistory: (v: boolean) => void;
   maestroTasks: Record<string, MaestroTask>;
@@ -229,15 +276,11 @@ function VirtualizedHistoryList({
                     disabled={isResuming}
                     onClick={async (e) => {
                       e.stopPropagation();
-                      setResumingSessionId(hs.id);
                       try {
                         await resumeSession(hs.id);
                         setShowHistory(false);
                       } catch (err) {
                         console.error('Failed to resume session:', err);
-                        useUIStore.getState().reportError('Failed to resume session', err);
-                      } finally {
-                        setResumingSessionId(null);
                       }
                     }}
                   >
@@ -513,7 +556,7 @@ interface SessionNodeRendererProps {
   maestroColorMap: Map<string, TeamColor>;
   linkMap: Map<string, SessionTileLinkInfo>;
   activeLocalSessionId: string | null;
-  selectedSessionId: string | null;
+  inspectedSessionId: string | null;
   maestroTasks: Record<string, MaestroTask>;
   resumingSessionId: string | null;
   onToggleCollapse: (sessionId: string) => void;
@@ -535,7 +578,7 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
   maestroColorMap,
   linkMap,
   activeLocalSessionId,
-  selectedSessionId,
+  inspectedSessionId,
   maestroTasks,
   resumingSessionId,
   onToggleCollapse,
@@ -551,10 +594,12 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
   const isCollapsed = collapsedSessions.has(node.id);
   const link = linkMap.get(node.id) ?? null;
   const teamColor = maestroColorMap.get(node.id) ?? null;
-  // Exactly one tile is "current": the manually-selected session if the user has
-  // clicked one, otherwise the tile whose terminal is active in the workspace.
-  const isSelected = selectedSessionId != null
-    ? node.id === selectedSessionId
+  // Exactly one tile is "current", derived from a single source of truth: if a
+  // session is being inspected (stats view), that tile is current; otherwise the
+  // tile whose terminal is active in the workspace. No sticky local state, so the
+  // highlight always tracks what the center pane actually shows.
+  const isSelected = inspectedSessionId != null
+    ? node.id === inspectedSessionId
     : Boolean(link && link.localSessionId === activeLocalSessionId);
 
   return (
@@ -595,7 +640,7 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
               maestroColorMap={maestroColorMap}
               linkMap={linkMap}
               activeLocalSessionId={activeLocalSessionId}
-              selectedSessionId={selectedSessionId}
+              inspectedSessionId={inspectedSessionId}
               maestroTasks={maestroTasks}
               resumingSessionId={resumingSessionId}
               onToggleCollapse={onToggleCollapse}
@@ -635,9 +680,9 @@ export const SessionsSection = React.memo(function SessionsSection({
   onCloseSpace,
 }: SessionsSectionProps) {
   // ==================== SEGMENTED FILTER ====================
-  type SessionFilter = 'terminals' | 'sessions' | 'documents';
+  type SessionFilter = 'terminals' | 'agents' | 'docs' | 'drawings' | 'files';
   const [activeFilters, setActiveFilters] = useState<Set<SessionFilter>>(
-    new Set<SessionFilter>(['terminals', 'sessions', 'documents'])
+    new Set<SessionFilter>(['terminals', 'agents', 'docs', 'drawings', 'files'])
   );
 
   const toggleFilter = useCallback((filter: SessionFilter) => {
@@ -707,19 +752,31 @@ export const SessionsSection = React.memo(function SessionsSection({
   // Maestro session expansion state
   const [expandedSessions, setExpandedSessions] = React.useState<Set<string>>(new Set());
   const [loadingTasks, setLoadingTasks] = React.useState<Set<string>>(new Set());
-  const [resumingSessionId, setResumingSessionId] = React.useState<string | null>(null);
 
   // Use Zustand store - WebSocket updates are automatic
   const maestroTasks = useMaestroStore((s) => s.tasks);
   const maestroSessions = useMaestroStore((s) => s.sessions);
   const fetchSession = useMaestroStore((s) => s.fetchSession);
-  const resumeSession = useMaestroStore((s) => s.resumeSession);
+  const resumeSessionFlow = useMaestroStore((s) => s.resumeSessionFlow);
+  const resumingSessionId = useMaestroStore((s) => s.resumingSessionId);
   const setSessionHumanComplete = useMaestroStore((s) => s.setSessionHumanComplete);
   const setSessionArchived = useMaestroStore((s) => s.setSessionArchived);
   const hardRefresh = useMaestroStore((s) => s.hardRefresh);
 
   // Teams from store
   const teamsMap = useMaestroStore((s) => s.teams);
+
+  // The inspected maestro session (stats view in the center pane). Together with
+  // the active terminal this is the single source of truth for which tile is
+  // "current" — no separate sticky local state to drift out of sync.
+  const inspectedSessionId = useUIStore((s) => s.inspectedSessionId);
+
+  // Always-current view of `sessions` for use inside reference-stable callbacks.
+  // Lets handleSelectTile read the live array without listing `sessions` as a
+  // dependency, so the callback identity stays stable across WebSocket ticks and
+  // doesn't defeat React.memo on every SessionNodeRenderer.
+  const sessionsRef = React.useRef(sessions);
+  sessionsRef.current = sessions;
 
   const teamGroupData = useMemo(() => {
     return buildTeamGroups(sessions, maestroSessions, teamsMap);
@@ -840,8 +897,11 @@ export const SessionsSection = React.memo(function SessionsSection({
 
   // Filter sessions based on active filters
   const showTerminals = activeFilters.has('terminals');
-  const showSessions = activeFilters.has('sessions');
-  const showDocuments = activeFilters.has('documents');
+  const showAgents = activeFilters.has('agents');
+  const showDocs = activeFilters.has('docs');
+  const showDrawings = activeFilters.has('drawings');
+  const showFiles = activeFilters.has('files');
+  const showSpaces = showDocs || showDrawings || showFiles;
 
   // Plain local terminals only (maestro sessions render via the tree below).
   const filteredTerminalSessions = useMemo(() => {
@@ -849,21 +909,18 @@ export const SessionsSection = React.memo(function SessionsSection({
     return sessions.filter((s) => !s.maestroSessionId);
   }, [sessions, showTerminals]);
 
-  const filteredSpaces = useMemo(() => {
-    return showDocuments ? projectSpaces : [];
-  }, [projectSpaces, showDocuments]);
-
-  // Grouped spaces in fixed display order: Drawings → Documents → Files
+  // Grouped spaces in fixed display order: Drawings → Documents → Files.
+  // Each group is gated by its own filter so they toggle independently.
   const spaceGroups = useMemo(() => {
-    const drawings = filteredSpaces.filter((s) => s.type === "whiteboard");
-    const documents = filteredSpaces.filter((s) => s.type === "document");
-    const files = filteredSpaces.filter((s) => s.type === "file");
+    const drawings = showDrawings ? projectSpaces.filter((s) => s.type === "whiteboard") : [];
+    const documents = showDocs ? projectSpaces.filter((s) => s.type === "document") : [];
+    const files = showFiles ? projectSpaces.filter((s) => s.type === "file") : [];
     return [
       { key: "whiteboard" as const, label: "Drawings", items: drawings },
       { key: "document" as const, label: "Documents", items: documents },
       { key: "file" as const, label: "Files", items: files },
     ];
-  }, [filteredSpaces]);
+  }, [projectSpaces, showDocs, showDrawings, showFiles]);
 
   // Phase 3: Memoize SortableContext items (plain terminals only)
   const sortableSessionIds = useMemo(
@@ -890,29 +947,16 @@ export const SessionsSection = React.memo(function SessionsSection({
     }
   }, [closeAndArchive]);
 
-  const handleResume = useCallback(async (maestroSessionId: string) => {
-    setResumingSessionId(maestroSessionId);
-    try {
-      await resumeSession(maestroSessionId);
-      // Resuming revives the session — move it back to Open regardless of which
-      // tab it was in. Clear both archive and done stamps so it surfaces correctly.
-      const s = maestroSessions[maestroSessionId];
-      if (s?.archivedAt) void setSessionArchived(maestroSessionId, false);
-      if (s?.humanCompletedAt) void setSessionHumanComplete(maestroSessionId, false);
-    } catch (err) {
-      console.error('Failed to resume session:', err);
-      useUIStore.getState().reportError('Failed to resume session', err);
-    } finally {
-      setResumingSessionId(null);
-    }
-  }, [resumeSession, maestroSessions, setSessionArchived, setSessionHumanComplete]);
+  const handleResume = useCallback(
+    (maestroSessionId: string) => resumeSessionFlow(maestroSessionId),
+    [resumeSessionFlow],
+  );
 
   // ==================== MAESTRO SESSION TREE ====================
   const [collapsedSessions, setCollapsedSessions] = React.useState<Set<string>>(new Set());
   const [sessionSubTab, setSessionSubTab] = React.useState<SessionSubTab>('open');
   // The maestro session the user has clicked as "current". Drives the tile
   // highlight even for non-live sessions (which have no active terminal).
-  const [selectedSessionId, setSelectedSessionId] = React.useState<string | null>(null);
 
   // All maestro sessions in this project (source of truth for the tree)
   const projectMaestroSessions = useMemo(() => {
@@ -1008,9 +1052,28 @@ export const SessionsSection = React.memo(function SessionsSection({
   // switch the workspace to their running terminal; non-live sessions only get
   // highlighted (no auto-resume — that stays on the explicit Resume button).
   const handleSelectTile = useCallback((session: MaestroSession, link: SessionTileLinkInfo | null) => {
-    setSelectedSessionId(session.id);
-    if (link && !link.exited) {
-      onSelectSession(link.localSessionId);
+    const setInspectedSessionId = useUIStore.getState().setInspectedSessionId;
+
+    // Defensive: linkMap is memoised off `sessions`; in theory it can't
+    // disagree with the array, but a stale link pointing to a removed row
+    // would route us to a dead activeId and produce a blank center pane. Only
+    // trust the link if the local row actually exists right now. Read the live
+    // array via ref so this callback stays reference-stable across WS ticks.
+    const liveRow = link && !link.exited
+      ? sessionsRef.current.find((s) => s.id === link.localSessionId && !s.exited)
+      : null;
+    // Single source of truth, shared with the tile (see SessionListItem).
+    // willOpenStats is true ⇔ the click should surface SessionStatsView.
+    const verifiedLink: SessionTileLinkInfo | null = liveRow ? link : null;
+    const willOpenStats = willOpenStatsOnClick(session, verifiedLink);
+
+    // Highlight is derived from these two writes (inspectedSessionId for stats,
+    // activeId for a live terminal) — see SessionNodeRenderer's isSelected.
+    if (!willOpenStats) {
+      onSelectSession(link!.localSessionId);
+      setInspectedSessionId(null);
+    } else {
+      setInspectedSessionId(session.id);
     }
   }, [onSelectSession]);
 
@@ -1230,8 +1293,7 @@ export const SessionsSection = React.memo(function SessionsSection({
               <VirtualizedHistoryList
                 historySessions={historySessions}
                 resumingSessionId={resumingSessionId}
-                setResumingSessionId={setResumingSessionId}
-                resumeSession={resumeSession}
+                resumeSession={resumeSessionFlow}
                 setShowHistory={setShowHistory}
                 maestroTasks={maestroTasks}
               />
@@ -1275,22 +1337,25 @@ export const SessionsSection = React.memo(function SessionsSection({
         })}
       </div>
 
-      {/* Segmented filter: Terminals / Sessions / Documents */}
+      {/* Segmented filter: Terminals / Maestro Agents / Docs / Drawings / Files */}
       <div className="sessionsSegmentedFilter">
-        {(['terminals', 'sessions', 'documents'] as SessionFilter[]).map(filter => (
+        {SESSION_FILTER_TABS.map(({ id, label, icon }) => (
           <button
-            key={filter}
+            key={id}
             type="button"
-            className={`sessionsSegmentedFilter__btn ${activeFilters.has(filter) ? 'sessionsSegmentedFilter__btn--active' : ''}`}
-            onClick={() => toggleFilter(filter)}
+            className={`sessionsSegmentedFilter__btn ${activeFilters.has(id) ? 'sessionsSegmentedFilter__btn--active' : ''}`}
+            onClick={() => toggleFilter(id)}
+            title={label}
+            aria-pressed={activeFilters.has(id)}
           >
-            {filter.charAt(0).toUpperCase() + filter.slice(1)}
+            <span className="sessionsSegmentedFilter__icon" aria-hidden="true">{icon}</span>
+            <span className="sessionsSegmentedFilter__label">{label}</span>
           </button>
         ))}
       </div>
 
       {/* Sub-tabs for the maestro session tree */}
-      {showSessions && (
+      {showAgents && (
         <div className="sessionSubTabs" role="tablist" aria-label="Session filter">
           {(['open', 'done', 'archived'] as SessionSubTab[]).map((tab) => {
             const count = sessionTabCounts[tab];
@@ -1324,7 +1389,7 @@ export const SessionsSection = React.memo(function SessionsSection({
         ) : (
           <>
             {/* Maestro session tree (spawn-chain hierarchy) */}
-            {showSessions && (
+            {showAgents && (
               visibleRoots.length === 0 ? (
                 <div className="sessionEmptyState">
                   <span className="sessionEmptyState__icon" aria-hidden="true">
@@ -1357,7 +1422,7 @@ export const SessionsSection = React.memo(function SessionsSection({
                       maestroColorMap={maestroColorMap}
                       linkMap={linkMap}
                       activeLocalSessionId={activeSessionId}
-                      selectedSessionId={selectedSessionId}
+                      inspectedSessionId={inspectedSessionId}
                       maestroTasks={maestroTasks}
                       resumingSessionId={resumingSessionId}
                       onToggleCollapse={handleToggleSessionCollapse}
@@ -1395,7 +1460,7 @@ export const SessionsSection = React.memo(function SessionsSection({
       </div>
 
       {/* Spaces — grouped: Drawings → Documents → Files */}
-      {showDocuments && (filteredSpaces.length > 0 || onCreateWhiteboard) && (
+      {showSpaces && (spaceGroups.some((g) => g.items.length > 0) || (showDrawings && onCreateWhiteboard)) && (
         <div className="spacesGroups">
           {spaceGroups.map((group) => {
             if (group.items.length === 0) return null;

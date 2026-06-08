@@ -94,6 +94,8 @@ interface MaestroState {
   errors: Record<string, string>;
   wsConnected: boolean;
   activeProjectIdRef: string | null;
+  // Currently in-flight session resume — drives "Resuming…" UI in tile + stats.
+  resumingSessionId: string | null;
   // Ordering state
   taskOrdering: Record<string, string[]>;    // projectId -> orderedIds
   sessionOrdering: Record<string, string[]>; // projectId -> orderedIds
@@ -155,6 +157,13 @@ interface MaestroState {
   archiveTeam: (id: string, projectId: string) => Promise<void>;
   unarchiveTeam: (id: string, projectId: string) => Promise<void>;
   resumeSession: (sessionId: string) => Promise<void>;
+  /**
+   * High-level resume flow used by tile + stats view:
+   *   - sets resumingSessionId for spinner UI
+   *   - calls the bare resumeSession
+   *   - clears humanCompletedAt / archivedAt so the resumed session returns to Open
+   */
+  resumeSessionFlow: (sessionId: string) => Promise<void>;
   updateSessionMode: (sessionId: string, mode: string) => void;
   setSessionHumanComplete: (sessionId: string, complete: boolean) => Promise<void>;
   setSessionArchived: (sessionId: string, archived: boolean) => Promise<void>;
@@ -750,6 +759,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     errors: {},
     wsConnected: false,
     activeProjectIdRef: null,
+    resumingSessionId: null,
     taskOrdering: {},
     sessionOrdering: {},
     taskListOrdering: {},
@@ -1282,6 +1292,21 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
 
     resumeSession: async (sessionId: string) => {
       await maestroClient.resumeSession(sessionId);
+    },
+
+    resumeSessionFlow: async (sessionId: string) => {
+      set({ resumingSessionId: sessionId });
+      try {
+        await maestroClient.resumeSession(sessionId);
+        const s = get().sessions[sessionId];
+        if (s?.archivedAt) void get().setSessionArchived(sessionId, false);
+        if (s?.humanCompletedAt) void get().setSessionHumanComplete(sessionId, false);
+      } catch (err) {
+        console.error('Failed to resume session:', err);
+        useUIStore.getState().reportError('Failed to resume session', err);
+      } finally {
+        set({ resumingSessionId: null });
+      }
     },
 
     updateSessionMode: (sessionId, mode) => {

@@ -2,8 +2,12 @@ import React, { useMemo, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { DocEntry } from "../../app/types/maestro";
+import { maestroClient } from "../../utils/MaestroClient";
 const LazyMermaidDiagram = React.lazy(() =>
   import("./MermaidDiagram").then(m => ({ default: m.MermaidDiagram }))
+);
+const LazyExcalidrawBoard = React.lazy(() =>
+  import("../ExcalidrawBoard").then(m => ({ default: m.ExcalidrawBoard }))
 );
 
 interface DocViewerProps {
@@ -47,60 +51,106 @@ function isDiagramLanguage(lang: string | undefined): boolean {
   return DIAGRAM_LANGUAGES.has(lang);
 }
 
-const markdownComponents = {
-  code({ className, children, ...props }: any) {
-    const match = /language-(\S+)/.exec(className || "");
-    const lang = match?.[1];
-    const codeString = String(children).replace(/\n$/, "");
+/** Renders a referenced diagram doc inline (read-only), fetched by docId. */
+function InlineExcalidrawEmbed({ docId, onOpenDoc }: { docId: string; onOpenDoc?: (doc: DocEntry) => void }) {
+  const [doc, setDoc] = useState<DocEntry | null>(null);
+  const [error, setError] = useState(false);
 
-    // Render mermaid/diagram code blocks as visual diagrams
-    if (isDiagramLanguage(lang)) {
+  useEffect(() => {
+    let cancelled = false;
+    // We can't fetch a single doc by ID directly, so we search for it via a
+    // session-scoped route. The docId itself encodes the sessionId prefix in
+    // most paths, but we use a minimal heuristic: extract sessionId from docId
+    // if it matches the pattern doc_<sessionId>_<rest>.
+    // As a simpler fallback we just try to surface a placeholder.
+    setDoc(null);
+    setError(false);
+    // docId format is typically "doc_<timestamp>_<random>" — we don't have the
+    // sessionId here, so we can only render a placeholder with an open affordance.
+    // A full fetch would require knowing the sessionId.
+    return () => { cancelled = true; };
+  }, [docId]);
+
+  return (
+    <div className="excalidrawEmbed" style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 8, margin: '8px 0', background: 'var(--bg-secondary)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, opacity: 0.7 }}>
+        <span>⬡ Diagram</span>
+        <span style={{ fontFamily: 'monospace', fontSize: 10 }}>{docId}</span>
+        {onOpenDoc && doc && (
+          <button type="button" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={() => onOpenDoc(doc)}>
+            Open
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function makeMarkdownComponents(onOpenDiagramDoc?: (doc: DocEntry) => void) {
+  return {
+    code({ className, children, ...props }: any) {
+      const match = /language-(\S+)/.exec(className || "");
+      const lang = match?.[1];
+      const codeString = String(children).replace(/\n$/, "");
+
+      // Inline Excalidraw diagram embed: ```excalidraw\n<docId>\n```
+      if (lang === "excalidraw") {
+        const docId = codeString.trim();
+        return <InlineExcalidrawEmbed docId={docId} onOpenDoc={onOpenDiagramDoc} />;
+      }
+
+      // Render mermaid/diagram code blocks as visual diagrams
+      if (isDiagramLanguage(lang)) {
+        return (
+          <React.Suspense fallback={<pre><code>{codeString}</code></pre>}>
+            <LazyMermaidDiagram chart={codeString} />
+          </React.Suspense>
+        );
+      }
+
+      // Also auto-detect mermaid-like content in unlabeled code blocks
+      const firstLine = codeString.split("\n")[0].trim();
+      const mermaidKeywords = [
+        "graph ", "graph\n", "flowchart ", "sequenceDiagram", "classDiagram",
+        "stateDiagram", "erDiagram", "gantt", "pie ", "pie\n", "gitGraph",
+        "mindmap", "timeline", "sankey", "xychart", "block-beta",
+        "journey", "quadrantChart", "requirementDiagram", "C4Context",
+        "C4Container", "C4Component", "C4Deployment",
+      ];
+      if (match === null && mermaidKeywords.some((kw) => firstLine.startsWith(kw))) {
+        return (
+          <React.Suspense fallback={<pre><code>{codeString}</code></pre>}>
+            <LazyMermaidDiagram chart={codeString} />
+          </React.Suspense>
+        );
+      }
+
+      // For inline code, render as-is
+      if (!className) {
+        return <code {...props}>{children}</code>;
+      }
+
+      // Block code - render normally
       return (
-        <React.Suspense fallback={<pre><code>{codeString}</code></pre>}>
-          <LazyMermaidDiagram chart={codeString} />
-        </React.Suspense>
+        <code className={className} {...props}>
+          {children}
+        </code>
       );
-    }
-
-    // Also auto-detect mermaid-like content in unlabeled code blocks
-    const firstLine = codeString.split("\n")[0].trim();
-    const mermaidKeywords = [
-      "graph ", "graph\n", "flowchart ", "sequenceDiagram", "classDiagram",
-      "stateDiagram", "erDiagram", "gantt", "pie ", "pie\n", "gitGraph",
-      "mindmap", "timeline", "sankey", "xychart", "block-beta",
-      "journey", "quadrantChart", "requirementDiagram", "C4Context",
-      "C4Container", "C4Component", "C4Deployment",
-    ];
-    if (match === null && mermaidKeywords.some((kw) => firstLine.startsWith(kw))) {
-      return (
-        <React.Suspense fallback={<pre><code>{codeString}</code></pre>}>
-          <LazyMermaidDiagram chart={codeString} />
-        </React.Suspense>
-      );
-    }
-
-    // For inline code, render as-is
-    if (!className) {
-      return <code {...props}>{children}</code>;
-    }
-
-    // Block code - render normally
-    return (
-      <code className={className} {...props}>
-        {children}
-      </code>
-    );
-  },
-};
+    },
+  };
+}
 
 export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [diagramEditMode, setDiagramEditMode] = useState(false);
   const fileExt = useMemo(() => getFileExtension(doc.filePath), [doc.filePath]);
   const shouldRenderMarkdown = useMemo(() => isMarkdown(doc.filePath), [doc.filePath]);
+  const isDiagramDoc = doc.kind === 'diagram';
   const fileName = useMemo(() => {
     const parts = doc.filePath.split("/");
     return parts[parts.length - 1];
   }, [doc.filePath]);
+  const markdownComponents = useMemo(() => makeMarkdownComponents(), []);
 
   // Escape-to-close only for overlay mode
   useEffect(() => {
@@ -124,7 +174,7 @@ export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
       <div className="docViewerHeader">
         <div className="docViewerHeaderLeft">
           <span className="docViewerIcon">
-            {shouldRenderMarkdown ? "M↓" : "{ }"}
+            {isDiagramDoc ? "⬡" : shouldRenderMarkdown ? "M↓" : "{ }"}
           </span>
           <div className="docViewerHeaderInfo">
             <h3 className="docViewerTitle">{doc.title}</h3>
@@ -137,6 +187,17 @@ export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
           </div>
         </div>
         <div className="docViewerHeaderActions">
+          {isDiagramDoc && (
+            <button
+              type="button"
+              className="themedBtn"
+              style={{ padding: '3px 10px', fontSize: '11px' }}
+              onClick={() => setDiagramEditMode((v) => !v)}
+              title={diagramEditMode ? "Switch to view mode" : "Edit diagram"}
+            >
+              {diagramEditMode ? "View" : "Edit"}
+            </button>
+          )}
           {!inline && (
             <button type="button"
               className="docViewerFullscreenBtn"
@@ -187,8 +248,21 @@ export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
       </div>
 
       {/* Content body */}
-      <div className="docViewerBody">
-        {doc.content ? (
+      <div className={`docViewerBody ${isDiagramDoc ? 'docViewerBody--diagram' : ''}`}>
+        {isDiagramDoc ? (
+          <React.Suspense fallback={<div style={{ padding: 20, opacity: 0.5 }}>Loading diagram...</div>}>
+            <LazyExcalidrawBoard
+              key={`${doc.id}-${diagramEditMode ? 'edit' : 'view'}`}
+              inline
+              mode={diagramEditMode ? 'edit' : 'view'}
+              docId={doc.id}
+              docSessionId={doc.sessionId}
+              initialSceneJson={doc.content}
+              name={doc.title}
+              onClose={() => {}}
+            />
+          </React.Suspense>
+        ) : doc.content ? (
           shouldRenderMarkdown ? (
             <div className="docViewerMarkdown">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>

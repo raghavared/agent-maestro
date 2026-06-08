@@ -92,7 +92,7 @@ async function startServer() {
   });
 
   // API routes using services
-  const projectRoutes = createProjectRoutes(projectService);
+  const projectRoutes = createProjectRoutes(projectService, sessionService);
   const taskRoutes = createTaskRoutes(taskService, sessionService, config.dataDir);
   const taskListRoutes = createTaskListRoutes(taskListService);
   const taskGraphRoutes = createTaskGraphRoutes(taskGraphService);

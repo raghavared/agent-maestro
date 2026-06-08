@@ -204,9 +204,34 @@ export const TaskListItem = React.memo(function TaskListItem({
     const tasks = useMaestroStore(s => s.tasks);
     const teamMembersMap = useMaestroStore(s => s.teamMembers);
     const openDocument = useSpacesStore(s => s.openDocument);
+    const createWhiteboard = useSpacesStore(s => s.createWhiteboard);
     const setActiveId = useSessionStore(s => s.setActiveId);
+    const [isCreatingDiagram, setIsCreatingDiagram] = useState(false);
     const deleteTask = useMaestroStore(s => s.deleteTask);
     const updateTask = useMaestroStore(s => s.updateTask);
+
+    const markdownDocs = useMemo(() => taskDocs.filter(d => d.kind !== 'diagram'), [taskDocs]);
+    const diagramDocs = useMemo(() => taskDocs.filter(d => d.kind === 'diagram'), [taskDocs]);
+
+    const handleCreateDiagram = useCallback(async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (isCreatingDiagram) return;
+        setIsCreatingDiagram(true);
+        try {
+            const title = `Diagram ${new Date().toLocaleDateString()}`;
+            // Find the first session ID available for this task
+            const sessionId = task.sessionIds?.[0];
+            if (!sessionId) return;
+            const doc = await maestroClient.addTaskDoc(task.id, sessionId, title, '{}', 'diagram');
+            setTaskDocs(prev => [...prev, doc]);
+            const spaceId = openDocument(task.projectId, doc);
+            setActiveId(spaceId);
+        } catch {
+            // best-effort
+        } finally {
+            setIsCreatingDiagram(false);
+        }
+    }, [isCreatingDiagram, task.id, task.projectId, task.sessionIds, openDocument, setActiveId]);
 
     const teamMembers = useMemo(() => Object.values(teamMembersMap), [teamMembersMap]);
 
@@ -754,13 +779,13 @@ export const TaskListItem = React.memo(function TaskListItem({
                         </div>
                     )}
 
-                    {/* Docs row (only if task has docs) */}
-                    {taskDocs.length > 0 && (
+                    {/* Docs row (only if task has markdown docs) */}
+                    {markdownDocs.length > 0 && (
                         <div className="terminalTaskMetaRow terminalTaskDocsRow">
                             <div className="terminalTaskDocsList">
-                                {taskDocs.map(doc => {
+                                {markdownDocs.map(doc => {
                                     const ext = doc.filePath.split('.').pop()?.toLowerCase() || '';
-                                    const isMarkdown = ['md', 'mdx', 'markdown'].includes(ext);
+                                    const isMd = ['md', 'mdx', 'markdown'].includes(ext);
                                     return (
                                         <button type="button"
                                             key={doc.id}
@@ -773,12 +798,46 @@ export const TaskListItem = React.memo(function TaskListItem({
                                             }}
                                         >
                                             <span className="terminalTaskDocItemIcon">
-                                                {isMarkdown ? 'M↓' : '{ }'}
+                                                {isMd ? 'M↓' : '{ }'}
                                             </span>
                                             <span className="terminalTaskDocItemTitle">{doc.title}</span>
                                         </button>
                                     );
                                 })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Diagrams row */}
+                    {(diagramDocs.length > 0 || task.sessionIds?.length > 0) && (
+                        <div className="terminalTaskMetaRow terminalTaskDocsRow">
+                            <div className="terminalTaskDocsList">
+                                {diagramDocs.map(doc => (
+                                    <button type="button"
+                                        key={doc.id}
+                                        className="terminalTaskDocItem"
+                                        title={doc.filePath}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const spaceId = openDocument(task.projectId, doc);
+                                            setActiveId(spaceId);
+                                        }}
+                                    >
+                                        <span className="terminalTaskDocItemIcon">⬡</span>
+                                        <span className="terminalTaskDocItemTitle">{doc.title}</span>
+                                    </button>
+                                ))}
+                                {task.sessionIds?.length > 0 && (
+                                    <button type="button"
+                                        className="terminalTaskDocItem terminalTaskDocItem--add"
+                                        disabled={isCreatingDiagram}
+                                        title="Create diagram doc for this task"
+                                        onClick={handleCreateDiagram}
+                                    >
+                                        <span className="terminalTaskDocItemIcon">+</span>
+                                        <span className="terminalTaskDocItemTitle">{isCreatingDiagram ? '...' : 'Diagram'}</span>
+                                    </button>
+                                )}
                             </div>
                         </div>
                     )}

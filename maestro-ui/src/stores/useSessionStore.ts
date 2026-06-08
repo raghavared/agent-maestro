@@ -343,9 +343,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       sessions: typeof sessions === 'function' ? sessions(s.sessions) : sessions,
     })),
   setActiveId: (id) =>
-    set((s) => ({
-      activeId: typeof id === 'function' ? id(s.activeId) : id,
-    })),
+    set((s) => {
+      const next = typeof id === 'function' ? id(s.activeId) : id;
+      // Activating any terminal/space supersedes an inspected-stats view. This
+      // must fire even when next === activeId: inspecting a session leaves
+      // activeId untouched, so re-clicking the already-active tab (e.g. a
+      // whiteboard you're "behind") is the only way back — an equality
+      // short-circuit here would strand the stats view over that tab.
+      if (next != null) {
+        useUIStore.getState().setInspectedSessionId(null);
+      }
+      return { activeId: next };
+    }),
   setHydrated: (hydrated) =>
     set((s) => ({
       hydrated: typeof hydrated === 'function' ? hydrated(s.hydrated) : hydrated,

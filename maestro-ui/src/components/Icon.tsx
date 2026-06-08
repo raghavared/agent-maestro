@@ -32,6 +32,8 @@ export type IconName =
   | "arrow-left"
   | "volume"
   | "volume-off"
+  | "paperclip"
+  | "pencil"
   | "log";
 
 type IconProps = {
@@ -299,6 +301,19 @@ export function Icon({ name, size = 16, className }: IconProps) {
           <path d="M8 13h8" />
           <path d="M8 17h8" />
           <path d="M8 9h2" />
+        </svg>
+      );
+    case "paperclip":
+      return (
+        <svg {...common}>
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        </svg>
+      );
+    case "pencil":
+      return (
+        <svg {...common}>
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z" />
         </svg>
       );
     default:
