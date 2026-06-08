@@ -10,41 +10,18 @@ import {
     isCommandAllowedForMode,
     toggleCommandOverride,
 } from "../../utils/commandPermissions";
+import {
+    AGENT_TOOLS,
+    AGENT_TOOL_LABELS,
+    createLaunchConfig,
+    DEFAULT_MODEL_BY_AGENT_TOOL,
+    MODELS_BY_AGENT_TOOL,
+} from "../../app/constants/agentTools";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const AGENT_TOOLS: AgentTool[] = ["claude-code", "codex", "gemini"];
-const AGENT_TOOL_LABELS: Record<AgentTool, string> = {
-    "claude-code": "Claude Code",
-    "codex": "OpenAI Codex",
-    "gemini": "Google Gemini",
-};
-
-const MODELS_BY_TOOL: Record<AgentTool, { value: ModelType; label: string }[]> = {
-    "claude-code": [
-        { value: "haiku", label: "Haiku" },
-        { value: "sonnet", label: "Sonnet" },
-        { value: "opus", label: "Opus" },
-        { value: "claude-opus-4-7", label: "Claude Opus 4.7" },
-        { value: "claude-opus-4-7[1m]", label: "Claude Opus 4.7 [1M]" },
-    ],
-    "codex": [
-        { value: "gpt-5.5", label: "GPT 5.5" },
-        { value: "gpt-5.4", label: "GPT 5.4" },
-        { value: "gpt-5.3-codex", label: "GPT 5.3" },
-        { value: "gpt-5.2-codex", label: "GPT 5.2" },
-    ],
-    "gemini": [
-        { value: "gemini-3-pro-preview", label: "Gemini 3 Pro" },
-        { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-    ],
-};
-
-const DEFAULT_MODEL: Record<string, string> = {
-    "claude-code": "sonnet",
-    "codex": "gpt-5.4",
-    "gemini": "gemini-3-pro-preview",
-};
+const MODELS_BY_TOOL = MODELS_BY_AGENT_TOOL;
+const DEFAULT_MODEL = DEFAULT_MODEL_BY_AGENT_TOOL;
 
 const COMMAND_GROUPS = [
     { key: 'root', label: 'Root', commands: ['whoami', 'status', 'commands'] },
@@ -177,11 +154,17 @@ export function TeamLaunchConfigModal({
             if (!member) continue;
 
             const override: MemberLaunchOverride = {};
-            if (config.agentTool !== (member.agentTool || 'claude-code')) override.agentTool = config.agentTool;
-            if (config.model !== (member.model || DEFAULT_MODEL[member.agentTool || 'claude-code'])) override.model = config.model;
+            const modelChanged = config.model !== (member.model || DEFAULT_MODEL[member.agentTool || 'claude-code']);
+            const toolChanged = config.agentTool !== (member.agentTool || 'claude-code');
 
             const expectedPerm = config.isDangerous ? 'bypassPermissions' : (member.permissionMode === 'bypassPermissions' ? 'acceptEdits' : member.permissionMode);
-            if (expectedPerm !== member.permissionMode) override.permissionMode = expectedPerm as any;
+            const accessChanged = expectedPerm !== member.permissionMode;
+            if (toolChanged || modelChanged || accessChanged) {
+                override.launchConfig = {
+                    ...createLaunchConfig(config.agentTool, config.model),
+                    ...(accessChanged ? { accessMode: expectedPerm === 'bypassPermissions' ? 'fullAccess' : 'acceptEdits' } : {}),
+                };
+            }
 
             const origSkills = member.skillIds || [];
             if (JSON.stringify(config.skillIds.sort()) !== JSON.stringify([...origSkills].sort())) {

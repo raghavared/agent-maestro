@@ -1,0 +1,48 @@
+/* ═══════════════════════════════════════════════════
+   COORDINATOR GLOW — Terminal Panel Role Indicator
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  --coordinator-glow-color: #f59e0b;
+  --coordinator-glow-color-rgb: 245, 158, 11;
+}
+
+/* Inset glow on the terminal container — only visible for the active (non-hidden) session */
+.coordinator-glow {
+  transition: box-shadow 200ms ease;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--coordinator-glow-color-rgb), 0.35),
+    inset 0 0 12px rgba(var(--coordinator-glow-color-rgb), 0.18);
+}
+
+/* ─── Mode Chip — overlay near top of terminal pane ─── */
+
+.modeChip {
+  position: absolute;
+  top: 5px;
+  right: 8px;
+  z-index: 30;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-family: var(--style-font-ui, 'JetBrains Mono', monospace);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  user-select: none;
+  pointer-events: none;
+  white-space: nowrap;
+  transition: color 200ms ease, background 200ms ease, border-color 200ms ease;
+}
+
+.modeChip--worker {
+  color: var(--muted, rgba(255, 255, 255, 0.4));
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.modeChip--coordinator {
+  color: var(--coordinator-glow-color);
+  background: rgba(var(--coordinator-glow-color-rgb), 0.1);
+  border: 1px solid rgba(var(--coordinator-glow-color-rgb), 0.3);
+}

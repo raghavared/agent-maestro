@@ -2,11 +2,7 @@ import React, { useRef } from "react";
 import { createPortal } from "react-dom";
 import { TeamMember } from "../../../app/types/maestro";
 import { useDropdownPosition } from "../../../hooks/useDropdownPosition";
-
-const AGENT_TOOL_LABELS: Record<string, string> = {
-    "claude-code": "Claude Code",
-    "codex": "OpenAI Codex",
-};
+import { AGENT_TOOL_LABELS } from "../../../app/constants/agentTools";
 
 type TeamMemberSelectorProps = {
     selectedTeamMemberIds: string[];

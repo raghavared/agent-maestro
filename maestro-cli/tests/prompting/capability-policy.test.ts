@@ -62,14 +62,23 @@ describe('capability-policy', () => {
     const manifest = buildManifest({
       teamMemberCommandPermissions: {
         commands: {
-          'session:spawn': true,
+          'team:create': true,
         },
       },
     });
 
     const result = resolveCapabilitySet(manifest);
 
-    expect(result.allowedCommands).not.toContain('session:spawn');
+    // team:create is coordinator-only; a worker override cannot escalate to it.
+    expect(result.allowedCommands).not.toContain('team:create');
+  });
+
+  it('lets any session (incl. worker) execute spawn/coordination commands by default', () => {
+    const result = resolveCapabilitySet(buildManifest({ mode: 'worker' }));
+
+    expect(result.allowedCommands).toContain('session:spawn');
+    expect(result.allowedCommands).toContain('session:list');
+    expect(result.allowedCommands).toContain('session:logs');
   });
 
   it('includes team-member:list in coordinator defaults', () => {
@@ -105,7 +114,7 @@ describe('capability-policy', () => {
     expect(result.allowedCommands).toContain('team-member:edit');
   });
 
-  it('hard-blocks coordinated-coordinator spawn even with explicit allowlist', () => {
+  it('allows coordinated-coordinator to spawn (no hard block)', () => {
     const manifest = buildManifest({
       mode: 'coordinated-coordinator',
       coordinatorSessionId: 'sess-parent',
@@ -119,7 +128,7 @@ describe('capability-policy', () => {
     const result = resolveCapabilitySet(manifest);
     expect(result.allowedCommands).toContain('session:siblings');
     expect(result.allowedCommands).toContain('session:prompt');
-    expect(result.allowedCommands).not.toContain('session:spawn');
+    expect(result.allowedCommands).toContain('session:spawn');
   });
 
   it('returns safe degraded fallback when manifest load fails', () => {
@@ -131,15 +140,28 @@ describe('capability-policy', () => {
     expect(result.resolution).toBe('fallback');
   });
 
-  it('enables canPromptOtherSessions only for coordinated modes', () => {
+  it('enables canPromptOtherSessions for all modes (free prompt)', () => {
     const worker = resolveCapabilitySet(buildManifest({ mode: 'worker' }));
     const coordinator = resolveCapabilitySet(buildManifest({ mode: 'coordinator' }));
     const coordinatedWorker = resolveCapabilitySet(buildManifest({ mode: 'coordinated-worker' }));
     const coordinatedCoordinator = resolveCapabilitySet(buildManifest({ mode: 'coordinated-coordinator' }));
 
-    expect(worker.capabilities.canPromptOtherSessions).toBe(false);
-    expect(coordinator.capabilities.canPromptOtherSessions).toBe(false);
+    expect(worker.capabilities.canPromptOtherSessions).toBe(true);
+    expect(coordinator.capabilities.canPromptOtherSessions).toBe(true);
     expect(coordinatedWorker.capabilities.canPromptOtherSessions).toBe(true);
     expect(coordinatedCoordinator.capabilities.canPromptOtherSessions).toBe(true);
+  });
+
+  it('keeps spawn/coordination hidden from worker prompt while executable', () => {
+    const worker = resolveCapabilitySet(buildManifest({ mode: 'worker' }));
+    const coordinator = resolveCapabilitySet(buildManifest({ mode: 'coordinator' }));
+
+    // Executable for worker, but not advertised in its capability summary.
+    expect(worker.allowedCommands).toContain('session:spawn');
+    expect(worker.capabilities.canSpawnSessions).toBe(false);
+
+    // Coordinator both has it and is told about it.
+    expect(coordinator.allowedCommands).toContain('session:spawn');
+    expect(coordinator.capabilities.canSpawnSessions).toBe(true);
   });
 });

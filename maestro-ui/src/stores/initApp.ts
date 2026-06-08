@@ -498,7 +498,7 @@ export function initApp(
       if (loaded.length > 0 && cleaned.length === 0) {
         return cleanAgentShortcutIds(DEFAULTS.DEFAULT_AGENT_SHORTCUT_IDS);
       }
-      return cleaned;
+      return cleanAgentShortcutIds([...cleaned, 'hermes', 'gemini']);
     });
 
     // ──── ASSETS ────

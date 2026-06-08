@@ -6,6 +6,10 @@ export interface CommandCatalogEntry {
   syntax: string;
   group: string;
   allowedModes: AgentMode[];
+  // Modes in which the command is surfaced in the prompt/help listing.
+  // Defaults to allowedModes. Lets a command be executable everywhere
+  // (allowedModes) while staying hidden from a given mode's prompt.
+  promptModes?: AgentMode[];
   isCore?: boolean;
   hiddenFromPrompt?: boolean;
 }
@@ -14,12 +18,13 @@ const ALL_MODES: AgentMode[] = ['worker', 'coordinator', 'coordinated-worker', '
 const COORDINATOR_MODES: AgentMode[] = ['coordinator', 'coordinated-coordinator'];
 const WORKER_MODES: AgentMode[] = ['worker', 'coordinated-worker'];
 
-const DEFAULT_EXCLUDED_COMMANDS_BY_MODE: Partial<Record<AgentMode, string[]>> = {
-  'coordinated-coordinator': ['session:spawn'],
-};
+// Any session may spawn/coordinate; coordination commands are gated for
+// prompt visibility (promptModes) rather than execution. No mode-level exclusions.
+const DEFAULT_EXCLUDED_COMMANDS_BY_MODE: Partial<Record<AgentMode, string[]>> = {};
 
 const COMMAND_DEFINITIONS: Array<Omit<CommandCatalogEntry, 'syntax'>> = [
   // Core commands
+  { id: 'announce', description: 'Speak a short message aloud via Alexa (Voice Monkey)', group: 'root', allowedModes: ALL_MODES },
   { id: 'whoami', description: 'Print current context', group: 'root', allowedModes: ALL_MODES, isCore: true },
   { id: 'status', description: 'Show project status', group: 'root', allowedModes: ALL_MODES, isCore: true },
   { id: 'commands', description: 'Show available commands', group: 'root', allowedModes: ALL_MODES, isCore: true },
@@ -43,12 +48,12 @@ const COMMAND_DEFINITIONS: Array<Omit<CommandCatalogEntry, 'syntax'>> = [
   { id: 'task:docs:list', description: 'List task docs', group: 'task', allowedModes: ALL_MODES },
 
   // Session commands
-  { id: 'session:list', description: 'List sessions', group: 'session', allowedModes: COORDINATOR_MODES },
+  { id: 'session:list', description: 'List sessions', group: 'session', allowedModes: ALL_MODES, promptModes: COORDINATOR_MODES },
   { id: 'session:siblings', description: 'List sibling sessions (other active workers spawned by the same coordinator)', group: 'session', allowedModes: ALL_MODES },
-  { id: 'session:info', description: 'Get session info', group: 'session', allowedModes: COORDINATOR_MODES },
-  { id: 'session:watch', description: 'Watch domain events (status changes, explicit reports) via WebSocket. Use session logs for agent output.', group: 'session', allowedModes: COORDINATOR_MODES },
-  { id: 'session:spawn', description: 'Spawn new session', group: 'session', allowedModes: COORDINATOR_MODES },
-  { id: 'session:logs', description: 'Read worker text output from session logs', group: 'session', allowedModes: COORDINATOR_MODES },
+  { id: 'session:info', description: 'Get session info', group: 'session', allowedModes: ALL_MODES, promptModes: COORDINATOR_MODES },
+  { id: 'session:watch', description: 'Watch domain events (status changes, explicit reports) via WebSocket. Use session logs for agent output.', group: 'session', allowedModes: ALL_MODES, promptModes: COORDINATOR_MODES },
+  { id: 'session:spawn', description: 'Spawn new session', group: 'session', allowedModes: ALL_MODES, promptModes: COORDINATOR_MODES },
+  { id: 'session:logs', description: 'Read worker text output from session logs', group: 'session', allowedModes: ALL_MODES, promptModes: COORDINATOR_MODES },
   { id: 'session:prompt', description: 'Send an input prompt to another active session', group: 'session', allowedModes: ALL_MODES },
   { id: 'session:register', description: 'Register session', group: 'session', allowedModes: ALL_MODES, isCore: true, hiddenFromPrompt: true },
   { id: 'session:complete', description: 'Complete session', group: 'session', allowedModes: ALL_MODES, isCore: true, hiddenFromPrompt: true },
@@ -72,6 +77,11 @@ const COMMAND_DEFINITIONS: Array<Omit<CommandCatalogEntry, 'syntax'>> = [
   { id: 'project:delete', description: 'Delete project', group: 'project', allowedModes: COORDINATOR_MODES },
   { id: 'project:set-master', description: 'Designate project as master', group: 'project', allowedModes: COORDINATOR_MODES },
   { id: 'project:unset-master', description: 'Remove master designation from project', group: 'project', allowedModes: COORDINATOR_MODES },
+
+  // Coordinator commands
+  { id: 'coordinator:enable', description: 'Promote this session to coordinator role (unlocks session spawn)', group: 'coordinator', allowedModes: ALL_MODES, promptModes: ALL_MODES },
+  { id: 'coordinator:disable', description: 'Demote this session to worker role (re-locks session spawn)', group: 'coordinator', allowedModes: ALL_MODES, promptModes: ALL_MODES },
+  { id: 'coordinator:status', description: 'Show current coordinator mode and role', group: 'coordinator', allowedModes: ALL_MODES, promptModes: ALL_MODES },
 
   // Master commands
   { id: 'master:projects', description: 'List all projects across workspace', group: 'master', allowedModes: ALL_MODES },
@@ -129,6 +139,7 @@ const COMMAND_DEFINITIONS: Array<Omit<CommandCatalogEntry, 'syntax'>> = [
 ];
 
 const COMMAND_SYNTAX_MAP: Record<string, string> = {
+  'announce': 'maestro announce "<text>" [--device <name>]',
   'whoami': 'maestro whoami',
   'status': 'maestro status',
   'commands': 'maestro commands',
@@ -142,7 +153,7 @@ const COMMAND_SYNTAX_MAP: Record<string, string> = {
   'report:error': 'maestro report error "<description>"',
 
   // Task commands
-  'task:list': 'maestro task list [taskId] [--status <status>] [--priority <priority>]',
+  'task:list': 'maestro task list [taskId] [--status <status>] [--priority <priority>] [--project-id <id>] [--all-projects]',
   'task:get': 'maestro task get <taskId>',
   'task:create': 'maestro task create "<title>" [-d "<description>"] [--priority <high|medium|low>] [--parent <parentId>]',
   'task:edit': 'maestro task edit <taskId> [--title "<title>"] [--desc "<description>"] [--priority <priority>]',
@@ -160,11 +171,11 @@ const COMMAND_SYNTAX_MAP: Record<string, string> = {
   'task:docs:list': 'maestro task docs list <taskId>',
 
   // Session commands
-  'session:list': 'maestro session list [--team-member-id <tmId>] [--active]',
+  'session:list': 'maestro session list [--team-member-id <tmId>] [--active] [--project-id <id>] [--all-projects]',
   'session:siblings': 'maestro session siblings',
   'session:info': 'maestro session info [sessionId]',
   'session:watch': 'maestro session watch <sessionId1>,<sessionId2>,...',
-  'session:spawn': 'maestro session spawn --task <id> [--team-member-id <tmId>] [--model <model>] [--agent-tool <tool>]',
+  'session:spawn': 'maestro session spawn --task <id> [--project <id>] [--team-member-id <tmId>] [--launch-config <json>]',
   'session:logs': 'maestro session logs [ids] [--my-workers] [--last <n>] [--full] [--max-length <n>]',
   'session:prompt': 'maestro session prompt <targetSessionId> --message "<text>" [--mode send|paste]',
   'session:register': 'maestro session register',
@@ -184,15 +195,20 @@ const COMMAND_SYNTAX_MAP: Record<string, string> = {
   'project:set-master': 'maestro project set-master <projectId>',
   'project:unset-master': 'maestro project unset-master <projectId>',
 
+  // Coordinator commands
+  'coordinator:enable': 'maestro coordinator enable',
+  'coordinator:disable': 'maestro coordinator disable',
+  'coordinator:status': 'maestro coordinator status',
+
   // Master commands
   'master:projects': 'maestro master projects',
   'master:tasks': 'maestro master tasks [--project <id>]',
-  'master:sessions': 'maestro master sessions [--project <id>]',
+  'master:sessions': 'maestro master sessions [--project <id>] [--active]',
   'master:context': 'maestro master context',
 
   // Team member commands
   'team-member:create': 'maestro team-member create "<name>" --role "<role>" --avatar "<emoji>" --mode <worker|coordinator|coordinated-worker|coordinated-coordinator> [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"]',
-  'team-member:list': 'maestro team-member list [--all] [--status <active|archived>] [--mode <worker|coordinator|coordinated-worker|coordinated-coordinator>]',
+  'team-member:list': 'maestro team-member list [--all] [--status <active|archived>] [--mode <worker|coordinator|coordinated-worker|coordinated-coordinator>] [--project-id <id>] [--all-projects]',
   'team-member:get': 'maestro team-member get <teamMemberId>',
   'team-member:edit': 'maestro team-member edit <teamMemberId> [--name "<name>"] [--role "<role>"] [--avatar "<emoji>"] [--mode <worker|coordinator|coordinated-worker|coordinated-coordinator>] [--model <model>] [--agent-tool <tool>] [--identity "<instructions>"]',
   'team-member:archive': 'maestro team-member archive <teamMemberId>',
@@ -220,7 +236,7 @@ const COMMAND_SYNTAX_MAP: Record<string, string> = {
 
   // Spell commands
   'spell:entities': 'maestro spell entities [--type <entityType>] [--project <projectId>]',
-  'spell:list': 'maestro spell list [entityId] [--type <entityType>]',
+  'spell:list': 'maestro spell list [entityId] [--type <entityType>] [--project-id <id>] [--all-projects]',
   'spell:invoke': 'maestro spell invoke <entityId> [spellName] --target <sessionId> [--args <json>]',
   'spell:create': 'maestro spell create "<name>" --prompt "<text>" [--description "<text>"]',
   'spell:delete': 'maestro spell delete <entityId>',
@@ -252,6 +268,7 @@ const COMMAND_BY_ID = new Map(COMMAND_CATALOG.map((entry) => [entry.id, entry] a
 export const MASTER_COMMAND_IDS = ['master:projects', 'master:tasks', 'master:sessions', 'master:context'];
 
 export const COMMAND_GROUP_META: Record<string, { prefix: string; description: string }> = {
+  coordinator: { prefix: 'maestro coordinator', description: 'Coordinator mode management' },
   report: { prefix: 'maestro report', description: 'Status reporting' },
   task: { prefix: 'maestro task', description: 'Task management' },
   session: { prefix: 'maestro session', description: 'Session management' },
@@ -272,6 +289,17 @@ export function getCommandCatalog(): CommandCatalogEntry[] {
 
 export function getCommandById(commandId: string): CommandCatalogEntry | undefined {
   return COMMAND_BY_ID.get(commandId);
+}
+
+export function getPromptModes(entry: CommandCatalogEntry): AgentMode[] {
+  return entry.promptModes ?? entry.allowedModes;
+}
+
+export function isCommandVisibleInPrompt(commandId: string, mode: AgentMode): boolean {
+  const entry = getCommandById(commandId);
+  if (!entry) return false;
+  if (entry.hiddenFromPrompt) return false;
+  return getPromptModes(entry).includes(mode);
 }
 
 export function getCommandSyntax(commandId: string): string {
@@ -296,7 +324,7 @@ export function groupCommandsByParent(
 
   for (const entry of COMMAND_CATALOG) {
     if (!selected.has(entry.id)) continue;
-    if (!entry.allowedModes.includes(mode)) continue;
+    if (!getPromptModes(entry).includes(mode)) continue;
     if (options.excludePromptHidden && entry.hiddenFromPrompt) continue;
 
     const group = entry.group || 'root';

@@ -1,62 +1,16 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import { ProjectService } from '../application/services/ProjectService';
 import { TaskService } from '../application/services/TaskService';
 import { SessionService } from '../application/services/SessionService';
-import { AppError } from '../domain/common/Errors';
+import { SessionStatus } from '../types';
 import { TaskFilter } from '../domain/repositories/ITaskRepository';
 import { handleRouteError } from './middleware/errorHandler';
 import { validateQuery, paginationQuerySchema, extractPagination, paginate } from './validation';
 
 /**
- * Authorization middleware for master-only endpoints.
- * Checks X-Session-Id header or sessionId query param.
- * Verifies the session has isMasterSession === true.
- */
-function createMasterAuthMiddleware(sessionService: SessionService) {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    const sessionId =
-      (req.headers['x-session-id'] as string) ||
-      (req.query.sessionId as string);
-
-    if (!sessionId) {
-      return res.status(403).json({
-        error: true,
-        message: 'Master session context required. Provide X-Session-Id header or sessionId query param.',
-        code: 'FORBIDDEN'
-      });
-    }
-
-    try {
-      const session = await sessionService.getSession(sessionId);
-      if (!session.isMasterSession) {
-        return res.status(403).json({
-          error: true,
-          message: 'Access denied. This endpoint requires a master session.',
-          code: 'FORBIDDEN'
-        });
-      }
-      next();
-    } catch (err: unknown) {
-      if (err instanceof AppError && err.statusCode === 404) {
-        return res.status(403).json({
-          error: true,
-          message: 'Invalid session ID.',
-          code: 'FORBIDDEN'
-        });
-      }
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      return res.status(500).json({
-        error: true,
-        message,
-        code: 'INTERNAL_ERROR'
-      });
-    }
-  };
-}
-
-/**
  * Create master routes for cross-project queries.
- * All routes require a valid master session via X-Session-Id header or sessionId query param.
+ * All routes are open — no master-session auth required.
+ * These remain as ergonomic aliases to the canonical /api/* endpoints.
  */
 export function createMasterRoutes(
   projectService: ProjectService,
@@ -65,11 +19,8 @@ export function createMasterRoutes(
 ) {
   const router = express.Router();
 
-
-  const authMiddleware = createMasterAuthMiddleware(sessionService);
-
   // GET /master/projects — List all projects
-  router.get('/master/projects', authMiddleware, validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
+  router.get('/master/projects', validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
     try {
       const projects = await projectService.listProjects();
       if (req.query.limit || req.query.offset) {
@@ -83,7 +34,7 @@ export function createMasterRoutes(
   });
 
   // GET /master/tasks?projectId=<optional> — List tasks across all or specific project
-  router.get('/master/tasks', authMiddleware, validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
+  router.get('/master/tasks', validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
     try {
       const projectId = req.query.projectId as string | undefined;
       const filter: TaskFilter = {};
@@ -107,8 +58,8 @@ export function createMasterRoutes(
     }
   });
 
-  // GET /master/sessions?projectId=<optional> — List sessions across all or specific project
-  router.get('/master/sessions', authMiddleware, validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
+  // GET /master/sessions?projectId=<optional>&active=true&status=<csv> — List sessions across all or specific project
+  router.get('/master/sessions', validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
     try {
       const projectId = req.query.projectId as string | undefined;
       let sessions;
@@ -117,6 +68,17 @@ export function createMasterRoutes(
         sessions = await sessionService.listSessionsByProject(projectId);
       } else {
         sessions = await sessionService.listSessions();
+      }
+
+      if (req.query.active === 'true') {
+        sessions = sessions.filter(s => (['spawning', 'idle', 'working'] as SessionStatus[]).includes(s.status));
+      }
+
+      if (req.query.status) {
+        const statuses = (req.query.status as string).split(',').map(s => s.trim()).filter(Boolean) as SessionStatus[];
+        if (statuses.length > 0) {
+          sessions = sessions.filter(s => statuses.includes(s.status));
+        }
       }
 
       if (req.query.limit || req.query.offset) {
@@ -130,7 +92,7 @@ export function createMasterRoutes(
   });
 
   // GET /master/context — Full workspace summary
-  router.get('/master/context', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/master/context', async (req: Request, res: Response) => {
     try {
       const projects = await projectService.listProjects();
 

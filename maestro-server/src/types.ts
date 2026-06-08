@@ -92,7 +92,19 @@ export interface UpdateTaskGraphPayload {
 // Worker strategy types
 export type WorkerStrategy = 'simple' | 'tree';
 export type OrchestratorStrategy = 'default' | 'intelligent-batching' | 'dag';
-export type AgentTool = 'claude-code' | 'codex' | 'gemini';
+export type AgentTool = 'claude-code' | 'codex' | 'hermes' | 'gemini';
+export type LaunchProvider = 'claude' | 'openai' | 'hermes' | 'gemini';
+export type LaunchReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type LaunchSpeed = 'standard' | 'fast';
+export type LaunchAccessMode = 'safe' | 'acceptEdits' | 'plan' | 'fullAccess';
+
+export interface LaunchConfig {
+  provider: LaunchProvider;
+  model: string;
+  reasoningEffort?: LaunchReasoningEffort;
+  speed?: LaunchSpeed;
+  accessMode?: LaunchAccessMode;
+}
 
 // Four-mode model types
 export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coordinated-coordinator';
@@ -118,8 +130,10 @@ export function normalizeMode(mode: string, hasCoordinator?: boolean): AgentMode
 
 // Per-member launch override for team launch configuration
 export interface MemberLaunchOverride {
-  agentTool?: AgentTool;
-  model?: string;
+  launchConfig?: LaunchConfig;
+  agentTool?: AgentTool;               // Legacy launch override; normalized into launchConfig
+  model?: string;                      // Legacy launch override; normalized into launchConfig
+  reasoningEffort?: LaunchReasoningEffort; // Legacy launch override; normalized into launchConfig
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   skillIds?: string[];
   commandPermissions?: {
@@ -143,16 +157,20 @@ export interface Project {
 export type TeamMemberStatus = 'active' | 'archived';
 export type TeamMemberScope = 'project' | 'global';
 
+// Discriminator for auto-seeded, non-deletable system team members.
+export type SystemTeamMemberKind = 'alexa-coordinator';
+
 export interface TeamMember {
   id: string;                          // "tm_<timestamp>_<random>" or deterministic for defaults
   projectId: string;
+  systemKind?: SystemTeamMemberKind;   // Set for auto-seeded system members (non-deletable, recreated on startup)
   scope?: TeamMemberScope;             // 'project' (default) or 'global' — global members shared across all projects
   name: string;                        // "Worker", "Coordinator", "Frontend Dev"
   role: string;                        // "Default executor", "Task orchestrator"
   identity?: string;                   // Custom instructions / persona prompt (optional; empty means no persona)
   avatar: string;                      // Emoji: "🔧", "🎯", "🎨"
   model?: string;                      // "opus", "sonnet", "haiku"
-  agentTool?: AgentTool;               // "claude-code", "codex", "gemini"
+  agentTool?: AgentTool;               // "claude-code", "codex", "hermes", "gemini"
   mode?: AgentMode;                    // "execute" or "coordinate"
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   strategy?: string;                   // Deprecated: kept for backward compatibility
@@ -358,6 +376,8 @@ export interface Session {
   startedAt: number;
   lastActivity: number;
   completedAt: number | null;
+  humanCompletedAt?: number | null;  // Set when a human marks the session complete (moves it to Completed tab)
+  archivedAt?: number | null;  // Set when a session is closed/archived (moves it to Archived tab; takes precedence over completed)
   hostname: string;
   platform: string;
   events: SessionEvent[];
@@ -591,6 +611,18 @@ export interface UpdateSessionPayload {
   rootSessionId?: string | null;
   teamSessionId?: string | null;
   teamId?: string | null;
+  mode?: AgentMode;            // Update session mode (stored in metadata.mode)
+  humanCompletedAt?: number | null;  // Human-driven completion timestamp (null to reopen)
+  archivedAt?: number | null;  // Archive timestamp (null to unarchive)
+}
+
+/** Payload emitted on session:mode_changed event */
+export interface SessionModeChangedPayload {
+  sessionId: string;
+  mode: AgentMode;
+  previousMode: AgentMode;
+  changed: boolean;
+  timestamp: number;
 }
 
 // Spawn session payload (Server-Generated Manifests)
@@ -607,8 +639,10 @@ export interface SpawnSessionPayload {
   teamMemberId?: string;                // Team member running this session (backward compat)
   teamMemberIds?: string[];             // Multiple team member identities for this session
   delegateTeamMemberIds?: string[];     // Team member IDs for coordination delegation pool
-  agentTool?: AgentTool;                // Override agent tool for this run
-  model?: string;                       // Override model for this run
+  launchConfig?: LaunchConfig;          // Canonical launch override for this run
+  agentTool?: AgentTool;                // Legacy launch override; normalized into launchConfig
+  model?: string;                       // Legacy launch override; normalized into launchConfig
+  reasoningEffort?: LaunchReasoningEffort; // Legacy launch override; normalized into launchConfig
   initialDirective?: {
     subject: string;
     message: string;
@@ -634,4 +668,3 @@ export interface SpawnRequestEvent {
   rootSessionId?: string;                // Top-most session ID in the spawn chain
   _isSpawnCreated?: boolean;             // Backward compatibility flag
 }
-

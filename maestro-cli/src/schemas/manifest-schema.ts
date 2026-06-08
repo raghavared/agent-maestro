@@ -115,6 +115,21 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
         maxTurns: { type: 'number', nullable: true },
         timeout: { type: 'number', nullable: true },
         workingDirectory: { type: 'string', nullable: true },
+        launchConfig: {
+          type: 'object',
+          properties: {
+            provider: { type: 'string', enum: ['claude', 'openai', 'hermes', 'gemini'] },
+            model: { type: 'string' },
+            reasoningEffort: { type: 'string', enum: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'], nullable: true },
+            speed: { type: 'string', enum: ['standard', 'fast'], nullable: true },
+            accessMode: { type: 'string', enum: ['safe', 'acceptEdits', 'plan', 'fullAccess'], nullable: true },
+          },
+          required: ['provider', 'model'],
+          // Tolerate extra/future launchConfig fields from older or newer writers;
+          // sanitizeLaunchConfig re-derives a strict shape before use.
+          additionalProperties: true,
+          nullable: true,
+        },
         allowedCommands: {
           type: 'array',
           items: { type: 'string' },
@@ -214,9 +229,24 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
     },
     agentTool: {
       type: 'string',
-      enum: ['claude-code', 'codex', 'gemini'],
+      enum: ['claude-code', 'codex', 'hermes', 'gemini'],
       nullable: true,
       description: 'Agent tool to use for this session (defaults to claude-code)',
+    },
+    launchConfig: {
+      type: 'object',
+      properties: {
+        provider: { type: 'string', enum: ['claude', 'openai', 'hermes', 'gemini'] },
+        model: { type: 'string' },
+        reasoningEffort: { type: 'string', enum: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'], nullable: true },
+        speed: { type: 'string', enum: ['standard', 'fast'], nullable: true },
+        accessMode: { type: 'string', enum: ['safe', 'acceptEdits', 'plan', 'fullAccess'], nullable: true },
+      },
+      required: ['provider', 'model'],
+      // Tolerate extra/future launchConfig fields from older or newer writers;
+      // sanitizeLaunchConfig re-derives a strict shape before use.
+      additionalProperties: true,
+      nullable: true,
     },
     referenceTaskIds: {
       type: 'array',
@@ -249,7 +279,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
           model: { type: 'string', nullable: true },
           agentTool: {
             type: 'string',
-            enum: ['claude-code', 'codex', 'gemini'],
+            enum: ['claude-code', 'codex', 'hermes', 'gemini'],
             nullable: true,
           },
           capabilities: {
@@ -417,7 +447,7 @@ const manifestSchema: JSONSchemaType<MaestroManifest> = {
           model: { type: 'string', nullable: true },
           agentTool: {
             type: 'string',
-            enum: ['claude-code', 'codex', 'gemini'],
+            enum: ['claude-code', 'codex', 'hermes', 'gemini'],
             nullable: true,
           },
           memory: {

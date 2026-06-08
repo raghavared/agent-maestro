@@ -153,6 +153,18 @@ const UnifiedSessionsView = React.memo(function UnifiedSessionsView({
         }
     }, [sessions, sessionOrder]);
 
+    // Track which session columns are collapsed so the wrapper can shrink to match
+    const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set());
+    const handleCollapsedChange = useCallback((sessionId: string, collapsed: boolean) => {
+        setCollapsedIds((prev) => {
+            if (collapsed === prev.has(sessionId)) return prev;
+            const next = new Set(prev);
+            if (collapsed) next.add(sessionId);
+            else next.delete(sessionId);
+            return next;
+        });
+    }, []);
+
     // Drag-to-reorder state
     const [dragSessionId, setDragSessionId] = useState<string | null>(null);
     const [dragOverSessionId, setDragOverSessionId] = useState<string | null>(null);
@@ -219,11 +231,12 @@ const UnifiedSessionsView = React.memo(function UnifiedSessionsView({
                     const projectName = projectNames.get(session.projectId) ?? "Unknown";
                     const projectColor = projectColors.get(session.projectId) ?? "#00d9ff";
                     const isDragOver = dragOverSessionId === session.id && dragSessionId !== session.id;
+                    const isCollapsed = collapsedIds.has(session.id);
 
                     return (
                         <div
                             key={session.id}
-                            className={`mpbUnifiedSessionWrapper ${isDragOver ? "mpbUnifiedSessionWrapper--dragOver" : ""} ${dragSessionId === session.id ? "mpbUnifiedSessionWrapper--dragging" : ""}`}
+                            className={`mpbUnifiedSessionWrapper ${isCollapsed ? "mpbUnifiedSessionWrapper--collapsed" : ""} ${isDragOver ? "mpbUnifiedSessionWrapper--dragOver" : ""} ${dragSessionId === session.id ? "mpbUnifiedSessionWrapper--dragging" : ""}`}
                             {...(session.maestroSessionId ? { 'data-maestro-session-id': session.maestroSessionId } : {})}
                             draggable
                             onDragStart={(e) => handleDragStart(e, session.id)}
@@ -246,6 +259,7 @@ const UnifiedSessionsView = React.memo(function UnifiedSessionsView({
                                         : null
                                 }
                                 width={0}
+                                onCollapsedChange={(collapsed) => handleCollapsedChange(session.id, collapsed)}
                             />
                         </div>
                     );
@@ -266,7 +280,7 @@ type SessionProjectGroupProps = {
     maestroSessions: Record<string, MaestroSession>;
 };
 
-const MIN_COL_WIDTH = 80;
+const MIN_COL_WIDTH = 360;
 
 const SessionProjectGroup = React.memo(function SessionProjectGroup({
     projectId,
@@ -322,6 +336,7 @@ type ResizableSessionColumnProps = {
     isActiveTerminal: boolean;
     maestroSession: MaestroSession | null;
     width: number;
+    onCollapsedChange?: (collapsed: boolean) => void;
 };
 
 const ResizableSessionColumn = React.memo(function ResizableSessionColumn({
@@ -329,10 +344,16 @@ const ResizableSessionColumn = React.memo(function ResizableSessionColumn({
     isActiveTerminal,
     maestroSession,
     width,
+    onCollapsedChange,
 }: ResizableSessionColumnProps) {
     const [view, setView] = useState<ColumnView>("terminal");
     const [columnCollapsed, setColumnCollapsed] = useState(false);
     const terminalHostRef = useRef<HTMLDivElement>(null);
+
+    const setCollapsedState = useCallback((next: boolean) => {
+        setColumnCollapsed(next);
+        onCollapsedChange?.(next);
+    }, [onCollapsedChange]);
 
     const isWorking = session.agentWorking ?? false;
     const hasTimeline = maestroSession != null && maestroSession.timeline.length > 0;
@@ -371,7 +392,7 @@ const ResizableSessionColumn = React.memo(function ResizableSessionColumn({
         return (
             <div
                 className="mpbSessionColumnCollapsed"
-                onClick={() => setColumnCollapsed(false)}
+                onClick={() => setCollapsedState(false)}
                 title={`${session.name} — click to expand`}
             >
                 <span
@@ -390,13 +411,13 @@ const ResizableSessionColumn = React.memo(function ResizableSessionColumn({
     return (
         <div
             className={`sessionBoardColumn sessionBoardColumn--terminal ${isWorking ? "sessionBoardColumn--working" : ""}`}
-            style={{ minWidth: `${MIN_COL_WIDTH}px`, flex: '1 1 0' }}
+            style={{ minWidth: `${MIN_COL_WIDTH}px`, flex: `1 0 ${MIN_COL_WIDTH}px` }}
             {...(session.maestroSessionId ? { 'data-maestro-session-id': session.maestroSessionId } : {})}
         >
             {/* Header — click to collapse */}
             <div
                 className="sessionColumnHeader"
-                onClick={() => setColumnCollapsed(true)}
+                onClick={() => setCollapsedState(true)}
                 style={{ cursor: "pointer" }}
                 title="Click to minimize"
             >

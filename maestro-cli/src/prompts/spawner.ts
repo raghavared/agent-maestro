@@ -1,7 +1,7 @@
 /**
  * Spawner Prompts
  *
- * Prompt strings used by agent spawners (Claude, Codex, Gemini)
+ * Prompt strings used by agent spawners (Claude, Codex, Gemini, Hermes)
  * for structuring the prompts sent to AI agents.
  */
 
@@ -21,6 +21,7 @@ export function buildGeminiStructuredPrompt(systemPrompt: string, taskContext: s
 
 export const AGENT_TOOL_DISPLAY_NAMES: Record<string, string> = {
   'codex': 'OpenAI Codex',
+  'hermes': 'Hermes',
   'gemini': 'Google Gemini',
   'claude-code': 'Claude Code',
 };

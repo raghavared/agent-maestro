@@ -691,11 +691,14 @@
 
 /* ── Prompt Send Animation ── */
 
+/* --prompt-accent defaults to the theme color; the sender's team color is set
+   per-animation as an inline style on each travelling element. */
 .promptAnimLayer {
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 10100;
+    --prompt-accent: var(--theme-primary, #00ff41);
 }
 
 /* Flying dot: animates from sender to target along a curved path */
@@ -704,11 +707,11 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--theme-primary, #00ff41);
+    background: var(--prompt-accent, #00ff41);
     box-shadow:
-        0 0 6px var(--theme-primary, #00ff41),
-        0 0 14px var(--theme-primary, #00ff41),
-        0 0 24px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.4);
+        0 0 6px var(--prompt-accent, #00ff41),
+        0 0 14px var(--prompt-accent, #00ff41),
+        0 0 24px color-mix(in srgb, var(--prompt-accent, #00ff41) 40%, transparent);
     left: var(--start-x);
     top: var(--start-y);
     transform: translate(-50%, -50%);
@@ -726,7 +729,7 @@
     border-radius: 2px;
     background: linear-gradient(
         to left,
-        var(--theme-primary, #00ff41),
+        var(--prompt-accent, #00ff41),
         transparent
     );
     top: 50%;
@@ -756,6 +759,102 @@
     }
 }
 
+/* Rail puck: sender-initial bubble gliding between Spaces-rail icons (mostly vertical) */
+.promptRailPuck {
+    position: fixed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--prompt-accent, #00ff41);
+    color: #0a0a0a;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow:
+        0 0 6px var(--prompt-accent, #00ff41),
+        0 0 14px color-mix(in srgb, var(--prompt-accent, #00ff41) 45%, transparent);
+    left: var(--start-x);
+    top: var(--start-y);
+    transform: translate(-50%, -50%);
+    animation: promptTravelRail 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    pointer-events: none;
+    z-index: 10101;
+}
+
+@keyframes promptTravelRail {
+    0% {
+        left: var(--start-x);
+        top: var(--start-y);
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.7);
+    }
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+    100% {
+        left: var(--end-x);
+        top: var(--end-y);
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.9);
+    }
+}
+
+/* Bar dot: abstract accent dot gliding horizontally along the project bar */
+.promptBarDot {
+    position: fixed;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--prompt-accent, #00ff41);
+    box-shadow:
+        0 0 6px var(--prompt-accent, #00ff41),
+        0 0 16px color-mix(in srgb, var(--prompt-accent, #00ff41) 50%, transparent);
+    left: var(--start-x);
+    top: var(--bar-y);
+    transform: translate(-50%, -50%);
+    animation: promptTravelBar 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    pointer-events: none;
+    z-index: 10101;
+}
+
+@keyframes promptTravelBar {
+    0% {
+        left: var(--start-x);
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.7);
+    }
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.15);
+    }
+    100% {
+        left: var(--end-x);
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.9);
+    }
+}
+
+/* Transient glow on a project tab when a message departs/arrives */
+.projectTab--msgGlow {
+    animation: projectTabMsgGlow 0.6s ease-out;
+}
+
+@keyframes projectTabMsgGlow {
+    0% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--prompt-accent, #00ff41) 55%, transparent);
+    }
+    35% {
+        box-shadow: 0 0 10px 2px color-mix(in srgb, var(--prompt-accent, #00ff41) 45%, transparent);
+    }
+    100% {
+        box-shadow: none;
+    }
+}
+
 /* Pulse ring at target on arrival */
 .promptTargetPulse {
     position: fixed;
@@ -764,8 +863,8 @@
     border-radius: 50%;
     transform: translate(-50%, -50%);
     background: transparent;
-    border: 2px solid var(--theme-primary, #00ff41);
-    box-shadow: 0 0 8px var(--theme-primary, #00ff41);
+    border: 2px solid var(--prompt-accent, #00ff41);
+    box-shadow: 0 0 8px var(--prompt-accent, #00ff41);
     animation: promptPulseRing 0.7s ease-out forwards;
     pointer-events: none;
     z-index: 10101;
@@ -793,10 +892,10 @@
 
 @keyframes promptReceiveGlow {
     0% {
-        box-shadow: 0 0 0 0 rgba(var(--theme-primary-rgb, 0, 255, 65), 0.5);
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--prompt-accent, #00ff41) 50%, transparent);
     }
     30% {
-        box-shadow: 0 0 8px 3px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.4);
+        box-shadow: 0 0 8px 3px color-mix(in srgb, var(--prompt-accent, #00ff41) 40%, transparent);
     }
     100% {
         box-shadow: none;
@@ -810,13 +909,22 @@
 
 @keyframes promptSendFlash {
     0% {
-        box-shadow: 0 0 0 0 rgba(var(--theme-primary-rgb, 0, 255, 65), 0.4);
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--prompt-accent, #00ff41) 40%, transparent);
     }
     30% {
-        box-shadow: 0 0 6px 2px rgba(var(--theme-primary-rgb, 0, 255, 65), 0.3);
+        box-shadow: 0 0 6px 2px color-mix(in srgb, var(--prompt-accent, #00ff41) 30%, transparent);
     }
     100% {
         box-shadow: none;
+    }
+}
+
+/* Reduced motion: no travel; the JS only renders the arrival pulse / tab glow. */
+@media (prefers-reduced-motion: reduce) {
+    .promptFlyingDot,
+    .promptRailPuck,
+    .promptBarDot {
+        display: none;
     }
 }
 
@@ -942,6 +1050,202 @@
     background: rgba(255, 255, 255, 0.08);
     color: #f0f4f8;
     border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Breadcrumb bar: trueRoot ▸ … ▸ currentRoot */
+.teamViewBreadcrumbs {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 16px;
+    background: rgba(10, 14, 22, 0.7);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+}
+
+.teamViewBreadcrumbs__sep {
+    color: rgba(255, 255, 255, 0.25);
+    font-size: 11px;
+    user-select: none;
+}
+
+.teamViewBreadcrumbs__crumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: 1px solid transparent;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 11px;
+    font-family: var(--font-mono, monospace);
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    max-width: 180px;
+}
+
+.teamViewBreadcrumbs__crumb:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f0f4f8;
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.teamViewBreadcrumbs__crumb--current {
+    color: #f0f4f8;
+    background: rgba(255, 255, 255, 0.06);
+    cursor: default;
+    font-weight: 600;
+}
+
+.teamViewBreadcrumbs__avatar {
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.teamViewBreadcrumbs__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Drillable child slot affordance */
+.teamViewWorkerSlot--drillable {
+    cursor: pointer;
+}
+
+.teamViewWorkerSlot--drillable:hover {
+    border-color: var(--accent, #6B8AFD);
+}
+
+/* Right-aligned cluster of slot header controls (stats + resume + drill) */
+.teamViewSlotHeaderActions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.teamViewSlotDrillBtn {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+    line-height: 1;
+    padding: 2px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.teamViewSlotDrillBtn:hover {
+    background: rgba(107, 138, 253, 0.15);
+    color: var(--accent, #6B8AFD);
+    border-color: var(--accent, #6B8AFD);
+}
+
+/* Resume control on slot headers */
+.teamViewSlotResumeBtn {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+    line-height: 1;
+    padding: 2px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.teamViewSlotResumeBtn:hover:not(:disabled) {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+    border-color: #4ade80;
+}
+
+.teamViewSlotResumeBtn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* Sub-agent stats badge group */
+.teamViewSlotStats {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-family: var(--font-mono, monospace);
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.teamViewSlotStats__total {
+    white-space: nowrap;
+}
+
+.teamViewSlotStats__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    line-height: 1;
+}
+
+.teamViewSlotStats__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.teamViewSlotStats__chip--active {
+    color: #4ade80;
+}
+
+.teamViewSlotStats__chip--active .teamViewSlotStats__dot {
+    background: #4ade80;
+}
+
+.teamViewSlotStats__chip--inactive {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.teamViewSlotStats__chip--inactive .teamViewSlotStats__dot {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Placeholder for a slot whose terminal isn't live */
+.teamViewSlotPlaceholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 0;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 12px;
+    font-family: var(--font-mono, monospace);
+    text-align: center;
+    padding: 12px;
+}
+
+.teamViewSlotPlaceholder__drill {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 11px;
+    font-family: var(--font-mono, monospace);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.teamViewSlotPlaceholder__drill:hover {
+    background: rgba(107, 138, 253, 0.15);
+    color: var(--accent, #6B8AFD);
+    border-color: var(--accent, #6B8AFD);
 }
 
 /* Body layout */
@@ -1109,8 +1413,8 @@
     background: rgba(10, 14, 22, 0.95);
 }
 
-/* When used as a reparenting host, ensure the terminal container fills it */
-.teamViewSlotTerminal--host .terminalContainer {
+/* When used as a reparenting host, ensure the reparented xterm fills it */
+.teamViewSlotTerminal--host > .terminalInTeamView {
     position: absolute;
     inset: 0;
     visibility: visible !important;
@@ -1123,42 +1427,48 @@
 
 .sessionsSegmentedFilter {
     display: flex;
-    gap: 0;
-    margin: 4px 10px 6px;
+    gap: 3px;
+    margin: 6px 16px 8px;
+    padding: 3px;
     border: 1px solid var(--theme-border, var(--terminal-border));
-    border-radius: var(--style-radius, 4px);
-    overflow: hidden;
+    border-radius: 9px;
+    background: rgba(var(--theme-primary-rgb), 0.03);
 }
 
 .sessionsSegmentedFilter__btn {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
     border: none;
     background: transparent;
-    color: rgba(var(--theme-primary-rgb), 0.45);
-    padding: 4px 8px;
+    color: rgba(var(--theme-primary-rgb), 0.5);
+    padding: 5px 6px;
     font-family: var(--style-font-ui);
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
     text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s ease;
-    border-right: 1px solid var(--theme-border, var(--terminal-border));
-}
-
-.sessionsSegmentedFilter__btn:last-child {
-    border-right: none;
+    transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
 .sessionsSegmentedFilter__btn:hover {
-    color: rgba(var(--theme-primary-rgb), 0.75);
-    background: rgba(var(--theme-primary-rgb), 0.04);
+    color: rgba(var(--theme-primary-rgb), 0.85);
+    background: rgba(var(--theme-primary-rgb), 0.05);
 }
 
 .sessionsSegmentedFilter__btn--active {
     color: var(--theme-primary);
-    background: rgba(var(--theme-primary-rgb), 0.1);
-    box-shadow: inset 0 0 10px rgba(var(--theme-primary-rgb), 0.06);
+    background: rgba(var(--theme-primary-rgb), 0.14);
+    box-shadow: 0 1px 4px rgba(var(--theme-primary-rgb), 0.12), inset 0 0 0 1px rgba(var(--theme-primary-rgb), 0.18);
+}
+
+.sessionsSegmentedFilter__btn--active:hover {
+    color: var(--theme-primary);
+    background: rgba(var(--theme-primary-rgb), 0.18);
 }
 
 /* ================================================================== */

@@ -72,14 +72,38 @@ export const masterToggleSchema = z.object({
 // --- Shared schemas ---
 
 const permissionModeSchema = z.enum(['acceptEdits', 'interactive', 'readOnly', 'bypassPermissions']);
+const launchProviderSchema = z.enum(['claude', 'openai', 'hermes', 'gemini']);
+const launchReasoningEffortSchema = z.enum(['minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
+const launchSpeedSchema = z.enum(['standard', 'fast']);
+const launchAccessModeSchema = z.enum(['safe', 'acceptEdits', 'plan', 'fullAccess']);
+
+// NOTE: intentionally NOT `.strict()`. launchConfig is the canonical, evolving
+// launch shape; a newer/older UI may send extra keys (e.g. a future `temperature`).
+// Unknown keys are stripped by Zod's default behavior, and `sanitizeLaunchConfig`
+// re-derives the object from a strict allow-list before use — so dropping `.strict()`
+// here buys forward/backward compatibility without weakening runtime safety.
+const launchConfigSchema = z.object({
+  provider: launchProviderSchema,
+  model: z.string().min(1).max(200),
+  reasoningEffort: launchReasoningEffortSchema.optional(),
+  speed: launchSpeedSchema.optional(),
+  accessMode: launchAccessModeSchema.optional(),
+});
 
 const memberLaunchOverrideSchema = z.object({
-  agentTool: z.string().optional(),
-  model: z.string().optional(),
+  launchConfig: launchConfigSchema.optional(),
+  // Free string (not a strict enum) for backward compatibility with legacy/custom
+  // agentTool values persisted before PR #83 (e.g. 'claude'). Route-level
+  // normalization (launchConfigFromLegacy/providerForAgentTool) safely defaults
+  // unknown tools to the Claude provider.
+  agentTool: z.string().max(100).optional(),
+  model: z.string().min(1).max(200).optional(),
+  reasoningEffort: launchReasoningEffortSchema.optional(),
   permissionMode: permissionModeSchema.optional(),
   skillIds: z.array(z.string()).optional(),
   commandPermissions: z.object({
-    commands: z.record(z.string(), z.boolean()),
+    groups: z.record(z.string(), z.boolean()).optional(),
+    commands: z.record(z.string(), z.boolean()).optional(),
   }).optional(),
 }).strict();
 
@@ -289,6 +313,9 @@ export const updateSessionSchema = z.object({
   status: sessionStatusSchema.optional(),
   agentId: safeId.optional(),
   claudeSessionId: z.string().uuid().optional(),
+  completedAt: z.number().optional(),
+  humanCompletedAt: z.number().nullable().optional(),
+  archivedAt: z.number().nullable().optional(),
   env: z.record(z.string(), z.string().max(5000)).optional(),
   events: z.array(z.object({
     id: safeId,
@@ -326,7 +353,7 @@ export const sessionTimelineSchema = z.object({
 export const listSessionsQuerySchema = z.object({
   projectId: safeId.optional(),
   taskId: safeId.optional(),
-  status: sessionStatusSchema.optional(),
+  status: z.string().optional(),    // Comma-separated list of statuses
   active: z.enum(['true', 'false']).optional(),
   parentSessionId: safeId.optional(),
   rootSessionId: safeId.optional(),
@@ -334,12 +361,16 @@ export const listSessionsQuerySchema = z.object({
   fields: z.enum(['full', 'summary']).optional(),
 });
 
+export const modeBodySchema = z.object({
+  role: z.enum(['worker', 'coordinator']),
+}).strict();
+
 // --- Spawn session schema ---
 
 const allStrategySchema = z.enum(['simple', 'tree', 'default', 'intelligent-batching', 'dag']);
 
 export const spawnSessionSchema = z.object({
-  projectId: safeId,
+  projectId: safeId.optional(),
   taskIds: z.array(safeId).min(1),
   sessionName: shortString.optional(),
   skills: z.array(z.string().max(200)).optional(),
@@ -348,8 +379,12 @@ export const spawnSessionSchema = z.object({
   mode: agentModeSchema.optional().default('worker'),
   strategy: allStrategySchema.optional().default('simple'),
   context: z.record(z.string(), z.unknown()).optional(),
-  model: modelSchema.optional(),
-  agentTool: z.string().optional(),
+  launchConfig: launchConfigSchema.optional(),
+  // Free string (not a strict enum) so legacy clients/persisted spawn payloads
+  // with older agentTool values still validate; normalized server-side.
+  agentTool: z.string().max(100).optional(),
+  model: z.string().min(1).max(200).optional(),
+  reasoningEffort: launchReasoningEffortSchema.optional(),
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
   delegateTeamMemberIds: z.array(safeId).optional(),
@@ -415,6 +450,21 @@ export const updateCustomPromptSchema = z.object({
   content: longString.optional(),
   tags: z.array(z.string().max(50)).max(10).optional(),
   entityType: spellEntityTypeSchema.optional(),
+}).strict();
+
+// --- Alexa / Voice schemas ---
+
+export const announceSchema = z.object({
+  text: z.string().min(1).max(500),
+  device: z.string().min(1).max(100).optional(),
+}).strict();
+
+export const alexaUtteranceSchema = z.object({
+  query: z.string().min(1).max(1000),
+  // Real Alexa session/device IDs (amzn1.echo-api.session.* / amzn1.ask.device.*)
+  // routinely exceed 200 chars, so cap generously to avoid rejecting live traffic.
+  alexaSessionId: z.string().max(512).optional(),
+  deviceId: z.string().max(512).optional(),
 }).strict();
 
 // --- Middleware factories ---

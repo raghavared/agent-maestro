@@ -351,7 +351,7 @@ Create one at a time. Verify each before creating the next.</phase>
     <phase name="decompose">Break tasks into small subtasks, each completable by a single worker:
   maestro task create "<title>" -d "<description with acceptance criteria>" --priority <high|medium|low> --parent <parentTaskId></phase>
     <phase name="spawn">Spawn a worker session for each subtask:
-  maestro session spawn --task <subtaskId> [--team-member-id <tmId>] [--agent-tool <claude-code|codex|gemini>] [--model <model>]
+  maestro session spawn --task <subtaskId> [--team-member-id <tmId>] [--agent-tool <claude-code|codex|hermes|gemini>] [--model <model>]
 Spawn sequentially. Collect all session IDs.</phase>
     <phase name="monitor">Watch spawned sessions:
   maestro session watch <id1>,<id2>,...

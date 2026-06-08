@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { spawn as spawnProcess } from 'child_process';
+import { existsSync, readdirSync } from 'fs';
 import { readFile, mkdir, writeFile } from 'fs/promises';
 import { join, resolve as resolvePath, delimiter as pathDelimiter } from 'path';
 import { homedir } from 'os';
@@ -12,7 +13,7 @@ import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
 import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
-import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, MemberLaunchOverride, isCoordinatorMode, normalizeMode } from '../types';
+import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, MemberLaunchOverride, LaunchConfig, isCoordinatorMode, normalizeMode } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
 import { SessionFilter } from '../domain/repositories/ISessionRepository';
 import { handleRouteError } from './middleware/errorHandler';
@@ -26,6 +27,7 @@ import {
   sessionTimelineSchema,
   listSessionsQuerySchema,
   spawnSessionSchema,
+  modeBodySchema,
   idParamSchema,
   idAndTaskIdParamSchema,
   idAndModalIdParamSchema,
@@ -49,12 +51,44 @@ function resolveMaestroCliRuntime(cliPathOverride?: string): { maestroBin: strin
   return { maestroBin: 'maestro', monorepoRoot: null };
 }
 
-function prependNodeModulesBin(pathValue: string | undefined, monorepoRoot: string | null): string | undefined {
-  if (!monorepoRoot) {
-    return pathValue;
+function getNodeRuntimePathEntries(monorepoRoot: string | null): string[] {
+  const entries = [
+    monorepoRoot ? join(monorepoRoot, 'node_modules', '.bin') : null,
+    join(homedir(), '.bun', 'bin'),
+    join(homedir(), '.local', 'bin'),
+    join(homedir(), 'bin'),
+    '/opt/homebrew/bin',
+    '/opt/homebrew/sbin',
+    '/usr/local/bin',
+    '/usr/local/sbin',
+    '/usr/bin',
+    '/bin',
+    '/usr/sbin',
+    '/sbin',
+  ].filter((entry): entry is string => !!entry);
+
+  const nvmVersionsDir = join(homedir(), '.nvm', 'versions', 'node');
+  if (existsSync(nvmVersionsDir)) {
+    try {
+      const nodeBins = readdirSync(nvmVersionsDir)
+        .sort()
+        .reverse()
+        .map((version) => join(nvmVersionsDir, version, 'bin'))
+        .filter((entry) => existsSync(entry));
+      entries.push(...nodeBins);
+    } catch {
+      // Ignore unreadable nvm directories; common system paths above are enough for most installs.
+    }
   }
-  const nodeModulesBin = join(monorepoRoot, 'node_modules', '.bin');
-  return `${nodeModulesBin}${pathDelimiter}${pathValue || ''}`;
+
+  return entries.filter((entry, index) => entries.indexOf(entry) === index);
+}
+
+function buildRuntimePath(pathValue: string | undefined, monorepoRoot: string | null): string | undefined {
+  const inherited = (pathValue || '').split(pathDelimiter).filter(Boolean);
+  const entries = [...getNodeRuntimePathEntries(monorepoRoot), ...inherited];
+  const unique = entries.filter((entry, index) => entries.indexOf(entry) === index);
+  return unique.length > 0 ? unique.join(pathDelimiter) : pathValue;
 }
 
 /**
@@ -66,7 +100,7 @@ async function generateManifestViaCLI(options: {
   taskIds: string[];
   skills: string[];
   sessionId: string;
-  model?: string;
+  launchConfig?: LaunchConfig;
   agentTool?: AgentTool;
   referenceTaskIds?: string[];
   teamMemberIds?: string[];
@@ -81,7 +115,7 @@ async function generateManifestViaCLI(options: {
   sessionDir?: string;
   cliPathOverride?: string;
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { mode, projectId, taskIds, skills, sessionId, model, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective, memberOverrides, cliPathOverride } = options;
+  const { mode, projectId, taskIds, skills, sessionId, launchConfig, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective, memberOverrides, cliPathOverride } = options;
 
   const resolvedSessionDir = options.sessionDir ?? join(homedir(), '.maestro', 'sessions');
   const maestroDir = join(resolvedSessionDir, sessionId);
@@ -96,7 +130,7 @@ async function generateManifestViaCLI(options: {
     '--task-ids', taskIds.join(','),
     '--skills', skills.join(','),
     '--output', manifestPath,
-    ...(model ? ['--model', model] : []),
+    ...(launchConfig ? ['--launch-config', JSON.stringify(launchConfig)] : []),
     ...(agentTool && agentTool !== 'claude-code' ? ['--agent-tool', agentTool] : []),
     ...(referenceTaskIds && referenceTaskIds.length > 0 ? ['--reference-task-ids', referenceTaskIds.join(',')] : []),
     ...(teamMemberIds && teamMemberIds.length > 0 ? ['--team-member-ids', teamMemberIds.join(',')] : []),
@@ -110,7 +144,7 @@ async function generateManifestViaCLI(options: {
   if (serverUrl) {
     spawnEnv.MAESTRO_SERVER_URL = serverUrl;
   }
-  const runtimePath = prependNodeModulesBin(spawnEnv.PATH, monorepoRoot);
+  const runtimePath = buildRuntimePath(spawnEnv.PATH, monorepoRoot);
   if (runtimePath) {
     spawnEnv.PATH = runtimePath;
   }
@@ -204,6 +238,211 @@ async function generateManifestViaCLI(options: {
   });
 }
 
+function agentToolForProvider(provider: LaunchConfig['provider']): AgentTool {
+  switch (provider) {
+    case 'claude':
+      return 'claude-code';
+    case 'openai':
+      return 'codex';
+    case 'hermes':
+      return 'hermes';
+    case 'gemini':
+      return 'gemini';
+  }
+}
+
+function permissionModeForAccessMode(accessMode?: LaunchConfig['accessMode']): 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions' | undefined {
+  switch (accessMode) {
+    case 'fullAccess':
+      return 'bypassPermissions';
+    case 'acceptEdits':
+      return 'acceptEdits';
+    case 'plan':
+      return 'readOnly';
+    case 'safe':
+      return 'interactive';
+    default:
+      return undefined;
+  }
+}
+
+function providerForAgentTool(agentTool?: AgentTool): LaunchConfig['provider'] {
+  switch (agentTool) {
+    case 'codex':
+      return 'openai';
+    case 'hermes':
+      return 'hermes';
+    case 'gemini':
+      return 'gemini';
+    case 'claude-code':
+    default:
+      return 'claude';
+  }
+}
+
+// Infer the provider a model belongs to from its name. Model names are
+// provider-specific, so the model the user picked is authoritative for
+// choosing the tool — this prevents launching a Claude model on Codex.
+// Returns undefined when the name does not clearly map to a provider.
+function providerForModel(model?: string): LaunchConfig['provider'] | undefined {
+  if (!model) return undefined;
+  const m = model.toLowerCase();
+  if (m.startsWith('claude') || m.startsWith('opus') || m.startsWith('sonnet') || m.startsWith('haiku')) {
+    return 'claude';
+  }
+  if (m.startsWith('gpt') || /^o\d/.test(m)) {
+    return 'openai';
+  }
+  if (m.startsWith('gemini')) {
+    return 'gemini';
+  }
+  if (m.startsWith('hermes')) {
+    return 'hermes';
+  }
+  return undefined;
+}
+
+function accessModeForPermissionMode(permissionMode?: string): LaunchConfig['accessMode'] | undefined {
+  switch (permissionMode) {
+    case 'bypassPermissions':
+      return 'fullAccess';
+    case 'acceptEdits':
+      return 'acceptEdits';
+    case 'readOnly':
+      return 'plan';
+    case 'interactive':
+      return 'safe';
+    default:
+      return undefined;
+  }
+}
+
+function getValidReasoningEfforts(provider: LaunchConfig['provider']): LaunchConfig['reasoningEffort'][] {
+  switch (provider) {
+    case 'claude':
+      return ['low', 'medium', 'high', 'xhigh', 'max'];
+    case 'openai':
+      return ['minimal', 'low', 'medium', 'high', 'xhigh'];
+    default:
+      return [];
+  }
+}
+
+function supportsLaunchSpeed(provider: LaunchConfig['provider'], model?: string): boolean {
+  return provider === 'openai' && (model === 'gpt-5.5' || model === 'gpt-5.4');
+}
+
+function defaultModelForAgentTool(agentTool: AgentTool): string {
+  switch (agentTool) {
+    case 'codex':
+      return 'gpt-5.5';
+    case 'hermes':
+      return 'hermes-default';
+    case 'gemini':
+      return 'gemini-2.5-pro';
+    case 'claude-code':
+    default:
+      return 'claude-opus-4-8';
+  }
+}
+
+function sanitizeLaunchConfig(config?: LaunchConfig | null): LaunchConfig | undefined {
+  if (!config?.provider || !config.model) return undefined;
+  const validProviders: LaunchConfig['provider'][] = ['claude', 'openai', 'hermes', 'gemini'];
+  if (!validProviders.includes(config.provider)) return undefined;
+
+  const validReasoning = getValidReasoningEfforts(config.provider);
+  const reasoningEffort = config.reasoningEffort && validReasoning.includes(config.reasoningEffort)
+    ? config.reasoningEffort
+    : undefined;
+  const speed = config.speed && supportsLaunchSpeed(config.provider, config.model)
+    ? config.speed
+    : undefined;
+  const validAccessModes: LaunchConfig['accessMode'][] = ['safe', 'acceptEdits', 'plan', 'fullAccess'];
+  const accessMode = config.accessMode && validAccessModes.includes(config.accessMode)
+    ? config.accessMode
+    : undefined;
+
+  return {
+    provider: config.provider,
+    model: config.model,
+    ...(reasoningEffort ? { reasoningEffort } : {}),
+    ...(speed ? { speed } : {}),
+    ...(accessMode ? { accessMode } : {}),
+  };
+}
+
+function launchConfigFromLegacy(
+  agentTool?: AgentTool,
+  model?: string,
+  reasoningEffort?: LaunchConfig['reasoningEffort'],
+  permissionMode?: string,
+): LaunchConfig | undefined {
+  const tool = agentTool || (model ? 'claude-code' : undefined);
+  if (!tool) return undefined;
+
+  return sanitizeLaunchConfig({
+    // The model name is authoritative for provider inference (consistent with the
+    // team-member collapse path); fall back to the agentTool only when the model
+    // name does not clearly map to a provider. Prevents e.g. a gpt-* model that
+    // carries no explicit agentTool from being launched as Claude.
+    provider: providerForModel(model) || providerForAgentTool(tool),
+    model: model || defaultModelForAgentTool(tool),
+    reasoningEffort,
+    accessMode: accessModeForPermissionMode(permissionMode),
+  });
+}
+
+function normalizeMemberLaunchOverrides(memberOverrides: unknown): Record<string, MemberLaunchOverride> | undefined {
+  if (!memberOverrides || typeof memberOverrides !== 'object' || Array.isArray(memberOverrides)) return undefined;
+
+  const normalized: Record<string, MemberLaunchOverride> = {};
+  for (const [memberId, value] of Object.entries(memberOverrides as Record<string, MemberLaunchOverride>)) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+
+    const sanitized = sanitizeLaunchConfig(value.launchConfig);
+    // When a (partially migrated) override carries a launchConfig without an
+    // accessMode but still has a legacy permissionMode, fold the permissionMode
+    // into the launchConfig so it is not silently dropped.
+    const launchConfig = sanitized
+      ? (!sanitized.accessMode && value.permissionMode
+          ? { ...sanitized, accessMode: accessModeForPermissionMode(value.permissionMode) }
+          : sanitized)
+      : launchConfigFromLegacy(value.agentTool, value.model, value.reasoningEffort, value.permissionMode);
+    const override: MemberLaunchOverride = {
+      ...(launchConfig ? { launchConfig } : {}),
+      ...(Array.isArray(value.skillIds) ? { skillIds: value.skillIds } : {}),
+      ...(value.commandPermissions ? { commandPermissions: value.commandPermissions } : {}),
+    };
+
+    if (Object.keys(override).length > 0) {
+      normalized[memberId] = override;
+    }
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+type ModeRelation = 'standalone' | 'coordinated';
+type ModeRole = 'worker' | 'coordinator';
+
+function splitMode(mode: AgentMode): { relation: ModeRelation; role: ModeRole } {
+  switch (mode) {
+    case 'coordinator': return { relation: 'standalone', role: 'coordinator' };
+    case 'coordinated-worker': return { relation: 'coordinated', role: 'worker' };
+    case 'coordinated-coordinator': return { relation: 'coordinated', role: 'coordinator' };
+    case 'worker':
+    default: return { relation: 'standalone', role: 'worker' };
+  }
+}
+
+function combineMode(relation: ModeRelation, role: ModeRole): AgentMode {
+  if (relation === 'standalone' && role === 'coordinator') return 'coordinator';
+  if (relation === 'coordinated' && role === 'worker') return 'coordinated-worker';
+  if (relation === 'coordinated' && role === 'coordinator') return 'coordinated-coordinator';
+  return 'worker';
+}
+
 interface SessionRouteDependencies {
   sessionService: SessionService;
   logDigestService: LogDigestService;
@@ -221,28 +460,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, eventBus, config } = deps;
   const gitWorktreeService = new GitWorktreeService();
   const router = express.Router();
-
-  const resolveSessionMode = (session: any): string => {
-    const metadataMode = session?.metadata?.mode;
-    const envMode = session?.env?.MAESTRO_MODE;
-    return String(metadataMode || envMode || '').trim();
-  };
-
-  const canCommunicateWithinTeamBoundary = (sender: any, target: any): boolean => {
-    if (!sender || !target) return false;
-    if (sender.id === target.id) return false;
-
-    // Spawned sessions can message their parent coordinator and siblings (same parent).
-    if (sender.parentSessionId) {
-      if (target.id === sender.parentSessionId) {
-        return true;
-      }
-      return Boolean(target.parentSessionId && target.parentSessionId === sender.parentSessionId);
-    }
-
-    // Root coordinators can message their direct team sessions.
-    return Boolean(target.parentSessionId && target.parentSessionId === sender.id);
-  };
 
   // Summary DTO for list views — strips env, events, timeline, metadata
   function toSessionSummary(session: any): Record<string, any> {
@@ -264,6 +481,11 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       completedAt: session.completedAt,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
+      // Persisted human-intent lifecycle stamps drive the Open/Done/Archived tab.
+      // They MUST be in the summary DTO, or a list refetch wipes them from the
+      // store and archived/done sessions snap back to the Open tab.
+      humanCompletedAt: session.humanCompletedAt,
+      archivedAt: session.archivedAt,
     };
   }
 
@@ -363,9 +585,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       if (req.query.taskId) {
         filter.taskId = req.query.taskId as string;
       }
-      if (req.query.status) {
-        filter.status = req.query.status as SessionStatus;
-      }
       if (req.query.parentSessionId) {
         filter.parentSessionId = req.query.parentSessionId as string;
       }
@@ -378,8 +597,15 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       let sessions = await sessionService.listSessions(filter);
 
+      if (req.query.status) {
+        const statuses = (req.query.status as string).split(',').map(s => s.trim()).filter(Boolean) as SessionStatus[];
+        if (statuses.length > 0) {
+          sessions = sessions.filter(s => statuses.includes(s.status));
+        }
+      }
+
       if (req.query.active === 'true') {
-        sessions = sessions.filter(s => s.status !== 'completed');
+        sessions = sessions.filter(s => (['spawning', 'idle', 'working'] as SessionStatus[]).includes(s.status));
       }
 
       // Preload team members for all projects in the result set
@@ -457,6 +683,57 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const session = await sessionService.getSession(id);
       const enrichedSession = await enrichSessionWithSnapshots(session);
       res.json(enrichedSession);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
+    }
+  });
+
+  // Get session mode
+  router.get('/sessions/:id/mode', validateParams(idParamSchema), async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const session = await sessionService.getSession(id);
+      const mode: AgentMode = (session.metadata?.mode as AgentMode) || 'worker';
+      const { relation, role } = splitMode(mode);
+      res.json({ id, mode, relation, role });
+    } catch (err: unknown) {
+      handleRouteError(err, res);
+    }
+  });
+
+  // Change session mode (role only — relation is immutable)
+  router.post('/sessions/:id/mode', validateParams(idParamSchema), validateBody(modeBodySchema), async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const callerSessionId = req.headers['x-session-id'] as string | undefined;
+
+      if (!callerSessionId || callerSessionId !== id) {
+        return res.status(403).json({
+          error: true,
+          code: 'mode_self_only',
+          message: 'You can only flip your own role',
+        });
+      }
+
+      const session = await sessionService.getSession(id);
+      const currentMode: AgentMode = (session.metadata?.mode as AgentMode) || 'worker';
+      const { relation } = splitMode(currentMode);
+      const newMode = combineMode(relation, req.body.role);
+
+      if (newMode === currentMode) {
+        return res.json({ id, mode: currentMode, previousMode: currentMode, changed: false });
+      }
+
+      const { previousMode } = await sessionService.changeMode(id, newMode);
+      await eventBus.emit('session:mode_changed', {
+        sessionId: id,
+        mode: newMode,
+        previousMode,
+        changed: true,
+        timestamp: Date.now(),
+      });
+
+      res.json({ id, mode: newMode, previousMode, changed: true });
     } catch (err: unknown) {
       handleRouteError(err, res);
     }
@@ -729,15 +1006,25 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         sessionService.getSession(senderSessionId),
       ]);
 
-      if (!canCommunicateWithinTeamBoundary(senderSession, session)) {
-        return res.status(403).json({
+      if (!senderSession) {
+        return res.status(404).json({
           error: true,
-          code: 'prompt_scope_violation',
-          message: 'Session prompt is limited to parent/sibling sessions (or direct team sessions for a root coordinator).',
-          details: {
-            senderSessionId,
-            targetSessionId: sessionId,
-          },
+          code: 'sender_not_found',
+          message: `Sender session ${senderSessionId} not found.`,
+        });
+      }
+      if (!session) {
+        return res.status(404).json({
+          error: true,
+          code: 'target_not_found',
+          message: `Target session ${sessionId} not found.`,
+        });
+      }
+      if (senderSession.id === session.id) {
+        return res.status(400).json({
+          error: true,
+          code: 'self_prompt_not_allowed',
+          message: 'A session cannot prompt itself.',
         });
       }
 
@@ -749,6 +1036,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         content: contentWithSender,
         mode,
         senderSessionId,
+        senderProjectId: senderSession.projectId ?? null,
+        targetProjectId: session.projectId ?? null,
         timestamp: Date.now(),
       });
 
@@ -770,8 +1059,53 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   // Spawn session (complex endpoint - uses CLI for manifest generation)
   router.post('/sessions/spawn', validateBody(spawnSessionSchema), async (req: Request, res: Response) => {
     try {
+      // SPAWN GATE: when a session spawns another session, the sender must be a
+      // coordinator-role session. UI-initiated spawns (spawnSource === 'ui') are
+      // user-driven and have no sender session, so they bypass this gate.
+      const senderSessionId = req.headers['x-session-id'] as string | undefined;
+      const isSessionSpawn = req.body?.spawnSource === 'session';
+      let senderSession: any = null;
+
+      if (isSessionSpawn) {
+        if (!senderSessionId) {
+          return res.status(400).json({
+            error: true,
+            code: 'sender_session_required',
+            message: 'X-Session-Id required',
+          });
+        }
+
+        try {
+          senderSession = await sessionService.getSession(senderSessionId);
+        } catch {
+          return res.status(400).json({
+            error: true,
+            code: 'sender_session_not_found',
+            message: `Sender session ${senderSessionId} not found`,
+          });
+        }
+
+        const senderMode: AgentMode = (senderSession.metadata?.mode as AgentMode) || 'worker';
+        const senderRole = isCoordinatorMode(senderMode) ? 'coordinator' : 'worker';
+        if (senderRole !== 'coordinator') {
+          return res.status(403).json({
+            error: true,
+            code: 'spawn_requires_coordinator',
+            message: 'Spawning requires coordinator mode. Run `maestro coordinator enable` first.',
+          });
+        }
+      } else if (senderSessionId) {
+        // Best-effort resolve so the projectId fallback below still works when a
+        // session id is supplied on a non-session spawn; never gates the request.
+        try {
+          senderSession = await sessionService.getSession(senderSessionId);
+        } catch {
+          senderSession = null;
+        }
+      }
+
       const {
-        projectId,
+        projectId: bodyProjectId,
         taskIds,
         sessionName,
         skills,
@@ -782,19 +1116,24 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         teamMemberIds,          // Multiple team member identities for this session
         delegateTeamMemberIds,  // Team member IDs for coordination delegation pool
         teamMemberId,           // Single team member assigned to this task (backward compat)
-        agentTool: requestedAgentTool,   // Override agent tool for this run
-        model: requestedModel,           // Override model for this run
+        launchConfig: rawRequestedLaunchConfig, // Canonical launch override for this run
+        agentTool: legacyRequestedAgentTool,
+        model: legacyRequestedModel,
+        reasoningEffort: legacyRequestedReasoningEffort,
         initialDirective,                // { subject, message, fromSessionId } for guaranteed delivery
         memberOverrides,                 // Per-member launch overrides: Record<string, MemberLaunchOverride>
-        permissionMode: requestedPermissionMode,           // Session-level permission mode override
+        permissionMode: rawRequestedPermissionMode,           // Session-level permission mode override
         delegatePermissionMode: requestedDelegatePermissionMode, // Permission mode for spawned workers
         useWorktree: requestedUseWorktree,  // Spawn in an isolated git worktree
       } = req.body;
 
-      let normalizedMemberOverrides: Record<string, MemberLaunchOverride> | undefined =
-        memberOverrides && typeof memberOverrides === 'object' && !Array.isArray(memberOverrides)
-          ? memberOverrides
-          : undefined;
+      const requestedLaunchConfig = sanitizeLaunchConfig(rawRequestedLaunchConfig)
+        || launchConfigFromLegacy(legacyRequestedAgentTool, legacyRequestedModel, legacyRequestedReasoningEffort, rawRequestedPermissionMode);
+
+      const requestedPermissionMode =
+        permissionModeForAccessMode(requestedLaunchConfig?.accessMode) || rawRequestedPermissionMode;
+
+      let normalizedMemberOverrides = normalizeMemberLaunchOverrides(memberOverrides);
 
       const requestedModeInput = String(requestedMode || 'worker');
       const requestedCoordinatorMode =
@@ -828,14 +1167,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           : (teamMemberId ? [teamMemberId] : []);
       }
 
-      // Validation
-      if (!projectId) {
-        return res.status(400).json({
-          error: true,
-          code: 'missing_project_id',
-          message: 'projectId is required'
-        });
-      }
+      // Resolve projectId: use body value or default to sender's project
+      const projectId: string = bodyProjectId || senderSession?.projectId;
 
       if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
         return res.status(400).json({
@@ -889,7 +1222,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       if (spawnSource === 'session' && parentSession && !normalizedMemberOverrides) {
         const parentOverrides = parentSession.metadata?.memberOverrides;
         if (parentOverrides && typeof parentOverrides === 'object' && !Array.isArray(parentOverrides)) {
-          normalizedMemberOverrides = parentOverrides;
+          // Migrate legacy {agentTool, model} shapes into canonical launchConfig so
+          // pre-PR#83 coordinator overrides are not silently ignored downstream.
+          normalizedMemberOverrides = normalizeMemberLaunchOverrides(parentOverrides) ?? undefined;
         }
       }
 
@@ -911,20 +1246,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         ? (parentSession?.rootSessionId || parentSession?.id)
         : null;
 
-      if (resolvedParentSessionId) {
-        const parentMode = resolveSessionMode(parentSession);
-        if (parentMode === 'coordinated-coordinator') {
-          return res.status(403).json({
-            error: true,
-            code: 'spawn_forbidden_for_mode',
-            message: 'coordinated-coordinator sessions cannot spawn new sessions. Coordinate only with existing team members.',
-            details: {
-              parentSessionId: resolvedParentSessionId,
-              parentMode,
-            },
-          });
-        }
-      }
+      // Any session (any mode) may spawn new sessions — no mode-level guard rails.
 
       // Verify all tasks exist (parallel fetch) and collect task-level team member IDs as fallback
       let verifiedTasks: any[];
@@ -961,7 +1283,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       if (!normalizedMemberOverrides && verifiedTasks.length === 1 && verifiedTasks[0].memberOverrides) {
         const taskOverrides = verifiedTasks[0].memberOverrides;
         if (typeof taskOverrides === 'object' && !Array.isArray(taskOverrides)) {
-          normalizedMemberOverrides = taskOverrides;
+          // Migrate legacy {agentTool, model} shapes into canonical launchConfig so
+          // pre-PR#83 task overrides are not silently ignored downstream.
+          normalizedMemberOverrides = normalizeMemberLaunchOverrides(taskOverrides) ?? undefined;
         }
       }
 
@@ -1022,6 +1346,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       // Fetch team member defaults from the effective members (after task-level fallback)
       const MODEL_POWER: Record<string, number> = {
+        'claude-opus-4-8[1m]': 5.9,
+        'claude-opus-4-8': 5.8,
         'gpt-5.5': 5.5,
         'claude-opus-4-7[1m]': 5.2,
         'claude-opus-4-7': 5,
@@ -1043,15 +1369,18 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const teamMemberSnapshots: TeamMemberSnapshot[] = [];
 
       if (effectiveTeamMemberIds.length > 0 && projectId) {
-        let highestModelPower = 0;
+        let highestModelPower = -1;
+        let hasWinner = false;
         for (const tmId of effectiveTeamMemberIds) {
           const teamMember = teamMemberMap.get(tmId);
           if (teamMember && teamMember.status !== 'archived') {
               // Apply per-member overrides if provided
               const override = normalizedMemberOverrides && normalizedMemberOverrides[tmId];
-              const effectiveModel = override?.model || teamMember.model;
-              const effectiveAgentTool = override?.agentTool || teamMember.agentTool;
-              const effectivePermissionMode = override?.permissionMode || teamMember.permissionMode;
+              const effectiveModel = override?.launchConfig?.model || teamMember.model;
+              const effectiveAgentTool = override?.launchConfig
+                ? agentToolForProvider(override.launchConfig.provider)
+                : teamMember.agentTool;
+              const effectivePermissionMode = permissionModeForAccessMode(override?.launchConfig?.accessMode) || teamMember.permissionMode;
               const effectiveSkillIds = override?.skillIds || teamMember.skillIds;
               const effectiveCommandPermissions = override?.commandPermissions
                 ? { ...teamMember.commandPermissions, ...override.commandPermissions }
@@ -1061,21 +1390,17 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
               if (!teamMemberDefaults.mode && teamMember.mode) {
                 teamMemberDefaults.mode = teamMember.mode as AgentMode;
               }
-              // Model: most powerful wins (using overridden model)
-              const power = MODEL_POWER[effectiveModel || ''] || 0;
-              if (power > highestModelPower) {
+              // Winning member: most powerful model wins, and model + agentTool +
+              // permissionMode are all taken from that SAME member so they stay coherent.
+              // Resolving these fields independently previously allowed the model to come
+              // from one member (e.g. claude-opus-4-8) and the tool from another (e.g. codex),
+              // producing a Claude model launched on Codex.
+              const power = effectiveModel ? (MODEL_POWER[effectiveModel] || 0) : -1;
+              if (!hasWinner || power > highestModelPower) {
+                hasWinner = true;
                 highestModelPower = power;
                 teamMemberDefaults.model = effectiveModel;
-              } else if (!teamMemberDefaults.model && effectiveModel) {
-                // Fallback: use any model if none resolved yet (handles non-standard model names)
-                teamMemberDefaults.model = effectiveModel;
-              }
-              // AgentTool: first non-default wins (using overridden tool)
-              if (!teamMemberDefaults.agentTool && effectiveAgentTool) {
                 teamMemberDefaults.agentTool = effectiveAgentTool;
-              }
-              // PermissionMode: first non-null wins (using overridden permission)
-              if (!teamMemberDefaults.permissionMode && effectivePermissionMode) {
                 teamMemberDefaults.permissionMode = effectivePermissionMode;
               }
               // Build snapshot for UI display (with overrides applied)
@@ -1089,6 +1414,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
               });
           }
         }
+      }
+
+      // Fall back to the winning team member's stored permissionMode when neither the
+      // request nor a parent-delegate mode supplied one. Without this, a team member's
+      // configured access level (e.g. bypassPermissions) is silently dropped at spawn.
+      if (!resolvedPermissionMode && teamMemberDefaults.permissionMode) {
+        resolvedPermissionMode = teamMemberDefaults.permissionMode;
       }
 
       // Resolve mode with four-mode normalization
@@ -1105,9 +1437,22 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const hasCoordinator = !!resolvedParentSessionId;
       const resolvedMode: AgentMode = normalizeMode(rawMode, hasCoordinator);
 
-      // Resolve model and agentTool: request overrides > team member defaults
-      const resolvedModel = requestedModel || teamMemberDefaults.model;
-      const resolvedAgentToolFromMember = requestedAgentTool || teamMemberDefaults.agentTool;
+      // Resolve launch config and agent tool: explicit launch config wins over team member defaults.
+      const resolvedLaunchConfig: LaunchConfig | undefined = requestedLaunchConfig || sanitizeLaunchConfig(
+        teamMemberDefaults.model
+          ? {
+              // The model is authoritative: derive the provider from the model name
+              // and only fall back to the member's agentTool when the model is unrecognized.
+              provider: providerForModel(teamMemberDefaults.model)
+                || providerForAgentTool(teamMemberDefaults.agentTool),
+              model: teamMemberDefaults.model,
+            }
+          : undefined
+      );
+      const resolvedModel = resolvedLaunchConfig?.model || teamMemberDefaults.model;
+      const resolvedAgentToolFromMember = resolvedLaunchConfig
+        ? agentToolForProvider(resolvedLaunchConfig.provider)
+        : teamMemberDefaults.agentTool;
 
       // Get project
       const project = await projectRepo.findById(projectId);
@@ -1158,11 +1503,14 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           mode: resolvedMode,
           agentTool: resolvedAgentToolFromMember || 'claude-code',
           model: resolvedModel || null,
+          launchConfig: resolvedLaunchConfig || null,
           teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : null,
           teamMemberIds: effectiveTeamMemberIds.length > 0 ? effectiveTeamMemberIds : null,
           context: context || {},
           ...(normalizedMemberOverrides && Object.keys(normalizedMemberOverrides).length > 0 ? { memberOverrides: normalizedMemberOverrides } : {}),
-          ...(requestedPermissionMode ? { permissionMode: requestedPermissionMode } : {}),
+          // Persist the RESOLVED permissionMode (request → parent-delegate → team-member)
+          // so resume can faithfully reconstruct the session's access level.
+          ...(resolvedPermissionMode ? { permissionMode: resolvedPermissionMode } : {}),
           ...(requestedDelegatePermissionMode ? { delegatePermissionMode: requestedDelegatePermissionMode } : {}),
         },
         parentSessionId: resolvedParentSessionId,
@@ -1247,7 +1595,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           taskIds,
           skills: skillsToUse,
           sessionId: session.id,
-          model: resolvedModel,
+          launchConfig: resolvedLaunchConfig,
           agentTool: resolvedAgentToolFromMember,
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
           // Multi-identity: pass teamMemberIds for multi-member sessions
@@ -1334,7 +1682,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
 
       // Ensure the init command resolves to the same CLI runtime used for manifest generation.
-      const runtimePathForInit = prependNodeModulesBin(process.env.PATH, monorepoRoot);
+      const runtimePathForInit = buildRuntimePath(process.env.PATH, monorepoRoot);
       if (runtimePathForInit) {
         finalEnvVars.PATH = runtimePathForInit;
       }
@@ -1403,15 +1751,11 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         });
       }
 
-      // Validate session is resumable
-      const resumableStatuses: SessionStatus[] = ['completed', 'stopped', 'failed', 'idle'];
-      if (!resumableStatuses.includes(session.status)) {
-        return res.status(400).json({
-          error: true,
-          code: 'session_not_resumable',
-          message: `Session status '${session.status}' is not resumable. Must be one of: ${resumableStatuses.join(', ')}`
-        });
-      }
+      // Resume is allowed from ANY status. The server-side `status` field is an
+      // unreliable, client-driven signal that frequently gets stuck at 'working'/
+      // 'spawning' when a terminal dies without the UI reporting it. Gating resume
+      // on it stranded ~24% of sessions. The terminal-exited state (UI) is the real
+      // liveness signal; the server should never block a resume on stale status.
 
       // Generate claudeSessionId if missing (pre-feature sessions get a fresh spawn)
       const hadClaudeSessionId = !!session.claudeSessionId;
@@ -1448,7 +1792,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       // Regenerate manifest so MAESTRO_MANIFEST_PATH points to a valid file
       const mode = session.metadata?.mode || 'worker';
       const skillsToUse: string[] = session.metadata?.skills || [];
-      const resolvedModel: string | undefined = session.metadata?.model || undefined;
+      // Prefer the full launchConfig stored at spawn time so accessMode and
+      // reasoningEffort survive resume; fall back to the legacy model string.
+      const storedLaunchConfig = session.metadata?.launchConfig
+        ? sanitizeLaunchConfig(session.metadata.launchConfig as LaunchConfig)
+        : undefined;
+      const resolvedModel: string | undefined = storedLaunchConfig?.model || session.metadata?.model || undefined;
+      const resumePermissionMode = (session.metadata?.permissionMode as string | undefined) || undefined;
 
       const resumeTasks = await Promise.all(session.taskIds.map((taskId: string) => taskRepo.findById(taskId)));
       const allReferenceTaskIds: string[] = [];
@@ -1473,11 +1823,18 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           taskIds: session.taskIds,
           skills: skillsToUse,
           sessionId: session.id,
-          model: resolvedModel,
+          launchConfig: storedLaunchConfig
+            ?? (resolvedModel
+              ? sanitizeLaunchConfig({
+                  provider: providerForModel(resolvedModel) || providerForAgentTool(agentTool),
+                  model: resolvedModel,
+                })
+              : undefined),
           agentTool: agentTool,
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
           teamMemberIds: session.metadata?.teamMemberIds || undefined,
           teamMemberId: session.metadata?.teamMemberId || undefined,
+          permissionMode: resumePermissionMode,
           serverUrl: config.serverUrl,
           isMaster: project.isMaster === true,
           sessionDir: config.sessionDir,
@@ -1523,11 +1880,13 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         MAESTRO_MODE: mode,
         DATA_DIR: config.dataDir,
         SESSION_DIR: config.sessionDir,
+        // Carry the stored permission mode forward so resumed agents keep their access level.
+        ...(resumePermissionMode ? { MAESTRO_PERMISSION_MODE: resumePermissionMode } : {}),
         ...authEnvVars,
       };
 
       // Ensure CLI runtime path is correct
-      const runtimePath = prependNodeModulesBin(process.env.PATH, monorepoRoot);
+      const runtimePath = buildRuntimePath(process.env.PATH, monorepoRoot);
       if (runtimePath) {
         finalEnvVars.PATH = runtimePath;
       }

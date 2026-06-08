@@ -7,6 +7,7 @@ import type {
   TeamMemberProfile,
   MasterProjectInfo,
   AgentMode,
+  LaunchConfig,
 } from '../types/manifest.js';
 import { normalizeMode, isCoordinatorMode } from '../types/manifest.js';
 import { DEFAULT_ACCEPTANCE_CRITERIA, MODE_VALIDATION_ERROR, AGENT_TOOL_VALIDATION_PREFIX } from '../prompts/index.js';
@@ -44,6 +45,7 @@ export interface SessionOptions {
   maxTurns?: number;
   timeout?: number;
   workingDirectory?: string;
+  launchConfig?: LaunchConfig;
   context?: AdditionalContext;
 }
 
@@ -72,8 +74,10 @@ type MemberPermissionMode = SessionOptions['permissionMode'];
 type MemberCommandPermissions = NonNullable<MaestroManifest['teamMemberCommandPermissions']>;
 
 interface MemberLaunchOverride {
+  launchConfig?: LaunchConfig;
   agentTool?: AgentTool;
   model?: string;
+  reasoningEffort?: LaunchConfig['reasoningEffort'];
   permissionMode?: MemberPermissionMode;
   skillIds?: string[];
   commandPermissions?: MemberCommandPermissions;
@@ -118,6 +122,181 @@ function mergeCommandPermissions(
   return result;
 }
 
+function agentToolForProvider(provider: LaunchConfig['provider']): AgentTool {
+  switch (provider) {
+    case 'claude':
+      return 'claude-code';
+    case 'openai':
+      return 'codex';
+    case 'hermes':
+      return 'hermes';
+    case 'gemini':
+      return 'gemini';
+  }
+}
+
+function permissionModeForAccessMode(accessMode?: LaunchConfig['accessMode']): MemberPermissionMode | undefined {
+  switch (accessMode) {
+    case 'fullAccess':
+      return 'bypassPermissions';
+    case 'acceptEdits':
+      return 'acceptEdits';
+    case 'plan':
+      return 'readOnly';
+    case 'safe':
+      return 'interactive';
+    default:
+      return undefined;
+  }
+}
+
+function accessModeForPermissionMode(permissionMode?: string): LaunchConfig['accessMode'] | undefined {
+  switch (permissionMode) {
+    case 'bypassPermissions':
+      return 'fullAccess';
+    case 'acceptEdits':
+      return 'acceptEdits';
+    case 'readOnly':
+      return 'plan';
+    case 'interactive':
+      return 'safe';
+    default:
+      return undefined;
+  }
+}
+
+function providerForAgentTool(agentTool?: AgentTool): LaunchConfig['provider'] {
+  switch (agentTool) {
+    case 'codex':
+      return 'openai';
+    case 'hermes':
+      return 'hermes';
+    case 'gemini':
+      return 'gemini';
+    case 'claude-code':
+    default:
+      return 'claude';
+  }
+}
+
+// Infer the provider a model belongs to from its name. Model names are
+// provider-specific, so the model is authoritative for choosing the tool —
+// this prevents a Claude model from being launched on Codex. Mirrors
+// providerForModel() in maestro-server/src/api/sessionRoutes.ts.
+function providerForModel(model?: string): LaunchConfig['provider'] | undefined {
+  if (!model) return undefined;
+  const m = model.toLowerCase();
+  if (m.startsWith('claude') || m.startsWith('opus') || m.startsWith('sonnet') || m.startsWith('haiku')) {
+    return 'claude';
+  }
+  if (m.startsWith('gpt') || /^o\d/.test(m)) {
+    return 'openai';
+  }
+  if (m.startsWith('gemini')) {
+    return 'gemini';
+  }
+  if (m.startsWith('hermes')) {
+    return 'hermes';
+  }
+  return undefined;
+}
+
+function getValidReasoningEfforts(provider: LaunchConfig['provider']): LaunchConfig['reasoningEffort'][] {
+  switch (provider) {
+    case 'claude':
+      return ['low', 'medium', 'high', 'xhigh', 'max'];
+    case 'openai':
+      return ['minimal', 'low', 'medium', 'high', 'xhigh'];
+    default:
+      return [];
+  }
+}
+
+function supportsLaunchSpeed(provider: LaunchConfig['provider'], model?: string): boolean {
+  return provider === 'openai' && (model === 'gpt-5.5' || model === 'gpt-5.4');
+}
+
+function defaultModelForAgentTool(agentTool: AgentTool): string {
+  switch (agentTool) {
+    case 'codex':
+      return 'gpt-5.5';
+    case 'hermes':
+      return 'hermes-default';
+    case 'gemini':
+      return 'gemini-2.5-pro';
+    case 'claude-code':
+    default:
+      return 'claude-opus-4-8';
+  }
+}
+
+function sanitizeLaunchConfig(config?: LaunchConfig | null): LaunchConfig | undefined {
+  if (!config?.provider || !config.model) return undefined;
+  if (!['claude', 'openai', 'hermes', 'gemini'].includes(config.provider)) return undefined;
+
+  const validReasoning = getValidReasoningEfforts(config.provider);
+  const reasoningEffort = config.reasoningEffort && validReasoning.includes(config.reasoningEffort)
+    ? config.reasoningEffort
+    : undefined;
+  const speed = config.speed && supportsLaunchSpeed(config.provider, config.model)
+    ? config.speed
+    : undefined;
+  const accessMode = config.accessMode && ['safe', 'acceptEdits', 'plan', 'fullAccess'].includes(config.accessMode)
+    ? config.accessMode
+    : undefined;
+
+  return {
+    provider: config.provider,
+    model: config.model,
+    ...(reasoningEffort ? { reasoningEffort } : {}),
+    ...(speed ? { speed } : {}),
+    ...(accessMode ? { accessMode } : {}),
+  };
+}
+
+function launchConfigFromLegacy(
+  agentTool?: AgentTool,
+  model?: string,
+  reasoningEffort?: LaunchConfig['reasoningEffort'],
+  permissionMode?: string,
+): LaunchConfig | undefined {
+  // Default to claude-code when only a model or only a permissionMode is supplied,
+  // so a permissionMode-only legacy override still yields a launchConfig (carrying
+  // its accessMode) instead of being silently dropped.
+  const tool = agentTool || (model ? 'claude-code' : undefined) || (permissionMode ? 'claude-code' : undefined);
+  if (!tool) return undefined;
+  return sanitizeLaunchConfig({
+    // Model name is authoritative for provider inference (mirrors the server),
+    // falling back to the agentTool only when the model is unrecognized.
+    provider: providerForModel(model) || providerForAgentTool(tool),
+    model: model || defaultModelForAgentTool(tool),
+    reasoningEffort,
+    accessMode: accessModeForPermissionMode(permissionMode),
+  });
+}
+
+function parseLaunchConfig(raw: string | undefined): LaunchConfig | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!isRecord(parsed) || typeof parsed.provider !== 'string' || typeof parsed.model !== 'string') {
+      return undefined;
+    }
+    if (!['claude', 'openai', 'hermes', 'gemini'].includes(parsed.provider)) {
+      return undefined;
+    }
+    return sanitizeLaunchConfig({
+      provider: parsed.provider as LaunchConfig['provider'],
+      model: parsed.model,
+      ...(typeof parsed.reasoningEffort === 'string' ? { reasoningEffort: parsed.reasoningEffort as LaunchConfig['reasoningEffort'] } : {}),
+      ...(typeof parsed.speed === 'string' ? { speed: parsed.speed as LaunchConfig['speed'] } : {}),
+      ...(typeof parsed.accessMode === 'string' ? { accessMode: parsed.accessMode as LaunchConfig['accessMode'] } : {}),
+    });
+  } catch {
+    return undefined;
+  }
+}
+
 function parseMemberOverrides(raw: string | undefined): Record<string, MemberLaunchOverride> {
   if (!raw) return {};
 
@@ -141,10 +320,16 @@ function parseMemberOverrides(raw: string | undefined): Record<string, MemberLau
         }
       }
 
+      const launchConfig = isRecord(value.launchConfig)
+        ? parseLaunchConfig(JSON.stringify(value.launchConfig))
+        : launchConfigFromLegacy(
+            typeof value.agentTool === 'string' ? value.agentTool as AgentTool : undefined,
+            typeof value.model === 'string' ? value.model : undefined,
+            typeof value.reasoningEffort === 'string' ? value.reasoningEffort as LaunchConfig['reasoningEffort'] : undefined,
+            typeof value.permissionMode === 'string' ? value.permissionMode : undefined,
+          );
       const override: MemberLaunchOverride = {
-        ...(typeof value.agentTool === 'string' ? { agentTool: value.agentTool as AgentTool } : {}),
-        ...(typeof value.model === 'string' ? { model: value.model } : {}),
-        ...(typeof value.permissionMode === 'string' ? { permissionMode: value.permissionMode as MemberPermissionMode } : {}),
+        ...(launchConfig ? { launchConfig } : {}),
         ...(Array.isArray(value.skillIds)
           ? { skillIds: value.skillIds.filter((entry): entry is string => typeof entry === 'string') }
           : {}),
@@ -169,9 +354,11 @@ function applyMemberOverride(teamMember: any, override: MemberLaunchOverride | u
 
   return {
     ...teamMember,
-    ...(override.agentTool !== undefined ? { agentTool: override.agentTool } : {}),
-    ...(override.model !== undefined ? { model: override.model } : {}),
-    ...(override.permissionMode !== undefined ? { permissionMode: override.permissionMode } : {}),
+    ...(override.launchConfig !== undefined ? {
+      agentTool: agentToolForProvider(override.launchConfig.provider),
+      model: override.launchConfig.model,
+      ...(permissionModeForAccessMode(override.launchConfig.accessMode) ? { permissionMode: permissionModeForAccessMode(override.launchConfig.accessMode) } : {}),
+    } : {}),
     ...(override.skillIds !== undefined ? { skillIds: override.skillIds } : {}),
     ...(mergedCommandPermissions ? { commandPermissions: mergedCommandPermissions } : {}),
   };
@@ -260,8 +447,8 @@ export class ManifestGeneratorCLICommand {
     taskIds: string[];
     skills?: string[];
     output: string;
-    model?: string;
     agentTool?: AgentTool;
+    launchConfig?: LaunchConfig;
     referenceTaskIds?: string[];
     teamMemberIds?: string[];
     teamMemberId?: string;
@@ -277,10 +464,8 @@ export class ManifestGeneratorCLICommand {
       // 2. Fetch project
       const project = await this.fetchProject(options.projectId);
 
-      // 3. Resolve model from CLI option (set by team member via server) or default to 'sonnet'
-      // Track whether the model was explicitly set vs defaulted, so team member overrides can take precedence
-      const hasExplicitModel = !!options.model;
-      const resolvedModel = options.model || 'sonnet';
+      const hasExplicitModel = !!options.launchConfig;
+      const resolvedModel = options.launchConfig?.model || 'sonnet';
 
       // 4. Build session options
       const sessionOptions: SessionOptions = {
@@ -288,6 +473,7 @@ export class ManifestGeneratorCLICommand {
         permissionMode: 'acceptEdits',
         thinkingMode: 'auto',
         workingDirectory: project.workingDir,
+        ...(options.launchConfig ? { launchConfig: options.launchConfig } : {}),
         context: {
           custom: {
             taskIds: options.taskIds,
@@ -346,9 +532,24 @@ export class ManifestGeneratorCLICommand {
       // Add skills to manifest root
       manifest.skills = options.skills || ['maestro-worker'];
 
-      // Add agent tool to manifest (if specified)
-      if (options.agentTool) {
+      // Add agent tool to manifest (if specified). When an agentTool is given
+      // without a launchConfig, derive a coherent launchConfig from it so the
+      // spawner resolves the correct model instead of falling through to the
+      // bare manifest.session.model default (which can yield a removed model
+      // string for non-Claude tools, e.g. 'sonnet' -> a stale Codex model).
+      if (options.agentTool && !options.launchConfig) {
         manifest.agentTool = options.agentTool;
+        const derivedLaunchConfig = launchConfigFromLegacy(options.agentTool, undefined, undefined, undefined);
+        if (derivedLaunchConfig) {
+          manifest.launchConfig = derivedLaunchConfig;
+          manifest.session.launchConfig = derivedLaunchConfig;
+        }
+      }
+      if (options.launchConfig) {
+        manifest.launchConfig = options.launchConfig;
+        manifest.session.launchConfig = options.launchConfig;
+        manifest.agentTool = agentToolForProvider(options.launchConfig.provider);
+        manifest.session.permissionMode = permissionModeForAccessMode(options.launchConfig.accessMode) || manifest.session.permissionMode;
       }
 
       // Add reference task IDs to manifest (if specified)
@@ -396,6 +597,8 @@ export class ManifestGeneratorCLICommand {
         // Multi-identity: fetch all and build profiles array
         const profiles: TeamMemberProfile[] = [];
         const MODEL_POWER: Record<string, number> = {
+          'claude-opus-4-8[1m]': 5.9,
+          'claude-opus-4-8': 5.8,
           'gpt-5.5': 5.5,
           'claude-opus-4-7[1m]': 5.2,
           'claude-opus-4-7': 5,
@@ -413,7 +616,13 @@ export class ManifestGeneratorCLICommand {
           'gpt-5-codex-mini': 1.5,
           'haiku': 1,
         };
-        let highestModelPower = 0;
+        // Winning member: the most-powerful model wins, and model + agentTool +
+        // permissionMode are all taken from that SAME member so they stay coherent.
+        // Resolving these independently previously let the model come from one
+        // member (e.g. claude-opus-4-8) and the tool from another (e.g. codex),
+        // producing a Claude model launched on Codex. Mirrors the server collapse.
+        let highestModelPower = -1;
+        let hasWinner = false;
         let resolvedModelFromProfiles: string | undefined;
         let resolvedAgentToolFromProfiles: AgentTool | undefined;
         let resolvedPermissionModeFromProfiles: string | undefined;
@@ -434,20 +643,12 @@ export class ManifestGeneratorCLICommand {
               memory: tm.memory,
             });
 
-            // Resolve model: most powerful wins
-            const power = MODEL_POWER[tm.model || ''] || 0;
-            if (power > highestModelPower) {
+            const power = tm.model ? (MODEL_POWER[tm.model] || 0) : -1;
+            if (!hasWinner || power > highestModelPower) {
+              hasWinner = true;
               highestModelPower = power;
               resolvedModelFromProfiles = tm.model;
-            }
-
-            // Resolve agentTool: first non-default wins
-            if (!resolvedAgentToolFromProfiles && tm.agentTool) {
               resolvedAgentToolFromProfiles = tm.agentTool;
-            }
-
-            // Resolve permissionMode: first non-null wins
-            if (!resolvedPermissionModeFromProfiles && tm.permissionMode) {
               resolvedPermissionModeFromProfiles = tm.permissionMode;
             }
 
@@ -459,19 +660,25 @@ export class ManifestGeneratorCLICommand {
         if (profiles.length > 0) {
           manifest.teamMemberProfiles = profiles;
 
-          // Override model with most powerful from profiles (if not explicitly set by launch settings)
-          if (resolvedModelFromProfiles && !hasExplicitModel) {
-            manifest.session.model = resolvedModelFromProfiles;
-          }
+          // The launchConfig (per-task badge override OR the server-resolved
+          // config) is authoritative: it already paired model + tool coherently.
+          // Only fall back to the profile collapse when no launchConfig was given.
+          if (!options.launchConfig) {
+            if (resolvedModelFromProfiles && !hasExplicitModel) {
+              manifest.session.model = resolvedModelFromProfiles;
+            }
 
-          // Override agentTool from profiles (if not already set)
-          if (resolvedAgentToolFromProfiles && !options.agentTool) {
-            manifest.agentTool = resolvedAgentToolFromProfiles;
-          }
+            // Derive the tool from the winning model so a Claude model can never
+            // launch on Codex; fall back to the member's own agentTool.
+            const collapsedProvider = providerForModel(resolvedModelFromProfiles)
+              || providerForAgentTool(resolvedAgentToolFromProfiles);
+            if (!options.agentTool) {
+              manifest.agentTool = agentToolForProvider(collapsedProvider);
+            }
 
-          // Override permissionMode from profiles (first member's setting wins)
-          if (resolvedPermissionModeFromProfiles) {
-            manifest.session.permissionMode = resolvedPermissionModeFromProfiles as any;
+            if (resolvedPermissionModeFromProfiles) {
+              manifest.session.permissionMode = resolvedPermissionModeFromProfiles as any;
+            }
           }
 
           // Merge capabilities: union (if any member allows, it's allowed)
@@ -630,6 +837,7 @@ export class ManifestGenerator {
         ...(options.maxTurns && { maxTurns: options.maxTurns }),
         ...(options.timeout && { timeout: options.timeout }),
         ...(options.workingDirectory && { workingDirectory: options.workingDirectory }),
+        ...(options.launchConfig && { launchConfig: options.launchConfig }),
       },
       ...(options.context && { context: options.context }),
     };
@@ -715,8 +923,11 @@ export function registerManifestCommands(program: any): void {
     .requiredOption('--project-id <id>', 'Project ID')
     .requiredOption('--task-ids <ids>', 'Comma-separated task IDs')
     .option('--skills <skills>', 'Comma-separated skills', 'maestro-worker')
-    .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5, gemini-3-pro-preview)', 'sonnet')
-    .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, or gemini)', 'claude-code')
+    .option('--launch-config <json>', 'Canonical launch config JSON: provider, model, reasoningEffort, speed, accessMode')
+    .option('--agent-tool <tool>', 'Agent tool to use (claude-code, codex, hermes, or gemini)', 'claude-code')
+    .option('--model <model>', 'Legacy model override; converted to canonical launch config')
+    .option('--reasoning-effort <effort>', 'Legacy reasoning effort override; converted to canonical launch config')
+    .option('--permission-mode <mode>', 'Legacy permission mode override; converted to canonical launch config')
     .option('--reference-task-ids <ids>', 'Comma-separated reference task IDs for context')
     .option('--team-member-id <id>', 'Team member ID for this session')
     .option('--team-member-ids <ids>', 'Comma-separated team member IDs (for coordinate mode)')
@@ -734,8 +945,18 @@ export function registerManifestCommands(program: any): void {
       }
 
       // Validate agent tool
-      const validTools = ['claude-code', 'codex', 'gemini'];
+      const validTools = ['claude-code', 'codex', 'hermes', 'gemini'];
       if (options.agentTool && !validTools.includes(options.agentTool)) {
+        process.exit(1);
+      }
+
+      const hasLegacyLaunchOverride = !!options.model || !!options.reasoningEffort || !!options.permissionMode || options.agentTool !== 'claude-code';
+      const launchConfig = parseLaunchConfig(options.launchConfig)
+        || (hasLegacyLaunchOverride
+          ? launchConfigFromLegacy(options.agentTool, options.model, options.reasoningEffort, options.permissionMode)
+          : undefined);
+      if (options.launchConfig && !launchConfig) {
+        console.error('Invalid launch config JSON');
         process.exit(1);
       }
 
@@ -757,7 +978,7 @@ export function registerManifestCommands(program: any): void {
         taskIds,
         skills,
         output: options.output,
-        model: options.model,
+        launchConfig,
         agentTool: options.agentTool !== 'claude-code' ? options.agentTool : undefined,
         referenceTaskIds,
         teamMemberId: options.teamMemberId,

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useLayoutEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { TeamMember, AgentMode, AgentTool } from "../../app/types/maestro";
+import { AGENT_TOOL_SHORT_LABELS } from "../../app/constants/agentTools";
+import { AgentLogo } from "./AgentChip";
 
 type SplitPlayButtonProps = {
     onPlayDefault: () => void;
@@ -20,15 +22,7 @@ const MODE_LABELS: Record<string, string> = {
     coordinate: 'coord',
 };
 
-const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
-    "claude-code": "Claude",
-    "codex": "Codex",
-};
-
-const AGENT_TOOL_SYMBOLS: Partial<Record<AgentTool, string>> = {
-    "claude-code": "◈",
-    "codex": "◇",
-};
+const AGENT_TOOL_LABELS = AGENT_TOOL_SHORT_LABELS;
 
 function getMemberBadgeLabel(member: TeamMember): string {
     if (member.mode) return MODE_LABELS[member.mode];
@@ -195,7 +189,7 @@ export function SplitPlayButton({
                                                 {subline && (
                                                     <div className="splitPlayDropdown__memberSub">
                                                         {member.agentTool && (
-                                                            <span className="splitPlayDropdown__agentIcon">{AGENT_TOOL_SYMBOLS[member.agentTool]}</span>
+                                                            <AgentLogo agentTool={member.agentTool} size={11} className="splitPlayDropdown__agentIcon" />
                                                         )}
                                                         {subline}
                                                     </div>

@@ -16,7 +16,7 @@ Agent Maestro is a multi-agent orchestration system for Claude agents. It consis
 # Install all workspace dependencies
 bun install
 
-# Development (starts server on port 3002 + Tauri UI with hot-reload)
+# Development (starts staging server on port 4569 + Tauri UI on 4568, hot-reload)
 bun run dev:all
 
 # Individual packages
@@ -59,9 +59,12 @@ Staging and production run simultaneously without conflicts:
 
 | | Staging | Production |
 |---|---|---|
-| Port | 3002 | 3001 |
+| Server port | 4569 | 3001 |
+| UI (Vite) port | 4568 | n/a (installed app) |
 | Data | `~/.maestro-staging/data/` | `~/.maestro/data/` |
 | Mode | Tauri dev + hot-reload | Installed macOS app |
+
+> Note: the server's default `PORT` is `4567`; the staging stack runs the server on `4569` with the Vite UI on `4568` (UI is wired to the server via `VITE_API_URL=http://localhost:4569/api`).
 
 ## Server Architecture (Clean Architecture + DI)
 

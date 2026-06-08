@@ -17,26 +17,19 @@ export function createTeamMemberRoutes(teamMemberService: TeamMemberService) {
    */
   router.get('/team-members', validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
     try {
-      const projectId = req.query.projectId as string;
-      const scope = req.query.scope as string;
-
-      if (!projectId && scope !== 'global') {
-        return res.status(400).json({
-          error: true,
-          message: 'projectId query parameter is required (or use scope=global)',
-          code: 'VALIDATION_ERROR'
-        });
-      }
+      const projectId = req.query.projectId as string | undefined;
+      const scope = req.query.scope as string | undefined;
 
       let members;
       if (scope === 'global') {
-        // Return only global members
         const allMembers = projectId
           ? await teamMemberService.getProjectTeamMembers(projectId)
           : await teamMemberService.getGlobalTeamMembers();
         members = allMembers.filter(m => m.scope === 'global');
-      } else {
+      } else if (projectId) {
         members = await teamMemberService.getProjectTeamMembers(projectId);
+      } else {
+        members = await teamMemberService.getGlobalTeamMembers();
       }
 
       if (req.query.limit || req.query.offset) {
@@ -64,22 +57,16 @@ export function createTeamMemberRoutes(teamMemberService: TeamMemberService) {
 
   /**
    * GET /team-members/:id?projectId=X
-   * Get team member by ID
+   * Get team member by ID (projectId optional — IDs are globally unique)
    */
   router.get('/team-members/:id', async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
-      const projectId = req.query.projectId as string;
+      const projectId = req.query.projectId as string | undefined;
 
-      if (!projectId) {
-        return res.status(400).json({
-          error: true,
-          message: 'projectId query parameter is required',
-          code: 'VALIDATION_ERROR'
-        });
-      }
-
-      const member = await teamMemberService.getTeamMember(projectId, id);
+      const member = projectId
+        ? await teamMemberService.getTeamMember(projectId, id)
+        : await teamMemberService.getTeamMemberById(id);
       res.json(member);
     } catch (err: unknown) {
       handleRouteError(err, res);

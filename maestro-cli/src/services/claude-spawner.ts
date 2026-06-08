@@ -83,6 +83,21 @@ export class ClaudeSpawner {
     }
   }
 
+  private permissionModeFromAccessMode(accessMode?: string): string | undefined {
+    switch (accessMode) {
+      case 'fullAccess':
+        return 'bypassPermissions';
+      case 'acceptEdits':
+        return 'acceptEdits';
+      case 'plan':
+        return 'readOnly';
+      case 'safe':
+        return 'interactive';
+      default:
+        return undefined;
+    }
+  }
+
   /**
    * Get plugin directory for a mode
    *
@@ -119,6 +134,24 @@ export class ClaudeSpawner {
    * @returns Array of CLI arguments
    */
   async buildClaudeArgs(manifest: MaestroManifest): Promise<string[]> {
+    const args = await this.buildBaseArgs(manifest);
+
+    // Add pre-generated Claude session ID for resume support
+    const claudeSessionId = process.env.MAESTRO_CLAUDE_SESSION_ID;
+    if (claudeSessionId) {
+      args.push('--session-id', claudeSessionId);
+    }
+
+    return args;
+  }
+
+  /**
+   * Build the launch-config Claude CLI arguments shared by fresh spawns and
+   * resumes: plugin dirs (hooks), skills, model, permission mode, reasoning
+   * effort, and max turns. Excludes session-identity flags (`--session-id` /
+   * `--resume`) and the prompt, which the caller appends.
+   */
+  async buildBaseArgs(manifest: MaestroManifest): Promise<string[]> {
     const args: string[] = [];
 
     // Add plugin directory (provides both hooks and skills)
@@ -141,24 +174,25 @@ export class ClaudeSpawner {
       // They're categorized but not preventing session spawn
     }
 
-    // Add pre-generated Claude session ID for resume support
-    const claudeSessionId = process.env.MAESTRO_CLAUDE_SESSION_ID;
-    if (claudeSessionId) {
-      args.push('--session-id', claudeSessionId);
-    }
+    const launchConfig = manifest.session.launchConfig || manifest.launchConfig;
 
     // Add model
-    args.push('--model', manifest.session.model);
+    args.push('--model', launchConfig?.model || manifest.session.model);
 
     // Add permission mode
-    if (manifest.session.permissionMode) {
-      if (manifest.session.permissionMode === 'bypassPermissions') {
+    const permissionMode = this.permissionModeFromAccessMode(launchConfig?.accessMode) || manifest.session.permissionMode;
+    if (permissionMode) {
+      if (permissionMode === 'bypassPermissions') {
         // Use --dangerously-skip-permissions for full bypass mode
         args.push('--dangerously-skip-permissions');
       } else {
-        const claudePermMode = this.mapPermissionMode(manifest.session.permissionMode);
+        const claudePermMode = this.mapPermissionMode(permissionMode);
         args.push('--permission-mode', claudePermMode);
       }
+    }
+
+    if (launchConfig?.reasoningEffort && ['low', 'medium', 'high', 'xhigh', 'max'].includes(launchConfig.reasoningEffort)) {
+      args.push('--effort', launchConfig.reasoningEffort);
     }
 
     // Add max turns if specified
@@ -166,6 +200,18 @@ export class ClaudeSpawner {
       args.push('--max-turns', manifest.session.maxTurns.toString());
     }
 
+    return args;
+  }
+
+  /**
+   * Build Claude CLI arguments for resuming an existing conversation.
+   * Reapplies the full launch config (skills, model, permissions) and points
+   * Claude at the prior conversation via `--resume`. No system prompt or task
+   * prompt is appended — `--resume` restores the existing conversation.
+   */
+  async buildResumeArgs(manifest: MaestroManifest, claudeSessionId: string): Promise<string[]> {
+    const args = await this.buildBaseArgs(manifest);
+    args.push('--resume', claudeSessionId);
     return args;
   }
 

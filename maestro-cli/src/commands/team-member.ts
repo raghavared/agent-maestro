@@ -7,6 +7,7 @@ import { guardCommand } from '../services/command-permissions.js';
 import { normalizeMode, type AgentModeInput } from '../types/manifest.js';
 import type { TeamMemberResponse } from '../types/api-responses.js';
 import ora from 'ora';
+import { resolveProjectScope } from '../utils/project-scope.js';
 
 export function registerTeamMemberCommands(program: Command) {
     const teamMember = program.command('team-member').description('Manage team members');
@@ -16,17 +17,17 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--all', 'Include archived members')
         .option('--status <status>', 'Filter by status: active or archived')
         .option('--mode <mode>', 'Filter by mode: worker, coordinator, coordinated-worker, coordinated-coordinator')
-        .action(async (cmdOpts: { all?: boolean; status?: string; mode?: string }) => {
+        .option('--project-id <id>', 'Filter by project ID (overrides global --project)')
+        .option('--all-projects', 'List team members from all projects')
+        .action(async (cmdOpts: { all?: boolean; status?: string; mode?: string; projectId?: string; allProjects?: boolean }) => {
             await guardCommand('team-member:list');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
-            const projectId = globalOpts.project || config.projectId;
-
-            if (!projectId) {
-                const err = { message: 'No project context found. Use --project <id> or set MAESTRO_PROJECT_ID.' };
-                if (isJson) { outputErrorJSON(err); process.exit(1); }
-                else { console.error(err.message); process.exit(1); }
-            }
+            const scope = resolveProjectScope(
+                { projectId: cmdOpts.projectId, allProjects: cmdOpts.allProjects },
+                globalOpts,
+            );
+            const projectId = scope.projectId;
 
             // Validate status filter
             if (cmdOpts.status && !['active', 'archived'].includes(cmdOpts.status)) {
@@ -49,7 +50,10 @@ export function registerTeamMemberCommands(program: Command) {
             const spinner = !isJson ? ora('Fetching team members...').start() : null;
 
             try {
-                const members = await api.get<TeamMemberResponse[]>(`/api/team-members?projectId=${projectId}`);
+                const endpoint = projectId
+                    ? `/api/team-members?projectId=${projectId}`
+                    : '/api/team-members';
+                const members = await api.get<TeamMemberResponse[]>(endpoint);
 
                 spinner?.stop();
 
@@ -104,16 +108,13 @@ export function registerTeamMemberCommands(program: Command) {
             const isJson = globalOpts.json;
             const projectId = globalOpts.project || config.projectId;
 
-            if (!projectId) {
-                const err = { message: 'No project context found. Use --project <id> or set MAESTRO_PROJECT_ID.' };
-                if (isJson) { outputErrorJSON(err); process.exit(1); }
-                else { console.error(err.message); process.exit(1); }
-            }
-
             const spinner = !isJson ? ora('Fetching team member...').start() : null;
 
             try {
-                const member = await api.get<TeamMemberResponse>(`/api/team-members/${teamMemberId}?projectId=${projectId}`);
+                const endpoint = projectId
+                    ? `/api/team-members/${teamMemberId}?projectId=${projectId}`
+                    : `/api/team-members/${teamMemberId}`;
+                const member = await api.get<TeamMemberResponse>(endpoint);
 
                 spinner?.stop();
 
@@ -178,8 +179,8 @@ export function registerTeamMemberCommands(program: Command) {
         .option('--role <role>', 'Update role description')
         .option('--avatar <emoji>', 'Update avatar emoji')
         .option('--mode <mode>', 'Update agent mode: worker, coordinator, coordinated-worker, coordinated-coordinator')
-        .option('--model <model>', 'Update model (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5)')
-        .option('--agent-tool <tool>', 'Update agent tool (claude-code, codex, or gemini)')
+        .option('--model <model>', 'Update model (e.g. sonnet, claude-opus-4-8, claude-opus-4-7[1m], gpt-5.5, hermes-default)')
+        .option('--agent-tool <tool>', 'Update agent tool (claude-code, codex, hermes, or gemini)')
         .option('--permission-mode <mode>', 'Update permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Update identity/persona instructions')
         .option('--skills <skills>', 'Update assigned skill IDs (comma-separated, e.g. react-expert,frontend-design)')
@@ -208,7 +209,7 @@ export function registerTeamMemberCommands(program: Command) {
 
             // Validate agent tool if provided
             if (cmdOpts.agentTool) {
-                const validAgentTools = ['claude-code', 'codex', 'gemini'];
+                const validAgentTools = ['claude-code', 'codex', 'hermes', 'gemini'];
                 if (!validAgentTools.includes(cmdOpts.agentTool)) {
                     const err = { message: `Invalid agent tool "${cmdOpts.agentTool}". Must be one of: ${validAgentTools.join(', ')}` };
                     if (isJson) { outputErrorJSON(err); process.exit(1); }
@@ -600,8 +601,8 @@ export function registerTeamMemberCommands(program: Command) {
         .requiredOption('--role <role>', 'Role description for the team member')
         .requiredOption('--avatar <emoji>', 'Avatar emoji for the team member')
         .requiredOption('--mode <mode>', 'Agent mode: worker, coordinator, coordinated-worker, coordinated-coordinator')
-        .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-7, claude-opus-4-7[1m], gpt-5.5, or native model names)')
-        .option('--agent-tool <tool>', 'Agent tool (claude-code, codex, or gemini)', 'claude-code')
+        .option('--model <model>', 'Model to use (e.g. sonnet, claude-opus-4-8, claude-opus-4-7[1m], gpt-5.5, hermes-default, or native model names)')
+        .option('--agent-tool <tool>', 'Agent tool (claude-code, codex, hermes, or gemini)', 'claude-code')
         .option('--permission-mode <mode>', 'Permission mode: acceptEdits, interactive, readOnly, or bypassPermissions')
         .option('--identity <instructions>', 'Custom identity/persona instructions')
         .option('--skills <skills>', 'Comma-separated skill IDs to assign (e.g. react-expert,frontend-design)')
@@ -627,7 +628,7 @@ export function registerTeamMemberCommands(program: Command) {
             }
 
             // Validate agent tool
-            const validAgentTools = ['claude-code', 'codex', 'gemini'];
+            const validAgentTools = ['claude-code', 'codex', 'hermes', 'gemini'];
             if (cmdOpts.agentTool && !validAgentTools.includes(cmdOpts.agentTool)) {
                 const err = { message: `Invalid agent tool "${cmdOpts.agentTool}". Must be one of: ${validAgentTools.join(', ')}` };
                 if (isJson) { outputErrorJSON(err); process.exit(1); }

@@ -90,6 +90,17 @@ function readIconRailSection(): IconRailSection {
   return 'tasks';
 }
 
+function readBoolFromStorage(key: string, fallback: boolean): boolean {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === '1' || raw === 'true') return true;
+    if (raw === '0' || raw === 'false') return false;
+  } catch {
+    // best-effort
+  }
+  return fallback;
+}
+
 function readProjectsListHeightMode(): 'auto' | 'manual' {
   try {
     const raw = localStorage.getItem(DEFAULTS.STORAGE_SIDEBAR_PROJECTS_LIST_MAX_HEIGHT_KEY);
@@ -121,6 +132,10 @@ interface UIState {
   toggleIconRailSection: (section: Exclude<IconRailSection, null>) => void;
   setMaestroSidebarWidth: (width: number) => void;
   persistMaestroSidebarWidth: (width: number) => void;
+
+  // Sessions list — show linked task details inline on each session tile
+  sessionShowTaskDetails: boolean;
+  toggleSessionShowTaskDetails: () => void;
 
   // Spaces panel (right) — null = collapsed, 'sessions' = expanded
   spacesRailActiveSection: 'sessions' | null;
@@ -161,13 +176,17 @@ interface UIState {
   showBoardRequested: boolean;
   setShowBoardRequested: (requested: boolean) => void;
 
-  // Team view overlay
-  teamViewGroupId: string | null;
-  setTeamViewGroupId: (groupId: string | null) => void;
+  // Team view overlay — root maestro session id of the re-rootable hierarchy
+  teamViewRootId: string | null;
+  setTeamViewRootId: (sessionId: string | null) => void;
 
   // Task detail overlay (covers workspace area)
   taskDetailOverlay: { taskId: string; projectId: string } | null;
   setTaskDetailOverlay: (overlay: { taskId: string; projectId: string } | null) => void;
+
+  // Session detail overlay (covers workspace area)
+  sessionDetailOverlay: { sessionId: string; projectId: string } | null;
+  setSessionDetailOverlay: (overlay: { sessionId: string; projectId: string } | null) => void;
 
   // App update
   appInfo: AppInfo | null;
@@ -257,6 +276,18 @@ export const useUIStore = create<UIState>((set, get) => ({
     }
   },
 
+  // -- Sessions list: inline task details toggle --
+  sessionShowTaskDetails: readBoolFromStorage(DEFAULTS.STORAGE_SESSION_SHOW_TASK_DETAILS_KEY, false),
+  toggleSessionShowTaskDetails: () => {
+    const next = !get().sessionShowTaskDetails;
+    set({ sessionShowTaskDetails: next });
+    try {
+      localStorage.setItem(DEFAULTS.STORAGE_SESSION_SHOW_TASK_DETAILS_KEY, next ? '1' : '0');
+    } catch {
+      // best-effort
+    }
+  },
+
   // -- Spaces panel (right) --
   spacesRailActiveSection: 'sessions' as 'sessions' | null,
   setSpacesRailActiveSection: (section) => set({ spacesRailActiveSection: section }),
@@ -331,12 +362,15 @@ export const useUIStore = create<UIState>((set, get) => ({
   setShowBoardRequested: (requested) => set({ showBoardRequested: requested }),
 
   // -- Team view overlay --
-  teamViewGroupId: null,
-  setTeamViewGroupId: (groupId) => set({ teamViewGroupId: groupId }),
+  teamViewRootId: null,
+  setTeamViewRootId: (sessionId) => set({ teamViewRootId: sessionId }),
 
   // -- Task detail overlay --
   taskDetailOverlay: null,
   setTaskDetailOverlay: (overlay) => set({ taskDetailOverlay: overlay }),
+
+  sessionDetailOverlay: null,
+  setSessionDetailOverlay: (overlay) => set({ sessionDetailOverlay: overlay }),
 
   // -- App update --
   appInfo: null,

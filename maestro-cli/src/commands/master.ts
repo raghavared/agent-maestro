@@ -76,6 +76,8 @@ export function registerMasterCommands(program: Command) {
     master.command('sessions')
         .description('List sessions across all projects')
         .option('--project <id>', 'Filter by project ID')
+        .option('--active', 'Show only active sessions (working, idle, spawning)')
+        .option('--status <statuses>', 'Filter by comma-separated status values')
         .action(async (cmdOpts) => {
             await guardCommand('master:sessions');
             const globalOpts = program.opts();
@@ -83,7 +85,11 @@ export function registerMasterCommands(program: Command) {
             const spinner = !isJson ? ora('Fetching sessions...').start() : null;
 
             try {
-                const qs = cmdOpts.project ? `?projectId=${cmdOpts.project}` : '';
+                const queryParts: string[] = [];
+                if (cmdOpts.project) queryParts.push(`projectId=${cmdOpts.project}`);
+                if (cmdOpts.active) queryParts.push('active=true');
+                if (cmdOpts.status) queryParts.push(`status=${cmdOpts.status}`);
+                const qs = queryParts.length ? `?${queryParts.join('&')}` : '';
                 const sessions: any[] = await api.get(`/api/master/sessions${qs}`);
 
                 spinner?.stop();

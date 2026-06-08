@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { TeamMember, AgentTool } from "../../app/types/maestro";
+import { AGENT_TOOL_LABELS } from "../../app/constants/agentTools";
+import { AgentChip } from "./AgentChip";
 
 type TeamMemberListProps = {
     teamMembers: TeamMember[];
@@ -11,16 +13,6 @@ type TeamMemberListProps = {
     onRun?: (member: TeamMember) => void | Promise<void>;
 };
 
-const AGENT_TOOL_SYMBOLS: Partial<Record<AgentTool, string>> = {
-    "claude-code": "◈",
-    "codex": "◇",
-};
-
-const AGENT_TOOL_LABELS: Partial<Record<AgentTool, string>> = {
-    "claude-code": "Claude Code",
-    "codex": "OpenAI Codex",
-};
-
 function getModelDisplayLabel(model?: string, agentTool?: AgentTool): string {
     if (!model) return "";
     const modelLabels: Record<string, string> = {
@@ -28,6 +20,8 @@ function getModelDisplayLabel(model?: string, agentTool?: AgentTool): string {
         sonnet: "Sonnet",
         "sonnet[1m]": "Sonnet [1M]",
         opus: "Opus",
+        "claude-opus-4-8": "Opus 4.8",
+        "claude-opus-4-8[1m]": "Opus 4.8 [1M]",
         "claude-opus-4-7": "Opus 4.7",
         "claude-opus-4-7[1m]": "Opus 4.7 [1M]",
         "opus[1m]": "Opus [1M]",
@@ -35,6 +29,15 @@ function getModelDisplayLabel(model?: string, agentTool?: AgentTool): string {
         "gpt-5.4": "5.4",
         "gpt-5.3-codex": "5.3-codex",
         "gpt-5.2-codex": "5.2-codex",
+        "hermes-default": "Hermes default",
+        "anthropic:claude-opus-4-8": "Claude Opus 4.8",
+        "nous:anthropic/claude-opus-4.8": "Claude Opus 4.8",
+        "openrouter:anthropic/claude-opus-4.8": "Claude Opus 4.8",
+        "anthropic/claude-opus-4.8": "Claude Opus 4.8",
+        "anthropic/claude-sonnet-4.6": "Claude Sonnet 4.6",
+        "openai/gpt-5.5": "Codex OAuth GPT 5.5",
+        "openai/gpt-5.4": "Codex OAuth GPT 5.4",
+        "gpt-5.3-codex-spark": "Codex OAuth GPT 5.3 Codex Spark",
     };
     return modelLabels[model] || model;
 }
@@ -122,13 +125,12 @@ function TeamMemberRow({
                     </span>
                     <span className="terminalTaskTitle" style={{ flex: 1, minWidth: 0 }}>{member.name}</span>
 
-                    {/* Model badge */}
-                    {modelLabel && (
-                        <span className={`terminalMetaBadge terminalMetaBadge--agent ${member.agentTool ? `terminalMetaBadge--agent-${member.agentTool}` : ''}`}>
-                            {member.agentTool && AGENT_TOOL_SYMBOLS[member.agentTool]}{' '}
-                            {modelLabel}
-                        </span>
-                    )}
+                    {/* Agent chip: brand logo + tool name (+ model) */}
+                    {member.agentTool ? (
+                        <AgentChip agentTool={member.agentTool} model={member.model ? modelLabel : undefined} />
+                    ) : modelLabel ? (
+                        <span className="terminalMetaBadge terminalMetaBadge--model">{modelLabel}</span>
+                    ) : null}
 
                     {/* Global scope indicator */}
                     {member.scope === 'global' && (

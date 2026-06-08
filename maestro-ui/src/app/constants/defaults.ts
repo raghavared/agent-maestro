@@ -23,7 +23,7 @@ export const SESSION_CLOSE_CLEANUP_TIMEOUT_MS = 30_000;
 export const MAX_PENDING_SESSIONS = 32;
 export const MAX_PENDING_CHUNKS_PER_SESSION = 200;
 
-export const DEFAULT_AGENT_SHORTCUT_IDS = ["codex", "claude"];
+export const DEFAULT_AGENT_SHORTCUT_IDS = ["codex", "claude", "hermes", "gemini"];
 export const DEFAULT_SIDEBAR_PROJECTS_LIST_MAX_HEIGHT = 290;
 export const MIN_SIDEBAR_PROJECTS_LIST_MAX_HEIGHT = 0;
 export const MAX_SIDEBAR_PROJECTS_LIST_MAX_HEIGHT = 1200;
@@ -48,4 +48,5 @@ export const MIN_MAESTRO_SIDEBAR_WIDTH = 200;
 export const MAX_MAESTRO_SIDEBAR_WIDTH = 600;
 export const STORAGE_MAESTRO_SIDEBAR_WIDTH_KEY = 'agents-ui-maestro-sidebar-width-v1';
 export const STORAGE_ICON_RAIL_SECTION_KEY = 'agents-ui-icon-rail-section-v1';
+export const STORAGE_SESSION_SHOW_TASK_DETAILS_KEY = 'agents-ui-session-show-task-details-v1';
 export const SPACES_RAIL_WIDTH = 48;
