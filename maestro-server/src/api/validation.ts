@@ -550,6 +550,12 @@ export const paginationQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).optional(),
 });
 
+export const projectDocsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+  kind: z.enum(['markdown', 'diagram']).optional(),
+});
+
 export interface PaginationParams {
   limit: number;
   offset: number;

@@ -3,6 +3,7 @@ import { maestroClient } from "../utils/MaestroClient";
 import { useMaestroStore } from "../stores/useMaestroStore";
 import { useSpacesStore } from "../stores/useSpacesStore";
 import { useSessionStore } from "../stores/useSessionStore";
+import { useUIStore } from "../stores/useUIStore";
 import type { DocEntry, TaskImage, MaestroTask } from "../app/types/maestro";
 
 type ResourceType = "all" | "docs" | "diagrams" | "images";
@@ -59,9 +60,9 @@ export const ResourcesView: React.FC<{
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const tasks = useMaestroStore((s) => s.tasks);
-  const openDocument = useSpacesStore((s) => s.openDocument);
   const createWhiteboard = useSpacesStore((s) => s.createWhiteboard);
   const setActiveId = useSessionStore((s) => s.setActiveId);
+  const setDocOverlay = useUIStore((s) => s.setDocOverlay);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,10 +131,9 @@ export const ResourcesView: React.FC<{
       );
       setActiveId(id);
     } else {
-      const id = openDocument(projectId, resource.doc);
-      setActiveId(id);
+      setDocOverlay(resource.doc);
     }
-  }, [projectId, createWhiteboard, openDocument, setActiveId]);
+  }, [projectId, createWhiteboard, setDocOverlay]);
 
   const docCount = allResources.filter((r) => r.kind === "doc").length;
   const diagramCount = allResources.filter((r) => r.kind === "diagram").length;

@@ -141,7 +141,7 @@ function makeMarkdownComponents(onOpenDiagramDoc?: (doc: DocEntry) => void) {
 }
 
 export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(true);
   const [diagramEditMode, setDiagramEditMode] = useState(false);
   const fileExt = useMemo(() => getFileExtension(doc.filePath), [doc.filePath]);
   const shouldRenderMarkdown = useMemo(() => isMarkdown(doc.filePath), [doc.filePath]);
@@ -256,7 +256,7 @@ export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
               inline
               mode={diagramEditMode ? 'edit' : 'view'}
               docId={doc.id}
-              docSessionId={doc.sessionId}
+              docSessionId={doc.sessionId ?? doc.addedBy}
               initialSceneJson={doc.content}
               name={doc.title}
               onClose={() => {}}

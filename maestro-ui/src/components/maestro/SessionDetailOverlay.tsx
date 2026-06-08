@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useUIStore } from "../../stores/useUIStore";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useProjectStore } from "../../stores/useProjectStore";
-import { useSessionStore } from "../../stores/useSessionStore";
-import { useSpacesStore } from "../../stores/useSpacesStore";
 import { MaestroSessionStatus } from "../../app/types/maestro";
 import { SessionTimeline } from "./SessionTimeline";
 import { DocsList } from "./DocsList";
@@ -53,8 +51,7 @@ export function SessionDetailOverlay() {
 
   const sessionId = overlay?.sessionId;
   const session = sessionId ? sessions[sessionId] : undefined;
-  const openDocument = useSpacesStore(s => s.openDocument);
-  const setActiveId = useSessionStore(s => s.setActiveId);
+  const setDocOverlay = useUIStore(s => s.setDocOverlay);
   const [isCreatingDiagram, setIsCreatingDiagram] = useState(false);
 
   const handleCreateDiagram = useCallback(async () => {
@@ -66,15 +63,14 @@ export function SessionDetailOverlay() {
       // Refresh session to pick up new doc
       fetchSession(sessionId);
       const projectId = overlay?.projectId ?? '';
-      const spaceId = openDocument(projectId, doc);
-      setActiveId(spaceId);
+      setDocOverlay(doc);
       setOverlay(null);
     } catch {
       // best-effort
     } finally {
       setIsCreatingDiagram(false);
     }
-  }, [sessionId, session, isCreatingDiagram, fetchSession, overlay, openDocument, setActiveId, setOverlay]);
+  }, [sessionId, session, isCreatingDiagram, fetchSession, overlay, setDocOverlay, setOverlay]);
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);

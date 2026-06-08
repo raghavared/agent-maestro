@@ -8,8 +8,6 @@ import {
   MaestroTask,
 } from "../../app/types/maestro";
 import { useMaestroStore } from "../../stores/useMaestroStore";
-import { useSpacesStore } from "../../stores/useSpacesStore";
-import { useSessionStore } from "../../stores/useSessionStore";
 import { useUIStore } from "../../stores/useUIStore";
 import type { TeamColor } from "../../app/constants/teamColors";
 import type { SessionSubTab } from "../../utils/sessionLifecycle";
@@ -138,8 +136,7 @@ export const SessionListItem = React.memo(function SessionListItem({
   const [modeDropdownPos, setModeDropdownPos] = useState<{ top: number; left: number } | null>(null);
 
   const updateSessionMode = useMaestroStore((s) => s.updateSessionMode);
-  const openDocument = useSpacesStore((s) => s.openDocument);
-  const setActiveId = useSessionStore((s) => s.setActiveId);
+  const setDocOverlay = useUIStore((s) => s.setDocOverlay);
   const showTaskDetails = useUIStore((s) => s.sessionShowTaskDetails);
 
   const status = session.status;
@@ -563,8 +560,7 @@ export const SessionListItem = React.memo(function SessionListItem({
                         title={doc.filePath}
                         onClick={(e) => {
                           e.stopPropagation();
-                          const spaceId = openDocument(session.projectId, doc);
-                          setActiveId(spaceId);
+                          setDocOverlay(doc);
                         }}
                       >
                         <span className="sessionTile__docIcon">{isMarkdown ? "M↓" : "{ }"}</span>

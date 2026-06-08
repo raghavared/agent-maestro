@@ -451,6 +451,16 @@ class MaestroClient {
         return this.fetch<DocEntry[]>(`/projects/${projectId}/docs`);
     }
 
+    async getProjectDocsPaginated(
+        projectId: string,
+        kind: 'markdown' | 'diagram',
+        limit: number,
+        offset: number,
+    ): Promise<{ data: DocEntry[]; pagination: { offset: number; limit: number; total: number; hasMore: boolean } }> {
+        const params = new URLSearchParams({ kind, limit: String(limit), offset: String(offset) });
+        return this.fetch(`/projects/${projectId}/docs?${params}`);
+    }
+
     // ==================== TASK IMAGES ====================
 
     /**

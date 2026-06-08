@@ -238,8 +238,8 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
                     />
                 ))}
 
-                {/* Whiteboard, document & file space buttons */}
-                {spaces.map((space) => (
+                {/* Whiteboard & file space buttons — docs/drawings are now overlays */}
+                {spaces.filter((s) => s.type !== "document").map((space) => (
                     <button type="button"
                         key={space.id}
                         className={`spacesRailSession spacesRailSpace spacesRailSpace--${space.type} ${space.id === activeSessionId ? "spacesRailSession--active" : ""}`}
@@ -247,7 +247,7 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
                         title={space.name}
                     >
                         {space.id === activeSessionId && <span className="iconRailActiveIndicator iconRailActiveIndicator--right" />}
-                        {space.type === "whiteboard" ? <WhiteboardIcon /> : space.type === "file" ? <FileCodeIcon /> : <DocumentIcon />}
+                        {space.type === "whiteboard" ? <WhiteboardIcon /> : <FileCodeIcon />}
                     </button>
                 ))}
             </div>

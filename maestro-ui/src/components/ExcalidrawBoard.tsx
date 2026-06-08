@@ -73,6 +73,7 @@ export function ExcalidrawBoard({ onClose, inline, storageKey, name, originSessi
   }, [initialSceneJson, effectiveKey]);
 
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
+  const [apiReady, setApiReady] = useState(false);
   const [showTaskPicker, setShowTaskPicker] = useState(false);
   const [showSessionPicker, setShowSessionPicker] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -144,6 +145,52 @@ export function ExcalidrawBoard({ onClose, inline, storageKey, name, originSessi
     },
     [],
   );
+
+  // Imperatively load the server scene once the Excalidraw API is ready.
+  // Relying on Excalidraw's `initialData` alone left doc-backed boards blank:
+  // either the viewport never scrolled to the elements (fatal in view mode,
+  // where the user can't pan), or no scene JSON was passed at all (Resources /
+  // SpacesPanel via createWhiteboard). updateScene + scrollToContent forces the
+  // content onto the canvas and fits the viewport to it.
+  useEffect(() => {
+    if (!apiReady) return;
+    let cancelled = false;
+
+    const applyScene = (raw?: string | null) => {
+      if (cancelled || !raw) return;
+      const api = excalidrawAPIRef.current;
+      if (!api) return;
+      try {
+        const scene = JSON.parse(raw) as ExcalidrawInitialDataState;
+        const elements = scene.elements ?? [];
+        if (elements.length === 0) return;
+        const { collaborators: _collaborators, ...appState } =
+          (scene.appState ?? {}) as Record<string, unknown>;
+        api.updateScene({
+          elements,
+          appState: appState as Parameters<ExcalidrawImperativeAPI["updateScene"]>[0]["appState"],
+        });
+        api.scrollToContent(elements, { fitToContent: true });
+      } catch {
+        // ignore malformed scene JSON
+      }
+    };
+
+    if (initialSceneJson) {
+      applyScene(initialSceneJson);
+    } else if (isDocBacked && docId && docSessionId) {
+      maestroClient
+        .getSessionDocs(docSessionId)
+        .then((docs) => applyScene(docs.find((d) => d.id === docId)?.content))
+        .catch(() => {
+          // best-effort; localStorage cache (if any) remains
+        });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiReady, isDocBacked, docId, docSessionId, initialSceneJson]);
 
   // Escape-to-close only for overlay mode
   useEffect(() => {
@@ -390,7 +437,7 @@ export function ExcalidrawBoard({ onClose, inline, storageKey, name, originSessi
           <Excalidraw
             initialData={initialData}
             onChange={handleChange}
-            excalidrawAPI={(api) => { excalidrawAPIRef.current = api; }}
+            excalidrawAPI={(api) => { excalidrawAPIRef.current = api; setApiReady(true); }}
             viewModeEnabled={isViewMode}
           />
         </div>
