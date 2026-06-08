@@ -34,6 +34,7 @@ import type {
     SpellEntity,
     SpellEntityType,
     SpellInvocation,
+    SessionStatsResponse,
 } from '../app/types/maestro';
 
 import { API_BASE_URL } from './serverConfig';
@@ -402,6 +403,15 @@ class MaestroClient {
         });
     }
 
+    /**
+     * Fetch comprehensive session stats: token totals, message/tool counts,
+     * last N messages (parsed from the Claude / Codex JSONL transcript).
+     */
+    async getSessionStats(sessionId: string, opts: { lastMessages?: number } = {}): Promise<SessionStatsResponse> {
+        const qs = opts.lastMessages !== undefined ? `?lastMessages=${opts.lastMessages}` : '';
+        return this.fetch<SessionStatsResponse>(`/sessions/${sessionId}/stats${qs}`);
+    }
+
     // ==================== DOCS ====================
 
     async getSessionDocs(sessionId: string): Promise<DocEntry[]> {
@@ -410,6 +420,35 @@ class MaestroClient {
 
     async getTaskDocs(taskId: string): Promise<DocEntry[]> {
         return this.fetch<DocEntry[]>(`/tasks/${taskId}/docs`);
+    }
+
+    async addSessionDoc(sessionId: string, title: string, content: string, kind?: 'markdown' | 'diagram'): Promise<DocEntry> {
+        const ext = kind === 'diagram' ? '.excalidraw' : '.md';
+        const filePath = `${title.replace(/[^a-z0-9_\-]/gi, '_')}${ext}`;
+        return this.fetch<DocEntry>(`/sessions/${sessionId}/docs`, {
+            method: 'POST',
+            body: JSON.stringify({ title, filePath, content, kind }),
+        });
+    }
+
+    async addTaskDoc(taskId: string, sessionId: string, title: string, content: string, kind?: 'markdown' | 'diagram'): Promise<DocEntry> {
+        const ext = kind === 'diagram' ? '.excalidraw' : '.md';
+        const filePath = `${title.replace(/[^a-z0-9_\-]/gi, '_')}${ext}`;
+        return this.fetch<DocEntry>(`/tasks/${taskId}/docs`, {
+            method: 'POST',
+            body: JSON.stringify({ title, filePath, content, sessionId, kind }),
+        });
+    }
+
+    async updateDocContent(sessionId: string, docId: string, content: string): Promise<DocEntry> {
+        return this.fetch<DocEntry>(`/sessions/${sessionId}/docs/${docId}/content`, {
+            method: 'PUT',
+            body: JSON.stringify({ content }),
+        });
+    }
+
+    async getProjectDocs(projectId: string): Promise<DocEntry[]> {
+        return this.fetch<DocEntry[]>(`/projects/${projectId}/docs`);
     }
 
     // ==================== TASK IMAGES ====================
@@ -655,6 +694,37 @@ class MaestroClient {
 
     async deleteCustomPrompt(id: string): Promise<void> {
         await this.fetch<{ success: boolean }>(`/spells/custom-prompts/${id}`, { method: 'DELETE' });
+    }
+
+    // ==================== DIAGRAM INJECTION ====================
+
+    /**
+     * Export a diagram (PNG + .excalidraw) to a session's working directory and inject
+     * a prompt referencing both file paths. UI-initiated — no senderSessionId required.
+     */
+    async injectDiagramToSession(
+        sessionId: string,
+        pngBlob: Blob,
+        sceneJson: string,
+        name?: string,
+    ): Promise<{ pngPath: string; excalidrawPath: string }> {
+        const pngBase64 = await this.blobToBase64(pngBlob);
+        return this.fetch<{ pngPath: string; excalidrawPath: string }>(`/sessions/${sessionId}/inject-diagram`, {
+            method: 'POST',
+            body: JSON.stringify({ pngBase64, sceneJson, name }),
+        });
+    }
+
+    private blobToBase64(blob: Blob): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = reader.result as string;
+                resolve(result.split(',')[1]);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
     }
 
 }

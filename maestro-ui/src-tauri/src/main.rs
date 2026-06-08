@@ -15,7 +15,7 @@ mod startup;
 mod tray;
 
 use app_info::get_app_info;
-use assets::apply_text_assets;
+use assets::{apply_text_assets, save_session_asset};
 use app_menu::{build_app_menu, handle_app_menu_event};
 use claude_logs::{list_claude_session_logs, read_claude_session_log, tail_claude_session_log};
 use codex_logs::{list_codex_session_logs, read_codex_session_log, tail_codex_session_log};
@@ -213,6 +213,7 @@ fn main() {
             reset_secure_storage,
             list_ssh_hosts,
             apply_text_assets,
+            save_session_asset,
             set_tray_agent_count,
             set_tray_status,
             set_tray_recent_sessions,

@@ -653,7 +653,8 @@ export class FileSystemSessionRepository implements ISessionRepository {
     if (doc.content) {
       const docDir = path.join(this.sessionDocsDir, sessionId);
       await fs.mkdir(docDir, { recursive: true });
-      const contentPath = path.join(docDir, `${doc.id}.md`);
+      const ext = doc.kind === 'diagram' ? '.excalidraw' : '.md';
+      const contentPath = path.join(docDir, `${doc.id}${ext}`);
       await fs.writeFile(contentPath, doc.content, 'utf-8');
       doc.contentFilePath = contentPath;
       delete doc.content;
@@ -690,5 +691,29 @@ export class FileSystemSessionRepository implements ISessionRepository {
     }
 
     return null;
+  }
+
+  async updateDocContent(sessionId: string, docId: string, content: string): Promise<boolean> {
+    await this.ensureInitialized();
+
+    const session = await this.getSessionOrThrow(sessionId);
+
+    const doc = session.docs?.find(d => d.id === docId);
+    if (!doc) return false;
+
+    if (doc.contentFilePath) {
+      await fs.writeFile(doc.contentFilePath, content, 'utf-8');
+      return true;
+    }
+
+    // No content file yet — create one
+    const ext = doc.kind === 'diagram' ? '.excalidraw' : '.md';
+    const docDir = path.join(this.sessionDocsDir, sessionId);
+    await fs.mkdir(docDir, { recursive: true });
+    const contentPath = path.join(docDir, `${doc.id}${ext}`);
+    await fs.writeFile(contentPath, content, 'utf-8');
+    doc.contentFilePath = contentPath;
+    await this.saveAndCache(session);
+    return true;
   }
 }

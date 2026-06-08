@@ -13,6 +13,8 @@ import { useSessionStore } from "../../stores/useSessionStore";
 import { useUIStore } from "../../stores/useUIStore";
 import type { TeamColor } from "../../app/constants/teamColors";
 import type { SessionSubTab } from "../../utils/sessionLifecycle";
+import { willOpenStatsOnClick } from "../../utils/sessionClickRouting";
+import { copyToClipboard } from "../../utils/domUtils";
 
 const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   spawning: "Spawning",
@@ -130,6 +132,7 @@ export const SessionListItem = React.memo(function SessionListItem({
   isResuming,
 }: SessionListItemProps) {
   const [isMetaExpanded, setIsMetaExpanded] = useState(false);
+  const [copiedRef, setCopiedRef] = useState(false);
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const modeBtnRef = useRef<HTMLButtonElement>(null);
   const [modeDropdownPos, setModeDropdownPos] = useState<{ top: number; left: number } | null>(null);
@@ -205,7 +208,21 @@ export const SessionListItem = React.memo(function SessionListItem({
     [mode, session.id, updateSessionMode],
   );
 
+  const handleCopyReference = useCallback(async () => {
+    const ok = await copyToClipboard(`${title} (${session.id})`);
+    if (ok) {
+      setCopiedRef(true);
+      window.setTimeout(() => setCopiedRef(false), 1200);
+    }
+  }, [title, session.id]);
+
   const canResume = (session.metadata?.agentTool || "claude-code") === "claude-code";
+
+  // The dot is a *click-affordance* signal, not a raw PTY-alive signal. The
+  // Resume button uses the same predicate — both come from a single helper so
+  // they can never drift apart.
+  const willOpenStats = willOpenStatsOnClick(session, link);
+  const isShowingTerminalOnClick = !willOpenStats;
 
   return (
     <div
@@ -282,13 +299,19 @@ export const SessionListItem = React.memo(function SessionListItem({
             done
           </span>
         )}
-        {/* Liveness decoration (from linkMap, not status). Archived tiles are records,
-            so we don't show a running/stopped state for them. */}
+        {/* Click-affordance dot. Green only when clicking would show the live
+            terminal (agent busy + PTY alive). Done sessions with idle-but-alive
+            PTYs read as "stopped" here because clicking surfaces stats. */}
         {!isArchived && (
-          isLinkedLive ? (
-            <span className="sessionTile__linkedDot" title="Live terminal — running now" />
+          isShowingTerminalOnClick ? (
+            <span className="sessionTile__linkedDot" title="Agent working — click to open terminal" />
           ) : (
-            <span className="sessionTile__stoppedDot" title="No live terminal — resume to reactivate" />
+            <span
+              className="sessionTile__stoppedDot"
+              title={isLinkedLive
+                ? "Idle terminal — click for stats, Resume to reactivate"
+                : "No live terminal — Resume to reactivate"}
+            />
           )
         )}
         {docs.length > 0 && (
@@ -330,10 +353,11 @@ export const SessionListItem = React.memo(function SessionListItem({
             </button>
           )}
 
-          {/* Resume — prominent, on every non-live & non-archived tile (not buried in
-              the meta expander). Disabled with an explanatory tooltip for agent tools
-              that can't be resumed (only claude-code can). */}
-          {!isArchived && !isLinkedLive && (
+          {/* Resume — visibility locked to the click-routing predicate (see
+              utils/sessionClickRouting). Shown ⟺ clicking would open the
+              stats view. Covers Archived tiles too — resumeSessionFlow clears
+              archivedAt/humanCompletedAt as part of the resume. */}
+          {willOpenStats && (
             <button
               type="button"
               className="sessionTile__resumeBtn"
@@ -387,6 +411,20 @@ export const SessionListItem = React.memo(function SessionListItem({
               ↩
             </button>
           )}
+
+          {/* Copy a reference (Name + id) to paste into another session */}
+          <button
+            type="button"
+            className={`sessionTile__btn sessionTile__btn--copyRef ${copiedRef ? "sessionTile__btn--copied" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleCopyReference();
+            }}
+            title={copiedRef ? "Copied reference" : "Copy session reference"}
+            aria-label="Copy session reference"
+          >
+            {copiedRef ? "✓" : "⧉"}
+          </button>
 
           {/* Expand meta caret (rightmost) */}
           <button

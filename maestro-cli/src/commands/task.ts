@@ -619,7 +619,8 @@ export function registerTaskCommands(program: Command) {
         .description('Add a doc entry to a task')
         .requiredOption('--file <filePath>', 'File path for the doc')
         .option('--content <content>', 'Content of the doc (reads file if not provided)')
-        .action(async (taskId: string, title: string, cmdOpts: { file: string; content?: string }) => {
+        .option('--kind <kind>', 'Doc kind: markdown (default) or diagram')
+        .action(async (taskId: string, title: string, cmdOpts: { file: string; content?: string; kind?: string }) => {
             await guardCommand('task:docs:add');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -643,6 +644,8 @@ export function registerTaskCommands(program: Command) {
                 }
             }
 
+            const kind = cmdOpts.kind === 'diagram' ? 'diagram' : undefined;
+
             const spinner = !isJson ? ora('Adding doc to task...').start() : null;
             try {
                 const doc = await api.post(`/api/tasks/${taskId}/docs`, {
@@ -650,6 +653,7 @@ export function registerTaskCommands(program: Command) {
                     title,
                     filePath: cmdOpts.file,
                     content,
+                    ...(kind ? { kind } : {}),
                 });
 
                 spinner?.succeed('Doc added to task');

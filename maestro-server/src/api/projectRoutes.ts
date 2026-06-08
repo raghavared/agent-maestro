@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { ProjectService } from '../application/services/ProjectService';
+import { SessionService } from '../application/services/SessionService';
 import { handleRouteError } from './middleware/errorHandler';
 import { cacheControl } from './middleware/cacheControl';
 import {
@@ -18,7 +19,7 @@ import {
 /**
  * Create project routes using the ProjectService.
  */
-export function createProjectRoutes(projectService: ProjectService) {
+export function createProjectRoutes(projectService: ProjectService, sessionService?: SessionService) {
   const router = express.Router();
 
   // List projects
@@ -85,6 +86,29 @@ export function createProjectRoutes(projectService: ProjectService) {
       const id = req.params.id as string;
       await projectService.deleteProject(id);
       res.json({ success: true, id });
+    } catch (err: unknown) {
+      handleRouteError(err, res);
+    }
+  });
+
+  // Aggregate all docs across every session in the project, deduped by docId
+  router.get('/projects/:id/docs', validateParams(idParamSchema), validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+
+      // Verify project exists
+      await projectService.getProject(id);
+
+      if (!sessionService) {
+        return res.json([]);
+      }
+
+      const docs = await sessionService.getProjectDocsWithContent(id);
+      if (req.query.limit || req.query.offset) {
+        res.json(paginate(docs, extractPagination(req.query)));
+      } else {
+        res.json(docs);
+      }
     } catch (err: unknown) {
       handleRouteError(err, res);
     }

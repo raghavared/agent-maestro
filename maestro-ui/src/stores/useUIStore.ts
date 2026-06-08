@@ -188,6 +188,11 @@ interface UIState {
   sessionDetailOverlay: { sessionId: string; projectId: string } | null;
   setSessionDetailOverlay: (overlay: { sessionId: string; projectId: string } | null) => void;
 
+  // Inspected (inactive) maestro session — drives the SessionStatsView in the
+  // center pane when the user selects a session whose PTY has exited or is gone.
+  inspectedSessionId: string | null;
+  setInspectedSessionId: (id: string | null) => void;
+
   // App update
   appInfo: AppInfo | null;
   updatesOpen: boolean;
@@ -371,6 +376,9 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   sessionDetailOverlay: null,
   setSessionDetailOverlay: (overlay) => set({ sessionDetailOverlay: overlay }),
+
+  inspectedSessionId: null,
+  setInspectedSessionId: (id) => set({ inspectedSessionId: id }),
 
   // -- App update --
   appInfo: null,
