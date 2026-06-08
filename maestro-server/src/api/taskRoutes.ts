@@ -165,7 +165,7 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
   router.post('/tasks/:id/docs', validateParams(idParamSchema), validateBody(addTaskDocSchema), async (req: Request, res: Response) => {
     try {
       const taskId = req.params.id as string;
-      const { title, filePath, content, sessionId } = req.body;
+      const { title, filePath, content, sessionId, kind } = req.body;
 
       // Validate task exists first — returns 404 if taskId is invalid (fixes BUG-3)
       await taskService.getTask(taskId);
@@ -179,7 +179,7 @@ export function createTaskRoutes(taskService: TaskService, sessionService?: Sess
       }
 
       // Store doc in session tagged with taskId
-      await sessionService.addDoc(sessionId, title, filePath, content, taskId);
+      await sessionService.addDoc(sessionId, title, filePath, content, taskId, kind);
 
       // Ensure session is linked to this task so GET /tasks/:id/docs can find the doc
       const session = await sessionService.getSession(sessionId);

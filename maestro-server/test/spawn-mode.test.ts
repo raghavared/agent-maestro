@@ -274,6 +274,87 @@ describe('POST /api/sessions/spawn — spawn gate', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PERMISSION INHERITANCE TESTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('POST /api/sessions/spawn — bypass permission inheritance', () => {
+  let testDataDir: TestDataDir;
+  let app: express.Application;
+  let container: any;
+  let projectId: string;
+  let taskId: string;
+
+  beforeEach(async () => {
+    testDataDir = new TestDataDir();
+    ({ app, container } = await buildApp(testDataDir.getPath()));
+
+    const project = await container.projectService.createProject(createTestProject());
+    projectId = project.id;
+    const task = await container.taskService.createTask(createTestTask(projectId));
+    taskId = task.id;
+
+    setupManifestMock();
+  });
+
+  afterEach(async () => {
+    await testDataDir.cleanup();
+    jest.resetAllMocks();
+  });
+
+  it('child inherits bypassPermissions from a bypass-permission parent', async () => {
+    const parent = await container.sessionService.createSession({
+      ...createTestSession(projectId, [taskId]),
+      name: 'Bypass Coordinator',
+      metadata: { mode: 'coordinator', permissionMode: 'bypassPermissions' },
+    });
+
+    const res = await supertest(app)
+      .post('/api/sessions/spawn')
+      .set('X-Session-Id', parent.id)
+      .send({ taskIds: [taskId], spawnSource: 'session', sessionId: parent.id, mode: 'worker' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.session.metadata.permissionMode).toBe('bypassPermissions');
+  });
+
+  it('does not force bypass when the parent is not in bypass mode', async () => {
+    const parent = await container.sessionService.createSession({
+      ...createTestSession(projectId, [taskId]),
+      name: 'Plain Coordinator',
+      metadata: { mode: 'coordinator' },
+    });
+
+    const res = await supertest(app)
+      .post('/api/sessions/spawn')
+      .set('X-Session-Id', parent.id)
+      .send({ taskIds: [taskId], spawnSource: 'session', sessionId: parent.id, mode: 'worker' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.session.metadata.permissionMode).not.toBe('bypassPermissions');
+  });
+
+  it('explicit delegatePermissionMode on the parent takes precedence over parent bypass', async () => {
+    const parent = await container.sessionService.createSession({
+      ...createTestSession(projectId, [taskId]),
+      name: 'Bypass Coordinator With Delegate',
+      metadata: {
+        mode: 'coordinator',
+        permissionMode: 'bypassPermissions',
+        delegatePermissionMode: 'acceptEdits',
+      },
+    });
+
+    const res = await supertest(app)
+      .post('/api/sessions/spawn')
+      .set('X-Session-Id', parent.id)
+      .send({ taskIds: [taskId], spawnSource: 'session', sessionId: parent.id, mode: 'worker' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.session.metadata.permissionMode).toBe('acceptEdits');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MODE ROUTE TESTS
 // ─────────────────────────────────────────────────────────────────────────────
 

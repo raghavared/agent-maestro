@@ -2163,15 +2163,34 @@
   background: rgba(255, 255, 255, 0.02);
   overflow: hidden;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.13s ease, border-color 0.13s ease,
+    transform 0.08s ease, box-shadow 0.13s ease;
 }
 .sessionTile:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
 }
-.sessionTile--selected {
+/* Instant press feedback — fires on mousedown regardless of React work, so a
+   click always feels responsive even while the tree re-renders behind it. */
+.sessionTile:active {
+  transform: translateY(0) scale(0.992);
+  background: rgba(255, 255, 255, 0.09);
+  transition-duration: 0.04s;
+}
+.sessionTile--selected,
+.sessionTile--selected:hover {
   border-color: var(--accent, #6B8AFD);
-  background: rgba(var(--theme-primary-rgb), 0.08);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  box-shadow: 0 0 0 1px rgba(var(--theme-primary-rgb), 0.35),
+    0 2px 10px rgba(var(--theme-primary-rgb), 0.18);
+}
+/* Brighten the team accent bar on the current tile so selection reads clearly
+   even when the tile carries a team color. */
+.sessionTile--selected .sessionTile__accent {
+  width: 3px;
+  box-shadow: 0 0 6px var(--accent, #6B8AFD);
 }
 .sessionTile--needsInput {
   animation: needsInputGlow 2s ease-in-out infinite;
@@ -2279,6 +2298,48 @@
 @keyframes sessionDotPulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+/* Live PTY activity indicator — dot + label, reuses sessionDotPulse */
+.sessionLiveIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.sessionLiveIndicator__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.3);
+}
+.sessionLiveIndicator__dot--working {
+  background: #22d3ee;
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.6);
+}
+.sessionLiveIndicator__dot--needsInput {
+  background: #fbbf24;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.7);
+}
+.sessionLiveIndicator__dot--idle { background: rgba(255, 255, 255, 0.35); }
+/* Blink only while bytes are actively streaming through the terminal */
+.sessionLiveIndicator__dot--streaming {
+  animation: sessionDotPulse 1.6s ease-in-out infinite;
+}
+.sessionLiveIndicator__label {
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.02em;
+}
+.sessionLiveIndicator__dot--working + .sessionLiveIndicator__label { color: #22d3ee; }
+.sessionLiveIndicator__dot--needsInput + .sessionLiveIndicator__label { color: #fbbf24; }
+
+.sessionDetailsValue--statusLine {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Agent status — symbol + color (trailing, line view) */
@@ -2495,6 +2556,15 @@
 .sessionTile__btn--teamView:hover {
   color: var(--accent, #6B8AFD);
   background: rgba(107, 138, 253, 0.12);
+}
+.sessionTile__btn--copyRef:hover {
+  color: var(--accent, #6B8AFD);
+  background: rgba(107, 138, 253, 0.12);
+}
+.sessionTile__btn--copied,
+.sessionTile__btn--copied:hover {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.14);
 }
 .sessionTile__btn--caret {
   font-size: 10px;
@@ -3052,4 +3122,108 @@
 .spaceTile__close:hover {
   background: rgba(239, 68, 68, 0.14);
   color: #f87171;
+}
+
+/* ================================================================== */
+/*  Project Docs / Drawings paginated list                             */
+/* ================================================================== */
+
+.projectDocsList {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.projectDocsListEmpty,
+.projectDocsListLoading {
+  padding: 20px 16px;
+  font-size: 11px;
+  color: rgba(var(--theme-primary-rgb), 0.35);
+  text-align: center;
+  font-family: var(--style-font-ui);
+}
+
+.projectDocsListCount {
+  padding: 6px 16px 10px;
+  font-size: 10px;
+  color: rgba(var(--theme-primary-rgb), 0.3);
+  font-family: var(--style-font-ui);
+  text-align: center;
+}
+
+.projectDocsListSentinel {
+  height: 1px;
+}
+
+.projectDocsListItem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.12s ease;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.projectDocsListItem:hover {
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
+.projectDocsListItem:last-child {
+  border-bottom: none;
+}
+
+.projectDocsListItem__icon {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--theme-primary-rgb), 0.18);
+}
+
+.projectDocsListItem__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.projectDocsListItem__title {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(var(--theme-primary-rgb), 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--style-font-ui);
+}
+
+.projectDocsListItem__meta {
+  font-size: 10px;
+  color: rgba(var(--theme-primary-rgb), 0.38);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+}
+
+.projectDocsListItem__time {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: rgba(var(--theme-primary-rgb), 0.3);
+  font-family: var(--font-mono);
 }

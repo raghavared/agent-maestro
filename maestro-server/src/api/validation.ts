@@ -148,11 +148,21 @@ export const updateTaskSchema = z.object({
   useWorktree: z.boolean().optional(),
 }).strict();
 
+const docKindSchema = z.enum(['markdown', 'diagram']);
+
+// Allow larger content for diagram scene JSON (up to 10 MB)
+const docContentSchema = z.string().max(10_000_000).optional();
+
 export const addTaskDocSchema = z.object({
   title: shortString,
   filePath: z.string().min(1).max(2000),
-  content: z.string().max(100000).optional(),
+  content: docContentSchema,
+  kind: docKindSchema.optional(),
   sessionId: safeId,
+}).strict();
+
+export const updateDocContentSchema = z.object({
+  content: z.string().max(10_000_000),
 }).strict();
 
 export const taskTimelineSchema = z.object({
@@ -538,6 +548,12 @@ export function validateQuery(schema: z.ZodSchema) {
 export const paginationQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
   offset: z.coerce.number().int().min(0).optional(),
+});
+
+export const projectDocsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+  kind: z.enum(['markdown', 'diagram']).optional(),
 });
 
 export interface PaginationParams {

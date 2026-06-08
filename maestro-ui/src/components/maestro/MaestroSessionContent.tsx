@@ -3,6 +3,7 @@ import type { MaestroSession, MaestroTask } from "../../app/types/maestro";
 import { StrategyBadge } from "./StrategyBadge";
 import { SessionTimeline } from "./SessionTimeline";
 import { SessionDetailsSection } from "./SessionDetailsSection";
+import { SessionLiveIndicator } from "./SessionLiveIndicator";
 import { QueueStatusDisplay, type QueueState } from "./QueueStatusDisplay";
 
 interface MaestroSessionContentProps {
@@ -174,6 +175,11 @@ export const MaestroSessionContent = React.memo(function MaestroSessionContent({
           orchestratorStrategy={session.orchestratorStrategy}
           queuePosition={queueState?.currentIndex !== undefined ? queueState.currentIndex + 1 : undefined}
           queueTotal={queueState?.items?.length}
+        />
+        <SessionLiveIndicator
+          maestroSessionId={session.id}
+          status={session.status}
+          needsInput={session.needsInput?.active}
         />
         <span className="maestroSessionContentActivity">
           Last activity: {formatTimeAgo(session.lastActivity)}

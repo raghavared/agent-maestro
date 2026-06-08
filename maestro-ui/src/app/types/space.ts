@@ -8,7 +8,10 @@ export interface WhiteboardSpace {
   name: string;
   projectId: string;
   createdAt: number;
-  storageKey: string;  // localStorage key for Excalidraw scene data
+  storageKey: string;  // localStorage key for Excalidraw scene data (cache)
+  originSessionId?: string; // session to inject the exported drawing back into
+  docId?: string;      // server-persisted diagram doc ID (doc-backed board)
+  docSessionId?: string; // session that owns the diagram doc
 }
 
 export interface DocumentSpace {

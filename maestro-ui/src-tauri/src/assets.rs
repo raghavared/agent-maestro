@@ -1,3 +1,4 @@
+use base64::Engine;
 use serde::Deserialize;
 use std::fs;
 use std::io::Write;
@@ -104,4 +105,40 @@ pub fn apply_text_assets(
     }
 
     Ok(written)
+}
+
+/// Persist a base64-encoded asset (e.g. a drawing export) into the global
+/// `~/.maestro/assets` directory and return the absolute path to the written
+/// file. Used to inject attachments/sketches into a session as `@path` refs.
+#[tauri::command]
+pub fn save_session_asset(filename: String, content_base64: String) -> Result<String, String> {
+    let home = home_dir().ok_or_else(|| "cannot determine home directory".to_string())?;
+    let dir = Path::new(&home).join(".maestro").join("assets");
+    fs::create_dir_all(&dir).map_err(|e| format!("create dir failed: {e}"))?;
+
+    // Only keep the basename to avoid path traversal.
+    let safe = Path::new(filename.trim())
+        .file_name()
+        .ok_or_else(|| "invalid filename".to_string())?
+        .to_string_lossy()
+        .to_string();
+    if safe.is_empty() {
+        return Err("empty filename".to_string());
+    }
+
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(content_base64.trim())
+        .map_err(|e| format!("base64 decode failed: {e}"))?;
+
+    let target = dir.join(&safe);
+    let tmp = target.with_extension("tmp-write");
+    {
+        let mut file = fs::File::create(&tmp).map_err(|e| format!("write failed: {e}"))?;
+        file.write_all(&bytes)
+            .map_err(|e| format!("write failed: {e}"))?;
+        file.sync_all().ok();
+    }
+    fs::rename(&tmp, &target).map_err(|e| format!("rename failed: {e}"))?;
+
+    Ok(target.to_string_lossy().to_string())
 }

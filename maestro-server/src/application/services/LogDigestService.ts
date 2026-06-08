@@ -28,6 +28,31 @@ export interface TextOnlyDigest {
   lastActivityTimestamp: number;
 }
 
+export interface SessionStatsDigest {
+  sessionId: string;
+  source: 'claude' | 'codex' | null;
+  jsonlFound: boolean;
+  partial: boolean;             // True when file was too large and we truncated
+  tokens: {
+    input: number;
+    output: number;
+    cacheCreate: number;
+    cacheRead: number;
+    total: number;
+  };
+  messageCount: {
+    user: number;
+    assistant: number;
+    total: number;
+  };
+  toolCallCount: number;
+  toolUsage: Array<{ name: string; count: number }>;
+  models: string[];
+  firstMessageAt: number | null;
+  lastMessageAt: number | null;
+  lastMessages: TextEntry[];
+}
+
 // ── Internal cache type ──────────────────────────────────────
 
 interface PathCacheEntry {
@@ -134,6 +159,202 @@ export class LogDigestService {
       lastActivityTimestamp: entries.length > 0
         ? entries[entries.length - 1].timestamp
         : session.lastActivity || Date.now(),
+    };
+  }
+
+  /**
+   * Compute a comprehensive stats digest from the full JSONL transcript.
+   * Returns token totals, message/tool counts, last N messages, etc.
+   *
+   * Reads up to MAX_STATS_FILE_BYTES (default 25MB) of the file in one shot.
+   * For larger files we still return what we can, with `partial=true`.
+   */
+  async getSessionStats(
+    sessionId: string,
+    options: { lastMessages?: number } = {},
+  ): Promise<SessionStatsDigest> {
+    const lastMessages = options.lastMessages ?? 10;
+    const session = await this.sessionService.getSession(sessionId);
+    const project = session.projectId ? await this.projectRepo.findById(session.projectId) : null;
+    const jsonlPath = await this.resolveJsonlPath(sessionId, project?.workingDir);
+
+    const empty: SessionStatsDigest = {
+      sessionId,
+      source: null,
+      jsonlFound: false,
+      partial: false,
+      tokens: { input: 0, output: 0, cacheCreate: 0, cacheRead: 0, total: 0 },
+      messageCount: { user: 0, assistant: 0, total: 0 },
+      toolCallCount: 0,
+      toolUsage: [],
+      models: [],
+      firstMessageAt: null,
+      lastMessageAt: null,
+      lastMessages: [],
+    };
+
+    if (!jsonlPath) return empty;
+
+    const MAX_STATS_FILE_BYTES = 25 * 1024 * 1024;
+    let content: string;
+    let partial = false;
+    try {
+      const fileStats = await stat(jsonlPath);
+      if (fileStats.size > MAX_STATS_FILE_BYTES) {
+        const fh = await open(jsonlPath, 'r');
+        try {
+          const buf = Buffer.alloc(MAX_STATS_FILE_BYTES);
+          const offset = fileStats.size - MAX_STATS_FILE_BYTES;
+          const { bytesRead } = await fh.read(buf, 0, MAX_STATS_FILE_BYTES, offset);
+          content = buf.toString('utf-8', 0, bytesRead);
+        } finally {
+          await fh.close();
+        }
+        partial = true;
+      } else {
+        content = await readFile(jsonlPath, 'utf-8');
+      }
+    } catch {
+      return empty;
+    }
+
+    const lines: any[] = [];
+    const rawLines = content.split('\n');
+    // If partial, drop the first (likely truncated) line.
+    const startIdx = partial ? 1 : 0;
+    for (let i = startIdx; i < rawLines.length; i++) {
+      const line = rawLines[i];
+      if (!line.trim()) continue;
+      try {
+        lines.push(JSON.parse(line));
+      } catch {
+        // skip malformed
+      }
+    }
+
+    const source: 'claude' | 'codex' = this.isCodexLog(lines) ? 'codex' : 'claude';
+
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let cacheCreate = 0;
+    let cacheRead = 0;
+    let userCount = 0;
+    let assistantCount = 0;
+    let toolCallCount = 0;
+    const toolCounts = new Map<string, number>();
+    const models = new Set<string>();
+    let firstMessageAt: number | null = null;
+    let lastMessageAt: number | null = null;
+
+    const noteTimestamp = (ts: number) => {
+      if (!Number.isFinite(ts) || ts <= 0) return;
+      if (firstMessageAt === null || ts < firstMessageAt) firstMessageAt = ts;
+      if (lastMessageAt === null || ts > lastMessageAt) lastMessageAt = ts;
+    };
+
+    if (source === 'claude') {
+      for (const line of lines) {
+        const ts = line?.timestamp ? new Date(line.timestamp).getTime() : 0;
+        const type = line?.type;
+
+        if (type === 'assistant') {
+          assistantCount++;
+          noteTimestamp(ts);
+          const message = line.message ?? line;
+          const usage = message?.usage;
+          if (usage && typeof usage === 'object') {
+            inputTokens += Number(usage.input_tokens) || 0;
+            outputTokens += Number(usage.output_tokens) || 0;
+            cacheCreate += Number(usage.cache_creation_input_tokens) || 0;
+            cacheRead += Number(usage.cache_read_input_tokens) || 0;
+          }
+          if (typeof message?.model === 'string') models.add(message.model);
+          const content = message?.content;
+          if (Array.isArray(content)) {
+            for (const block of content) {
+              if (block?.type === 'tool_use') {
+                toolCallCount++;
+                const name = typeof block.name === 'string' ? block.name : 'unknown';
+                toolCounts.set(name, (toolCounts.get(name) ?? 0) + 1);
+              }
+            }
+          }
+        } else if (type === 'user') {
+          // Skip synthetic user messages that wrap tool_result content.
+          const content = line.message?.content ?? line.content;
+          let isToolResultOnly = false;
+          if (Array.isArray(content)) {
+            isToolResultOnly = content.every(
+              (b: any) => b?.type === 'tool_result' || b?.type === 'tool_use',
+            );
+          }
+          if (!isToolResultOnly) {
+            userCount++;
+            noteTimestamp(ts);
+          }
+        }
+      }
+    } else {
+      for (const line of lines) {
+        const ts = this.parseTimestamp(line, 0);
+        const lineType = line?.type;
+        if (lineType === 'function_call') {
+          toolCallCount++;
+          const name = typeof line.name === 'string' ? line.name : 'unknown';
+          toolCounts.set(name, (toolCounts.get(name) ?? 0) + 1);
+        } else if (lineType === 'response_item' && line?.payload?.type === 'function_call') {
+          toolCallCount++;
+          const name = typeof line.payload.name === 'string' ? line.payload.name : 'unknown';
+          toolCounts.set(name, (toolCounts.get(name) ?? 0) + 1);
+        } else {
+          const msg = this.getCodexMessage(line);
+          if (msg) {
+            if (msg.role === 'assistant') {
+              assistantCount++;
+              noteTimestamp(ts);
+            } else if (msg.role === 'user') {
+              userCount++;
+              noteTimestamp(ts);
+            }
+          }
+        }
+        const payloadModel = line?.payload?.model;
+        if (typeof payloadModel === 'string') models.add(payloadModel);
+      }
+    }
+
+    const total = inputTokens + outputTokens + cacheCreate + cacheRead;
+    const toolUsage = Array.from(toolCounts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12);
+
+    const allEntries = this.extractTextEntries(lines, 220);
+    const lastEntries = allEntries.slice(-lastMessages);
+
+    return {
+      sessionId,
+      source,
+      jsonlFound: true,
+      partial,
+      tokens: {
+        input: inputTokens,
+        output: outputTokens,
+        cacheCreate,
+        cacheRead,
+        total,
+      },
+      messageCount: {
+        user: userCount,
+        assistant: assistantCount,
+        total: userCount + assistantCount,
+      },
+      toolCallCount,
+      toolUsage,
+      models: Array.from(models),
+      firstMessageAt,
+      lastMessageAt,
+      lastMessages: lastEntries,
     };
   }
 

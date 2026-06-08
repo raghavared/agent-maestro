@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import { z } from 'zod';
 import { spawn as spawnProcess } from 'child_process';
 import { existsSync, readdirSync } from 'fs';
 import { readFile, mkdir, writeFile } from 'fs/promises';
@@ -34,6 +35,7 @@ import {
   paginationQuerySchema,
   extractPagination,
   paginate,
+  updateDocContentSchema,
 } from './validation';
 
 function resolveMaestroCliRuntime(cliPathOverride?: string): { maestroBin: string; monorepoRoot: string | null } {
@@ -676,6 +678,23 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     }
   });
 
+  // Session stats — token totals, message/tool counts, last N messages.
+  // Reads the full JSONL transcript (bounded), so this is heavier than the
+  // tail-only log-digest endpoint.
+  router.get('/sessions/:id/stats', validateParams(idParamSchema), async (req: Request, res: Response) => {
+    try {
+      const sessionId = req.params.id as string;
+      const lastMessagesRaw = req.query.lastMessages as string | undefined;
+      const lastMessages = lastMessagesRaw !== undefined
+        ? Math.max(0, Math.min(50, parseInt(lastMessagesRaw, 10) || 10))
+        : 10;
+      const stats = await logDigestService.getSessionStats(sessionId, { lastMessages });
+      res.json(stats);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
+    }
+  });
+
   // Get session by ID
   router.get('/sessions/:id', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
@@ -813,7 +832,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   router.post('/sessions/:id/docs', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
       const sessionId = req.params.id as string;
-      const { title, filePath, content, taskId } = req.body;
+      const { title, filePath, content, taskId, kind } = req.body;
 
       if (!title) {
         return res.status(400).json({
@@ -837,6 +856,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         filePath,
         content,
         taskId,
+        kind,
       );
       res.json(session);
     } catch (err: unknown) {
@@ -854,6 +874,27 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       handleRouteError(err, res);
     }
   });
+
+  // Re-save diagram scene JSON (or any doc content)
+  router.put('/sessions/:id/docs/:docId/content',
+    validateParams(z.object({ id: z.string(), docId: z.string() })),
+    validateBody(updateDocContentSchema),
+    async (req: Request, res: Response) => {
+      try {
+        const sessionId = req.params.id as string;
+        const docId = req.params.docId as string;
+        const { content } = req.body as { content: string };
+
+        const updated = await sessionService.updateDocContent(sessionId, docId, content);
+        if (!updated) {
+          return res.status(404).json({ error: true, message: 'Doc not found', code: 'NOT_FOUND' });
+        }
+        res.json({ success: true });
+      } catch (err: unknown) {
+        handleRouteError(err, res);
+      }
+    }
+  );
 
   // Add task to session
   router.post('/sessions/:id/tasks/:taskId', validateParams(idAndTaskIdParamSchema), async (req: Request, res: Response) => {
@@ -1055,6 +1096,69 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     }
   });
 
+  // Inject a diagram (PNG + .excalidraw) from the UI into a session's working directory,
+  // then send a prompt referencing both file paths. No senderSessionId required since
+  // this is a UI-initiated action (not a session-to-session message).
+  router.post('/sessions/:id/inject-diagram', validateParams(idParamSchema), async (req: Request, res: Response) => {
+    try {
+      const sessionId = req.params.id as string;
+      const { pngBase64, sceneJson, name = 'diagram' } = req.body;
+
+      if (!pngBase64 || typeof pngBase64 !== 'string') {
+        return res.status(400).json({ error: 'pngBase64 is required and must be a string' });
+      }
+      if (!sceneJson || typeof sceneJson !== 'string') {
+        return res.status(400).json({ error: 'sceneJson is required and must be a string' });
+      }
+
+      const session = await sessionService.getSession(sessionId);
+      const project = await projectRepo.findById(session.projectId);
+      if (!project) {
+        return res.status(404).json({ error: true, code: 'project_not_found', message: 'Project not found' });
+      }
+
+      const diagDir = join(project.workingDir, '.maestro', 'diagrams');
+      await mkdir(diagDir, { recursive: true });
+
+      const ts = Date.now();
+      const safeName = String(name).replace(/[^a-z0-9_-]/gi, '_').slice(0, 60) || 'diagram';
+      const pngPath = join(diagDir, `${safeName}_${ts}.png`);
+      const excalidrawPath = join(diagDir, `${safeName}_${ts}.excalidraw`);
+
+      await writeFile(pngPath, Buffer.from(pngBase64, 'base64'));
+      await writeFile(excalidrawPath, sceneJson, 'utf-8');
+
+      const content = [
+        `[Diagram from UI whiteboard]`,
+        `A diagram has been exported and saved for you to review.`,
+        ``,
+        `PNG (view): ${pngPath}`,
+        `Excalidraw (edit): ${excalidrawPath}`,
+      ].join('\n');
+
+      await eventBus.emit('session:prompt_send', {
+        sessionId,
+        content,
+        mode: 'send',
+        senderSessionId: 'ui',
+        senderProjectId: null,
+        targetProjectId: session.projectId ?? null,
+        timestamp: Date.now(),
+      });
+
+      await sessionService.addTimelineEvent(
+        sessionId,
+        'progress',
+        `Diagram injected from UI: ${pngPath}`,
+        undefined,
+        { pngPath, excalidrawPath }
+      );
+
+      res.json({ success: true, pngPath, excalidrawPath });
+    } catch (err: unknown) {
+      handleRouteError(err, res);
+    }
+  });
 
   // Spawn session (complex endpoint - uses CLI for manifest generation)
   router.post('/sessions/spawn', validateBody(spawnSessionSchema), async (req: Request, res: Response) => {
@@ -1236,6 +1340,10 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         const parentDelegateMode = parentSession.metadata?.delegatePermissionMode;
         if (parentDelegateMode) {
           resolvedPermissionMode = parentDelegateMode;
+        } else if (parentSession.metadata?.permissionMode === 'bypassPermissions') {
+          // A bypass-permission parent propagates bypass to the children it spawns so
+          // they don't stall on permission prompts the parent itself never sees.
+          resolvedPermissionMode = 'bypassPermissions';
         }
       }
 

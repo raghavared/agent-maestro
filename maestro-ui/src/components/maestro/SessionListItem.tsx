@@ -9,11 +9,11 @@ import {
 } from "../../app/types/maestro";
 import { WorktreeBadge, getWorktreeInfo } from "./WorktreeBadge";
 import { useMaestroStore } from "../../stores/useMaestroStore";
-import { useSpacesStore } from "../../stores/useSpacesStore";
-import { useSessionStore } from "../../stores/useSessionStore";
 import { useUIStore } from "../../stores/useUIStore";
 import type { TeamColor } from "../../app/constants/teamColors";
 import type { SessionSubTab } from "../../utils/sessionLifecycle";
+import { willOpenStatsOnClick } from "../../utils/sessionClickRouting";
+import { copyToClipboard } from "../../utils/domUtils";
 
 const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   spawning: "Spawning",
@@ -131,13 +131,13 @@ export const SessionListItem = React.memo(function SessionListItem({
   isResuming,
 }: SessionListItemProps) {
   const [isMetaExpanded, setIsMetaExpanded] = useState(false);
+  const [copiedRef, setCopiedRef] = useState(false);
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const modeBtnRef = useRef<HTMLButtonElement>(null);
   const [modeDropdownPos, setModeDropdownPos] = useState<{ top: number; left: number } | null>(null);
 
   const updateSessionMode = useMaestroStore((s) => s.updateSessionMode);
-  const openDocument = useSpacesStore((s) => s.openDocument);
-  const setActiveId = useSessionStore((s) => s.setActiveId);
+  const setDocOverlay = useUIStore((s) => s.setDocOverlay);
   const showTaskDetails = useUIStore((s) => s.sessionShowTaskDetails);
 
   const status = session.status;
@@ -206,7 +206,21 @@ export const SessionListItem = React.memo(function SessionListItem({
     [mode, session.id, updateSessionMode],
   );
 
+  const handleCopyReference = useCallback(async () => {
+    const ok = await copyToClipboard(`${title} (${session.id})`);
+    if (ok) {
+      setCopiedRef(true);
+      window.setTimeout(() => setCopiedRef(false), 1200);
+    }
+  }, [title, session.id]);
+
   const canResume = (session.metadata?.agentTool || "claude-code") === "claude-code";
+
+  // The dot is a *click-affordance* signal, not a raw PTY-alive signal. The
+  // Resume button uses the same predicate — both come from a single helper so
+  // they can never drift apart.
+  const willOpenStats = willOpenStatsOnClick(session, link);
+  const isShowingTerminalOnClick = !willOpenStats;
 
   return (
     <div
@@ -283,13 +297,18 @@ export const SessionListItem = React.memo(function SessionListItem({
             done
           </span>
         )}
-        {/* Liveness decoration (from linkMap, not status). Archived tiles are records,
-            so we don't show a running/stopped state for them. */}
+        {/* Click-affordance dot. Green whenever a live PTY exists, since clicking
+            opens that terminal (even an idle one — resumed sessions stay
+            reachable between turns). Stopped only when the terminal has exited,
+            where clicking surfaces stats and Resume revives it. */}
         {!isArchived && (
-          isLinkedLive ? (
-            <span className="sessionTile__linkedDot" title="Live terminal — running now" />
+          isShowingTerminalOnClick ? (
+            <span className="sessionTile__linkedDot" title="Live terminal — click to open" />
           ) : (
-            <span className="sessionTile__stoppedDot" title="No live terminal — resume to reactivate" />
+            <span
+              className="sessionTile__stoppedDot"
+              title="No live terminal — Resume to reactivate"
+            />
           )
         )}
         {docs.length > 0 && (
@@ -335,10 +354,11 @@ export const SessionListItem = React.memo(function SessionListItem({
             </button>
           )}
 
-          {/* Resume — prominent, on every non-live & non-archived tile (not buried in
-              the meta expander). Disabled with an explanatory tooltip for agent tools
-              that can't be resumed (only claude-code can). */}
-          {!isArchived && !isLinkedLive && (
+          {/* Resume — visibility locked to the click-routing predicate (see
+              utils/sessionClickRouting). Shown ⟺ clicking would open the
+              stats view. Covers Archived tiles too — resumeSessionFlow clears
+              archivedAt/humanCompletedAt as part of the resume. */}
+          {willOpenStats && (
             <button
               type="button"
               className="sessionTile__resumeBtn"
@@ -392,6 +412,20 @@ export const SessionListItem = React.memo(function SessionListItem({
               ↩
             </button>
           )}
+
+          {/* Copy a reference (Name + id) to paste into another session */}
+          <button
+            type="button"
+            className={`sessionTile__btn sessionTile__btn--copyRef ${copiedRef ? "sessionTile__btn--copied" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleCopyReference();
+            }}
+            title={copiedRef ? "Copied reference" : "Copy session reference"}
+            aria-label="Copy session reference"
+          >
+            {copiedRef ? "✓" : "⧉"}
+          </button>
 
           {/* Expand meta caret (rightmost) */}
           <button
@@ -535,8 +569,7 @@ export const SessionListItem = React.memo(function SessionListItem({
                         title={doc.filePath}
                         onClick={(e) => {
                           e.stopPropagation();
-                          const spaceId = openDocument(session.projectId, doc);
-                          setActiveId(spaceId);
+                          setDocOverlay(doc);
                         }}
                       >
                         <span className="sessionTile__docIcon">{isMarkdown ? "M↓" : "{ }"}</span>

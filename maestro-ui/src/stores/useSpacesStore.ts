@@ -48,7 +48,7 @@ interface SpacesState {
   spaces: Space[];
 
   // Whiteboard actions
-  createWhiteboard: (projectId: string, name?: string) => string;
+  createWhiteboard: (projectId: string, name?: string, originSessionId?: string, docId?: string, docSessionId?: string) => string;
   closeWhiteboard: (id: string) => void;
 
   // Document actions
@@ -67,7 +67,7 @@ interface SpacesState {
 export const useSpacesStore = create<SpacesState>((set, get) => ({
   spaces: loadSpaces(),
 
-  createWhiteboard: (projectId, name) => {
+  createWhiteboard: (projectId, name, originSessionId, docId, docSessionId) => {
     const id = generateId("wb_");
     const storageKey = `maestro-excalidraw-scene-${id}`;
     const wb: WhiteboardSpace = {
@@ -77,6 +77,9 @@ export const useSpacesStore = create<SpacesState>((set, get) => ({
       projectId,
       createdAt: Date.now(),
       storageKey,
+      originSessionId,
+      docId,
+      docSessionId,
     };
     set((s) => {
       const next = [...s.spaces, wb];
