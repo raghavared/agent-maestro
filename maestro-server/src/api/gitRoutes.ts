@@ -113,8 +113,9 @@ export function createGitRoutes(deps: GitRouteDependencies) {
         });
       }
 
-      // Filled by C2 feature worker
-      res.status(501).json({ error: true, code: 'not_implemented', message: 'diff not yet implemented' });
+      const file = req.query.file as string | undefined;
+      const diff = await gitService.fullDiff(worktreePath, baseCommit, file);
+      res.json({ diff });
     } catch (err) {
       handleRouteError(err, res);
     }

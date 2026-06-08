@@ -342,8 +342,35 @@ export class GitService {
     };
   }
 
-  async fullDiff(_worktreePath: string, _baseCommit: string, _file?: string): Promise<string> {
-    throw new Error('not implemented');
+  async fullDiff(worktreePath: string, baseCommit: string, file?: string): Promise<string> {
+    const fileArgs = file ? ['--', file] : [];
+
+    // Committed changes since baseCommit
+    let committedDiff = '';
+    try {
+      const { stdout } = await execFileAsync(
+        'git',
+        ['diff', `${baseCommit}..HEAD`, ...fileArgs],
+        { cwd: worktreePath, maxBuffer: 10 * 1024 * 1024 }
+      );
+      committedDiff = stdout;
+    } catch { /* no committed diff */ }
+
+    // Uncommitted changes (staged + unstaged combined relative to HEAD)
+    let uncommittedDiff = '';
+    try {
+      const { stdout } = await execFileAsync(
+        'git',
+        ['diff', 'HEAD', ...fileArgs],
+        { cwd: worktreePath, maxBuffer: 10 * 1024 * 1024 }
+      );
+      uncommittedDiff = stdout;
+    } catch { /* no uncommitted diff */ }
+
+    const parts: string[] = [];
+    if (committedDiff.trim()) parts.push(committedDiff.trimEnd());
+    if (uncommittedDiff.trim()) parts.push(uncommittedDiff.trimEnd());
+    return parts.join('\n');
   }
 
   // ── branch (stub — filled by D2 feature worker) ───────────────────────────────

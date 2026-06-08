@@ -18,6 +18,7 @@ interface GitState {
 
 export function GitPanel({ sessionId, compact = false, onAction }: GitPanelProps) {
   const [state, setState] = useState<GitState>({ hasWorktree: false, loading: true });
+  const [selectedFile, setSelectedFile] = useState<string | undefined>(undefined);
 
   const fetchGitState = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: undefined }));
@@ -55,10 +56,10 @@ export function GitPanel({ sessionId, compact = false, onAction }: GitPanelProps
       <GitPanelHeader summary={state.summary} onRefresh={fetchGitState} />
 
       {/* Changes summary + file list — C1 fills */}
-      <GitPanelChanges summary={state.summary} />
+      <GitPanelChanges summary={state.summary} selectedFile={selectedFile} onFileClick={setSelectedFile} />
 
       {/* Diff viewer — C2 fills */}
-      <GitPanelDiff sessionId={sessionId} summary={state.summary} />
+      <GitPanelDiff sessionId={sessionId} summary={state.summary} selectedFile={selectedFile} />
 
       {/* Branch rename — D2 fills */}
       <GitPanelBranchRename
@@ -120,6 +121,8 @@ function GitPanelHeader({ summary, onRefresh }: HeaderProps) {
 
 interface ChangesProps {
   summary?: GitDiffSummary;
+  selectedFile?: string;
+  onFileClick?: (file: string | undefined) => void;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -130,10 +133,11 @@ const STATUS_LABELS: Record<string, string> = {
   '?': '?',
 };
 
-function GitPanelChanges({ summary }: ChangesProps) {
+function GitPanelChanges({ summary, selectedFile, onFileClick }: ChangesProps) {
   if (!summary) return null;
 
   const { filesChanged, insertions, deletions, commitCount, files } = summary;
+  const clickable = typeof onFileClick === 'function';
 
   return (
     <div className="git-panel__section git-panel__changes">
@@ -148,18 +152,39 @@ function GitPanelChanges({ summary }: ChangesProps) {
       </div>
       {files.length > 0 && (
         <div className="git-panel__file-list">
-          {files.map(f => (
-            <div key={f.path} className="git-panel__file-row">
-              <span className={`git-panel__file-status git-panel__file-status--${f.status.toLowerCase()}`}>
-                {STATUS_LABELS[f.status] ?? f.status}
-              </span>
-              <span className="git-panel__file-path" title={f.path}>{f.path}</span>
-              <span className="git-panel__file-stats">
-                {f.insertions > 0 && <span className="git-panel__file-ins">+{f.insertions}</span>}
-                {f.deletions > 0 && <span className="git-panel__file-del">−{f.deletions}</span>}
-              </span>
-            </div>
-          ))}
+          {files.map(f => {
+            const isSelected = selectedFile === f.path;
+            const classes = [
+              'git-panel__file-row',
+              clickable ? 'git-panel__file-row--clickable' : '',
+              isSelected ? 'git-panel__file-row--selected' : '',
+            ].filter(Boolean).join(' ');
+            return (
+              <div
+                key={f.path}
+                className={classes}
+                onClick={clickable ? () => onFileClick!(isSelected ? undefined : f.path) : undefined}
+                role={clickable ? 'button' : undefined}
+                tabIndex={clickable ? 0 : undefined}
+                onKeyDown={clickable ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onFileClick!(isSelected ? undefined : f.path);
+                  }
+                } : undefined}
+                title={clickable ? `Show diff for ${f.path}` : f.path}
+              >
+                <span className={`git-panel__file-status git-panel__file-status--${f.status.toLowerCase()}`}>
+                  {STATUS_LABELS[f.status] ?? f.status}
+                </span>
+                <span className="git-panel__file-path" title={f.path}>{f.path}</span>
+                <span className="git-panel__file-stats">
+                  {f.insertions > 0 && <span className="git-panel__file-ins">+{f.insertions}</span>}
+                  {f.deletions > 0 && <span className="git-panel__file-del">−{f.deletions}</span>}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -169,10 +194,115 @@ function GitPanelChanges({ summary }: ChangesProps) {
 interface DiffProps {
   sessionId: string;
   summary?: GitDiffSummary;
+  selectedFile?: string;
 }
 
-function GitPanelDiff({ sessionId: _sessionId, summary: _summary }: DiffProps) {
-  return null; // C2 worker fills
+interface DiffState {
+  expanded: boolean;
+  loading: boolean;
+  diff?: string;
+  error?: string;
+  loadedKey?: string; // marker for which (sessionId, file) combination is loaded
+}
+
+function GitPanelDiff({ sessionId, summary, selectedFile }: DiffProps) {
+  const [state, setState] = useState<DiffState>({ expanded: false, loading: false });
+
+  const hasChanges = !!summary && summary.filesChanged > 0;
+  const currentKey = `${sessionId}::${selectedFile ?? '__all__'}`;
+
+  const loadDiff = useCallback(async () => {
+    setState(prev => ({ ...prev, loading: true, error: undefined }));
+    try {
+      const result = await maestroClient.getSessionGitDiff(sessionId, selectedFile);
+      setState({
+        expanded: true,
+        loading: false,
+        diff: result.diff,
+        loadedKey: currentKey,
+      });
+    } catch (err) {
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: err instanceof Error ? err.message : 'Failed to load diff',
+      }));
+    }
+  }, [sessionId, selectedFile, currentKey]);
+
+  // Auto-refetch when the selected file changes while the panel is open
+  useEffect(() => {
+    if (state.expanded && state.loadedKey !== currentKey && !state.loading) {
+      loadDiff();
+    }
+  }, [state.expanded, state.loadedKey, currentKey, state.loading, loadDiff]);
+
+  if (!hasChanges) return null;
+
+  const toggle = () => {
+    if (state.expanded) {
+      setState(prev => ({ ...prev, expanded: false }));
+      return;
+    }
+    // First expand → fetch if not yet loaded for this key
+    if (state.loadedKey === currentKey && state.diff !== undefined) {
+      setState(prev => ({ ...prev, expanded: true }));
+    } else {
+      loadDiff();
+    }
+  };
+
+  return (
+    <div className="git-panel__section git-panel__diff">
+      <button
+        type="button"
+        className="git-panel__diff-toggle"
+        onClick={toggle}
+        aria-expanded={state.expanded}
+      >
+        <span className="git-panel__diff-caret">{state.expanded ? '▾' : '▸'}</span>
+        <span className="git-panel__diff-title">
+          Diff{selectedFile ? <>: <span className="git-panel__diff-file">{selectedFile}</span></> : null}
+        </span>
+      </button>
+
+      {state.expanded && (
+        <div className="git-panel__diff-body">
+          {state.loading && <div className="git-panel__diff-loading">Loading diff…</div>}
+          {state.error && <div className="git-panel__diff-error">{state.error}</div>}
+          {!state.loading && !state.error && (
+            state.diff && state.diff.trim().length > 0
+              ? <DiffRender diff={state.diff} />
+              : <div className="git-panel__diff-empty">No changes to display.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function classifyDiffLine(line: string): string {
+  if (line.startsWith('diff --git') || line.startsWith('index ') || line.startsWith('--- ') || line.startsWith('+++ ')) return 'file';
+  if (line.startsWith('@@')) return 'hunk';
+  if (line.startsWith('+')) return 'add';
+  if (line.startsWith('-')) return 'del';
+  return 'ctx';
+}
+
+function DiffRender({ diff }: { diff: string }) {
+  const lines = diff.split('\n');
+  return (
+    <pre className="git-panel__diff-pre">
+      {lines.map((line, i) => {
+        const kind = classifyDiffLine(line);
+        return (
+          <div key={i} className={`diff-line diff-line--${kind}`}>
+            {line || ' '}
+          </div>
+        );
+      })}
+    </pre>
+  );
 }
 
 interface BranchRenameProps {
