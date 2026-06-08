@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs/promises';
+import { ValidationError } from '../../domain/common/Errors';
 
 const execFileAsync = promisify(execFile);
 
@@ -373,10 +374,41 @@ export class GitService {
     return parts.join('\n');
   }
 
-  // ── branch (stub — filled by D2 feature worker) ───────────────────────────────
+  // ── branch (D2) ───────────────────────────────────────────────────────────────
 
-  async renameBranch(_worktreePath: string, _newName: string): Promise<{ branchName: string }> {
-    throw new Error('not implemented');
+  /**
+   * Rename the current branch of the worktree to `newName` (`git branch -m`).
+   * Validates the name is a syntactically valid git branch ref (no spaces, no
+   * control/reserved characters) before touching the repo. Throws ValidationError
+   * (HTTP 400) for invalid names.
+   */
+  async renameBranch(worktreePath: string, newName: string): Promise<{ branchName: string }> {
+    const name = (newName ?? '').trim();
+
+    if (!name) {
+      throw new ValidationError('Branch name cannot be empty');
+    }
+    if (/\s/.test(name)) {
+      throw new ValidationError('Branch name cannot contain spaces');
+    }
+
+    // Defer to git for full ref-format rules (rejects names like "foo..bar",
+    // leading "-", trailing "/", "@{", "~^:?*[", etc.). Purely lexical check.
+    try {
+      await execFileAsync('git', ['check-ref-format', '--branch', name], { cwd: worktreePath });
+    } catch {
+      throw new ValidationError(`"${name}" is not a valid git branch name`);
+    }
+
+    try {
+      await execFileAsync('git', ['branch', '-m', name], { cwd: worktreePath });
+    } catch (err) {
+      const stderr = (err as { stderr?: string }).stderr ?? '';
+      const detail = (stderr || (err as Error).message || '').trim();
+      throw new ValidationError(detail || `Failed to rename branch to "${name}"`);
+    }
+
+    return { branchName: name };
   }
 
   // ── merge (E1) ────────────────────────────────────────────────────────────────

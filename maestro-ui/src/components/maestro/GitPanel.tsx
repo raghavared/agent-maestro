@@ -367,8 +367,111 @@ interface BranchRenameProps {
   onRefresh: () => void;
 }
 
-function GitPanelBranchRename({ sessionId: _sessionId, summary: _summary, onAction: _onAction, onRefresh: _onRefresh }: BranchRenameProps) {
-  return null; // D2 worker fills
+/** Mirror of the server-side git ref validation for instant client feedback. */
+export function validateBranchName(raw: string): string | undefined {
+  const name = raw.trim();
+  if (!name) return 'Branch name cannot be empty';
+  if (/\s/.test(name)) return 'Branch name cannot contain spaces';
+  // Reject characters/sequences git itself forbids in ref names.
+  if (/[~^:?*[\\]/.test(name)) return 'Branch name contains invalid characters';
+  if (/\.\.|@\{|\/\/|^\/|\/$|\.$|^-|\.lock$/.test(name)) return 'Branch name is not a valid git ref';
+  return undefined;
+}
+
+function GitPanelBranchRename({ sessionId, summary, onAction, onRefresh }: BranchRenameProps) {
+  const currentBranch = summary?.branch ?? '';
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(currentBranch);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  if (!summary) return null;
+
+  const startEdit = () => {
+    setValue(currentBranch);
+    setError(undefined);
+    setEditing(true);
+  };
+
+  const cancel = () => {
+    setEditing(false);
+    setError(undefined);
+  };
+
+  const save = async () => {
+    const name = value.trim();
+    if (name === currentBranch) {
+      cancel();
+      return;
+    }
+    const validationError = validateBranchName(name);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setBusy(true);
+    setError(undefined);
+    try {
+      await maestroClient.renameSessionBranch(sessionId, name);
+      setEditing(false);
+      onAction?.('renamed');
+      onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to rename branch');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="git-panel__section git-panel__branch-rename">
+      <div className="git-panel__section-title">Branch</div>
+      {!editing ? (
+        <button
+          type="button"
+          className="git-panel__branch-name-btn"
+          onClick={startEdit}
+          title="Click to rename branch"
+        >
+          <span className="git-panel__branch-name-text">{currentBranch || '—'}</span>
+          <span className="git-panel__branch-name-edit" aria-hidden="true">✎</span>
+        </button>
+      ) : (
+        <div className="git-panel__branch-edit-row">
+          <input
+            className="git-panel__branch-input"
+            type="text"
+            value={value}
+            autoFocus
+            spellCheck={false}
+            disabled={busy}
+            onChange={(e) => { setValue(e.target.value); if (error) setError(undefined); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); save(); }
+              else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+            }}
+          />
+          <button
+            type="button"
+            className="git-panel__branch-save"
+            onClick={save}
+            disabled={busy || !value.trim()}
+          >
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+          <button
+            type="button"
+            className="git-panel__branch-cancel"
+            onClick={cancel}
+            disabled={busy}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      {error && <div className="git-panel__branch-error">{error}</div>}
+    </div>
+  );
 }
 
 interface MergeProps {

@@ -134,8 +134,23 @@ export function createGitRoutes(deps: GitRouteDependencies) {
         });
       }
 
-      // Filled by D2 feature worker
-      res.status(501).json({ error: true, code: 'not_implemented', message: 'branch rename not yet implemented' });
+      const worktreePath: string | undefined = session.metadata?.worktreePath;
+      if (!worktreePath) {
+        return res.status(404).json({
+          error: true,
+          code: 'no_worktree',
+          message: 'Session has no associated worktree',
+        });
+      }
+
+      const { branchName } = await gitService.renameBranch(worktreePath, req.body.name as string);
+
+      await sessionService.updateSession(session.id, {
+        metadata: { worktreeBranch: branchName },
+      });
+
+      await emitGitChanged(eventBus, session.id);
+      res.json({ branchName });
     } catch (err) {
       handleRouteError(err, res);
     }
