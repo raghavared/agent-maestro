@@ -579,3 +579,73 @@
   font-size: 11px;
   color: var(--color-danger, #f87171);
 }
+
+/* ── Discard worktree (B3) ──────────────────────────────────────────────── */
+
+.git-panel__discard-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.git-panel__discard-btn,
+.git-panel__discard-keep,
+.git-panel__discard-confirm-yes {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+  background: var(--hover-bg, rgba(255,255,255,0.05));
+  color: var(--text-primary, #e2e8f0);
+  cursor: pointer;
+}
+
+.git-panel__discard-btn,
+.git-panel__discard-confirm-yes {
+  border-color: var(--color-danger, #f87171);
+  color: var(--color-danger, #f87171);
+}
+
+.git-panel__discard-btn:hover:not(:disabled),
+.git-panel__discard-keep:hover:not(:disabled),
+.git-panel__discard-confirm-yes:hover:not(:disabled) {
+  background: var(--hover-bg-strong, rgba(255,255,255,0.1));
+}
+
+.git-panel__discard-btn:disabled,
+.git-panel__discard-keep:disabled,
+.git-panel__discard-confirm-yes:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.git-panel__discard-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.git-panel__discard-confirm-text {
+  font-size: 11px;
+  color: var(--text-secondary, #aaa);
+}
+
+.git-panel__discard-confirm-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.git-panel__discard-disabled-reason {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-muted, #888);
+}
+
+.git-panel__discard-error {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--color-danger, #f87171);
+  white-space: pre-wrap;
+}

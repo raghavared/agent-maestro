@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import type { GitDiffSummary, GitPrInfo } from '../../app/types/maestro';
+import type { GitDiffSummary, GitPrInfo, MaestroSessionStatus } from '../../app/types/maestro';
 import { maestroClient } from '../../utils/MaestroClient';
 
 export interface GitPanelProps {
@@ -629,6 +629,95 @@ interface DiscardProps {
   onRefresh: () => void;
 }
 
-function GitPanelDiscard({ sessionId: _sessionId, onAction: _onAction, onRefresh: _onRefresh }: DiscardProps) {
-  return null; // B3 worker fills
+/** Session states in which discarding the worktree is permitted (mirrors the server's 409 gate). */
+const TERMINAL_SESSION_STATUSES: readonly MaestroSessionStatus[] = ['completed', 'failed', 'stopped'];
+
+/** Pure gate: discard is only allowed once the session has finished. Exported for unit testing. */
+export function canDiscardWorktree(status?: MaestroSessionStatus): boolean {
+  return status !== undefined && TERMINAL_SESSION_STATUSES.includes(status);
+}
+
+function GitPanelDiscard({ sessionId, onAction, onRefresh }: DiscardProps) {
+  const [status, setStatus] = useState<MaestroSessionStatus | undefined>(undefined);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    maestroClient
+      .getSession(sessionId)
+      .then(session => { if (!cancelled) setStatus(session.status); })
+      .catch(() => { /* leave status undefined → discard stays gated */ });
+    return () => { cancelled = true; };
+  }, [sessionId]);
+
+  const allowed = canDiscardWorktree(status);
+
+  const discard = async () => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await maestroClient.discardSessionWorktree(sessionId);
+      onAction?.('discarded');
+      onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to discard worktree');
+      setBusy(false);
+      setConfirming(false);
+    }
+    // On success the parent refetches and this panel unmounts (hasWorktree → false),
+    // so no need to reset local busy state.
+  };
+
+  return (
+    <div className="git-panel__section git-panel__discard">
+      <div className="git-panel__section-title">Worktree</div>
+      {!confirming ? (
+        <div className="git-panel__discard-row">
+          <button
+            type="button"
+            className="git-panel__discard-btn"
+            disabled={!allowed || busy}
+            title={allowed ? 'Remove this worktree and delete its branch' : 'Available after the session finishes'}
+            onClick={() => { setError(undefined); setConfirming(true); }}
+          >
+            Discard worktree
+          </button>
+        </div>
+      ) : (
+        <div className="git-panel__discard-confirm">
+          <span className="git-panel__discard-confirm-text">
+            Permanently delete this worktree and its branch? Uncommitted changes will be lost.
+          </span>
+          <div className="git-panel__discard-confirm-actions">
+            <button
+              type="button"
+              className="git-panel__discard-keep"
+              disabled={busy}
+              onClick={() => setConfirming(false)}
+            >
+              Keep
+            </button>
+            <button
+              type="button"
+              className="git-panel__discard-confirm-yes"
+              disabled={busy}
+              onClick={discard}
+            >
+              {busy ? 'Discarding…' : 'Discard'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!allowed && (
+        <div className="git-panel__discard-disabled-reason">
+          Discard is available once the session has completed, stopped, or failed.
+        </div>
+      )}
+
+      {error && <div className="git-panel__discard-error">{error}</div>}
+    </div>
+  );
 }
