@@ -6,6 +6,7 @@ import { DocsList } from "./DocsList";
 import { StrategyBadge } from "./StrategyBadge";
 import { GitPanel } from "./GitPanel";
 import { WorktreeBadge, getWorktreeInfo } from "./WorktreeBadge";
+import { PrChip, getPrInfo } from "./PrChip";
 
 interface SessionDetailModalProps {
   sessionId: string;
@@ -132,6 +133,10 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
                 {(() => {
                   const wt = getWorktreeInfo(session);
                   return wt ? <WorktreeBadge branch={wt.branch} compact /> : null;
+                })()}
+                {(() => {
+                  const pr = getPrInfo(session);
+                  return pr ? <PrChip url={pr.url} number={pr.number} compact /> : null;
                 })()}
               </div>
             )}
