@@ -379,14 +379,95 @@ export class GitService {
     throw new Error('not implemented');
   }
 
-  // ── merge (stub — filled by E1 feature worker) ────────────────────────────────
+  // ── merge (E1) ────────────────────────────────────────────────────────────────
 
+  /** Files with unmerged ('U') status during an in-progress merge. */
+  private async unmergedFiles(dir: string): Promise<string[]> {
+    try {
+      const { stdout } = await execFileAsync(
+        'git', ['diff', '--name-only', '--diff-filter=U'], { cwd: dir }
+      );
+      return stdout.trim().split('\n').map(s => s.trim()).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Merge `branchName` into `targetBranch` inside the main checkout (`projectDir`).
+   * The worktree branch lives in its own worktree, so we switch the main checkout
+   * to `targetBranch`, merge, then restore the original branch. On conflict the
+   * merge is aborted so the working tree is left clean, and the conflicting file
+   * list is returned with `success: false`.
+   */
   async mergeBranch(
-    _projectDir: string,
-    _branchName: string,
-    _targetBranch: string
+    projectDir: string,
+    branchName: string,
+    targetBranch: string
   ): Promise<{ success: boolean; message: string; conflicts?: string[] }> {
-    throw new Error('not implemented');
+    // Refuse if the main checkout is dirty — switching branches would be unsafe.
+    const { stdout: porcelain } = await execFileAsync(
+      'git', ['status', '--porcelain'], { cwd: projectDir }
+    );
+    if (porcelain.trim().length > 0) {
+      return {
+        success: false,
+        message: 'Target repository has uncommitted changes. Commit or stash them before merging.',
+      };
+    }
+
+    const originalBranch = await this.currentBranch(projectDir);
+    let switched = false;
+
+    const restore = async () => {
+      if (switched && originalBranch && originalBranch !== 'HEAD') {
+        await execFileAsync('git', ['checkout', originalBranch], { cwd: projectDir }).catch(() => {});
+      }
+    };
+
+    try {
+      if (originalBranch !== targetBranch) {
+        await execFileAsync('git', ['checkout', targetBranch], { cwd: projectDir });
+        switched = true;
+      }
+    } catch (err) {
+      const stderr = (err as { stderr?: string }).stderr ?? '';
+      return {
+        success: false,
+        message: (stderr || (err as Error).message).trim() || `Failed to checkout ${targetBranch}`,
+      };
+    }
+
+    try {
+      const { stdout } = await execFileAsync(
+        'git', ['merge', '--no-edit', branchName], { cwd: projectDir }
+      );
+      await restore();
+      return {
+        success: true,
+        message: stdout.trim() || `Merged ${branchName} into ${targetBranch}`,
+      };
+    } catch (err) {
+      const conflicts = await this.unmergedFiles(projectDir);
+      // Abort to keep the tree clean.
+      await execFileAsync('git', ['merge', '--abort'], { cwd: projectDir }).catch(() => {});
+      await restore();
+
+      if (conflicts.length > 0) {
+        return {
+          success: false,
+          message: `Merge aborted: conflicts in ${conflicts.length} file${conflicts.length === 1 ? '' : 's'}.`,
+          conflicts,
+        };
+      }
+
+      const e = err as { stderr?: string; stdout?: string };
+      const detail = (e.stderr || e.stdout || (err as Error).message || '').trim();
+      return {
+        success: false,
+        message: detail || `Failed to merge ${branchName} into ${targetBranch}`,
+      };
+    }
   }
 
   // ── pr (stubs — filled by F1/F2 feature workers) ─────────────────────────────

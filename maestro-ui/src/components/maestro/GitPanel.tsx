@@ -381,15 +381,131 @@ interface MergeProps {
   disabledReason?: string;
 }
 
+interface MergeResult {
+  success: boolean;
+  message: string;
+  conflicts?: string[];
+}
+
 function GitPanelMerge({
-  sessionId: _sessionId,
-  summary: _summary,
-  onAction: _onAction,
-  onRefresh: _onRefresh,
-  disabled: _disabled,
-  disabledReason: _disabledReason,
+  sessionId,
+  summary,
+  onAction,
+  onRefresh,
+  disabled,
+  disabledReason,
 }: MergeProps) {
-  return null; // E1 worker fills
+  const defaultTarget = summary?.baseBranch ?? '';
+  const [target, setTarget] = useState(defaultTarget);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<MergeResult | null>(null);
+
+  // Keep the target input in sync if the base branch resolves later.
+  useEffect(() => {
+    setTarget(prev => (prev ? prev : defaultTarget));
+  }, [defaultTarget]);
+
+  if (!summary) return null;
+
+  const trimmedTarget = target.trim();
+
+  const doMerge = async () => {
+    setBusy(true);
+    setResult(null);
+    try {
+      const r = await maestroClient.mergeSessionWorktree(sessionId, trimmedTarget || undefined);
+      setResult(r);
+      if (r.success) {
+        onAction?.('merged');
+        onRefresh();
+      }
+    } catch (err) {
+      setResult({ success: false, message: err instanceof Error ? err.message : 'Merge failed' });
+    } finally {
+      setBusy(false);
+      setConfirming(false);
+    }
+  };
+
+  return (
+    <div className="git-panel__section git-panel__merge">
+      <div className="git-panel__section-title">Merge</div>
+      <div className="git-panel__merge-row">
+        <label className="git-panel__merge-label">
+          <span className="git-panel__merge-label-text">Into</span>
+          <input
+            className="git-panel__merge-target"
+            type="text"
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            placeholder={defaultTarget || 'target branch'}
+            disabled={busy || disabled}
+            spellCheck={false}
+          />
+        </label>
+        {!confirming ? (
+          <button
+            type="button"
+            className="git-panel__merge-btn"
+            disabled={disabled || busy || !trimmedTarget}
+            title={disabled ? disabledReason : `Merge ${summary.branch} into ${trimmedTarget || defaultTarget}`}
+            onClick={() => { setResult(null); setConfirming(true); }}
+          >
+            Merge
+          </button>
+        ) : (
+          <span className="git-panel__merge-confirm">
+            <span className="git-panel__merge-confirm-text" title={`${summary.branch} → ${trimmedTarget}`}>
+              Merge into {trimmedTarget}?
+            </span>
+            <button
+              type="button"
+              className="git-panel__merge-confirm-yes"
+              disabled={busy || !trimmedTarget}
+              onClick={doMerge}
+            >
+              {busy ? 'Merging…' : 'Confirm'}
+            </button>
+            <button
+              type="button"
+              className="git-panel__merge-confirm-no"
+              disabled={busy}
+              onClick={() => setConfirming(false)}
+            >
+              Cancel
+            </button>
+          </span>
+        )}
+      </div>
+
+      {disabled && disabledReason && (
+        <div className="git-panel__merge-disabled-reason">{disabledReason}</div>
+      )}
+
+      {result && (
+        result.success ? (
+          <div className="git-panel__merge-success">{result.message || 'Merged successfully.'}</div>
+        ) : (
+          <div className="git-panel__merge-error">
+            <div className="git-panel__merge-error-msg">{result.message || 'Merge failed.'}</div>
+            {result.conflicts && result.conflicts.length > 0 && (
+              <div className="git-panel__merge-conflicts">
+                <div className="git-panel__merge-conflicts-title">
+                  Conflicting file{result.conflicts.length === 1 ? '' : 's'}:
+                </div>
+                <ul className="git-panel__merge-conflicts-list">
+                  {result.conflicts.map((f) => (
+                    <li key={f} className="git-panel__merge-conflict-file" title={f}>{f}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )
+      )}
+    </div>
+  );
 }
 
 interface PRProps {

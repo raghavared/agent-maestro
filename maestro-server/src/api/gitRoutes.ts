@@ -154,9 +154,28 @@ export function createGitRoutes(deps: GitRouteDependencies) {
         });
       }
 
+      const worktreeBranch: string | undefined = session.metadata?.worktreeBranch;
+      if (!worktreeBranch) {
+        return res.status(404).json({
+          error: true,
+          code: 'no_worktree',
+          message: 'Session has no associated worktree branch to merge',
+        });
+      }
+
+      const project = await projectRepo.findById(session.projectId);
+      if (!project) {
+        return res.status(404).json({ error: true, code: 'project_not_found', message: 'Project not found' });
+      }
+
+      const targetBranch =
+        (req.body.targetBranch as string | undefined)?.trim() ||
+        (await gitService.defaultBaseBranch(project.workingDir));
+
+      const result = await gitService.mergeBranch(project.workingDir, worktreeBranch, targetBranch);
+
       await emitGitChanged(eventBus, session.id);
-      // Filled by E1 feature worker
-      res.status(501).json({ error: true, code: 'not_implemented', message: 'merge not yet implemented' });
+      res.json(result);
     } catch (err) {
       handleRouteError(err, res);
     }
