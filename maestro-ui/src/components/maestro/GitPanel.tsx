@@ -12,6 +12,7 @@ interface GitState {
   hasWorktree: boolean;
   summary?: GitDiffSummary;
   pr?: GitPrInfo;
+  suggestedPr?: { title: string; body: string };
   loading: boolean;
   error?: string;
 }
@@ -86,8 +87,11 @@ export function GitPanel({ sessionId, compact = false, onAction }: GitPanelProps
         sessionId={sessionId}
         pr={state.pr}
         summary={state.summary}
+        suggestedPr={state.suggestedPr}
         onAction={onAction}
         onRefresh={fetchGitState}
+        disabled={actionState.mutationDisabled}
+        disabledReason={actionState.disabledReason}
       />
 
       {/* Discard worktree — B3 fills */}
@@ -615,12 +619,178 @@ interface PRProps {
   sessionId: string;
   pr?: GitPrInfo;
   summary?: GitDiffSummary;
+  suggestedPr?: { title: string; body: string };
   onAction?: (a: 'pr-created') => void;
   onRefresh: () => void;
+  /** Set by D1 header logic: PR creation is blocked while the worktree is dirty. */
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-function GitPanelPR({ sessionId: _sessionId, pr: _pr, summary: _summary, onAction: _onAction, onRefresh: _onRefresh }: PRProps) {
-  return null; // F1/F2 workers fill
+const PR_STATE_LABELS: Record<GitPrInfo['state'], string> = {
+  OPEN: 'Open',
+  MERGED: 'Merged',
+  CLOSED: 'Closed',
+  DRAFT: 'Draft',
+};
+
+function GitPanelPR({
+  sessionId,
+  pr,
+  summary,
+  suggestedPr,
+  onAction,
+  onRefresh,
+  disabled,
+  disabledReason,
+}: PRProps) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [base, setBase] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+  const [touched, setTouched] = useState(false);
+
+  const suggestedTitle = suggestedPr?.title ?? '';
+  const suggestedBody = suggestedPr?.body ?? '';
+  const defaultBase = summary?.baseBranch ?? '';
+
+  // Pre-fill the form from the server suggestion until the user edits it.
+  useEffect(() => {
+    if (!touched) {
+      setTitle(suggestedTitle);
+      setBody(suggestedBody);
+    }
+  }, [suggestedTitle, suggestedBody, touched]);
+
+  useEffect(() => {
+    setBase(prev => (prev ? prev : defaultBase));
+  }, [defaultBase]);
+
+  // Once a PR exists, show the chip instead of the form.
+  if (pr) {
+    return (
+      <div className="git-panel__section git-panel__pr">
+        <div className="git-panel__section-title">Pull request</div>
+        <a
+          className={`git-panel__pr-chip git-panel__pr-chip--${pr.state.toLowerCase()}`}
+          href={pr.url}
+          target="_blank"
+          rel="noreferrer"
+          title={pr.url}
+        >
+          <span className="git-panel__pr-number">#{pr.number}</span>
+          <span className="git-panel__pr-state">{PR_STATE_LABELS[pr.state] ?? pr.state}</span>
+          <span className="git-panel__pr-open">↗</span>
+        </a>
+      </div>
+    );
+  }
+
+  if (!summary) return null;
+
+  const trimmedTitle = title.trim();
+  const trimmedBase = base.trim();
+
+  const submit = async () => {
+    if (!trimmedTitle) {
+      setError('A PR title is required');
+      return;
+    }
+    setBusy(true);
+    setError(undefined);
+    try {
+      await maestroClient.createSessionPr(sessionId, {
+        title: trimmedTitle,
+        body,
+        baseBranch: trimmedBase || undefined,
+      });
+      onAction?.('pr-created');
+      onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to open pull request');
+      setBusy(false);
+    }
+    // On success the parent refetches and the chip replaces the form.
+  };
+
+  return (
+    <div className="git-panel__section git-panel__pr">
+      <div className="git-panel__section-title">Pull request</div>
+      {!open ? (
+        <button
+          type="button"
+          className="git-panel__pr-toggle"
+          disabled={disabled}
+          title={disabled ? disabledReason : 'Push branch and open a pull request'}
+          onClick={() => { setError(undefined); setOpen(true); }}
+        >
+          Open pull request…
+        </button>
+      ) : (
+        <div className="git-panel__pr-form">
+          <label className="git-panel__pr-field">
+            <span className="git-panel__pr-field-label">Title</span>
+            <input
+              className="git-panel__pr-title"
+              type="text"
+              value={title}
+              disabled={busy}
+              spellCheck={false}
+              onChange={(e) => { setTouched(true); setTitle(e.target.value); if (error) setError(undefined); }}
+            />
+          </label>
+          <label className="git-panel__pr-field">
+            <span className="git-panel__pr-field-label">Body</span>
+            <textarea
+              className="git-panel__pr-body"
+              rows={6}
+              value={body}
+              disabled={busy}
+              spellCheck={false}
+              onChange={(e) => { setTouched(true); setBody(e.target.value); }}
+            />
+          </label>
+          <label className="git-panel__pr-field">
+            <span className="git-panel__pr-field-label">Base</span>
+            <input
+              className="git-panel__pr-base"
+              type="text"
+              value={base}
+              disabled={busy}
+              spellCheck={false}
+              placeholder={defaultBase || 'base branch'}
+              onChange={(e) => setBase(e.target.value)}
+            />
+          </label>
+          <div className="git-panel__pr-actions">
+            <button
+              type="button"
+              className="git-panel__pr-submit"
+              disabled={busy || disabled || !trimmedTitle}
+              title={disabled ? disabledReason : undefined}
+              onClick={submit}
+            >
+              {busy ? 'Opening…' : 'Open PR'}
+            </button>
+            <button
+              type="button"
+              className="git-panel__pr-cancel"
+              disabled={busy}
+              onClick={() => { setOpen(false); setError(undefined); }}
+            >
+              Cancel
+            </button>
+          </div>
+          {disabled && disabledReason && (
+            <div className="git-panel__pr-disabled-reason">{disabledReason}</div>
+          )}
+          {error && <div className="git-panel__pr-error">{error}</div>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface DiscardProps {

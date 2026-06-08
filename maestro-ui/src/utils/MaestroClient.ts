@@ -667,8 +667,8 @@ class MaestroClient {
         return this.fetch<GitCapabilities>(`/git/capabilities${query}`);
     }
 
-    async getSessionGit(sessionId: string): Promise<{ hasWorktree: boolean; summary?: GitDiffSummary; pr?: GitPrInfo }> {
-        return this.fetch<{ hasWorktree: boolean; summary?: GitDiffSummary; pr?: GitPrInfo }>(
+    async getSessionGit(sessionId: string): Promise<{ hasWorktree: boolean; summary?: GitDiffSummary; pr?: GitPrInfo; suggestedPr?: { title: string; body: string } }> {
+        return this.fetch<{ hasWorktree: boolean; summary?: GitDiffSummary; pr?: GitPrInfo; suggestedPr?: { title: string; body: string } }>(
             `/sessions/${encodeURIComponent(sessionId)}/git`
         );
     }

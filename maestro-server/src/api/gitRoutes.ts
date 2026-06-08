@@ -1,8 +1,9 @@
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import { SessionService } from '../application/services/SessionService';
-import { GitService } from '../application/services/GitService';
+import { GitService, GitDiffSummary, GitPrInfo } from '../application/services/GitService';
 import { IProjectRepository } from '../domain/repositories/IProjectRepository';
+import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
 import { handleRouteError } from './middleware/errorHandler';
 import { validateBody, validateParams, validateQuery, idParamSchema } from './validation';
@@ -37,6 +38,7 @@ const TERMINAL_STATUSES = new Set(['completed', 'stopped', 'failed']);
 interface GitRouteDependencies {
   sessionService: SessionService;
   projectRepo: IProjectRepository;
+  taskRepo: ITaskRepository;
   eventBus: IEventBus;
 }
 
@@ -44,8 +46,46 @@ async function emitGitChanged(eventBus: IEventBus, sessionId: string): Promise<v
   await eventBus.emit('session:git_changed', { sessionId, timestamp: Date.now() });
 }
 
+/**
+ * Compose a suggested PR title + body from the session's primary task and its
+ * diff summary — no LLM call, just existing data. Title comes from the task
+ * title (or session name); the body restates the task description and lists the
+ * changed files so the form is pre-filled and editable.
+ */
+export function buildSuggestedPr(
+  taskTitle: string | undefined,
+  taskDescription: string | undefined,
+  summary: GitDiffSummary | undefined,
+  sessionName: string,
+): { title: string; body: string } {
+  const title = (taskTitle?.trim() || sessionName?.trim() || 'Maestro changes').slice(0, 120);
+
+  const lines: string[] = [];
+  const desc = taskDescription?.trim();
+  if (desc) {
+    lines.push('## Summary', '', desc, '');
+  }
+  if (summary && summary.files.length > 0) {
+    lines.push('## Changes', '');
+    lines.push(
+      `${summary.filesChanged} file${summary.filesChanged === 1 ? '' : 's'} changed, ` +
+      `+${summary.insertions} / −${summary.deletions} across ` +
+      `${summary.commitCount} commit${summary.commitCount === 1 ? '' : 's'}.`,
+      '',
+    );
+    for (const f of summary.files.slice(0, 50)) {
+      lines.push(`- \`${f.status}\` ${f.path} (+${f.insertions}/−${f.deletions})`);
+    }
+    if (summary.files.length > 50) {
+      lines.push(`- …and ${summary.files.length - 50} more`);
+    }
+  }
+
+  return { title, body: lines.join('\n').trim() };
+}
+
 export function createGitRoutes(deps: GitRouteDependencies) {
-  const { sessionService, projectRepo, eventBus } = deps;
+  const { sessionService, projectRepo, taskRepo, eventBus } = deps;
   const gitService = new GitService();
   const router = express.Router();
 
@@ -82,7 +122,7 @@ export function createGitRoutes(deps: GitRouteDependencies) {
       }
 
       const baseCommit: string | undefined = session.metadata?.worktreeBaseCommit;
-      let summary;
+      let summary: GitDiffSummary | undefined;
       if (baseCommit) {
         try {
           summary = await gitService.diffSummary(worktreePath, baseCommit);
@@ -91,8 +131,24 @@ export function createGitRoutes(deps: GitRouteDependencies) {
         }
       }
 
-      // PR is filled by F2 feature worker
-      res.json({ hasWorktree: true, summary });
+      // Surface an already-opened PR from session metadata (F2 enriches with live
+      // state via `gh pr view`; F1 stores url/number at creation time).
+      let pr: GitPrInfo | undefined;
+      const prUrl: string | undefined = session.metadata?.prUrl;
+      const prNumber: number | undefined = session.metadata?.prNumber;
+      if (prUrl && typeof prNumber === 'number') {
+        pr = { url: prUrl, number: prNumber, state: 'OPEN' };
+      }
+
+      // Pre-fill suggestion for the PR form (no LLM — task + diff summary).
+      let suggestedPr: { title: string; body: string } | undefined;
+      if (!pr) {
+        const primaryTaskId = session.taskIds?.[0];
+        const task = primaryTaskId ? await taskRepo.findById(primaryTaskId).catch(() => null) : null;
+        suggestedPr = buildSuggestedPr(task?.title, task?.description, summary, session.name);
+      }
+
+      res.json({ hasWorktree: true, summary, pr, suggestedPr });
     } catch (err) {
       handleRouteError(err, res);
     }
@@ -209,9 +265,61 @@ export function createGitRoutes(deps: GitRouteDependencies) {
         });
       }
 
+      const worktreePath: string | undefined = session.metadata?.worktreePath;
+      const worktreeBranch: string | undefined = session.metadata?.worktreeBranch;
+      if (!worktreePath || !worktreeBranch) {
+        return res.status(404).json({
+          error: true,
+          code: 'no_worktree',
+          message: 'Session has no associated worktree branch to open a PR for',
+        });
+      }
+
+      // Require gh — give an actionable error rather than a raw exec failure.
+      const caps = await gitService.capabilities(worktreePath);
+      if (!caps.hasGh) {
+        return res.status(422).json({
+          error: true,
+          code: 'gh_missing',
+          message: 'GitHub CLI (gh) is not installed. Install it from https://cli.github.com to open pull requests.',
+        });
+      }
+      if (!caps.ghAuthed) {
+        return res.status(422).json({
+          error: true,
+          code: 'gh_unauthenticated',
+          message: 'GitHub CLI is not authenticated. Run `gh auth login` and try again.',
+        });
+      }
+
+      const baseBranch =
+        (req.body.baseBranch as string | undefined)?.trim() ||
+        (await gitService.defaultBaseBranch(worktreePath));
+
+      const pr = await gitService.createPullRequest(
+        worktreePath,
+        worktreeBranch,
+        req.body.title as string,
+        req.body.body as string,
+        baseBranch,
+      );
+
+      // Persist PR identity on the session so the chip survives reloads.
+      await sessionService.updateSession(session.id, {
+        metadata: { prUrl: pr.url, prNumber: pr.number },
+      });
+
+      // Milestone so the PR shows up on the session timeline.
+      await sessionService.addTimelineEvent(
+        session.id,
+        'milestone',
+        `Opened pull request #${pr.number}`,
+        session.taskIds?.[0],
+        { kind: 'pr_opened', prUrl: pr.url, prNumber: pr.number, baseBranch },
+      );
+
       await emitGitChanged(eventBus, session.id);
-      // Filled by F1 feature worker
-      res.status(501).json({ error: true, code: 'not_implemented', message: 'PR creation not yet implemented' });
+      res.json(pr);
     } catch (err) {
       handleRouteError(err, res);
     }

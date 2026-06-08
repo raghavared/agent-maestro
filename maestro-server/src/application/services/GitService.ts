@@ -61,6 +61,22 @@ function shortId(len = 4): string {
   return id;
 }
 
+/**
+ * Extract the PR url + number from `gh pr create` output. gh prints the PR URL
+ * on its own line (sometimes preceded by status chatter), e.g.
+ * `https://github.com/owner/repo/pull/42`.
+ */
+export function parsePullRequestUrl(output: string): { url: string; number: number } {
+  const lines = output.split('\n').map(l => l.trim()).filter(Boolean);
+  const url =
+    [...lines].reverse().find(l => /https?:\/\/\S*\/pull\/\d+/.test(l)) ??
+    lines[lines.length - 1] ??
+    '';
+  const match = url.match(/\/pull\/(\d+)/);
+  const number = match ? parseInt(match[1], 10) : 0;
+  return { url, number };
+}
+
 export class GitService {
   // ── repo ────────────────────────────────────────────────────────────────────
 
@@ -502,16 +518,51 @@ export class GitService {
     }
   }
 
-  // ── pr (stubs — filled by F1/F2 feature workers) ─────────────────────────────
+  // ── pr ───────────────────────────────────────────────────────────────────────
 
+  /**
+   * Push the worktree branch to `origin` (setting upstream) and open a GitHub
+   * pull request via `gh`. Returns the new PR's url + number. Requires `gh` to be
+   * installed and authenticated — callers should gate on {@link capabilities}
+   * first for a friendlier error. Throws ValidationError (HTTP 400) when the push
+   * or `gh pr create` fails, surfacing git/gh's own message.
+   */
   async createPullRequest(
-    _worktreePath: string,
-    _branchName: string,
-    _title: string,
-    _body: string,
-    _baseBranch: string
+    worktreePath: string,
+    branchName: string,
+    title: string,
+    body: string,
+    baseBranch: string
   ): Promise<GitPrInfo> {
-    throw new Error('not implemented');
+    // 1. Publish the branch to origin (idempotent; -u sets upstream).
+    try {
+      await execFileAsync('git', ['push', '-u', 'origin', branchName], { cwd: worktreePath });
+    } catch (err) {
+      const stderr = (err as { stderr?: string }).stderr ?? '';
+      const detail = (stderr || (err as Error).message || '').trim();
+      throw new ValidationError(`Failed to push branch '${branchName}' to origin: ${detail}`);
+    }
+
+    // 2. Open the pull request.
+    let stdout = '';
+    try {
+      ({ stdout } = await execFileAsync(
+        'gh',
+        ['pr', 'create', '--title', title, '--body', body, '--base', baseBranch, '--head', branchName],
+        { cwd: worktreePath }
+      ));
+    } catch (err) {
+      const stderr = (err as { stderr?: string }).stderr ?? '';
+      const detail = (stderr || (err as Error).message || '').trim();
+      throw new ValidationError(detail || 'Failed to create pull request');
+    }
+
+    const { url, number } = parsePullRequestUrl(stdout);
+    if (!url) {
+      throw new ValidationError('Pull request was created but gh returned no URL to parse');
+    }
+
+    return { url, number, state: 'OPEN' };
   }
 
   async getPullRequest(

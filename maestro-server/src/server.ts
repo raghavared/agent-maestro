@@ -150,6 +150,7 @@ async function startServer() {
   const gitRoutes = createGitRoutes({
     sessionService,
     projectRepo,
+    taskRepo,
     eventBus,
   });
   app.use('/api', gitRoutes);
