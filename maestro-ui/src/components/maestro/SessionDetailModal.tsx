@@ -4,6 +4,9 @@ import { MaestroSessionStatus } from "../../app/types/maestro";
 import { SessionTimeline } from "./SessionTimeline";
 import { DocsList } from "./DocsList";
 import { StrategyBadge } from "./StrategyBadge";
+import { GitPanel } from "./GitPanel";
+import { WorktreeBadge, getWorktreeInfo } from "./WorktreeBadge";
+import { PrChip, getPrInfo } from "./PrChip";
 
 interface SessionDetailModalProps {
   sessionId: string;
@@ -127,6 +130,14 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
                     {session.mode.toUpperCase()}
                   </span>
                 )}
+                {(() => {
+                  const wt = getWorktreeInfo(session);
+                  return wt ? <WorktreeBadge branch={wt.branch} compact /> : null;
+                })()}
+                {(() => {
+                  const pr = getPrInfo(session);
+                  return pr ? <PrChip url={pr.url} number={pr.number} compact /> : null;
+                })()}
               </div>
             )}
           </div>
@@ -215,6 +226,14 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
               {session.docs && session.docs.length > 0 && (
                 <div className="terminalModalSection">
                   <DocsList docs={session.docs} />
+                </div>
+              )}
+
+              {/* Git Panel — shown when session has a worktree */}
+              {session.metadata?.worktreePath && (
+                <div className="terminalModalSection">
+                  <h3 className="terminalModalSectionTitle">▸ Git</h3>
+                  <GitPanel sessionId={sessionId} />
                 </div>
               )}
 

@@ -215,6 +215,143 @@
   background: rgba(var(--theme-primary-rgb), 0.05);
 }
 
+/* ── Git settings ──────────────────────────────────────────────────── */
+
+.gitSettings {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.gitSettingsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gitSettingsLabel {
+  color: rgba(var(--theme-primary-rgb), 0.7);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.gitSettingsHint {
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  margin-bottom: 2px;
+}
+
+.gitSettingsHint code,
+.gitSettingsCapsNote code,
+.gitSettingsPreview code {
+  font-family: var(--style-font-mono, monospace);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  padding: 0 4px;
+  border-radius: 2px;
+}
+
+.gitSettingsInput {
+  padding: 8px 10px;
+  border: 1px solid var(--theme-border);
+  background: rgba(var(--theme-primary-rgb), 0.03);
+  color: var(--theme-primary);
+  font-family: var(--style-font-mono, monospace);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.gitSettingsInput:focus {
+  border-color: rgba(var(--theme-primary-rgb), 0.5);
+}
+
+.gitSettingsPreview {
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+}
+
+.gitSettingsToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.gitSettingsToggleLabel {
+  color: var(--theme-primary);
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+}
+
+.gitSettingsCaps {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gitSettingsCapBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid var(--theme-border);
+  border-radius: 3px;
+  font-family: var(--style-font-mono, monospace);
+  font-size: 11px;
+}
+
+.gitSettingsCapBadge--ok {
+  color: var(--theme-success, #4caf50);
+  border-color: rgba(76, 175, 80, 0.5);
+  background: rgba(76, 175, 80, 0.08);
+}
+
+.gitSettingsCapBadge--missing {
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  background: rgba(var(--theme-primary-rgb), 0.03);
+}
+
+.gitSettingsCapBadgeIcon {
+  font-weight: 700;
+}
+
+.gitSettingsCapsLoading,
+.gitSettingsCapsError {
+  color: rgba(var(--theme-primary-rgb), 0.4);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+}
+
+.gitSettingsCapsNote {
+  color: rgba(var(--theme-primary-rgb), 0.5);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+}
+
+.gitSettingsReset {
+  align-self: flex-start;
+  padding: 6px 14px;
+  border: 1px solid var(--theme-border);
+  background: transparent;
+  color: rgba(var(--theme-primary-rgb), 0.6);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gitSettingsReset:hover {
+  border-color: rgba(var(--theme-primary-rgb), 0.4);
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.05);
+}
+
 .appShortcutsHeader {
   color: rgba(var(--theme-primary-rgb), 0.72);
   font-size: 11px;

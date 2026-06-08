@@ -7,6 +7,7 @@ import { SessionTimeline } from "./SessionTimeline";
 import { DocsList } from "./DocsList";
 import { StrategyBadge } from "./StrategyBadge";
 import { SessionDetailsSection } from "./SessionDetailsSection";
+import { WorktreeBadge, getWorktreeInfo } from "./WorktreeBadge";
 import { SessionLiveIndicator } from "./SessionLiveIndicator";
 import { maestroClient } from "../../utils/MaestroClient";
 
@@ -151,6 +152,10 @@ export function SessionDetailOverlay() {
                   <StrategyBadge strategy={session.strategy} orchestratorStrategy={session.orchestratorStrategy} />
                   {session.model && <span className="sessionDetailModelBadge">{session.model.toUpperCase()}</span>}
                   {session.mode && <span className="sessionDetailModeBadge">{session.mode.toUpperCase()}</span>}
+                  {(() => {
+                    const wt = getWorktreeInfo(session);
+                    return wt ? <WorktreeBadge branch={wt.branch} compact /> : null;
+                  })()}
                 </div>
               )}
             </div>

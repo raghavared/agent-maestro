@@ -18,6 +18,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     const [activeTab, setActiveTab] = useState<string | null>(null);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [dueDate, _setDueDate] = useState<string>("");
+    const [useWorktree, _setUseWorktree] = useState<boolean>(false);
 
     const setTitle = useCallback((v: string) => { _setTitle(v); bumpVersion(); }, [bumpVersion]);
     const setPrompt = useCallback((v: string) => { _setPrompt(v); bumpVersion(); }, [bumpVersion]);
@@ -25,6 +26,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     const setSelectedTeamMemberIds = useCallback((v: string[] | ((prev: string[]) => string[])) => { _setSelectedTeamMemberIds(v); bumpVersion(); }, [bumpVersion]);
     const setSelectedSkills = useCallback((v: string[] | ((prev: string[]) => string[])) => { _setSelectedSkills(v); bumpVersion(); }, [bumpVersion]);
     const setDueDate = useCallback((v: string) => { _setDueDate(v); bumpVersion(); }, [bumpVersion]);
+    const setUseWorktree = useCallback((v: boolean) => { _setUseWorktree(v); bumpVersion(); }, [bumpVersion]);
 
     // Subtask state
     const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
@@ -57,8 +59,9 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
             );
             _setSelectedSkills(task.skillIds || []);
             _setDueDate(task.dueDate || "");
+            _setUseWorktree(task.useWorktree ?? false);
         }
-    }, [isEditMode, isOpen, task?.id, task?.title, task?.description, task?.priority, task?.teamMemberId, JSON.stringify(task?.teamMemberIds), JSON.stringify(task?.referenceTaskIds), task?.dueDate]);
+    }, [isEditMode, isOpen, task?.id, task?.title, task?.description, task?.priority, task?.teamMemberId, JSON.stringify(task?.teamMemberIds), JSON.stringify(task?.referenceTaskIds), task?.dueDate, task?.useWorktree]);
 
     // Fetch task docs in edit mode
     useEffect(() => {
@@ -87,6 +90,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
             _setSelectedTeamMemberIds([]);
             _setSelectedSkills([]);
             _setDueDate("");
+            _setUseWorktree(false);
             setActiveTab(null);
             setChangeVersion(0);
         }
@@ -100,13 +104,14 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
                 prompt !== (baselineTask.description || "") ||
                 priority !== baselineTask.priority ||
                 dueDate !== (baselineTask.dueDate || "") ||
+                useWorktree !== (baselineTask.useWorktree ?? false) ||
                 JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(baselineTask.teamMemberIds || (baselineTask.teamMemberId ? [baselineTask.teamMemberId] : [])) ||
                 JSON.stringify(selectedSkills) !== JSON.stringify(baselineTask.skillIds || [])
             );
         }
         // No baseline — pure create mode, no draft yet
         return title.trim() !== "" || prompt.trim() !== "";
-    }, [baselineTask, title, prompt, priority, dueDate, selectedTeamMemberIds, selectedSkills]);
+    }, [baselineTask, title, prompt, priority, dueDate, useWorktree, selectedTeamMemberIds, selectedSkills]);
 
     const isValid = title.trim() !== "" && prompt.trim() !== "";
 
@@ -174,6 +179,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         setNewSubtaskTitle("");
         setShowSubtaskInput(false);
         _setDueDate("");
+        _setUseWorktree(false);
         setShowLaunchConfig(false);
         setMemberConfigs({});
         setTaskImages([]);
@@ -188,6 +194,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         priority,
         startImmediately,
         dueDate: dueDate || undefined,
+        useWorktree: useWorktree || undefined,
         skillIds: selectedSkills.length > 0 ? selectedSkills : undefined,
         referenceTaskIds: referenceTaskIds && referenceTaskIds.length > 0 ? referenceTaskIds : undefined,
         parentId,
@@ -211,6 +218,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         }
         const currentDueDate = baselineTask.dueDate || "";
         if (dueDate !== currentDueDate) updates.dueDate = dueDate || null;
+        if (useWorktree !== (baselineTask.useWorktree ?? false)) updates.useWorktree = useWorktree;
         if (JSON.stringify(selectedSkills) !== JSON.stringify(baselineTask.skillIds || [])) updates.skillIds = selectedSkills;
         if (JSON.stringify(referenceTaskIds) !== JSON.stringify(baselineTask.referenceTaskIds || [])) updates.referenceTaskIds = referenceTaskIds;
         // Include memberOverrides if launch config was modified
@@ -229,6 +237,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         prompt, setPrompt,
         priority, setPriority,
         dueDate, setDueDate,
+        useWorktree, setUseWorktree,
         selectedTeamMemberIds, setSelectedTeamMemberIds,
         selectedSkills, setSelectedSkills,
         activeTab, setActiveTab, toggleTab,
