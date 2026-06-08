@@ -66,6 +66,46 @@ function shortId(len = 4): string {
  * on its own line (sometimes preceded by status chatter), e.g.
  * `https://github.com/owner/repo/pull/42`.
  */
+/**
+ * Collapse `gh pr view --json statusCheckRollup` into a single rollup status.
+ * The rollup is a heterogeneous array: GitHub Actions runs expose
+ * `status`/`conclusion`, legacy commit statuses expose `state`. A single
+ * failing/pending entry dominates the whole rollup (failing > pending > passing).
+ */
+export function rollupChecks(
+  rollup: unknown,
+): 'passing' | 'failing' | 'pending' | 'none' {
+  if (!Array.isArray(rollup) || rollup.length === 0) return 'none';
+
+  let pending = false;
+  for (const raw of rollup) {
+    const c = (raw ?? {}) as { status?: string; conclusion?: string; state?: string };
+    const conclusion = (c.conclusion ?? '').toUpperCase();
+    const status = (c.status ?? '').toUpperCase();
+    const state = (c.state ?? '').toUpperCase();
+
+    // Check run still running, or commit status pending.
+    if (
+      (status && status !== 'COMPLETED') ||
+      state === 'PENDING' ||
+      state === 'EXPECTED'
+    ) {
+      pending = true;
+      continue;
+    }
+
+    // Terminal failure on either a check run or a commit status.
+    if (
+      ['FAILURE', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED', 'STARTUP_FAILURE', 'STALE'].includes(conclusion) ||
+      ['FAILURE', 'ERROR'].includes(state)
+    ) {
+      return 'failing';
+    }
+  }
+
+  return pending ? 'pending' : 'passing';
+}
+
 export function parsePullRequestUrl(output: string): { url: string; number: number } {
   const lines = output.split('\n').map(l => l.trim()).filter(Boolean);
   const url =
@@ -565,11 +605,56 @@ export class GitService {
     return { url, number, state: 'OPEN' };
   }
 
+  /**
+   * Look up an existing pull request for `branchOrNumber` (a PR number or the
+   * head branch) via `gh pr view --json`. Returns live state, check rollup and
+   * review decision, or `null` when no PR exists / `gh` is unavailable — callers
+   * treat a missing PR as "none" rather than an error.
+   */
   async getPullRequest(
-    _worktreePath: string,
-    _branchOrNumber: string
+    worktreePath: string,
+    branchOrNumber: string
   ): Promise<GitPrInfo | null> {
-    throw new Error('not implemented');
+    const ref = (branchOrNumber ?? '').trim();
+    if (!ref) return null;
+
+    let stdout = '';
+    try {
+      ({ stdout } = await execFileAsync(
+        'gh',
+        ['pr', 'view', ref, '--json', 'state,statusCheckRollup,reviewDecision,url,number'],
+        { cwd: worktreePath }
+      ));
+    } catch {
+      // No PR for this ref, gh missing, or unauthenticated — surface as "no PR".
+      return null;
+    }
+
+    let data: {
+      url?: string;
+      number?: number;
+      state?: string;
+      statusCheckRollup?: unknown;
+      reviewDecision?: string | null;
+    };
+    try {
+      data = JSON.parse(stdout);
+    } catch {
+      return null;
+    }
+
+    if (!data.url || typeof data.number !== 'number') return null;
+
+    const state = (data.state ?? 'OPEN').toUpperCase() as GitPrInfo['state'];
+    const reviewDecision = (data.reviewDecision || null) as GitPrInfo['reviewDecision'];
+
+    return {
+      url: data.url,
+      number: data.number,
+      state,
+      checks: rollupChecks(data.statusCheckRollup),
+      reviewDecision,
+    };
   }
 }
 

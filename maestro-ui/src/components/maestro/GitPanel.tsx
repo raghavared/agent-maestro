@@ -634,6 +634,22 @@ const PR_STATE_LABELS: Record<GitPrInfo['state'], string> = {
   DRAFT: 'Draft',
 };
 
+const PR_CHECKS_LABELS: Record<NonNullable<GitPrInfo['checks']>, string> = {
+  passing: 'passing',
+  failing: 'failing',
+  pending: 'pending',
+  none: 'none',
+};
+
+const PR_REVIEW_LABELS: Record<'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED', string> = {
+  APPROVED: 'approved',
+  CHANGES_REQUESTED: 'changes requested',
+  REVIEW_REQUIRED: 'review required',
+};
+
+/** Poll interval for refreshing live PR status while the chip is visible. */
+const PR_POLL_MS = 30_000;
+
 function GitPanelPR({
   sessionId,
   pr,
@@ -651,6 +667,31 @@ function GitPanelPR({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [touched, setTouched] = useState(false);
+
+  // Live PR status: seed from the parent fetch, then poll `gh pr view` every
+  // ~30s so checks/review stay fresh while the panel is open.
+  const [livePr, setLivePr] = useState<GitPrInfo | undefined>(pr);
+
+  useEffect(() => {
+    setLivePr(pr);
+  }, [pr]);
+
+  useEffect(() => {
+    if (!pr) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const fresh = await maestroClient.getSessionPr(sessionId);
+        if (!cancelled && fresh) setLivePr(fresh);
+      } catch {
+        /* keep last-known status on transient failures */
+      }
+    };
+    // Immediate refresh picks up live checks/review without waiting a full cycle.
+    poll();
+    const id = window.setInterval(poll, PR_POLL_MS);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, [pr, sessionId]);
 
   const suggestedTitle = suggestedPr?.title ?? '';
   const suggestedBody = suggestedPr?.body ?? '';
@@ -670,18 +711,37 @@ function GitPanelPR({
 
   // Once a PR exists, show the chip instead of the form.
   if (pr) {
+    const chip = livePr ?? pr;
+    const checks = chip.checks && chip.checks !== 'none' ? chip.checks : undefined;
+    const review = chip.reviewDecision ?? undefined;
     return (
       <div className="git-panel__section git-panel__pr">
         <div className="git-panel__section-title">Pull request</div>
         <a
-          className={`git-panel__pr-chip git-panel__pr-chip--${pr.state.toLowerCase()}`}
-          href={pr.url}
+          className={`git-panel__pr-chip git-panel__pr-chip--${chip.state.toLowerCase()}`}
+          href={chip.url}
           target="_blank"
           rel="noreferrer"
-          title={pr.url}
+          title={chip.url}
         >
-          <span className="git-panel__pr-number">#{pr.number}</span>
-          <span className="git-panel__pr-state">{PR_STATE_LABELS[pr.state] ?? pr.state}</span>
+          <span className="git-panel__pr-number">#{chip.number}</span>
+          <span className="git-panel__pr-state">{PR_STATE_LABELS[chip.state] ?? chip.state}</span>
+          {checks && (
+            <span
+              className={`git-panel__pr-checks git-panel__pr-checks--${checks}`}
+              title={`Checks: ${PR_CHECKS_LABELS[checks]}`}
+            >
+              checks:{PR_CHECKS_LABELS[checks]}
+            </span>
+          )}
+          {review && (
+            <span
+              className={`git-panel__pr-review git-panel__pr-review--${review.toLowerCase()}`}
+              title={`Review: ${PR_REVIEW_LABELS[review] ?? review}`}
+            >
+              review:{PR_REVIEW_LABELS[review] ?? review}
+            </span>
+          )}
           <span className="git-panel__pr-open">↗</span>
         </a>
       </div>

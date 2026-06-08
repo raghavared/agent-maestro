@@ -3,7 +3,7 @@ import { promisify } from 'util';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { GitService, parsePullRequestUrl } from '../src/application/services/GitService';
+import { GitService, parsePullRequestUrl, rollupChecks } from '../src/application/services/GitService';
 import { buildSuggestedPr } from '../src/api/gitRoutes';
 import { GitDiffSummary } from '../src/application/services/GitService';
 import { ValidationError } from '../src/domain/common/Errors';
@@ -35,6 +35,43 @@ describe('parsePullRequestUrl', () => {
     const { url, number } = parsePullRequestUrl('something went sideways');
     expect(number).toBe(0);
     expect(url).toBe('something went sideways');
+  });
+});
+
+describe('rollupChecks', () => {
+  it('returns "none" for an empty or non-array rollup', () => {
+    expect(rollupChecks([])).toBe('none');
+    expect(rollupChecks(undefined)).toBe('none');
+    expect(rollupChecks(null)).toBe('none');
+  });
+
+  it('returns "passing" when all check runs succeeded', () => {
+    expect(rollupChecks([
+      { __typename: 'CheckRun', status: 'COMPLETED', conclusion: 'SUCCESS' },
+      { __typename: 'StatusContext', state: 'SUCCESS' },
+    ])).toBe('passing');
+  });
+
+  it('returns "pending" when a check run is still in progress', () => {
+    expect(rollupChecks([
+      { __typename: 'CheckRun', status: 'COMPLETED', conclusion: 'SUCCESS' },
+      { __typename: 'CheckRun', status: 'IN_PROGRESS', conclusion: '' },
+    ])).toBe('pending');
+  });
+
+  it('returns "pending" for a pending commit status', () => {
+    expect(rollupChecks([{ __typename: 'StatusContext', state: 'PENDING' }])).toBe('pending');
+  });
+
+  it('returns "failing" when any check run failed, even amid pending', () => {
+    expect(rollupChecks([
+      { __typename: 'CheckRun', status: 'IN_PROGRESS', conclusion: '' },
+      { __typename: 'CheckRun', status: 'COMPLETED', conclusion: 'FAILURE' },
+    ])).toBe('failing');
+  });
+
+  it('treats a failing commit status (state ERROR) as failing', () => {
+    expect(rollupChecks([{ __typename: 'StatusContext', state: 'ERROR' }])).toBe('failing');
   });
 });
 

@@ -131,13 +131,17 @@ export function createGitRoutes(deps: GitRouteDependencies) {
         }
       }
 
-      // Surface an already-opened PR from session metadata (F2 enriches with live
-      // state via `gh pr view`; F1 stores url/number at creation time).
+      // Surface an already-opened PR from session metadata. F1 stores url/number
+      // at creation time; F2 enriches with live state/checks/review via
+      // `gh pr view`, falling back to the stored identity if gh is unavailable.
       let pr: GitPrInfo | undefined;
       const prUrl: string | undefined = session.metadata?.prUrl;
       const prNumber: number | undefined = session.metadata?.prNumber;
       if (prUrl && typeof prNumber === 'number') {
-        pr = { url: prUrl, number: prNumber, state: 'OPEN' };
+        const live = await gitService
+          .getPullRequest(worktreePath, String(prNumber))
+          .catch(() => null);
+        pr = live ?? { url: prUrl, number: prNumber, state: 'OPEN' };
       }
 
       // Pre-fill suggestion for the PR form (no LLM — task + diff summary).
@@ -325,12 +329,22 @@ export function createGitRoutes(deps: GitRouteDependencies) {
     }
   });
 
-  // GET /sessions/:id/git/pr
+  // GET /sessions/:id/git/pr — live PR status (state/checks/review) via gh.
   router.get('/sessions/:id/git/pr', validateParams(idParamSchema), async (req: Request, res: Response) => {
     try {
-      await sessionService.getSession(req.params.id as string);
-      // Filled by F2 feature worker
-      res.json({ pr: null });
+      const session = await sessionService.getSession(req.params.id as string);
+      const worktreePath: string | undefined = session.metadata?.worktreePath;
+      const prNumber: number | undefined = session.metadata?.prNumber;
+      const prUrl: string | undefined = session.metadata?.prUrl;
+
+      if (!worktreePath || typeof prNumber !== 'number') {
+        return res.json({ pr: null });
+      }
+
+      const pr = await gitService.getPullRequest(worktreePath, String(prNumber));
+      // Fall back to the stored identity so the chip still renders if gh is
+      // unavailable or the worktree was removed.
+      res.json({ pr: pr ?? (prUrl ? { url: prUrl, number: prNumber, state: 'OPEN' } : null) });
     } catch (err) {
       handleRouteError(err, res);
     }
