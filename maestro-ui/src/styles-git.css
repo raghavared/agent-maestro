@@ -40,6 +40,30 @@
   font-size: 11px;
 }
 
+.git-panel__divergence {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+}
+
+.git-panel__ahead {
+  color: var(--color-success, #4ade80);
+}
+
+.git-panel__behind {
+  color: var(--color-warning, #fbbf24);
+}
+
+.git-panel__dirty {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-warning, #fbbf24);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .git-panel__refresh-btn {
   background: none;
   border: none;

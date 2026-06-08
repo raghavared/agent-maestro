@@ -50,9 +50,11 @@ export function GitPanel({ sessionId, compact = false, onAction }: GitPanelProps
     return null;
   }
 
+  const actionState = deriveBranchHeader(state.summary);
+
   return (
     <div className={`git-panel${compact ? ' git-panel--compact' : ''}`}>
-      {/* Header — D1 fills branch + base + ahead/dirty */}
+      {/* Header — branch + base + ahead/behind + dirty (D1) */}
       <GitPanelHeader summary={state.summary} onRefresh={fetchGitState} />
 
       {/* Changes summary + file list — C1 fills */}
@@ -75,6 +77,8 @@ export function GitPanel({ sessionId, compact = false, onAction }: GitPanelProps
         summary={state.summary}
         onAction={onAction}
         onRefresh={fetchGitState}
+        disabled={actionState.mutationDisabled}
+        disabledReason={actionState.disabledReason}
       />
 
       {/* PR form + PR chip — F1/F2 fills */}
@@ -103,14 +107,65 @@ interface HeaderProps {
   onRefresh: () => void;
 }
 
+export interface GitActionState {
+  branch: string;
+  baseBranch?: string;
+  ahead: number;
+  behind: number;
+  dirty: boolean;
+  /** True when mutating actions (merge/PR/discard) should be blocked. */
+  mutationDisabled: boolean;
+  /** Human-readable reason a mutation is disabled, if any. */
+  disabledReason?: string;
+}
+
+/**
+ * Pure derivation of the branch-header presentation + action gating from C1's
+ * diff summary. Exported so it can be unit-tested without rendering.
+ */
+export function deriveBranchHeader(summary?: GitDiffSummary): GitActionState {
+  if (!summary) {
+    return {
+      branch: '—',
+      ahead: 0,
+      behind: 0,
+      dirty: false,
+      mutationDisabled: true,
+      disabledReason: 'No git summary available',
+    };
+  }
+  const { branch, baseBranch, ahead, behind, dirty } = summary;
+  return {
+    branch,
+    baseBranch,
+    ahead,
+    behind,
+    dirty,
+    mutationDisabled: dirty,
+    disabledReason: dirty ? 'Worktree has uncommitted changes' : undefined,
+  };
+}
+
 function GitPanelHeader({ summary, onRefresh }: HeaderProps) {
+  const { branch, baseBranch, ahead, behind, dirty } = deriveBranchHeader(summary);
   return (
     <div className="git-panel__header">
-      <span className="git-panel__branch">
-        {summary ? summary.branch : '—'}
-      </span>
-      {summary && (
-        <span className="git-panel__base">↩ {summary.baseBranch}</span>
+      <span className="git-panel__branch" title={branch}>{branch}</span>
+      {baseBranch && (
+        <span className="git-panel__base" title={`Base branch: ${baseBranch}`}>↩ {baseBranch}</span>
+      )}
+      {summary && (ahead > 0 || behind > 0) && (
+        <span className="git-panel__divergence">
+          {ahead > 0 && (
+            <span className="git-panel__ahead" title={`${ahead} commit${ahead === 1 ? '' : 's'} ahead of ${baseBranch ?? 'base'}`}>↑{ahead}</span>
+          )}
+          {behind > 0 && (
+            <span className="git-panel__behind" title={`${behind} commit${behind === 1 ? '' : 's'} behind ${baseBranch ?? 'base'}`}>↓{behind}</span>
+          )}
+        </span>
+      )}
+      {dirty && (
+        <span className="git-panel__dirty" title="Worktree has uncommitted changes">● uncommitted</span>
       )}
       <button type="button" className="git-panel__refresh-btn" onClick={onRefresh} title="Refresh">
         ↻
@@ -321,9 +376,19 @@ interface MergeProps {
   summary?: GitDiffSummary;
   onAction?: (a: 'merged') => void;
   onRefresh: () => void;
+  /** Set by D1 header logic: merge is blocked while the worktree is dirty. */
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-function GitPanelMerge({ sessionId: _sessionId, summary: _summary, onAction: _onAction, onRefresh: _onRefresh }: MergeProps) {
+function GitPanelMerge({
+  sessionId: _sessionId,
+  summary: _summary,
+  onAction: _onAction,
+  onRefresh: _onRefresh,
+  disabled: _disabled,
+  disabledReason: _disabledReason,
+}: MergeProps) {
   return null; // E1 worker fills
 }
 
