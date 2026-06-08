@@ -460,6 +460,7 @@ export interface CreateTaskPayload {
   teamMemberIds?: string[];
   memberOverrides?: Record<string, MemberLaunchOverride>;
   dueDate?: string;
+  useWorktree?: boolean;
   clientRequestId?: string;
 }
 
