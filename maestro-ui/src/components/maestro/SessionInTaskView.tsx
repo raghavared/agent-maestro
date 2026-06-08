@@ -4,6 +4,7 @@ import { StrategyBadge } from "./StrategyBadge";
 import { SessionTimeline } from "./SessionTimeline";
 import { SessionDetailsSection, SessionDetailsSummary } from "./SessionDetailsSection";
 import { QueueStatusDisplay, type QueueState } from "./QueueStatusDisplay";
+import { WorktreeBadge, getWorktreeInfo } from "./WorktreeBadge";
 
 interface SessionInTaskViewProps {
   session: MaestroSession;
@@ -105,6 +106,12 @@ export function SessionInTaskView({
 
         {/* Session Name */}
         <span className="sessionInTaskViewName">{session.name}</span>
+
+        {/* Worktree branch badge */}
+        {(() => {
+          const wt = getWorktreeInfo(session);
+          return wt ? <WorktreeBadge branch={wt.branch} compact /> : null;
+        })()}
 
         {/* Strategy Badge */}
         <StrategyBadge

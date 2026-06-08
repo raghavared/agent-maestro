@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { MaestroSession, WorkerStrategy } from "../../app/types/maestro";
+import { WorktreeBadge, getWorktreeInfo } from "./WorktreeBadge";
 
 interface SessionDetailsSectionProps {
   session: MaestroSession;
@@ -157,6 +158,17 @@ export function SessionDetailsSection({
                 </span>
               </div>
             )}
+            {(() => {
+              const wt = getWorktreeInfo(session);
+              return wt ? (
+                <div className="sessionDetailsRow">
+                  <span className="sessionDetailsLabel">Branch:</span>
+                  <span className="sessionDetailsValue">
+                    <WorktreeBadge branch={wt.branch} />
+                  </span>
+                </div>
+              ) : null;
+            })()}
           </div>
 
           {/* System Info */}

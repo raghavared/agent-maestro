@@ -7,6 +7,7 @@ import {
   MaestroSessionStatus,
   MaestroTask,
 } from "../../app/types/maestro";
+import { WorktreeBadge, getWorktreeInfo } from "./WorktreeBadge";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useSpacesStore } from "../../stores/useSpacesStore";
 import { useSessionStore } from "../../stores/useSessionStore";
@@ -303,6 +304,10 @@ export const SessionListItem = React.memo(function SessionListItem({
             {docs.length}
           </span>
         )}
+        {(() => {
+          const wt = getWorktreeInfo(session);
+          return wt ? <WorktreeBadge branch={wt.branch} compact /> : null;
+        })()}
 
         {/* Agent status (read-only) — symbol + color, trailing like the task tile's session indicator */}
         <span
@@ -476,6 +481,10 @@ export const SessionListItem = React.memo(function SessionListItem({
               {session.strategy && (
                 <span className="sessionTile__badge sessionTile__badge--strategy">{session.strategy}</span>
               )}
+              {(() => {
+                const wt = getWorktreeInfo(session);
+                return wt ? <WorktreeBadge branch={wt.branch} /> : null;
+              })()}
 
               <span className="sessionTile__time" title={`Started ${new Date(session.startedAt).toLocaleString()}`}>
                 {session.completedAt

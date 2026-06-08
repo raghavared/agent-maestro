@@ -167,3 +167,47 @@
 .git-panel__file-del {
   color: var(--color-error, #f87171);
 }
+
+/* ── Worktree branch badge (B2) ─────────────────────────────────────────── */
+
+.worktreeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px 1px 4px;
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  border-radius: 3px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: #86efac;
+  white-space: nowrap;
+  max-width: 180px;
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: default;
+  vertical-align: middle;
+}
+
+.worktreeBadge--compact {
+  padding: 0 4px 0 3px;
+  font-size: 9px;
+  max-width: 130px;
+}
+
+.worktreeBadge__leaf {
+  font-size: 10px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.worktreeBadge--compact .worktreeBadge__leaf {
+  font-size: 9px;
+}
+
+.worktreeBadge__branch {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}

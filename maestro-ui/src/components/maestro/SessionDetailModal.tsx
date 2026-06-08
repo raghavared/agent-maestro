@@ -5,6 +5,7 @@ import { SessionTimeline } from "./SessionTimeline";
 import { DocsList } from "./DocsList";
 import { StrategyBadge } from "./StrategyBadge";
 import { GitPanel } from "./GitPanel";
+import { WorktreeBadge, getWorktreeInfo } from "./WorktreeBadge";
 
 interface SessionDetailModalProps {
   sessionId: string;
@@ -128,6 +129,10 @@ export function SessionDetailModal({ sessionId, isOpen, onClose }: SessionDetail
                     {session.mode.toUpperCase()}
                   </span>
                 )}
+                {(() => {
+                  const wt = getWorktreeInfo(session);
+                  return wt ? <WorktreeBadge branch={wt.branch} compact /> : null;
+                })()}
               </div>
             )}
           </div>
