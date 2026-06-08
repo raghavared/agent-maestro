@@ -81,8 +81,18 @@ export function createGitRoutes(deps: GitRouteDependencies) {
         return res.json({ hasWorktree: false });
       }
 
-      // Summary and PR are filled by feature workers (C1, F2); return stubs for now
-      res.json({ hasWorktree: true });
+      const baseCommit: string | undefined = session.metadata?.worktreeBaseCommit;
+      let summary;
+      if (baseCommit) {
+        try {
+          summary = await gitService.diffSummary(worktreePath, baseCommit);
+        } catch (err) {
+          console.warn('[gitRoutes] diffSummary failed:', err);
+        }
+      }
+
+      // PR is filled by F2 feature worker
+      res.json({ hasWorktree: true, summary });
     } catch (err) {
       handleRouteError(err, res);
     }

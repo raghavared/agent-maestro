@@ -122,13 +122,46 @@ interface ChangesProps {
   summary?: GitDiffSummary;
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  A: 'A',
+  M: 'M',
+  D: 'D',
+  R: 'R',
+  '?': '?',
+};
+
 function GitPanelChanges({ summary }: ChangesProps) {
   if (!summary) return null;
+
+  const { filesChanged, insertions, deletions, commitCount, files } = summary;
+
   return (
     <div className="git-panel__section git-panel__changes">
-      {/* C1 worker fills: file list + stats */}
       <div className="git-panel__section-title">Changes</div>
-      <div className="git-panel__stub">+{summary.insertions} −{summary.deletions} across {summary.filesChanged} files</div>
+      <div className="git-panel__changes-meta">
+        <span className="git-panel__changes-count">{filesChanged} {filesChanged === 1 ? 'file' : 'files'}</span>
+        <span className="git-panel__changes-ins">+{insertions}</span>
+        <span className="git-panel__changes-del">−{deletions}</span>
+        {commitCount > 0 && (
+          <span className="git-panel__changes-commits">{commitCount} {commitCount === 1 ? 'commit' : 'commits'}</span>
+        )}
+      </div>
+      {files.length > 0 && (
+        <div className="git-panel__file-list">
+          {files.map(f => (
+            <div key={f.path} className="git-panel__file-row">
+              <span className={`git-panel__file-status git-panel__file-status--${f.status.toLowerCase()}`}>
+                {STATUS_LABELS[f.status] ?? f.status}
+              </span>
+              <span className="git-panel__file-path" title={f.path}>{f.path}</span>
+              <span className="git-panel__file-stats">
+                {f.insertions > 0 && <span className="git-panel__file-ins">+{f.insertions}</span>}
+                {f.deletions > 0 && <span className="git-panel__file-del">−{f.deletions}</span>}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

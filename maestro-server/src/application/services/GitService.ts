@@ -181,10 +181,165 @@ export class GitService {
     }
   }
 
-  // ── diff (stubs — filled by C1/C2 feature workers) ───────────────────────────
+  // ── diff ─────────────────────────────────────────────────────────────────────
 
-  async diffSummary(_worktreePath: string, _baseCommit: string): Promise<GitDiffSummary> {
-    throw new Error('not implemented');
+  async diffSummary(worktreePath: string, baseCommit: string): Promise<GitDiffSummary> {
+    const branch = await this.currentBranch(worktreePath);
+    const baseBranch = await this.defaultBaseBranch(worktreePath);
+
+    // Commit count since baseCommit
+    const { stdout: commitCountRaw } = await execFileAsync(
+      'git', ['rev-list', '--count', `${baseCommit}..HEAD`], { cwd: worktreePath }
+    );
+    const commitCount = parseInt(commitCountRaw.trim(), 10) || 0;
+
+    // Ahead/behind vs remote base branch
+    let ahead = commitCount;
+    let behind = 0;
+    try {
+      const { stdout: abRaw } = await execFileAsync(
+        'git', ['rev-list', '--left-right', '--count', `${baseBranch}...HEAD`],
+        { cwd: worktreePath }
+      );
+      const parts = abRaw.trim().split('\t');
+      behind = parseInt(parts[0], 10) || 0;
+      ahead = parseInt(parts[1], 10) || 0;
+    } catch { /* remote ref unavailable — keep fallback */ }
+
+    // Dirty flag
+    const { stdout: porcelainOut } = await execFileAsync(
+      'git', ['status', '--porcelain'], { cwd: worktreePath }
+    );
+    const dirty = porcelainOut.trim().length > 0;
+
+    // --- Committed changes ---
+    const fileMap = new Map<string, GitFileChange>();
+
+    const parseNumstat = (raw: string): Map<string, { ins: number; del: number }> => {
+      const result = new Map<string, { ins: number; del: number }>();
+      for (const line of raw.trim().split('\n').filter(Boolean)) {
+        const parts = line.split('\t');
+        if (parts.length < 3) continue;
+        const ins = parseInt(parts[0], 10) || 0;
+        const del = parseInt(parts[1], 10) || 0;
+        // Handle rename "old => new" path; take last segment
+        const filePath = parts.slice(2).join('\t');
+        if (filePath) result.set(filePath, { ins, del });
+      }
+      return result;
+    };
+
+    try {
+      const [{ stdout: committedNumstat }, { stdout: committedNameStatus }] = await Promise.all([
+        execFileAsync('git', ['diff', '--numstat', `${baseCommit}..HEAD`], { cwd: worktreePath }),
+        execFileAsync('git', ['diff', '--name-status', `${baseCommit}..HEAD`], { cwd: worktreePath }),
+      ]);
+
+      // Build status map from name-status
+      const committedStatus = new Map<string, 'A' | 'M' | 'D' | 'R'>();
+      for (const line of committedNameStatus.trim().split('\n').filter(Boolean)) {
+        const parts = line.split('\t');
+        const s = (parts[0]?.[0] ?? 'M') as 'A' | 'M' | 'D' | 'R';
+        const filePath = parts[parts.length - 1];
+        if (filePath) committedStatus.set(filePath, s);
+      }
+
+      for (const [filePath, { ins, del }] of parseNumstat(committedNumstat)) {
+        fileMap.set(filePath, {
+          path: filePath,
+          status: committedStatus.get(filePath) ?? 'M',
+          insertions: ins,
+          deletions: del,
+        });
+      }
+    } catch { /* no committed changes */ }
+
+    // --- Uncommitted changes ---
+    // Parse porcelain for status codes
+    const uncommittedStatus = new Map<string, 'A' | 'M' | 'D' | 'R' | '?'>();
+    for (const line of porcelainOut.trim().split('\n').filter(Boolean)) {
+      if (line.length < 3) continue;
+      const xy = line.slice(0, 2);
+      const rawPath = line.slice(3);
+      // Rename "old -> new" in porcelain v1
+      const filePath = rawPath.includes(' -> ') ? rawPath.split(' -> ')[1] : rawPath;
+      let status: 'A' | 'M' | 'D' | 'R' | '?';
+      if (xy[0] === 'R' || xy[1] === 'R') status = 'R';
+      else if (xy === '??') status = '?';
+      else if (xy[0] === 'A' || xy[1] === 'A') status = 'A';
+      else if (xy[0] === 'D' || xy[1] === 'D') status = 'D';
+      else status = 'M';
+      uncommittedStatus.set(filePath.trim(), status);
+    }
+
+    // Staged line counts
+    try {
+      const { stdout: stagedRaw } = await execFileAsync(
+        'git', ['diff', '--numstat', '--cached'], { cwd: worktreePath }
+      );
+      for (const [filePath, { ins, del }] of parseNumstat(stagedRaw)) {
+        const existing = fileMap.get(filePath);
+        if (existing) {
+          existing.insertions += ins;
+          existing.deletions += del;
+          existing.status = uncommittedStatus.get(filePath) ?? existing.status;
+        } else {
+          fileMap.set(filePath, {
+            path: filePath,
+            status: uncommittedStatus.get(filePath) ?? 'M',
+            insertions: ins,
+            deletions: del,
+          });
+        }
+      }
+    } catch { /* no staged changes */ }
+
+    // Unstaged line counts
+    try {
+      const { stdout: unstagedRaw } = await execFileAsync(
+        'git', ['diff', '--numstat'], { cwd: worktreePath }
+      );
+      for (const [filePath, { ins, del }] of parseNumstat(unstagedRaw)) {
+        const existing = fileMap.get(filePath);
+        if (existing) {
+          existing.insertions += ins;
+          existing.deletions += del;
+          existing.status = uncommittedStatus.get(filePath) ?? existing.status;
+        } else {
+          fileMap.set(filePath, {
+            path: filePath,
+            status: uncommittedStatus.get(filePath) ?? 'M',
+            insertions: ins,
+            deletions: del,
+          });
+        }
+      }
+    } catch { /* no unstaged changes */ }
+
+    // Any porcelain-only files (e.g. untracked) not yet in map
+    for (const [filePath, status] of uncommittedStatus) {
+      if (!fileMap.has(filePath)) {
+        fileMap.set(filePath, { path: filePath, status, insertions: 0, deletions: 0 });
+      }
+    }
+
+    const files = Array.from(fileMap.values());
+    const insertions = files.reduce((s, f) => s + f.insertions, 0);
+    const deletions = files.reduce((s, f) => s + f.deletions, 0);
+
+    return {
+      branch,
+      baseBranch,
+      baseCommit,
+      ahead,
+      behind,
+      dirty,
+      filesChanged: files.length,
+      insertions,
+      deletions,
+      commitCount,
+      files,
+    };
   }
 
   async fullDiff(_worktreePath: string, _baseCommit: string, _file?: string): Promise<string> {
