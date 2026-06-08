@@ -30,9 +30,11 @@ describe('agentIsBusy', () => {
 
 describe('willOpenStatsOnClick — the LOCKED invariant', () => {
   // === LOCKED: tile Resume button is shown ⇔ willOpenStatsOnClick returns true.
-  // These cases mirror the user-visible UX rules in the brief.
+  // Rule: a live PTY ALWAYS routes to the terminal (regardless of agent
+  // busyness); only a missing/exited PTY routes to stats. This keeps resumed
+  // sessions reachable after they go idle between turns.
 
-  it('busy + live PTY → opens TERMINAL (Resume hidden)', () => {
+  it('any live PTY → opens TERMINAL (Resume hidden), regardless of agent state', () => {
     expect(willOpenStatsOnClick({ status: 'working' } as S, live)).toBe(false);
     expect(
       willOpenStatsOnClick(
@@ -40,29 +42,25 @@ describe('willOpenStatsOnClick — the LOCKED invariant', () => {
         live,
       ),
     ).toBe(false);
+    // Idle / completed / stopped but still-live PTY (e.g. freshly resumed and
+    // now between turns) must NOT route to stats — that was the resume-blank bug.
+    expect(willOpenStatsOnClick({ status: 'completed' } as S, live)).toBe(false);
+    expect(willOpenStatsOnClick({ status: 'stopped' } as S, live)).toBe(false);
+    expect(willOpenStatsOnClick({ status: 'idle' } as S, live)).toBe(false);
   });
 
-  it('busy + dead/missing PTY → opens STATS (Resume shown)', () => {
+  it('dead/missing PTY → opens STATS (Resume shown), regardless of agent state', () => {
     expect(willOpenStatsOnClick({ status: 'working' } as S, dead)).toBe(true);
     expect(willOpenStatsOnClick({ status: 'working' } as S, null)).toBe(true);
-  });
-
-  it('idle agent + live PTY → opens STATS (Done-with-idle-PTY case, Resume shown)', () => {
-    expect(willOpenStatsOnClick({ status: 'completed' } as S, live)).toBe(true);
-    expect(willOpenStatsOnClick({ status: 'stopped' } as S, live)).toBe(true);
-    expect(willOpenStatsOnClick({ status: 'idle' } as S, live)).toBe(true);
-  });
-
-  it('any session without a live link → opens STATS (Resume shown)', () => {
     expect(willOpenStatsOnClick({ status: 'completed' } as S, null)).toBe(true);
     expect(willOpenStatsOnClick({ status: 'failed' } as S, dead)).toBe(true);
   });
 
-  it('archived sessions ALSO open stats — predicate is purely about agent + PTY, not tab', () => {
+  it('archived sessions follow the same rule — predicate is purely about the PTY, not the tab', () => {
     // Archived stamping lives outside this predicate (it routes the tile to
     // the Archived tab); for click-routing purposes, archived sessions follow
-    // the same rules as any other.
+    // the same live-PTY rule as any other.
     expect(willOpenStatsOnClick({ status: 'stopped' } as S, null)).toBe(true);
-    expect(willOpenStatsOnClick({ status: 'stopped' } as S, live)).toBe(true);
+    expect(willOpenStatsOnClick({ status: 'stopped' } as S, live)).toBe(false);
   });
 });

@@ -27,12 +27,19 @@ export function agentIsBusy(
  *   - decide whether the tile's Resume button is rendered
  *   - decide the tile's click-affordance dot
  *
+ * Rule: a live PTY is a real terminal the user can see and type into, so it
+ * ALWAYS wins on click — even when the agent has gone idle between turns. This
+ * keeps the resume UX coherent: once you resume a session and it has a live
+ * terminal, clicking its tile (after switching away and back) re-opens that
+ * terminal instead of swapping in a stats view. Stats are reserved for
+ * sessions whose terminal has actually exited.
+ *
  * Resume button visibility ⟺ willOpenStatsOnClick — locked invariant.
  */
 export function willOpenStatsOnClick(
-  session: Pick<MaestroSession, 'status' | 'needsInput'>,
+  _session: Pick<MaestroSession, 'status' | 'needsInput'>,
   link: ClickRoutingLink | null,
 ): boolean {
   const hasLivePty = Boolean(link && !link.exited);
-  return !(agentIsBusy(session) && hasLivePty);
+  return !hasLivePty;
 }

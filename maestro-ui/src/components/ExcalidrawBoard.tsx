@@ -224,10 +224,12 @@ export function ExcalidrawBoard({ onClose, inline, storageKey, name, originSessi
         try {
           const json = JSON.parse(reader.result as string);
           const { collaborators: _c, ...appState } = (json.appState ?? {}) as Record<string, unknown>;
+          if (json.files) {
+            api.addFiles(Object.values(json.files) as Parameters<typeof api.addFiles>[0]);
+          }
           api.updateScene({
             elements: json.elements ?? [],
-            appState,
-            files: json.files ? Object.values(json.files) : [],
+            appState: appState as Parameters<typeof api.updateScene>[0]["appState"],
           });
         } catch {
           // Silently ignore malformed files
@@ -325,11 +327,21 @@ export function ExcalidrawBoard({ onClose, inline, storageKey, name, originSessi
                 style={{ padding: '4px 10px', fontSize: '11px' }}
                 onClick={handleSendToSession}
                 disabled={sending}
-                title="Export drawing and inject it into the session"
+                title="Export drawing and inject it into the origin session"
               >
                 {sending ? 'Sending...' : 'Send to session'}
               </button>
             )}
+            <button
+              type="button"
+              className="themedBtn"
+              style={{ padding: '4px 10px', fontSize: '11px' }}
+              onClick={() => setShowSessionPicker(true)}
+              disabled={exporting}
+              title="Export diagram and inject it into a running session"
+            >
+              Export to Session
+            </button>
             <button
               ref={exportBtnRef}
               type="button"
@@ -341,6 +353,26 @@ export function ExcalidrawBoard({ onClose, inline, storageKey, name, originSessi
             >
               {exporting ? 'Exporting...' : 'Export to Task'}
             </button>
+            {!isViewMode && (
+              <>
+                <input
+                  ref={importFileRef}
+                  type="file"
+                  accept=".excalidraw,image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleImportFile}
+                />
+                <button
+                  type="button"
+                  className="themedBtn"
+                  style={{ padding: '4px 10px', fontSize: '11px' }}
+                  onClick={() => importFileRef.current?.click()}
+                  title="Import .excalidraw file or image onto canvas"
+                >
+                  Import
+                </button>
+              </>
+            )}
             {!inline && (
               <button
                 type="button"
@@ -367,6 +399,13 @@ export function ExcalidrawBoard({ onClose, inline, storageKey, name, originSessi
         <ExportToTaskPicker
           onExport={handleExportToTask}
           onClose={() => setShowTaskPicker(false)}
+          whiteboardName={name || "whiteboard"}
+        />
+      )}
+      {showSessionPicker && (
+        <ExportToSessionPicker
+          onExport={handleExportForSession}
+          onClose={() => setShowSessionPicker(false)}
           whiteboardName={name || "whiteboard"}
         />
       )}
