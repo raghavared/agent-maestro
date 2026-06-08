@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import type { GitDiffSummary, GitPrInfo, MaestroSessionStatus } from '../../app/types/maestro';
+import type { GitCapabilities, GitDiffSummary, GitPrInfo, MaestroSessionStatus } from '../../app/types/maestro';
 import { maestroClient } from '../../utils/MaestroClient';
+import { useGitSettingsStore } from '../../stores/useGitSettingsStore';
 
 export interface GitPanelProps {
   sessionId: string;
@@ -20,6 +21,10 @@ interface GitState {
 export function GitPanel({ sessionId, compact = false, onAction }: GitPanelProps) {
   const [state, setState] = useState<GitState>({ hasWorktree: false, loading: true });
   const [selectedFile, setSelectedFile] = useState<string | undefined>(undefined);
+  const [caps, setCaps] = useState<GitCapabilities | undefined>(undefined);
+
+  const defaultBaseBranch = useGitSettingsStore(s => s.defaultBaseBranch);
+  const autoDiscardOnMerge = useGitSettingsStore(s => s.autoDiscardOnMerge);
 
   const fetchGitState = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: undefined }));
@@ -38,6 +43,17 @@ export function GitPanel({ sessionId, compact = false, onAction }: GitPanelProps
   useEffect(() => {
     fetchGitState();
   }, [fetchGitState]);
+
+  // Capabilities gate the PR UI (gh installed + authenticated). Best-effort —
+  // a failure leaves caps undefined and the PR section degrades to disabled.
+  useEffect(() => {
+    let cancelled = false;
+    maestroClient
+      .getGitCapabilities()
+      .then(c => { if (!cancelled) setCaps(c); })
+      .catch(() => { /* leave caps undefined → PR creation stays gated */ });
+    return () => { cancelled = true; };
+  }, []);
 
   if (state.loading) {
     return <div className="git-panel git-panel--loading">Loading git info…</div>;
@@ -80,6 +96,8 @@ export function GitPanel({ sessionId, compact = false, onAction }: GitPanelProps
         onRefresh={fetchGitState}
         disabled={actionState.mutationDisabled}
         disabledReason={actionState.disabledReason}
+        baseBranchOverride={defaultBaseBranch}
+        autoDiscardOnMerge={autoDiscardOnMerge}
       />
 
       {/* PR form + PR chip — F1/F2 fills */}
@@ -92,6 +110,8 @@ export function GitPanel({ sessionId, compact = false, onAction }: GitPanelProps
         onRefresh={fetchGitState}
         disabled={actionState.mutationDisabled}
         disabledReason={actionState.disabledReason}
+        baseBranchOverride={defaultBaseBranch}
+        capabilities={caps}
       />
 
       {/* Discard worktree — B3 fills */}
@@ -481,11 +501,15 @@ function GitPanelBranchRename({ sessionId, summary, onAction, onRefresh }: Branc
 interface MergeProps {
   sessionId: string;
   summary?: GitDiffSummary;
-  onAction?: (a: 'merged') => void;
+  onAction?: (a: 'merged' | 'discarded') => void;
   onRefresh: () => void;
   /** Set by D1 header logic: merge is blocked while the worktree is dirty. */
   disabled?: boolean;
   disabledReason?: string;
+  /** User's default-base-branch setting; overrides the auto-detected base when set. */
+  baseBranchOverride?: string;
+  /** When true, discard the worktree automatically after a successful merge. */
+  autoDiscardOnMerge?: boolean;
 }
 
 interface MergeResult {
@@ -501,8 +525,11 @@ function GitPanelMerge({
   onRefresh,
   disabled,
   disabledReason,
+  baseBranchOverride,
+  autoDiscardOnMerge,
 }: MergeProps) {
-  const defaultTarget = summary?.baseBranch ?? '';
+  // Prefer the user's default-base-branch override, then the detected base.
+  const defaultTarget = (baseBranchOverride?.trim() || summary?.baseBranch) ?? '';
   const [target, setTarget] = useState(defaultTarget);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -525,6 +552,15 @@ function GitPanelMerge({
       setResult(r);
       if (r.success) {
         onAction?.('merged');
+        // Optionally tidy up the worktree once it merges cleanly.
+        if (autoDiscardOnMerge) {
+          try {
+            await maestroClient.discardSessionWorktree(sessionId);
+            onAction?.('discarded');
+          } catch {
+            /* leave the worktree in place if discard fails — merge still succeeded */
+          }
+        }
         onRefresh();
       }
     } catch (err) {
@@ -625,6 +661,10 @@ interface PRProps {
   /** Set by D1 header logic: PR creation is blocked while the worktree is dirty. */
   disabled?: boolean;
   disabledReason?: string;
+  /** User's default-base-branch setting; overrides the auto-detected base when set. */
+  baseBranchOverride?: string;
+  /** gh availability — PR creation UI is gated on `hasGh`/`ghAuthed`. */
+  capabilities?: GitCapabilities;
 }
 
 const PR_STATE_LABELS: Record<GitPrInfo['state'], string> = {
@@ -659,6 +699,8 @@ function GitPanelPR({
   onRefresh,
   disabled,
   disabledReason,
+  baseBranchOverride,
+  capabilities,
 }: PRProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -695,7 +737,7 @@ function GitPanelPR({
 
   const suggestedTitle = suggestedPr?.title ?? '';
   const suggestedBody = suggestedPr?.body ?? '';
-  const defaultBase = summary?.baseBranch ?? '';
+  const defaultBase = (baseBranchOverride?.trim() || summary?.baseBranch) ?? '';
 
   // Pre-fill the form from the server suggestion until the user edits it.
   useEffect(() => {
@@ -749,6 +791,26 @@ function GitPanelPR({
   }
 
   if (!summary) return null;
+
+  // Gate PR creation on gh availability. When capabilities are still unknown we
+  // stay optimistic and let the server return its actionable 422 error.
+  const ghReady = capabilities ? capabilities.hasGh && capabilities.ghAuthed : true;
+  const ghReason = !capabilities
+    ? undefined
+    : !capabilities.hasGh
+      ? 'GitHub CLI (gh) is not installed. Install it from cli.github.com to open pull requests.'
+      : !capabilities.ghAuthed
+        ? 'GitHub CLI is not authenticated. Run `gh auth login` to open pull requests.'
+        : undefined;
+
+  if (!ghReady) {
+    return (
+      <div className="git-panel__section git-panel__pr">
+        <div className="git-panel__section-title">Pull request</div>
+        <div className="git-panel__pr-unavailable">{ghReason}</div>
+      </div>
+    );
+  }
 
   const trimmedTitle = title.trim();
   const trimmedBase = base.trim();

@@ -737,6 +737,12 @@
   white-space: pre-wrap;
 }
 
+.git-panel__pr-unavailable {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  line-height: 1.4;
+}
+
 .git-panel__pr-chip {
   display: inline-flex;
   align-items: center;
@@ -805,4 +811,64 @@
 
 .git-panel__pr-review--review_required {
   color: var(--color-warning, #fbbf24);
+}
+
+/* Standalone PR chip — surfaced on session views from session.metadata (F3). */
+.prChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  background: var(--hover-bg, rgba(255, 255, 255, 0.05));
+  color: var(--text-primary, #e2e8f0);
+  text-decoration: none;
+  width: fit-content;
+  white-space: nowrap;
+}
+
+.prChip:hover {
+  background: var(--hover-bg-strong, rgba(255, 255, 255, 0.1));
+  border-color: var(--color-accent, #a78bfa);
+}
+
+.prChip--compact {
+  padding: 2px 6px;
+  font-size: 10px;
+}
+
+.prChip__icon {
+  font-size: 10px;
+}
+
+.prChip__label {
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+}
+
+.prChip__open {
+  color: var(--text-muted, #888);
+}
+
+.prChip:hover .prChip__open {
+  color: var(--color-accent, #a78bfa);
+}
+
+/* PR-opened milestone row in the session timeline (F3). */
+.timelineEvent--prOpened .timelineEventDot {
+  color: var(--color-accent, #a78bfa);
+}
+
+.timelineEventPrLink {
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  color: var(--color-accent, #a78bfa);
+  text-decoration: none;
+}
+
+.timelineEventPrLink:hover {
+  text-decoration: underline;
 }
