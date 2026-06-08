@@ -413,6 +413,8 @@ export interface MaestroSession {
   startedAt: number;
   lastActivity: number;
   completedAt: number | null;
+  humanCompletedAt?: number | null;  // Set when a human marks the session complete
+  archivedAt?: number | null;  // Set when a session is closed/archived (Archived tab; precedence over completed)
   hostname: string;
   platform: string;
   events: MaestroSessionEvent[];
@@ -573,6 +575,8 @@ export interface UpdateSessionPayload {
   events?: MaestroSessionEvent[];
   timeline?: SessionTimelineEvent[];
   completedAt?: number;
+  humanCompletedAt?: number | null;
+  archivedAt?: number | null;
   needsInput?: {
     active: boolean;
     message?: string;

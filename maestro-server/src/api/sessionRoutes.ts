@@ -1031,6 +1031,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         content: contentWithSender,
         mode,
         senderSessionId,
+        senderProjectId: senderSession.projectId ?? null,
+        targetProjectId: session.projectId ?? null,
         timestamp: Date.now(),
       });
 

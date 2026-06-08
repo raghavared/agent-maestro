@@ -10,7 +10,9 @@ import {
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useSpacesStore } from "../../stores/useSpacesStore";
 import { useSessionStore } from "../../stores/useSessionStore";
+import { useUIStore } from "../../stores/useUIStore";
 import type { TeamColor } from "../../app/constants/teamColors";
+import type { SessionSubTab } from "../../utils/sessionLifecycle";
 
 const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   spawning: "Spawning",
@@ -19,6 +21,15 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   completed: "Done",
   failed: "Failed",
   stopped: "Stopped",
+};
+
+const SESSION_STATUS_SYMBOLS: Record<MaestroSessionStatus, string> = {
+  spawning: "◐",
+  idle: "○",
+  working: "◉",
+  completed: "✓",
+  failed: "✗",
+  stopped: "■",
 };
 
 const MODE_LABELS: Record<AgentMode, string> = {
@@ -44,6 +55,16 @@ const TASK_STATUS_SYMBOLS: Record<string, string> = {
   blocked: "✗",
   archived: "▫",
 };
+
+// Cycling accent palette so each linked task line gets a visually distinct border.
+const TASK_LINE_COLORS = [
+  "#6B8AFD",
+  "#34d399",
+  "#f59e0b",
+  "#a78bfa",
+  "#22d3ee",
+  "#f472b6",
+];
 
 function formatTimeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -75,10 +96,14 @@ export interface SessionListItemProps {
   link: SessionTileLinkInfo | null;
   isActiveTerminal: boolean;
   maestroTasks: Record<string, MaestroTask>;
+  tab: SessionSubTab;
   onOpenDetail: (sessionId: string) => void;
   onJumpToTerminal: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;
   onStop: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;
   onResume: (sessionId: string) => void;
+  onRestore: (session: MaestroSession) => void;
+  onToggleHumanComplete: (session: MaestroSession) => void;
+  onOpenTeamView: (session: MaestroSession) => void;
   isResuming: boolean;
 }
 
@@ -94,10 +119,14 @@ export const SessionListItem = React.memo(function SessionListItem({
   link,
   isActiveTerminal,
   maestroTasks,
+  tab,
   onOpenDetail,
   onJumpToTerminal,
   onStop,
   onResume,
+  onRestore,
+  onToggleHumanComplete,
+  onOpenTeamView,
   isResuming,
 }: SessionListItemProps) {
   const [isMetaExpanded, setIsMetaExpanded] = useState(false);
@@ -108,12 +137,19 @@ export const SessionListItem = React.memo(function SessionListItem({
   const updateSessionMode = useMaestroStore((s) => s.updateSessionMode);
   const openDocument = useSpacesStore((s) => s.openDocument);
   const setActiveId = useSessionStore((s) => s.setActiveId);
+  const showTaskDetails = useUIStore((s) => s.sessionShowTaskDetails);
 
   const status = session.status;
   const needsInput = session.needsInput?.active;
   const isTerminal = TERMINAL_STATUSES.includes(status);
   const isLinkedLive = Boolean(link && !link.exited);
   const hasChildren = childCount > 0;
+  const isHumanCompleted = Boolean(session.humanCompletedAt);
+  const isArchived = Boolean(session.archivedAt);
+  // A child whose own lifecycle state disagrees with the tab it's being shown
+  // in (e.g. an archived child rendered under an active root). We keep it in the
+  // tree for spawn-chain context but mark it as out-of-place rather than hiding.
+  const isOutOfTab = depth > 0 && isArchived && tab !== 'archived';
 
   const snapshots = session.teamMemberSnapshots?.length
     ? session.teamMemberSnapshots
@@ -135,6 +171,24 @@ export const SessionListItem = React.memo(function SessionListItem({
   const docs: DocEntry[] = session.docs ?? [];
   const mode = session.mode;
 
+  // Rich hover tooltip: session identity + every linked task's full details.
+  const detailsTooltip = useMemo(() => {
+    const lines: string[] = [];
+    lines.push(`Session: ${title}`);
+    lines.push(`Status: ${SESSION_STATUS_LABELS[status]}${session.needsInput?.active ? " (needs input)" : ""}`);
+    if (mode) lines.push(`Mode: ${MODE_LABELS[mode]}`);
+    if (session.model) lines.push(`Model: ${session.model}`);
+    if (linkedTasks.length > 0) {
+      lines.push("");
+      lines.push(linkedTasks.length === 1 ? "Task:" : "Tasks:");
+      for (const t of linkedTasks) {
+        lines.push(`• ${t.title}  [${t.status}]`);
+        if (t.description?.trim()) lines.push(`   ${t.description.trim()}`);
+      }
+    }
+    return lines.join("\n");
+  }, [title, status, session.needsInput?.active, session.model, mode, linkedTasks]);
+
   useEffect(() => {
     if (showModeDropdown && modeBtnRef.current) {
       const rect = modeBtnRef.current.getBoundingClientRect();
@@ -154,7 +208,7 @@ export const SessionListItem = React.memo(function SessionListItem({
 
   return (
     <div
-      className={`sessionTile sessionTile--${status} ${needsInput ? "sessionTile--needsInput" : ""} ${isActiveTerminal ? "sessionTile--activeTerminal" : ""} ${depth > 0 ? "sessionTile--child" : ""}`}
+      className={`sessionTile sessionTile--${status} ${needsInput ? "sessionTile--needsInput" : ""} ${isActiveTerminal ? "sessionTile--activeTerminal" : ""} ${depth > 0 ? "sessionTile--child" : ""} ${isArchived ? "sessionTile--archived" : ""} ${isOutOfTab ? "sessionTile--outOfTab" : ""}`}
       style={teamColor ? ({ "--session-team-color": teamColor.primary } as React.CSSProperties) : undefined}
     >
       {teamColor && <span className="sessionTile__accent" aria-hidden="true" />}
@@ -177,11 +231,34 @@ export const SessionListItem = React.memo(function SessionListItem({
           {childCount > 0 && <span className="sessionTile__arrowCount">{childCount}</span>}
         </button>
 
-        {/* Status dot (read-only) */}
-        <span
-          className={`sessionTile__statusDot sessionTile__statusDot--${status} ${needsInput ? "sessionTile__statusDot--needsInput" : ""}`}
-          title={needsInput ? "Needs input" : SESSION_STATUS_LABELS[status]}
-        />
+        {/* Leading control.
+            Active/Inactive → "mark done" radio. Marking done stops the live
+            terminal and stamps the ✓ "done by you" marker, landing the session
+            in Inactive. Clicking again just clears the marker.
+            Archived → static archive glyph (the radio is dead here because the
+            archived precedence wins, so we don't show a toggle that does nothing). */}
+        {isArchived ? (
+          <span
+            className="sessionTile__radio sessionTile__radio--archived"
+            title="Archived — use Restore to bring it back"
+            aria-hidden="true"
+          >
+            ▫
+          </span>
+        ) : (
+          <button
+            type="button"
+            className={`sessionTile__radio ${isHumanCompleted ? "sessionTile__radio--on" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleHumanComplete(session);
+            }}
+            title={isHumanCompleted ? "Done by you — click to reopen" : "Mark done (stops the terminal)"}
+            aria-pressed={isHumanCompleted}
+          >
+            {isHumanCompleted ? "✓" : "○"}
+          </button>
+        )}
 
         {/* Title — switches to / resumes the session's terminal */}
         <span
@@ -196,6 +273,16 @@ export const SessionListItem = React.memo(function SessionListItem({
           <span className="sessionTile__titleText">{title}</span>
         </span>
 
+        {isOutOfTab && (
+          <span className="sessionTile__tag sessionTile__tag--archived" title="This sub-session is archived">
+            archived
+          </span>
+        )}
+        {isHumanCompleted && !isArchived && (
+          <span className="sessionTile__tag sessionTile__tag--done" title="Marked done by you">
+            done
+          </span>
+        )}
         {isLinkedLive && <span className="sessionTile__linkedDot" title="Live terminal" />}
         {docs.length > 0 && (
           <span
@@ -210,23 +297,34 @@ export const SessionListItem = React.memo(function SessionListItem({
           </span>
         )}
 
+        {/* Agent status (read-only) — symbol + color, trailing like the task tile's session indicator */}
+        <span
+          className={`sessionTile__status sessionTile__status--${status} ${needsInput ? "sessionTile__status--needsInput" : ""}`}
+          title={needsInput ? "Needs input" : SESSION_STATUS_LABELS[status]}
+          data-status-anchor
+        >
+          {needsInput ? "!" : SESSION_STATUS_SYMBOLS[status]}
+        </span>
+
         {/* Actions */}
         <div className="sessionTile__actions">
-          {/* Open detail overlay */}
-          <button
-            type="button"
-            className="sessionTile__btn sessionTile__btn--info"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenDetail(session.id);
-            }}
-            title="Session details"
-          >
-            ⓘ
-          </button>
+          {/* Team view (terminals) — only when this node has children */}
+          {hasChildren && (
+            <button
+              type="button"
+              className="sessionTile__btn sessionTile__btn--teamView"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenTeamView(session);
+              }}
+              title="Open team view (terminals)"
+            >
+              ⊞
+            </button>
+          )}
 
-          {/* Stop/close (secondary) — only when there is a live terminal */}
-          {isLinkedLive && (
+          {/* Close — every non-archived tile. Stops the terminal (if live) and archives. */}
+          {!isArchived && (
             <button
               type="button"
               className="sessionTile__btn sessionTile__btn--stop"
@@ -234,9 +332,26 @@ export const SessionListItem = React.memo(function SessionListItem({
                 e.stopPropagation();
                 onStop(session, link);
               }}
-              title="Stop / close session"
+              title={hasChildren ? "Close session + all sub-sessions (move to Archived)" : isLinkedLive ? "Stop & close session" : "Close session (move to Archived)"}
             >
               ✕
+            </button>
+          )}
+
+          {/* Restore — only archived tiles. Clears archivedAt (and its subtree),
+              returning the session to Inactive (or Active if a terminal is live).
+              Works for every agent type, unlike Resume. */}
+          {isArchived && (
+            <button
+              type="button"
+              className="sessionTile__btn sessionTile__btn--restore"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRestore(session);
+              }}
+              title={hasChildren ? "Restore session + all sub-sessions" : "Restore session (back to Active)"}
+            >
+              ↩
             </button>
           )}
 
@@ -255,134 +370,173 @@ export const SessionListItem = React.memo(function SessionListItem({
         </div>
       </div>
 
+      {showTaskDetails && linkedTasks.length > 0 && (
+        <div className="sessionTile__taskLines">
+          {linkedTasks.map((task, i) => (
+            <div
+              key={task.id}
+              className={`sessionTile__taskLine sessionTile__taskLine--${task.status}`}
+              style={{ "--task-accent": TASK_LINE_COLORS[i % TASK_LINE_COLORS.length] } as React.CSSProperties}
+              title={detailsTooltip}
+            >
+              <span className="sessionTile__taskLineSymbol">{TASK_STATUS_SYMBOLS[task.status] || "○"}</span>
+              <span className="sessionTile__taskLineLabel">{task.title}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {isMetaExpanded && (
         <div className="sessionTile__meta" onClick={(e) => e.stopPropagation()}>
-          {/* Badges row */}
-          <div className="sessionTile__metaRow">
-            <span className={`sessionTile__badge sessionTile__badge--status sessionTile__badge--status-${status}`}>
-              {needsInput ? "NEEDS INPUT" : (SESSION_STATUS_LABELS[status] || status).toUpperCase()}
-            </span>
+          {/* Status / mode / model */}
+          <div className="sessionTile__metaSection">
+            <span className="sessionTile__metaLabel">Status</span>
+            <div className="sessionTile__metaContent">
+              <span className={`sessionTile__badge sessionTile__badge--status sessionTile__badge--status-${status}`}>
+                <span className="sessionTile__badgeSymbol">{needsInput ? "!" : SESSION_STATUS_SYMBOLS[status]}</span>
+                {needsInput ? "NEEDS INPUT" : (SESSION_STATUS_LABELS[status] || status).toUpperCase()}
+              </span>
 
-            {/* Editable mode */}
-            <div className="sessionTile__modePicker">
-              <button
-                type="button"
-                ref={modeBtnRef}
-                className={`sessionTile__badge sessionTile__badge--mode sessionTile__badge--clickable ${showModeDropdown ? "sessionTile__badge--open" : ""}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowModeDropdown((v) => !v);
-                }}
-                title="Click to change mode"
-              >
-                {mode ? MODE_LABELS[mode] : "Mode"}
-                <span className="sessionTile__badgeCaret">{showModeDropdown ? "▴" : "▾"}</span>
-              </button>
-              {showModeDropdown && modeDropdownPos && createPortal(
-                <>
-                  <div className="terminalInlineStatusOverlay" onClick={(e) => { e.stopPropagation(); setShowModeDropdown(false); }} />
-                  <div
-                    className="sessionTile__modeDropdown"
-                    style={{ position: "fixed", top: modeDropdownPos.top, left: modeDropdownPos.left }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {MODE_OPTIONS.map((opt) => (
-                      <button
-                        type="button"
-                        key={opt}
-                        className={`sessionTile__modeOption ${opt === mode ? "sessionTile__modeOption--current" : ""}`}
-                        onClick={(e) => { e.stopPropagation(); handleModeChange(opt); }}
-                      >
-                        <span>{MODE_LABELS[opt]}</span>
-                        {opt === mode && <span className="terminalStatusCheck">✓</span>}
-                      </button>
-                    ))}
-                  </div>
-                </>,
-                document.body,
-              )}
-            </div>
-
-            {session.model && (
-              <span className="sessionTile__badge sessionTile__badge--model">{session.model.toUpperCase()}</span>
-            )}
-            {session.strategy && (
-              <span className="sessionTile__badge sessionTile__badge--strategy">{session.strategy}</span>
-            )}
-
-            <span className="sessionTile__metaFill" />
-            <span className="sessionTile__time" title={`Started ${new Date(session.startedAt).toLocaleString()}`}>
-              {session.completedAt
-                ? formatDuration(session.startedAt, session.completedAt)
-                : formatTimeAgo(session.lastActivity)}
-            </span>
-          </div>
-
-          {/* Linked task chips */}
-          {linkedTasks.length > 0 && (
-            <div className="sessionTile__metaRow">
-              <div className="sessionTile__taskChips">
-                {linkedTasks.slice(0, 4).map((task) => (
-                  <span
-                    key={task.id}
-                    className={`sessionTile__taskChip sessionTile__taskChip--${task.status}`}
-                    title={`${task.title} (${task.status})`}
-                  >
-                    <span className="sessionTile__taskChipSymbol">{TASK_STATUS_SYMBOLS[task.status] || "○"}</span>
-                    <span className="sessionTile__taskChipLabel">{task.title}</span>
-                  </span>
-                ))}
-                {linkedTasks.length > 4 && (
-                  <span className="sessionTile__taskChip sessionTile__taskChip--more">+{linkedTasks.length - 4}</span>
+              {/* Editable mode */}
+              <div className="sessionTile__modePicker">
+                <button
+                  type="button"
+                  ref={modeBtnRef}
+                  className={`sessionTile__badge sessionTile__badge--mode sessionTile__badge--clickable ${showModeDropdown ? "sessionTile__badge--open" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowModeDropdown((v) => !v);
+                  }}
+                  title="Click to change mode"
+                >
+                  {mode ? MODE_LABELS[mode] : "Mode"}
+                  <span className="sessionTile__badgeCaret">{showModeDropdown ? "▴" : "▾"}</span>
+                </button>
+                {showModeDropdown && modeDropdownPos && createPortal(
+                  <>
+                    <div className="terminalInlineStatusOverlay" onClick={(e) => { e.stopPropagation(); setShowModeDropdown(false); }} />
+                    <div
+                      className="sessionTile__modeDropdown"
+                      style={{ position: "fixed", top: modeDropdownPos.top, left: modeDropdownPos.left }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {MODE_OPTIONS.map((opt) => (
+                        <button
+                          type="button"
+                          key={opt}
+                          className={`sessionTile__modeOption ${opt === mode ? "sessionTile__modeOption--current" : ""}`}
+                          onClick={(e) => { e.stopPropagation(); handleModeChange(opt); }}
+                        >
+                          <span>{MODE_LABELS[opt]}</span>
+                          {opt === mode && <span className="terminalStatusCheck">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </>,
+                  document.body,
                 )}
               </div>
-            </div>
-          )}
 
-          {/* Docs row */}
-          {docs.length > 0 && (
-            <div className="sessionTile__metaRow">
-              <div className="sessionTile__docsList">
-                {docs.map((doc) => {
-                  const ext = doc.filePath.split(".").pop()?.toLowerCase() || "";
-                  const isMarkdown = ["md", "mdx", "markdown"].includes(ext);
-                  return (
-                    <button
-                      type="button"
-                      key={doc.id}
-                      className="sessionTile__docItem"
-                      title={doc.filePath}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const spaceId = openDocument(session.projectId, doc);
-                        setActiveId(spaceId);
-                      }}
+              {session.model && (
+                <span className="sessionTile__badge sessionTile__badge--model">{session.model.toUpperCase()}</span>
+              )}
+              {session.strategy && (
+                <span className="sessionTile__badge sessionTile__badge--strategy">{session.strategy}</span>
+              )}
+
+              <span className="sessionTile__time" title={`Started ${new Date(session.startedAt).toLocaleString()}`}>
+                {session.completedAt
+                  ? formatDuration(session.startedAt, session.completedAt)
+                  : formatTimeAgo(session.lastActivity)}
+              </span>
+            </div>
+          </div>
+
+          {/* Linked tasks */}
+          {linkedTasks.length > 0 && (
+            <div className="sessionTile__metaSection">
+              <span className="sessionTile__metaLabel">Tasks</span>
+              <div className="sessionTile__metaContent">
+                <div className="sessionTile__taskChips">
+                  {linkedTasks.slice(0, 4).map((task) => (
+                    <span
+                      key={task.id}
+                      className={`sessionTile__taskChip sessionTile__taskChip--${task.status}`}
+                      title={`${task.title} (${task.status})`}
                     >
-                      <span className="sessionTile__docIcon">{isMarkdown ? "M↓" : "{ }"}</span>
-                      <span className="sessionTile__docTitle">{doc.title}</span>
-                    </button>
-                  );
-                })}
+                      <span className="sessionTile__taskChipSymbol">{TASK_STATUS_SYMBOLS[task.status] || "○"}</span>
+                      <span className="sessionTile__taskChipLabel">{task.title}</span>
+                    </span>
+                  ))}
+                  {linkedTasks.length > 4 && (
+                    <span className="sessionTile__taskChip sessionTile__taskChip--more">+{linkedTasks.length - 4}</span>
+                  )}
+                </div>
               </div>
             </div>
           )}
 
-          {/* Resume for stopped/completed sessions */}
-          {isTerminal && canResume && (
-            <div className="sessionTile__metaRow">
-              <button
-                type="button"
-                className="sessionTile__resumeBtn"
-                disabled={isResuming}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onResume(session.id);
-                }}
-              >
-                {isResuming ? "Resuming…" : "↻ Resume session"}
-              </button>
+          {/* Docs */}
+          {docs.length > 0 && (
+            <div className="sessionTile__metaSection">
+              <span className="sessionTile__metaLabel">Docs</span>
+              <div className="sessionTile__metaContent">
+                <div className="sessionTile__docsList">
+                  {docs.map((doc) => {
+                    const ext = doc.filePath.split(".").pop()?.toLowerCase() || "";
+                    const isMarkdown = ["md", "mdx", "markdown"].includes(ext);
+                    return (
+                      <button
+                        type="button"
+                        key={doc.id}
+                        className="sessionTile__docItem"
+                        title={doc.filePath}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const spaceId = openDocument(session.projectId, doc);
+                          setActiveId(spaceId);
+                        }}
+                      >
+                        <span className="sessionTile__docIcon">{isMarkdown ? "M↓" : "{ }"}</span>
+                        <span className="sessionTile__docTitle">{doc.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
+
+          {/* Actions */}
+          <div className="sessionTile__metaSection">
+            <span className="sessionTile__metaLabel">Actions</span>
+            <div className="sessionTile__metaContent">
+              <button
+                type="button"
+                className="sessionTile__actionBtn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenDetail(session.id);
+                }}
+                title="Open full session details"
+              >
+                ⓘ Details
+              </button>
+              {isTerminal && canResume && (
+                <button
+                  type="button"
+                  className="sessionTile__actionBtn sessionTile__actionBtn--resume"
+                  disabled={isResuming}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onResume(session.id);
+                  }}
+                >
+                  {isResuming ? "Resuming…" : "↻ Resume"}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

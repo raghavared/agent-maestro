@@ -314,6 +314,8 @@ export const updateSessionSchema = z.object({
   agentId: safeId.optional(),
   claudeSessionId: z.string().uuid().optional(),
   completedAt: z.number().optional(),
+  humanCompletedAt: z.number().nullable().optional(),
+  archivedAt: z.number().nullable().optional(),
   env: z.record(z.string(), z.string().max(5000)).optional(),
   events: z.array(z.object({
     id: safeId,

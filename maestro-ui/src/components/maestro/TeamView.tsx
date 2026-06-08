@@ -1,107 +1,141 @@
 import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { TeamGroup } from '../../utils/teamGrouping';
+import type { MaestroSession } from '../../app/types/maestro';
 import type { TerminalRegistry } from '../../SessionTerminal';
-import { useMaestroStore } from '../../stores/useMaestroStore';
+import type { ChildStats } from '../../utils/resolveTeamView';
 import { useSessionStore } from '../../stores/useSessionStore';
+import { useMaestroStore } from '../../stores/useMaestroStore';
+import { useUIStore } from '../../stores/useUIStore';
 
 interface TeamViewProps {
-  group: TeamGroup;
+  root: MaestroSession;
+  childrenSessions: MaestroSession[];
+  trail: MaestroSession[]; // trueRoot → … → root (inclusive)
   registry: React.MutableRefObject<TerminalRegistry>;
+  linkMap: Map<string, string>; // maestroSessionId -> live local session id
+  childStats: (sessionId: string) => ChildStats;
+  onReRoot: (sessionId: string) => void;
   onClose: () => void;
-  onSelectSession: (id: string) => void;
+  onSelectSession: (localSessionId: string) => void;
 }
 
 interface SlotInfo {
-  localSessionId: string;
   maestroSessionId: string;
+  localSessionId: string | null;
   label: string;
   avatar: string;
   status: string;
-  isCoordinator: boolean;
+  drillable: boolean;
+  resumable: boolean;
+  stats: ChildStats;
+}
+
+const TERMINAL_STATUSES = new Set(['completed', 'failed', 'stopped']);
+
+function snapshotOf(session: MaestroSession) {
+  return session.teamMemberSnapshots?.[0] || (session as { teamMemberSnapshot?: { name?: string; avatar?: string } }).teamMemberSnapshot;
+}
+
+function labelOf(session: MaestroSession): string {
+  const snap = snapshotOf(session);
+  return snap?.name || session.name || session.id.slice(0, 12);
+}
+
+function isResumable(session: MaestroSession): boolean {
+  const canResume = ((session.metadata as { agentTool?: string } | undefined)?.agentTool || 'claude-code') === 'claude-code';
+  return TERMINAL_STATUSES.has(session.status) && canResume;
 }
 
 /**
- * TeamView renders a full-screen overlay with terminal slots.
- * Terminals are reparented (DOM appendChild) into slot host divs
- * so they escape stacking contexts. On unmount, terminals are
- * moved back to their original parent.
+ * TeamView renders a full-screen, re-rootable overlay over the spawn hierarchy.
+ * Left pane = current root's live terminal; right pane = root's direct children.
+ * Terminals are reparented (DOM appendChild) into slot host divs so they escape
+ * stacking contexts; on unmount they are moved back to their original parent.
  */
 export const TeamView = React.memo(function TeamView({
-  group,
+  root,
+  childrenSessions,
+  trail,
   registry,
+  linkMap,
+  childStats,
+  onReRoot,
   onClose,
   onSelectSession,
 }: TeamViewProps) {
-  const maestroSessions = useMaestroStore((s) => s.sessions);
   const setActiveId = useSessionStore((s) => s.setActiveId);
+  const resumeSession = useMaestroStore((s) => s.resumeSession);
+  const [resumingId, setResumingId] = useState<string | null>(null);
 
-  // Stable ref for the registry
-  const registryRef = useRef(registry);
-  registryRef.current = registry;
   // Overlay body ref for ResizeObserver
   const bodyRef = useRef<HTMLDivElement>(null);
 
   // --- Resizable split state ---
-  const [coordFraction, setCoordFraction] = useState(0.5);
+  const [rootFraction, setRootFraction] = useState(0.5);
   const resizingRef = useRef(false);
   const resizeStartXRef = useRef(0);
   const resizeStartFractionRef = useRef(0.5);
 
-  // Build slot info for coordinator + workers
-  const slots: SlotInfo[] = useMemo(() => {
-    const result: SlotInfo[] = [];
+  const rootSlot: SlotInfo = useMemo(() => ({
+    maestroSessionId: root.id,
+    localSessionId: linkMap.get(root.id) ?? null,
+    label: labelOf(root),
+    avatar: snapshotOf(root)?.avatar || '\u{1F451}',
+    status: root.status || 'idle',
+    drillable: false,
+    resumable: isResumable(root),
+    stats: childStats(root.id),
+  }), [root, linkMap, childStats]);
 
-    const coordMs = maestroSessions[group.coordinatorMaestroSessionId];
-    const coordSnap = coordMs?.teamMemberSnapshots?.[0] || (coordMs as any)?.teamMemberSnapshot;
-    if (group.coordinatorLocalSessionId) {
-      result.push({
-        localSessionId: group.coordinatorLocalSessionId,
-        maestroSessionId: group.coordinatorMaestroSessionId,
-        label: coordSnap?.name || coordMs?.name || 'Coordinator',
-        avatar: coordSnap?.avatar || '\u{1F451}',
-        status: coordMs?.status || 'idle',
-        isCoordinator: true,
-      });
+  const childSlots: SlotInfo[] = useMemo(() => (
+    childrenSessions.map((child) => {
+      const stats = childStats(child.id);
+      return {
+        maestroSessionId: child.id,
+        localSessionId: linkMap.get(child.id) ?? null,
+        label: labelOf(child),
+        avatar: snapshotOf(child)?.avatar || '⚡',
+        status: child.status || 'idle',
+        drillable: stats.total > 0,
+        resumable: isResumable(child),
+        stats,
+      };
+    })
+  ), [childrenSessions, linkMap, childStats]);
+
+  const hasChildSlots = childSlots.length > 0;
+
+  const handleResume = useCallback(async (maestroSessionId: string) => {
+    setResumingId(maestroSessionId);
+    try {
+      await resumeSession(maestroSessionId);
+    } catch (err) {
+      useUIStore.getState().reportError('Failed to resume session', err);
+    } finally {
+      setResumingId(null);
     }
+  }, [resumeSession]);
 
-    for (let i = 0; i < group.workerMaestroSessionIds.length; i++) {
-      const msId = group.workerMaestroSessionIds[i];
-      const localId = group.workerLocalSessionIds[i];
-      if (!localId) continue;
-
-      const ms = maestroSessions[msId];
-      const snap = ms?.teamMemberSnapshots?.[0] || (ms as any)?.teamMemberSnapshot;
-      result.push({
-        localSessionId: localId,
-        maestroSessionId: msId,
-        label: snap?.name || ms?.name || 'Worker',
-        avatar: snap?.avatar || '\u26A1',
-        status: ms?.status || 'idle',
-        isCoordinator: false,
-      });
-    }
-
-    return result;
-  }, [group, maestroSessions]);
-
-  const coordinatorSlot = slots.find((s) => s.isCoordinator) || null;
-  const workerSlots = slots.filter((s) => !s.isCoordinator);
-  const hasCoordinator = coordinatorSlot !== null;
-  const hasWorkers = workerSlots.length > 0;
-
-  // --- Close on Escape ---
+  // --- Close on Escape / go up on Backspace ---
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
         onClose();
+      } else if (e.key === 'Backspace' && trail.length >= 2) {
+        const target = document.activeElement;
+        const isEditable = target instanceof HTMLElement &&
+          (target.isContentEditable || ['INPUT', 'TEXTAREA'].includes(target.tagName));
+        if (isEditable) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onReRoot(trail[trail.length - 2].id);
       }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [onClose]);
+  }, [onClose, onReRoot, trail]);
 
   // --- Resize handle drag logic ---
   const handleResizeStart = useCallback(
@@ -109,11 +143,11 @@ export const TeamView = React.memo(function TeamView({
       e.preventDefault();
       resizingRef.current = true;
       resizeStartXRef.current = e.clientX;
-      resizeStartFractionRef.current = coordFraction;
+      resizeStartFractionRef.current = rootFraction;
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
     },
-    [coordFraction],
+    [rootFraction],
   );
 
   useEffect(() => {
@@ -122,7 +156,7 @@ export const TeamView = React.memo(function TeamView({
       const bodyRect = bodyRef.current.getBoundingClientRect();
       const dx = e.clientX - resizeStartXRef.current;
       const newFraction = resizeStartFractionRef.current + dx / bodyRect.width;
-      setCoordFraction(Math.max(0.2, Math.min(0.8, newFraction)));
+      setRootFraction(Math.max(0.2, Math.min(0.8, newFraction)));
     };
 
     const handleMouseUp = () => {
@@ -140,8 +174,8 @@ export const TeamView = React.memo(function TeamView({
     };
   }, []);
 
-  // --- Click/double-click on slot ---
-  const handleSlotDoubleClick = useCallback(
+  // --- Open a leaf terminal in the main view ---
+  const handleOpenTerminal = useCallback(
     (localSessionId: string) => {
       setActiveId(localSessionId);
       onSelectSession(localSessionId);
@@ -150,24 +184,39 @@ export const TeamView = React.memo(function TeamView({
     [setActiveId, onSelectSession, onClose],
   );
 
-  // --- Team label ---
-  const teamLabel = useMemo(() => {
-    if (group.teamName) return `${group.teamAvatar || '\u{1F46A}'} ${group.teamName}`;
-    const coordMs = maestroSessions[group.coordinatorMaestroSessionId];
-    const coordSnap = coordMs?.teamMemberSnapshots?.[0] || (coordMs as any)?.teamMemberSnapshot;
-    if (coordSnap) return `${coordSnap.avatar} ${coordSnap.name}`;
-    return coordMs?.name || 'Team';
-  }, [group, maestroSessions]);
+  // --- Click a child slot: drill if it has children, else open its terminal ---
+  const handleChildActivate = useCallback(
+    (slot: SlotInfo) => {
+      if (slot.drillable) {
+        onReRoot(slot.maestroSessionId);
+      } else if (slot.localSessionId) {
+        handleOpenTerminal(slot.localSessionId);
+      }
+    },
+    [onReRoot, handleOpenTerminal],
+  );
 
   const statusLabel =
-    group.status === 'active' ? 'Active' : group.status === 'done' ? 'Done' : 'Idle';
+    root.status === 'working' || root.status === 'spawning'
+      ? 'Active'
+      : root.status === 'completed'
+        ? 'Done'
+        : 'Idle';
+  const statusKey =
+    root.status === 'working' || root.status === 'spawning'
+      ? 'active'
+      : root.status === 'completed'
+        ? 'done'
+        : 'idle';
+
+  const memberCount = 1 + childSlots.length;
 
   // Compute flex styles for the split
-  const coordStyle = hasCoordinator && hasWorkers
-    ? { flex: `0 0 calc(${coordFraction * 100}% - 3px)` }
+  const rootStyle = hasChildSlots
+    ? { flex: `0 0 calc(${rootFraction * 100}% - 3px)` }
     : undefined;
-  const workersStyle = hasCoordinator && hasWorkers
-    ? { flex: `0 0 calc(${(1 - coordFraction) * 100}% - 3px)` }
+  const childrenStyle = hasChildSlots
+    ? { flex: `0 0 calc(${(1 - rootFraction) * 100}% - 3px)` }
     : undefined;
 
   return createPortal(
@@ -176,92 +225,135 @@ export const TeamView = React.memo(function TeamView({
         {/* Header */}
         <div className="teamViewHeader">
           <div className="teamViewHeaderLeft">
-            <span className="teamViewHeaderLabel">{teamLabel}</span>
-            <span
-              className={`teamViewHeaderStatus teamViewHeaderStatus--${group.status}`}
-            >
+            <span className="teamViewHeaderLabel">{rootSlot.avatar} {rootSlot.label}</span>
+            <span className={`teamViewHeaderStatus teamViewHeaderStatus--${statusKey}`}>
               {statusLabel}
             </span>
             <span className="teamViewHeaderCount">
-              {slots.length} {slots.length === 1 ? 'member' : 'members'}
+              {memberCount} {memberCount === 1 ? 'member' : 'members'}
             </span>
           </div>
           <div className="teamViewHeaderRight">
-            <span className="teamViewHeaderHint">double-click to open / Esc to close</span>
+            <span className="teamViewHeaderHint">click child to drill / double-click to open / Esc to close</span>
             <button type="button" className="teamViewCloseBtn" onClick={onClose} title="Close team view (Esc)">
-              {'\u2715'}
+              {'✕'}
             </button>
           </div>
         </div>
 
-        {/* Body: coordinator left, workers right */}
+        {/* Breadcrumbs: trueRoot ▸ … ▸ currentRoot */}
+        {trail.length > 0 && (
+          <div className="teamViewBreadcrumbs">
+            {trail.map((s, i) => {
+              const isCurrent = s.id === root.id;
+              return (
+                <React.Fragment key={s.id}>
+                  {i > 0 && <span className="teamViewBreadcrumbs__sep">{'▸'}</span>}
+                  <button
+                    type="button"
+                    className={`teamViewBreadcrumbs__crumb ${isCurrent ? 'teamViewBreadcrumbs__crumb--current' : ''}`}
+                    disabled={isCurrent}
+                    onClick={() => onReRoot(s.id)}
+                    title={isCurrent ? labelOf(s) : `Re-root at ${labelOf(s)}`}
+                  >
+                    <span className="teamViewBreadcrumbs__avatar">{snapshotOf(s)?.avatar || '\u{1F465}'}</span>
+                    <span className="teamViewBreadcrumbs__name">{labelOf(s)}</span>
+                  </button>
+                </React.Fragment>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Body: root left, children right */}
         <div className="teamViewBody" ref={bodyRef}>
-          {/* Coordinator panel - left side, full height */}
-          {coordinatorSlot && (
-            <div
-              className="teamViewCoordinator"
-              data-maestro-session-id={coordinatorSlot.maestroSessionId}
-              style={{
-                '--team-color': group.color.primary,
-                '--team-color-dim': group.color.dim,
-                '--team-color-border': group.color.border,
-                ...(coordStyle || {}),
-              } as React.CSSProperties}
-            >
-              <div className="teamViewSlotHeader">
-                <span className="teamViewSlotAvatar">{coordinatorSlot.avatar}</span>
-                <span className="teamViewSlotName">{coordinatorSlot.label}</span>
-                <span className="teamViewSlotRole">coordinator</span>
-                <span
-                  className={`teamViewSlotStatus teamViewSlotStatus--${coordinatorSlot.status}`}
-                >
-                  {coordinatorSlot.status}
-                </span>
+          {/* Root panel - left side, full height */}
+          <div
+            className="teamViewCoordinator"
+            data-maestro-session-id={rootSlot.maestroSessionId}
+            style={(rootStyle || {}) as React.CSSProperties}
+          >
+            <div className="teamViewSlotHeader">
+              <span className="teamViewSlotAvatar">{rootSlot.avatar}</span>
+              <span className="teamViewSlotName">{rootSlot.label}</span>
+              <span className="teamViewSlotRole">root</span>
+              <span className={`teamViewSlotStatus teamViewSlotStatus--${rootSlot.status}`}>
+                {rootSlot.status}
+              </span>
+              <div className="teamViewSlotHeaderActions">
+                <TeamViewSlotStats stats={rootSlot.stats} />
+                {rootSlot.resumable && (
+                  <TeamViewResumeBtn
+                    resuming={resumingId === rootSlot.maestroSessionId}
+                    onResume={() => handleResume(rootSlot.maestroSessionId)}
+                  />
+                )}
               </div>
-              <TeamViewTerminalSlot
-                sessionId={coordinatorSlot.localSessionId}
-                registry={registry}
-                onDoubleClick={() => handleSlotDoubleClick(coordinatorSlot.localSessionId)}
-              />
             </div>
+            {rootSlot.localSessionId ? (
+              <TeamViewTerminalSlot
+                sessionId={rootSlot.localSessionId}
+                registry={registry}
+                onDoubleClick={() => handleOpenTerminal(rootSlot.localSessionId!)}
+              />
+            ) : (
+              <TeamViewPlaceholder label={rootSlot.label} />
+            )}
+          </div>
+
+          {/* Resize handle between root and children */}
+          {hasChildSlots && (
+            <div className="teamViewResizeHandle" onMouseDown={handleResizeStart} />
           )}
 
-          {/* Resize handle between coordinator and workers */}
-          {hasCoordinator && hasWorkers && (
-            <div
-              className="teamViewResizeHandle"
-              onMouseDown={handleResizeStart}
-            />
-          )}
-
-          {/* Workers panel - right side, split horizontally */}
-          {workerSlots.length > 0 && (
-            <div className="teamViewWorkers" style={workersStyle as React.CSSProperties}>
-              {workerSlots.map((worker) => (
+          {/* Children panel - right side, split horizontally */}
+          {hasChildSlots && (
+            <div className="teamViewWorkers" style={childrenStyle as React.CSSProperties}>
+              {childSlots.map((child) => (
                 <div
-                  key={worker.localSessionId}
-                  className="teamViewWorkerSlot"
-                  data-maestro-session-id={worker.maestroSessionId}
-                  style={{
-                    '--team-color': group.color.primary,
-                    '--team-color-dim': group.color.dim,
-                    '--team-color-border': group.color.border,
-                  } as React.CSSProperties}
+                  key={child.maestroSessionId}
+                  className={`teamViewWorkerSlot ${child.drillable ? 'teamViewWorkerSlot--drillable' : ''}`}
+                  data-maestro-session-id={child.maestroSessionId}
                 >
                   <div className="teamViewSlotHeader">
-                    <span className="teamViewSlotAvatar">{worker.avatar}</span>
-                    <span className="teamViewSlotName">{worker.label}</span>
-                    <span
-                      className={`teamViewSlotStatus teamViewSlotStatus--${worker.status}`}
-                    >
-                      {worker.status}
+                    <span className="teamViewSlotAvatar">{child.avatar}</span>
+                    <span className="teamViewSlotName">{child.label}</span>
+                    <span className={`teamViewSlotStatus teamViewSlotStatus--${child.status}`}>
+                      {child.status}
                     </span>
+                    <div className="teamViewSlotHeaderActions">
+                      <TeamViewSlotStats stats={child.stats} />
+                      {child.resumable && (
+                        <TeamViewResumeBtn
+                          resuming={resumingId === child.maestroSessionId}
+                          onResume={() => handleResume(child.maestroSessionId)}
+                        />
+                      )}
+                      {child.drillable && (
+                        <button
+                          type="button"
+                          className="teamViewSlotDrillBtn"
+                          onClick={() => onReRoot(child.maestroSessionId)}
+                          title={`Drill into this team (${child.stats.total} ${child.stats.total === 1 ? 'worker' : 'workers'})`}
+                        >
+                          {'⤵'}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <TeamViewTerminalSlot
-                    sessionId={worker.localSessionId}
-                    registry={registry}
-                    onDoubleClick={() => handleSlotDoubleClick(worker.localSessionId)}
-                  />
+                  {child.localSessionId ? (
+                    <TeamViewTerminalSlot
+                      sessionId={child.localSessionId}
+                      registry={registry}
+                      onDoubleClick={() => handleChildActivate(child)}
+                    />
+                  ) : (
+                    <TeamViewPlaceholder
+                      label={child.label}
+                      drillable={child.drillable}
+                      onDrill={() => onReRoot(child.maestroSessionId)}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -274,9 +366,86 @@ export const TeamView = React.memo(function TeamView({
 });
 
 /**
- * Reparents a terminal DOM element into this slot's host div.
- * On unmount, moves it back to its original parent.
- * Same pattern as Board's ResizableSessionColumn.
+ * Renders a sub-agent stats badge group for a slot: total worker count plus an
+ * active/inactive breakdown. Hidden entirely when the slot has no sub-agents.
+ */
+function TeamViewSlotStats({ stats }: { stats: ChildStats }) {
+  if (stats.total === 0) return null;
+  return (
+    <span
+      className="teamViewSlotStats"
+      title={`${stats.total} sub-agent${stats.total === 1 ? '' : 's'} · ${stats.active} active · ${stats.inactive} inactive`}
+    >
+      <span className="teamViewSlotStats__total">
+        {stats.total} {stats.total === 1 ? 'worker' : 'workers'}
+      </span>
+      {stats.active > 0 && (
+        <span className="teamViewSlotStats__chip teamViewSlotStats__chip--active">
+          <span className="teamViewSlotStats__dot" />
+          {stats.active}
+        </span>
+      )}
+      {stats.inactive > 0 && (
+        <span className="teamViewSlotStats__chip teamViewSlotStats__chip--inactive">
+          <span className="teamViewSlotStats__dot" />
+          {stats.inactive}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function TeamViewResumeBtn({
+  resuming,
+  onResume,
+}: {
+  resuming: boolean;
+  onResume: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="teamViewSlotResumeBtn"
+      onClick={onResume}
+      disabled={resuming}
+      title="Resume session"
+    >
+      {resuming ? '…' : '↻'}
+    </button>
+  );
+}
+
+function TeamViewPlaceholder({
+  label,
+  drillable,
+  onDrill,
+}: {
+  label: string;
+  drillable?: boolean;
+  onDrill?: () => void;
+}) {
+  return (
+    <div className="teamViewSlotPlaceholder">
+      <span className="teamViewSlotPlaceholder__text">No live terminal for {label}</span>
+      {drillable && onDrill && (
+        <button type="button" className="teamViewSlotPlaceholder__drill" onClick={onDrill}>
+          Drill in {'⤵'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Reparents a terminal's xterm element into this slot's host div.
+ *
+ * IMPORTANT: we move `term.element` (the `.xterm` node xterm creates imperatively
+ * via `term.open()`), NOT the React-owned `[data-terminal-id]` container. Moving
+ * a React-managed node out of its tree makes React's reconciler throw
+ * `NotFoundError` when it later tries to remove that node (e.g. when a session
+ * disappears on connection loss). The xterm element isn't tracked by React, so
+ * relocating it is safe. FitAddon measures `term.element.parentElement`, so
+ * sizing follows the node into the host automatically.
  */
 const TeamViewTerminalSlot = React.memo(function TeamViewTerminalSlot({
   sessionId,
@@ -293,63 +462,41 @@ const TeamViewTerminalSlot = React.memo(function TeamViewTerminalSlot({
     const host = hostRef.current;
     if (!host) return;
 
-    const terminalEl = document.querySelector(
-      `[data-terminal-id="${sessionId}"]`,
-    ) as HTMLElement | null;
-    if (!terminalEl) return;
+    const entry = registry.current.get(sessionId);
+    const xtermEl = entry?.term.element as HTMLElement | undefined;
+    if (!entry || !xtermEl) return;
 
-    const originalParent = terminalEl.parentElement;
-    const wasHidden = terminalEl.classList.contains('terminalHidden');
+    const originalParent = xtermEl.parentElement;
 
-    // Move terminal into our host div (escapes stacking context)
-    host.appendChild(terminalEl);
-    terminalEl.classList.remove('terminalHidden');
-    terminalEl.classList.add('terminalInTeamView');
+    // Move the (non-React) xterm element into our host div.
+    host.appendChild(xtermEl);
+    xtermEl.classList.add('terminalInTeamView');
 
-    // Fit terminal to new container size
-    const reg = registry.current;
-    const entry = reg.get(sessionId);
     const fitTerminal = () => {
-      if (entry) {
-        try {
-          entry.fit.fit();
-          entry.term.scrollToBottom();
-        } catch { /* ignore */ }
-      }
+      try {
+        entry.fit.fit();
+        entry.term.scrollToBottom();
+      } catch { /* ignore */ }
     };
     // Double RAF to ensure layout is settled
     requestAnimationFrame(() => requestAnimationFrame(fitTerminal));
 
     // Auto-scroll to bottom on new output
-    let scrollDisposable: { dispose: () => void } | null = null;
-    if (entry) {
-      scrollDisposable = entry.term.onWriteParsed(() => {
-        try { entry.term.scrollToBottom(); } catch { /* ignore */ }
-      });
-    }
+    const scrollDisposable = entry.term.onWriteParsed(() => {
+      try { entry.term.scrollToBottom(); } catch { /* ignore */ }
+    });
 
     return () => {
-      scrollDisposable?.dispose();
-      // Move terminal back to original parent
-      terminalEl.classList.remove('terminalInTeamView');
-      if (originalParent) {
-        originalParent.appendChild(terminalEl);
+      scrollDisposable.dispose();
+      xtermEl.classList.remove('terminalInTeamView');
+      // Move the xterm element back into its original container, if it still
+      // exists (it may have been unmounted while we held the node).
+      if (originalParent && originalParent.isConnected) {
+        originalParent.appendChild(xtermEl);
       }
-      if (wasHidden) {
-        terminalEl.classList.add('terminalHidden');
-      } else {
-        // Restore visibility based on current active session
-        const activeId = useSessionStore.getState().activeId;
-        if (sessionId !== activeId) {
-          terminalEl.classList.add('terminalHidden');
-        }
-      }
-      // Re-fit after moving back
-      if (entry) {
-        requestAnimationFrame(() => {
-          try { entry.fit.fit(); } catch { /* ignore */ }
-        });
-      }
+      requestAnimationFrame(() => {
+        try { entry.fit.fit(); } catch { /* ignore */ }
+      });
     };
   }, [sessionId, registry]);
 

@@ -34,6 +34,15 @@ import type { Space } from "../app/types/space";
 import { useSessionTree } from "../hooks/useSessionTree";
 import { SessionListItem, type SessionTileLinkInfo } from "./maestro/SessionListItem";
 import type { SessionTreeNode } from "../app/types/maestro";
+import { resolveSessionTab, buildChildrenByParent, collectSubtreeIds as collectSubtreeIdsUtil, type SessionSubTab } from "../utils/sessionLifecycle";
+
+function formatSpaceAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
 
 // Phase 2: Module-scope static constants
 const AGENT_TOOL_ICONS: Record<string, string> = {
@@ -484,6 +493,7 @@ const SessionItem = React.memo(function SessionItem({
 interface SessionNodeRendererProps {
   node: SessionTreeNode;
   depth: number;
+  tab: SessionSubTab;
   collapsedSessions: Set<string>;
   maestroColorMap: Map<string, TeamColor>;
   linkMap: Map<string, SessionTileLinkInfo>;
@@ -495,11 +505,15 @@ interface SessionNodeRendererProps {
   onJumpToTerminal: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;
   onStop: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;
   onResume: (sessionId: string) => void;
+  onRestore: (session: MaestroSession) => void;
+  onToggleHumanComplete: (session: MaestroSession) => void;
+  onOpenTeamView: (session: MaestroSession) => void;
 }
 
 const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
   node,
   depth,
+  tab,
   collapsedSessions,
   maestroColorMap,
   linkMap,
@@ -511,6 +525,9 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
   onJumpToTerminal,
   onStop,
   onResume,
+  onRestore,
+  onToggleHumanComplete,
+  onOpenTeamView,
 }: SessionNodeRendererProps) {
   const isCollapsed = collapsedSessions.has(node.id);
   const link = linkMap.get(node.id) ?? null;
@@ -518,7 +535,10 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
   const isActiveTerminal = Boolean(link && link.localSessionId === activeLocalSessionId);
 
   return (
-    <div className={`sessionTreeNode ${depth > 0 ? "sessionTreeNode--child" : ""}`}>
+    <div
+      className={`sessionTreeNode ${depth > 0 ? "sessionTreeNode--child" : ""}`}
+      data-maestro-session-id={node.id}
+    >
       <SessionListItem
         session={node}
         depth={depth}
@@ -529,10 +549,14 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
         link={link}
         isActiveTerminal={isActiveTerminal}
         maestroTasks={maestroTasks}
+        tab={tab}
         onOpenDetail={onOpenDetail}
         onJumpToTerminal={onJumpToTerminal}
         onStop={onStop}
         onResume={onResume}
+        onRestore={onRestore}
+        onToggleHumanComplete={onToggleHumanComplete}
+        onOpenTeamView={onOpenTeamView}
         isResuming={resumingSessionId === node.id}
       />
       {!isCollapsed && node.children.length > 0 && (
@@ -542,6 +566,7 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
               key={child.id}
               node={child}
               depth={depth + 1}
+              tab={tab}
               collapsedSessions={collapsedSessions}
               maestroColorMap={maestroColorMap}
               linkMap={linkMap}
@@ -553,6 +578,9 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
               onJumpToTerminal={onJumpToTerminal}
               onStop={onStop}
               onResume={onResume}
+              onRestore={onRestore}
+              onToggleHumanComplete={onToggleHumanComplete}
+              onOpenTeamView={onOpenTeamView}
             />
           ))}
         </div>
@@ -647,6 +675,8 @@ export const SessionsSection = React.memo(function SessionsSection({
 
   // Session close confirmation state
   const [sessionToClose, setSessionToClose] = React.useState<Session | null>(null);
+  // Maestro spawn-tree close confirmation (cascades to all sub-sessions)
+  const [treeToClose, setTreeToClose] = React.useState<MaestroSession | null>(null);
 
   // Maestro session expansion state
   const [expandedSessions, setExpandedSessions] = React.useState<Set<string>>(new Set());
@@ -658,6 +688,8 @@ export const SessionsSection = React.memo(function SessionsSection({
   const maestroSessions = useMaestroStore((s) => s.sessions);
   const fetchSession = useMaestroStore((s) => s.fetchSession);
   const resumeSession = useMaestroStore((s) => s.resumeSession);
+  const setSessionHumanComplete = useMaestroStore((s) => s.setSessionHumanComplete);
+  const setSessionArchived = useMaestroStore((s) => s.setSessionArchived);
   const hardRefresh = useMaestroStore((s) => s.hardRefresh);
 
   // Teams from store
@@ -668,6 +700,8 @@ export const SessionsSection = React.memo(function SessionsSection({
   }, [sessions, maestroSessions, teamsMap]);
 
   const [showHistory, setShowHistory] = React.useState(false);
+  const showTaskDetails = useUIStore((s) => s.sessionShowTaskDetails);
+  const toggleSessionShowTaskDetails = useUIStore((s) => s.toggleSessionShowTaskDetails);
   const historyBtnRef = React.useRef<HTMLButtonElement | null>(null);
   const [historyDropdownPos, setHistoryDropdownPos] = React.useState<{ top: number; right: number } | null>(null);
 
@@ -793,6 +827,18 @@ export const SessionsSection = React.memo(function SessionsSection({
     return showDocuments ? projectSpaces : [];
   }, [projectSpaces, showDocuments]);
 
+  // Grouped spaces in fixed display order: Drawings → Documents → Files
+  const spaceGroups = useMemo(() => {
+    const drawings = filteredSpaces.filter((s) => s.type === "whiteboard");
+    const documents = filteredSpaces.filter((s) => s.type === "document");
+    const files = filteredSpaces.filter((s) => s.type === "file");
+    return [
+      { key: "whiteboard" as const, label: "Drawings", items: drawings },
+      { key: "document" as const, label: "Documents", items: documents },
+      { key: "file" as const, label: "Files", items: files },
+    ];
+  }, [filteredSpaces]);
+
   // Phase 3: Memoize SortableContext items (plain terminals only)
   const sortableSessionIds = useMemo(
     () => filteredTerminalSessions.map((s) => s.id),
@@ -800,33 +846,43 @@ export const SessionsSection = React.memo(function SessionsSection({
   );
 
   // Phase 5: Stable callbacks for SessionItem
+  // Closing a session's terminal also archives its maestro session record
+  // (moves it to the Archived tab). The record stays intact and resumable.
+  const closeAndArchive = useCallback((session: Session) => {
+    if (session.maestroSessionId) {
+      void setSessionArchived(session.maestroSessionId, true);
+    }
+    onCloseSession(session.id);
+  }, [onCloseSession, setSessionArchived]);
+
   const handleRequestClose = useCallback((session: Session) => {
     const isActiveSession = !session.exited && !session.closing;
     if (isActiveSession) {
       setSessionToClose(session);
     } else {
-      onCloseSession(session.id);
+      closeAndArchive(session);
     }
-  }, [onCloseSession]);
+  }, [closeAndArchive]);
 
   const handleResume = useCallback(async (maestroSessionId: string) => {
     setResumingSessionId(maestroSessionId);
     try {
       await resumeSession(maestroSessionId);
+      // Resuming revives the session — pull it back out of the Archived tab.
+      if (maestroSessions[maestroSessionId]?.archivedAt) {
+        void setSessionArchived(maestroSessionId, false);
+      }
     } catch (err) {
       console.error('Failed to resume session:', err);
       useUIStore.getState().reportError('Failed to resume session', err);
     } finally {
       setResumingSessionId(null);
     }
-  }, [resumeSession]);
+  }, [resumeSession, maestroSessions, setSessionArchived]);
 
   // ==================== MAESTRO SESSION TREE ====================
   const [collapsedSessions, setCollapsedSessions] = React.useState<Set<string>>(new Set());
-  type SessionSubTab = 'active' | 'completed';
   const [sessionSubTab, setSessionSubTab] = React.useState<SessionSubTab>('active');
-
-  const ACTIVE_STATUSES = useMemo(() => new Set(['working', 'idle', 'spawning']), []);
 
   // All maestro sessions in this project (source of truth for the tree)
   const projectMaestroSessions = useMemo(() => {
@@ -834,14 +890,6 @@ export const SessionsSection = React.memo(function SessionsSection({
   }, [maestroSessions, activeProjectId]);
 
   const { roots: sessionRoots } = useSessionTree(projectMaestroSessions);
-
-  // Filter roots by sub-tab; children are always shown under a visible root.
-  const visibleRoots = useMemo(() => {
-    return sessionRoots.filter((root) => {
-      const isActive = ACTIVE_STATUSES.has(root.status) || root.needsInput?.active;
-      return sessionSubTab === 'active' ? isActive : !isActive;
-    });
-  }, [sessionRoots, sessionSubTab, ACTIVE_STATUSES]);
 
   // Map maestroSessionId -> team color (independent of nesting)
   const maestroColorMap = useMemo(() => {
@@ -866,6 +914,56 @@ export const SessionsSection = React.memo(function SessionsSection({
     return map;
   }, [sessions]);
 
+  // parentSessionId → child ids, for cascading lifecycle actions across a spawn tree.
+  const childrenByParentId = useMemo(
+    () => buildChildrenByParent(projectMaestroSessions),
+    [projectMaestroSessions],
+  );
+
+  // All session ids in the spawn subtree rooted at rootId (inclusive).
+  const collectSubtreeIds = useCallback(
+    (rootId: string): string[] => collectSubtreeIdsUtil(rootId, childrenByParentId),
+    [childrenByParentId],
+  );
+
+  // A root is "live" when it — or any session in its spawn subtree — has a live
+  // (non-exited) local terminal. This is what makes a tree Active vs Inactive.
+  const hasLiveTerminal = useCallback(
+    (rootId: string): boolean =>
+      collectSubtreeIds(rootId).some((id) => {
+        const l = linkMap.get(id);
+        return Boolean(l && !l.exited);
+      }),
+    [collectSubtreeIds, linkMap],
+  );
+
+  // Tab resolution is liveness-driven: Archived (archivedAt) always wins; otherwise
+  // a root is Active when its subtree has a live terminal, else Inactive. The
+  // humanCompletedAt timestamp is a marker only (✓ "done by you") — it does NOT
+  // move a session between tabs. Children always render under their visible root.
+  const visibleRoots = useMemo(() => {
+    return sessionRoots.filter(
+      (root) => resolveSessionTab(root, hasLiveTerminal(root.id)) === sessionSubTab,
+    );
+  }, [sessionRoots, sessionSubTab, hasLiveTerminal]);
+
+  // Counts for the Active / Inactive / Archived sub-tabs (by root, matching each tab).
+  const sessionTabCounts = useMemo(() => {
+    const counts = { active: 0, inactive: 0, archived: 0 };
+    for (const root of sessionRoots) counts[resolveSessionTab(root, hasLiveTerminal(root.id))]++;
+    return counts;
+  }, [sessionRoots, hasLiveTerminal]);
+
+  // Sessions in this project with a live (non-exited) terminal — the "running live" count
+  const liveCount = useMemo(() => {
+    let n = 0;
+    for (const s of projectMaestroSessions) {
+      const link = linkMap.get(s.id);
+      if (link && !link.exited) n++;
+    }
+    return n;
+  }, [projectMaestroSessions, linkMap]);
+
   const handleToggleSessionCollapse = useCallback((sessionId: string) => {
     setCollapsedSessions((prev) => {
       const next = new Set(prev);
@@ -887,11 +985,53 @@ export const SessionsSection = React.memo(function SessionsSection({
     }
   }, [onSelectSession, handleResume]);
 
-  const handleStopSession = useCallback((_session: MaestroSession, link: SessionTileLinkInfo | null) => {
-    if (!link) return;
-    const localSession = sessions.find((s) => s.id === link.localSessionId);
-    if (localSession) handleRequestClose(localSession);
-  }, [sessions, handleRequestClose]);
+  // Close a maestro session AND its entire spawn subtree as a unit: stop every
+  // live descendant terminal and archive every node. This keeps a coordinator and
+  // its workers in the same tab — no orphaned live children, no archived child
+  // stranded under an active root.
+  const closeAndArchiveTree = useCallback((root: MaestroSession) => {
+    for (const id of collectSubtreeIds(root.id)) {
+      const link = linkMap.get(id);
+      if (link) onCloseSession(link.localSessionId); // stop terminal if one exists
+      void setSessionArchived(id, true);
+    }
+  }, [collectSubtreeIds, linkMap, onCloseSession, setSessionArchived]);
+
+  const handleRestoreTree = useCallback((root: MaestroSession) => {
+    for (const id of collectSubtreeIds(root.id)) {
+      void setSessionArchived(id, false);
+    }
+  }, [collectSubtreeIds, setSessionArchived]);
+
+  const handleStopSession = useCallback((session: MaestroSession, _link: SessionTileLinkInfo | null) => {
+    const hasLiveTerminal = collectSubtreeIds(session.id).some((id) => {
+      const l = linkMap.get(id);
+      return l && !l.exited;
+    });
+    if (hasLiveTerminal) {
+      // Live terminal(s) somewhere in the subtree → confirm before stopping them.
+      setTreeToClose(session);
+    } else {
+      // Nothing live to stop — archive the whole subtree immediately.
+      closeAndArchiveTree(session);
+    }
+  }, [collectSubtreeIds, linkMap, closeAndArchiveTree]);
+
+  // "Mark done" stamps humanCompletedAt (the ✓ "done by you" marker) AND stops the
+  // session's own live terminal, so a marked-done session lands in Inactive. Toggling
+  // it back off just clears the marker (the terminal is already stopped).
+  const handleToggleHumanComplete = useCallback((session: MaestroSession) => {
+    const markDone = !session.humanCompletedAt;
+    void setSessionHumanComplete(session.id, markDone);
+    if (markDone) {
+      const link = linkMap.get(session.id);
+      if (link && !link.exited) onCloseSession(link.localSessionId);
+    }
+  }, [setSessionHumanComplete, linkMap, onCloseSession]);
+
+  const handleOpenTeamView = useCallback((session: MaestroSession) => {
+    useUIStore.getState().setTeamViewRootId(session.id);
+  }, []);
 
   // Helper to render a session item using the extracted SessionItem component
   const renderSessionItem = useCallback((s: Session, teamColor: TeamColor | null) => {
@@ -942,6 +1082,16 @@ export const SessionsSection = React.memo(function SessionsSection({
             aria-label="Open board view"
           >
             <Icon name="layers" />
+          </button>
+          <button
+            type="button"
+            className={`btnSmall btnIcon ${showTaskDetails ? "btnIconActive" : ""}`}
+            onClick={toggleSessionShowTaskDetails}
+            title={showTaskDetails ? "Hide linked task details on session tiles" : "Show linked task details on session tiles"}
+            aria-label="Toggle task details on session tiles"
+            aria-pressed={showTaskDetails}
+          >
+            <Icon name="check-square" />
           </button>
           <button
             ref={historyBtnRef}
@@ -1067,7 +1217,7 @@ export const SessionsSection = React.memo(function SessionsSection({
       <div className="agentShortcutRow" role="toolbar" aria-label="Quick launch">
         <button
           type="button"
-          className="agentShortcutBtn agentShortcutBtn--icon"
+          className="agentShortcutBtn agentShortcutBtn--icon agentShortcutBtn--terminal"
           onClick={onOpenNewSession}
           aria-label="New terminal"
           title="New terminal"
@@ -1113,18 +1263,29 @@ export const SessionsSection = React.memo(function SessionsSection({
       {/* Sub-tabs for the maestro session tree */}
       {showSessions && (
         <div className="sessionSubTabs" role="tablist" aria-label="Session filter">
-          {(['active', 'completed'] as SessionSubTab[]).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={sessionSubTab === tab}
-              className={`sessionSubTabs__btn ${sessionSubTab === tab ? 'sessionSubTabs__btn--active' : ''}`}
-              onClick={() => setSessionSubTab(tab)}
-            >
-              {tab === 'active' ? 'Active' : 'Completed'}
-            </button>
-          ))}
+          {(['active', 'inactive', 'archived'] as SessionSubTab[]).map((tab) => {
+            const count = sessionTabCounts[tab];
+            const label = tab === 'active' ? 'Active' : tab === 'inactive' ? 'Inactive' : 'Archived';
+            return (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={sessionSubTab === tab}
+                className={`sessionSubTabs__btn ${sessionSubTab === tab ? 'sessionSubTabs__btn--active' : ''}`}
+                onClick={() => setSessionSubTab(tab)}
+              >
+                <span>{label}</span>
+                {count > 0 && <span className="sessionSubTabs__count">{count}</span>}
+              </button>
+            );
+          })}
+          {liveCount > 0 && (
+            <span className="sessionSubTabs__live" title={`${liveCount} running live`}>
+              <span className="sessionSubTabs__liveDot" />
+              <span className="sessionSubTabs__liveText">{liveCount} live</span>
+            </span>
+          )}
         </div>
       )}
 
@@ -1136,7 +1297,25 @@ export const SessionsSection = React.memo(function SessionsSection({
             {/* Maestro session tree (spawn-chain hierarchy) */}
             {showSessions && (
               visibleRoots.length === 0 ? (
-                <div className="empty">No {sessionSubTab} sessions.</div>
+                <div className="sessionEmptyState">
+                  <span className="sessionEmptyState__icon" aria-hidden="true">
+                    {sessionSubTab === 'active' ? '◉' : sessionSubTab === 'inactive' ? '○' : '▫'}
+                  </span>
+                  <span className="sessionEmptyState__title">
+                    {sessionSubTab === 'active'
+                      ? 'No active sessions'
+                      : sessionSubTab === 'inactive'
+                        ? 'No inactive sessions'
+                        : 'No archived sessions'}
+                  </span>
+                  <span className="sessionEmptyState__hint">
+                    {sessionSubTab === 'active'
+                      ? 'Spawn or resume a session to get started.'
+                      : sessionSubTab === 'inactive'
+                        ? 'Sessions whose terminal has stopped land here. Resume to reactivate.'
+                        : 'Closing a session with ✕ moves it here.'}
+                  </span>
+                </div>
               ) : (
                 <div className="sessionTree">
                   {visibleRoots.map((root) => (
@@ -1144,6 +1323,7 @@ export const SessionsSection = React.memo(function SessionsSection({
                       key={root.id}
                       node={root}
                       depth={0}
+                      tab={sessionSubTab}
                       collapsedSessions={collapsedSessions}
                       maestroColorMap={maestroColorMap}
                       linkMap={linkMap}
@@ -1155,6 +1335,9 @@ export const SessionsSection = React.memo(function SessionsSection({
                       onJumpToTerminal={handleJumpToTerminal}
                       onStop={handleStopSession}
                       onResume={handleResume}
+                      onRestore={handleRestoreTree}
+                      onToggleHumanComplete={handleToggleHumanComplete}
+                      onOpenTeamView={handleOpenTeamView}
                     />
                   ))}
                 </div>
@@ -1180,87 +1363,99 @@ export const SessionsSection = React.memo(function SessionsSection({
         )}
       </div>
 
-      {/* Whiteboard & Document spaces */}
-      {(filteredSpaces.length > 0 || (showDocuments && onCreateWhiteboard)) && (
-        <>
-          <div className="sidebarHeader" style={{ marginTop: 8 }}>
-            <div className="title">Spaces</div>
-            <div className="sidebarHeaderActions">
-              {showDocuments && onCreateWhiteboard && (
-                <button
-                  type="button"
-                  className="btnSmall btnIcon"
-                  onClick={onCreateWhiteboard}
-                  title="New Whiteboard"
-                  aria-label="New Whiteboard"
-                >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14">
-                    <line x1="8" y1="3" x2="8" y2="13" strokeLinecap="round" />
-                    <line x1="3" y1="8" x2="13" y2="8" strokeLinecap="round" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="sessionList">
-            {filteredSpaces.map((space) => {
-              const isActive = space.id === activeSessionId;
-              return (
-                <div
-                  key={space.id}
-                  className={`sessionItem ${isActive ? "sessionItemActive" : ""}`}
-                  onClick={() => onSelectSession(space.id)}
-                >
-                  <div className="sessionItemRow">
-                    <div className="sessionAgentIcon">
-                      <div className="sessionAgentIcon__placeholder">
-                        {space.type === "whiteboard" ? (
-                          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
-                            <path d="M3 17l3.5-3.5M6.5 13.5l-2-2L14 2l2 2L6.5 13.5z" strokeLinejoin="round" />
-                            <path d="M12 4l2 2" strokeLinecap="round" />
-                          </svg>
-                        ) : space.type === "file" ? (
-                          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
-                            <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
-                            <path d="M12 2v4h4" />
-                            <path d="M8 11l-2 2 2 2" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M12 11l2 2-2 2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        ) : (
-                          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
-                            <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
-                            <path d="M12 2v4h4" />
-                            <path d="M7 10h6M7 13h4" strokeLinecap="round" />
-                          </svg>
+      {/* Spaces — grouped: Drawings → Documents → Files */}
+      {showDocuments && (filteredSpaces.length > 0 || onCreateWhiteboard) && (
+        <div className="spacesGroups">
+          {spaceGroups.map((group) => {
+            if (group.items.length === 0) return null;
+            return (
+              <div className="spacesGroup" key={group.key}>
+                <div className="spacesGroup__header">
+                  <span className="spacesGroup__label">{group.label}</span>
+                  <span className="spacesGroup__count">{group.items.length}</span>
+                  {group.key === "whiteboard" && onCreateWhiteboard && (
+                    <button
+                      type="button"
+                      className="spacesGroup__add"
+                      onClick={onCreateWhiteboard}
+                      title="New Whiteboard"
+                      aria-label="New Whiteboard"
+                    >
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" width="12" height="12">
+                        <line x1="8" y1="3" x2="8" y2="13" strokeLinecap="round" />
+                        <line x1="3" y1="8" x2="13" y2="8" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <div className="spacesGroup__list">
+                  {group.items.map((space) => {
+                    const isActive = space.id === activeSessionId;
+                    let meta = "";
+                    if (space.type === "whiteboard") {
+                      meta = formatSpaceAgo(space.createdAt);
+                    } else if (space.type === "document") {
+                      const src = space.doc.sessionName ? `from ${space.doc.sessionName}` : "";
+                      const when = formatSpaceAgo(space.doc.addedAt ?? space.createdAt);
+                      meta = [src, when].filter(Boolean).join(" · ");
+                    } else {
+                      const ext = space.filePath.split(".").pop()?.toLowerCase() || "";
+                      const loc = space.provider === "ssh" && space.sshTarget ? space.sshTarget : space.rootDir;
+                      meta = [loc, ext].filter(Boolean).join(" · ");
+                    }
+                    return (
+                      <div
+                        key={space.id}
+                        className={`spaceTile spaceTile--${space.type} ${isActive ? "spaceTile--active" : ""}`}
+                        onClick={() => onSelectSession(space.id)}
+                        title={space.name}
+                      >
+                        <span className="spaceTile__icon" aria-hidden="true">
+                          {space.type === "whiteboard" ? (
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="15" height="15">
+                              <path d="M3 17l3.5-3.5M6.5 13.5l-2-2L14 2l2 2L6.5 13.5z" strokeLinejoin="round" />
+                              <path d="M12 4l2 2" strokeLinecap="round" />
+                            </svg>
+                          ) : space.type === "file" ? (
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="15" height="15">
+                              <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
+                              <path d="M12 2v4h4" />
+                              <path d="M8 11l-2 2 2 2" strokeLinecap="round" strokeLinejoin="round" />
+                              <path d="M12 11l2 2-2 2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          ) : (
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="15" height="15">
+                              <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
+                              <path d="M12 2v4h4" />
+                              <path d="M7 10h6M7 13h4" strokeLinecap="round" />
+                            </svg>
+                          )}
+                        </span>
+                        <span className="spaceTile__body">
+                          <span className="spaceTile__name">{space.name}</span>
+                          {meta && <span className="spaceTile__meta">{meta}</span>}
+                        </span>
+                        {onCloseSpace && (
+                          <button
+                            type="button"
+                            className="spaceTile__close"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onCloseSpace(space.id);
+                            }}
+                            title={`Close ${space.type}`}
+                          >
+                            ×
+                          </button>
                         )}
                       </div>
-                    </div>
-                    <div className="sessionMeta">
-                      <div className="sessionName">
-                        <span className="sessionNameText">{space.name}</span>
-                        <span className="chip">{space.type === "whiteboard" ? "whiteboard" : space.type === "file" ? "file" : "document"}</span>
-                      </div>
-                    </div>
-                    <div className="sessionItemActions">
-                      {onCloseSpace && (
-                        <button type="button"
-                          className="closeBtn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onCloseSpace(space.id);
-                          }}
-                          title={`Close ${space.type}`}
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
-        </>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {sessionModalId && createPortal(
@@ -1315,12 +1510,48 @@ export const SessionsSection = React.memo(function SessionsSection({
           confirmDanger={true}
           onClose={() => setSessionToClose(null)}
           onConfirm={() => {
-            onCloseSession(sessionToClose.id);
+            closeAndArchive(sessionToClose);
             setSessionToClose(null);
           }}
         />,
         document.body
       )}
+
+      {treeToClose && (() => {
+        const subtreeIds = collectSubtreeIds(treeToClose.id);
+        const childCount = subtreeIds.length - 1;
+        const liveCount = subtreeIds.filter((id) => {
+          const l = linkMap.get(id);
+          return l && !l.exited;
+        }).length;
+        const name = treeToClose.teamMemberSnapshot?.name || treeToClose.name || treeToClose.id.slice(0, 12);
+        return createPortal(
+          <ConfirmActionModal
+            isOpen={true}
+            title="[ CLOSE SESSION ]"
+            message={
+              <>
+                Close <strong>{name}</strong>
+                {childCount > 0 && <> and its {childCount} sub-session{childCount === 1 ? '' : 's'}</>}?
+                {liveCount > 0 && (
+                  <div style={{ marginTop: '8px', color: 'var(--warning)' }}>
+                    {liveCount} live terminal{liveCount === 1 ? '' : 's'} will be stopped. The session record{childCount > 0 ? 's stay' : ' stays'} in Archived.
+                  </div>
+                )}
+              </>
+            }
+            confirmLabel="Close Session"
+            cancelLabel="Cancel"
+            confirmDanger={true}
+            onClose={() => setTreeToClose(null)}
+            onConfirm={() => {
+              closeAndArchiveTree(treeToClose);
+              setTreeToClose(null);
+            }}
+          />,
+          document.body
+        );
+      })()}
 
     </>
   );

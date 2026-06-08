@@ -200,6 +200,8 @@ export interface SessionPromptSendEvent {
     content: string;
     mode: 'send' | 'paste';
     senderSessionId: string | null;
+    senderProjectId: string | null;
+    targetProjectId: string | null;
     timestamp: number;
   };
 }

@@ -46,7 +46,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
   const sendPromptToActive = useSessionStore((s) => s.sendPromptToActive);
   const active = sessions.find((s) => s.id === activeId) ?? null;
   const maestroSessions = useMaestroStore((s) => s.sessions);
-  const teamViewOpen = useUIStore((s) => s.teamViewGroupId) !== null;
+  const teamViewOpen = useUIStore((s) => s.teamViewRootId) !== null;
 
   const activeMaestroSession = active?.maestroSessionId ? maestroSessions[active.maestroSessionId] : null;
   const activeIsCoordinator = isCoordinatorRole(activeMaestroSession?.mode);

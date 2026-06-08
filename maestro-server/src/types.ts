@@ -376,6 +376,8 @@ export interface Session {
   startedAt: number;
   lastActivity: number;
   completedAt: number | null;
+  humanCompletedAt?: number | null;  // Set when a human marks the session complete (moves it to Completed tab)
+  archivedAt?: number | null;  // Set when a session is closed/archived (moves it to Archived tab; takes precedence over completed)
   hostname: string;
   platform: string;
   events: SessionEvent[];
@@ -610,6 +612,8 @@ export interface UpdateSessionPayload {
   teamSessionId?: string | null;
   teamId?: string | null;
   mode?: AgentMode;            // Update session mode (stored in metadata.mode)
+  humanCompletedAt?: number | null;  // Human-driven completion timestamp (null to reopen)
+  archivedAt?: number | null;  // Archive timestamp (null to unarchive)
 }
 
 /** Payload emitted on session:mode_changed event */

@@ -48,4 +48,5 @@ export const MIN_MAESTRO_SIDEBAR_WIDTH = 200;
 export const MAX_MAESTRO_SIDEBAR_WIDTH = 600;
 export const STORAGE_MAESTRO_SIDEBAR_WIDTH_KEY = 'agents-ui-maestro-sidebar-width-v1';
 export const STORAGE_ICON_RAIL_SECTION_KEY = 'agents-ui-icon-rail-section-v1';
+export const STORAGE_SESSION_SHOW_TASK_DETAILS_KEY = 'agents-ui-session-show-task-details-v1';
 export const SPACES_RAIL_WIDTH = 48;
