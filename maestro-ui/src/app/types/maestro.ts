@@ -275,6 +275,7 @@ export interface DocEntry {
   id: string;
   title: string;
   filePath: string;
+  kind?: 'markdown' | 'diagram';
   content?: string;
   taskId?: string;
   addedAt: number;
@@ -460,6 +461,7 @@ export interface CreateTaskPayload {
   teamMemberIds?: string[];
   memberOverrides?: Record<string, MemberLaunchOverride>;
   dueDate?: string;
+  useWorktree?: boolean;
   clientRequestId?: string;
 }
 
@@ -727,4 +729,73 @@ export interface SpellInvokedEvent {
   entityType: SpellEntityType;
   entityId: string;
   spellName: string;
+}
+
+// ─── Git Types ───
+
+export interface GitFileChange {
+  path: string;
+  status: 'A' | 'M' | 'D' | 'R' | '?';
+  insertions: number;
+  deletions: number;
+}
+
+export interface GitDiffSummary {
+  branch: string;
+  baseBranch: string;
+  baseCommit: string;
+  ahead: number;
+  behind: number;
+  dirty: boolean;
+  filesChanged: number;
+  insertions: number;
+  deletions: number;
+  commitCount: number;
+  files: GitFileChange[];
+}
+
+export interface GitPrInfo {
+  url: string;
+  number: number;
+  state: 'OPEN' | 'MERGED' | 'CLOSED' | 'DRAFT';
+  checks?: 'passing' | 'failing' | 'pending' | 'none';
+  reviewDecision?: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null;
+}
+
+export interface GitCapabilities {
+  hasGit: boolean;
+  hasGh: boolean;
+  ghAuthed: boolean;
+}
+
+// Session transcript stats (computed from the Claude / Codex JSONL).
+export interface SessionTranscriptMessage {
+  timestamp: number;
+  text: string;
+  source: 'assistant' | 'user';
+}
+
+export interface SessionStatsResponse {
+  sessionId: string;
+  source: 'claude' | 'codex' | null;
+  jsonlFound: boolean;
+  partial: boolean;
+  tokens: {
+    input: number;
+    output: number;
+    cacheCreate: number;
+    cacheRead: number;
+    total: number;
+  };
+  messageCount: {
+    user: number;
+    assistant: number;
+    total: number;
+  };
+  toolCallCount: number;
+  toolUsage: Array<{ name: string; count: number }>;
+  models: string[];
+  firstMessageAt: number | null;
+  lastMessageAt: number | null;
+  lastMessages: SessionTranscriptMessage[];
 }

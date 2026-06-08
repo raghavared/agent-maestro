@@ -35,3 +35,14 @@ AGENTS.md
 
 # Marketing posts
 marketing-posts/
+
+# Local env files
+maestro-ui/.env.local
+.env.local
+
+# Design system artifacts (not source)
+Maestro Design System.zip
+maestro-design-system/
+
+# API scratch / test dir
+.apitest/

@@ -4,6 +4,7 @@ import { AppInfo } from '../app/types/app-state';
 import { UpdateCheckState } from '../components/modals/UpdateModal';
 import { formatError } from '../utils/formatters';
 import * as DEFAULTS from '../app/constants/defaults';
+import type { DocEntry } from '../app/types/maestro';
 
 /* ------------------------------------------------------------------ */
 /*  Helper functions (semver / github)                                  */
@@ -188,6 +189,11 @@ interface UIState {
   sessionDetailOverlay: { sessionId: string; projectId: string } | null;
   setSessionDetailOverlay: (overlay: { sessionId: string; projectId: string } | null) => void;
 
+  // Inspected (inactive) maestro session — drives the SessionStatsView in the
+  // center pane when the user selects a session whose PTY has exited or is gone.
+  inspectedSessionId: string | null;
+  setInspectedSessionId: (id: string | null) => void;
+
   // App update
   appInfo: AppInfo | null;
   updatesOpen: boolean;
@@ -209,6 +215,10 @@ interface UIState {
   // Home directory
   homeDir: string | null;
   setHomeDir: (dir: string | null) => void;
+
+  // Doc overlay — shown on top of the current view when a doc/diagram is opened
+  docOverlay: DocEntry | null;
+  setDocOverlay: (doc: DocEntry | null) => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -372,6 +382,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   sessionDetailOverlay: null,
   setSessionDetailOverlay: (overlay) => set({ sessionDetailOverlay: overlay }),
 
+  inspectedSessionId: null,
+  setInspectedSessionId: (id) => set({ inspectedSessionId: id }),
+
   // -- App update --
   appInfo: null,
   updatesOpen: false,
@@ -484,6 +497,10 @@ export const useUIStore = create<UIState>((set, get) => ({
   // -- Home directory --
   homeDir: null,
   setHomeDir: (dir) => set({ homeDir: dir }),
+
+  // -- Doc overlay --
+  docOverlay: null,
+  setDocOverlay: (doc) => set({ docOverlay: doc }),
 }));
 
 /* ------------------------------------------------------------------ */

@@ -24,6 +24,7 @@ type SpacesRailProps = {
     onToggle: () => void;
     onOpenNewSession?: () => void;
     onOpenWhiteboard?: () => void;
+    onOpenResources?: () => void;
     onCloseSpace?: (id: string) => void;
     agentShortcuts?: ProcessEffect[];
     onQuickStart?: (effect: ProcessEffect) => void;
@@ -117,6 +118,15 @@ const FileCodeIcon: React.FC = () => (
     </svg>
 );
 
+const ResourcesIcon: React.FC = () => (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18">
+        <rect x="2" y="3" width="7" height="7" rx="1.5" />
+        <rect x="11" y="3" width="7" height="7" rx="1.5" />
+        <rect x="2" y="12" width="7" height="5" rx="1.5" />
+        <rect x="11" y="12" width="7" height="5" rx="1.5" />
+    </svg>
+);
+
 export const SpacesRail: React.FC<SpacesRailProps> = ({
     sessions,
     activeSessionId,
@@ -124,6 +134,7 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
     onToggle,
     onOpenNewSession,
     onOpenWhiteboard,
+    onOpenResources,
     onCloseSpace,
     agentShortcuts,
     onQuickStart,
@@ -179,6 +190,20 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
 
             <div className="spacesRailDivider" />
 
+            {onOpenResources && (
+                <button
+                    className="iconRailButton"
+                    onClick={onOpenResources}
+                    title="Project Resources"
+                    type="button"
+                    data-testid="rail-resources-btn"
+                >
+                    <ResourcesIcon />
+                </button>
+            )}
+
+            <div className="spacesRailDivider" />
+
             {/* Per-session icons — fill ALL remaining space */}
             <div className="spacesRailSessions">
                 {grouped.map(({ group, sessions: groupSessions }) => (
@@ -213,8 +238,8 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
                     />
                 ))}
 
-                {/* Whiteboard, document & file space buttons */}
-                {spaces.map((space) => (
+                {/* Whiteboard & file space buttons — docs/drawings are now overlays */}
+                {spaces.filter((s) => s.type !== "document").map((space) => (
                     <button type="button"
                         key={space.id}
                         className={`spacesRailSession spacesRailSpace spacesRailSpace--${space.type} ${space.id === activeSessionId ? "spacesRailSession--active" : ""}`}
@@ -222,7 +247,7 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
                         title={space.name}
                     >
                         {space.id === activeSessionId && <span className="iconRailActiveIndicator iconRailActiveIndicator--right" />}
-                        {space.type === "whiteboard" ? <WhiteboardIcon /> : space.type === "file" ? <FileCodeIcon /> : <DocumentIcon />}
+                        {space.type === "whiteboard" ? <WhiteboardIcon /> : <FileCodeIcon />}
                     </button>
                 ))}
             </div>

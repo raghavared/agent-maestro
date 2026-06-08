@@ -484,6 +484,8 @@ export function CreateTaskModal({
                                         onPriorityChange={form.setPriority}
                                         dueDate={form.dueDate}
                                         onDueDateChange={form.setDueDate}
+                                        useWorktree={form.useWorktree}
+                                        onUseWorktreeChange={form.setUseWorktree}
                                         isEditMode={effectiveEditMode}
                                         task={effectiveTask || undefined}
                                     />

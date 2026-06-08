@@ -23,6 +23,7 @@ import { registerTeamMemberCommands } from './commands/team-member.js';
 import { registerTeamCommands } from './commands/team.js';
 import { registerSpellCommands } from './commands/spell.js';
 import { registerAnnounceCommands } from './commands/announce.js';
+import { registerGitCommands } from './commands/git.js';
 import {
   loadCommandPermissions,
   printAvailableCommands,
@@ -353,6 +354,7 @@ registerTeamMemberCommands(program);
 registerTeamCommands(program);
 registerSpellCommands(program);
 registerAnnounceCommands(program);
+registerGitCommands(program);
 program.command('status')
   .description('Show summary of current project state')
   .action(async () => {

@@ -139,4 +139,10 @@ export interface ISessionRepository {
    * @returns The document content string, or null if not found
    */
   getDocContent(sessionId: string, docId: string): Promise<string | null>;
+
+  /**
+   * Overwrite the content file for an existing doc entry.
+   * @returns true if the doc was found and updated, false if the doc doesn't exist
+   */
+  updateDocContent(sessionId: string, docId: string, content: string): Promise<boolean>;
 }

@@ -1,4 +1,5 @@
 @import './styles-sessions.css';
+@import './styles-git.css';
 @import './styles-mentions.css';
 @import './styles-claude-skills.css';
 @import './styles-skills-panel.css';
@@ -13,6 +14,7 @@
 @import './styles-left-panel.css';
 @import './styles-spaces-panel.css';
 @import './styles-update-banner.css';
+@import './styles-session-stats.css';
 @import './styles-terminal-empty.css';
 @import './styles-file-explorer.css';
 @import './styles-slide-panel.css';

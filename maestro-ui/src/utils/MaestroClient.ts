@@ -34,6 +34,10 @@ import type {
     SpellEntity,
     SpellEntityType,
     SpellInvocation,
+    GitCapabilities,
+    GitDiffSummary,
+    GitPrInfo,
+    SessionStatsResponse,
 } from '../app/types/maestro';
 
 import { API_BASE_URL } from './serverConfig';
@@ -402,6 +406,15 @@ class MaestroClient {
         });
     }
 
+    /**
+     * Fetch comprehensive session stats: token totals, message/tool counts,
+     * last N messages (parsed from the Claude / Codex JSONL transcript).
+     */
+    async getSessionStats(sessionId: string, opts: { lastMessages?: number } = {}): Promise<SessionStatsResponse> {
+        const qs = opts.lastMessages !== undefined ? `?lastMessages=${opts.lastMessages}` : '';
+        return this.fetch<SessionStatsResponse>(`/sessions/${sessionId}/stats${qs}`);
+    }
+
     // ==================== DOCS ====================
 
     async getSessionDocs(sessionId: string): Promise<DocEntry[]> {
@@ -410,6 +423,45 @@ class MaestroClient {
 
     async getTaskDocs(taskId: string): Promise<DocEntry[]> {
         return this.fetch<DocEntry[]>(`/tasks/${taskId}/docs`);
+    }
+
+    async addSessionDoc(sessionId: string, title: string, content: string, kind?: 'markdown' | 'diagram'): Promise<DocEntry> {
+        const ext = kind === 'diagram' ? '.excalidraw' : '.md';
+        const filePath = `${title.replace(/[^a-z0-9_\-]/gi, '_')}${ext}`;
+        return this.fetch<DocEntry>(`/sessions/${sessionId}/docs`, {
+            method: 'POST',
+            body: JSON.stringify({ title, filePath, content, kind }),
+        });
+    }
+
+    async addTaskDoc(taskId: string, sessionId: string, title: string, content: string, kind?: 'markdown' | 'diagram'): Promise<DocEntry> {
+        const ext = kind === 'diagram' ? '.excalidraw' : '.md';
+        const filePath = `${title.replace(/[^a-z0-9_\-]/gi, '_')}${ext}`;
+        return this.fetch<DocEntry>(`/tasks/${taskId}/docs`, {
+            method: 'POST',
+            body: JSON.stringify({ title, filePath, content, sessionId, kind }),
+        });
+    }
+
+    async updateDocContent(sessionId: string, docId: string, content: string): Promise<DocEntry> {
+        return this.fetch<DocEntry>(`/sessions/${sessionId}/docs/${docId}/content`, {
+            method: 'PUT',
+            body: JSON.stringify({ content }),
+        });
+    }
+
+    async getProjectDocs(projectId: string): Promise<DocEntry[]> {
+        return this.fetch<DocEntry[]>(`/projects/${projectId}/docs`);
+    }
+
+    async getProjectDocsPaginated(
+        projectId: string,
+        kind: 'markdown' | 'diagram',
+        limit: number,
+        offset: number,
+    ): Promise<{ data: DocEntry[]; pagination: { offset: number; limit: number; total: number; hasMore: boolean } }> {
+        const params = new URLSearchParams({ kind, limit: String(limit), offset: String(offset) });
+        return this.fetch(`/projects/${projectId}/docs?${params}`);
     }
 
     // ==================== TASK IMAGES ====================
@@ -655,6 +707,92 @@ class MaestroClient {
 
     async deleteCustomPrompt(id: string): Promise<void> {
         await this.fetch<{ success: boolean }>(`/spells/custom-prompts/${id}`, { method: 'DELETE' });
+    }
+
+    // ── Git ───────────────────────────────────────────────────────────────────
+
+    async getGitCapabilities(projectId?: string): Promise<GitCapabilities> {
+        const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
+        return this.fetch<GitCapabilities>(`/git/capabilities${query}`);
+    }
+
+    async getSessionGit(sessionId: string): Promise<{ hasWorktree: boolean; summary?: GitDiffSummary; pr?: GitPrInfo; suggestedPr?: { title: string; body: string } }> {
+        return this.fetch<{ hasWorktree: boolean; summary?: GitDiffSummary; pr?: GitPrInfo; suggestedPr?: { title: string; body: string } }>(
+            `/sessions/${encodeURIComponent(sessionId)}/git`
+        );
+    }
+
+    async getSessionGitDiff(sessionId: string, file?: string): Promise<{ diff: string }> {
+        const query = file ? `?file=${encodeURIComponent(file)}` : '';
+        return this.fetch<{ diff: string }>(
+            `/sessions/${encodeURIComponent(sessionId)}/git/diff${query}`
+        );
+    }
+
+    async renameSessionBranch(sessionId: string, name: string): Promise<{ branchName: string }> {
+        return this.fetch<{ branchName: string }>(
+            `/sessions/${encodeURIComponent(sessionId)}/git/branch`,
+            { method: 'POST', body: JSON.stringify({ name }) }
+        );
+    }
+
+    async mergeSessionWorktree(sessionId: string, targetBranch?: string): Promise<{ success: boolean; message: string; conflicts?: string[] }> {
+        return this.fetch<{ success: boolean; message: string; conflicts?: string[] }>(
+            `/sessions/${encodeURIComponent(sessionId)}/git/merge`,
+            { method: 'POST', body: JSON.stringify({ targetBranch }) }
+        );
+    }
+
+    async createSessionPr(sessionId: string, data: { title: string; body: string; baseBranch?: string }): Promise<GitPrInfo> {
+        return this.fetch<GitPrInfo>(
+            `/sessions/${encodeURIComponent(sessionId)}/git/pr`,
+            { method: 'POST', body: JSON.stringify(data) }
+        );
+    }
+
+    async getSessionPr(sessionId: string): Promise<GitPrInfo | null> {
+        const result = await this.fetch<{ pr: GitPrInfo | null }>(
+            `/sessions/${encodeURIComponent(sessionId)}/git/pr`
+        );
+        return result.pr;
+    }
+
+    async discardSessionWorktree(sessionId: string): Promise<{ success: boolean }> {
+        return this.fetch<{ success: boolean }>(
+            `/sessions/${encodeURIComponent(sessionId)}/git/worktree`,
+            { method: 'DELETE' }
+        );
+    }
+
+    // ==================== DIAGRAM INJECTION ====================
+
+    /**
+     * Export a diagram (PNG + .excalidraw) to a session's working directory and inject
+     * a prompt referencing both file paths. UI-initiated — no senderSessionId required.
+     */
+    async injectDiagramToSession(
+        sessionId: string,
+        pngBlob: Blob,
+        sceneJson: string,
+        name?: string,
+    ): Promise<{ pngPath: string; excalidrawPath: string }> {
+        const pngBase64 = await this.blobToBase64(pngBlob);
+        return this.fetch<{ pngPath: string; excalidrawPath: string }>(`/sessions/${sessionId}/inject-diagram`, {
+            method: 'POST',
+            body: JSON.stringify({ pngBase64, sceneJson, name }),
+        });
+    }
+
+    private blobToBase64(blob: Blob): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = reader.result as string;
+                resolve(result.split(',')[1]);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
     }
 
 }

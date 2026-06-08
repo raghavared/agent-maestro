@@ -1,12 +1,14 @@
-import React from "react";
+import React, { useCallback, useState } from "react";
 import { SessionsSection } from "./SessionsSection";
 import { SpacesRail } from "./SpacesRail";
 import { NewSpaceDropdown } from "./NewSpaceDropdown";
+import { ResourcesView } from "./ResourcesView";
 import type { ProcessEffect } from "../processEffects";
 import * as DEFAULTS from "../app/constants/defaults";
 import { useSpacesStore } from "../stores/useSpacesStore";
 import { useSessionStore } from "../stores/useSessionStore";
 import { isWhiteboardId, isDocumentId, isFileId } from "../app/types/space";
+import { maestroClient } from "../utils/MaestroClient";
 
 type SpacesPanelProps = {
     agentShortcuts: ProcessEffect[];
@@ -50,16 +52,35 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
     onToggle,
 }) => {
     const isExpanded = activeSection !== null;
+    const [panelMode, setPanelMode] = useState<'sessions' | 'resources'>('sessions');
     const createWhiteboard = useSpacesStore((s) => s.createWhiteboard);
     const closeWhiteboard = useSpacesStore((s) => s.closeWhiteboard);
     const closeDocument = useSpacesStore((s) => s.closeDocument);
     const closeFile = useSpacesStore((s) => s.closeFile);
     const setActiveId = useSessionStore((s) => s.setActiveId);
 
-    const handleCreateWhiteboard = () => {
+    const handleCreateWhiteboard = useCallback(async () => {
+        const activeSess = sessions.find((s: any) => s.id === activeSessionId);
+        const maestroSessionId: string | undefined = activeSess?.maestroSessionId;
+        if (maestroSessionId) {
+            try {
+                const title = `Whiteboard ${new Date().toLocaleDateString()}`;
+                const doc = await maestroClient.addSessionDoc(maestroSessionId, title, '{}', 'diagram');
+                const id = createWhiteboard(activeProjectId, title, undefined, doc.id, maestroSessionId);
+                setActiveId(id);
+                return;
+            } catch {
+                // fall through to localStorage-only whiteboard
+            }
+        }
         const id = createWhiteboard(activeProjectId);
         setActiveId(id);
-    };
+    }, [sessions, activeSessionId, activeProjectId, createWhiteboard, setActiveId]);
+
+    const handleOpenResources = useCallback(() => {
+        setPanelMode('resources');
+        if (!isExpanded) onToggle();
+    }, [isExpanded, onToggle]);
 
     const handleCloseSpace = (id: string) => {
         if (isWhiteboardId(id)) {
@@ -99,15 +120,33 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
                     style={{ width: `${contentWidth}px` }}
                 >
                     <div className="spacesPanelToolbar">
-                        <span className="spacesPanelTitle">Spaces</span>
+                        <div className="spacesPanelTabs">
+                            <button
+                                type="button"
+                                className={`spacesPanelTab ${panelMode === 'sessions' ? 'spacesPanelTab--active' : ''}`}
+                                onClick={() => setPanelMode('sessions')}
+                            >
+                                Sessions
+                            </button>
+                            <button
+                                type="button"
+                                className={`spacesPanelTab ${panelMode === 'resources' ? 'spacesPanelTab--active' : ''}`}
+                                onClick={() => setPanelMode('resources')}
+                                data-testid="resources-tab-btn"
+                            >
+                                Resources
+                            </button>
+                        </div>
                         <div className="spacesPanelActions">
-                            <NewSpaceDropdown
-                                variant="toolbar"
-                                onOpenNewSession={onOpenNewSession}
-                                onOpenWhiteboard={handleCreateWhiteboard}
-                                agentShortcuts={agentShortcuts}
-                                onQuickStart={onQuickStart}
-                            />
+                            {panelMode === 'sessions' && (
+                                <NewSpaceDropdown
+                                    variant="toolbar"
+                                    onOpenNewSession={onOpenNewSession}
+                                    onOpenWhiteboard={handleCreateWhiteboard}
+                                    agentShortcuts={agentShortcuts}
+                                    onQuickStart={onQuickStart}
+                                />
+                            )}
                             <button
                                 className="spacesPanelAction"
                                 title="Collapse Panel"
@@ -121,25 +160,29 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
                         </div>
                     </div>
 
-                    <SessionsSection
-                        agentShortcuts={agentShortcuts}
-                        sessions={sessions}
-                        activeSessionId={activeSessionId}
-                        activeProjectId={activeProjectId}
-                        projectName={projectName}
-                        projectBasePath={projectBasePath}
-                        onSelectSession={onSelectSession}
-                        onCloseSession={onCloseSession}
-                        onReorderSessions={onReorderSessions}
-                        onQuickStart={onQuickStart}
-                        onOpenNewSession={onOpenNewSession}
-                        onOpenAgentShortcuts={onOpenAgentShortcuts}
-                        onOpenPersistentSessions={onOpenPersistentSessions}
-                        onOpenSshManager={onOpenSshManager}
-                        onOpenManageTerminals={onOpenManageTerminals}
-                        onCreateWhiteboard={handleCreateWhiteboard}
-                        onCloseSpace={handleCloseSpace}
-                    />
+                    {panelMode === 'sessions' ? (
+                        <SessionsSection
+                            agentShortcuts={agentShortcuts}
+                            sessions={sessions}
+                            activeSessionId={activeSessionId}
+                            activeProjectId={activeProjectId}
+                            projectName={projectName}
+                            projectBasePath={projectBasePath}
+                            onSelectSession={onSelectSession}
+                            onCloseSession={onCloseSession}
+                            onReorderSessions={onReorderSessions}
+                            onQuickStart={onQuickStart}
+                            onOpenNewSession={onOpenNewSession}
+                            onOpenAgentShortcuts={onOpenAgentShortcuts}
+                            onOpenPersistentSessions={onOpenPersistentSessions}
+                            onOpenSshManager={onOpenSshManager}
+                            onOpenManageTerminals={onOpenManageTerminals}
+                            onCreateWhiteboard={handleCreateWhiteboard}
+                            onCloseSpace={handleCloseSpace}
+                        />
+                    ) : (
+                        <ResourcesView projectId={activeProjectId} />
+                    )}
                 </div>
             ) : (
                 <SpacesRail
@@ -151,6 +194,7 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
                     onToggle={onToggle}
                     onOpenNewSession={onOpenNewSession}
                     onOpenWhiteboard={handleCreateWhiteboard}
+                    onOpenResources={handleOpenResources}
                     onCloseSpace={handleCloseSpace}
                     agentShortcuts={agentShortcuts}
                     onQuickStart={onQuickStart}

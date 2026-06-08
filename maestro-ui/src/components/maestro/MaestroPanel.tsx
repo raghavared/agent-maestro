@@ -441,6 +441,7 @@ export const MaestroPanel = React.memo(function MaestroPanel({
                 teamMemberId: taskData.teamMemberId,
                 teamMemberIds: taskData.teamMemberIds,
                 memberOverrides: taskData.memberOverrides,
+                useWorktree: taskData.useWorktree,
             });
             if (taskData._stagedFiles?.length > 0) {
                 for (const file of taskData._stagedFiles) {

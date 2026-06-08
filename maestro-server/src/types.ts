@@ -438,6 +438,7 @@ export interface DocEntry {
   id: string;
   title: string;
   filePath: string;
+  kind?: 'markdown' | 'diagram';      // Default "markdown" for back-compat; "diagram" stores .excalidraw content
   content?: string;                   // Optional inline markdown content (deprecated: stored in separate files)
   contentFilePath?: string;           // Path to file storing doc content (replaces inline content)
   taskId?: string;                    // Which task this doc relates to
@@ -612,6 +613,7 @@ export interface UpdateSessionPayload {
   teamSessionId?: string | null;
   teamId?: string | null;
   mode?: AgentMode;            // Update session mode (stored in metadata.mode)
+  metadata?: Record<string, any>;  // Merged into session.metadata (shallow merge)
   humanCompletedAt?: number | null;  // Human-driven completion timestamp (null to reopen)
   archivedAt?: number | null;  // Archive timestamp (null to unarchive)
 }

@@ -86,14 +86,18 @@ export function TimelineEvent({
   showTaskId = false,
   highlightTaskId,
 }: TimelineEventProps) {
-  const symbol = EVENT_SYMBOLS[event.type];
+  const isPrOpened = event.type === "milestone" && event.metadata?.kind === "pr_opened";
+  const prUrl = isPrOpened ? (event.metadata?.prUrl as string | undefined) : undefined;
+  const prNumber = isPrOpened ? (event.metadata?.prNumber as number | undefined) : undefined;
+
+  const symbol = isPrOpened ? "🔀" : EVENT_SYMBOLS[event.type];
   const typeClass = EVENT_TYPE_CLASSES[event.type];
-  const label = EVENT_LABELS[event.type];
+  const label = isPrOpened ? "Pull Request" : EVENT_LABELS[event.type];
   const isHighlighted = highlightTaskId && event.taskId === highlightTaskId;
 
   return (
     <div
-      className={`timelineEvent timelineEvent--${typeClass} ${compact ? "timelineEvent--compact" : ""} ${isHighlighted ? "timelineEvent--highlighted" : ""}`}
+      className={`timelineEvent timelineEvent--${typeClass} ${isPrOpened ? "timelineEvent--prOpened" : ""} ${compact ? "timelineEvent--compact" : ""} ${isHighlighted ? "timelineEvent--highlighted" : ""}`}
       title={formatFullTimestamp(event.timestamp)}
     >
       <div className="timelineEventDot">{symbol}</div>
@@ -105,8 +109,20 @@ export function TimelineEvent({
       <div className="timelineEventContent">
         <span className="timelineEventType">{label}</span>
 
-        {event.message && (
-          <span className="timelineEventMessage">{event.message}</span>
+        {prUrl ? (
+          <a
+            className="timelineEventPrLink"
+            href={prUrl}
+            target="_blank"
+            rel="noreferrer"
+            title={`Open pull request${prNumber != null ? ` #${prNumber}` : ""} on GitHub`}
+          >
+            {prNumber != null ? `#${prNumber}` : "View PR"} ↗
+          </a>
+        ) : (
+          event.message && (
+            <span className="timelineEventMessage">{event.message}</span>
+          )
         )}
 
         {showTaskId && event.taskId && (

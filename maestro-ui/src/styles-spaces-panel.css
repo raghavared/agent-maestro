@@ -262,9 +262,281 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 8px 12px;
   border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.1);
   flex-shrink: 0;
+  gap: 8px;
+}
+
+.spacesPanelTabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.spacesPanelTab {
+  padding: 4px 10px;
+  border-radius: var(--style-radius-sm, 4px);
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(240, 244, 248, 0.45);
+  font-family: var(--style-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: var(--style-text-transform);
+  letter-spacing: var(--style-letter-spacing);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.spacesPanelTab:hover {
+  color: rgba(240, 244, 248, 0.75);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.spacesPanelTab--active {
+  color: var(--theme-primary);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+  border-color: rgba(var(--theme-primary-rgb), 0.2);
+  text-shadow: 0 0 4px rgba(var(--theme-primary-rgb), 0.3);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Resources View                                                     */
+/* ------------------------------------------------------------------ */
+
+.resourcesView {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.resourcesViewSearch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  flex-shrink: 0;
+}
+
+.resourcesViewSearchIcon {
+  color: rgba(240, 244, 248, 0.35);
+  flex-shrink: 0;
+}
+
+.resourcesViewSearchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: rgba(240, 244, 248, 0.85);
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  caret-color: var(--theme-primary);
+}
+
+.resourcesViewSearchInput::placeholder {
+  color: rgba(240, 244, 248, 0.3);
+}
+
+.resourcesViewFilters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.resourcesViewFilter {
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: rgba(240, 244, 248, 0.45);
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+}
+
+.resourcesViewFilter:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(240, 244, 248, 0.75);
+}
+
+.resourcesViewFilter--active {
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  border-color: rgba(var(--theme-primary-rgb), 0.35);
+  color: var(--theme-primary);
+}
+
+.resourcesViewList {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--theme-primary-rgb), 0.15) transparent;
+}
+
+.resourcesViewEmpty {
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: rgba(240, 244, 248, 0.3);
+  font-family: var(--style-font-ui);
+}
+
+.resourcesViewItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: transparent;
+  border: none;
+  color: rgba(240, 244, 248, 0.75);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.resourcesViewItem:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.resourcesViewItemIcon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.resourcesViewItemIcon--doc {
+  background: rgba(107, 138, 253, 0.12);
+  color: rgba(107, 138, 253, 0.85);
+}
+
+.resourcesViewItemIcon--diagram {
+  background: rgba(var(--theme-primary-rgb), 0.12);
+  color: var(--theme-primary);
+}
+
+.resourcesViewItemIcon--image {
+  background: rgba(34, 211, 153, 0.12);
+  color: rgba(34, 211, 153, 0.85);
+}
+
+.resourcesViewItemBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.resourcesViewItemTitle {
+  font-family: var(--style-font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(240, 244, 248, 0.85);
+}
+
+.resourcesViewItemMeta {
+  font-family: var(--style-font-ui);
+  font-size: 10px;
+  color: rgba(240, 244, 248, 0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resourcesViewItemBadge {
+  font-family: var(--style-font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.resourcesViewItemBadge--doc {
+  color: rgba(107, 138, 253, 0.75);
+  border-color: rgba(107, 138, 253, 0.25);
+  background: rgba(107, 138, 253, 0.08);
+}
+
+.resourcesViewItemBadge--diagram {
+  color: var(--theme-primary);
+  border-color: rgba(var(--theme-primary-rgb), 0.25);
+  background: rgba(var(--theme-primary-rgb), 0.08);
+}
+
+.resourcesViewItemBadge--image {
+  color: rgba(34, 211, 153, 0.8);
+  border-color: rgba(34, 211, 153, 0.25);
+  background: rgba(34, 211, 153, 0.08);
+}
+
+/* Image preview overlay */
+.resourcesImageOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  cursor: pointer;
+}
+
+.resourcesImageOverlayImg {
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 32px);
+  object-fit: contain;
+  border-radius: 8px;
+  cursor: default;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.resourcesImageOverlayClose {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s ease;
+}
+
+.resourcesImageOverlayClose:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .spacesPanelTitle {

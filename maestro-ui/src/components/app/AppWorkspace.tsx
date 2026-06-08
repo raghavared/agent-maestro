@@ -15,21 +15,38 @@ import {
   getActiveWorkspaceView,
 } from "../../stores/useWorkspaceStore";
 import { isSshCommandLine, sshTargetFromCommandLine } from "../../app/utils/ssh";
+import { invoke } from "@tauri-apps/api/core";
 import { SessionLogStrip } from "../session-log/SessionLogStrip";
-import { SpellButton } from "../maestro/SpellButton";
+import { SessionActionBar } from "../maestro/SessionActionBar";
 import { ModeChip } from "../maestro/ModeChip";
 import { isCoordinatorRole } from "../../utils/coordinatorRole";
-import { isWhiteboardId, isDocumentId, isFileId } from "../../app/types/space";
-import type { WhiteboardSpace, DocumentSpace, FileSpace } from "../../app/types/space";
+import { isWhiteboardId, isFileId } from "../../app/types/space";
+import type { WhiteboardSpace, FileSpace } from "../../app/types/space";
 const LazyExcalidrawBoard = React.lazy(() => import("../ExcalidrawBoard").then(m => ({ default: m.ExcalidrawBoard })));
-const LazyDocViewer = React.lazy(() => import("../maestro/DocViewer").then(m => ({ default: m.DocViewer })));
 
 const LazyCodeEditorPanel = React.lazy(() => import("../CodeEditorPanel"));
 const LazyMermaidDiagram = React.lazy(() => import("../maestro/MermaidDiagram").then(m => ({ default: m.MermaidDiagram })));
+import { SessionStatsView } from "../maestro/SessionStatsView";
 
 export interface AppWorkspaceProps {
   registry: MutableRefObject<TerminalRegistry>;
   pendingData: MutableRefObject<PendingDataBuffer>;
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      resolve(result.includes(",") ? result.slice(result.indexOf(",") + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+function textToBase64(text: string): string {
+  return btoa(String.fromCharCode(...new TextEncoder().encode(text)));
 }
 
 export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspaceProps) {
@@ -44,9 +61,15 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
   const onSessionResize = useSessionStore((s) => s.onSessionResize);
   const handleOpenTerminalAtPath = useSessionStore((s) => s.handleOpenTerminalAtPath);
   const sendPromptToActive = useSessionStore((s) => s.sendPromptToActive);
+  const sendPromptToSession = useSessionStore((s) => s.sendPromptToSession);
   const active = sessions.find((s) => s.id === activeId) ?? null;
   const maestroSessions = useMaestroStore((s) => s.sessions);
   const teamViewOpen = useUIStore((s) => s.teamViewRootId) !== null;
+  const reportError = useUIStore((s) => s.reportError);
+  const inspectedSessionId = useUIStore((s) => s.inspectedSessionId);
+  const inspectedMaestroSession = inspectedSessionId
+    ? maestroSessions[inspectedSessionId] ?? null
+    : null;
 
   const activeMaestroSession = active?.maestroSessionId ? maestroSessions[active.maestroSessionId] : null;
   const activeIsCoordinator = isCoordinatorRole(activeMaestroSession?.mode);
@@ -57,16 +80,24 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
     () => activeId ? allSpaces.find((s) => s.id === activeId) : undefined,
     [allSpaces, activeId],
   );
+  const createWhiteboard = useSpacesStore((s) => s.createWhiteboard);
   const closeWhiteboard = useSpacesStore((s) => s.closeWhiteboard);
-  const closeDocument = useSpacesStore((s) => s.closeDocument);
   const closeFile = useSpacesStore((s) => s.closeFile);
   const setActiveId = useSessionStore((s) => s.setActiveId);
 
   // Determine if we're showing a non-session space
   const isActiveWhiteboard = activeId ? isWhiteboardId(activeId) : false;
-  const isActiveDocument = activeId ? isDocumentId(activeId) : false;
   const isActiveFile = activeId ? isFileId(activeId) : false;
-  const isActiveSession = !isActiveWhiteboard && !isActiveDocument && !isActiveFile;
+  // Inspecting a maestro session (stats view) sets inspectedSessionId but does NOT
+  // touch activeId. If activeId still points at a non-session space, the space
+  // panes would render and the terminalPane (which hosts the stats view) would be
+  // display:none'd below — a blank/wrong center pane. So an inspected session
+  // takes over the workspace: terminalPane stays visible and the space panes
+  // yield. This is reversible — clicking any tab calls setActiveId, which clears
+  // inspectedSessionId (see useSessionStore.setActiveId).
+  const hasInspectedSession = Boolean(inspectedMaestroSession);
+  const isActiveSession =
+    hasInspectedSession || (!isActiveWhiteboard && !isActiveFile);
 
   const activeLogAgentTool = (() => {
     if (!active?.maestroSessionId) return active?.effectId ?? null;
@@ -156,6 +187,58 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
     }
   }, [sendPromptToActive]);
 
+  // --- Session action bar: attachment ---
+  const handleAttach = useCallback(async () => {
+    if (!activeId) return;
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({ multiple: true, title: 'Attach files to session' });
+      if (!selected) return;
+      const paths = Array.isArray(selected) ? selected : [selected];
+      if (paths.length === 0) return;
+      const refs = paths.map((p) => `@${p}`).join(' ');
+      await sendPromptToActive(
+        { id: crypto.randomUUID(), title: 'Attachment', content: refs, createdAt: Date.now() },
+        'send',
+      );
+    } catch (err) {
+      reportError('Failed to attach files', err);
+    }
+  }, [activeId, sendPromptToActive, reportError]);
+
+  // --- Session action bar: draw (Excalidraw) ---
+  const handleDraw = useCallback(() => {
+    if (!activeProjectId || !activeId) return;
+    const wbId = createWhiteboard(activeProjectId, 'Sketch → session', activeId);
+    setActiveId(wbId);
+  }, [activeProjectId, activeId, createWhiteboard, setActiveId]);
+
+  const handleSendDrawingToSession = useCallback(
+    async (originSessionId: string, png: Blob, sceneJson: string) => {
+      try {
+        const ts = Date.now();
+        const pngBase64 = await blobToBase64(png);
+        const pngPath = await invoke<string>('save_session_asset', {
+          filename: `sketch_${ts}.png`,
+          contentBase64: pngBase64,
+        });
+        await invoke<string>('save_session_asset', {
+          filename: `sketch_${ts}.excalidraw`,
+          contentBase64: textToBase64(sceneJson),
+        });
+        setActiveId(originSessionId);
+        await sendPromptToSession(
+          originSessionId,
+          { id: crypto.randomUUID(), title: 'Drawing', content: `@${pngPath}`, createdAt: ts },
+          'send',
+        );
+      } catch (err) {
+        reportError('Failed to send drawing to session', err);
+      }
+    },
+    [setActiveId, sendPromptToSession, reportError],
+  );
+
   return (
     <div
       ref={workspaceRowRef}
@@ -168,7 +251,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
       }
     >
       {/* Inline whiteboard space */}
-      {isActiveWhiteboard && activeSpace?.type === "whiteboard" && (
+      {!hasInspectedSession && isActiveWhiteboard && activeSpace?.type === "whiteboard" && (
         <ErrorBoundary name="Excalidraw">
           <Suspense fallback={<div style={{ padding: 20, opacity: 0.5 }}>Loading whiteboard...</div>}>
             <LazyExcalidrawBoard
@@ -176,28 +259,19 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
               inline
               storageKey={(activeSpace as WhiteboardSpace).storageKey}
               name={activeSpace.name}
+              originSessionId={(activeSpace as WhiteboardSpace).originSessionId}
+              onSendToSession={handleSendDrawingToSession}
               onClose={() => closeWhiteboard(activeSpace.id)}
+              docId={(activeSpace as WhiteboardSpace).docId}
+              docSessionId={(activeSpace as WhiteboardSpace).docSessionId}
             />
           </Suspense>
         </ErrorBoundary>
       )}
 
-      {/* Inline document space */}
-      {isActiveDocument && activeSpace?.type === "document" && (
-        <ErrorBoundary name="DocViewer">
-          <Suspense fallback={<div style={{ padding: 20, opacity: 0.5 }}>Loading document...</div>}>
-            <LazyDocViewer
-              key={activeSpace.id}
-              inline
-              doc={(activeSpace as DocumentSpace).doc}
-              onClose={() => closeDocument(activeSpace.id)}
-            />
-          </Suspense>
-        </ErrorBoundary>
-      )}
 
       {/* Inline file space — full-width code editor */}
-      {isActiveFile && activeSpace?.type === "file" && (
+      {!hasInspectedSession && isActiveFile && activeSpace?.type === "file" && (
         <ErrorBoundary name="FileEditor">
           <React.Suspense
             fallback={
@@ -247,17 +321,46 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
             agentTool={activeLogAgentTool}
           />
         )}
-        {/* Spell button overlay */}
+        {/* Session action bar overlay (attach / draw / spell) */}
         {active?.maestroSessionId && (
-          <SpellButton maestroSessionId={active.maestroSessionId} />
+          <SessionActionBar
+            maestroSessionId={active.maestroSessionId}
+            onAttach={handleAttach}
+            onDraw={handleDraw}
+          />
         )}
         {/* Mode chip — shows current session role (coordinator / worker) */}
         {activeMaestroSession && (
           <ModeChip mode={activeMaestroSession.mode} />
         )}
-        {sessions.length === 0 && (
-          <div className="terminalEmptyState">
-            <div className="terminalEmptyAscii" aria-hidden="true">
+        {/*
+          Center-pane decision:
+          1. If the sidebar has explicitly selected an inactive maestro session
+             for inspection → render the SessionStatsView (overrides terminal).
+             This covers Done sessions with exited PTYs and Archived sessions
+             whose local terminal row is gone entirely.
+          2. Else, if there are no local terminals → show the empty hero.
+          3. Else, render the terminal map. For any container whose underlying
+             session has an exited PTY but a known maestro session, swap in the
+             stats view in-place (this is the original locked seam — covers
+             sessions that exit in real time without a sidebar re-click).
+        */}
+        {inspectedMaestroSession ? (
+          <div
+            className={`terminalContainer ${activeIsCoordinator ? "coordinator-glow" : ""}`}
+            data-terminal-id={`maestro:${inspectedMaestroSession.id}`}
+          >
+            <SessionStatsView session={inspectedMaestroSession} />
+          </div>
+        ) : (
+          <>
+            {/* Hero shows when no terminal is actually visible: either there are
+                no sessions, or activeId is stale/null and matches no row. The
+                terminal map below still renders (hidden) so no live PTY unmounts —
+                this just prevents a blank center pane. */}
+            {!sessions.some((s) => s.id === activeId) && (
+              <div className="terminalEmptyState">
+                <div className="terminalEmptyAscii" aria-hidden="true">
 {`  ╔══════════════════════════════╗
   ║                              ║
   ║   ▓▓▓  ▓▓▓▓  ▓▓▓▓  ▓▓▓▓    ║
@@ -267,37 +370,54 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
   ║   ▓▓▓  ▓  ▓  ▓▓▓▓  ▓▓▓▓    ║
   ║                              ║
   ╚══════════════════════════════╝`}
-            </div>
-            <div className="terminalEmptyPrompt">
-              <span className="terminalEmptyCaretLine">
-                <span className="terminalEmptyCaret">{">"}</span>{" "}
-                <span className="terminalEmptyTyping">ready for instructions_</span>
-              </span>
-            </div>
-            <div className="terminalEmptyHint">
-              Launch a session from the sidebar to begin
-            </div>
-          </div>
+                </div>
+                <div className="terminalEmptyPrompt">
+                  <span className="terminalEmptyCaretLine">
+                    <span className="terminalEmptyCaret">{">"}</span>{" "}
+                    <span className="terminalEmptyTyping">ready for instructions_</span>
+                  </span>
+                </div>
+                <div className="terminalEmptyHint">
+                  Launch a session from the sidebar to begin
+                </div>
+              </div>
+            )}
+            {sessions.map((s) => {
+              // LOCKED predicate: show stats when the PTY has exited for an
+              // active maestro-backed session. `s.exited` IS the linkMap liveness
+              // signal (see SessionsSection.tsx:937-945). `closing` is dropped to
+              // avoid flashing stats during the close animation.
+              const isInactive =
+                Boolean(s.exited) && Boolean(s.maestroSessionId) && s.id === activeId;
+              const inactiveMaestroSession = isInactive && s.maestroSessionId
+                ? maestroSessions[s.maestroSessionId] ?? null
+                : null;
+              return (
+                <div
+                  key={s.id}
+                  data-terminal-id={s.id}
+                  className={`terminalContainer ${s.id === activeId ? "" : "terminalHidden"} ${s.id === activeId && activeIsCoordinator ? "coordinator-glow" : ""}`}
+                >
+                  {inactiveMaestroSession ? (
+                    <SessionStatsView session={inactiveMaestroSession} />
+                  ) : (
+                    <SessionTerminal
+                      id={s.id}
+                      active={s.id === activeId}
+                      readOnly={Boolean(s.exited || s.closing)}
+                      persistent={s.persistent}
+                      onCwdChange={onCwdChange}
+                      onCommandChange={onCommandChange}
+                      onResize={onSessionResize}
+                      registry={registry}
+                      pendingData={pendingData}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </>
         )}
-        {sessions.map((s) => (
-          <div
-            key={s.id}
-            data-terminal-id={s.id}
-            className={`terminalContainer ${s.id === activeId ? "" : "terminalHidden"} ${s.id === activeId && activeIsCoordinator ? "coordinator-glow" : ""}`}
-          >
-            <SessionTerminal
-              id={s.id}
-              active={s.id === activeId}
-              readOnly={Boolean(s.exited || s.closing)}
-              persistent={s.persistent}
-              onCwdChange={onCwdChange}
-              onCommandChange={onCommandChange}
-              onResize={onSessionResize}
-              registry={registry}
-              pendingData={pendingData}
-            />
-          </div>
-        ))}
       </div>
 
       {activeWorkspaceView.codeEditorOpen &&

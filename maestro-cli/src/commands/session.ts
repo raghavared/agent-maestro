@@ -410,7 +410,8 @@ export function registerSessionCommands(program: Command) {
         .description('Add a doc entry to the current session')
         .requiredOption('--file <filePath>', 'File path for the doc')
         .option('--content <content>', 'Content of the doc (reads file if not provided)')
-        .action(async (title: string, cmdOpts: { file: string; content?: string }) => {
+        .option('--kind <kind>', 'Doc kind: markdown (default) or diagram')
+        .action(async (title: string, cmdOpts: { file: string; content?: string; kind?: string }) => {
             await guardCommand('session:docs:add');
             const globalOpts = program.opts();
             const isJson = globalOpts.json;
@@ -434,12 +435,15 @@ export function registerSessionCommands(program: Command) {
                 }
             }
 
+            const kind = cmdOpts.kind === 'diagram' ? 'diagram' : undefined;
+
             const spinner = !isJson ? ora('Adding doc to session...').start() : null;
             try {
                 const doc = await api.post(`/api/sessions/${sessionId}/docs`, {
                     title,
                     filePath: cmdOpts.file,
                     content,
+                    ...(kind ? { kind } : {}),
                 });
 
                 spinner?.succeed('Doc added to session');
