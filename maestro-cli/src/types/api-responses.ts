@@ -104,6 +104,53 @@ export interface LogDigestResponse {
   entries?: { timestamp: number; source: string; text: string }[];
 }
 
+// ── Git Types ──
+
+export interface GitFileChange {
+  path: string;
+  status: 'A' | 'M' | 'D' | 'R' | '?';
+  insertions: number;
+  deletions: number;
+}
+
+export interface GitDiffSummary {
+  branch: string;
+  baseBranch: string;
+  baseCommit: string;
+  ahead: number;
+  behind: number;
+  dirty: boolean;
+  filesChanged: number;
+  insertions: number;
+  deletions: number;
+  commitCount: number;
+  files: GitFileChange[];
+}
+
+export interface GitPrInfoResponse {
+  url: string;
+  number: number;
+  state: 'OPEN' | 'MERGED' | 'CLOSED' | 'DRAFT';
+  checks?: 'passing' | 'failing' | 'pending' | 'none';
+  reviewDecision?: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null;
+}
+
+export interface GitStatusResponse {
+  hasWorktree: boolean;
+  summary?: GitDiffSummary;
+  pr?: GitPrInfoResponse;
+}
+
+export interface GitDiffResponse {
+  diff: string;
+}
+
+export interface GitMergeResponse {
+  success: boolean;
+  message: string;
+  conflicts?: string[];
+}
+
 // ── Spell Types ──
 
 export type SpellEntityType = 'maestro' | 'skill' | 'team-member' | 'task' | 'doc' | 'session' | 'custom-prompt';
