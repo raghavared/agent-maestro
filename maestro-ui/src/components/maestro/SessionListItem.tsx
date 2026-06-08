@@ -8,8 +8,6 @@ import {
   MaestroTask,
 } from "../../app/types/maestro";
 import { useMaestroStore } from "../../stores/useMaestroStore";
-import { useSpacesStore } from "../../stores/useSpacesStore";
-import { useSessionStore } from "../../stores/useSessionStore";
 import { useUIStore } from "../../stores/useUIStore";
 import type { TeamColor } from "../../app/constants/teamColors";
 import type { SessionSubTab } from "../../utils/sessionLifecycle";
@@ -138,8 +136,7 @@ export const SessionListItem = React.memo(function SessionListItem({
   const [modeDropdownPos, setModeDropdownPos] = useState<{ top: number; left: number } | null>(null);
 
   const updateSessionMode = useMaestroStore((s) => s.updateSessionMode);
-  const openDocument = useSpacesStore((s) => s.openDocument);
-  const setActiveId = useSessionStore((s) => s.setActiveId);
+  const setDocOverlay = useUIStore((s) => s.setDocOverlay);
   const showTaskDetails = useUIStore((s) => s.sessionShowTaskDetails);
 
   const status = session.status;
@@ -299,18 +296,17 @@ export const SessionListItem = React.memo(function SessionListItem({
             done
           </span>
         )}
-        {/* Click-affordance dot. Green only when clicking would show the live
-            terminal (agent busy + PTY alive). Done sessions with idle-but-alive
-            PTYs read as "stopped" here because clicking surfaces stats. */}
+        {/* Click-affordance dot. Green whenever a live PTY exists, since clicking
+            opens that terminal (even an idle one — resumed sessions stay
+            reachable between turns). Stopped only when the terminal has exited,
+            where clicking surfaces stats and Resume revives it. */}
         {!isArchived && (
           isShowingTerminalOnClick ? (
-            <span className="sessionTile__linkedDot" title="Agent working — click to open terminal" />
+            <span className="sessionTile__linkedDot" title="Live terminal — click to open" />
           ) : (
             <span
               className="sessionTile__stoppedDot"
-              title={isLinkedLive
-                ? "Idle terminal — click for stats, Resume to reactivate"
-                : "No live terminal — Resume to reactivate"}
+              title="No live terminal — Resume to reactivate"
             />
           )
         )}
@@ -564,8 +560,7 @@ export const SessionListItem = React.memo(function SessionListItem({
                         title={doc.filePath}
                         onClick={(e) => {
                           e.stopPropagation();
-                          const spaceId = openDocument(session.projectId, doc);
-                          setActiveId(spaceId);
+                          setDocOverlay(doc);
                         }}
                       >
                         <span className="sessionTile__docIcon">{isMarkdown ? "M↓" : "{ }"}</span>

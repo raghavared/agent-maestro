@@ -23,7 +23,7 @@ export function ExportToSessionPicker({ onExport, onClose, whiteboardName }: Exp
         s.projectId === activeProjectId &&
         (s.status === "spawning" || s.status === "idle" || s.status === "working"),
     );
-    all.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+    all.sort((a, b) => (b.lastActivity ?? 0) - (a.lastActivity ?? 0));
     return all;
   }, [sessions, activeProjectId]);
 

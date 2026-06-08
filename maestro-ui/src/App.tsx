@@ -55,6 +55,7 @@ import { PromptSendAnimationLayer } from "./components/PromptSendAnimation";
 import { createMaestroSession } from "./services/maestroService";
 import { TaskDetailOverlay } from "./components/maestro/TaskDetailOverlay";
 import { SessionDetailOverlay } from "./components/maestro/SessionDetailOverlay";
+import { DocViewer } from "./components/maestro/DocViewer";
 import { STORAGE_SETUP_COMPLETE_KEY } from "./app/constants/defaults";
 
 // ---------------------------------------------------------------------------
@@ -194,6 +195,8 @@ export default function App() {
   const spacesRailActiveSection = useUIStore((s) => s.spacesRailActiveSection);
   const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
   const toggleSpacesPanel = useUIStore((s) => s.toggleSpacesPanel);
+  const docOverlay = useUIStore((s) => s.docOverlay);
+  const setDocOverlay = useUIStore((s) => s.setDocOverlay);
   // ---------- projects ----------
   const projects = useProjectStore((s) => s.projects);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
@@ -559,6 +562,9 @@ export default function App() {
                     <AppWorkspace registry={registry} pendingData={pendingData} />
                     <TaskDetailOverlay />
                     <SessionDetailOverlay />
+                    {docOverlay && (
+                      <DocViewer doc={docOverlay} onClose={() => setDocOverlay(null)} />
+                    )}
                     <AppModals />
                     <AppSlidePanel />
                   </div>

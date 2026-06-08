@@ -5,6 +5,7 @@ import { formatLaunchConfigLabel, getAgentToolForLaunchConfig, pickTopMember } f
 import { useTaskSessions } from "../../hooks/useTaskSessions";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useSpacesStore } from "../../stores/useSpacesStore";
+import { useUIStore } from "../../stores/useUIStore";
 import { useSessionStore } from "../../stores/useSessionStore";
 import { ConfirmActionModal } from "../modals/ConfirmActionModal";
 import { maestroClient } from "../../utils/MaestroClient";
@@ -203,9 +204,9 @@ export const TaskListItem = React.memo(function TaskListItem({
     const { sessions: taskSessions, loading: loadingSessions } = useTaskSessions(task.id);
     const tasks = useMaestroStore(s => s.tasks);
     const teamMembersMap = useMaestroStore(s => s.teamMembers);
-    const openDocument = useSpacesStore(s => s.openDocument);
     const createWhiteboard = useSpacesStore(s => s.createWhiteboard);
     const setActiveId = useSessionStore(s => s.setActiveId);
+    const setDocOverlay = useUIStore(s => s.setDocOverlay);
     const [isCreatingDiagram, setIsCreatingDiagram] = useState(false);
     const deleteTask = useMaestroStore(s => s.deleteTask);
     const updateTask = useMaestroStore(s => s.updateTask);
@@ -219,19 +220,17 @@ export const TaskListItem = React.memo(function TaskListItem({
         setIsCreatingDiagram(true);
         try {
             const title = `Diagram ${new Date().toLocaleDateString()}`;
-            // Find the first session ID available for this task
             const sessionId = task.sessionIds?.[0];
             if (!sessionId) return;
             const doc = await maestroClient.addTaskDoc(task.id, sessionId, title, '{}', 'diagram');
             setTaskDocs(prev => [...prev, doc]);
-            const spaceId = openDocument(task.projectId, doc);
-            setActiveId(spaceId);
+            setDocOverlay(doc);
         } catch {
             // best-effort
         } finally {
             setIsCreatingDiagram(false);
         }
-    }, [isCreatingDiagram, task.id, task.projectId, task.sessionIds, openDocument, setActiveId]);
+    }, [isCreatingDiagram, task.id, task.projectId, task.sessionIds, setDocOverlay]);
 
     const teamMembers = useMemo(() => Object.values(teamMembersMap), [teamMembersMap]);
 
@@ -793,8 +792,7 @@ export const TaskListItem = React.memo(function TaskListItem({
                                             title={doc.filePath}
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                const spaceId = openDocument(task.projectId, doc);
-                                                setActiveId(spaceId);
+                                                setDocOverlay(doc);
                                             }}
                                         >
                                             <span className="terminalTaskDocItemIcon">
@@ -819,8 +817,7 @@ export const TaskListItem = React.memo(function TaskListItem({
                                         title={doc.filePath}
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            const spaceId = openDocument(task.projectId, doc);
-                                            setActiveId(spaceId);
+                                            setDocOverlay(doc);
                                         }}
                                     >
                                         <span className="terminalTaskDocItemIcon">⬡</span>

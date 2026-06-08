@@ -12,6 +12,7 @@ import {
   masterToggleSchema,
   idParamSchema,
   paginationQuerySchema,
+  projectDocsQuerySchema,
   extractPagination,
   paginate,
 } from './validation';
@@ -92,7 +93,7 @@ export function createProjectRoutes(projectService: ProjectService, sessionServi
   });
 
   // Aggregate all docs across every session in the project, deduped by docId
-  router.get('/projects/:id/docs', validateParams(idParamSchema), validateQuery(paginationQuerySchema), async (req: Request, res: Response) => {
+  router.get('/projects/:id/docs', validateParams(idParamSchema), validateQuery(projectDocsQuerySchema), async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
 
@@ -104,10 +105,14 @@ export function createProjectRoutes(projectService: ProjectService, sessionServi
       }
 
       const docs = await sessionService.getProjectDocsWithContent(id);
+      const kind = req.query.kind as 'markdown' | 'diagram' | undefined;
+      const inferKind = (d: { kind?: string; filePath?: string }): 'markdown' | 'diagram' =>
+        d.kind === 'diagram' || d.filePath?.endsWith('.excalidraw') ? 'diagram' : 'markdown';
+      const filtered = kind ? docs.filter(d => inferKind(d) === kind) : docs;
       if (req.query.limit || req.query.offset) {
-        res.json(paginate(docs, extractPagination(req.query)));
+        res.json(paginate(filtered, extractPagination(req.query)));
       } else {
-        res.json(docs);
+        res.json(filtered);
       }
     } catch (err: unknown) {
       handleRouteError(err, res);

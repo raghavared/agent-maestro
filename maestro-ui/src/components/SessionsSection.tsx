@@ -32,6 +32,7 @@ import { ConfirmActionModal } from "./modals/ConfirmActionModal";
 import { buildTeamGroups } from "../utils/teamGrouping";
 import type { TeamColor } from "../app/constants/teamColors";
 import type { Space } from "../app/types/space";
+import { ProjectDocsList } from "./ProjectDocsList";
 import { useSessionTree } from "../hooks/useSessionTree";
 import { SessionListItem, type SessionTileLinkInfo } from "./maestro/SessionListItem";
 import type { SessionTreeNode } from "../app/types/maestro";
@@ -681,22 +682,7 @@ export const SessionsSection = React.memo(function SessionsSection({
 }: SessionsSectionProps) {
   // ==================== SEGMENTED FILTER ====================
   type SessionFilter = 'terminals' | 'agents' | 'docs' | 'drawings' | 'files';
-  const [activeFilters, setActiveFilters] = useState<Set<SessionFilter>>(
-    new Set<SessionFilter>(['terminals', 'agents', 'docs', 'drawings', 'files'])
-  );
-
-  const toggleFilter = useCallback((filter: SessionFilter) => {
-    setActiveFilters(prev => {
-      const next = new Set(prev);
-      if (next.has(filter)) {
-        // Don't allow deselecting all — keep at least one
-        if (next.size > 1) next.delete(filter);
-      } else {
-        next.add(filter);
-      }
-      return next;
-    });
-  }, []);
+  const [activeFilter, setActiveFilter] = useState<SessionFilter>('agents');
 
   // ==================== STATE MANAGEMENT (PHASE V) ====================
 
@@ -895,13 +881,13 @@ export const SessionsSection = React.memo(function SessionsSection({
     [allSpaces, activeProjectId],
   );
 
-  // Filter sessions based on active filters
-  const showTerminals = activeFilters.has('terminals');
-  const showAgents = activeFilters.has('agents');
-  const showDocs = activeFilters.has('docs');
-  const showDrawings = activeFilters.has('drawings');
-  const showFiles = activeFilters.has('files');
-  const showSpaces = showDocs || showDrawings || showFiles;
+  // Filter sessions based on active tab
+  const showTerminals = activeFilter === 'terminals';
+  const showAgents = activeFilter === 'agents';
+  const showDocs = activeFilter === 'docs';
+  const showDrawings = activeFilter === 'drawings';
+  const showFiles = activeFilter === 'files';
+  const showSpaces = showFiles;
 
   // Plain local terminals only (maestro sessions render via the tree below).
   const filteredTerminalSessions = useMemo(() => {
@@ -909,18 +895,13 @@ export const SessionsSection = React.memo(function SessionsSection({
     return sessions.filter((s) => !s.maestroSessionId);
   }, [sessions, showTerminals]);
 
-  // Grouped spaces in fixed display order: Drawings → Documents → Files.
-  // Each group is gated by its own filter so they toggle independently.
+  // Only files still use the spaces/tiles approach; docs and drawings use ProjectDocsList.
   const spaceGroups = useMemo(() => {
-    const drawings = showDrawings ? projectSpaces.filter((s) => s.type === "whiteboard") : [];
-    const documents = showDocs ? projectSpaces.filter((s) => s.type === "document") : [];
     const files = showFiles ? projectSpaces.filter((s) => s.type === "file") : [];
     return [
-      { key: "whiteboard" as const, label: "Drawings", items: drawings },
-      { key: "document" as const, label: "Documents", items: documents },
       { key: "file" as const, label: "Files", items: files },
     ];
-  }, [projectSpaces, showDocs, showDrawings, showFiles]);
+  }, [projectSpaces, showFiles]);
 
   // Phase 3: Memoize SortableContext items (plain terminals only)
   const sortableSessionIds = useMemo(
@@ -1337,16 +1318,16 @@ export const SessionsSection = React.memo(function SessionsSection({
         })}
       </div>
 
-      {/* Segmented filter: Terminals / Maestro Agents / Docs / Drawings / Files */}
+      {/* Segmented filter: Terminals / Agents / Docs / Drawings / Files */}
       <div className="sessionsSegmentedFilter">
         {SESSION_FILTER_TABS.map(({ id, label, icon }) => (
           <button
             key={id}
             type="button"
-            className={`sessionsSegmentedFilter__btn ${activeFilters.has(id) ? 'sessionsSegmentedFilter__btn--active' : ''}`}
-            onClick={() => toggleFilter(id)}
+            className={`sessionsSegmentedFilter__btn ${activeFilter === id ? 'sessionsSegmentedFilter__btn--active' : ''}`}
+            onClick={() => setActiveFilter(id)}
             title={label}
-            aria-pressed={activeFilters.has(id)}
+            aria-pressed={activeFilter === id}
           >
             <span className="sessionsSegmentedFilter__icon" aria-hidden="true">{icon}</span>
             <span className="sessionsSegmentedFilter__label">{label}</span>
@@ -1383,7 +1364,13 @@ export const SessionsSection = React.memo(function SessionsSection({
         </div>
       )}
 
-      <div className="sessionList">
+      {/* Docs tab — project-wide paginated list of markdown docs */}
+      {showDocs && <ProjectDocsList projectId={activeProjectId} kind="markdown" />}
+
+      {/* Drawings tab — project-wide paginated list of diagram docs */}
+      {showDrawings && <ProjectDocsList projectId={activeProjectId} kind="diagram" />}
+
+      <div className="sessionList" style={showDocs || showDrawings ? { display: 'none' } : undefined}>
         {sessions.length === 0 && projectMaestroSessions.length === 0 ? (
           <div className="empty">No sessions in this project.</div>
         ) : (
@@ -1469,63 +1456,27 @@ export const SessionsSection = React.memo(function SessionsSection({
                 <div className="spacesGroup__header">
                   <span className="spacesGroup__label">{group.label}</span>
                   <span className="spacesGroup__count">{group.items.length}</span>
-                  {group.key === "whiteboard" && onCreateWhiteboard && (
-                    <button
-                      type="button"
-                      className="spacesGroup__add"
-                      onClick={onCreateWhiteboard}
-                      title="New Whiteboard"
-                      aria-label="New Whiteboard"
-                    >
-                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" width="12" height="12">
-                        <line x1="8" y1="3" x2="8" y2="13" strokeLinecap="round" />
-                        <line x1="3" y1="8" x2="13" y2="8" strokeLinecap="round" />
-                      </svg>
-                    </button>
-                  )}
                 </div>
                 <div className="spacesGroup__list">
                   {group.items.map((space) => {
                     const isActive = space.id === activeSessionId;
-                    let meta = "";
-                    if (space.type === "whiteboard") {
-                      meta = formatSpaceAgo(space.createdAt);
-                    } else if (space.type === "document") {
-                      const src = space.doc.sessionName ? `from ${space.doc.sessionName}` : "";
-                      const when = formatSpaceAgo(space.doc.addedAt ?? space.createdAt);
-                      meta = [src, when].filter(Boolean).join(" · ");
-                    } else {
-                      const ext = space.filePath.split(".").pop()?.toLowerCase() || "";
-                      const loc = space.provider === "ssh" && space.sshTarget ? space.sshTarget : space.rootDir;
-                      meta = [loc, ext].filter(Boolean).join(" · ");
-                    }
+                    const ext = space.filePath.split(".").pop()?.toLowerCase() || "";
+                    const loc = space.provider === "ssh" && space.sshTarget ? space.sshTarget : space.rootDir;
+                    const meta = [loc, ext].filter(Boolean).join(" · ");
                     return (
                       <div
                         key={space.id}
-                        className={`spaceTile spaceTile--${space.type} ${isActive ? "spaceTile--active" : ""}`}
+                        className={`spaceTile spaceTile--file ${isActive ? "spaceTile--active" : ""}`}
                         onClick={() => onSelectSession(space.id)}
                         title={space.name}
                       >
                         <span className="spaceTile__icon" aria-hidden="true">
-                          {space.type === "whiteboard" ? (
-                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="15" height="15">
-                              <path d="M3 17l3.5-3.5M6.5 13.5l-2-2L14 2l2 2L6.5 13.5z" strokeLinejoin="round" />
-                              <path d="M12 4l2 2" strokeLinecap="round" />
-                            </svg>
-                          ) : space.type === "file" ? (
-                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="15" height="15">
-                              <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
-                              <path d="M12 2v4h4" />
-                              <path d="M8 11l-2 2 2 2" strokeLinecap="round" strokeLinejoin="round" />
-                              <path d="M12 11l2 2-2 2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          ) : (
-                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="15" height="15">
-                              <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
-                              <path d="M12 2v4h4" />
-                              <path d="M7 10h6M7 13h4" strokeLinecap="round" />
-                            </svg>
-                          )}
+                          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="15" height="15">
+                            <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
+                            <path d="M12 2v4h4" />
+                            <path d="M8 11l-2 2 2 2" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M12 11l2 2-2 2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
                         </span>
                         <span className="spaceTile__body">
                           <span className="spaceTile__name">{space.name}</span>

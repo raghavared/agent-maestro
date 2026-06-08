@@ -20,10 +20,9 @@ import { SessionLogStrip } from "../session-log/SessionLogStrip";
 import { SessionActionBar } from "../maestro/SessionActionBar";
 import { ModeChip } from "../maestro/ModeChip";
 import { isCoordinatorRole } from "../../utils/coordinatorRole";
-import { isWhiteboardId, isDocumentId, isFileId } from "../../app/types/space";
-import type { WhiteboardSpace, DocumentSpace, FileSpace } from "../../app/types/space";
+import { isWhiteboardId, isFileId } from "../../app/types/space";
+import type { WhiteboardSpace, FileSpace } from "../../app/types/space";
 const LazyExcalidrawBoard = React.lazy(() => import("../ExcalidrawBoard").then(m => ({ default: m.ExcalidrawBoard })));
-const LazyDocViewer = React.lazy(() => import("../maestro/DocViewer").then(m => ({ default: m.DocViewer })));
 
 const LazyCodeEditorPanel = React.lazy(() => import("../CodeEditorPanel"));
 const LazyMermaidDiagram = React.lazy(() => import("../maestro/MermaidDiagram").then(m => ({ default: m.MermaidDiagram })));
@@ -83,13 +82,11 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
   );
   const createWhiteboard = useSpacesStore((s) => s.createWhiteboard);
   const closeWhiteboard = useSpacesStore((s) => s.closeWhiteboard);
-  const closeDocument = useSpacesStore((s) => s.closeDocument);
   const closeFile = useSpacesStore((s) => s.closeFile);
   const setActiveId = useSessionStore((s) => s.setActiveId);
 
   // Determine if we're showing a non-session space
   const isActiveWhiteboard = activeId ? isWhiteboardId(activeId) : false;
-  const isActiveDocument = activeId ? isDocumentId(activeId) : false;
   const isActiveFile = activeId ? isFileId(activeId) : false;
   // Inspecting a maestro session (stats view) sets inspectedSessionId but does NOT
   // touch activeId. If activeId still points at a non-session space, the space
@@ -100,7 +97,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
   // inspectedSessionId (see useSessionStore.setActiveId).
   const hasInspectedSession = Boolean(inspectedMaestroSession);
   const isActiveSession =
-    hasInspectedSession || (!isActiveWhiteboard && !isActiveDocument && !isActiveFile);
+    hasInspectedSession || (!isActiveWhiteboard && !isActiveFile);
 
   const activeLogAgentTool = (() => {
     if (!active?.maestroSessionId) return active?.effectId ?? null;
@@ -272,19 +269,6 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
         </ErrorBoundary>
       )}
 
-      {/* Inline document space */}
-      {!hasInspectedSession && isActiveDocument && activeSpace?.type === "document" && (
-        <ErrorBoundary name="DocViewer">
-          <Suspense fallback={<div style={{ padding: 20, opacity: 0.5 }}>Loading document...</div>}>
-            <LazyDocViewer
-              key={activeSpace.id}
-              inline
-              doc={(activeSpace as DocumentSpace).doc}
-              onClose={() => closeDocument(activeSpace.id)}
-            />
-          </Suspense>
-        </ErrorBoundary>
-      )}
 
       {/* Inline file space — full-width code editor */}
       {!hasInspectedSession && isActiveFile && activeSpace?.type === "file" && (
