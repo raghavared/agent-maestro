@@ -398,6 +398,75 @@
 .spacesPanelContent .agentShortcutBtn--gemini   { --tile-accent: 66, 133, 244; }  /* gemini blue */
 .spacesPanelContent .agentShortcutBtn--hermes   { --tile-accent: 167, 139, 250; } /* purple */
 
+/* ------------------------------------------------------------------ */
+/*  Quick-launch chips: brand logo + name, flat (no tile decoration)  */
+/* ------------------------------------------------------------------ */
+
+.spacesPanelContent .agentShortcutRow {
+  flex-wrap: wrap;
+}
+
+.agentShortcutBtn--chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px 0 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text, #e2e8f0);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.spacesPanelContent .agentShortcutBtn--chip {
+  height: 28px;
+  padding: 0 11px 0 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: none;
+}
+
+.agentShortcutBtn--chip:hover,
+.spacesPanelContent .agentShortcutBtn--chip:hover {
+  transform: none;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: none;
+}
+
+.agentShortcutChip__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* The "New terminal" chip keeps its glyph, tinted green. */
+.agentShortcutBtn--terminal .agentShortcutChip__icon {
+  color: #34d399;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+.agentShortcutChip__img {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.agentShortcutChip__label {
+  line-height: 1;
+}
+
 .spacesPanelContent .sessionList {
   padding: 8px 14px;
   gap: 4px;

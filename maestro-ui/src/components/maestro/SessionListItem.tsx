@@ -94,10 +94,11 @@ export interface SessionListItemProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   link: SessionTileLinkInfo | null;
-  isActiveTerminal: boolean;
+  isSelected: boolean;
   maestroTasks: Record<string, MaestroTask>;
   tab: SessionSubTab;
   onOpenDetail: (sessionId: string) => void;
+  onSelect: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;
   onJumpToTerminal: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;
   onStop: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;
   onResume: (sessionId: string) => void;
@@ -107,8 +108,6 @@ export interface SessionListItemProps {
   isResuming: boolean;
 }
 
-const TERMINAL_STATUSES: MaestroSessionStatus[] = ["completed", "failed", "stopped"];
-
 export const SessionListItem = React.memo(function SessionListItem({
   session,
   depth,
@@ -117,10 +116,11 @@ export const SessionListItem = React.memo(function SessionListItem({
   isCollapsed,
   onToggleCollapse,
   link,
-  isActiveTerminal,
+  isSelected,
   maestroTasks,
   tab,
   onOpenDetail,
+  onSelect,
   onJumpToTerminal,
   onStop,
   onResume,
@@ -141,7 +141,8 @@ export const SessionListItem = React.memo(function SessionListItem({
 
   const status = session.status;
   const needsInput = session.needsInput?.active;
-  const isTerminal = TERMINAL_STATUSES.includes(status);
+  // Liveness comes from the local terminal (linkMap), NOT the unreliable `status`
+  // field. No live terminal (exited, or never reopened this session) → non-live.
   const isLinkedLive = Boolean(link && !link.exited);
   const hasChildren = childCount > 0;
   const isHumanCompleted = Boolean(session.humanCompletedAt);
@@ -208,8 +209,9 @@ export const SessionListItem = React.memo(function SessionListItem({
 
   return (
     <div
-      className={`sessionTile sessionTile--${status} ${needsInput ? "sessionTile--needsInput" : ""} ${isActiveTerminal ? "sessionTile--activeTerminal" : ""} ${depth > 0 ? "sessionTile--child" : ""} ${isArchived ? "sessionTile--archived" : ""} ${isOutOfTab ? "sessionTile--outOfTab" : ""}`}
+      className={`sessionTile sessionTile--${status} ${needsInput ? "sessionTile--needsInput" : ""} ${isSelected ? "sessionTile--selected" : ""} ${depth > 0 ? "sessionTile--child" : ""} ${isArchived ? "sessionTile--archived" : ""} ${isOutOfTab ? "sessionTile--outOfTab" : ""}`}
       style={teamColor ? ({ "--session-team-color": teamColor.primary } as React.CSSProperties) : undefined}
+      onClick={() => onSelect(session, link)}
     >
       {teamColor && <span className="sessionTile__accent" aria-hidden="true" />}
 
@@ -232,11 +234,11 @@ export const SessionListItem = React.memo(function SessionListItem({
         </button>
 
         {/* Leading control.
-            Active/Inactive → "mark done" radio. Marking done stops the live
-            terminal and stamps the ✓ "done by you" marker, landing the session
-            in Inactive. Clicking again just clears the marker.
-            Archived → static archive glyph (the radio is dead here because the
-            archived precedence wins, so we don't show a toggle that does nothing). */}
+            Open/Done → "mark done" radio. Marking done is a pure intent marker:
+            it stamps humanCompletedAt (moving the session to the Done tab) and does
+            NOT touch any terminal — liveness stays as decoration. Clicking again
+            clears the stamp and moves it back to Open.
+            Archived → static archive glyph (archived precedence wins). */}
         {isArchived ? (
           <span
             className="sessionTile__radio sessionTile__radio--archived"
@@ -253,21 +255,18 @@ export const SessionListItem = React.memo(function SessionListItem({
               e.stopPropagation();
               onToggleHumanComplete(session);
             }}
-            title={isHumanCompleted ? "Done by you — click to reopen" : "Mark done (stops the terminal)"}
+            title={isHumanCompleted ? "Marked done — click to move back to Open" : "Mark done — moves to the Done tab (terminal keeps running)"}
             aria-pressed={isHumanCompleted}
           >
             {isHumanCompleted ? "✓" : "○"}
           </button>
         )}
 
-        {/* Title — switches to / resumes the session's terminal */}
+        {/* Title folds into the whole-tile select (handled on the root). Live
+            tiles switch to their terminal; non-live tiles just get selected. */}
         <span
           className="sessionTile__title"
-          onClick={(e) => {
-            e.stopPropagation();
-            onJumpToTerminal(session, link);
-          }}
-          title={isLinkedLive ? `Switch to ${title}` : `Resume ${title}`}
+          title={isLinkedLive ? `Switch to ${title}` : `Select ${title}`}
         >
           {avatars && <span className="sessionTile__avatar">{avatars}</span>}
           <span className="sessionTile__titleText">{title}</span>
@@ -283,7 +282,15 @@ export const SessionListItem = React.memo(function SessionListItem({
             done
           </span>
         )}
-        {isLinkedLive && <span className="sessionTile__linkedDot" title="Live terminal" />}
+        {/* Liveness decoration (from linkMap, not status). Archived tiles are records,
+            so we don't show a running/stopped state for them. */}
+        {!isArchived && (
+          isLinkedLive ? (
+            <span className="sessionTile__linkedDot" title="Live terminal — running now" />
+          ) : (
+            <span className="sessionTile__stoppedDot" title="No live terminal — resume to reactivate" />
+          )
+        )}
         {docs.length > 0 && (
           <span
             className="sessionTile__docBadge"
@@ -323,6 +330,31 @@ export const SessionListItem = React.memo(function SessionListItem({
             </button>
           )}
 
+          {/* Resume — prominent, on every non-live & non-archived tile (not buried in
+              the meta expander). Disabled with an explanatory tooltip for agent tools
+              that can't be resumed (only claude-code can). */}
+          {!isArchived && !isLinkedLive && (
+            <button
+              type="button"
+              className="sessionTile__resumeBtn"
+              disabled={!canResume || isResuming}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (canResume) onResume(session.id);
+              }}
+              title={
+                canResume
+                  ? isResuming
+                    ? "Resuming…"
+                    : "Resume this session (revives its terminal)"
+                  : "Resume is only available for Claude Code sessions"
+              }
+            >
+              <span className="sessionTile__resumeBtnIcon" aria-hidden="true">↻</span>
+              <span className="sessionTile__resumeBtnLabel">{isResuming ? "Resuming…" : "Resume"}</span>
+            </button>
+          )}
+
           {/* Close — every non-archived tile. Stops the terminal (if live) and archives. */}
           {!isArchived && (
             <button
@@ -338,9 +370,10 @@ export const SessionListItem = React.memo(function SessionListItem({
             </button>
           )}
 
-          {/* Restore — only archived tiles. Clears archivedAt (and its subtree),
-              returning the session to Inactive (or Active if a terminal is live).
-              Works for every agent type, unlike Resume. */}
+          {/* Restore — only archived tiles. Clears archivedAt across the subtree,
+              un-archiving the session (it returns to Open, or Done if it was also
+              marked done before being archived). Works for every agent type, unlike
+              Resume (which also revives the terminal). */}
           {isArchived && (
             <button
               type="button"
@@ -349,7 +382,7 @@ export const SessionListItem = React.memo(function SessionListItem({
                 e.stopPropagation();
                 onRestore(session);
               }}
-              title={hasChildren ? "Restore session + all sub-sessions" : "Restore session (back to Active)"}
+              title={hasChildren ? "Restore session + all sub-sessions (un-archive)" : "Restore session (un-archive)"}
             >
               ↩
             </button>
@@ -522,19 +555,6 @@ export const SessionListItem = React.memo(function SessionListItem({
               >
                 ⓘ Details
               </button>
-              {isTerminal && canResume && (
-                <button
-                  type="button"
-                  className="sessionTile__actionBtn sessionTile__actionBtn--resume"
-                  disabled={isResuming}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onResume(session.id);
-                  }}
-                >
-                  {isResuming ? "Resuming…" : "↻ Resume"}
-                </button>
-              )}
             </div>
           </div>
         </div>

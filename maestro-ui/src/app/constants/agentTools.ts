@@ -16,6 +16,7 @@ const withIds = (models: { value: ModelType; label: string }[]) =>
 export const MODELS_BY_AGENT_TOOL: Record<AgentTool, { value: ModelType; label: string }[]> = {
   "claude-code": [
     { value: "claude-opus-4-8", label: "Opus 4.8" },
+    { value: "claude-opus-4-8[1m]", label: "Opus 4.8 1M" },
     { value: "claude-opus-4-7", label: "Opus 4.7" },
     { value: "claude-opus-4-7[1m]", label: "Opus 4.7 1M" },
     { value: "claude-sonnet-4-6", label: "Sonnet 4.6" },
@@ -60,6 +61,7 @@ export const DEFAULT_MODEL_BY_AGENT_TOOL: Record<AgentTool, ModelType> = {
 // has several assigned. Must stay in sync with MODEL_POWER in
 // maestro-server/src/api/sessionRoutes.ts so the badge mirrors what launches.
 export const MODEL_POWER: Record<string, number> = {
+  "claude-opus-4-8[1m]": 5.9,
   "claude-opus-4-8": 5.8,
   "gpt-5.5": 5.5,
   "claude-opus-4-7[1m]": 5.2,
@@ -227,6 +229,7 @@ export function sanitizeLaunchConfig(config?: Partial<LaunchConfig> | null): Lau
 
 const MODEL_LABEL_OVERRIDES: Record<string, string> = {
   "claude-opus-4-8": "Opus 4.8",
+  "claude-opus-4-8[1m]": "Opus 4.8 1M",
   "claude-opus-4-7": "Opus 4.7",
   "claude-opus-4-7[1m]": "Opus 4.7 1M",
   "claude-sonnet-4-6": "Sonnet 4.6",

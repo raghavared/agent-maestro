@@ -1,7 +1,8 @@
 import React, { useState, useRef, useLayoutEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { TeamMember, AgentMode, AgentTool } from "../../app/types/maestro";
-import { AGENT_TOOL_SHORT_LABELS, AGENT_TOOL_SYMBOLS } from "../../app/constants/agentTools";
+import { AGENT_TOOL_SHORT_LABELS } from "../../app/constants/agentTools";
+import { AgentLogo } from "./AgentChip";
 
 type SplitPlayButtonProps = {
     onPlayDefault: () => void;
@@ -188,7 +189,7 @@ export function SplitPlayButton({
                                                 {subline && (
                                                     <div className="splitPlayDropdown__memberSub">
                                                         {member.agentTool && (
-                                                            <span className="splitPlayDropdown__agentIcon">{AGENT_TOOL_SYMBOLS[member.agentTool]}</span>
+                                                            <AgentLogo agentTool={member.agentTool} size={11} className="splitPlayDropdown__agentIcon" />
                                                         )}
                                                         {subline}
                                                     </div>

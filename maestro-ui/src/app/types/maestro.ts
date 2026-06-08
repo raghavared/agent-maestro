@@ -19,6 +19,7 @@ export type ClaudeModel =
   | 'opus'
   | 'opus[1m]'
   | 'claude-opus-4-8'
+  | 'claude-opus-4-8[1m]'
   | 'claude-opus-4-7'
   | 'claude-opus-4-7[1m]'
   | 'claude-sonnet-4-6'

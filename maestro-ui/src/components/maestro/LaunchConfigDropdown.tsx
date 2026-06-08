@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { AgentTool, LaunchConfig, LaunchReasoningEffort, LaunchSpeed } from "../../app/types/maestro";
+import { AgentLogo } from "./AgentChip";
 import {
     AGENT_TOOL_OPTIONS,
     createLaunchConfig,
@@ -99,7 +100,8 @@ export function LaunchConfigDropdown({
                                 }
                             }}
                         >
-                            <span className="terminalLaunchDropdown__toolSymbol">{tool.symbol}</span>
+                            <AgentLogo agentTool={tool.id} size={12} className="terminalLaunchDropdown__toolSymbol" />
+
                             <span className="terminalLaunchDropdown__toolLabel">{tool.label}</span>
                             {configured && <span className="terminalLaunchDropdown__toolMeta">{formatLaunchConfigLabel(launchConfig)}</span>}
                             <span className="terminalLaunchDropdown__toolCaret">›</span>

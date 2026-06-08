@@ -481,6 +481,11 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       completedAt: session.completedAt,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
+      // Persisted human-intent lifecycle stamps drive the Open/Done/Archived tab.
+      // They MUST be in the summary DTO, or a list refetch wipes them from the
+      // store and archived/done sessions snap back to the Open tab.
+      humanCompletedAt: session.humanCompletedAt,
+      archivedAt: session.archivedAt,
     };
   }
 
@@ -1341,6 +1346,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       // Fetch team member defaults from the effective members (after task-level fallback)
       const MODEL_POWER: Record<string, number> = {
+        'claude-opus-4-8[1m]': 5.9,
         'claude-opus-4-8': 5.8,
         'gpt-5.5': 5.5,
         'claude-opus-4-7[1m]': 5.2,

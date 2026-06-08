@@ -20,7 +20,8 @@ import { createPortal } from "react-dom";
 import { getProcessEffectById, type ProcessEffect } from "../processEffects";
 import { shortenPathSmart, normalizeSeparators } from "../pathDisplay";
 import { Icon } from "./Icon";
-import { type MaestroTask, type MaestroSession as MaestroSession, type Team } from "../app/types/maestro";
+import { type MaestroTask, type MaestroSession as MaestroSession, type Team, type AgentTool } from "../app/types/maestro";
+import { AgentLogo } from "./maestro/AgentChip";
 import { useMaestroStore } from "../stores/useMaestroStore";
 import { useUIStore } from "../stores/useUIStore";
 import { useSpacesStore } from "../stores/useSpacesStore";
@@ -35,6 +36,20 @@ import { useSessionTree } from "../hooks/useSessionTree";
 import { SessionListItem, type SessionTileLinkInfo } from "./maestro/SessionListItem";
 import type { SessionTreeNode } from "../app/types/maestro";
 import { resolveSessionTab, buildChildrenByParent, collectSubtreeIds as collectSubtreeIdsUtil, type SessionSubTab } from "../utils/sessionLifecycle";
+
+// Quick-launch shortcut id → brand logo + display name.
+const SHORTCUT_AGENT_TOOL: Record<string, AgentTool> = {
+  claude: "claude-code",
+  codex: "codex",
+  gemini: "gemini",
+  hermes: "hermes",
+};
+const SHORTCUT_LABEL: Record<string, string> = {
+  claude: "Claude",
+  codex: "Codex",
+  gemini: "Gemini",
+  hermes: "Hermes",
+};
 
 function formatSpaceAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -498,10 +513,12 @@ interface SessionNodeRendererProps {
   maestroColorMap: Map<string, TeamColor>;
   linkMap: Map<string, SessionTileLinkInfo>;
   activeLocalSessionId: string | null;
+  selectedSessionId: string | null;
   maestroTasks: Record<string, MaestroTask>;
   resumingSessionId: string | null;
   onToggleCollapse: (sessionId: string) => void;
   onOpenDetail: (sessionId: string) => void;
+  onSelect: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;
   onJumpToTerminal: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;
   onStop: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;
   onResume: (sessionId: string) => void;
@@ -518,10 +535,12 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
   maestroColorMap,
   linkMap,
   activeLocalSessionId,
+  selectedSessionId,
   maestroTasks,
   resumingSessionId,
   onToggleCollapse,
   onOpenDetail,
+  onSelect,
   onJumpToTerminal,
   onStop,
   onResume,
@@ -532,7 +551,11 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
   const isCollapsed = collapsedSessions.has(node.id);
   const link = linkMap.get(node.id) ?? null;
   const teamColor = maestroColorMap.get(node.id) ?? null;
-  const isActiveTerminal = Boolean(link && link.localSessionId === activeLocalSessionId);
+  // Exactly one tile is "current": the manually-selected session if the user has
+  // clicked one, otherwise the tile whose terminal is active in the workspace.
+  const isSelected = selectedSessionId != null
+    ? node.id === selectedSessionId
+    : Boolean(link && link.localSessionId === activeLocalSessionId);
 
   return (
     <div
@@ -547,10 +570,11 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
         isCollapsed={isCollapsed}
         onToggleCollapse={() => onToggleCollapse(node.id)}
         link={link}
-        isActiveTerminal={isActiveTerminal}
+        isSelected={isSelected}
         maestroTasks={maestroTasks}
         tab={tab}
         onOpenDetail={onOpenDetail}
+        onSelect={onSelect}
         onJumpToTerminal={onJumpToTerminal}
         onStop={onStop}
         onResume={onResume}
@@ -571,10 +595,12 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
               maestroColorMap={maestroColorMap}
               linkMap={linkMap}
               activeLocalSessionId={activeLocalSessionId}
+              selectedSessionId={selectedSessionId}
               maestroTasks={maestroTasks}
               resumingSessionId={resumingSessionId}
               onToggleCollapse={onToggleCollapse}
               onOpenDetail={onOpenDetail}
+              onSelect={onSelect}
               onJumpToTerminal={onJumpToTerminal}
               onStop={onStop}
               onResume={onResume}
@@ -868,21 +894,25 @@ export const SessionsSection = React.memo(function SessionsSection({
     setResumingSessionId(maestroSessionId);
     try {
       await resumeSession(maestroSessionId);
-      // Resuming revives the session — pull it back out of the Archived tab.
-      if (maestroSessions[maestroSessionId]?.archivedAt) {
-        void setSessionArchived(maestroSessionId, false);
-      }
+      // Resuming revives the session — move it back to Open regardless of which
+      // tab it was in. Clear both archive and done stamps so it surfaces correctly.
+      const s = maestroSessions[maestroSessionId];
+      if (s?.archivedAt) void setSessionArchived(maestroSessionId, false);
+      if (s?.humanCompletedAt) void setSessionHumanComplete(maestroSessionId, false);
     } catch (err) {
       console.error('Failed to resume session:', err);
       useUIStore.getState().reportError('Failed to resume session', err);
     } finally {
       setResumingSessionId(null);
     }
-  }, [resumeSession, maestroSessions, setSessionArchived]);
+  }, [resumeSession, maestroSessions, setSessionArchived, setSessionHumanComplete]);
 
   // ==================== MAESTRO SESSION TREE ====================
   const [collapsedSessions, setCollapsedSessions] = React.useState<Set<string>>(new Set());
-  const [sessionSubTab, setSessionSubTab] = React.useState<SessionSubTab>('active');
+  const [sessionSubTab, setSessionSubTab] = React.useState<SessionSubTab>('open');
+  // The maestro session the user has clicked as "current". Drives the tile
+  // highlight even for non-live sessions (which have no active terminal).
+  const [selectedSessionId, setSelectedSessionId] = React.useState<string | null>(null);
 
   // All maestro sessions in this project (source of truth for the tree)
   const projectMaestroSessions = useMemo(() => {
@@ -926,35 +956,24 @@ export const SessionsSection = React.memo(function SessionsSection({
     [childrenByParentId],
   );
 
-  // A root is "live" when it — or any session in its spawn subtree — has a live
-  // (non-exited) local terminal. This is what makes a tree Active vs Inactive.
-  const hasLiveTerminal = useCallback(
-    (rootId: string): boolean =>
-      collectSubtreeIds(rootId).some((id) => {
-        const l = linkMap.get(id);
-        return Boolean(l && !l.exited);
-      }),
-    [collectSubtreeIds, linkMap],
-  );
-
-  // Tab resolution is liveness-driven: Archived (archivedAt) always wins; otherwise
-  // a root is Active when its subtree has a live terminal, else Inactive. The
-  // humanCompletedAt timestamp is a marker only (✓ "done by you") — it does NOT
-  // move a session between tabs. Children always render under their visible root.
+  // Tab resolution: archivedAt wins → Archived; humanCompletedAt → Done; else Open.
+  // No local terminal state needed — tabs survive app restarts.
   const visibleRoots = useMemo(() => {
     return sessionRoots.filter(
-      (root) => resolveSessionTab(root, hasLiveTerminal(root.id)) === sessionSubTab,
+      (root) => resolveSessionTab(root) === sessionSubTab,
     );
-  }, [sessionRoots, sessionSubTab, hasLiveTerminal]);
+  }, [sessionRoots, sessionSubTab]);
 
-  // Counts for the Active / Inactive / Archived sub-tabs (by root, matching each tab).
+  // Counts for the Open / Done / Archived sub-tabs (by root).
   const sessionTabCounts = useMemo(() => {
-    const counts = { active: 0, inactive: 0, archived: 0 };
-    for (const root of sessionRoots) counts[resolveSessionTab(root, hasLiveTerminal(root.id))]++;
+    const counts = { open: 0, done: 0, archived: 0 };
+    for (const root of sessionRoots) counts[resolveSessionTab(root)]++;
     return counts;
-  }, [sessionRoots, hasLiveTerminal]);
+  }, [sessionRoots]);
 
-  // Sessions in this project with a live (non-exited) terminal — the "running live" count
+  // Live terminals across ALL tabs (Open/Done/Archived) — a done or archived
+  // session can still have a running terminal until it's explicitly stopped.
+  // Reads liveness from linkMap (the reliable signal), never the stale `status`.
   const liveCount = useMemo(() => {
     let n = 0;
     for (const s of projectMaestroSessions) {
@@ -984,6 +1003,16 @@ export const SessionsSection = React.memo(function SessionsSection({
       void handleResume(session.id);
     }
   }, [onSelectSession, handleResume]);
+
+  // Clicking a tile body selects it as the current session. Live sessions also
+  // switch the workspace to their running terminal; non-live sessions only get
+  // highlighted (no auto-resume — that stays on the explicit Resume button).
+  const handleSelectTile = useCallback((session: MaestroSession, link: SessionTileLinkInfo | null) => {
+    setSelectedSessionId(session.id);
+    if (link && !link.exited) {
+      onSelectSession(link.localSessionId);
+    }
+  }, [onSelectSession]);
 
   // Close a maestro session AND its entire spawn subtree as a unit: stop every
   // live descendant terminal and archive every node. This keeps a coordinator and
@@ -1017,17 +1046,15 @@ export const SessionsSection = React.memo(function SessionsSection({
     }
   }, [collectSubtreeIds, linkMap, closeAndArchiveTree]);
 
-  // "Mark done" stamps humanCompletedAt (the ✓ "done by you" marker) AND stops the
-  // session's own live terminal, so a marked-done session lands in Inactive. Toggling
-  // it back off just clears the marker (the terminal is already stopped).
+  // "Mark done" is a pure human-intent marker: it only stamps humanCompletedAt
+  // (moving the root to the Done tab) and deliberately leaves every terminal in the
+  // subtree running — liveness is decoration in the Open/Done/Archived model, so a
+  // done coordinator can keep its live workers without orphaning them. Stopping
+  // terminals is the job of Close (✕), which cascades the whole subtree. Toggling
+  // done off just clears the marker, returning the root to Open.
   const handleToggleHumanComplete = useCallback((session: MaestroSession) => {
-    const markDone = !session.humanCompletedAt;
-    void setSessionHumanComplete(session.id, markDone);
-    if (markDone) {
-      const link = linkMap.get(session.id);
-      if (link && !link.exited) onCloseSession(link.localSessionId);
-    }
-  }, [setSessionHumanComplete, linkMap, onCloseSession]);
+    void setSessionHumanComplete(session.id, !session.humanCompletedAt);
+  }, [setSessionHumanComplete]);
 
   const handleOpenTeamView = useCallback((session: MaestroSession) => {
     useUIStore.getState().setTeamViewRootId(session.id);
@@ -1217,33 +1244,35 @@ export const SessionsSection = React.memo(function SessionsSection({
       <div className="agentShortcutRow" role="toolbar" aria-label="Quick launch">
         <button
           type="button"
-          className="agentShortcutBtn agentShortcutBtn--icon agentShortcutBtn--terminal"
+          className="agentShortcutBtn agentShortcutBtn--chip agentShortcutBtn--terminal"
           onClick={onOpenNewSession}
           aria-label="New terminal"
           title="New terminal"
         >
-          <span className="agentShortcutIconFallback" aria-hidden="true">
-            {">_"}
-          </span>
+          <span className="agentShortcutChip__icon" aria-hidden="true">{">_"}</span>
+          <span className="agentShortcutChip__label">Terminal</span>
         </button>
-        {agentShortcuts.map((effect) => (
-          <button
-            key={effect.id}
-            type="button"
-            className={`agentShortcutBtn agentShortcutBtn--icon agentShortcutBtn--${effect.id}`}
-            onClick={() => onQuickStart(effect)}
-            aria-label={`Start ${effect.label}`}
-            title={`Start ${effect.label}`}
-          >
-            {effect.iconSrc ? (
-              <img className="agentShortcutIcon" src={effect.iconSrc} alt="" aria-hidden="true" />
-            ) : (
-              <span className="agentShortcutIconFallback" aria-hidden="true">
-                {"\u25B6"}
-              </span>
-            )}
-          </button>
-        ))}
+        {agentShortcuts.map((effect) => {
+          const tool = SHORTCUT_AGENT_TOOL[effect.id];
+          const label = SHORTCUT_LABEL[effect.id] ?? effect.label;
+          return (
+            <button
+              key={effect.id}
+              type="button"
+              className={`agentShortcutBtn agentShortcutBtn--chip agentShortcutBtn--${effect.id}`}
+              onClick={() => onQuickStart(effect)}
+              aria-label={`Start ${label}`}
+              title={`Start ${label}`}
+            >
+              {tool ? (
+                <AgentLogo agentTool={tool} size={14} className={`agentShortcutChip__icon agentChip--${tool}`} />
+              ) : effect.iconSrc ? (
+                <img className="agentShortcutChip__img" src={effect.iconSrc} alt="" aria-hidden="true" />
+              ) : null}
+              <span className="agentShortcutChip__label">{label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Segmented filter: Terminals / Sessions / Documents */}
@@ -1263,9 +1292,9 @@ export const SessionsSection = React.memo(function SessionsSection({
       {/* Sub-tabs for the maestro session tree */}
       {showSessions && (
         <div className="sessionSubTabs" role="tablist" aria-label="Session filter">
-          {(['active', 'inactive', 'archived'] as SessionSubTab[]).map((tab) => {
+          {(['open', 'done', 'archived'] as SessionSubTab[]).map((tab) => {
             const count = sessionTabCounts[tab];
-            const label = tab === 'active' ? 'Active' : tab === 'inactive' ? 'Inactive' : 'Archived';
+            const label = tab === 'open' ? 'Open' : tab === 'done' ? 'Done' : 'Archived';
             return (
               <button
                 key={tab}
@@ -1299,21 +1328,21 @@ export const SessionsSection = React.memo(function SessionsSection({
               visibleRoots.length === 0 ? (
                 <div className="sessionEmptyState">
                   <span className="sessionEmptyState__icon" aria-hidden="true">
-                    {sessionSubTab === 'active' ? '◉' : sessionSubTab === 'inactive' ? '○' : '▫'}
+                    {sessionSubTab === 'open' ? '◉' : sessionSubTab === 'done' ? '✓' : '▫'}
                   </span>
                   <span className="sessionEmptyState__title">
-                    {sessionSubTab === 'active'
-                      ? 'No active sessions'
-                      : sessionSubTab === 'inactive'
-                        ? 'No inactive sessions'
+                    {sessionSubTab === 'open'
+                      ? 'No open sessions'
+                      : sessionSubTab === 'done'
+                        ? 'No sessions marked done'
                         : 'No archived sessions'}
                   </span>
                   <span className="sessionEmptyState__hint">
-                    {sessionSubTab === 'active'
-                      ? 'Spawn or resume a session to get started.'
-                      : sessionSubTab === 'inactive'
-                        ? 'Sessions whose terminal has stopped land here. Resume to reactivate.'
-                        : 'Closing a session with ✕ moves it here.'}
+                    {sessionSubTab === 'open'
+                      ? 'New and unaddressed sessions appear here. Spawn one to get started.'
+                      : sessionSubTab === 'done'
+                        ? 'Click the ○ next to an open session to mark it done — it moves here.'
+                        : 'Sessions you close with ✕ are dismissed here. Restore them anytime.'}
                   </span>
                 </div>
               ) : (
@@ -1328,10 +1357,12 @@ export const SessionsSection = React.memo(function SessionsSection({
                       maestroColorMap={maestroColorMap}
                       linkMap={linkMap}
                       activeLocalSessionId={activeSessionId}
+                      selectedSessionId={selectedSessionId}
                       maestroTasks={maestroTasks}
                       resumingSessionId={resumingSessionId}
                       onToggleCollapse={handleToggleSessionCollapse}
                       onOpenDetail={handleOpenSessionDetail}
+                      onSelect={handleSelectTile}
                       onJumpToTerminal={handleJumpToTerminal}
                       onStop={handleStopSession}
                       onResume={handleResume}

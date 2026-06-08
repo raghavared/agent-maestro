@@ -224,6 +224,57 @@
   border-color: rgba(56, 189, 248, 0.25);
 }
 
+/* Agent chip: brand logo + tool name, no border/background. */
+.agentChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  color: var(--terminal-gray);
+}
+
+.agentChip__logo {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.agentChip__name {
+  font-weight: 600;
+}
+
+.agentChip__model {
+  font-weight: 500;
+  opacity: 0.6;
+  color: var(--terminal-gray);
+}
+
+.agentChip__model::before {
+  content: "·";
+  margin: 0 4px 0 1px;
+  opacity: 0.7;
+}
+
+.agentChip--claude-code {
+  color: #a78bfa;
+}
+
+.agentChip--codex {
+  color: #10b981;
+}
+
+.agentChip--hermes {
+  color: #f59e0b;
+}
+
+.agentChip--gemini {
+  color: #38bdf8;
+}
+
 /* Model Badge (shows effective model next to team member) */
 .terminalMetaBadge--model {
   font-size: 9px;

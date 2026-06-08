@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { TeamMember, AgentTool } from "../../app/types/maestro";
-import { AGENT_TOOL_LABELS, AGENT_TOOL_SYMBOLS } from "../../app/constants/agentTools";
+import { AGENT_TOOL_LABELS } from "../../app/constants/agentTools";
+import { AgentChip } from "./AgentChip";
 
 type TeamMemberListProps = {
     teamMembers: TeamMember[];
@@ -20,6 +21,7 @@ function getModelDisplayLabel(model?: string, agentTool?: AgentTool): string {
         "sonnet[1m]": "Sonnet [1M]",
         opus: "Opus",
         "claude-opus-4-8": "Opus 4.8",
+        "claude-opus-4-8[1m]": "Opus 4.8 [1M]",
         "claude-opus-4-7": "Opus 4.7",
         "claude-opus-4-7[1m]": "Opus 4.7 [1M]",
         "opus[1m]": "Opus [1M]",
@@ -123,13 +125,12 @@ function TeamMemberRow({
                     </span>
                     <span className="terminalTaskTitle" style={{ flex: 1, minWidth: 0 }}>{member.name}</span>
 
-                    {/* Model badge */}
-                    {modelLabel && (
-                        <span className={`terminalMetaBadge terminalMetaBadge--agent ${member.agentTool ? `terminalMetaBadge--agent-${member.agentTool}` : ''}`}>
-                            {member.agentTool && AGENT_TOOL_SYMBOLS[member.agentTool]}{' '}
-                            {modelLabel}
-                        </span>
-                    )}
+                    {/* Agent chip: brand logo + tool name (+ model) */}
+                    {member.agentTool ? (
+                        <AgentChip agentTool={member.agentTool} model={member.model ? modelLabel : undefined} />
+                    ) : modelLabel ? (
+                        <span className="terminalMetaBadge terminalMetaBadge--model">{modelLabel}</span>
+                    ) : null}
 
                     {/* Global scope indicator */}
                     {member.scope === 'global' && (

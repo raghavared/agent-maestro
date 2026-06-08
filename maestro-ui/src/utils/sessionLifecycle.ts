@@ -1,17 +1,18 @@
 import type { MaestroSession } from '../app/types/maestro';
 
-export type SessionSubTab = 'active' | 'inactive' | 'archived';
+export type SessionSubTab = 'open' | 'done' | 'archived';
 
 // The tab a session (tree root) belongs to.
-// Archived (archivedAt set) always wins. Otherwise liveness decides: a root is
-// Active when it (or any session in its spawn subtree) has a live terminal,
-// else Inactive. humanCompletedAt is a marker only — it does NOT pick the tab.
+// Driven purely by two persisted server fields — no local terminal state needed.
+// Archived (archivedAt) always wins. Done (humanCompletedAt) is next.
+// Everything else is Open (default for new sessions).
+// Liveness (live dot) is decoration within tabs, not a routing criterion.
 export function resolveSessionTab(
-  session: Pick<MaestroSession, 'archivedAt'>,
-  hasLiveTerminal: boolean,
+  session: Pick<MaestroSession, 'archivedAt' | 'humanCompletedAt'>,
 ): SessionSubTab {
   if (session.archivedAt) return 'archived';
-  return hasLiveTerminal ? 'active' : 'inactive';
+  if (session.humanCompletedAt) return 'done';
+  return 'open';
 }
 
 // Build a parentSessionId → child ids index for the given sessions.
