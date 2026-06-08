@@ -7,7 +7,7 @@ import { join, resolve as resolvePath, delimiter as pathDelimiter } from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import { SessionService } from '../application/services/SessionService';
-import { GitWorktreeService } from '../application/services/GitWorktreeService';
+import { GitService } from '../application/services/GitService';
 import { LogDigestService } from '../application/services/LogDigestService';
 import { IProjectRepository } from '../domain/repositories/IProjectRepository';
 import { ITaskRepository } from '../domain/repositories/ITaskRepository';
@@ -460,7 +460,7 @@ interface SessionRouteDependencies {
  */
 export function createSessionRoutes(deps: SessionRouteDependencies) {
   const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, eventBus, config } = deps;
-  const gitWorktreeService = new GitWorktreeService();
+  const gitService = new GitService();
   const router = express.Router();
 
   // Summary DTO for list views — strips env, events, timeline, metadata
@@ -1574,7 +1574,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       // Validate git repo if worktree requested
       if (useWorktree) {
-        const isGit = await gitWorktreeService.isGitRepo(project.workingDir);
+        const isGit = await gitService.isGitRepo(project.workingDir);
         if (!isGit) {
           return res.status(400).json({
             error: true,
@@ -1628,12 +1628,19 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       });
 
       // Create git worktree if requested
-      let worktreeResult: { worktreePath: string; branchName: string } | null = null;
+      let worktreeResult: { worktreePath: string; branchName: string; baseCommit: string } | null = null;
       if (useWorktree) {
         try {
-          worktreeResult = await gitWorktreeService.createWorktree(project.workingDir, session.id);
-          // Store worktree metadata on session
+          // Use task title as slug when available for a readable branch name
+          const taskSlug = verifiedTasks[0]?.title;
+          worktreeResult = await gitService.createWorktree(project.workingDir, session.id, taskSlug);
+          // Persist worktree metadata on session (deep merge via updateSession)
           await sessionService.updateSession(session.id, {
+            metadata: {
+              worktreePath: worktreeResult.worktreePath,
+              worktreeBranch: worktreeResult.branchName,
+              worktreeBaseCommit: worktreeResult.baseCommit,
+            },
             env: {
               ...session.env,
               MAESTRO_WORKTREE_PATH: worktreeResult.worktreePath,
@@ -1641,10 +1648,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
               MAESTRO_PROJECT_DIR: project.workingDir,
             },
           });
-          // Also update in-memory metadata
-          if (!session.metadata) (session as any).metadata = {};
-          (session as any).metadata.worktreePath = worktreeResult.worktreePath;
-          (session as any).metadata.worktreeBranch = worktreeResult.branchName;
         } catch (wtErr: unknown) {
           // Worktree creation failed — clean up session and return error
           try { await sessionService.deleteSession(session.id); } catch { /* ignore cleanup error */ }

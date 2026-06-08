@@ -3,6 +3,7 @@ import { Icon } from "./Icon";
 import { MaestroProject, ProjectSoundConfig } from "../app/types/maestro";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { DisplaySettings } from "./DisplaySettings";
+import { GitSettings } from "./GitSettings";
 import { SoundSettingsContent } from "./modals/SoundSettingsModal";
 import { ProjectSoundSettings } from "./modals/ProjectSoundSettings";
 import { soundManager } from "../services/soundManager";
@@ -39,7 +40,7 @@ type SettingsDialogProps = {
   onCloseProject: () => void;
 };
 
-type SettingsTab = 'theme' | 'display' | 'sounds' | 'shortcuts';
+type SettingsTab = 'theme' | 'display' | 'sounds' | 'git' | 'shortcuts';
 type ProjectSettingsTab = 'info' | 'sounds';
 
 type ShortcutRow = {
@@ -99,6 +100,13 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
             </button>
             <button
               type="button"
+              className={`appSettingsTabBtn ${activeTab === 'git' ? 'appSettingsTabBtnActive' : ''}`}
+              onClick={() => setActiveTab('git')}
+            >
+              GIT
+            </button>
+            <button
+              type="button"
               className={`appSettingsTabBtn ${activeTab === 'shortcuts' ? 'appSettingsTabBtnActive' : ''}`}
               onClick={() => setActiveTab('shortcuts')}
             >
@@ -119,6 +127,11 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
             )}
             {activeTab === 'sounds' && (
               <SoundSettingsContent />
+            )}
+            {activeTab === 'git' && (
+              <div className="appSettingsContent">
+                <GitSettings />
+              </div>
             )}
             {activeTab === 'shortcuts' && (
               <div className="appSettingsContent">

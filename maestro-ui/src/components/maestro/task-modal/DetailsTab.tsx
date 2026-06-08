@@ -15,11 +15,13 @@ type DetailsTabProps = {
     onPriorityChange: (priority: TaskPriority) => void;
     dueDate: string;
     onDueDateChange: (date: string) => void;
+    useWorktree: boolean;
+    onUseWorktreeChange: (value: boolean) => void;
     isEditMode: boolean;
     task?: MaestroTask;
 };
 
-export function DetailsTab({ priority, onPriorityChange, dueDate, onDueDateChange, isEditMode, task }: DetailsTabProps) {
+export function DetailsTab({ priority, onPriorityChange, dueDate, onDueDateChange, useWorktree, onUseWorktreeChange, isEditMode, task }: DetailsTabProps) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div className="themedFormRow" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
@@ -66,6 +68,23 @@ export function DetailsTab({ priority, onPriorityChange, dueDate, onDueDateChang
                     >
                         Clear
                     </button>
+                )}
+            </div>
+            <div className="themedFormRow" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
+                <div className="themedFormLabel" style={{ marginBottom: 0, flexShrink: 0 }}>Isolation</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', color: 'var(--theme-primary)' }}>
+                    <input
+                        type="checkbox"
+                        checked={useWorktree}
+                        onChange={(e) => onUseWorktreeChange(e.target.checked)}
+                        style={{ cursor: 'pointer', accentColor: 'var(--theme-accent, var(--theme-primary))' }}
+                    />
+                    Worktree
+                </label>
+                {useWorktree && (
+                    <span style={{ fontSize: '10px', color: 'var(--theme-text-secondary)', opacity: 0.7 }}>
+                        session runs in an isolated git branch
+                    </span>
                 )}
             </div>
             {isEditMode && task && (

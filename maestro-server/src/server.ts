@@ -20,6 +20,7 @@ import { createWorkflowTemplateRoutes } from './api/workflowTemplateRoutes';
 import { createMasterRoutes } from './api/masterRoutes';
 import { createSpellRoutes } from './api/spellRoutes';
 import { createAlexaRoutes } from './api/alexaRoutes';
+import { createGitRoutes } from './api/gitRoutes';
 import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
 import { errorHandler } from './api/middleware/errorHandler';
 
@@ -144,6 +145,15 @@ async function startServer() {
     logger,
   });
   app.use('/api', alexaRoutes);
+
+  // Git integration routes
+  const gitRoutes = createGitRoutes({
+    sessionService,
+    projectRepo,
+    taskRepo,
+    eventBus,
+  });
+  app.use('/api', gitRoutes);
 
   // Global error handling middleware
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

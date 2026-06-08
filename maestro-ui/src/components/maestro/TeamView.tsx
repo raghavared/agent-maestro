@@ -6,6 +6,7 @@ import type { ChildStats } from '../../utils/resolveTeamView';
 import { useSessionStore } from '../../stores/useSessionStore';
 import { useMaestroStore } from '../../stores/useMaestroStore';
 import { useUIStore } from '../../stores/useUIStore';
+import { WorktreeBadge, getWorktreeInfo } from './WorktreeBadge';
 
 interface TeamViewProps {
   root: MaestroSession;
@@ -28,6 +29,7 @@ interface SlotInfo {
   drillable: boolean;
   resumable: boolean;
   stats: ChildStats;
+  branch?: string;
 }
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'stopped']);
@@ -85,6 +87,7 @@ export const TeamView = React.memo(function TeamView({
     drillable: false,
     resumable: isResumable(root),
     stats: childStats(root.id),
+    branch: getWorktreeInfo(root)?.branch,
   }), [root, linkMap, childStats]);
 
   const childSlots: SlotInfo[] = useMemo(() => (
@@ -99,6 +102,7 @@ export const TeamView = React.memo(function TeamView({
         drillable: stats.total > 0,
         resumable: isResumable(child),
         stats,
+        branch: getWorktreeInfo(child)?.branch,
       };
     })
   ), [childrenSessions, linkMap, childStats]);
@@ -280,6 +284,7 @@ export const TeamView = React.memo(function TeamView({
               <span className={`teamViewSlotStatus teamViewSlotStatus--${rootSlot.status}`}>
                 {rootSlot.status}
               </span>
+              {rootSlot.branch && <WorktreeBadge branch={rootSlot.branch} compact />}
               <div className="teamViewSlotHeaderActions">
                 <TeamViewSlotStats stats={rootSlot.stats} />
                 {rootSlot.resumable && (
@@ -321,6 +326,7 @@ export const TeamView = React.memo(function TeamView({
                     <span className={`teamViewSlotStatus teamViewSlotStatus--${child.status}`}>
                       {child.status}
                     </span>
+                    {child.branch && <WorktreeBadge branch={child.branch} compact />}
                     <div className="teamViewSlotHeaderActions">
                       <TeamViewSlotStats stats={child.stats} />
                       {child.resumable && (

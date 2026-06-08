@@ -613,6 +613,7 @@ export interface UpdateSessionPayload {
   teamSessionId?: string | null;
   teamId?: string | null;
   mode?: AgentMode;            // Update session mode (stored in metadata.mode)
+  metadata?: Record<string, any>;  // Merged into session.metadata (shallow merge)
   humanCompletedAt?: number | null;  // Human-driven completion timestamp (null to reopen)
   archivedAt?: number | null;  // Archive timestamp (null to unarchive)
 }
