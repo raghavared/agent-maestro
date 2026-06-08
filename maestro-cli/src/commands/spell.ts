@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { api } from '../api.js';
 import { config } from '../config.js';
+import { resolveProjectScope } from '../utils/project-scope.js';
 import { outputJSON, outputTable, outputKeyValue } from '../utils/formatter.js';
 import { handleError } from '../utils/errors.js';
 import { guardCommand } from '../services/command-permissions.js';
@@ -84,20 +85,27 @@ export function registerSpellCommands(program: Command): void {
       }
     });
 
-  // maestro spell list [entityId] [--type <entityType>]
+  // maestro spell list [entityId] [--type <entityType>] [--project-id <id>] [--all-projects]
   spell.command('list [entityId]')
     .description('List spells for an entity, or all available spells')
     .option('--type <entityType>', 'Filter by entity type')
+    .option('--project-id <id>', 'Filter by project ID (overrides global --project)')
+    .option('--all-projects', 'List spells from all projects')
     .action(async (entityId, cmdOpts) => {
       await guardCommand('spell:list');
       const globalOpts = program.opts();
       const isJson = globalOpts.json;
+      const scope = resolveProjectScope(
+        { projectId: cmdOpts.projectId, allProjects: cmdOpts.allProjects },
+        globalOpts,
+      );
       const spinner = !isJson ? ora('Fetching spells...').start() : null;
 
       try {
         let endpoint = '/api/spells/definitions';
         const queryParts: string[] = [];
         if (cmdOpts.type) queryParts.push(`entityType=${cmdOpts.type}`);
+        if (scope.projectId) queryParts.push(`projectId=${scope.projectId}`);
         if (queryParts.length) endpoint += '?' + queryParts.join('&');
 
         let spells = await api.get<SpellDefinitionResponse[]>(endpoint);

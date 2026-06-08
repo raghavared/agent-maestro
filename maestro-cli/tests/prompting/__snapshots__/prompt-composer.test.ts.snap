@@ -60,6 +60,11 @@ Report progress at important milestones and escalate blockers promptly using mae
       <from_session_id>sess-parent</from_session_id>
     </directive>
   </coordination_context>
+  <coordinator_promotion>
+  You are a worker. You can ping, read, and observe any session, but you cannot spawn new ones.
+  If your task requires spawning helpers, run \`maestro coordinator enable\` first.
+  This converts you to a coordinator for the rest of the session.
+  </coordinator_promotion>
   <capability_summary>
     <capability name="canManageSessionDocs" enabled="true" />
     <capability name="canManageTaskDocs" enabled="true" />
@@ -73,7 +78,7 @@ Report progress at important milestones and escalate blockers promptly using mae
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -88,6 +93,7 @@ Report progress at important milestones and escalate blockers promptly using mae
     maestro session report error "<description>" - Report error
     maestro session docs add "<title>" --file <filePath> - Add doc to session
     maestro session docs list - List session docs
+    maestro coordinator {enable|disable|status} - Coordinator mode management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
     maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
@@ -141,7 +147,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
     <mode_identity>
       <profile>maestro-coordinated-coordinator</profile>
       <instruction>You are a sub-coordinator in a hierarchical multi-agent team. You were spawned by a parent coordinator and must coordinate only within the existing assigned team. Do not spawn new sessions. Use \`maestro session siblings\` to inspect the active team roster and communicate with sibling sessions using \`maestro session prompt <sessionId> --message "<your question or info>"\`.
-Regularly monitor sibling workers by running \`maestro session logs\` to read their output and track progress. Decompose your assigned tasks, coordinate the existing team, monitor progress via session logs, and verify completion. Report your overall progress using maestro session report commands. Plan, assign, coordinate, verify continuously towards the completion of the tasks.
+Regularly monitor sibling workers by running \`maestro session logs\` to read their output and track progress. Decompose your assigned tasks INTO DEDICATED TASKS before delegating: for each unit of work, FIRST run \`maestro task create "<scoped task title>" --desc "<full scope, success criteria, deliverables>"\` (by default a new root task; add \`--parent <taskId>\` only when the work is genuinely a sub-part of an existing task), then assign that task to a sibling via \`maestro session prompt <sessionId>\`. Never delegate work against your own assigned task without first creating a scoped task for it. Coordinate the existing team, monitor progress via session logs, and verify completion. Report your overall progress using maestro session report commands. Plan, assign, coordinate, verify continuously towards the completion of the tasks.
 
 WRITING WORKER PROMPTS:
 Workers cannot see your conversation. Every prompt you send via \`maestro session prompt\` must be fully self-contained with everything the worker needs.
@@ -179,6 +185,7 @@ Good pattern:
     <capability name="canManageTeams" enabled="true" />
     <capability name="canPromptOtherSessions" enabled="true" />
     <capability name="canReportProgress" enabled="true" />
+    <capability name="canSpawnSessions" enabled="true" />
     <capability name="canUpdateTaskStatus" enabled="true" />
     <capability name="canUseMasterCommands" enabled="true" />
     <capability name="canUseModal" enabled="true" />
@@ -186,7 +193,7 @@ Good pattern:
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-coordinator Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|update|complete|block|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -194,7 +201,7 @@ Good pattern:
     maestro task report error <taskId> "<description>" - Report task error
     maestro task docs add <taskId> "<title>" --file <filePath> - Add doc to task
     maestro task docs list <taskId> - List task docs
-    maestro session {list|siblings|info|watch|logs|prompt} - Session management
+    maestro session {list|siblings|info|watch|spawn|logs|prompt} - Session management
     maestro session report progress "<message>" - Report work progress
     maestro session report complete "<summary>" - Report completion
     maestro session report blocked "<reason>" - Report blocker
@@ -202,6 +209,7 @@ Good pattern:
     maestro session docs add "<title>" --file <filePath> - Add doc to session
     maestro session docs list - List session docs
     maestro project {list|get|create|delete|set-master|unset-master} - Project management
+    maestro coordinator {enable|disable|status} - Coordinator mode management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
     maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
@@ -252,7 +260,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinated-
     <mode_identity>
       <profile>maestro-coordinated-coordinator</profile>
       <instruction>You are a sub-coordinator in a hierarchical multi-agent team. You were spawned by a parent coordinator and must coordinate only within the existing assigned team. Do not spawn new sessions. Use \`maestro session siblings\` to inspect the active team roster and communicate with sibling sessions using \`maestro session prompt <sessionId> --message "<your question or info>"\`.
-Regularly monitor sibling workers by running \`maestro session logs\` to read their output and track progress. Decompose your assigned tasks, coordinate the existing team, monitor progress via session logs, and verify completion. Report your overall progress using maestro session report commands. Plan, assign, coordinate, verify continuously towards the completion of the tasks.
+Regularly monitor sibling workers by running \`maestro session logs\` to read their output and track progress. Decompose your assigned tasks INTO DEDICATED TASKS before delegating: for each unit of work, FIRST run \`maestro task create "<scoped task title>" --desc "<full scope, success criteria, deliverables>"\` (by default a new root task; add \`--parent <taskId>\` only when the work is genuinely a sub-part of an existing task), then assign that task to a sibling via \`maestro session prompt <sessionId>\`. Never delegate work against your own assigned task without first creating a scoped task for it. Coordinate the existing team, monitor progress via session logs, and verify completion. Report your overall progress using maestro session report commands. Plan, assign, coordinate, verify continuously towards the completion of the tasks.
 
 WRITING WORKER PROMPTS:
 Workers cannot see your conversation. Every prompt you send via \`maestro session prompt\` must be fully self-contained with everything the worker needs.
@@ -290,6 +298,7 @@ Good pattern:
     <capability name="canManageTeams" enabled="true" />
     <capability name="canPromptOtherSessions" enabled="true" />
     <capability name="canReportProgress" enabled="true" />
+    <capability name="canSpawnSessions" enabled="true" />
     <capability name="canUpdateTaskStatus" enabled="true" />
     <capability name="canUseMasterCommands" enabled="true" />
     <capability name="canUseModal" enabled="true" />
@@ -297,7 +306,7 @@ Good pattern:
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-coordinator Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|update|complete|block|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -305,7 +314,7 @@ Good pattern:
     maestro task report error <taskId> "<description>" - Report task error
     maestro task docs add <taskId> "<title>" --file <filePath> - Add doc to task
     maestro task docs list <taskId> - List task docs
-    maestro session {list|siblings|info|watch|logs|prompt} - Session management
+    maestro session {list|siblings|info|watch|spawn|logs|prompt} - Session management
     maestro session report progress "<message>" - Report work progress
     maestro session report complete "<summary>" - Report completion
     maestro session report blocked "<reason>" - Report blocker
@@ -313,6 +322,7 @@ Good pattern:
     maestro session docs add "<title>" --file <filePath> - Add doc to session
     maestro session docs list - List session docs
     maestro project {list|get|create|delete|set-master|unset-master} - Project management
+    maestro coordinator {enable|disable|status} - Coordinator mode management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
     maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
@@ -422,6 +432,11 @@ Report progress at important milestones and escalate blockers promptly using mae
   <coordination_context>
     <coordinator_session_id>sess-parent</coordinator_session_id>
   </coordination_context>
+  <coordinator_promotion>
+  You are a worker. You can ping, read, and observe any session, but you cannot spawn new ones.
+  If your task requires spawning helpers, run \`maestro coordinator enable\` first.
+  This converts you to a coordinator for the rest of the session.
+  </coordinator_promotion>
   <capability_summary>
     <capability name="canManageSessionDocs" enabled="true" />
     <capability name="canManageTaskDocs" enabled="true" />
@@ -435,7 +450,7 @@ Report progress at important milestones and escalate blockers promptly using mae
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -450,6 +465,7 @@ Report progress at important milestones and escalate blockers promptly using mae
     maestro session report error "<description>" - Report error
     maestro session docs add "<title>" --file <filePath> - Add doc to session
     maestro session docs list - List session docs
+    maestro coordinator {enable|disable|status} - Coordinator mode management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
     maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
@@ -546,6 +562,11 @@ Report progress at important milestones and escalate blockers promptly using mae
   <coordination_context>
     <coordinator_session_id>sess-parent</coordinator_session_id>
   </coordination_context>
+  <coordinator_promotion>
+  You are a worker. You can ping, read, and observe any session, but you cannot spawn new ones.
+  If your task requires spawning helpers, run \`maestro coordinator enable\` first.
+  This converts you to a coordinator for the rest of the session.
+  </coordinator_promotion>
   <capability_summary>
     <capability name="canManageSessionDocs" enabled="true" />
     <capability name="canManageTaskDocs" enabled="true" />
@@ -559,7 +580,7 @@ Report progress at important milestones and escalate blockers promptly using mae
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -574,6 +595,7 @@ Report progress at important milestones and escalate blockers promptly using mae
     maestro session report error "<description>" - Report error
     maestro session docs add "<title>" --file <filePath> - Add doc to session
     maestro session docs list - List session docs
+    maestro coordinator {enable|disable|status} - Coordinator mode management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
     maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
@@ -672,6 +694,11 @@ Report progress at important milestones and escalate blockers promptly using mae
   <coordination_context>
     <coordinator_session_id>sess-parent</coordinator_session_id>
   </coordination_context>
+  <coordinator_promotion>
+  You are a worker. You can ping, read, and observe any session, but you cannot spawn new ones.
+  If your task requires spawning helpers, run \`maestro coordinator enable\` first.
+  This converts you to a coordinator for the rest of the session.
+  </coordinator_promotion>
   <capability_summary>
     <capability name="canManageSessionDocs" enabled="true" />
     <capability name="canManageTaskDocs" enabled="true" />
@@ -685,7 +712,7 @@ Report progress at important milestones and escalate blockers promptly using mae
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -700,6 +727,7 @@ Report progress at important milestones and escalate blockers promptly using mae
     maestro session report error "<description>" - Report error
     maestro session docs add "<title>" --file <filePath> - Add doc to session
     maestro session docs list - List session docs
+    maestro coordinator {enable|disable|status} - Coordinator mode management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
     maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
@@ -798,6 +826,11 @@ Report progress at important milestones and escalate blockers promptly using mae
   <coordination_context>
     <coordinator_session_id>sess-parent</coordinator_session_id>
   </coordination_context>
+  <coordinator_promotion>
+  You are a worker. You can ping, read, and observe any session, but you cannot spawn new ones.
+  If your task requires spawning helpers, run \`maestro coordinator enable\` first.
+  This converts you to a coordinator for the rest of the session.
+  </coordinator_promotion>
   <capability_summary>
     <capability name="canManageSessionDocs" enabled="true" />
     <capability name="canManageTaskDocs" enabled="true" />
@@ -811,7 +844,7 @@ Report progress at important milestones and escalate blockers promptly using mae
   </capability_summary>
   <commands_reference>
     ## Maestro coordinated-worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -826,6 +859,7 @@ Report progress at important milestones and escalate blockers promptly using mae
     maestro session report error "<description>" - Report error
     maestro session docs add "<title>" --file <filePath> - Add doc to session
     maestro session docs list - List session docs
+    maestro coordinator {enable|disable|status} - Coordinator mode management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
     maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
@@ -878,7 +912,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinator 
   <identity_kernel>
     <mode_identity>
       <profile>maestro-coordinator</profile>
-      <instruction>You are a team coordination agent. Understand the assigned tasks, available team members, and decompose the work into explicit subtasks with clear inputs, outputs, and owners. First come up with a plan for the tasks and their owners, communication protocols, and expected deliverables. If a task requires cross-session coordination (e.g., group chat), you MUST create subtasks that specify: who they must contact, what they must ask for, what artifacts they must produce, and where those artifacts must be routed. Spawn sessions using maestro session spawn commands -- multiple instances of the same team member can be spawned. For each session, assign only the scoped subtask you planned with success criteria and expected deliverables. Establish a communication protocol up front: announce topic, required inputs/outputs, response format, routing targets, and deadlines/timeouts. Use \`maestro session prompt\` to send instructions and coordinate between sessions, and route key outputs between sessions explicitly. IMPORTANT: You MUST actively and regularly monitor all workers by running \`maestro session logs --my-workers\` to read their session output. Do this proactively after spawning workers, and continue checking periodically throughout the coordination lifecycle -- do not wait for workers to contact you. Session logs are your primary source of truth for worker progress, errors, and completion status. Follow up immediately if required artifacts are missing, errors appear, or workers seem stuck. Summarize cross-session outputs, verify completion against each subtask's criteria, and only then close tasks.
+      <instruction>You are a team coordination agent. Understand the assigned tasks, available team members, and decompose the work into explicit subtasks with clear inputs, outputs, and owners. First come up with a plan for the tasks and their owners, communication protocols, and expected deliverables. If a task requires cross-session coordination (e.g., group chat), you MUST create subtasks that specify: who they must contact, what they must ask for, what artifacts they must produce, and where those artifacts must be routed. CRITICAL -- create a task BEFORE every spawn: each spawned session MUST be assigned its own dedicated task that you create, never your own assigned task. By default create a NEW ROOT task (no parent). Only pass \`--parent <taskId>\` when the new work is genuinely a sub-part of an existing task (typically your own assigned task) -- otherwise omit --parent entirely. For each worker you plan to spawn: (1) run \`maestro task create "<scoped task title>" --desc "<full scope, success criteria, deliverables>"\` (add \`--parent <taskId>\` only when the work belongs under an existing task) and capture the returned task ID, then (2) run \`maestro session spawn --task <newTaskId> --team-member-id <tmId> --subject "<directive>" --message "<self-contained instructions>"\`. Never reuse your own assigned task ID for a spawned session, and never spawn against a pre-existing task you did not create for that specific unit of work. Multiple instances of the same team member can be spawned, each with its own task. For each session, assign only the scoped task you created with success criteria and expected deliverables. Establish a communication protocol up front: announce topic, required inputs/outputs, response format, routing targets, and deadlines/timeouts. Use \`maestro session prompt\` to send instructions and coordinate between sessions, and route key outputs between sessions explicitly. IMPORTANT: You MUST actively and regularly monitor all workers by running \`maestro session logs --my-workers\` to read their session output. Do this proactively after spawning workers, and continue checking periodically throughout the coordination lifecycle -- do not wait for workers to contact you. Session logs are your primary source of truth for worker progress, errors, and completion status. Follow up immediately if required artifacts are missing, errors appear, or workers seem stuck. Summarize cross-session outputs, verify completion against each subtask's criteria, and only then close tasks.
 
 WRITING WORKER PROMPTS:
 Workers cannot see your conversation. Every prompt you send via \`maestro session spawn\` or \`maestro session prompt\` must be fully self-contained with everything the worker needs.
@@ -912,6 +946,7 @@ Good pattern:
     <capability name="canManageTasks" enabled="true" />
     <capability name="canManageTeamMembers" enabled="true" />
     <capability name="canManageTeams" enabled="true" />
+    <capability name="canPromptOtherSessions" enabled="true" />
     <capability name="canReportProgress" enabled="true" />
     <capability name="canSpawnSessions" enabled="true" />
     <capability name="canUpdateTaskStatus" enabled="true" />
@@ -921,7 +956,7 @@ Good pattern:
   </capability_summary>
   <commands_reference>
     ## Maestro coordinator Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|update|complete|block|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -937,6 +972,7 @@ Good pattern:
     maestro session docs add "<title>" --file <filePath> - Add doc to session
     maestro session docs list - List session docs
     maestro project {list|get|create|delete|set-master|unset-master} - Project management
+    maestro coordinator {enable|disable|status} - Coordinator mode management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
     maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
@@ -986,7 +1022,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=coordinator 
   <identity_kernel>
     <mode_identity>
       <profile>maestro-coordinator</profile>
-      <instruction>You are a team coordination agent. Understand the assigned tasks, available team members, and decompose the work into explicit subtasks with clear inputs, outputs, and owners. First come up with a plan for the tasks and their owners, communication protocols, and expected deliverables. If a task requires cross-session coordination (e.g., group chat), you MUST create subtasks that specify: who they must contact, what they must ask for, what artifacts they must produce, and where those artifacts must be routed. Spawn sessions using maestro session spawn commands -- multiple instances of the same team member can be spawned. For each session, assign only the scoped subtask you planned with success criteria and expected deliverables. Establish a communication protocol up front: announce topic, required inputs/outputs, response format, routing targets, and deadlines/timeouts. Use \`maestro session prompt\` to send instructions and coordinate between sessions, and route key outputs between sessions explicitly. IMPORTANT: You MUST actively and regularly monitor all workers by running \`maestro session logs --my-workers\` to read their session output. Do this proactively after spawning workers, and continue checking periodically throughout the coordination lifecycle -- do not wait for workers to contact you. Session logs are your primary source of truth for worker progress, errors, and completion status. Follow up immediately if required artifacts are missing, errors appear, or workers seem stuck. Summarize cross-session outputs, verify completion against each subtask's criteria, and only then close tasks.
+      <instruction>You are a team coordination agent. Understand the assigned tasks, available team members, and decompose the work into explicit subtasks with clear inputs, outputs, and owners. First come up with a plan for the tasks and their owners, communication protocols, and expected deliverables. If a task requires cross-session coordination (e.g., group chat), you MUST create subtasks that specify: who they must contact, what they must ask for, what artifacts they must produce, and where those artifacts must be routed. CRITICAL -- create a task BEFORE every spawn: each spawned session MUST be assigned its own dedicated task that you create, never your own assigned task. By default create a NEW ROOT task (no parent). Only pass \`--parent <taskId>\` when the new work is genuinely a sub-part of an existing task (typically your own assigned task) -- otherwise omit --parent entirely. For each worker you plan to spawn: (1) run \`maestro task create "<scoped task title>" --desc "<full scope, success criteria, deliverables>"\` (add \`--parent <taskId>\` only when the work belongs under an existing task) and capture the returned task ID, then (2) run \`maestro session spawn --task <newTaskId> --team-member-id <tmId> --subject "<directive>" --message "<self-contained instructions>"\`. Never reuse your own assigned task ID for a spawned session, and never spawn against a pre-existing task you did not create for that specific unit of work. Multiple instances of the same team member can be spawned, each with its own task. For each session, assign only the scoped task you created with success criteria and expected deliverables. Establish a communication protocol up front: announce topic, required inputs/outputs, response format, routing targets, and deadlines/timeouts. Use \`maestro session prompt\` to send instructions and coordinate between sessions, and route key outputs between sessions explicitly. IMPORTANT: You MUST actively and regularly monitor all workers by running \`maestro session logs --my-workers\` to read their session output. Do this proactively after spawning workers, and continue checking periodically throughout the coordination lifecycle -- do not wait for workers to contact you. Session logs are your primary source of truth for worker progress, errors, and completion status. Follow up immediately if required artifacts are missing, errors appear, or workers seem stuck. Summarize cross-session outputs, verify completion against each subtask's criteria, and only then close tasks.
 
 WRITING WORKER PROMPTS:
 Workers cannot see your conversation. Every prompt you send via \`maestro session spawn\` or \`maestro session prompt\` must be fully self-contained with everything the worker needs.
@@ -1020,6 +1056,7 @@ Good pattern:
     <capability name="canManageTasks" enabled="true" />
     <capability name="canManageTeamMembers" enabled="true" />
     <capability name="canManageTeams" enabled="true" />
+    <capability name="canPromptOtherSessions" enabled="true" />
     <capability name="canReportProgress" enabled="true" />
     <capability name="canSpawnSessions" enabled="true" />
     <capability name="canUpdateTaskStatus" enabled="true" />
@@ -1029,7 +1066,7 @@ Good pattern:
   </capability_summary>
   <commands_reference>
     ## Maestro coordinator Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|update|complete|block|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -1045,6 +1082,7 @@ Good pattern:
     maestro session docs add "<title>" --file <filePath> - Add doc to session
     maestro session docs list - List session docs
     maestro project {list|get|create|delete|set-master|unset-master} - Project management
+    maestro coordinator {enable|disable|status} - Coordinator mode management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
     maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
@@ -1150,11 +1188,17 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
       <agent_tool>claude-code</agent_tool>
     </team_member>
   </team_context>
+  <coordinator_promotion>
+  You are a worker. You can ping, read, and observe any session, but you cannot spawn new ones.
+  If your task requires spawning helpers, run \`maestro coordinator enable\` first.
+  This converts you to a coordinator for the rest of the session.
+  </coordinator_promotion>
   <capability_summary>
     <capability name="canManageSessionDocs" enabled="true" />
     <capability name="canManageTaskDocs" enabled="true" />
     <capability name="canManageTasks" enabled="true" />
     <capability name="canManageTeamMembers" enabled="true" />
+    <capability name="canPromptOtherSessions" enabled="true" />
     <capability name="canReportProgress" enabled="true" />
     <capability name="canUseMasterCommands" enabled="true" />
     <capability name="canUseModal" enabled="true" />
@@ -1162,7 +1206,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
   </capability_summary>
   <commands_reference>
     ## Maestro worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -1177,6 +1221,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
     maestro session report error "<description>" - Report error
     maestro session docs add "<title>" --file <filePath> - Add doc to session
     maestro session docs list - List session docs
+    maestro coordinator {enable|disable|status} - Coordinator mode management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
     maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
@@ -1269,11 +1314,17 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
       <agent_tool>claude-code</agent_tool>
     </team_member>
   </team_context>
+  <coordinator_promotion>
+  You are a worker. You can ping, read, and observe any session, but you cannot spawn new ones.
+  If your task requires spawning helpers, run \`maestro coordinator enable\` first.
+  This converts you to a coordinator for the rest of the session.
+  </coordinator_promotion>
   <capability_summary>
     <capability name="canManageSessionDocs" enabled="true" />
     <capability name="canManageTaskDocs" enabled="true" />
     <capability name="canManageTasks" enabled="true" />
     <capability name="canManageTeamMembers" enabled="true" />
+    <capability name="canPromptOtherSessions" enabled="true" />
     <capability name="canReportProgress" enabled="true" />
     <capability name="canUseMasterCommands" enabled="true" />
     <capability name="canUseModal" enabled="true" />
@@ -1281,7 +1332,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
   </capability_summary>
   <commands_reference>
     ## Maestro worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -1296,6 +1347,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
     maestro session report error "<description>" - Report error
     maestro session docs add "<title>" --file <filePath> - Add doc to session
     maestro session docs list - List session docs
+    maestro coordinator {enable|disable|status} - Coordinator mode management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
     maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
@@ -1390,11 +1442,17 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
       <agent_tool>claude-code</agent_tool>
     </team_member>
   </team_context>
+  <coordinator_promotion>
+  You are a worker. You can ping, read, and observe any session, but you cannot spawn new ones.
+  If your task requires spawning helpers, run \`maestro coordinator enable\` first.
+  This converts you to a coordinator for the rest of the session.
+  </coordinator_promotion>
   <capability_summary>
     <capability name="canManageSessionDocs" enabled="true" />
     <capability name="canManageTaskDocs" enabled="true" />
     <capability name="canManageTasks" enabled="true" />
     <capability name="canManageTeamMembers" enabled="true" />
+    <capability name="canPromptOtherSessions" enabled="true" />
     <capability name="canReportProgress" enabled="true" />
     <capability name="canUseMasterCommands" enabled="true" />
     <capability name="canUseModal" enabled="true" />
@@ -1402,7 +1460,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
   </capability_summary>
   <commands_reference>
     ## Maestro worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -1417,6 +1475,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
     maestro session report error "<description>" - Report error
     maestro session docs add "<title>" --file <filePath> - Add doc to session
     maestro session docs list - List session docs
+    maestro coordinator {enable|disable|status} - Coordinator mode management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
     maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory
@@ -1511,11 +1570,17 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
       <agent_tool>claude-code</agent_tool>
     </team_member>
   </team_context>
+  <coordinator_promotion>
+  You are a worker. You can ping, read, and observe any session, but you cannot spawn new ones.
+  If your task requires spawning helpers, run \`maestro coordinator enable\` first.
+  This converts you to a coordinator for the rest of the session.
+  </coordinator_promotion>
   <capability_summary>
     <capability name="canManageSessionDocs" enabled="true" />
     <capability name="canManageTaskDocs" enabled="true" />
     <capability name="canManageTasks" enabled="true" />
     <capability name="canManageTeamMembers" enabled="true" />
+    <capability name="canPromptOtherSessions" enabled="true" />
     <capability name="canReportProgress" enabled="true" />
     <capability name="canUseMasterCommands" enabled="true" />
     <capability name="canUseModal" enabled="true" />
@@ -1523,7 +1588,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
   </capability_summary>
   <commands_reference>
     ## Maestro worker Commands
-    maestro {whoami|status|commands} - Core utilities
+    maestro {announce|whoami|status|commands} - Core utilities
     maestro task {list|get|create|edit|delete|children|tree} - Task management
     maestro task report progress <taskId> "<message>" - Report task progress
     maestro task report complete <taskId> "<summary>" - Report task completion
@@ -1538,6 +1603,7 @@ exports[`prompt-composer > identity-kernel v2 matrix > renders mode=worker scena
     maestro session report error "<description>" - Report error
     maestro session docs add "<title>" --file <filePath> - Add doc to session
     maestro session docs list - List session docs
+    maestro coordinator {enable|disable|status} - Coordinator mode management
     maestro master {projects|tasks|sessions|context} - Cross-project workspace commands (master sessions only)
     maestro team-member {create|list|get|edit|archive|unarchive|delete|reset|update-identity} - Team member management
     maestro team-member memory append <teamMemberId> --entry "<text to remember>" - Append an entry to team member memory

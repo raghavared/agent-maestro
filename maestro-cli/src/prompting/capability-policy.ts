@@ -1,11 +1,11 @@
 import type { AgentMode, MaestroManifest } from '../types/manifest.js';
-import { isCoordinatedMode } from '../types/manifest.js';
 import {
   getAllCommandIds,
   getCommandById,
   getCommandIdsByGroup,
   getCoreCommandIds,
   getDefaultCommandsForMode,
+  isCommandVisibleInPrompt,
   MASTER_COMMAND_IDS,
 } from './command-catalog.js';
 
@@ -60,9 +60,9 @@ const SAFE_DEGRADED_COMMANDS = [
   'session:docs:list',
 ];
 
-const HARD_BLOCKED_COMMANDS_BY_MODE: Partial<Record<AgentMode, string[]>> = {
-  'coordinated-coordinator': ['session:spawn'],
-};
+// Any session may spawn/coordinate; no execution-level mode blocks. Coordination
+// commands are kept out of a mode's prompt via promptModes, not hard-blocked here.
+const HARD_BLOCKED_COMMANDS_BY_MODE: Partial<Record<AgentMode, string[]>> = {};
 
 function sortByCatalogOrder(commandIds: Set<string>): string[] {
   const allowed = commandIds;
@@ -158,7 +158,9 @@ function buildCapabilityFlags(
 ): CapabilityFlags {
   const allowed = new Set(allowedCommands);
   const flags: CapabilityFlags = {
-    canSpawnSessions: allowed.has('session:spawn'),
+    // Executable in all modes, but only advertised where prompt-visible so
+    // worker prompts stay focused while spawning remains available.
+    canSpawnSessions: allowed.has('session:spawn') && isCommandVisibleInPrompt('session:spawn', mode),
     canManageTasks: allowed.has('task:create') || allowed.has('task:edit') || allowed.has('task:delete'),
     canUpdateTaskStatus: allowed.has('task:update') || allowed.has('task:complete') || allowed.has('task:block'),
     canReportProgress: allowed.has('session:report:progress') || allowed.has('task:report:progress'),
@@ -168,7 +170,7 @@ function buildCapabilityFlags(
     canManageTeamMembers: allowed.has('team-member:create') || allowed.has('team-member:edit'),
     canManageTeams: allowed.has('team:create') || allowed.has('team:edit'),
     canUseMasterCommands: allowed.has('master:projects') || allowed.has('master:context'),
-    canPromptOtherSessions: isCoordinatedMode(mode) && allowed.has('session:prompt'),
+    canPromptOtherSessions: allowed.has('session:prompt'),
     canUseModal: allowed.has('show:modal') || allowed.has('modal:events'),
     canUseSpells: allowed.has('spell:invoke') || allowed.has('spell:list') || allowed.has('spell:entities'),
   };

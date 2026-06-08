@@ -15,12 +15,14 @@ import { registerSkillCommands } from './commands/skill.js';
 import { registerManifestCommands } from './commands/manifest-generator.js';
 import { registerProjectCommands } from './commands/project.js';
 import { registerMasterCommands } from './commands/master.js';
+import { registerCoordinatorCommands } from './commands/coordinator.js';
 
 import { registerReportCommands } from './commands/report.js';
 import { registerModalCommands } from './commands/modal.js';
 import { registerTeamMemberCommands } from './commands/team-member.js';
 import { registerTeamCommands } from './commands/team.js';
 import { registerSpellCommands } from './commands/spell.js';
+import { registerAnnounceCommands } from './commands/announce.js';
 import {
   loadCommandPermissions,
   printAvailableCommands,
@@ -337,6 +339,7 @@ program.command('commands')
 
 registerProjectCommands(program);
 registerMasterCommands(program);
+registerCoordinatorCommands(program);
 registerTaskCommands(program);
 registerSessionCommands(program);
 registerWorkerCommands(program);
@@ -349,6 +352,7 @@ registerModalCommands(program);
 registerTeamMemberCommands(program);
 registerTeamCommands(program);
 registerSpellCommands(program);
+registerAnnounceCommands(program);
 program.command('status')
   .description('Show summary of current project state')
   .action(async () => {

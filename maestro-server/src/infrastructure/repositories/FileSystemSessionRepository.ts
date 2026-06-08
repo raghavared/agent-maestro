@@ -418,6 +418,7 @@ export class FileSystemSessionRepository implements ISessionRepository {
       rootSessionId: input.rootSessionId || sessionId,
       teamSessionId: input.teamSessionId || null,
       teamId: input.teamId || null,
+      isMasterSession: input.isMasterSession || false,
     };
 
     await this.saveAndCache(session);
@@ -433,14 +434,22 @@ export class FileSystemSessionRepository implements ISessionRepository {
     const cached = this.sessions.get(id);
     if (cached) return cached;
 
-    // Check index — if it exists, lazy-load from disk
+    // Flush any pending writes for this session before reading from disk
+    await this.writeBatcher.flushEntity(id);
+
+    // Index hit → load via known path
     if (this.sessionIndex.has(id)) {
-      // Flush any pending writes for this session before reading from disk
-      await this.writeBatcher.flushEntity(id);
       return await this.loadSessionFromDisk(id);
     }
 
-    return null;
+    // Index miss → fall back to disk so pruned-but-still-present sessions remain reachable
+    const session = await this.loadSessionFromDisk(id);
+    if (session) {
+      const entry = this.buildIndexEntry(session);
+      this.sessionIndex.set(id, entry);
+      this.addToSecondaryIndexes(entry);
+    }
+    return session;
   }
 
   async findByProjectId(projectId: string): Promise<Session[]> {
@@ -523,6 +532,16 @@ export class FileSystemSessionRepository implements ISessionRepository {
     }
     if (updates.teamId !== undefined) {
       session.teamId = updates.teamId;
+    }
+    if (updates.mode !== undefined) {
+      if (!session.metadata) session.metadata = {};
+      session.metadata.mode = updates.mode;
+    }
+    if (updates.humanCompletedAt !== undefined) {
+      session.humanCompletedAt = updates.humanCompletedAt;
+    }
+    if (updates.archivedAt !== undefined) {
+      session.archivedAt = updates.archivedAt;
     }
 
     session.lastActivity = Date.now();

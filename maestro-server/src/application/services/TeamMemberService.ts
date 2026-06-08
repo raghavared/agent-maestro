@@ -69,7 +69,7 @@ export class TeamMemberService {
   }
 
   /**
-   * Get a team member by ID.
+   * Get a team member by ID within a project.
    */
   async getTeamMember(projectId: string, id: string): Promise<TeamMember> {
     if (!projectId) {
@@ -77,6 +77,18 @@ export class TeamMemberService {
     }
 
     const member = await this.teamMemberRepo.findById(projectId, id);
+    if (!member) {
+      throw new NotFoundError('Team member', id);
+    }
+    return member;
+  }
+
+  /**
+   * Get a team member by ID without requiring projectId.
+   * Uses cache-first lookup (IDs are globally unique).
+   */
+  async getTeamMemberById(id: string): Promise<TeamMember> {
+    const member = await this.teamMemberRepo.findById(GLOBAL_PROJECT_ID, id);
     if (!member) {
       throw new NotFoundError('Team member', id);
     }

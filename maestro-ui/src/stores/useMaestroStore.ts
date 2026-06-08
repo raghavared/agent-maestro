@@ -21,9 +21,51 @@ import type {
   WorkflowTemplate,
 } from '../app/types/maestro';
 import { useSessionStore } from './useSessionStore';
+import { useUIStore } from './useUIStore';
 import { WS_URL } from '../utils/serverConfig';
 import { playEventSound, soundManager } from '../services/soundManager';
-import { usePromptAnimationStore } from './usePromptAnimationStore';
+import { usePromptAnimationStore, selectPromptSurface, type PromptSurface } from './usePromptAnimationStore';
+import { buildTeamGroups } from '../utils/teamGrouping';
+
+/**
+ * Resolve cosmetic metadata for a prompt animation (sender accent + display names).
+ * Best-effort: any missing piece simply degrades the animation, never blocks delivery.
+ */
+function resolvePromptAnimationMeta(
+  maestroSessions: Record<string, MaestroSession>,
+  teams: Record<string, Team>,
+  senderMaestroSessionId: string | null,
+  targetMaestroSessionId: string,
+): { accent?: string; senderName?: string; targetName?: string; senderInitial?: string; edgeTravel?: boolean } {
+  const senderName = senderMaestroSessionId
+    ? maestroSessions[senderMaestroSessionId]?.name
+    : undefined;
+  const targetName = maestroSessions[targetMaestroSessionId]?.name;
+
+  // Parent/child pair → tree variant can route along the spawn-edge connector.
+  let edgeTravel = false;
+  if (senderMaestroSessionId) {
+    const sender = maestroSessions[senderMaestroSessionId];
+    const target = maestroSessions[targetMaestroSessionId];
+    edgeTravel =
+      sender?.parentSessionId === targetMaestroSessionId ||
+      target?.parentSessionId === senderMaestroSessionId;
+  }
+
+  let accent: string | undefined;
+  if (senderMaestroSessionId) {
+    try {
+      const localSessions = useSessionStore.getState().sessions;
+      const { sessionColorMap } = buildTeamGroups(localSessions, maestroSessions, teams);
+      accent = sessionColorMap.get(senderMaestroSessionId)?.teamColor.primary;
+    } catch {
+      // best-effort accent only
+    }
+  }
+
+  const senderInitial = senderName?.trim()?.[0]?.toUpperCase();
+  return { accent, senderName, targetName, senderInitial, edgeTravel };
+}
 
 // Global WebSocket singleton
 let globalWs: WebSocket | null = null;
@@ -113,6 +155,9 @@ interface MaestroState {
   archiveTeam: (id: string, projectId: string) => Promise<void>;
   unarchiveTeam: (id: string, projectId: string) => Promise<void>;
   resumeSession: (sessionId: string) => Promise<void>;
+  updateSessionMode: (sessionId: string, mode: string) => void;
+  setSessionHumanComplete: (sessionId: string, complete: boolean) => Promise<void>;
+  setSessionArchived: (sessionId: string, archived: boolean) => Promise<void>;
 }
 
 // Module-level debounce timer for lastUsedTeamMember localStorage persistence
@@ -191,6 +236,26 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
   ]);
 
   // Normalize session data to ensure required fields exist (mutates in-place)
+  // Lifecycle fields the human controls optimistically (human-complete toggle,
+  // archive/close). While a write is in flight we keep the locally-set value so
+  // a stale server `session:updated` full-replace can't bounce the tile between
+  // the Active/Completed/Archived tabs (flicker / tab-jump).
+  const pendingLifecycle = new Map<string, { humanCompletedAt?: number | null; archivedAt?: number | null }>();
+
+  const applyPendingLifecycle = (session: MaestroSession): MaestroSession => {
+    if (!session) return session;
+    const override = pendingLifecycle.get(session.id);
+    if (!override) return session;
+    return { ...session, ...override };
+  };
+
+  const clearPendingLifecycleField = (sessionId: string, field: 'humanCompletedAt' | 'archivedAt') => {
+    const override = pendingLifecycle.get(sessionId);
+    if (!override) return;
+    delete override[field];
+    if (Object.keys(override).length === 0) pendingLifecycle.delete(sessionId);
+  };
+
   const normalizeSession = (session: Partial<MaestroSession>): MaestroSession => {
     if (!session) return session as MaestroSession;
     if (!Array.isArray(session.taskIds)) {
@@ -283,7 +348,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         break;
       }
       case 'session:updated': {
-        const updatedSession = normalizeSession(message.data);
+        const updatedSession = applyPendingLifecycle(normalizeSession(message.data));
         batchSet((prev) => ({ sessions: { ...prev.sessions, [updatedSession.id]: updatedSession } }));
         // Play sound using team member instruments (only if not a high-frequency update)
         if (shouldLogDetails) {
@@ -336,15 +401,23 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         }
         set((prev) => ({ sessions: { ...prev.sessions, [session.id]: session } }));
 
-        // Find and remove existing exited terminal tab for this maestro session
+        // Resume is idempotent: replace ANY existing terminal(s) for this maestro
+        // session — not just exited ones. A crashed/working session often has a
+        // stale terminal tab that the UI never marked as exited; leaving it would
+        // duplicate tabs and leak the old PTY.
         const sessionStore = useSessionStore.getState();
-        const existingTerminal = sessionStore.sessions.find(
+        const existingTerminals = sessionStore.sessions.filter(
           (s) => s.maestroSessionId === session.id
         );
-        if (existingTerminal && existingTerminal.exited) {
-          sessionStore.setSessions((prev) =>
-            prev.filter((s) => s.id !== existingTerminal.id)
-          );
+        if (existingTerminals.length > 0) {
+          for (const term of existingTerminals) {
+            // Close the underlying PTY for any terminal still believed to be live.
+            if (!term.exited) {
+              sessionStore.cleanupSessionResources(term.id);
+            }
+          }
+          const staleIds = new Set(existingTerminals.map((s) => s.id));
+          sessionStore.setSessions((prev) => prev.filter((s) => !staleIds.has(s.id)));
         }
 
         // Spawn new terminal (replaces the removed one)
@@ -361,13 +434,37 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         break;
       }
       case 'session:prompt_send': {
-        const { sessionId: maestroSessionId, content, mode: promptMode, senderSessionId } = message.data;
+        const {
+          sessionId: maestroSessionId,
+          content,
+          mode: promptMode,
+          senderSessionId,
+          senderProjectId,
+          targetProjectId,
+        } = message.data;
 
-        // Trigger flying dot animation
+        // Trigger the travel animation (cosmetic, best-effort — never blocks PTY write below).
+        const railVisible = useUIStore.getState().spacesRailActiveSection === null;
+        const surface: PromptSurface = selectPromptSurface(
+          senderProjectId ?? null,
+          targetProjectId ?? null,
+          railVisible,
+        );
+        const meta = resolvePromptAnimationMeta(
+          get().sessions,
+          get().teams,
+          senderSessionId || null,
+          maestroSessionId,
+        );
         usePromptAnimationStore.getState().addAnimation({
+          surface,
           senderMaestroSessionId: senderSessionId || null,
           targetMaestroSessionId: maestroSessionId,
+          senderProjectId: senderProjectId ?? null,
+          targetProjectId: targetProjectId ?? null,
           content: content || '',
+          direction: 'forward',
+          ...meta,
         });
 
         const sessions = useSessionStore.getState().sessions;
@@ -422,11 +519,20 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           }
         })();
 
-        // Trigger prompt animation
+        // Trigger prompt animation (spell delivery has no sender → target pulse only).
+        const spellMeta = resolvePromptAnimationMeta(
+          get().sessions,
+          get().teams,
+          null,
+          maestroSessionId,
+        );
         usePromptAnimationStore.getState().addAnimation({
+          surface: 'rail',
           senderMaestroSessionId: null,
           targetMaestroSessionId: maestroSessionId,
           content: `[Spell: ${spellName}] ${content.slice(0, 50)}...`,
+          direction: 'forward',
+          ...spellMeta,
         });
 
         break;
@@ -540,6 +646,15 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
           return { teams };
         });
         playEventSound(message.event as any);
+        break;
+      }
+      case 'session:mode_changed': {
+        const { sessionId, mode } = message.data;
+        batchSet((prev) => {
+          const existing = prev.sessions[sessionId];
+          if (!existing) return {};
+          return { sessions: { ...prev.sessions, [sessionId]: { ...existing, mode } } };
+        });
         break;
       }
     }
@@ -741,7 +856,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         set((prev) => {
           const updated = { ...prev.sessions };
           for (const session of sessions) {
-            updated[session.id] = normalizeSession(session);
+            updated[session.id] = applyPendingLifecycle(normalizeSession(session));
           }
           return { sessions: updated };
         });
@@ -757,7 +872,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       setLoading(key, true);
       setError(key, null);
       try {
-        const session = normalizeSession(await maestroClient.getSession(sessionId));
+        const session = applyPendingLifecycle(normalizeSession(await maestroClient.getSession(sessionId)));
         set((prev) => ({ sessions: { ...prev.sessions, [session.id]: session } }));
         for (const taskId of session.taskIds) {
           if (!get().tasks[taskId]) get().fetchTask(taskId);
@@ -1167,6 +1282,62 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
 
     resumeSession: async (sessionId: string) => {
       await maestroClient.resumeSession(sessionId);
+    },
+
+    updateSessionMode: (sessionId, mode) => {
+      set((prev) => {
+        const existing = prev.sessions[sessionId];
+        if (!existing) return prev;
+        return { sessions: { ...prev.sessions, [sessionId]: { ...existing, mode: mode as import('../app/types/maestro').AgentMode } } };
+      });
+    },
+
+    setSessionHumanComplete: async (sessionId, complete) => {
+      const humanCompletedAt = complete ? Date.now() : null;
+      const previous = get().sessions[sessionId]?.humanCompletedAt;
+      // Guard the optimistic value against in-flight WS full-replaces.
+      pendingLifecycle.set(sessionId, { ...pendingLifecycle.get(sessionId), humanCompletedAt });
+      set((prev) => {
+        const existing = prev.sessions[sessionId];
+        if (!existing) return prev;
+        return { sessions: { ...prev.sessions, [sessionId]: { ...existing, humanCompletedAt } } };
+      });
+      try {
+        await maestroClient.updateSession(sessionId, { humanCompletedAt });
+      } catch (err) {
+        // Roll back optimistic update on failure
+        set((prev) => {
+          const existing = prev.sessions[sessionId];
+          if (!existing) return prev;
+          return { sessions: { ...prev.sessions, [sessionId]: { ...existing, humanCompletedAt: previous ?? null } } };
+        });
+      } finally {
+        clearPendingLifecycleField(sessionId, 'humanCompletedAt');
+      }
+    },
+
+    setSessionArchived: async (sessionId, archived) => {
+      const archivedAt = archived ? Date.now() : null;
+      const previous = get().sessions[sessionId]?.archivedAt;
+      // Guard the optimistic value against in-flight WS full-replaces.
+      pendingLifecycle.set(sessionId, { ...pendingLifecycle.get(sessionId), archivedAt });
+      set((prev) => {
+        const existing = prev.sessions[sessionId];
+        if (!existing) return prev;
+        return { sessions: { ...prev.sessions, [sessionId]: { ...existing, archivedAt } } };
+      });
+      try {
+        await maestroClient.updateSession(sessionId, { archivedAt });
+      } catch (err) {
+        // Roll back optimistic update on failure
+        set((prev) => {
+          const existing = prev.sessions[sessionId];
+          if (!existing) return prev;
+          return { sessions: { ...prev.sessions, [sessionId]: { ...existing, archivedAt: previous ?? null } } };
+        });
+      } finally {
+        clearPendingLifecycleField(sessionId, 'archivedAt');
+      }
     },
 
     fetchWorkflowTemplates: async () => {

@@ -35,11 +35,13 @@ export class APIClient {
       const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
       try {
+        const sessionId = process.env.MAESTRO_SESSION_ID;
         const response = await fetch(url, {
           ...options,
           signal: controller.signal as any,
           headers: {
             'Content-Type': 'application/json',
+            ...(sessionId ? { 'X-Session-Id': sessionId } : {}),
             ...options?.headers,
           },
         });

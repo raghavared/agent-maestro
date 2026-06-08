@@ -374,6 +374,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const pending = pendingExitCodes.get(session.id);
     if (pending === undefined) return session;
     pendingExitCodes.delete(session.id);
+
+    // The pty-exit handler may have fired before this session was added to
+    // the store, which means it couldn't send the server-side status update
+    // (it didn't know the maestroSessionId yet). Send it now as a fallback.
+    if (session.maestroSessionId) {
+      void maestroClient.updateSession(session.maestroSessionId, {
+        status: 'stopped',
+        completedAt: Date.now(),
+      }).catch(() => {});
+    }
+
     return {
       ...session,
       exited: true,
@@ -1180,7 +1191,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         persistent: false,
       });
 
-      const newSession: TerminalSession = {
+      const rawSession: TerminalSession = {
         ...info,
         projectId: sessionInfo.projectId,
         maestroSessionId: sessionInfo.maestroSessionId,
@@ -1194,6 +1205,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         agentWorking: false,
         exited: false,
       };
+
+      // Apply any pending exit that arrived before invoke('create_session')
+      // returned (race condition when the spawned process crashes immediately).
+      const newSession = get().applyPendingExit(rawSession);
 
       set((s) => ({
         sessions: [...s.sessions, newSession],

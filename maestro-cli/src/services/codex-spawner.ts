@@ -63,6 +63,7 @@ export class CodexSpawner {
     }
     // Map Claude model names to Codex equivalents
     switch (model) {
+      case 'claude-opus-4-8[1m]':
       case 'claude-opus-4-8':
       case 'claude-opus-4-7[1m]':
       case 'claude-opus-4-7':

@@ -1,4 +1,4 @@
-import { Session, SessionStatus, CreateSessionPayload, UpdateSessionPayload, SessionTimelineEvent, SessionTimelineEventType, DocEntry } from '../../types';
+import { Session, SessionStatus, AgentMode, CreateSessionPayload, UpdateSessionPayload, SessionTimelineEvent, SessionTimelineEventType, DocEntry } from '../../types';
 import { ISessionRepository, SessionFilter } from '../../domain/repositories/ISessionRepository';
 import { ITaskRepository } from '../../domain/repositories/ITaskRepository';
 import { IProjectRepository } from '../../domain/repositories/IProjectRepository';
@@ -305,6 +305,19 @@ export class SessionService {
 
     await this.eventBus.emit('session:task_removed', { sessionId, taskId });
     await this.eventBus.emit('task:session_removed', { taskId, sessionId });
+  }
+
+  /**
+   * Change session mode (flip role while preserving relation axis).
+   */
+  async changeMode(id: string, newMode: AgentMode): Promise<{ session: Session; previousMode: AgentMode }> {
+    const session = await this.sessionRepo.findById(id);
+    if (!session) {
+      throw new NotFoundError('Session', id);
+    }
+    const previousMode = (session.metadata?.mode as AgentMode) || 'worker';
+    const updatedSession = await this.sessionRepo.update(id, { mode: newMode });
+    return { session: updatedSession, previousMode };
   }
 
   /**

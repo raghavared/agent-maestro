@@ -313,6 +313,9 @@ export const updateSessionSchema = z.object({
   status: sessionStatusSchema.optional(),
   agentId: safeId.optional(),
   claudeSessionId: z.string().uuid().optional(),
+  completedAt: z.number().optional(),
+  humanCompletedAt: z.number().nullable().optional(),
+  archivedAt: z.number().nullable().optional(),
   env: z.record(z.string(), z.string().max(5000)).optional(),
   events: z.array(z.object({
     id: safeId,
@@ -350,7 +353,7 @@ export const sessionTimelineSchema = z.object({
 export const listSessionsQuerySchema = z.object({
   projectId: safeId.optional(),
   taskId: safeId.optional(),
-  status: sessionStatusSchema.optional(),
+  status: z.string().optional(),    // Comma-separated list of statuses
   active: z.enum(['true', 'false']).optional(),
   parentSessionId: safeId.optional(),
   rootSessionId: safeId.optional(),
@@ -358,12 +361,16 @@ export const listSessionsQuerySchema = z.object({
   fields: z.enum(['full', 'summary']).optional(),
 });
 
+export const modeBodySchema = z.object({
+  role: z.enum(['worker', 'coordinator']),
+}).strict();
+
 // --- Spawn session schema ---
 
 const allStrategySchema = z.enum(['simple', 'tree', 'default', 'intelligent-batching', 'dag']);
 
 export const spawnSessionSchema = z.object({
-  projectId: safeId,
+  projectId: safeId.optional(),
   taskIds: z.array(safeId).min(1),
   sessionName: shortString.optional(),
   skills: z.array(z.string().max(200)).optional(),
@@ -443,6 +450,21 @@ export const updateCustomPromptSchema = z.object({
   content: longString.optional(),
   tags: z.array(z.string().max(50)).max(10).optional(),
   entityType: spellEntityTypeSchema.optional(),
+}).strict();
+
+// --- Alexa / Voice schemas ---
+
+export const announceSchema = z.object({
+  text: z.string().min(1).max(500),
+  device: z.string().min(1).max(100).optional(),
+}).strict();
+
+export const alexaUtteranceSchema = z.object({
+  query: z.string().min(1).max(1000),
+  // Real Alexa session/device IDs (amzn1.echo-api.session.* / amzn1.ask.device.*)
+  // routinely exceed 200 chars, so cap generously to avoid rejecting live traffic.
+  alexaSessionId: z.string().max(512).optional(),
+  deviceId: z.string().max(512).optional(),
 }).strict();
 
 // --- Middleware factories ---

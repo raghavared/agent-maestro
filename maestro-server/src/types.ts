@@ -157,9 +157,13 @@ export interface Project {
 export type TeamMemberStatus = 'active' | 'archived';
 export type TeamMemberScope = 'project' | 'global';
 
+// Discriminator for auto-seeded, non-deletable system team members.
+export type SystemTeamMemberKind = 'alexa-coordinator';
+
 export interface TeamMember {
   id: string;                          // "tm_<timestamp>_<random>" or deterministic for defaults
   projectId: string;
+  systemKind?: SystemTeamMemberKind;   // Set for auto-seeded system members (non-deletable, recreated on startup)
   scope?: TeamMemberScope;             // 'project' (default) or 'global' — global members shared across all projects
   name: string;                        // "Worker", "Coordinator", "Frontend Dev"
   role: string;                        // "Default executor", "Task orchestrator"
@@ -372,6 +376,8 @@ export interface Session {
   startedAt: number;
   lastActivity: number;
   completedAt: number | null;
+  humanCompletedAt?: number | null;  // Set when a human marks the session complete (moves it to Completed tab)
+  archivedAt?: number | null;  // Set when a session is closed/archived (moves it to Archived tab; takes precedence over completed)
   hostname: string;
   platform: string;
   events: SessionEvent[];
@@ -605,6 +611,18 @@ export interface UpdateSessionPayload {
   rootSessionId?: string | null;
   teamSessionId?: string | null;
   teamId?: string | null;
+  mode?: AgentMode;            // Update session mode (stored in metadata.mode)
+  humanCompletedAt?: number | null;  // Human-driven completion timestamp (null to reopen)
+  archivedAt?: number | null;  // Archive timestamp (null to unarchive)
+}
+
+/** Payload emitted on session:mode_changed event */
+export interface SessionModeChangedPayload {
+  sessionId: string;
+  mode: AgentMode;
+  previousMode: AgentMode;
+  changed: boolean;
+  timestamp: number;
 }
 
 // Spawn session payload (Server-Generated Manifests)

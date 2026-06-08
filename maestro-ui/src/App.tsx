@@ -48,12 +48,13 @@ const LazyBoard = React.lazy(() =>
 const LazyTeamView = React.lazy(() =>
   import("./components/maestro/TeamView").then(m => ({ default: m.TeamView }))
 );
-import { buildTeamGroups } from "./utils/teamGrouping";
+import { resolveTeamView, buildChildStatsFn } from "./utils/resolveTeamView";
 import { useSpacesStore } from "./stores/useSpacesStore";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { PromptSendAnimationLayer } from "./components/PromptSendAnimation";
 import { createMaestroSession } from "./services/maestroService";
 import { TaskDetailOverlay } from "./components/maestro/TaskDetailOverlay";
+import { SessionDetailOverlay } from "./components/maestro/SessionDetailOverlay";
 import { STORAGE_SETUP_COMPLETE_KEY } from "./app/constants/defaults";
 
 // ---------------------------------------------------------------------------
@@ -303,15 +304,28 @@ export default function App() {
   }, [setProjectOpen, setNewOpen]);
 
   // ---------- team view ----------
-  const teamViewGroupId = useUIStore((s) => s.teamViewGroupId);
-  const setTeamViewGroupId = useUIStore((s) => s.setTeamViewGroupId);
-  const teamsMap = useMaestroStore((s) => s.teams);
+  const teamViewRootId = useUIStore((s) => s.teamViewRootId);
+  const setTeamViewRootId = useUIStore((s) => s.setTeamViewRootId);
 
-  const teamViewGroup = useMemo(() => {
-    if (!teamViewGroupId) return null;
-    const { groups } = buildTeamGroups(sessions, maestroSessions, teamsMap);
-    return groups.find((g) => g.teamSessionId === teamViewGroupId) ?? null;
-  }, [teamViewGroupId, sessions, maestroSessions, teamsMap]);
+  const teamViewData = useMemo(
+    () => resolveTeamView(teamViewRootId, maestroSessions),
+    [teamViewRootId, maestroSessions],
+  );
+
+  const teamViewChildStats = useMemo(
+    () => buildChildStatsFn(maestroSessions),
+    [maestroSessions],
+  );
+
+  // maestroSessionId -> live local terminal session id (single source of truth
+  // for reparenting terminals into Team View slots).
+  const teamViewLinkMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of sessions) {
+      if (s.maestroSessionId) map.set(s.maestroSessionId, s.id);
+    }
+    return map;
+  }, [sessions]);
 
   // ---------- stable callbacks for ProjectTabBar & SpacesPanel ----------
   const handleOpenMultiProjectBoard = useCallback(() => {
@@ -544,6 +558,7 @@ export default function App() {
                   <div className="terminalArea">
                     <AppWorkspace registry={registry} pendingData={pendingData} />
                     <TaskDetailOverlay />
+                    <SessionDetailOverlay />
                     <AppModals />
                     <AppSlidePanel />
                   </div>
@@ -609,12 +624,17 @@ export default function App() {
       )}
 
       {/* -------- Team View -------- */}
-      {teamViewGroup && (
+      {teamViewData && (
         <React.Suspense fallback={null}>
           <LazyTeamView
-            group={teamViewGroup}
+            root={teamViewData.root}
+            childrenSessions={teamViewData.children}
+            trail={teamViewData.trail}
             registry={registry}
-            onClose={() => setTeamViewGroupId(null)}
+            linkMap={teamViewLinkMap}
+            childStats={teamViewChildStats}
+            onReRoot={(sessionId) => setTeamViewRootId(sessionId)}
+            onClose={() => setTeamViewRootId(null)}
             onSelectSession={handleSelectSession}
           />
         </React.Suspense>

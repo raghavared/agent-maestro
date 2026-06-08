@@ -26,6 +26,10 @@ import { OrderingService } from './application/services/OrderingService';
 import { TeamMemberService } from './application/services/TeamMemberService';
 import { TeamService } from './application/services/TeamService';
 import { SpellService } from './application/services/SpellService';
+import { AnnouncementService } from './application/services/AnnouncementService';
+import { AlexaIngressService } from './application/services/AlexaIngressService';
+import { VoiceMonkeyClient } from './infrastructure/voicemonkey/VoiceMonkeyClient';
+import { MasterProjectBootstrap, VoiceState } from './infrastructure/bootstrap/MasterProjectBootstrap';
 import { ILogger } from './domain/common/ILogger';
 import { IIdGenerator } from './domain/common/IIdGenerator';
 import { IEventBus } from './domain/events/IEventBus';
@@ -122,6 +126,8 @@ export interface Container {
   teamMemberService: TeamMemberService;
   teamService: TeamService;
   spellService: SpellService;
+  announcementService: AnnouncementService;
+  alexaIngressService: AlexaIngressService;
 
   // Lifecycle
   initialize(): Promise<void>;
@@ -182,6 +188,37 @@ export async function createContainer(): Promise<Container> {
     idGenerator,
   );
 
+  // Voice / Alexa integration
+  const voiceState: VoiceState = {};
+  const vmClient = config.voice.vmToken
+    ? new VoiceMonkeyClient({ token: config.voice.vmToken, logger })
+    : null;
+  if (!vmClient) {
+    logger.warn('VM_TOKEN not configured — voice announcements are disabled');
+  }
+  const announcementService = new AnnouncementService({
+    vmClient,
+    defaultDevice: config.voice.vmDevice,
+    sessionService,
+    logger,
+  });
+  const alexaIngressService = new AlexaIngressService({
+    logger,
+    eventBus,
+    sessionService,
+    voiceState,
+    alexaRootTeamMemberId: config.voice.alexaRootTeamMemberId,
+    serverUrl: config.serverUrl,
+  });
+  const masterProjectBootstrap = new MasterProjectBootstrap(
+    projectRepo,
+    teamMemberRepo,
+    taskService,
+    logger,
+    voiceState,
+    config.voice.alexaRootTeamMemberId,
+  );
+
   const container: Container = {
     config,
     logger,
@@ -207,6 +244,8 @@ export async function createContainer(): Promise<Container> {
     teamMemberService,
     teamService,
     spellService,
+    announcementService,
+    alexaIngressService,
 
     async initialize() {
       logger.info('Initializing container...');
@@ -226,6 +265,9 @@ export async function createContainer(): Promise<Container> {
 
       // Migration: Delete old team member tasks (skip if already done)
       await migrateTeamMemberTasks(taskRepo, logger, config.dataDir);
+
+      // Voice/Alexa bootstrap: ensure Master project + Alexa Coordinator (idempotent)
+      await masterProjectBootstrap.ensure();
 
       logger.info('Container initialized');
     },

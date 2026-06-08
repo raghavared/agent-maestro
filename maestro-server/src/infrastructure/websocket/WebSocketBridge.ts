@@ -56,6 +56,7 @@ export class WebSocketBridge {
   private readonly THROTTLE_MS: Record<string, number> = {
     'session:updated': 500,          // Max 2/sec per session
     'session:status_changed': 500,   // Same throttle for lightweight status events
+    'session:mode_changed': 200,     // Mode flips are user-driven; light throttling
     'task:updated': 300,             // Max ~3/sec per task
     'notify:progress': 1000,         // Max 1/sec per session
   };
@@ -157,6 +158,7 @@ export class WebSocketBridge {
       'session:resume',
       'session:updated',
       'session:status_changed',
+      'session:mode_changed',
       'session:deleted',
       'session:task_added',
       'session:task_removed',

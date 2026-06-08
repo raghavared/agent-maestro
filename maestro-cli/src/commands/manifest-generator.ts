@@ -597,6 +597,7 @@ export class ManifestGeneratorCLICommand {
         // Multi-identity: fetch all and build profiles array
         const profiles: TeamMemberProfile[] = [];
         const MODEL_POWER: Record<string, number> = {
+          'claude-opus-4-8[1m]': 5.9,
           'claude-opus-4-8': 5.8,
           'gpt-5.5': 5.5,
           'claude-opus-4-7[1m]': 5.2,

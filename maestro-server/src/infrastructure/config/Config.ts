@@ -71,6 +71,18 @@ export interface ConfigOptions {
 
   // Environment
   nodeEnv: 'development' | 'production' | 'test';
+
+  // Voice / Alexa integration
+  voice: VoiceConfig;
+}
+
+/**
+ * Voice (Alexa / Voice Monkey) integration configuration.
+ */
+export interface VoiceConfig {
+  vmToken?: string;          // Voice Monkey API token (never exposed to sessions)
+  vmDevice?: string;         // Default Voice Monkey device name
+  alexaRootTeamMemberId: string; // Stable system team member ID for the Alexa Coordinator
 }
 
 /**
@@ -138,7 +150,14 @@ export class Config implements Readonly<ConfigOptions> {
       },
 
       // Environment
-      nodeEnv: (process.env.NODE_ENV as ConfigOptions['nodeEnv']) || 'development'
+      nodeEnv: (process.env.NODE_ENV as ConfigOptions['nodeEnv']) || 'development',
+
+      // Voice / Alexa integration
+      voice: {
+        vmToken: process.env.VM_TOKEN || undefined,
+        vmDevice: process.env.VM_DEVICE || undefined,
+        alexaRootTeamMemberId: process.env.ALEXA_ROOT_TEAM_MEMBER_ID || 'tm_system_alexa_coordinator',
+      }
     };
   }
 
@@ -208,6 +227,7 @@ export class Config implements Readonly<ConfigOptions> {
   get debug(): boolean { return this.config.debug; }
   get log(): LogConfig { return this.config.log; }
   get nodeEnv(): ConfigOptions['nodeEnv'] { return this.config.nodeEnv; }
+  get voice(): VoiceConfig { return this.config.voice; }
 
   /**
    * Check if running in development mode.

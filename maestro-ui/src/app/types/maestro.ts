@@ -19,6 +19,7 @@ export type ClaudeModel =
   | 'opus'
   | 'opus[1m]'
   | 'claude-opus-4-8'
+  | 'claude-opus-4-8[1m]'
   | 'claude-opus-4-7'
   | 'claude-opus-4-7[1m]'
   | 'claude-sonnet-4-6'
@@ -413,6 +414,8 @@ export interface MaestroSession {
   startedAt: number;
   lastActivity: number;
   completedAt: number | null;
+  humanCompletedAt?: number | null;  // Set when a human marks the session complete
+  archivedAt?: number | null;  // Set when a session is closed/archived (Archived tab; precedence over completed)
   hostname: string;
   platform: string;
   events: MaestroSessionEvent[];
@@ -573,6 +576,8 @@ export interface UpdateSessionPayload {
   events?: MaestroSessionEvent[];
   timeline?: SessionTimelineEvent[];
   completedAt?: number;
+  humanCompletedAt?: number | null;
+  archivedAt?: number | null;
   needsInput?: {
     active: boolean;
     message?: string;
@@ -672,6 +677,8 @@ export interface SpawnSessionResponse {
 }
 
 export type TaskTreeNode = MaestroTask & { children: TaskTreeNode[] };
+
+export type SessionTreeNode = MaestroSession & { children: SessionTreeNode[] };
 
 // Ordering (separate from task/session models - UI ordering only)
 export interface Ordering {

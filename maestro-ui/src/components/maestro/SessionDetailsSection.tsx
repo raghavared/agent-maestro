@@ -18,6 +18,41 @@ function formatTimeAgo(timestamp: number): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
+// Monospace id row with a copy-to-clipboard button. Used to surface the Maestro
+// and Claude session ids for debugging and manual `claude --resume`.
+function CopyableId({ label, value }: { label: string; value?: string | null }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard unavailable — non-fatal
+    }
+  };
+
+  return (
+    <div className="sessionDetailsRow">
+      <span className="sessionDetailsLabel">{label}:</span>
+      {value ? (
+        <button type="button"
+          className="sessionDetailsValue sessionDetailsValue--mono sessionDetailsValue--copy"
+          onClick={(e) => { e.stopPropagation(); void handleCopy(); }}
+          title={`Click to copy ${value}`}
+        >
+          <span className="sessionDetailsIdText">{value}</span>
+          <span className="sessionDetailsCopyHint">{copied ? "copied" : "copy"}</span>
+        </button>
+      ) : (
+        <span className="sessionDetailsValue sessionDetailsValue--mono">—</span>
+      )}
+    </div>
+  );
+}
+
 function formatDateTime(timestamp: number): string {
   return new Date(timestamp).toLocaleString([], {
     month: "short",
@@ -75,6 +110,15 @@ export function SessionDetailsSection({
 
       {isExpanded && (
         <div className="sessionDetailsSectionContent">
+          {/* Identifiers (for debugging / manual resume) */}
+          <div className="sessionDetailsGroup">
+            <div className="sessionDetailsGroupTitle">Identifiers</div>
+            <div className="sessionDetailsGrid">
+              <CopyableId label="Maestro Session ID" value={session.id} />
+              <CopyableId label="Claude Session ID" value={session.claudeSessionId} />
+            </div>
+          </div>
+
           {/* Core Info */}
           <div className="sessionDetailsGrid">
             <div className="sessionDetailsRow">

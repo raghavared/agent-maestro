@@ -6,6 +6,7 @@ import { validateRequired, validateTaskId } from '../utils/validation.js';
 import { handleError } from '../utils/errors.js';
 import { guardCommand } from '../services/command-permissions.js';
 import { executeReport } from './report.js';
+import { resolveProjectScope } from '../utils/project-scope.js';
 import { resolveSpawnModeFromSkillAndTeamMemberMode } from './session-spawn-mode.js';
 import type { TaskResponse, SessionResponse, TeamMemberResponse, SpawnResponse, DocResponse, LogDigestResponse } from '../types/api-responses.js';
 import ora from 'ora';
@@ -233,6 +234,8 @@ export function registerSessionCommands(program: Command) {
         .option('--active', 'Show only active sessions (working, idle, spawning)')
         .option('--siblings', 'Show sibling sessions (spawned by the same coordinator)')
         .option('--my-workers', 'Show worker sessions spawned by this session')
+        .option('--project-id <id>', 'Filter by project ID (overrides global --project)')
+        .option('--all-projects', 'List sessions from all projects')
         .action(async (cmdOpts) => {
             await guardCommand('session:list');
             const globalOpts = program.opts();
@@ -240,7 +243,11 @@ export function registerSessionCommands(program: Command) {
             const spinner = !isJson ? ora('Fetching sessions...').start() : null;
 
             try {
-                const projectId = globalOpts.project || config.projectId;
+                const scope = resolveProjectScope(
+                    { projectId: cmdOpts.projectId, allProjects: cmdOpts.allProjects },
+                    globalOpts,
+                );
+                const projectId = scope.projectId;
 
                 // Fetch sessions from server
                 let endpoint = '/api/sessions';
@@ -676,6 +683,7 @@ export function registerSessionCommands(program: Command) {
     session.command('spawn')
         .description('Spawn a new session with full task context')
         .requiredOption('--task <id>', 'Task ID to assign to the new session')
+        .option('--project <id>', 'Target project ID to spawn into (overrides task project)')
         .option('--skill <skill>', 'Skill to load (defaults to "maestro-worker")', 'maestro-worker')
         .option('--name <name>', 'Session name (auto-generated if not provided)')
         .option('--reason <reason>', 'Reason for spawning this session')
@@ -703,7 +711,7 @@ export function registerSessionCommands(program: Command) {
                 const task = await api.get<TaskResponse>(`/api/tasks/${taskId}`);
                 spinner?.stop();
 
-                const projectId = task.projectId;
+                const projectId = cmdOpts.project || task.projectId;
                 if (!projectId) {
                     throw new Error('Task does not have an associated projectId');
                 }
