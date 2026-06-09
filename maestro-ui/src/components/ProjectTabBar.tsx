@@ -82,8 +82,8 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
   return (
     <div className="projectSettingsBackdrop" onClick={onClose}>
       <div
-        className="pn-mdl appSettingsDialog"
-        style={{ width: 720, maxWidth: '92vw' }}
+        className={`pn-mdl appSettingsDialog${activeTab === 'display' ? ' appSettingsDialog--wide' : ''}`}
+        style={{ width: activeTab === 'display' ? 820 : 720, maxWidth: '94vw' }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Settings"
@@ -120,7 +120,11 @@ function AppSettingsDialog({ onClose }: { onClose: () => void }) {
 
           <div className="pn-mdl__body" style={{ flex: 1, minWidth: 0 }}>
             {activeTab === 'theme' && <ThemeSwitcher />}
-            {activeTab === 'display' && <DisplaySettings />}
+            {activeTab === 'display' && (
+              <div className="appSettingsContent--terminal">
+                <DisplaySettings />
+              </div>
+            )}
             {activeTab === 'sounds' && <SoundSettingsContent />}
             {activeTab === 'git' && <GitSettings />}
             {activeTab === 'shortcuts' && (
