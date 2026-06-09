@@ -305,3 +305,111 @@
   margin-bottom: 8px;
 }
 
+/* ========================================================================
+   REDESIGN OVERRIDES — warm-paper "pn" tokens
+   Repoints the legacy dark-gradient slide panel onto pn tokens when
+   html[data-redesign] is active. Token-only; base rules above are untouched
+   so the redesign toggle still works.
+   ======================================================================== */
+
+html[data-redesign] .slidePanel {
+  background: var(--pn-surface);
+  border-color: var(--pn-line);
+  box-shadow: var(--pn-sh-md);
+}
+
+html[data-redesign] .slidePanelHeader {
+  border-bottom-color: var(--pn-line);
+  background: var(--pn-card);
+}
+
+html[data-redesign] .slidePanelTab {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .slidePanelTab:hover {
+  color: var(--pn-ink);
+  background: var(--pn-hover);
+}
+
+html[data-redesign] .slidePanelTabActive {
+  color: var(--pn-ink);
+  background: var(--pn-active);
+}
+
+html[data-redesign] .slidePanelClose {
+  border-color: var(--pn-line);
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .slidePanelClose:hover {
+  color: var(--pn-ink);
+  background: var(--pn-hover);
+}
+
+html[data-redesign] .panelSearchInput {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .panelSearchInput:focus {
+  border-color: var(--pn-brand);
+}
+
+html[data-redesign] .panelSearchInput::placeholder {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .panelSearchIcon {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .panelSectionTitle {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .panelCard {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+}
+
+html[data-redesign] .panelCard:hover {
+  border-color: var(--pn-brand);
+  background: var(--pn-hover);
+}
+
+html[data-redesign] .panelCardMeta,
+html[data-redesign] .panelCardPreview {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .panelCardBtn {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .panelCardBtn:hover {
+  background: var(--pn-hover);
+}
+
+html[data-redesign] .panelFooter {
+  border-top-color: var(--pn-line);
+}
+
+html[data-redesign] .panelFooterBtn {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .panelFooterBtn:hover {
+  background: var(--pn-hover);
+}
+
+html[data-redesign] .dateGroupHeader {
+  color: var(--pn-ink-3);
+  border-bottom-color: var(--pn-line);
+}
+

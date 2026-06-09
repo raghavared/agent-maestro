@@ -24,6 +24,16 @@ Inputs the lead hands me: the branch's git diff (or list of changed files) + its
 
 ---
 
+## Axis 0 — CSS PARSES CLEAN (HARD gate, Phase-2 addition)
+
+`tsc -b` does **NOT** parse `.css` — a CSS syntax/comment break sails past typecheck and takes the staging GUI down at runtime (one unclosed comment `-*/` already did this). For **every changed `.css` file** in a cleanup surface:
+- [ ] File parses with no error. Coordinator's workers run `cd maestro-ui && node -e "require('postcss').parse(require('fs').readFileSync('<file>','utf8'))"` per changed file.
+- [ ] Common breakers to eyeball in the diff: unterminated comment (`/* …` with no `*/`, or a stray `-*/`), unbalanced `{`/`}`, a `var(` with no closing `)`, a rule body with a missing `;` before `}` on multi-decl lines.
+
+🚩 **Report as blocker:** any changed `.css` file that was **not** parse-validated, or that fails `postcss.parse`. This gates the surface regardless of Axis 1/2 cleanliness — a parse break is a live GUI outage.
+
+---
+
 ## Axis 1 — FUNCTIONAL SURFACE PRESERVED (zero functionality changes)
 
 The redesign is appearance-only. For each re-skinned component, every item below must survive **byte-for-byte in behavior** vs the pre-redesign version. Compare the diff: a redesign edit should touch only `className` strings, inline-`style` token values, and JSX wrapper markup — never logic.

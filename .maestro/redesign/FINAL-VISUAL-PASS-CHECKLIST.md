@@ -77,3 +77,28 @@ Files: NEW `session-log/TerminalStrip.tsx` (fuses old SessionLogStrip + SessionA
 - **Bidirectional 2c flip** — `[HEADLESS]` per-panel computed-bg assert (pn-mp / terminal / pn-st): light→paper, dark→graphite, terminal dark in both. `[OPERATOR]` the TRUE light+dark full-layout pixel pair (earlier "dark" capture was a mislabeled light shot).
 - **In-app theme toggle reachability** — `[OPERATOR]` the TopBar Moon/Sun toggle actually flips `html[data-theme]` at runtime (not just devtools-forced), so dark is user-reachable.
 - **Type fidelity, app vs harness** — `[HEADLESS]` assert computed `font-family` resolves to Hanken Grotesk (`--pn-ui`) / Newsreader (`--pn-serif`) / JetBrains Mono (`--pn-mono`), not a system fallback. `[OPERATOR]` visual confirm app == harness (v2.2 bundling).
+
+---
+
+## ☐ P2 — Old-theme cleanup sweep (static-verdict CLEAN; populated-visual pending)
+Reviewer: 🎛️ Middle Panel Coordinator (independent). All P2 surfaces re-skin via additive `html[data-redesign]` override blocks (base legacy rules untouched, toggle-safe) or token-only swaps. Code-level Axis 0/1/2 PASSED; the items below are the decoupled [OPERATOR] visual confirmations + [HEADLESS] computed-style flip-asserts (queued with Screenshots sess_1781000510487_jsrsjlddu).
+
+### Cluster A1 — Document Viewer (styles-docs-v2.css + sessions-v2 projectDocsList + DocViewer.tsx)
+- `[HEADLESS]` `.docViewerPanel`/`.docsListCard` computed bg = `--pn-card` (NOT `#0a0a0a`); flips graphite in dark. `.docViewerMarkdown a/code` computed color = `--pn-brand` (no neon `#00ff41`).
+- `[OPERATOR]` Open a markdown doc + a mermaid doc, both themes: paper panels, brass links/code, warm scrim overlay; fullscreen overlay = paper/graphite flip.
+
+### Cluster A5/A6 — Modal system (themed-components .themedModal, file-explorer .modal/.agent-modal-overlay, terminal-task-detail .terminalTaskModal, session-log chrome)
+- `[HEADLESS]` `.themedModal` + `.modal` + `.terminalTaskModal` computed bg = `--pn-card` (NOT `#000000`/`#0a0a0a`/dark gradient); flips dark. `.agent-modal-overlay` inline `--color-bg-*` resolve to pn.
+- `[OPERATOR]` Spot-check ~3 modals each family (NewSession/Project + PersistentSessions/Ssh + SessionLogModal), both themes: paper shell, brass accents, legible text; SessionLogModal transcript CONTENT stays dark (bucket C, intended).
+
+### Cluster A7–A10 — Panels (git, dashboard, spells, claude-skills)
+- `[HEADLESS]` `.dashMetricCard`/`.dashChartWrap`/`.spellPicker`/`.claudeCodeSkillCard`/`.git-panel__file-list` computed bg = `--pn-card`/`--pn-surface`; flip dark. `.dashTeamProgressFill` = brass gradient (no neon green).
+- `[OPERATOR]` Open Dashboard, SpellPicker, ClaudeCodeSkillsSelector, GitPanel, both themes: paper surfaces, brass accents. Dashboard chart-series/heatmap hexes stay data-viz (bucket C, intended).
+
+### Cluster A3/A4 — Sessions-view + misplaced-board-block split (styles-excalidraw.css 862→146, board classes moved to styles-multi-project-board.css)
+- `[HEADLESS]` `.sessionBoardColumn` computed bg = `--pn-surface`/`--pn-card` and FLIPS dark (the highest-risk forward+reverse leak); `.sessionBoardColumn--working` border = `--pn-run-soft` (no cyan `rgba(0,217,255)`). mpb* header bg flips.
+- `[OPERATOR]` Project Board → Sessions view, both themes: paper columns + header, brass working accent, drag a card (DragGhostCard `taskBoardCard--ghost` = paper), terminal-in-board stays dark.
+
+### Cluster command-palette (W7b — styles-command-palette.css, CommandPalette.tsx via App.tsx lazy-import)
+- `[HEADLESS]` `.commandPalette` computed bg = `--pn-card` (NOT the legacy dark gradient); flips graphite in dark. `.commandPaletteItemSelected` = `--pn-brand-soft` (no indigo/neon).
+- `[OPERATOR]` Open the command palette (keyboard), both themes: paper sheet, warm scrim, brass search icon + selected-row, mono shortcuts/kbd; quick-prompt items = paper cards. Confirm generic `.iconBtn`/`.shortcutHint` (overridden unscoped under data-redesign) look correct wherever else they appear.

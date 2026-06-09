@@ -27,7 +27,6 @@ type SpacesPanelProps = {
     onOpenPersistentSessions: () => void;
     onOpenSshManager: () => void;
     onOpenManageTerminals: () => void;
-    contentWidth: number;
     activeSection: 'sessions' | null;
     onToggle: () => void;
 };
@@ -48,7 +47,6 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
     onOpenPersistentSessions,
     onOpenSshManager,
     onOpenManageTerminals,
-    contentWidth,
     activeSection,
     onToggle,
 }) => {
@@ -105,11 +103,13 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
         <aside
             className="pn-sp"
             style={{
+                // Width is driven by the CSS var so a resize commit never
+                // re-renders this panel — see useAppLayoutResizing.
                 width: isExpanded
-                    ? `${contentWidth}px`
+                    ? 'var(--right-panel-width)'
                     : `${DEFAULTS.SPACES_RAIL_WIDTH}px`,
                 maxWidth: isExpanded
-                    ? `${contentWidth}px`
+                    ? 'var(--right-panel-width)'
                     : `${DEFAULTS.SPACES_RAIL_WIDTH}px`,
                 flexShrink: 0,
                 flexGrow: 0,
@@ -118,7 +118,7 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
             {isExpanded ? (
                 <div
                     className="spacesPanelContent"
-                    style={{ width: `${contentWidth}px`, position: 'relative' }}
+                    style={{ width: 'var(--right-panel-width)', position: 'relative' }}
                 >
                     <div className="pn-tabs" style={{ paddingTop: 0 }}>
                         <button

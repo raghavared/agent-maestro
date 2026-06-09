@@ -942,8 +942,8 @@ export function FileExplorerPanel({
   return (
     <aside className="fileExplorerPanel" aria-label="Files" ref={panelRef}>
       <div className="pn-vhd">
-        <PnIcon name="folder" size={16} style={{ color: "var(--pn-ink-3)" }} />
-        <div style={{ minWidth: 0 }}>
+        <PnIcon name="folder" size={16} style={{ color: "var(--pn-ink-3)", flex: "0 0 auto" }} />
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div className="pn-vhd__title">Files</div>
           <div className="pn-files__path" title={rootDir}>
             {shortenPathSmart(rootDir, 46)}

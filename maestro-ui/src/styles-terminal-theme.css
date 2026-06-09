@@ -1127,48 +1127,6 @@
   background: rgba(255, 176, 0, 0.2);
 }
 
-/* Task Status Badges */
-.terminalMetaBadge--status {
-  font-weight: 600;
-  border: 1px solid;
-}
-
-.terminalMetaBadge--status-todo {
-  color: var(--terminal-gray);
-  background: rgba(128, 128, 128, 0.12);
-  border-color: rgba(128, 128, 128, 0.25);
-}
-
-.terminalMetaBadge--status-in_progress {
-  color: var(--terminal-blue);
-  background: rgba(0, 150, 255, 0.12);
-  border-color: rgba(0, 150, 255, 0.25);
-}
-
-.terminalMetaBadge--status-in_review {
-  color: #a855f7;
-  background: rgba(168, 85, 247, 0.12);
-  border-color: rgba(168, 85, 247, 0.25);
-}
-
-.terminalMetaBadge--status-completed {
-  color: var(--terminal-green);
-  background: rgba(var(--theme-primary-rgb), 0.12);
-  border-color: rgba(var(--theme-primary-rgb), 0.25);
-}
-
-.terminalMetaBadge--status-cancelled {
-  color: var(--terminal-gray);
-  background: rgba(128, 128, 128, 0.12);
-  border-color: rgba(128, 128, 128, 0.25);
-}
-
-.terminalMetaBadge--status-blocked {
-  color: var(--terminal-red);
-  background: rgba(255, 50, 50, 0.12);
-  border-color: rgba(255, 50, 50, 0.25);
-}
-
 /* Priority Badges */
 .terminalMetaBadge--priority {
   font-size: 9px;

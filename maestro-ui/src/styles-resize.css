@@ -2,6 +2,15 @@
 /*  Panel resize performance optimizations                             */
 /* ------------------------------------------------------------------ */
 
+/* Canonical panel-width vars. JS (useAppLayoutResizing) keeps these in sync
+   with the persisted store and updates them live during a drag. Panels read
+   them via inline style, so a resize commit is a CSS-var write — never a React
+   re-render. These are the first-paint fallbacks until JS hydrates them. */
+:root {
+  --maestro-sidebar-width: 280px;
+  --right-panel-width: 320px;
+}
+
 /* During sidebar resize: use live CSS variable, optimize for performance */
 :root.sidebar-resizing .sidebar {
   width: var(--sidebar-width-live) !important;
@@ -18,15 +27,11 @@
   will-change: width;
 }
 
-/* During maestro sidebar resize */
-:root.maestro-sidebar-resizing .appLeftPanel {
-  width: calc(48px + var(--maestro-sidebar-width-live)) !important;
-  will-change: width;
-  transition: none !important;
-}
-
+/* During maestro sidebar resize: the width is already applied via the inline
+   var(--maestro-sidebar-width); here we only hint the compositor and stop the
+   terminal from swallowing pointer events mid-drag. */
+:root.maestro-sidebar-resizing .appLeftPanel,
 :root.maestro-sidebar-resizing .appLeftPanelContent {
-  width: var(--maestro-sidebar-width-live) !important;
   will-change: width;
   transition: none !important;
 }
@@ -39,22 +44,14 @@
   will-change: width;
 }
 
-/* During right panel resize: use live CSS variable, optimize for performance.
+/* During right panel resize: width is driven by the inline
+   var(--right-panel-width); only compositor hints + pointer guard here.
    .pn-sp is the rendered root of SpacesPanel (the redesign); .rightPanel /
-   .spacesPanel are legacy layouts kept for safety. The live var MUST drive the
-   real root or the outer panel freezes while only its inner content resizes —
-   clipping when widening, gapping when narrowing, then snapping on release. */
+   .spacesPanel are legacy layouts kept for safety. */
 :root.right-panel-resizing .rightPanel,
 :root.right-panel-resizing .spacesPanel,
-:root.right-panel-resizing .pn-sp {
-  width: var(--right-panel-width-live) !important;
-  max-width: var(--right-panel-width-live) !important;
-  will-change: width;
-  transition: none !important;
-}
-
+:root.right-panel-resizing .pn-sp,
 :root.right-panel-resizing .spacesPanelContent {
-  width: var(--right-panel-width-live) !important;
   will-change: width;
   transition: none !important;
 }

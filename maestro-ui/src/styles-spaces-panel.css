@@ -1177,21 +1177,6 @@
   outline: none;
 }
 
-.rightPanel {
-  background: var(--panel);
-  border-left: 1px solid rgba(var(--theme-primary-rgb), 0.15);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-  min-width: 0;
-  flex-shrink: 0;
-  flex-grow: 0;
-  /* Performance: isolate layout calculations */
-  contain: layout style;
-}
-
-
 .divider {
   height: 1px;
   background: var(--border);

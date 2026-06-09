@@ -97,6 +97,7 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
 
   const overlay = (
     <div
+      className="pnLeakSkin"
       style={{
         position: "fixed",
         top: 0,
@@ -115,8 +116,8 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
     >
       <div
         style={{
-          background: "var(--theme-bg, #1a1a2e)",
-          border: "1px solid var(--theme-border)",
+          background: "var(--pn-card)",
+          border: "1px solid var(--pn-line)",
           borderRadius: "8px",
           width: "400px",
           maxHeight: "500px",
@@ -133,15 +134,15 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
             alignItems: "center",
             justifyContent: "space-between",
             padding: "12px 16px",
-            borderBottom: "1px solid var(--theme-border)",
+            borderBottom: "1px solid var(--pn-line)",
           }}
         >
           <span
             style={{
-              fontFamily: "var(--style-font-ui)",
+              fontFamily: "var(--pn-ui)",
               fontSize: "12px",
               fontWeight: 600,
-              color: "var(--theme-primary)",
+              color: "var(--pn-brand)",
               letterSpacing: "0.5px",
             }}
           >
@@ -154,7 +155,7 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
             style={{
               background: "none",
               border: "none",
-              color: "rgba(var(--theme-primary-rgb), 0.5)",
+              color: "var(--pn-ink-3)",
               cursor: "pointer",
               fontSize: "16px",
               padding: "0 4px",
@@ -165,7 +166,7 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
         </div>
 
         {/* Search */}
-        <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--theme-border)" }}>
+        <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--pn-line)" }}>
           <input
             type="text"
             className="themedFormInput"
@@ -188,7 +189,7 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
                 status.type === "success"
                   ? "rgba(34,197,94,0.1)"
                   : "rgba(239,68,68,0.1)",
-              borderBottom: "1px solid var(--theme-border)",
+              borderBottom: "1px solid var(--pn-line)",
             }}
           >
             {status.message}
@@ -202,7 +203,7 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
               padding: "12px",
               textAlign: "center",
               fontSize: "11px",
-              color: "var(--theme-primary)",
+              color: "var(--pn-ink-2)",
             }}
           >
             Exporting image to task...
@@ -228,11 +229,11 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
                 padding: "8px 12px",
                 background: "transparent",
                 border: "none",
-                borderBottom: "1px solid var(--theme-border)",
+                borderBottom: "1px solid var(--pn-line)",
                 cursor: uploading ? "not-allowed" : "pointer",
                 textAlign: "left",
-                color: "var(--theme-primary)",
-                fontFamily: "var(--style-font-ui)",
+                color: "var(--pn-brand)",
+                fontFamily: "var(--pn-ui)",
                 fontSize: "11px",
                 fontWeight: 600,
                 transition: "background 0.15s",
@@ -240,7 +241,7 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
               onMouseEnter={(e) => {
                 if (!uploading)
                   (e.currentTarget as HTMLElement).style.background =
-                    "rgba(var(--theme-primary-rgb), 0.08)";
+                    "var(--pn-hover)";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLElement).style.background = "transparent";
@@ -253,7 +254,7 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
             <div
               style={{
                 padding: "8px 12px",
-                borderBottom: "1px solid var(--theme-border)",
+                borderBottom: "1px solid var(--pn-line)",
                 display: "flex",
                 gap: "6px",
                 alignItems: "center",
@@ -297,7 +298,7 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
                 style={{
                   background: "none",
                   border: "none",
-                  color: "rgba(var(--theme-primary-rgb), 0.5)",
+                  color: "var(--pn-ink-3)",
                   cursor: "pointer",
                   fontSize: "14px",
                   padding: "0 2px",
@@ -315,7 +316,7 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
                 padding: "16px",
                 textAlign: "center",
                 fontSize: "11px",
-                color: "rgba(var(--theme-primary-rgb), 0.4)",
+                color: "var(--pn-ink-3)",
               }}
             >
               {search ? "No matching tasks" : "No tasks in this project"}
@@ -335,17 +336,17 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
                   padding: "8px 12px",
                   background: "transparent",
                   border: "none",
-                  borderBottom: "1px solid var(--theme-border)",
+                  borderBottom: "1px solid var(--pn-line)",
                   cursor: uploading ? "not-allowed" : "pointer",
                   textAlign: "left",
                   color: "inherit",
-                  fontFamily: "var(--style-font-ui)",
+                  fontFamily: "var(--pn-ui)",
                   transition: "background 0.15s",
                 }}
                 onMouseEnter={(e) => {
                   if (!uploading)
                     (e.currentTarget as HTMLElement).style.background =
-                      "rgba(var(--theme-primary-rgb), 0.08)";
+                      "var(--pn-hover)";
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLElement).style.background = "transparent";
@@ -359,12 +360,12 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
                     flexShrink: 0,
                     background:
                       task.status === "in_progress"
-                        ? "#00d9ff"
+                        ? "var(--pn-run)"
                         : task.status === "completed"
-                        ? "var(--theme-primary)"
+                        ? "var(--pn-run)"
                         : task.status === "blocked"
-                        ? "#ef4444"
-                        : "rgba(var(--theme-primary-rgb), 0.3)",
+                        ? "var(--pn-block)"
+                        : "var(--pn-idle)",
                   }}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -372,7 +373,7 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
                     style={{
                       fontSize: "11px",
                       fontWeight: 500,
-                      color: "rgba(var(--theme-primary-rgb), 0.85)",
+                      color: "var(--pn-ink)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -383,7 +384,7 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
                   <div
                     style={{
                       fontSize: "9px",
-                      color: "rgba(var(--theme-primary-rgb), 0.4)",
+                      color: "var(--pn-ink-3)",
                       marginTop: "1px",
                     }}
                   >
@@ -396,7 +397,7 @@ export function ExportToTaskPicker({ onExport, onClose, whiteboardName }: Export
                 <span
                   style={{
                     fontSize: "9px",
-                    color: "rgba(var(--theme-primary-rgb), 0.3)",
+                    color: "var(--pn-ink-4)",
                     flexShrink: 0,
                   }}
                 >

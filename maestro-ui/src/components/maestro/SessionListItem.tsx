@@ -10,6 +10,7 @@ import {
 import { getWorktreeInfo } from "./WorktreeBadge";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useUIStore } from "../../stores/useUIStore";
+import { useSessionStore } from "../../stores/useSessionStore";
 import type { TeamColor } from "../../app/constants/teamColors";
 import type { SessionSubTab } from "../../utils/sessionLifecycle";
 import { willOpenStatsOnClick } from "../../utils/sessionClickRouting";
@@ -193,6 +194,17 @@ export const SessionListItem = React.memo(function SessionListItem({
   const willOpenStats = willOpenStatsOnClick(session, link);
   const isShowingTerminalOnClick = !willOpenStats;
 
+  // The blink (ping ring) rides on raw PTY byte-streaming, not on a terminal
+  // merely existing. A live-but-idle terminal shows a solid green dot; only a
+  // terminal pushing bytes right now pulses. `agentWorking` is the authoritative
+  // streaming signal (2s idle debounce in useSessionStore).
+  const isStreaming = useSessionStore((s) => {
+    if (!link) return false;
+    const term = s.sessions.find((t) => t.id === link.localSessionId);
+    if (!term || term.exited || term.closing) return false;
+    return Boolean(term.agentWorking);
+  });
+
   // Agent logo for the tile. Known tools → real logo; anything else
   // (hermes, persona-only) → initial-letter fallback from the kit's AgentTile.
   const agentTool = session.metadata?.agentTool;
@@ -282,7 +294,7 @@ export const SessionListItem = React.memo(function SessionListItem({
         {!isArchived && (
           isShowingTerminalOnClick ? (
             <span className="pn-st__live pn-dot-wrap" title="Live terminal — click to open">
-              <span className="pn-dot pn-dot--run pn-dot--live" style={{ position: "absolute", inset: 0 }} />
+              <span className={`pn-dot pn-dot--run${isStreaming ? " pn-dot--live" : ""}`} style={{ position: "absolute", inset: 0 }} />
             </span>
           ) : (
             <span className="pn-st__stopped" title="No live terminal — Resume to reactivate" />

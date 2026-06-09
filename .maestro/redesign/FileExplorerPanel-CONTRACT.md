@@ -64,4 +64,13 @@ Icon mapping: dir → `folderOpen` if expanded else `folder`; file → always `d
 
 ## Retained functional-feedback (design-silent, transient — flagged)
 
-`fileExplorerListDropTarget` (DnD over root), `fileExplorerRowContext` (context-menu-open row), `fileExplorerRowDropTarget` (DnD over row), `fileExplorerRowPreparing` (SSH drag-download in flight) — kept appended to pn-fvrow/pn-vscroll to preserve interaction feedback AND keep `isContextTarget/isDropTarget/isPreparing` vars referenced. These reuse legacy hardcoded cyan/white accents (styles-file-explorer.css :99-103,:135,:227-229), shown only transiently mid-interaction — not theme-flipping surfaces. Coordinator may later tokenize; left as-is per appearance-only + preserve-behavior.
+`fileExplorerListDropTarget` (DnD over root), `fileExplorerRowContext` (context-menu-open row), `fileExplorerRowDropTarget` (DnD over row), `fileExplorerRowPreparing` (SSH drag-download in flight) — kept appended to pn-fvrow/pn-vscroll to preserve interaction feedback AND keep `isContextTarget/isDropTarget/isPreparing` vars referenced. Shown only transiently mid-interaction. `fileExplorerRowContext` repointed to `var(--pn-hover)` (light/dark-flipping). DnD cyan accents kept as-is per appearance-only scope.
+
+## Post-cutover bug sweep (round 2)
+
+Bugs caught after the first pass and fixed:
+
+1. **`<button class="pn-fvrow">` showed UA chrome.** Live rows are `<button>` (kept for keyboard focus + onMouseDown/Move/Up + onClick + onContextMenu); design uses `<div>`. `pn-fvrow` lacks UA resets. Added `button.pn-fvrow { width:100%; border:0; background:transparent; color:inherit; font:inherit; text-align:left; border-radius:0; line-height:1; }` in styles-file-explorer.css.
+2. **Empty-state `<div class="empty">No files.</div>` was unstyled.** Was previously styled via `.fileExplorerList .empty` (selector died when container renamed to `.pn-vscroll`). Added `.pn-vscroll > .empty { padding:16px 12px; color:var(--pn-ink-3); font-size:12px; text-align:center; }`.
+3. **Header path didn't ellipsize in narrow docked column.** Design assumed fixed 380px card; live column is 200–320px and resizable. Added `flex:1; minWidth:0` to the title wrapper div and `flex:0 0 auto` to the leading folder icon so `pn-files__path` ellipsizes correctly while the spacer pushes the icon buttons right.
+4. **Dead legacy rules removed.** `.fileExplorerHeader`, `.fileExplorerTitle`, `.fileExplorerPath`, `.fileExplorerActions`, `.fileExplorerList(+::scrollbar)`, `.fileExplorerRow(+Active/hover)`, `.fileExplorerDisclosure`, `.fileExplorerIcon`, `.fileExplorerName`, `.fileExplorerMeta`, `.fileExplorerError`, `.appLeftPanelContent .fileExplorerPanel .btnSmall.btnIcon(+hover)` — all stripped from styles-file-explorer.css. Their target classes no longer exist in the markup; they were dead weight that could mislead future readers.

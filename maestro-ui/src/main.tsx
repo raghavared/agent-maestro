@@ -25,6 +25,7 @@ import "./components/maestro/redesign/redesign-boards.css";
 // rules on the rename. See FOUNDATION-DONE §10.
 import "./components/maestro/redesign/redesign-views.css";
 import "./components/maestro/redesign/redesign-modals.css";
+import "./components/maestro/redesign/redesign-buttons.css";
 import "./styles-panel-leak-fix.css";
 import { setRedesignActive } from "./components/maestro/redesign/useRedesignTheme";
 

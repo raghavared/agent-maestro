@@ -397,7 +397,7 @@ const ResizableSessionColumn = React.memo(function ResizableSessionColumn({
             >
                 <span
                     className="mpbSessionColumnCollapsedDot"
-                    style={{ color: isWorking ? "#00d9ff" : "rgba(var(--theme-primary-rgb), 0.5)" }}
+                    style={{ color: isWorking ? "var(--pn-run)" : "var(--pn-idle)" }}
                 >
                     {isWorking ? "◉" : "○"}
                 </span>
@@ -424,7 +424,7 @@ const ResizableSessionColumn = React.memo(function ResizableSessionColumn({
                 <div className="sessionColumnHeaderTop">
                     <span
                         className={`sessionColumnStatusDot ${isWorking ? "sessionColumnStatusDot--working" : ""}`}
-                        style={{ color: isWorking ? "#00d9ff" : "rgba(var(--theme-primary-rgb), 0.5)" }}
+                        style={{ color: isWorking ? "var(--pn-run)" : "var(--pn-idle)" }}
                     >
                         {isWorking ? "◉" : "○"}
                     </span>

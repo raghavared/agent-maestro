@@ -306,17 +306,34 @@ html[data-redesign] .pn-search input {
 }
 html[data-redesign] .pn-search input::placeholder { color: var(--pn-ink-4); }
 
-/* filter row */
-html[data-redesign] .pn-filters { display: flex; align-items: center; gap: 6px; padding: 4px 14px 10px; flex-wrap: wrap; }
-html[data-redesign] .pn-filter {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 11.5px; font-weight: 500; color: var(--pn-ink-3);
-  background: transparent; border: 1px solid var(--pn-line);
-  border-radius: var(--pn-r-pill); padding: 3px 10px; transition: all 140ms;
+/* filter tabs — single-row segmented control */
+html[data-redesign] .pn-filters {
+  display: flex; align-items: stretch; gap: 2px; margin: 4px 14px 10px;
+  padding: 3px; flex-wrap: nowrap;
+  background: var(--pn-active); border: 1px solid var(--pn-line);
+  border-radius: var(--pn-r-sm);
 }
-html[data-redesign] .pn-filter:hover { border-color: var(--pn-line-2); color: var(--pn-ink-2); }
-html[data-redesign] .pn-filter--active { color: var(--pn-ink); border-color: var(--pn-ink); background: var(--pn-active); }
-html[data-redesign] .pn-filter svg { width: 13px; height: 13px; }
+html[data-redesign] .pn-filter {
+  flex: 1 1 0; min-width: 0;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  font-size: 11px; font-weight: 600; color: var(--pn-ink-3);
+  background: transparent; border: none;
+  border-radius: calc(var(--pn-r-sm) - 2px); padding: 5px 5px;
+  transition: color 140ms, background 140ms, box-shadow 140ms; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html[data-redesign] .pn-filter:hover { color: var(--pn-ink-2); }
+html[data-redesign] .pn-filter--active {
+  color: var(--pn-ink); background: var(--pn-card);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.10);
+}
+html[data-redesign] .pn-filter svg { width: 13px; height: 13px; flex: 0 0 auto; }
+html[data-redesign] .pn-filter .pn-tab-n {
+  font-family: var(--pn-mono); font-size: 9.5px; line-height: 1;
+  color: var(--pn-ink-4); flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+html[data-redesign] .pn-filter--active .pn-tab-n { color: var(--pn-ink-3); }
 
 /* ==========================================================================
    SECTION + ROWS
@@ -384,7 +401,7 @@ html[data-redesign] .pn-sub--done .pn-sub__title { color: var(--pn-ink-4); text-
 /* ==========================================================================
    SESSION ROWS / CARDS (right panel)
    ========================================================================== */
-html[data-redesign] .pn-quick { display: flex; gap: 6px; padding: 12px 14px; flex-wrap: wrap; border-bottom: 1px solid var(--pn-line); }
+html[data-redesign] .pn-quick { display: flex; gap: 8px; padding: 12px 14px; flex-wrap: wrap; border-bottom: 1px solid var(--pn-line); }
 html[data-redesign] .pn-qchip {
   display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px;
   border: 1px solid var(--pn-line-2); border-radius: var(--pn-r-pill);
@@ -394,6 +411,17 @@ html[data-redesign] .pn-qchip {
 html[data-redesign] .pn-qchip:hover { border-color: var(--pn-ink-4); color: var(--pn-ink); background: var(--pn-hover); }
 html[data-redesign] .pn-qchip img { width: 14px; height: 14px; object-fit: contain; }
 html[data-redesign] .pn-qchip .pn-plus { color: var(--pn-run); font-weight: 700; }
+
+/* icon-only quick-launch chips — equal-size squares */
+html[data-redesign] .pn-qchip--icon {
+  width: 32px; height: 32px; padding: 0; gap: 0;
+  justify-content: center; border-radius: var(--pn-r-sm);
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .pn-qchip--icon:hover { color: var(--pn-ink); }
+html[data-redesign] .pn-qchip--icon svg { width: 16px; height: 16px; }
+html[data-redesign] .pn-qchip--icon img { width: 16px; height: 16px; }
+html[data-redesign] .pn-qchip--icon .agentChip__logo { display: inline-flex; }
 
 /* session row (Roster) */
 html[data-redesign] .pn-sess {

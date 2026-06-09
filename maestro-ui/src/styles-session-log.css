@@ -1257,6 +1257,18 @@ html[data-redesign][data-theme='dark'] .termStrip {
   padding: 40px 0;
 }
 
+/* ===================================================================
+   REDESIGN OVERRIDE (Atelier / pn-* tokens) — scoped to html[data-redesign].
+   SessionLogModal carries .pnLeakSkin which remaps --panel/--border/--text/
+   --muted to pn tokens. This block patches the remaining --style-font-ui leak
+   in the modal chrome (.sessionLogFileSelect, .sessionLogFilename, show-more
+   controls, etc.). The .termStripOverlay section below is intentionally dark
+   (bucket C) and is NOT touched by these overrides. Auto-flips dark.
+   =================================================================== */
+html[data-redesign] .sessionLogModal {
+  --style-font-ui: var(--pn-ui);
+}
+
 /* Expanded transcript reuses LogMessageGroup (.sessionLog* classes), which are
    styled against the legacy panel tokens (blue --accent, light --panel/--border).
    Inside the always-dark terminal overlay those read as the wrong palette, so we

@@ -3227,3 +3227,160 @@
   color: rgba(var(--theme-primary-rgb), 0.3);
   font-family: var(--font-mono);
 }
+
+/* ==========================================================================
+   MAESTRO REDESIGN — html[data-redesign] OVERRIDES (token-only)
+   Repoints legacy dark/neon families to pn-* tokens. Base rules untouched so
+   the data-redesign toggle keeps switching cleanly. Mirrors styles-mentions.css.
+   Families: StrategyBadge · Queue badges · Priority badges · QueueStatusDisplay
+             · ExecutionBar dropdowns · ProjectDocsList.
+   ========================================================================== */
+
+/* --- Strategy Badge --- */
+html[data-redesign] .strategyBadge { font-family: var(--pn-ui); }
+html[data-redesign] .strategyBadge--simple {
+  background: var(--pn-idle-soft);
+  color: var(--pn-ink-3);
+  border-color: var(--pn-line-2);
+}
+html[data-redesign] .strategyBadge--queue {
+  background: var(--pn-info-soft);
+  color: var(--pn-info);
+  border-color: var(--pn-info);
+}
+
+/* --- Queue Item Status Badge --- */
+html[data-redesign] .queueItemStatusBadge { font-family: var(--pn-ui); }
+html[data-redesign] .queueItemStatusBadge--queued { background: var(--pn-idle-soft); color: var(--pn-ink-3); }
+html[data-redesign] .queueItemStatusBadge--processing { background: var(--pn-run-soft); color: var(--pn-run); }
+html[data-redesign] .queueItemStatusBadge--completed { background: var(--pn-run-soft); color: var(--pn-run); }
+html[data-redesign] .queueItemStatusBadge--failed { background: var(--pn-block-soft); color: var(--pn-block); }
+html[data-redesign] .queueItemStatusBadge--skipped { background: var(--pn-idle-soft); color: var(--pn-ink-3); }
+
+/* --- Priority Badge --- */
+html[data-redesign] .priorityBadge { font-family: var(--pn-ui); }
+html[data-redesign] .priorityBadge--low { background: var(--pn-idle-soft); color: var(--pn-idle); }
+html[data-redesign] .priorityBadge--medium { background: var(--pn-wait-soft); color: var(--pn-wait); }
+html[data-redesign] .priorityBadge--high { background: var(--pn-block-soft); color: var(--pn-block); }
+
+/* --- Queue Status Display --- */
+html[data-redesign] .queueStatusHeader { color: var(--pn-ink); font-family: var(--pn-ui); }
+html[data-redesign] .queueStatusHeader:hover { color: var(--pn-brand); }
+html[data-redesign] .queueStatusToggle { color: var(--pn-ink-3); }
+html[data-redesign] .queueStatusCount { color: var(--pn-ink-3); }
+html[data-redesign] .queueStatusProgress { color: var(--pn-brand); }
+html[data-redesign] .queueStatusStat--queued { background: var(--pn-idle-soft); color: var(--pn-ink-3); }
+html[data-redesign] .queueStatusStat--processing { background: var(--pn-run-soft); color: var(--pn-run); }
+html[data-redesign] .queueStatusStat--completed { background: var(--pn-run-soft); color: var(--pn-run); }
+html[data-redesign] .queueStatusStat--failed { background: var(--pn-block-soft); color: var(--pn-block); }
+html[data-redesign] .queueStatusStat--skipped { background: var(--pn-idle-soft); color: var(--pn-ink-3); }
+html[data-redesign] .queueStatusItem {
+  background: var(--pn-surface);
+  border-color: var(--pn-line);
+}
+html[data-redesign] .queueStatusItem:hover {
+  background: var(--pn-hover);
+  border-color: var(--pn-line-2);
+}
+html[data-redesign] .queueStatusItem--current {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-brand);
+}
+html[data-redesign] .queueStatusItemPosition { color: var(--pn-ink-3); }
+html[data-redesign] .queueStatusItemTitle { color: var(--pn-ink); }
+html[data-redesign] .queueStatusItemMeta { color: var(--pn-ink-3); }
+html[data-redesign] .queueStatusItemError { color: var(--pn-block); }
+html[data-redesign] .queueStatusItemAction {
+  border-color: var(--pn-line-2);
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .queueStatusItemAction:hover {
+  background: var(--pn-hover);
+  color: var(--pn-ink);
+}
+
+/* --- ExecutionBar Dropdowns --- */
+html[data-redesign] .executionBarDropdownTrigger {
+  background: var(--pn-card);
+  border-color: var(--pn-line-2);
+  color: var(--pn-ink);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .executionBarDropdownTrigger:hover {
+  border-color: var(--pn-brand);
+  background: var(--pn-hover);
+}
+html[data-redesign] .executionBarDropdownTrigger:active { background: var(--pn-active); }
+html[data-redesign] .executionBarDropdownLabel { color: var(--pn-ink-3); }
+html[data-redesign] .executionBarDropdownPlaceholder { color: var(--pn-ink-4); }
+html[data-redesign] .executionBarDropdownArrow { color: var(--pn-ink-3); }
+html[data-redesign] .executionBarDropdownMenu--portal {
+  background: var(--pn-card);
+  border-color: var(--pn-line);
+  border-top-color: var(--pn-brand);
+  box-shadow: var(--pn-sh-pop);
+}
+html[data-redesign] .executionBar--orchestrate .executionBarDropdownTrigger:hover { border-color: var(--pn-brand); }
+html[data-redesign] .executionBarDropdownEmpty {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+  background: var(--pn-card);
+}
+html[data-redesign] .executionBarDropdownActions {
+  border-bottom-color: var(--pn-line);
+  background: var(--pn-card);
+}
+html[data-redesign] .executionBarDropdownActionBtn {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .executionBarDropdownActionBtn:hover { color: var(--pn-ink); }
+html[data-redesign] .executionBarDropdownOption {
+  background: var(--pn-card);
+  border-bottom-color: var(--pn-line);
+  color: var(--pn-ink);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .executionBarDropdownOption:last-child { border-bottom: none; }
+html[data-redesign] .executionBarDropdownOption:hover { background: var(--pn-hover); }
+html[data-redesign] .executionBarDropdownOption--selected { background: var(--pn-active); }
+html[data-redesign] .executionBarDropdownOptionMeta { color: var(--pn-ink-3); }
+html[data-redesign] .executionBarDropdownCheck { color: var(--pn-brand); }
+html[data-redesign] .executionBarDropdownCheckbox { border-color: var(--pn-line-2); }
+html[data-redesign] .executionBarDropdownCheckbox--checked {
+  border-color: var(--pn-brand);
+  color: var(--pn-brand);
+  background: var(--pn-brand-soft);
+}
+
+/* --- Project Docs / Drawings list --- */
+html[data-redesign] .projectDocsListEmpty,
+html[data-redesign] .projectDocsListLoading {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .projectDocsListCount {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .projectDocsListItem { border-bottom: 1px solid var(--pn-line); }
+html[data-redesign] .projectDocsListItem:hover { background: var(--pn-hover); }
+html[data-redesign] .projectDocsListItem:last-child { border-bottom: none; }
+html[data-redesign] .projectDocsListItem__icon {
+  font-family: var(--pn-mono);
+  color: var(--pn-brand);
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-line-2);
+}
+html[data-redesign] .projectDocsListItem__title {
+  color: var(--pn-ink);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .projectDocsListItem__meta {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-mono);
+}
+html[data-redesign] .projectDocsListItem__time {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-mono);
+}

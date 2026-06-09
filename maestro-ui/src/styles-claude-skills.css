@@ -293,3 +293,130 @@
   width: 10px;
   height: 10px;
 }
+
+/* ===================================================================
+   REDESIGN OVERRIDE (Atelier / pn-* tokens) — scoped to html[data-redesign].
+   The base .claudeCodeSkill* styles above are neon-terminal (green
+   --theme-primary, dark-alpha card fills, --theme-border, neon glow
+   box-shadows, black scrollbar track) so they render dark/neon in the
+   warm-paper redesign. These overrides repoint the offending selectors to
+   --pn-* tokens. Token-only; no hex. Mirrors styles-mentions.css override
+   style. Used by ClaudeCodeSkillsSelector.tsx.
+   =================================================================== */
+html[data-redesign] .claudeCodeSkillsSelector {
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .claudeCodeSkillsLoading,
+html[data-redesign] .claudeCodeSkillsError,
+html[data-redesign] .claudeCodeSkillsEmpty {
+  color: var(--pn-ink-3);
+  border: 1px dashed var(--pn-line);
+  background: var(--pn-surface);
+}
+html[data-redesign] .claudeCodeSkillsError {
+  color: var(--pn-ink-2);
+}
+html[data-redesign] .claudeCodeSkillsRetry {
+  border: 1px solid var(--pn-line);
+  color: var(--pn-brand);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .claudeCodeSkillsRetry:hover {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-brand);
+}
+html[data-redesign] .claudeCodeSkillsSearch > svg,
+html[data-redesign] .claudeCodeSkillsSearch > .icon {
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .claudeCodeSkillsSearchInput {
+  background: var(--pn-surface);
+  border: 1px solid var(--pn-line);
+  color: var(--pn-ink);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .claudeCodeSkillsSearchInput:focus {
+  border-color: var(--pn-brand);
+  box-shadow: var(--pn-sh-md);
+}
+html[data-redesign] .claudeCodeSkillsSearchInput::placeholder {
+  color: var(--pn-ink-4);
+}
+html[data-redesign] .claudeCodeSkillsSearchClear {
+  background: var(--pn-brand-soft);
+  color: var(--pn-brand);
+}
+html[data-redesign] .claudeCodeSkillsSearchClear:hover {
+  background: var(--pn-brand-soft);
+}
+html[data-redesign] .claudeCodeSkillsCount {
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .claudeCodeSkillsSelected {
+  color: var(--pn-brand);
+}
+html[data-redesign] .claudeCodeSkillsGrid::-webkit-scrollbar-track {
+  background: var(--pn-surface);
+}
+html[data-redesign] .claudeCodeSkillsGrid::-webkit-scrollbar-thumb {
+  background: var(--pn-line-2);
+}
+html[data-redesign] .claudeCodeSkillsGrid::-webkit-scrollbar-thumb:hover {
+  background: var(--pn-brand);
+}
+html[data-redesign] .claudeCodeSkillsNoResults {
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .claudeCodeSkillCard {
+  background: var(--pn-surface);
+  border: 1px solid var(--pn-line);
+}
+html[data-redesign] .claudeCodeSkillCard:hover {
+  border-color: var(--pn-line-2);
+  background: var(--pn-hover);
+}
+html[data-redesign] .claudeCodeSkillCard.selected {
+  border-color: var(--pn-brand);
+  background: var(--pn-active);
+  box-shadow: var(--pn-sh-md);
+}
+html[data-redesign] .claudeCodeSkillCheckbox {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .claudeCodeSkillCheckbox:hover {
+  color: var(--pn-brand);
+}
+html[data-redesign] .claudeCodeSkillCard.selected .claudeCodeSkillCheckbox {
+  color: var(--pn-brand);
+}
+html[data-redesign] .claudeCodeSkillName {
+  color: var(--pn-ink);
+}
+html[data-redesign] .claudeCodeSkillExpand {
+  border: 1px solid var(--pn-line);
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .claudeCodeSkillExpand:hover {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-brand);
+  color: var(--pn-brand);
+}
+html[data-redesign] .claudeCodeSkillDetails {
+  border-top: 1px solid var(--pn-line);
+}
+html[data-redesign] .claudeCodeSkillDescription {
+  color: var(--pn-ink-2);
+}
+html[data-redesign] .claudeCodeSkillTriggers,
+html[data-redesign] .claudeCodeSkillTags,
+html[data-redesign] .claudeCodeSkillReferences {
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .claudeCodeSkillTriggers strong,
+html[data-redesign] .claudeCodeSkillTags strong {
+  color: var(--pn-brand);
+}
+html[data-redesign] .claudeCodeSkillReferences {
+  color: var(--pn-brand);
+}

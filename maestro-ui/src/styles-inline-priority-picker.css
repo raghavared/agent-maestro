@@ -1827,11 +1827,6 @@
   opacity: 0.7;
 }
 
-.terminalMetaBadge--status-archived {
-  color: var(--terminal-yellow, #e5c07b);
-  border-color: var(--terminal-yellow, #e5c07b);
-}
-
 /* Sessions Subsection */
 .terminalSessions {
   padding: 8px 12px 8px 40px;

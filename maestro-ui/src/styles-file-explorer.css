@@ -19,120 +19,31 @@
   border-left: none;
 }
 
-/* Compact header buttons in left panel */
-.appLeftPanelContent .fileExplorerPanel .btnSmall.btnIcon {
-  width: 26px;
-  height: 26px;
-  font-size: 13px;
-  border-color: transparent;
-  background: transparent;
-}
-
-.appLeftPanelContent .fileExplorerPanel .btnSmall.btnIcon:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.fileExplorerHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
-}
-
-.fileExplorerTitle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: 1;
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.fileExplorerPath {
-  color: var(--muted);
-  font-family: var(--style-font-code);
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-  flex: 1;
-}
-
-.fileExplorerActions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.fileExplorerList {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 4px 0;
-}
-
-.fileExplorerList::-webkit-scrollbar {
-  width: 6px;
-}
-
-.fileExplorerList::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.fileExplorerList::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-
-.fileExplorerList::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.18);
-}
-
+/* Drop-target highlight for the whole tree when dragging files onto the root.
+   Transient DnD feedback, design-silent. Class is applied to .pn-vscroll. */
 .fileExplorerListDropTarget {
   outline: 1px dashed rgba(34, 211, 238, 0.55);
   outline-offset: -2px;
   background: rgba(34, 211, 238, 0.06);
 }
 
-.fileExplorerRow {
+/* Reset UA button defaults when pn-fvrow is rendered as <button> (live panel uses
+   <button> for keyboard focus/handlers; design uses <div>). Without this the row
+   shows OS button chrome — borders, gradient bg, font swap. */
+button.pn-fvrow {
   width: 100%;
   border: 0;
   background: transparent;
-  color: var(--text);
-  padding: 0 10px 0 0;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12.5px;
-  line-height: 1;
-  cursor: pointer;
+  color: inherit;
+  font: inherit;
   text-align: left;
   border-radius: 0;
-  transition: background 0.08s ease;
+  line-height: 1;
 }
 
-.fileExplorerRow:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.fileExplorerRowActive {
-  background: rgba(107, 138, 253, 0.14);
-}
-
-.fileExplorerRowActive:hover {
-  background: rgba(107, 138, 253, 0.18);
-}
-
+/* Context-menu-open row tint (transient feedback, design-silent) */
 .fileExplorerRowContext {
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--pn-hover);
 }
 
 .fileContextMenu {
@@ -171,54 +82,9 @@
   background: rgba(255, 80, 80, 0.12);
 }
 
-.fileExplorerDisclosure {
-  width: 16px;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
-  transition: color 0.1s ease;
-}
-
-.fileExplorerRow:hover .fileExplorerDisclosure {
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.fileExplorerIcon {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.85;
-}
-
-.fileExplorerName {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-}
-
-.fileExplorerMeta {
-  display: flex;
-  align-items: center;
-  color: var(--muted);
-  font-size: 11px;
-  font-style: italic;
-}
-
-.fileExplorerError {
-  color: rgba(255, 120, 120, 0.85);
-}
-
-.fileExplorerList .empty {
+.pn-vscroll > .empty {
   padding: 16px 12px;
-  color: var(--muted);
+  color: var(--pn-ink-3);
   font-size: 12px;
   text-align: center;
 }
@@ -1111,5 +977,57 @@ select.input {
   font-size: 12px;
   color: var(--muted);
   margin-top: 6px;
+}
+
+/* ===================================================================
+   REDESIGN OVERRIDE (Atelier / pn-* tokens) — scoped to html[data-redesign].
+   The generic .modal family above renders a dark gradient container
+   (rgba(17,24,34)→rgba(10,14,20)) used by ~10 modals mounted from
+   AppModals (PersistentSessions, ManageTerminals, Ssh, SecureStorage,
+   Recording*, Replay, ApplyAsset, AgentShortcuts, …). In the redesign
+   light theme that reads black-on-paper. Repoint the container + common
+   inner controls to --pn-* tokens; color on .modal gives descendant text
+   a legible default. Token-only. Auto-flips dark.
+   =================================================================== */
+html[data-redesign] .modalBackdrop { background: rgba(40, 34, 24, 0.45); }
+html[data-redesign] .modal {
+  border: 1px solid var(--pn-line-2);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+  box-shadow: var(--pn-sh-pop);
+}
+html[data-redesign] .modalTitle { color: var(--pn-ink); }
+html[data-redesign] .modalActions { border-top-color: var(--pn-line); }
+html[data-redesign] .hint { color: var(--pn-ink-3); }
+html[data-redesign] .checkRow { color: var(--pn-ink-2); }
+html[data-redesign] .checkRow input[type="checkbox"],
+html[data-redesign] .checkRow input[type="radio"] { accent-color: var(--pn-brand); }
+html[data-redesign] .agentShortcutEditorTitle { color: var(--pn-ink-3); }
+html[data-redesign] .agentShortcutEditorItem {
+  border: 1px solid var(--pn-line);
+  background: var(--pn-surface);
+}
+html[data-redesign] .agentShortcutEditorIconFallback,
+html[data-redesign] .agentShortcutAddIconFallback { color: var(--pn-ink-3); }
+html[data-redesign] .agentShortcutAddBtn {
+  border: 1px solid var(--pn-line);
+  background: var(--pn-surface);
+  color: var(--pn-ink-2);
+}
+html[data-redesign] .agentShortcutAddBtn:hover {
+  background: var(--pn-hover);
+  border-color: var(--pn-line-2);
+}
+
+/* AgentModalViewer uses .agent-modal-overlay with fully inline styles backed by
+   --color-bg-primary/secondary/border/text-primary/tertiary. CSS custom properties
+   inherit, so defining them here repoints all inline var() calls without touching
+   the component's inline style props. Auto-flips dark via pn tokens. */
+html[data-redesign] .agent-modal-overlay {
+  --color-bg-primary:    var(--pn-card);
+  --color-bg-secondary:  var(--pn-surface);
+  --color-border:        var(--pn-line-2);
+  --color-text-primary:  var(--pn-ink);
+  --color-text-tertiary: var(--pn-ink-3);
 }
 

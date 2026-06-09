@@ -1,11 +1,26 @@
 # Screenshot Service Queue
 
-Service owner: 📸 Screenshots Worker (sess_1780953175711_pzzhco61r)
+Service owner: 📸 Screenshots Worker (sess_1781000510487_jsrsjlddu, resumed for P2)
 Staging: http://localhost:4568 (server :4569)
-Capture: Playwright (preferred) / screencapture fallback
+Capture: Playwright headless asserts (P2 primary) / live captures BLOCKED on Accessibility grant
 Save path: .maestro/redesign/screenshots/<label>-<theme>.png
 
 Process STRICTLY ONE AT A TIME. Overwrite on re-request.
+
+## ✅ SERVICE READY (2026-06-09 ~15:2x) — stack recovered, P2 asserts open for requests
+Earlier blocker RESOLVED: 4 CSS comment-closer typos (a `foo*` glob + `/` = stray `*/` that closed a
+`/* */` early → PostCSS 500 on the src/styles.css @import barrel → no CSS app-wide). All 4 fixed
+(terminal-task-detail:592 + multi-project-board:689/843/844 by coordinator/W2; sidebar-redesign:429 by me).
+Verified: `grep -rnP '\*/(?=[A-Za-z.#:_-])' --include='*.css'` = 0; src/styles.css → 200; full assert
+suite (assert-{styles,board,views,misc,right}.mjs) = ALL PASS light+dark. pn-* tokens load app-wide.
+Regression guard for future cleanup edits: re-run that grep after any CSS comment edit — must stay 0.
+
+P2 capabilities:
+- HEADLESS flip-asserts (NO data, NO Accessibility): force html[data-redesign][data-theme], inject a
+  surface fixture, getComputedStyle bg === expected --pn-* (light AND dark, assert flip). Use for
+  bidirectional verification of cleanup surfaces. Request: give me the surface class + expected token.
+- POPULATED live visual captures: still BLOCKED on operator Accessibility grant → queued in
+  .maestro/redesign/FINAL-VISUAL-PASS-CHECKLIST.md.
 
 ## Per-surface capture notes (honor these when re-shooting live)
 - Terminal Theme (durqpap2m): do NOT flag missing top bar (pn-term-bar) or '/' input row —

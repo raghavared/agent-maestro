@@ -72,7 +72,7 @@ function InlineExcalidrawEmbed({ docId, onOpenDoc }: { docId: string; onOpenDoc?
   }, [docId]);
 
   return (
-    <div className="excalidrawEmbed" style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 8, margin: '8px 0', background: 'var(--bg-secondary)' }}>
+    <div className="excalidrawEmbed" style={{ border: '1px solid var(--pn-line)', borderRadius: 6, padding: 8, margin: '8px 0', background: 'var(--pn-surface)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, opacity: 0.7 }}>
         <span>⬡ Diagram</span>
         <span style={{ fontFamily: 'monospace', fontSize: 10 }}>{docId}</span>

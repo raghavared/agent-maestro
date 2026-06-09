@@ -93,3 +93,30 @@ html[data-redesign] .pn-ptab--active .projectTabMasterIcon {
   padding-left: 0;
 }
 
+/* ================================================================== */
+/* REDESIGN OVERRIDES — warm-paper "pn" tokens                        */
+/* Repoints the master-toggle row (.projectSettingsMaster*) off the   */
+/* legacy theme-primary accent + style-font-ui onto pn tokens.        */
+/* The gold star (#ffd700) rules and the .pn-ptab--active block above */
+/* are intentionally left untouched.                                  */
+/* ================================================================== */
+
+html[data-redesign] .projectSettingsMasterSwitch {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-line-2);
+}
+
+html[data-redesign] .projectSettingsMasterSwitch::after {
+  background: var(--pn-brand);
+}
+
+html[data-redesign] .projectSettingsMasterLabel {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .projectSettingsMasterHint {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-3);
+}
+
