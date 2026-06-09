@@ -1,15 +1,58 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useLayoutEffect } from "react";
 import * as DEFAULTS from "../app/constants/defaults";
 import { useUIStore } from "../stores/useUIStore";
+
+const MAESTRO_WIDTH_VAR = "--maestro-sidebar-width";
+const RIGHT_WIDTH_VAR = "--right-panel-width";
+
+/** Read a px-valued CSS variable off :root, falling back to a number. */
+function readWidthVar(name: string, fallback: number): number {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const n = Number.parseFloat(raw);
+    return Number.isFinite(n) ? n : fallback;
+}
+
+/** Run a callback when the main thread is idle (or next tick as a fallback). */
+function whenIdle(cb: () => void) {
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => void })
+        .requestIdleCallback;
+    if (typeof ric === "function") ric(cb);
+    else window.setTimeout(cb, 0);
+}
 
 /**
  * Provides stable resize-start handlers for the maestro sidebar and right panel.
  *
- * Reads current widths from the store via getState() at drag-start (not via
- * reactive subscriptions) so the callbacks never recreate and App.tsx doesn't
- * re-render on every pixel change during a drag.
+ * Panel width is driven entirely by CSS variables (--maestro-sidebar-width /
+ * --right-panel-width) on :root, NOT by React state. Both the live drag and the
+ * resting width read from these vars, so releasing the handle is just a CSS-var
+ * write + localStorage persist — it never triggers a React re-render of the
+ * (heavy) sidebar panels. The Zustand store is updated lazily on idle purely so
+ * other readers stay coherent; it is no longer on the resize critical path.
  */
 export function useAppLayoutResizing() {
+
+    // Keep the CSS vars in sync with the store (initial hydrate + any
+    // programmatic width changes). Writes only when a width actually changes so
+    // unrelated UI-store updates don't thrash style recalc.
+    useLayoutEffect(() => {
+        const root = document.documentElement;
+        let lastMaestro = Number.NaN;
+        let lastRight = Number.NaN;
+        const apply = () => {
+            const { maestroSidebarWidth, rightPanelWidth } = useUIStore.getState();
+            if (maestroSidebarWidth !== lastMaestro) {
+                lastMaestro = maestroSidebarWidth;
+                root.style.setProperty(MAESTRO_WIDTH_VAR, `${maestroSidebarWidth}px`);
+            }
+            if (rightPanelWidth !== lastRight) {
+                lastRight = rightPanelWidth;
+                root.style.setProperty(RIGHT_WIDTH_VAR, `${rightPanelWidth}px`);
+            }
+        };
+        apply();
+        return useUIStore.subscribe(apply);
+    }, []);
 
     const handleMaestroSidebarResizePointerDown = useCallback(
         (event: React.PointerEvent<HTMLDivElement>) => {
@@ -19,8 +62,8 @@ export function useAppLayoutResizing() {
             const pointerId = event.pointerId;
             const target = event.currentTarget;
             const startX = event.clientX;
-            // Read current width at drag-start — no reactive dep needed
-            const startWidth = useUIStore.getState().maestroSidebarWidth;
+            // Current width is the live CSS var (the store may lag behind it).
+            const startWidth = readWidthVar(MAESTRO_WIDTH_VAR, useUIStore.getState().maestroSidebarWidth);
 
             const clamp = (value: number) =>
                 Math.min(DEFAULTS.MAX_MAESTRO_SIDEBAR_WIDTH, Math.max(DEFAULTS.MIN_MAESTRO_SIDEBAR_WIDTH, value));
@@ -42,7 +85,7 @@ export function useAppLayoutResizing() {
             const handlePointerMove = (e: PointerEvent) => {
                 if (e.pointerId !== pointerId) return;
                 current = clamp(startWidth + (e.clientX - startX));
-                document.documentElement.style.setProperty("--maestro-sidebar-width-live", `${current}px`);
+                document.documentElement.style.setProperty(MAESTRO_WIDTH_VAR, `${current}px`);
             };
 
             const handlePointerUp = (e: PointerEvent) => {
@@ -54,7 +97,7 @@ export function useAppLayoutResizing() {
                 document.body.style.cursor = prevCursor;
                 document.body.style.userSelect = prevUserSelect;
                 document.documentElement.classList.remove("maestro-sidebar-resizing");
-                document.documentElement.style.removeProperty("--maestro-sidebar-width-live");
+                // Keep --maestro-sidebar-width — it is now the resting width too.
 
                 try {
                     target.releasePointerCapture(pointerId);
@@ -62,15 +105,21 @@ export function useAppLayoutResizing() {
                     // ignore
                 }
 
-                useUIStore.getState().setMaestroSidebarWidth(current);
+                // Persist immediately (cheap), but commit to the React store on
+                // idle so releasing the handle never blocks on a re-render. The
+                // width itself is already applied via the CSS var.
                 useUIStore.getState().persistMaestroSidebarWidth(current);
+                whenIdle(() => useUIStore.getState().setMaestroSidebarWidth(current));
+
+                // Terminals skip fit() during the drag; tell them to reflow once now.
+                window.dispatchEvent(new Event("maestro:panel-resize-end"));
             };
 
             document.addEventListener("pointermove", handlePointerMove);
             document.addEventListener("pointerup", handlePointerUp);
             document.addEventListener("pointercancel", handlePointerUp);
         },
-        [], // stable — no deps, reads from store at call time
+        [], // stable — no deps, reads from CSS var / store at call time
     );
 
     const handleRightPanelResizePointerDown = useCallback(
@@ -81,8 +130,8 @@ export function useAppLayoutResizing() {
             const pointerId = event.pointerId;
             const target = event.currentTarget;
             const startX = event.clientX;
-            // Read current width at drag-start — no reactive dep needed
-            const startWidth = useUIStore.getState().rightPanelWidth;
+            // Current width is the live CSS var (the store may lag behind it).
+            const startWidth = readWidthVar(RIGHT_WIDTH_VAR, useUIStore.getState().rightPanelWidth);
 
             const clamp = (value: number) =>
                 Math.min(DEFAULTS.MAX_RIGHT_PANEL_WIDTH, Math.max(DEFAULTS.MIN_RIGHT_PANEL_WIDTH, value));
@@ -104,7 +153,7 @@ export function useAppLayoutResizing() {
             const handlePointerMove = (e: PointerEvent) => {
                 if (e.pointerId !== pointerId) return;
                 current = clamp(startWidth + (startX - e.clientX));
-                document.documentElement.style.setProperty("--right-panel-width-live", `${current}px`);
+                document.documentElement.style.setProperty(RIGHT_WIDTH_VAR, `${current}px`);
             };
 
             const handlePointerUp = (e: PointerEvent) => {
@@ -116,7 +165,7 @@ export function useAppLayoutResizing() {
                 document.body.style.cursor = prevCursor;
                 document.body.style.userSelect = prevUserSelect;
                 document.documentElement.classList.remove("right-panel-resizing");
-                document.documentElement.style.removeProperty("--right-panel-width-live");
+                // Keep --right-panel-width — it is now the resting width too.
 
                 try {
                     target.releasePointerCapture(pointerId);
@@ -124,15 +173,18 @@ export function useAppLayoutResizing() {
                     // ignore
                 }
 
-                useUIStore.getState().setRightPanelWidth(current);
                 useUIStore.getState().persistRightPanelWidth(current);
+                whenIdle(() => useUIStore.getState().setRightPanelWidth(current));
+
+                // Terminals skip fit() during the drag; tell them to reflow once now.
+                window.dispatchEvent(new Event("maestro:panel-resize-end"));
             };
 
             document.addEventListener("pointermove", handlePointerMove);
             document.addEventListener("pointerup", handlePointerUp);
             document.addEventListener("pointercancel", handlePointerUp);
         },
-        [], // stable — no deps, reads from store at call time
+        [], // stable — no deps, reads from CSS var / store at call time
     );
 
     return {

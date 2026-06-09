@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { ClaudeCodeSkill, MaestroProject } from "../../app/types/maestro";
-import { Icon } from "../Icon";
+import { Icon } from "./redesign/kit";
 import { maestroClient } from "../../utils/MaestroClient";
 
 interface SkillsPanelProps {
@@ -81,81 +81,88 @@ export function SkillsPanel({ project }: SkillsPanelProps) {
         return (
             <div
                 key={skill.id}
-                className="skillsPanelCard"
+                className="pn-skill"
                 data-expanded={isExpanded}
                 onClick={() => setExpandedSkillId(isExpanded ? null : skill.id)}
             >
-                <div className="skillsPanelCardHeader">
-                    <span className="skillsPanelCardName">{skill.name}</span>
-                    <div className="skillsPanelCardBadges">
-                        {skill.skillSource && (
-                            <span className="skillsPanelBadge" data-type="source">
-                                {skill.skillSource === 'claude' ? '.claude' : '.agents'}
+                <div className="pn-skill__hd">
+                    <span className="pn-skill__ic"><Icon name="sparkles" /></span>
+                    <div className="pn-skill__body">
+                        <div className="pn-skill__namerow">
+                            <span className="pn-skill__name">{skill.name}</span>
+                            <span className="pn-skill__badges">
+                                {skill.skillSource && (
+                                    <span className="pn-sbadge pn-sbadge--src">
+                                        {skill.skillSource === 'claude' ? '.claude' : '.agents'}
+                                    </span>
+                                )}
+                                {skill.version && (
+                                    <span className="pn-sbadge pn-sbadge--ver">
+                                        v{skill.version}
+                                    </span>
+                                )}
                             </span>
-                        )}
-                        {skill.version && (
-                            <span className="skillsPanelBadge" data-type="version">
-                                v{skill.version}
-                            </span>
-                        )}
+                        </div>
+                        <div className="pn-skill__desc">
+                            {typeof skill.description === 'string' ? skill.description : 'No description'}
+                        </div>
                     </div>
-                </div>
-                <div className="skillsPanelCardDesc">
-                    {typeof skill.description === 'string' ? skill.description : 'No description'}
                 </div>
 
                 {isExpanded && (
-                    <div className="skillsPanelCardDetails">
+                    <div className="pn-skill__exp">
                         {Array.isArray(skill.triggers) && skill.triggers.length > 0 && (
-                            <div className="skillsPanelDetailRow">
-                                <span className="skillsPanelDetailLabel">triggers:</span>
-                                <span>{skill.triggers.filter(t => typeof t === 'string').join(', ')}</span>
+                            <div className="pn-skill__row">
+                                <span className="pn-skill__rowlabel">triggers</span>
+                                <span className="pn-skill__rowval">{skill.triggers.filter(t => typeof t === 'string').join(', ')}</span>
                             </div>
                         )}
                         {Array.isArray(skill.tags) && skill.tags.length > 0 && (
-                            <div className="skillsPanelDetailRow">
-                                <span className="skillsPanelDetailLabel">tags:</span>
-                                <span className="skillsPanelTags">
-                                    {skill.tags.filter((t): t is string => typeof t === 'string').map(tag => (
-                                        <span key={tag} className="skillsPanelTag">{tag}</span>
-                                    ))}
+                            <div className="pn-skill__row">
+                                <span className="pn-skill__rowlabel">tags</span>
+                                <span className="pn-skill__rowval">
+                                    <span className="pn-skill__tags">
+                                        {skill.tags.filter((t): t is string => typeof t === 'string').map(tag => (
+                                            <span key={tag} className="pn-skill__tag">{tag}</span>
+                                        ))}
+                                    </span>
                                 </span>
                             </div>
                         )}
                         {skill.role && (
-                            <div className="skillsPanelDetailRow">
-                                <span className="skillsPanelDetailLabel">role:</span>
-                                <span>{skill.role}</span>
+                            <div className="pn-skill__row">
+                                <span className="pn-skill__rowlabel">role</span>
+                                <span className="pn-skill__rowval">{skill.role}</span>
                             </div>
                         )}
                         {skill.language && (
-                            <div className="skillsPanelDetailRow">
-                                <span className="skillsPanelDetailLabel">language:</span>
-                                <span>{skill.language}</span>
+                            <div className="pn-skill__row">
+                                <span className="pn-skill__rowlabel">language</span>
+                                <span className="pn-skill__rowval">{skill.language}</span>
                             </div>
                         )}
                         {skill.framework && (
-                            <div className="skillsPanelDetailRow">
-                                <span className="skillsPanelDetailLabel">framework:</span>
-                                <span>{skill.framework}</span>
+                            <div className="pn-skill__row">
+                                <span className="pn-skill__rowlabel">framework</span>
+                                <span className="pn-skill__rowval">{skill.framework}</span>
                             </div>
                         )}
                         {skill.hasReferences && (
-                            <div className="skillsPanelDetailRow">
-                                <span className="skillsPanelDetailLabel">references:</span>
-                                <span>{skill.referenceCount} file{skill.referenceCount !== 1 ? 's' : ''}</span>
+                            <div className="pn-skill__row">
+                                <span className="pn-skill__rowlabel">references</span>
+                                <span className="pn-skill__rowval">{skill.referenceCount} file{skill.referenceCount !== 1 ? 's' : ''}</span>
                             </div>
                         )}
                         {skill.skillPath && (
-                            <div className="skillsPanelDetailRow">
-                                <span className="skillsPanelDetailLabel">path:</span>
-                                <span className="skillsPanelPath">{skill.skillPath}</span>
+                            <div className="pn-skill__row">
+                                <span className="pn-skill__rowlabel">path</span>
+                                <span className="pn-skill__rowval pn-skill__path">{skill.skillPath}</span>
                             </div>
                         )}
                         {skill.content && (
-                            <div className="skillsPanelContentPreview">
-                                <span className="skillsPanelDetailLabel">content:</span>
-                                <pre className="skillsPanelContentPre">
+                            <div className="pn-skill__row">
+                                <span className="pn-skill__rowlabel">content</span>
+                                <pre className="pn-skill__rowval" style={{ fontFamily: 'var(--pn-mono)', fontSize: '10.5px', color: 'var(--pn-ink-3)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>
                                     {skill.content.length > 500
                                         ? skill.content.slice(0, 500) + '...'
                                         : skill.content}
@@ -168,40 +175,30 @@ export function SkillsPanel({ project }: SkillsPanelProps) {
         );
     };
 
-    const renderSection = (title: string, sectionKey: string, sectionSkills: ClaudeCodeSkill[], icon: string) => {
+    const renderSection = (title: string, sectionKey: string, sectionSkills: ClaudeCodeSkill[], icon: 'folder' | 'globe') => {
         const isCollapsed = collapsedSections.has(sectionKey);
         return (
-            <div className="skillsPanelSection" key={sectionKey}>
-                <div
-                    className="skillsPanelSectionHeader"
-                    onClick={() => toggleSection(sectionKey)}
-                >
-                    <span className="skillsPanelSectionToggle">
-                        {isCollapsed ? '\u25B6' : '\u25BC'}
+            <React.Fragment key={sectionKey}>
+                <div className="pn-vsec" onClick={() => toggleSection(sectionKey)}>
+                    <span className="pn-eyebrow">
+                        <Icon name={icon} size={11} style={{ verticalAlign: '-1px', marginRight: 5 }} />
+                        {title} · {sectionSkills.length}
                     </span>
-                    <span className="skillsPanelSectionIcon">{icon}</span>
-                    <span className="skillsPanelSectionTitle">{title}</span>
-                    <span className="skillsPanelSectionCount">({sectionSkills.length})</span>
+                    <span className="pn-line"></span>
                 </div>
                 {!isCollapsed && (
-                    <div className="skillsPanelSectionContent">
-                        {sectionSkills.length === 0 ? (
-                            <div className="skillsPanelEmpty">
-                                No {title.toLowerCase()} found
-                            </div>
-                        ) : (
-                            sectionSkills.map(renderSkillCard)
-                        )}
-                    </div>
+                    sectionSkills.length === 0
+                        ? <div className="pn-skill__desc" style={{ padding: '0 12px 9px' }}>No {title.toLowerCase()} skills found</div>
+                        : sectionSkills.map(renderSkillCard)
                 )}
-            </div>
+            </React.Fragment>
         );
     };
 
     if (loading) {
         return (
-            <div className="terminalContent">
-                <div className="skillsPanelLoading">
+            <div className="pn-vframe pn-vframe--tall" style={{ width: '100%', height: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 8, fontFamily: 'var(--pn-mono)', fontSize: 12, color: 'var(--pn-ink-3)' }}>
                     <span className="skillsPanelSpinner">&#x27F3;</span> Loading skills...
                 </div>
             </div>
@@ -210,10 +207,10 @@ export function SkillsPanel({ project }: SkillsPanelProps) {
 
     if (error) {
         return (
-            <div className="terminalContent">
-                <div className="skillsPanelError">
+            <div className="pn-vframe pn-vframe--tall" style={{ width: '100%', height: '100%' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 4, fontFamily: 'var(--pn-mono)', fontSize: 12, color: 'var(--pn-ink-3)' }}>
                     <div>Error: {error}</div>
-                    <button type="button" onClick={loadSkills} className="themedBtn" style={{ marginTop: '8px' }}>
+                    <button type="button" onClick={loadSkills} className="pn-btn" style={{ marginTop: '8px' }}>
                         Retry
                     </button>
                 </div>
@@ -222,57 +219,60 @@ export function SkillsPanel({ project }: SkillsPanelProps) {
     }
 
     return (
-        <div className="terminalContent skillsPanel">
-            {/* View toggle + search bar */}
-            <div className="skillsPanelToolbar">
-                <div className="skillsPanelViewToggle">
+        <div className="pn-vframe pn-vframe--tall" style={{ width: '100%', height: '100%' }}>
+            {/* Header: title + view toggle + refresh */}
+            <div className="pn-vhd">
+                <Icon name="sparkles" size={16} style={{ color: 'var(--pn-ink-3)' }} />
+                <span className="pn-vhd__title">Skills</span>
+                <span className="pn-vhd__sp"></span>
+                <div className="pn-vtoggle">
                     <button type="button"
-                        className={`skillsPanelViewBtn ${view === 'installed' ? 'active' : ''}`}
+                        className={view === 'installed' ? 'on' : ''}
                         onClick={() => setView('installed')}
                     >
-                        Installed
-                        <span className="skillsPanelViewCount">{skills.length}</span>
+                        Installed <span className="n">{skills.length}</span>
                     </button>
                     <button type="button"
-                        className={`skillsPanelViewBtn ${view === 'marketplace' ? 'active' : ''}`}
+                        className={view === 'marketplace' ? 'on' : ''}
                         onClick={() => setView('marketplace')}
                     >
                         Marketplace
                     </button>
                 </div>
-                <div className="skillsPanelSearchWrapper">
-                    <Icon name="search" />
-                    <input
-                        type="text"
-                        placeholder={view === 'installed' ? "Filter skills..." : "Search skills.sh..."}
-                        value={view === 'installed' ? searchQuery : marketplaceQuery}
-                        onChange={(e) => view === 'installed' ? setSearchQuery(e.target.value) : setMarketplaceQuery(e.target.value)}
-                        className="skillsPanelSearchInput"
-                    />
-                    {(view === 'installed' ? searchQuery : marketplaceQuery) && (
-                        <button type="button"
-                            className="skillsPanelSearchClear"
-                            onClick={() => view === 'installed' ? setSearchQuery("") : setMarketplaceQuery("")}
-                        >
-                            &times;
-                        </button>
-                    )}
-                </div>
                 <button type="button"
-                    className="themedBtn skillsPanelRefreshBtn"
+                    className="pn-ib"
                     onClick={loadSkills}
                     title="Refresh skills"
                 >
-                    &#x27F3;
+                    <Icon name="refresh" />
                 </button>
+            </div>
+
+            {/* Search bar */}
+            <div className="pn-vsearch">
+                <Icon name="search" />
+                <input
+                    type="text"
+                    placeholder={view === 'installed' ? "Filter skills" : "Search skills.sh"}
+                    value={view === 'installed' ? searchQuery : marketplaceQuery}
+                    onChange={(e) => view === 'installed' ? setSearchQuery(e.target.value) : setMarketplaceQuery(e.target.value)}
+                />
+                {(view === 'installed' ? searchQuery : marketplaceQuery) && (
+                    <button type="button"
+                        className="pn-vsearch__clear"
+                        onClick={() => view === 'installed' ? setSearchQuery("") : setMarketplaceQuery("")}
+                        style={{ border: 'none', background: 'transparent', color: 'var(--pn-ink-4)', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: 0 }}
+                    >
+                        &times;
+                    </button>
+                )}
             </div>
 
             {/* Installed view */}
             {view === 'installed' && (
-                <div className="skillsPanelContent">
+                <div className="pn-vscroll" style={{ paddingTop: 6 }}>
                     {skills.length === 0 ? (
-                        <div className="skillsPanelEmptyState">
-                            <pre className="skillsPanelAscii">{`
+                        <pre style={{ fontFamily: 'var(--pn-mono)', fontSize: 11, color: 'var(--pn-ink-3)', padding: '0 14px', whiteSpace: 'pre-wrap' }}>{`
   No skills found.
 
   Skills are loaded from:
@@ -283,12 +283,11 @@ export function SkillsPanel({ project }: SkillsPanelProps) {
 
   Each skill is a directory with a SKILL.md file.
   Browse the Marketplace tab to install skills.
-                            `}</pre>
-                        </div>
+                        `}</pre>
                     ) : (
                         <>
-                            {projectSkills.length > 0 && renderSection('Project Skills', 'project', projectSkills, '\u{1F4C1}')}
-                            {renderSection('Global Skills', 'global', globalSkills, '\u{1F30D}')}
+                            {projectSkills.length > 0 && renderSection('Project', 'project', projectSkills, 'folder')}
+                            {renderSection('Global', 'global', globalSkills, 'globe')}
                         </>
                     )}
                 </div>
@@ -296,88 +295,87 @@ export function SkillsPanel({ project }: SkillsPanelProps) {
 
             {/* Marketplace view */}
             {view === 'marketplace' && (
-                <div className="skillsPanelContent">
-                    <div className="skillsPanelMarketplace">
-                        <div className="skillsPanelMarketplaceHeader">
-                            <span className="skillsPanelSectionTitle">skills.sh</span>
-                            <span className="skillsPanelMarketplaceSubtitle">
-                                The Open Agent Skills Ecosystem
-                            </span>
-                        </div>
+                <div className="pn-vscroll" style={{ padding: '14px 12px' }}>
+                    <div style={{ fontFamily: 'var(--pn-serif)', fontSize: 17, color: 'var(--pn-ink)', marginBottom: 4 }}>skills.sh</div>
+                    <div style={{ fontSize: 12, color: 'var(--pn-ink-3)', marginBottom: 14 }}>
+                        The open agent-skills ecosystem. Works with Claude Code, Codex, Gemini &amp; more.
+                    </div>
 
-                        <div className="skillsPanelMarketplaceInfo">
-                            <p>Browse and install community skills from <a href="https://skills.sh" target="_blank" rel="noopener noreferrer" className="skillsPanelLink">skills.sh</a></p>
-                            <p>Skills work with Claude Code, Cursor, Codex, GitHub Copilot, and 18+ other tools.</p>
-                        </div>
+                    <div style={{ fontSize: 11.5, color: 'var(--pn-ink-3)', lineHeight: 1.5, marginBottom: 14 }}>
+                        <p style={{ margin: '0 0 6px' }}>Browse and install community skills from <a href="https://skills.sh" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--pn-brand)' }}>skills.sh</a></p>
+                        <p style={{ margin: 0 }}>Skills work with Claude Code, Cursor, Codex, GitHub Copilot, and 18+ other tools.</p>
+                    </div>
 
-                        <div className="skillsPanelInstallBox">
-                            <div className="skillsPanelInstallLabel">Install a skill:</div>
-                            <div className="skillsPanelInstallRow">
-                                <code className="skillsPanelInstallCmd">npx skillsadd</code>
-                                <input
-                                    type="text"
-                                    className="skillsPanelInstallInput"
-                                    placeholder="owner/repo"
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            const target = e.currentTarget;
-                                            const repo = target.value.trim();
-                                            if (repo) {
-                                                window.open(`https://skills.sh/${repo}`, '_blank');
-                                                target.value = '';
-                                            }
+                    <div style={{ background: 'var(--pn-card)', border: '1px solid var(--pn-line)', borderRadius: 'var(--pn-r-md)', padding: 12, marginBottom: 16 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--pn-ink-2)', marginBottom: 8 }}>Install a skill:</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <code style={{ fontFamily: 'var(--pn-mono)', fontSize: 11, color: 'var(--pn-brand-2)', whiteSpace: 'nowrap' }}>npx skillsadd</code>
+                            <input
+                                type="text"
+                                placeholder="owner/repo"
+                                style={{ flex: 1, minWidth: 0, border: '1px solid var(--pn-line)', borderRadius: 'var(--pn-r-sm)', background: 'var(--pn-surface)', padding: '5px 8px', fontFamily: 'var(--pn-mono)', fontSize: 11, color: 'var(--pn-ink)', outline: 'none' }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        const target = e.currentTarget;
+                                        const repo = target.value.trim();
+                                        if (repo) {
+                                            window.open(`https://skills.sh/${repo}`, '_blank');
+                                            target.value = '';
                                         }
-                                    }}
-                                />
-                            </div>
-                            <div className="skillsPanelInstallHint">
-                                Press Enter to view on skills.sh, or run the command in your terminal
-                            </div>
+                                    }
+                                }}
+                            />
                         </div>
-
-                        <div className="skillsPanelPopularSection">
-                            <div className="skillsPanelSectionHeader" onClick={() => toggleSection('popular')}>
-                                <span className="skillsPanelSectionToggle">
-                                    {collapsedSections.has('popular') ? '\u25B6' : '\u25BC'}
-                                </span>
-                                <span className="skillsPanelSectionTitle">Popular Skills</span>
-                            </div>
-                            {!collapsedSections.has('popular') && (
-                                <div className="skillsPanelPopularGrid">
-                                    {[
-                                        { name: 'find-skills', repo: 'anthropics/find-skills', desc: 'Discover relevant skills for your project' },
-                                        { name: 'cursor-rules', repo: 'pontusab/cursor-rules', desc: 'Best practices for Cursor rules' },
-                                        { name: 'nextjs', repo: 'vercel/next.js-skill', desc: 'Next.js development best practices' },
-                                        { name: 'react', repo: 'facebook/react-skill', desc: 'React development patterns' },
-                                        { name: 'typescript', repo: 'anthropics/typescript-skill', desc: 'TypeScript best practices' },
-                                        { name: 'python', repo: 'anthropics/python-skill', desc: 'Python development patterns' },
-                                    ].map(item => (
-                                        <a
-                                            key={item.name}
-                                            href={`https://skills.sh/${item.repo}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="skillsPanelPopularCard"
-                                        >
-                                            <span className="skillsPanelPopularName">{item.name}</span>
-                                            <span className="skillsPanelPopularDesc">{item.desc}</span>
-                                            <span className="skillsPanelPopularRepo">{item.repo}</span>
-                                        </a>
-                                    ))}
-                                </div>
-                            )}
+                        <div style={{ fontSize: 10.5, color: 'var(--pn-ink-4)', marginTop: 6 }}>
+                            Press Enter to view on skills.sh, or run the command in your terminal
                         </div>
+                    </div>
 
-                        <div className="skillsPanelMarketplaceFooter">
+                    <div className="pn-vsec" style={{ padding: '0 0 6px' }} onClick={() => toggleSection('popular')}>
+                        <span className="pn-eyebrow">Popular Skills</span>
+                        <span className="pn-line"></span>
+                    </div>
+                    {!collapsedSections.has('popular') && (
+                        [
+                            { name: 'find-skills', repo: 'anthropics/find-skills', desc: 'Discover relevant skills for your project' },
+                            { name: 'cursor-rules', repo: 'pontusab/cursor-rules', desc: 'Best practices for Cursor rules' },
+                            { name: 'nextjs', repo: 'vercel/next.js-skill', desc: 'Next.js development best practices' },
+                            { name: 'react', repo: 'facebook/react-skill', desc: 'React development patterns' },
+                            { name: 'typescript', repo: 'anthropics/typescript-skill', desc: 'TypeScript best practices' },
+                            { name: 'python', repo: 'anthropics/python-skill', desc: 'Python development patterns' },
+                        ].map(item => (
                             <a
-                                href="https://skills.sh"
+                                key={item.name}
+                                href={`https://skills.sh/${item.repo}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="themedBtn skillsPanelBrowseBtn"
+                                className="pn-skill"
+                                style={{ display: 'block', textDecoration: 'none' }}
                             >
-                                Browse all skills on skills.sh &rarr;
+                                <div className="pn-skill__hd">
+                                    <span className="pn-skill__ic"><Icon name="sparkles" /></span>
+                                    <div className="pn-skill__body">
+                                        <div className="pn-skill__namerow">
+                                            <span className="pn-skill__name">{item.name}</span>
+                                        </div>
+                                        <div className="pn-skill__desc">{item.desc}</div>
+                                        <div className="pn-skill__path" style={{ marginTop: 4 }}>{item.repo}</div>
+                                    </div>
+                                </div>
                             </a>
-                        </div>
+                        ))
+                    )}
+
+                    <div style={{ marginTop: 16 }}>
+                        <a
+                            href="https://skills.sh"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="pn-btn"
+                            style={{ textDecoration: 'none' }}
+                        >
+                            Browse all skills on skills.sh &rarr;
+                        </a>
                     </div>
                 </div>
             )}

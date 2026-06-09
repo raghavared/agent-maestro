@@ -16,6 +16,7 @@ import { createSkillRoutes } from './api/skillRoutes';
 import { createOrderingRoutes } from './api/orderingRoutes';
 import { createTeamMemberRoutes } from './api/teamMemberRoutes';
 import { createTeamRoutes } from './api/teamRoutes';
+import { createModelProfileRoutes } from './api/modelProfileRoutes';
 import { createWorkflowTemplateRoutes } from './api/workflowTemplateRoutes';
 import { createMasterRoutes } from './api/masterRoutes';
 import { createSpellRoutes } from './api/spellRoutes';
@@ -29,7 +30,7 @@ async function startServer() {
   const container = await createContainer();
   await container.initialize();
 
-  const { config, logger, eventBus, projectService, taskService, taskListService, taskGraphService, sessionService, logDigestService, orderingService, teamMemberService, teamService, projectRepo, taskRepo, teamMemberRepo, skillLoader } = container;
+  const { config, logger, eventBus, projectService, taskService, taskListService, taskGraphService, sessionService, logDigestService, orderingService, teamMemberService, teamService, modelProfileService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, skillLoader } = container;
 
   // Create Express app
   const app = express();
@@ -103,6 +104,7 @@ async function startServer() {
     projectRepo,
     taskRepo,
     teamMemberRepo,
+    modelProfileRepo,
     eventBus,
     config
   });
@@ -116,6 +118,9 @@ async function startServer() {
   // Team routes
   const teamRoutes = createTeamRoutes(teamService);
 
+  // Model profile routes (workspace-global)
+  const modelProfileRoutes = createModelProfileRoutes(modelProfileService);
+
   // Skills route using async FileSystemSkillLoader
   const skillRoutes = createSkillRoutes(skillLoader);
 
@@ -128,6 +133,7 @@ async function startServer() {
   app.use('/api', orderingRoutes);
   app.use('/api', teamMemberRoutes);
   app.use('/api', teamRoutes);
+  app.use('/api', modelProfileRoutes);
   app.use('/api/workflow-templates', createWorkflowTemplateRoutes());
 
   // Spell routes

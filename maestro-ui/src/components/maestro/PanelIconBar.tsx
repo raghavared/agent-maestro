@@ -1,7 +1,7 @@
 import React from "react";
 import { TeamMember } from "../../app/types/maestro";
 
-export type PrimaryTab = "tasks" | "lists" | "team" | "skills" | "graphs";
+export type PrimaryTab = "tasks" | "lists" | "team" | "skills" | "graphs" | "profiles";
 export type TaskSubTab = "current" | "pinned" | "completed" | "archived";
 export type SkillSubTab = "browse" | "installed" | "marketplace";
 export type TeamSubTab = "members" | "teams";
@@ -27,10 +27,12 @@ type PanelIconBarProps = {
     onNewTeamMember: () => void;
     onNewTeam?: () => void;
     onNewGraph?: () => void;
+    onNewModelProfile?: () => void;
     onTeamStandup?: () => void;
     teamCount?: number;
     taskListCount?: number;
     graphCount?: number;
+    modelProfileCount?: number;
     hidePrimaryTabs?: boolean;
 };
 
@@ -55,10 +57,12 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
     onNewTeamMember,
     onNewTeam,
     onNewGraph,
+    onNewModelProfile,
     onTeamStandup,
     teamCount = 0,
     taskListCount = 0,
     graphCount = 0,
+    modelProfileCount = 0,
     hidePrimaryTabs = false,
 }) => {
 
@@ -127,6 +131,15 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                         <path d="M12.8 6.2L11.5 12.8" strokeLinecap="round" />
                     </svg>
                     Graphs
+                </button>
+                <button type="button"
+                    className={`maestroPanelPrimaryTab ${primaryTab === "profiles" ? "maestroPanelPrimaryTabActive" : ""}`}
+                    onClick={() => onPrimaryTabChange("profiles")}
+                >
+                    <svg className="maestroPanelTabIcon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M10 2l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L3.8 7.3l5-.7L10 2z" strokeLinejoin="round" />
+                    </svg>
+                    Profiles
                 </button>
             </div>}
 
@@ -240,6 +253,22 @@ export const PanelIconBar: React.FC<PanelIconBarProps> = ({
                         <div className="maestroPanelSubTab maestroPanelSubTab--stat">
                             Teams
                             <span className="maestroPanelSubTabCount">{teamCount}</span>
+                        </div>
+                    </>
+                )}
+
+                {primaryTab === "profiles" && (
+                    <>
+                        <button type="button"
+                            className="maestroPanelSubTab maestroPanelSubTab--action"
+                            onClick={onNewModelProfile}
+                        >
+                            <span className="maestroPanelSubTabPlus">+</span>
+                            New Profile
+                        </button>
+                        <div className="maestroPanelSubTab maestroPanelSubTab--stat">
+                            Profiles
+                            <span className="maestroPanelSubTabCount">{modelProfileCount}</span>
                         </div>
                     </>
                 )}

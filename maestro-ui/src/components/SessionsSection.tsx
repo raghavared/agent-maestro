@@ -24,15 +24,14 @@ import { type MaestroTask, type MaestroSession as MaestroSession, type Team, typ
 import { AgentLogo } from "./maestro/AgentChip";
 import { useMaestroStore } from "../stores/useMaestroStore";
 import { useUIStore } from "../stores/useUIStore";
-import { useSpacesStore } from "../stores/useSpacesStore";
 import { MaestroSessionContent } from "./maestro/MaestroSessionContent";
 import { SessionDetailModal } from "./maestro/SessionDetailModal";
 import { SessionLogModal } from "./session-log/SessionLogModal";
 import { ConfirmActionModal } from "./modals/ConfirmActionModal";
-import { buildTeamGroups } from "../utils/teamGrouping";
+import { buildTeamGroups, type TeamGroup } from "../utils/teamGrouping";
 import type { TeamColor } from "../app/constants/teamColors";
-import type { Space } from "../app/types/space";
 import { ProjectDocsList } from "./ProjectDocsList";
+import { useProjectDocsPaginated } from "../hooks/useProjectDocsPaginated";
 import { useSessionTree } from "../hooks/useSessionTree";
 import { SessionListItem, type SessionTileLinkInfo } from "./maestro/SessionListItem";
 import type { SessionTreeNode } from "../app/types/maestro";
@@ -95,17 +94,17 @@ const FilterDrawingsIcon = (
     <path d="M12 4l2 2" strokeLinecap="round" />
   </svg>
 );
-const FilterFilesIcon = (
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="15" height="15">
-    <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
-    <path d="M12 2v4h4" />
-    <path d="M8 11l-2 2 2 2" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M12 11l2 2-2 2" strokeLinecap="round" strokeLinejoin="round" />
+// Quick-launch terminal mark (icon-only chip in the first row).
+const QuickTerminalIcon = (
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16">
+    <rect x="2.5" y="3.5" width="15" height="13" rx="2" />
+    <path d="M6 8.5l2.5 1.8L6 12.1" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M10.5 12.5h4" strokeLinecap="round" />
   </svg>
 );
 
 const SESSION_FILTER_TABS: {
-  id: 'terminals' | 'agents' | 'docs' | 'drawings' | 'files';
+  id: 'terminals' | 'agents' | 'docs' | 'drawings';
   label: string;
   icon: React.ReactNode;
 }[] = [
@@ -113,8 +112,10 @@ const SESSION_FILTER_TABS: {
   { id: 'agents', label: 'Agents', icon: FilterAgentsIcon },
   { id: 'docs', label: 'Docs', icon: FilterDocsIcon },
   { id: 'drawings', label: 'Drawings', icon: FilterDrawingsIcon },
-  { id: 'files', label: 'Files', icon: FilterFilesIcon },
 ];
+
+// Canonical display order for the icon-only agent quick-launch row.
+const QUICK_AGENT_ORDER = ['claude', 'codex', 'hermes', 'gemini'];
 
 function isSshCommand(commandLine: string | null | undefined): boolean {
   const trimmed = commandLine?.trim() ?? "";
@@ -408,12 +409,12 @@ const SessionItem = React.memo(function SessionItem({
           {agentToolIcon ? (
             <div className={`sessionAgentIcon__wrapper ${isLive ? 'sessionAgentIcon__wrapper--live' : ''}`}>
               <img className="sessionAgentIcon__img" src={agentToolIcon} alt={agentTool || 'agent'} />
-              {isLive && <span className="sessionAgentIcon__liveDot" />}
+              {isLive && <span className={`sessionAgentIcon__liveDot${isWorking ? " sessionAgentIcon__liveDot--streaming" : ""}`} />}
             </div>
           ) : hasAgentIcon && effect?.iconSrc ? (
             <div className={`sessionAgentIcon__wrapper ${isLive ? 'sessionAgentIcon__wrapper--live' : ''}`}>
               <img className="sessionAgentIcon__img" src={effect.iconSrc} alt={chipLabel || 'agent'} />
-              {isLive && <span className="sessionAgentIcon__liveDot" />}
+              {isLive && <span className={`sessionAgentIcon__liveDot${isWorking ? " sessionAgentIcon__liveDot--streaming" : ""}`} />}
             </div>
           ) : (
             <div className="sessionAgentIcon__placeholder">
@@ -630,7 +631,7 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
         isResuming={resumingSessionId === node.id}
       />
       {!isCollapsed && node.children.length > 0 && (
-        <div className="sessionTreeChildren">
+        <div className="pn-kids pn-kids--st">
           {node.children.map((child) => (
             <SessionNodeRenderer
               key={child.id}
@@ -681,7 +682,7 @@ export const SessionsSection = React.memo(function SessionsSection({
   onCloseSpace,
 }: SessionsSectionProps) {
   // ==================== SEGMENTED FILTER ====================
-  type SessionFilter = 'terminals' | 'agents' | 'docs' | 'drawings' | 'files';
+  type SessionFilter = 'terminals' | 'agents' | 'docs' | 'drawings';
   const [activeFilter, setActiveFilter] = useState<SessionFilter>('agents');
 
   // ==================== STATE MANAGEMENT (PHASE V) ====================
@@ -767,6 +768,15 @@ export const SessionsSection = React.memo(function SessionsSection({
   const teamGroupData = useMemo(() => {
     return buildTeamGroups(sessions, maestroSessions, teamsMap);
   }, [sessions, maestroSessions, teamsMap]);
+
+  // Pure-read index: coordinator maestroSessionId → its TeamGroup. Lets the tree
+  // wrap each coordinator root in a pn-team box (head: dot/name/count) with no new
+  // grouping logic — all data comes from buildTeamGroups above.
+  const teamGroupByCoordinator = useMemo(() => {
+    const m = new Map<string, TeamGroup>();
+    for (const g of teamGroupData.groups) m.set(g.coordinatorMaestroSessionId, g);
+    return m;
+  }, [teamGroupData.groups]);
 
   const [showHistory, setShowHistory] = React.useState(false);
   const showTaskDetails = useUIStore((s) => s.sessionShowTaskDetails);
@@ -874,34 +884,17 @@ export const SessionsSection = React.memo(function SessionsSection({
     };
   }, [settingsOpen, showHistory]);
 
-  // Non-session spaces (whiteboards, documents)
-  const allSpaces = useSpacesStore((s) => s.spaces);
-  const projectSpaces = useMemo(
-    () => allSpaces.filter((s) => s.projectId === activeProjectId),
-    [allSpaces, activeProjectId],
-  );
-
   // Filter sessions based on active tab
   const showTerminals = activeFilter === 'terminals';
   const showAgents = activeFilter === 'agents';
   const showDocs = activeFilter === 'docs';
   const showDrawings = activeFilter === 'drawings';
-  const showFiles = activeFilter === 'files';
-  const showSpaces = showFiles;
 
   // Plain local terminals only (maestro sessions render via the tree below).
   const filteredTerminalSessions = useMemo(() => {
     if (!showTerminals) return [];
     return sessions.filter((s) => !s.maestroSessionId);
   }, [sessions, showTerminals]);
-
-  // Only files still use the spaces/tiles approach; docs and drawings use ProjectDocsList.
-  const spaceGroups = useMemo(() => {
-    const files = showFiles ? projectSpaces.filter((s) => s.type === "file") : [];
-    return [
-      { key: "file" as const, label: "Files", items: files },
-    ];
-  }, [projectSpaces, showFiles]);
 
   // Phase 3: Memoize SortableContext items (plain terminals only)
   const sortableSessionIds = useMemo(
@@ -1007,6 +1000,20 @@ export const SessionsSection = React.memo(function SessionsSection({
     }
     return n;
   }, [projectMaestroSessions, linkMap]);
+
+  // Filter-tab counts: active terminals, active (open) sessions, total docs, total diagrams.
+  const { total: docsTotal } = useProjectDocsPaginated(activeProjectId, 'markdown');
+  const { total: diagramsTotal } = useProjectDocsPaginated(activeProjectId, 'diagram');
+  const activeTerminalCount = useMemo(
+    () => sessions.filter((s) => !s.maestroSessionId && !s.exited).length,
+    [sessions],
+  );
+  const filterTabCounts: Record<SessionFilter, number | null> = {
+    terminals: activeTerminalCount,
+    agents: sessionTabCounts.open,
+    docs: docsTotal,
+    drawings: diagramsTotal,
+  };
 
   const handleToggleSessionCollapse = useCallback((sessionId: string) => {
     setCollapsedSessions((prev) => {
@@ -1131,12 +1138,13 @@ export const SessionsSection = React.memo(function SessionsSection({
 
   return (
     <>
-      <div className="sidebarHeader">
-        <div className="title">Sessions</div>
+      <div className="pn-head">
+        <span className="pn-proj">Sessions</span>
+        <span className="pn-head-spacer" />
         <div className="sidebarHeaderActions">
           <button
             type="button"
-            className="btnSmall btnIcon"
+            className="pn-ib"
             onClick={handleRefresh}
             disabled={refreshing || !activeProjectId}
             title="Refresh tasks"
@@ -1146,7 +1154,7 @@ export const SessionsSection = React.memo(function SessionsSection({
           </button>
           <button
             type="button"
-            className="btnSmall btnIcon"
+            className="pn-ib"
             onClick={handleShowBoard}
             disabled={!activeProjectId}
             title="Open board view"
@@ -1155,19 +1163,9 @@ export const SessionsSection = React.memo(function SessionsSection({
             <Icon name="layers" />
           </button>
           <button
-            type="button"
-            className={`btnSmall btnIcon ${showTaskDetails ? "btnIconActive" : ""}`}
-            onClick={toggleSessionShowTaskDetails}
-            title={showTaskDetails ? "Hide linked task details on session tiles" : "Show linked task details on session tiles"}
-            aria-label="Toggle task details on session tiles"
-            aria-pressed={showTaskDetails}
-          >
-            <Icon name="check-square" />
-          </button>
-          <button
             ref={historyBtnRef}
             type="button"
-            className={`btnSmall btnIcon ${showHistory ? "btnIconActive" : ""}`}
+            className={`pn-ib ${showHistory ? "pn-ib--active" : ""}`}
             onClick={() => setShowHistory(prev => !prev)}
             disabled={!activeProjectId}
             title="Session history"
@@ -1182,7 +1180,7 @@ export const SessionsSection = React.memo(function SessionsSection({
             <button
               ref={settingsBtnRef}
               type="button"
-              className={`btnSmall btnIcon ${settingsOpen ? "btnIconActive" : ""}`}
+              className={`pn-ib ${settingsOpen ? "pn-ib--active" : ""}`}
               onClick={() =>
                 setSettingsOpen((prev) => !prev)
               }
@@ -1284,60 +1282,68 @@ export const SessionsSection = React.memo(function SessionsSection({
         document.body
       )}
 
-      <div className="agentShortcutRow" role="toolbar" aria-label="Quick launch">
+      <div className="pn-quick" role="toolbar" aria-label="Quick launch">
         <button
           type="button"
-          className="agentShortcutBtn agentShortcutBtn--chip agentShortcutBtn--terminal"
+          className="pn-qchip pn-qchip--icon"
           onClick={onOpenNewSession}
           aria-label="New terminal"
           title="New terminal"
         >
-          <span className="agentShortcutChip__icon" aria-hidden="true">{">_"}</span>
-          <span className="agentShortcutChip__label">Terminal</span>
+          {QuickTerminalIcon}
         </button>
-        {agentShortcuts.map((effect) => {
-          const tool = SHORTCUT_AGENT_TOOL[effect.id];
-          const label = SHORTCUT_LABEL[effect.id] ?? effect.label;
+        {[...agentShortcuts]
+          .sort((a, b) => {
+            const ia = QUICK_AGENT_ORDER.indexOf(a.id);
+            const ib = QUICK_AGENT_ORDER.indexOf(b.id);
+            return (ia === -1 ? QUICK_AGENT_ORDER.length : ia) - (ib === -1 ? QUICK_AGENT_ORDER.length : ib);
+          })
+          .map((effect) => {
+            const tool = SHORTCUT_AGENT_TOOL[effect.id];
+            const label = SHORTCUT_LABEL[effect.id] ?? effect.label;
+            return (
+              <button
+                key={effect.id}
+                type="button"
+                className="pn-qchip pn-qchip--icon"
+                onClick={() => onQuickStart(effect)}
+                aria-label={`Start ${label}`}
+                title={`Start ${label}`}
+              >
+                {tool ? (
+                  <AgentLogo agentTool={tool} size={16} className={`agentChip--${tool}`} />
+                ) : effect.iconSrc ? (
+                  <img src={effect.iconSrc} alt="" aria-hidden="true" />
+                ) : null}
+              </button>
+            );
+          })}
+      </div>
+
+      {/* Segmented filter: Terminals / Agents / Docs / Drawings */}
+      <div className="pn-filters">
+        {SESSION_FILTER_TABS.map(({ id, label, icon }) => {
+          const count = filterTabCounts[id];
           return (
             <button
-              key={effect.id}
+              key={id}
               type="button"
-              className={`agentShortcutBtn agentShortcutBtn--chip agentShortcutBtn--${effect.id}`}
-              onClick={() => onQuickStart(effect)}
-              aria-label={`Start ${label}`}
-              title={`Start ${label}`}
+              className={`pn-filter ${activeFilter === id ? 'pn-filter--active' : ''}`}
+              onClick={() => setActiveFilter(id)}
+              title={label}
+              aria-pressed={activeFilter === id}
             >
-              {tool ? (
-                <AgentLogo agentTool={tool} size={14} className={`agentShortcutChip__icon agentChip--${tool}`} />
-              ) : effect.iconSrc ? (
-                <img className="agentShortcutChip__img" src={effect.iconSrc} alt="" aria-hidden="true" />
-              ) : null}
-              <span className="agentShortcutChip__label">{label}</span>
+              <span aria-hidden="true">{icon}</span>
+              {label}
+              {count != null && count > 0 && <span className="pn-tab-n">{count}</span>}
             </button>
           );
         })}
       </div>
 
-      {/* Segmented filter: Terminals / Agents / Docs / Drawings / Files */}
-      <div className="sessionsSegmentedFilter">
-        {SESSION_FILTER_TABS.map(({ id, label, icon }) => (
-          <button
-            key={id}
-            type="button"
-            className={`sessionsSegmentedFilter__btn ${activeFilter === id ? 'sessionsSegmentedFilter__btn--active' : ''}`}
-            onClick={() => setActiveFilter(id)}
-            title={label}
-            aria-pressed={activeFilter === id}
-          >
-            <span className="sessionsSegmentedFilter__icon" aria-hidden="true">{icon}</span>
-            <span className="sessionsSegmentedFilter__label">{label}</span>
-          </button>
-        ))}
-      </div>
-
       {/* Sub-tabs for the maestro session tree */}
       {showAgents && (
-        <div className="sessionSubTabs" role="tablist" aria-label="Session filter">
+        <div className="pn-subbar" role="tablist" aria-label="Session filter">
           {(['open', 'done', 'archived'] as SessionSubTab[]).map((tab) => {
             const count = sessionTabCounts[tab];
             const label = tab === 'open' ? 'Open' : tab === 'done' ? 'Done' : 'Archived';
@@ -1347,20 +1353,35 @@ export const SessionsSection = React.memo(function SessionsSection({
                 type="button"
                 role="tab"
                 aria-selected={sessionSubTab === tab}
-                className={`sessionSubTabs__btn ${sessionSubTab === tab ? 'sessionSubTabs__btn--active' : ''}`}
+                className={`pn-subtab ${sessionSubTab === tab ? 'pn-subtab--active' : ''}`}
                 onClick={() => setSessionSubTab(tab)}
               >
                 <span>{label}</span>
-                {count > 0 && <span className="sessionSubTabs__count">{count}</span>}
+                {count > 0 && <span className="pn-tab-n">{count}</span>}
               </button>
             );
           })}
           {liveCount > 0 && (
-            <span className="sessionSubTabs__live" title={`${liveCount} running live`}>
-              <span className="sessionSubTabs__liveDot" />
-              <span className="sessionSubTabs__liveText">{liveCount} live</span>
+            <span
+              className="pn-chip"
+              title={`${liveCount} running live`}
+              style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <span className="pn-dot-wrap"><span className="pn-dot pn-dot--run pn-dot--live" /></span>
+              {liveCount} live
             </span>
           )}
+          <button
+            type="button"
+            className={`pn-ib ${showTaskDetails ? "pn-ib--active" : ""}`}
+            onClick={toggleSessionShowTaskDetails}
+            title={showTaskDetails ? "Hide linked task details on session tiles" : "Show linked task details on session tiles"}
+            aria-label="Toggle task details on session tiles"
+            aria-pressed={showTaskDetails}
+            style={liveCount > 0 ? undefined : { marginLeft: 'auto' }}
+          >
+            <Icon name="check-square" />
+          </button>
         </div>
       )}
 
@@ -1370,7 +1391,7 @@ export const SessionsSection = React.memo(function SessionsSection({
       {/* Drawings tab — project-wide paginated list of diagram docs */}
       {showDrawings && <ProjectDocsList projectId={activeProjectId} kind="diagram" />}
 
-      <div className="sessionList" style={showDocs || showDrawings ? { display: 'none' } : undefined}>
+      <div className="pn-scroll" style={showDocs || showDrawings ? { display: 'none' } : undefined}>
         {sessions.length === 0 && projectMaestroSessions.length === 0 ? (
           <div className="empty">No sessions in this project.</div>
         ) : (
@@ -1379,17 +1400,17 @@ export const SessionsSection = React.memo(function SessionsSection({
             {showAgents && (
               visibleRoots.length === 0 ? (
                 <div className="sessionEmptyState">
-                  <span className="sessionEmptyState__icon" aria-hidden="true">
+                  <span className="sessionEmptyState__icon" aria-hidden="true" style={{ color: 'var(--pn-ink-4)' }}>
                     {sessionSubTab === 'open' ? '◉' : sessionSubTab === 'done' ? '✓' : '▫'}
                   </span>
-                  <span className="sessionEmptyState__title">
+                  <span className="sessionEmptyState__title" style={{ color: 'var(--pn-ink)' }}>
                     {sessionSubTab === 'open'
                       ? 'No open sessions'
                       : sessionSubTab === 'done'
                         ? 'No sessions marked done'
                         : 'No archived sessions'}
                   </span>
-                  <span className="sessionEmptyState__hint">
+                  <span className="sessionEmptyState__hint" style={{ color: 'var(--pn-ink-3)' }}>
                     {sessionSubTab === 'open'
                       ? 'New and unaddressed sessions appear here. Spawn one to get started.'
                       : sessionSubTab === 'done'
@@ -1398,31 +1419,49 @@ export const SessionsSection = React.memo(function SessionsSection({
                   </span>
                 </div>
               ) : (
-                <div className="sessionTree">
-                  {visibleRoots.map((root) => (
-                    <SessionNodeRenderer
-                      key={root.id}
-                      node={root}
-                      depth={0}
-                      tab={sessionSubTab}
-                      collapsedSessions={collapsedSessions}
-                      maestroColorMap={maestroColorMap}
-                      linkMap={linkMap}
-                      activeLocalSessionId={activeSessionId}
-                      inspectedSessionId={inspectedSessionId}
-                      maestroTasks={maestroTasks}
-                      resumingSessionId={resumingSessionId}
-                      onToggleCollapse={handleToggleSessionCollapse}
-                      onOpenDetail={handleOpenSessionDetail}
-                      onSelect={handleSelectTile}
-                      onJumpToTerminal={handleJumpToTerminal}
-                      onStop={handleStopSession}
-                      onResume={handleResume}
-                      onRestore={handleRestoreTree}
-                      onToggleHumanComplete={handleToggleHumanComplete}
-                      onOpenTeamView={handleOpenTeamView}
-                    />
-                  ))}
+                <div className="pn-list">
+                  {visibleRoots.map((root) => {
+                    const node = (
+                      <SessionNodeRenderer
+                        key={root.id}
+                        node={root}
+                        depth={0}
+                        tab={sessionSubTab}
+                        collapsedSessions={collapsedSessions}
+                        maestroColorMap={maestroColorMap}
+                        linkMap={linkMap}
+                        activeLocalSessionId={activeSessionId}
+                        inspectedSessionId={inspectedSessionId}
+                        maestroTasks={maestroTasks}
+                        resumingSessionId={resumingSessionId}
+                        onToggleCollapse={handleToggleSessionCollapse}
+                        onOpenDetail={handleOpenSessionDetail}
+                        onSelect={handleSelectTile}
+                        onJumpToTerminal={handleJumpToTerminal}
+                        onStop={handleStopSession}
+                        onResume={handleResume}
+                        onRestore={handleRestoreTree}
+                        onToggleHumanComplete={handleToggleHumanComplete}
+                        onOpenTeamView={handleOpenTeamView}
+                      />
+                    );
+                    // Coordinator roots get a labelled pn-team box (team color on the
+                    // dot only); standalone roots render bare, matching the design.
+                    const group = teamGroupByCoordinator.get(root.id);
+                    if (!group) return node;
+                    const n = group.workerMaestroSessionIds.length + 1;
+                    const teamName = group.teamName ?? root.teamMemberSnapshot?.name ?? root.name;
+                    return (
+                      <div className="pn-team" key={root.id}>
+                        <div className="pn-team__head">
+                          <span className="pn-team__dot" style={{ background: group.color.primary }} />
+                          <span className="pn-team__name">{teamName}</span>
+                          <span className="pn-team__count">{n} session{n === 1 ? "" : "s"}</span>
+                        </div>
+                        {node}
+                      </div>
+                    );
+                  })}
                 </div>
               )
             )}
@@ -1446,64 +1485,7 @@ export const SessionsSection = React.memo(function SessionsSection({
         )}
       </div>
 
-      {/* Spaces — grouped: Drawings → Documents → Files */}
-      {showSpaces && (spaceGroups.some((g) => g.items.length > 0) || (showDrawings && onCreateWhiteboard)) && (
-        <div className="spacesGroups">
-          {spaceGroups.map((group) => {
-            if (group.items.length === 0) return null;
-            return (
-              <div className="spacesGroup" key={group.key}>
-                <div className="spacesGroup__header">
-                  <span className="spacesGroup__label">{group.label}</span>
-                  <span className="spacesGroup__count">{group.items.length}</span>
-                </div>
-                <div className="spacesGroup__list">
-                  {group.items.map((space) => {
-                    const isActive = space.id === activeSessionId;
-                    const ext = space.filePath.split(".").pop()?.toLowerCase() || "";
-                    const loc = space.provider === "ssh" && space.sshTarget ? space.sshTarget : space.rootDir;
-                    const meta = [loc, ext].filter(Boolean).join(" · ");
-                    return (
-                      <div
-                        key={space.id}
-                        className={`spaceTile spaceTile--file ${isActive ? "spaceTile--active" : ""}`}
-                        onClick={() => onSelectSession(space.id)}
-                        title={space.name}
-                      >
-                        <span className="spaceTile__icon" aria-hidden="true">
-                          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="15" height="15">
-                            <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
-                            <path d="M12 2v4h4" />
-                            <path d="M8 11l-2 2 2 2" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M12 11l2 2-2 2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </span>
-                        <span className="spaceTile__body">
-                          <span className="spaceTile__name">{space.name}</span>
-                          {meta && <span className="spaceTile__meta">{meta}</span>}
-                        </span>
-                        {onCloseSpace && (
-                          <button
-                            type="button"
-                            className="spaceTile__close"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onCloseSpace(space.id);
-                            }}
-                            title={`Close ${space.type}`}
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <div className="pn-fade" />
 
       {sessionModalId && createPortal(
         <SessionDetailModal

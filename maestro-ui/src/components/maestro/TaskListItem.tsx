@@ -10,6 +10,7 @@ import { useSessionStore } from "../../stores/useSessionStore";
 import { ConfirmActionModal } from "../modals/ConfirmActionModal";
 import { maestroClient } from "../../utils/MaestroClient";
 import { LaunchConfigDropdown } from "./LaunchConfigDropdown";
+import { Icon, Glyph, Avatar, Avatars } from "./redesign/kit";
 
 type TaskListItemProps = {
     task: MaestroTask;
@@ -32,17 +33,6 @@ type TaskListItemProps = {
     onToggleSelect?: () => void;
     showPermanentDelete?: boolean;
     isSessionTask?: boolean;
-};
-
-// Terminal-style status symbols
-const STATUS_SYMBOLS: Record<TaskStatus, string> = {
-    todo: "○",
-    in_progress: "◉",
-    in_review: "◎",
-    completed: "✓",
-    cancelled: "⊘",
-    blocked: "✗",
-    archived: "▫",
 };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -379,88 +369,101 @@ export const TaskListItem = React.memo(function TaskListItem({
         e.dataTransfer.effectAllowed = 'copy';
     }, [task.title, task.description, task.initialPrompt]);
 
+    const isCancelled = task.status === 'cancelled';
+    const isCompleted = task.status === 'completed';
+
     return (
         <div
-            className={`terminalTaskRow terminalTaskRow--${task.status} ${isSubtask ? 'terminalTaskRow--subtask' : ''} ${showStatusDropdown || showPriorityDropdown || showTeamMemberDropdown ? 'terminalTaskRow--dropdownOpen' : ''} ${selectionMode ? 'terminalTaskRow--selectable' : ''} ${isSessionTask ? 'terminalTaskRow--sessionActive' : ''}`}
+            className={`pn-tt ${isCompleted ? 'pn-tt--completed' : ''} ${isSessionTask ? 'pn-tt--active' : ''}`}
             draggable
             onDragStart={handleDragStart}
         >
             {/* Single-line main row */}
-            <div className="terminalTaskMain">
+            <div className="pn-tt__main">
                 {/* Selection checkbox for execution mode */}
                 {selectionMode && (
-                    <label className="terminalTaskCheckbox" onClick={(e) => e.stopPropagation()}>
+                    <label
+                        className={`pn-tt__check ${isSelected ? 'pn-tt__check--on' : ''}`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => onToggleSelect?.()}
+                            style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
                         />
-                        <span className={`terminalTaskCheckmark ${isSelected ? 'terminalTaskCheckmark--checked' : ''}`}>
-                            {isSelected ? '✓' : ''}
-                        </span>
+                        {isSelected && <Icon name="check" size={10} sw={2.2} />}
                     </label>
                 )}
 
                 {/* Subtask arrow (leftmost) */}
                 <button type="button"
-                    className={`terminalTaskSubtaskArrow ${hasChildren ? (isChildrenCollapsed ? 'terminalTaskSubtaskArrow--collapsed' : 'terminalTaskSubtaskArrow--expanded') : (isAddingSubtask ? 'terminalTaskSubtaskArrow--adding' : 'terminalTaskSubtaskArrow--empty')}`}
+                    className={`pn-tt__arrow ${hasChildren ? (isChildrenCollapsed ? '' : 'pn-tt__arrow--expanded') : 'pn-tt__arrow--empty'}`}
                     onClick={handleSubtaskAction}
                     title={hasChildren ? (isChildrenCollapsed ? `Expand ${subtaskCount} subtasks` : `Collapse subtasks`) : "Add subtask"}
                 >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                        <path d="M6 4l4 4-4 4" />
-                    </svg>
-                    {subtaskCount > 0 && (
-                        <span className="terminalTaskSubtaskArrow__count">{subtaskCount}</span>
-                    )}
+                    <Icon name="chevronR" />
                 </button>
+                {subtaskCount > 0 && (
+                    <span className="pn-tt__arrowCount">{subtaskCount}</span>
+                )}
 
                 {/* Radio status button */}
                 <button type="button"
-                    className={`terminalTaskRadioStatus terminalTaskRadioStatus--${task.status}`}
+                    className="pn-tt__status"
                     onClick={handleRadioStatusClick}
                     title={`${STATUS_LABELS[task.status]} — click to toggle complete`}
                 >
-                    {STATUS_SYMBOLS[task.status]}
+                    <Glyph kind={task.status} size={16} />
                 </button>
 
                 {/* Title — clickable to open overlay */}
                 <span
-                    className="terminalTaskTitle terminalTaskTitle--clickable"
+                    className={`pn-tt__title ${!task.title ? 'pn-tt__title--untitled' : ''}`}
                     onClick={(e) => {
                         e.stopPropagation();
                         onSelect();
                     }}
                     title={task.title || "Untitled"}
-                    style={!task.title ? { opacity: 0.5, fontStyle: 'italic' } : undefined}
+                    style={isCancelled ? { textDecoration: 'line-through', color: 'var(--pn-ink-3)' } : undefined}
                 >
                     {task.title || "Untitled"}
                 </span>
 
-                {/* Doc count badge */}
-                {taskDocs.length > 0 && (
-                    <span
-                        className="terminalTaskDocBadge"
-                        title={`${taskDocs.length} doc${taskDocs.length !== 1 ? 's' : ''}`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setIsMetaExpanded(true);
-                        }}
-                    >
-                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 2h6l4 4v8a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" />
-                            <path d="M10 2v4h4" />
-                            <path d="M6 9h5M6 12h3" />
-                        </svg>
-                        {taskDocs.length}
-                    </span>
+                {isSessionTask && (
+                    <span className="pn-tt__activedot" title="Current session is on this task" />
                 )}
 
+                {/* Collapsed inline summary: priority, assignees, doc count */}
+                <div className="pn-tt__inline">
+                    <span className={`pn-tag pn-tag--${task.priority === 'high' ? 'high' : task.priority === 'medium' ? 'med' : 'low'}`}>
+                        {task.priority === 'medium' ? 'med' : task.priority}
+                    </span>
+                    {assignedTeamMembers.length > 0 && (
+                        <span style={{ display: 'inline-flex' }} title={assignedTeamMembers.map(m => m.name).join(', ')}>
+                            <Avatars list={assignedTeamMembers.map(m => ({ initial: m.avatar, name: m.name, color: 'var(--pn-ink)' }))} />
+                        </span>
+                    )}
+                    {taskDocs.length > 0 && (
+                        <span
+                            className="pn-mini"
+                            title={`${taskDocs.length} doc${taskDocs.length !== 1 ? 's' : ''}`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsMetaExpanded(true);
+                            }}
+                        >
+                            <Icon name="doc" size={12} />
+                            {taskDocs.length}
+                        </span>
+                    )}
+                </div>
+
                 {/* Right-side action buttons */}
-                <div className="terminalTaskActions">
+                <div className="pn-tt__actions">
                     {/* Play button */}
                     <button type="button"
-                        className="terminalTaskPlayBtn"
+                        className="pn-tt__run"
                         onClick={(e) => {
                             e.stopPropagation();
                             if (launchOverride) {
@@ -471,7 +474,7 @@ export const TaskListItem = React.memo(function TaskListItem({
                         }}
                         title={launchOverride ? `Run with ${formatLaunchConfigLabel(launchOverride)}` : "Run task"}
                     >
-                        ▶
+                        <Icon name="play" />
                     </button>
 
                     {/* Session status indicator / Expand meta button */}
@@ -484,28 +487,28 @@ export const TaskListItem = React.memo(function TaskListItem({
                         if (hasCompleted || hasFailed || hasWorking) {
                             return (
                                 <button type="button"
-                                    className={`terminalTaskSessionIndicator ${hasCompleted ? 'terminalTaskSessionIndicator--completed' : hasFailed ? 'terminalTaskSessionIndicator--failed' : 'terminalTaskSessionIndicator--working'}`}
+                                    className={`pn-tt__ind ${hasCompleted ? 'pn-tt__ind--completed' : hasFailed ? 'pn-tt__ind--failed' : 'pn-tt__ind--working'}`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setIsMetaExpanded(!isMetaExpanded);
                                     }}
                                     title={hasCompleted ? "Session completed task" : hasFailed ? "Session failed task" : "Session working on task"}
                                 >
-                                    {hasCompleted ? '✓' : hasFailed ? '✗' : '◉'}
+                                    <Glyph kind={hasCompleted ? 'completed' : hasFailed ? 'failed' : 'working'} size={14} />
                                 </button>
                             );
                         }
 
                         return (
                             <button type="button"
-                                className={`terminalTaskExpandBtn ${isMetaExpanded ? 'terminalTaskExpandBtn--open' : ''}`}
+                                className={`pn-tt__ind ${isMetaExpanded ? 'pn-tt__ind--open' : ''}`}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setIsMetaExpanded(!isMetaExpanded);
                                 }}
                                 title={isMetaExpanded ? "Collapse details" : "Expand details"}
                             >
-                                ▾
+                                <Icon name="chevronD" />
                             </button>
                         );
                     })()}
@@ -514,13 +517,13 @@ export const TaskListItem = React.memo(function TaskListItem({
 
             {/* Expanded meta panel */}
             {isMetaExpanded && (
-                <div className="terminalTaskMetaExpanded" onClick={(e) => e.stopPropagation()}>
-                    {/* Row 1: Status + Priority + Time */}
-                    <div className="terminalTaskMetaRow">
-                        <div className="terminalInlineStatusPicker" ref={statusDropdownRef}>
+                <div className="pn-tt__meta" onClick={(e) => e.stopPropagation()}>
+                    {/* Row 1: Status + Priority + Agent + Model */}
+                    <div className="pn-tt__metarow">
+                        <div ref={statusDropdownRef} style={{ display: 'inline-flex' }}>
                             <button type="button"
                                 ref={statusBtnRef}
-                                className={`terminalMetaBadge terminalMetaBadge--status terminalMetaBadge--status-${task.status} terminalMetaBadge--clickable ${showStatusDropdown ? 'terminalMetaBadge--open' : ''} ${isUpdatingStatus ? 'terminalMetaBadge--updating' : ''}`}
+                                className={`pn-badge pn-badge--btn pn-badge--status-${task.status}`}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     if (!isUpdatingStatus) setShowStatusDropdown(!showStatusDropdown);
@@ -529,19 +532,19 @@ export const TaskListItem = React.memo(function TaskListItem({
                                 title="Click to change status"
                             >
                                 {isUpdatingStatus ? (
-                                    <span className="terminalStatusSpinner">⟳</span>
+                                    <span className="pn-stat">⟳</span>
                                 ) : (
                                     <>
-                                        {STATUS_SYMBOLS[task.status]} {STATUS_LABELS[task.status]}
-                                        <span className="terminalMetaBadgeCaret">{showStatusDropdown ? '▴' : '▾'}</span>
+                                        <Glyph kind={task.status} size={12} /> {STATUS_LABELS[task.status]}
+                                        <Icon name="chevronD" size={9} className="pn-badge__caret" />
                                     </>
                                 )}
                             </button>
                             {showStatusDropdown && !isUpdatingStatus && statusDropdownPos && createPortal(
                                 <>
-                                    <div className="terminalInlineStatusOverlay" onClick={(e) => { e.stopPropagation(); setShowStatusDropdown(false); }} />
+                                    <div className="pn-pop-ov" onClick={(e) => { e.stopPropagation(); setShowStatusDropdown(false); }} />
                                     <div
-                                        className={`terminalInlineStatusDropdown terminalInlineStatusDropdown--fixed ${statusDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
+                                        className="pn-pop"
                                         style={{
                                             ...(statusDropdownPos.openDirection === 'down' ? { top: statusDropdownPos.top } : { bottom: statusDropdownPos.bottom }),
                                             left: statusDropdownPos.left,
@@ -551,12 +554,12 @@ export const TaskListItem = React.memo(function TaskListItem({
                                         {statusOptions.map((status) => (
                                             <button type="button"
                                                 key={status}
-                                                className={`terminalInlineStatusOption terminalInlineStatusOption--${status} ${status === task.status ? 'terminalInlineStatusOption--current' : ''}`}
+                                                className={`pn-opt ${status === task.status ? 'pn-opt--cur' : ''}`}
                                                 onClick={(e) => { e.stopPropagation(); handleInlineStatusChange(status); }}
                                             >
-                                                <span className="terminalStatusSymbol">{STATUS_SYMBOLS[status]}</span>
-                                                <span className="terminalStatusLabel">{STATUS_LABELS[status]}</span>
-                                                {status === task.status && <span className="terminalStatusCheck">✓</span>}
+                                                <Glyph kind={status} size={14} />
+                                                <span>{STATUS_LABELS[status]}</span>
+                                                {status === task.status && <Icon name="check" size={12} sw={2} className="pn-opt__chk" />}
                                             </button>
                                         ))}
                                     </div>
@@ -565,10 +568,10 @@ export const TaskListItem = React.memo(function TaskListItem({
                             )}
                         </div>
 
-                        <div className="terminalInlinePriorityPicker" ref={priorityDropdownRef}>
+                        <div ref={priorityDropdownRef} style={{ display: 'inline-flex' }}>
                             <button type="button"
                                 ref={priorityBtnRef}
-                                className={`terminalMetaBadge terminalMetaBadge--priority terminalMetaBadge--priority-${task.priority} terminalMetaBadge--clickable ${showPriorityDropdown ? 'terminalMetaBadge--open' : ''} ${isUpdatingPriority ? 'terminalMetaBadge--updating' : ''}`}
+                                className={`pn-badge pn-badge--btn ${task.priority === 'high' ? 'pn-badge--prio-high' : ''}`}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     if (!isUpdatingPriority) setShowPriorityDropdown(!showPriorityDropdown);
@@ -577,19 +580,19 @@ export const TaskListItem = React.memo(function TaskListItem({
                                 title="Click to change priority"
                             >
                                 {isUpdatingPriority ? (
-                                    <span className="terminalStatusSpinner">⟳</span>
+                                    <span className="pn-stat">⟳</span>
                                 ) : (
                                     <>
                                         {PRIORITY_LABELS[task.priority]}
-                                        <span className="terminalMetaBadgeCaret">{showPriorityDropdown ? '▴' : '▾'}</span>
+                                        <Icon name="chevronD" size={9} className="pn-badge__caret" />
                                     </>
                                 )}
                             </button>
                             {showPriorityDropdown && !isUpdatingPriority && priorityDropdownPos && createPortal(
                                 <>
-                                    <div className="terminalInlineStatusOverlay" onClick={(e) => { e.stopPropagation(); setShowPriorityDropdown(false); }} />
+                                    <div className="pn-pop-ov" onClick={(e) => { e.stopPropagation(); setShowPriorityDropdown(false); }} />
                                     <div
-                                        className={`terminalInlinePriorityDropdown terminalInlinePriorityDropdown--fixed ${priorityDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
+                                        className="pn-pop"
                                         style={{
                                             ...(priorityDropdownPos.openDirection === 'down' ? { top: priorityDropdownPos.top } : { bottom: priorityDropdownPos.bottom }),
                                             left: priorityDropdownPos.left,
@@ -599,11 +602,11 @@ export const TaskListItem = React.memo(function TaskListItem({
                                         {priorityOptions.map((priority) => (
                                             <button type="button"
                                                 key={priority}
-                                                className={`terminalInlinePriorityOption terminalInlinePriorityOption--${priority} ${priority === task.priority ? 'terminalInlinePriorityOption--current' : ''}`}
+                                                className={`pn-opt ${priority === task.priority ? 'pn-opt--cur' : ''}`}
                                                 onClick={(e) => { e.stopPropagation(); handleInlinePriorityChange(priority); }}
                                             >
-                                                <span className="terminalPriorityLabel">{PRIORITY_LABELS[priority]}</span>
-                                                {priority === task.priority && <span className="terminalStatusCheck">✓</span>}
+                                                <span>{PRIORITY_LABELS[priority]}</span>
+                                                {priority === task.priority && <Icon name="check" size={12} sw={2} className="pn-opt__chk" />}
                                             </button>
                                         ))}
                                     </div>
@@ -612,10 +615,10 @@ export const TaskListItem = React.memo(function TaskListItem({
                             )}
                         </div>
 
-                        <div className="terminalInlineTeamMemberPicker" ref={teamMemberDropdownRef}>
+                        <div ref={teamMemberDropdownRef} style={{ display: 'inline-flex' }}>
                             <button type="button"
                                 ref={teamMemberBtnRef}
-                                className={`terminalMetaBadge terminalMetaBadge--agent terminalMetaBadge--clickable ${showTeamMemberDropdown ? 'terminalMetaBadge--open' : ''} ${isUpdatingTeamMember ? 'terminalMetaBadge--updating' : ''}`}
+                                className="pn-badge pn-badge--btn"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setShowTeamMemberDropdown(!showTeamMemberDropdown);
@@ -626,19 +629,19 @@ export const TaskListItem = React.memo(function TaskListItem({
                                 }
                             >
                                 {assignedTeamMembers.length > 1 ? (
-                                    <>{assignedTeamMembers.map(m => m.avatar).join('')} {assignedTeamMembers.length}</>
+                                    <><Avatars list={assignedTeamMembers.map(m => ({ initial: m.avatar, name: m.name, color: 'var(--pn-ink)' }))} /> {assignedTeamMembers.length} members</>
                                 ) : assignedTeamMember ? (
-                                    <>{assignedTeamMember.avatar} {assignedTeamMember.name}</>
+                                    <><Avatar a={{ initial: assignedTeamMember.avatar, name: assignedTeamMember.name, color: 'var(--pn-ink)' }} /> {assignedTeamMember.name}</>
                                 ) : (
-                                    <>👤 Assign</>
+                                    <><Icon name="users" size={12} /> Assign</>
                                 )}
-                                <span className="terminalMetaBadgeCaret">{showTeamMemberDropdown ? '▴' : '▾'}</span>
+                                <Icon name="chevronD" size={9} className="pn-badge__caret" />
                             </button>
                             {showTeamMemberDropdown && teamMemberDropdownPos && createPortal(
                                 <>
-                                    <div className="terminalInlineStatusOverlay" onClick={(e) => { e.stopPropagation(); setShowTeamMemberDropdown(false); }} />
+                                    <div className="pn-pop-ov" onClick={(e) => { e.stopPropagation(); setShowTeamMemberDropdown(false); }} />
                                     <div
-                                        className={`terminalInlineTeamMemberDropdown terminalInlineTeamMemberDropdown--fixed ${teamMemberDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
+                                        className="pn-pop"
                                         style={{
                                             ...(teamMemberDropdownPos.openDirection === 'down' ? { top: teamMemberDropdownPos.top } : { bottom: teamMemberDropdownPos.bottom }),
                                             left: teamMemberDropdownPos.left,
@@ -650,23 +653,23 @@ export const TaskListItem = React.memo(function TaskListItem({
                                             return (
                                                 <button type="button"
                                                     key={member.id}
-                                                    className={`terminalInlineTeamMemberOption ${isSel ? 'terminalInlineTeamMemberOption--current' : ''} ${isUpdatingTeamMember ? 'terminalInlineTeamMemberOption--disabled' : ''}`}
+                                                    className={`pn-opt ${isSel ? 'pn-opt--cur' : ''}`}
                                                     onClick={(e) => { e.stopPropagation(); if (!isUpdatingTeamMember) handleInlineTeamMemberToggle(member.id); }}
                                                     disabled={isUpdatingTeamMember}
                                                 >
-                                                    <span className="terminalTeamMemberAvatar">{member.avatar}</span>
-                                                    <span className="terminalTeamMemberLabel">{member.name}</span>
-                                                    {isSel && <span className="terminalStatusCheck">✓</span>}
+                                                    <Avatar a={{ initial: member.avatar, name: member.name, color: 'var(--pn-ink)' }} />
+                                                    <span>{member.name}</span>
+                                                    {isSel && <Icon name="check" size={12} sw={2} className="pn-opt__chk" />}
                                                 </button>
                                             );
                                         })}
                                         {onOpenCreateTeamMember && (
                                             <button type="button"
-                                                className="terminalInlineTeamMemberOption terminalInlineTeamMemberOption--create"
+                                                className="pn-opt"
                                                 onClick={(e) => { e.stopPropagation(); setShowTeamMemberDropdown(false); onOpenCreateTeamMember(); }}
                                             >
-                                                <span className="terminalTeamMemberAvatar">+</span>
-                                                <span className="terminalTeamMemberLabel">New Member</span>
+                                                <span className="pn-av"><Icon name="plus" size={12} /></span>
+                                                <span>New Member</span>
                                             </button>
                                         )}
                                     </div>
@@ -675,10 +678,10 @@ export const TaskListItem = React.memo(function TaskListItem({
                             )}
                         </div>
 
-                        <div className="terminalSplitPlay terminalSplitPlay--meta" ref={launchDropdownRef}>
+                        <div ref={launchDropdownRef} style={{ display: 'inline-flex' }}>
                             <button type="button"
                                 ref={launchBtnRef}
-                                className={`terminalMetaBadge terminalMetaBadge--model terminalMetaBadge--clickable ${launchOverride ? 'terminalMetaBadge--model-override' : ''} ${showLaunchDropdown ? 'terminalMetaBadge--open' : ''}`}
+                                className={`pn-badge pn-badge--btn pn-badge--model ${launchOverride ? 'is-override' : ''}`}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     const willOpen = !showLaunchDropdown;
@@ -690,14 +693,20 @@ export const TaskListItem = React.memo(function TaskListItem({
                                 title={effectiveModel ? `Model: ${effectiveModelLabel}` : 'No model set'}
                             >
                                 {effectiveModelLabel}
-                                <span className="terminalMetaBadgeCaret">{showLaunchDropdown ? '▴' : '▾'}</span>
+                                <Icon name="chevronD" size={9} className="pn-badge__caret" />
                             </button>
                             {showLaunchDropdown && launchDropdownPos && createPortal(
                                 <>
-                                    <div className="terminalInlineStatusOverlay" onClick={(e) => { e.stopPropagation(); setShowLaunchDropdown(false); }} />
+                                    <div className="pn-pop-ov" onClick={(e) => { e.stopPropagation(); setShowLaunchDropdown(false); }} />
                                     <div
-                                        className={`terminalLaunchDropdown terminalLaunchDropdown--fixed ${launchDropdownPos.openDirection === 'up' ? 'terminalInlineDropdown--openUp' : ''}`}
                                         style={{
+                                            position: 'fixed',
+                                            zIndex: 81,
+                                            background: 'var(--pn-card)',
+                                            border: '1px solid var(--pn-line-2)',
+                                            borderRadius: 'var(--pn-r-md)',
+                                            boxShadow: 'var(--pn-sh-pop)',
+                                            overflow: 'hidden',
                                             ...(launchDropdownPos.openDirection === 'side'
                                                 ? { top: launchDropdownPos.top }
                                                 : launchDropdownPos.openDirection === 'down'
@@ -719,123 +728,119 @@ export const TaskListItem = React.memo(function TaskListItem({
                                 document.body
                             )}
                         </div>
+                    </div>
 
+                    {/* Row 2: dangerous + worktree toggles + time */}
+                    <div className="pn-tt__metarow">
                         <button
                             type="button"
-                            className={`terminalDangerousToggle ${task.dangerousMode ? 'terminalDangerousToggle--on' : ''}`}
+                            className={`pn-toggle ${task.dangerousMode ? 'pn-toggle--on-danger' : ''}`}
                             title={task.dangerousMode ? 'Dangerous mode ON — click to disable' : 'Enable dangerous mode (bypass permissions)'}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 updateTask(task.id, { dangerousMode: !task.dangerousMode });
                             }}
                         >
-                            {task.dangerousMode ? '\u26A0 YOLO' : '\uD83D\uDEE1\uFE0F'}
+                            <Icon name="shield" size={13} /> {task.dangerousMode ? 'YOLO' : 'Safe'}
                         </button>
 
                         <button
                             type="button"
-                            className={`terminalWorktreeToggle ${task.useWorktree ? 'terminalWorktreeToggle--on' : ''}`}
+                            className={`pn-toggle ${task.useWorktree ? 'pn-toggle--on-wt' : ''}`}
                             title={task.useWorktree ? 'Git worktree ON — click to disable' : 'Enable git worktree isolation'}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 updateTask(task.id, { useWorktree: !task.useWorktree });
                             }}
                         >
-                            {task.useWorktree ? '🌿 worktree' : '📁'}
+                            <Icon name="gitBranch" size={13} /> {task.useWorktree ? 'worktree' : 'in-place'}
                         </button>
 
-                        <span className="terminalTaskMetaFill" />
-                        <span className="terminalTimeAgo">{formatTimeAgo(task.updatedAt)}</span>
+                        <span className="pn-tt__time">{formatTimeAgo(task.updatedAt)}</span>
                     </div>
 
                     {/* Sessions row (only if has sessions) */}
                     {sessionCount > 0 && (
-                        <div className="terminalTaskMetaRow">
-                            <div className="terminalSessionStatuses">
-                                {allSessions.slice(0, 3).map(session => {
-                                    const taskStatus = task.taskSessionStatuses?.[session.id];
-                                    const sessionIsTerminal = ['stopped', 'completed', 'failed'].includes(session.status);
-                                    const displayStatus = sessionIsTerminal ? session.status : (taskStatus || session.status);
-                                    const taskIsTerminal = task.status === 'completed' || task.status === 'cancelled';
-                                    const isWorking = !taskIsTerminal && displayStatus === 'working';
-                                    const sessionNeedsInput = !taskIsTerminal && session.needsInput?.active;
-                                    return (
-                                        <span
-                                            key={session.id}
-                                            className={`terminalSessionStatusChip terminalSessionStatusChip--${taskIsTerminal ? 'completed' : displayStatus} terminalSessionStatusChip--clickable ${isWorking && !sessionNeedsInput ? 'terminalSessionStatusChip--breathing' : ''} ${sessionNeedsInput ? 'terminalSessionStatusChip--needsInput' : ''}`}
-                                            title={`${session.name || session.id}: ${displayStatus}`}
-                                        >
-                                            <span className="terminalSessionStatusLabel">
-                                                {taskIsTerminal ? 'DONE' : sessionNeedsInput ? 'NEEDS INPUT' : taskStatus ? taskStatus.toUpperCase().replace('_', ' ') : (SESSION_STATUS_LABELS[session.status] || session.status || 'UNKNOWN').toUpperCase()}
-                                            </span>
-                                        </span>
-                                    );
-                                })}
-                                {allSessions.length > 3 && (
-                                    <span className="terminalSessionMore">+{allSessions.length - 3}</span>
-                                )}
-                            </div>
+                        <div className="pn-tt__metarow">
+                            {allSessions.slice(0, 3).map(session => {
+                                const taskStatus = task.taskSessionStatuses?.[session.id];
+                                const sessionIsTerminal = ['stopped', 'completed', 'failed'].includes(session.status);
+                                const displayStatus = sessionIsTerminal ? session.status : (taskStatus || session.status);
+                                const taskIsTerminal = task.status === 'completed' || task.status === 'cancelled';
+                                const isWorking = !taskIsTerminal && displayStatus === 'working';
+                                const sessionNeedsInput = !taskIsTerminal && session.needsInput?.active;
+                                const chipVariant = sessionNeedsInput ? 'needsInput'
+                                    : taskIsTerminal ? 'completed'
+                                    : isWorking ? 'working'
+                                    : displayStatus === 'failed' ? 'failed' : '';
+                                return (
+                                    <span
+                                        key={session.id}
+                                        className={`pn-actchip ${chipVariant ? `pn-actchip--${chipVariant}` : ''}`}
+                                        title={`${session.name || session.id}: ${displayStatus}`}
+                                    >
+                                        {taskIsTerminal ? 'DONE' : sessionNeedsInput ? 'NEEDS INPUT' : taskStatus ? taskStatus.toUpperCase().replace('_', ' ') : (SESSION_STATUS_LABELS[session.status] || session.status || 'UNKNOWN').toUpperCase()}
+                                    </span>
+                                );
+                            })}
+                            {allSessions.length > 3 && (
+                                <span className="pn-mini">+{allSessions.length - 3}</span>
+                            )}
                         </div>
                     )}
 
                     {/* Docs row (only if task has markdown docs) */}
                     {markdownDocs.length > 0 && (
-                        <div className="terminalTaskMetaRow terminalTaskDocsRow">
-                            <div className="terminalTaskDocsList">
-                                {markdownDocs.map(doc => {
-                                    const ext = doc.filePath.split('.').pop()?.toLowerCase() || '';
-                                    const isMd = ['md', 'mdx', 'markdown'].includes(ext);
-                                    return (
-                                        <button type="button"
-                                            key={doc.id}
-                                            className="terminalTaskDocItem"
-                                            title={doc.filePath}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setDocOverlay(doc);
-                                            }}
-                                        >
-                                            <span className="terminalTaskDocItemIcon">
-                                                {isMd ? 'M↓' : '{ }'}
-                                            </span>
-                                            <span className="terminalTaskDocItemTitle">{doc.title}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Diagrams row */}
-                    {(diagramDocs.length > 0 || task.sessionIds?.length > 0) && (
-                        <div className="terminalTaskMetaRow terminalTaskDocsRow">
-                            <div className="terminalTaskDocsList">
-                                {diagramDocs.map(doc => (
+                        <div className="pn-tt__metarow">
+                            {markdownDocs.map(doc => {
+                                const ext = doc.filePath.split('.').pop()?.toLowerCase() || '';
+                                const isMd = ['md', 'mdx', 'markdown'].includes(ext);
+                                return (
                                     <button type="button"
                                         key={doc.id}
-                                        className="terminalTaskDocItem"
+                                        className="pn-docpill"
                                         title={doc.filePath}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setDocOverlay(doc);
                                         }}
                                     >
-                                        <span className="terminalTaskDocItemIcon">⬡</span>
-                                        <span className="terminalTaskDocItemTitle">{doc.title}</span>
+                                        <span className="pn-docpill__ic">{isMd ? 'M↓' : '{}'}</span>
+                                        <span className="pn-docpill__t">{doc.title}</span>
                                     </button>
-                                ))}
-                                {task.sessionIds?.length > 0 && (
-                                    <button type="button"
-                                        className="terminalTaskDocItem terminalTaskDocItem--add"
-                                        disabled={isCreatingDiagram}
-                                        title="Create diagram doc for this task"
-                                        onClick={handleCreateDiagram}
-                                    >
-                                        <span className="terminalTaskDocItemIcon">+</span>
-                                        <span className="terminalTaskDocItemTitle">{isCreatingDiagram ? '...' : 'Diagram'}</span>
-                                    </button>
-                                )}
-                            </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Diagrams row */}
+                    {(diagramDocs.length > 0 || task.sessionIds?.length > 0) && (
+                        <div className="pn-tt__metarow">
+                            {diagramDocs.map(doc => (
+                                <button type="button"
+                                    key={doc.id}
+                                    className="pn-docpill"
+                                    title={doc.filePath}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDocOverlay(doc);
+                                    }}
+                                >
+                                    <span className="pn-docpill__ic">⬡</span>
+                                    <span className="pn-docpill__t">{doc.title}</span>
+                                </button>
+                            ))}
+                            {task.sessionIds?.length > 0 && (
+                                <button type="button"
+                                    className="pn-docpill pn-docpill--add"
+                                    disabled={isCreatingDiagram}
+                                    title="Create diagram doc for this task"
+                                    onClick={handleCreateDiagram}
+                                >
+                                    <Icon name="plus" size={11} />
+                                    <span className="pn-docpill__t">{isCreatingDiagram ? '...' : 'Diagram'}</span>
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>

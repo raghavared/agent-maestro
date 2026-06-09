@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { MaestroTask, TaskStatus } from "../../app/types/maestro";
 import { TaskCard } from "./TaskCard";
+import { Glyph } from "./redesign/kit";
 import type { DragState } from "../../hooks/useBoardDrag";
 
 type KanbanColumnProps = {
@@ -34,56 +35,45 @@ export const KanbanColumn = React.memo(function KanbanColumn({
     onSelectTask,
     onWorkOnTask,
     projectBadge,
-    className = "taskBoardColumn",
-    collapsedClassName = "taskBoardColumnCollapsed",
-    headerClassName = "taskBoardColumnHeader",
-    bodyClassName = "taskBoardColumnBody",
-    emptyClassName = "taskBoardColumnEmpty",
 }: KanbanColumnProps) {
     const [collapsed, setCollapsed] = useState(false);
 
     const toggleCollapse = useCallback(() => setCollapsed((v) => !v), []);
+    const glyphKind = status === "todo" ? "todo" : status;
 
     if (collapsed) {
         return (
             <div
-                className={collapsedClassName}
+                className="pn-bcol--collapsed"
                 ref={(el) => registerColumn(status, el)}
                 onClick={toggleCollapse}
                 title={`${label} (${tasks.length}) — click to expand`}
             >
-                <span className={`${collapsedClassName}Label`}>
-                    {symbol}
-                </span>
-                <span className={`${collapsedClassName}Count`}>
-                    {tasks.length}
-                </span>
+                <Glyph kind={glyphKind} size={15} />
+                <span className="pn-bcol__count">{tasks.length}</span>
+                <span className="pn-bcol__label">{label}</span>
             </div>
         );
     }
 
     return (
         <div
-            className={`${className} ${isDragOver ? `${className}--dragOver` : ""}`}
+            className={`pn-bcol ${isDragOver ? "pn-bcol--over" : ""}`}
             ref={(el) => registerColumn(status, el)}
         >
             <div
-                className={headerClassName}
+                className="pn-bcol__hd"
                 onClick={toggleCollapse}
                 title="Click to collapse"
             >
-                <span className={`taskBoardColumnDot taskBoardColumnDot--${status}`}>
-                    {symbol}
-                </span>
-                <span className={`${headerClassName.replace("Header", "Label")}`}>{label}</span>
-                <span className={`${headerClassName.replace("Header", "Count")}`}>{tasks.length}</span>
+                <Glyph kind={glyphKind} size={14} />
+                <span className="pn-bcol__label">{label}</span>
+                <span className="pn-bcol__count">{tasks.length}</span>
             </div>
-            <div className={bodyClassName}>
+            <div className="pn-bcol__body">
                 {tasks.length === 0 ? (
-                    <div className={emptyClassName}>
-                        <span className={`${emptyClassName}Text`}>
-                            {dragState ? "drop here" : "no tasks"}
-                        </span>
+                    <div className="pn-bcol__empty">
+                        {dragState ? "drop here" : "no tasks"}
                     </div>
                 ) : (
                     tasks.map((task) => (

@@ -6,6 +6,7 @@ import { useSpacesStore } from "../stores/useSpacesStore";
 import { useProjectStore } from "../stores/useProjectStore";
 import { buildTeamGroups, getGroupedSessionOrder } from "../utils/teamGrouping";
 import { NewSpaceDropdown } from "./NewSpaceDropdown";
+import { Icon } from "./maestro/redesign/kit";
 
 type RailSession = {
     id: string;
@@ -36,14 +37,6 @@ function getSessionInitial(name: string): string {
     return trimmed[0].toUpperCase();
 }
 
-const TerminalIcon: React.FC = () => (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18">
-        <rect x="2" y="3" width="16" height="14" rx="2" />
-        <path d="M6 9l3 2-3 2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M11 13h4" strokeLinecap="round" />
-    </svg>
-);
-
 function RailSessionButton({
     session,
     isActive,
@@ -61,71 +54,28 @@ function RailSessionButton({
 
     const maestroSession = session.maestroSessionId ? maestroSessions[session.maestroSessionId] ?? null : null;
     const needsInput = Boolean(maestroSession?.needsInput?.active);
-    const isCompleted = maestroSession?.status === 'completed' || maestroSession?.status === 'stopped';
+    const isTerminal = !effect?.iconSrc && !session.maestroSessionId;
 
     return (
         <button
-            className={`spacesRailSession ${isActive ? "spacesRailSession--active" : ""} ${isWorking ? "spacesRailSession--working" : ""} ${isExited ? "spacesRailSession--exited" : ""} ${needsInput ? "spacesRailSession--needsInput" : ""} ${isCompleted ? "spacesRailSession--completed" : ""}`}
+            className={`pn-srail-s ${isActive ? "pn-srail-s--active" : ""} ${isExited ? "pn-srail-s--exited" : ""} ${isTerminal ? "pn-agent--term" : ""}`}
             onClick={onSelect}
             title={session.name}
             type="button"
             {...(session.maestroSessionId ? { 'data-maestro-session-id': session.maestroSessionId } : {})}
         >
-            {isActive && <span className="iconRailActiveIndicator iconRailActiveIndicator--right" />}
             {effect?.iconSrc ? (
-                <img
-                    src={effect.iconSrc}
-                    alt={effect.label}
-                    className="spacesRailSessionIcon"
-                    width="20"
-                    height="20"
-                />
+                <img src={effect.iconSrc} alt={effect.label} />
             ) : session.maestroSessionId ? (
-                <span className="spacesRailSessionInitial spacesRailSessionInitial--maestro">
-                    {getSessionInitial(session.name)}
-                </span>
+                <span>{getSessionInitial(session.name)}</span>
             ) : (
-                <TerminalIcon />
+                <>&gt;_</>
             )}
-            {isWorking && <span className="spacesRailSessionPulse" />}
-            {needsInput && <span className="spacesRailSessionNeedsInput" title="Needs Input" />}
-            {isCompleted && <span className="spacesRailSessionCompleted" title="Completed" />}
+            {isWorking && <span className="pn-srail-pulse" />}
+            {needsInput && <span className="pn-srail-wait" />}
         </button>
     );
 }
-
-const WhiteboardIcon: React.FC = () => (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18">
-        <path d="M3 17l3.5-3.5M6.5 13.5l-2-2L14 2l2 2L6.5 13.5z" strokeLinejoin="round" />
-        <path d="M12 4l2 2" strokeLinecap="round" />
-    </svg>
-);
-
-const DocumentIcon: React.FC = () => (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18">
-        <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
-        <path d="M12 2v4h4" />
-        <path d="M7 10h6M7 13h4" strokeLinecap="round" />
-    </svg>
-);
-
-const FileCodeIcon: React.FC = () => (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18">
-        <path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
-        <path d="M12 2v4h4" />
-        <path d="M8 11l-2 2 2 2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M12 11l2 2-2 2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-);
-
-const ResourcesIcon: React.FC = () => (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18">
-        <rect x="2" y="3" width="7" height="7" rx="1.5" />
-        <rect x="11" y="3" width="7" height="7" rx="1.5" />
-        <rect x="2" y="12" width="7" height="5" rx="1.5" />
-        <rect x="11" y="12" width="7" height="5" rx="1.5" />
-    </svg>
-);
 
 export const SpacesRail: React.FC<SpacesRailProps> = ({
     sessions,
@@ -159,7 +109,7 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
     const totalCount = sessions.length + spaces.length;
 
     return (
-        <div className="spacesRail">
+        <div className="pn-srail" style={{ width: "100%" }}>
             {/* Plus button at the very top — shared dropdown */}
             <NewSpaceDropdown
                 variant="rail"
@@ -171,62 +121,46 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
 
             {/* Expand/collapse panel button */}
             <button
-                className="iconRailButton"
+                className="pn-srail-s"
                 onClick={onToggle}
                 title="Expand Spaces"
                 type="button"
             >
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18">
-                    <rect x="2" y="3" width="16" height="14" rx="2" />
-                    <path d="M2 7h16" />
-                    <circle cx="5" cy="5" r="0.8" fill="currentColor" stroke="none" />
-                    <circle cx="7.5" cy="5" r="0.8" fill="currentColor" stroke="none" />
-                    <circle cx="10" cy="5" r="0.8" fill="currentColor" stroke="none" />
-                </svg>
+                <Icon name="grid" />
                 {totalCount > 0 && (
-                    <span className="iconRailBadge">{totalCount > 99 ? "99+" : totalCount}</span>
+                    <span className="pn-rail-badge">{totalCount > 99 ? "99+" : totalCount}</span>
                 )}
             </button>
 
-            <div className="spacesRailDivider" />
+            <div className="pn-rail-div" />
 
             {onOpenResources && (
                 <button
-                    className="iconRailButton"
+                    className="pn-srail-s"
                     onClick={onOpenResources}
                     title="Project Resources"
                     type="button"
                     data-testid="rail-resources-btn"
                 >
-                    <ResourcesIcon />
+                    <Icon name="layers" />
                 </button>
             )}
 
-            <div className="spacesRailDivider" />
+            <div className="pn-rail-div" />
 
-            {/* Per-session icons — fill ALL remaining space */}
+            {/* Per-session icons — flat avatar stack (team color stays in the panel) */}
             <div className="spacesRailSessions">
-                {grouped.map(({ group, sessions: groupSessions }) => (
-                    <div
-                        key={group.teamSessionId}
-                        className="spacesRailTeamGroup"
-                        style={{
-                            borderColor: group.color.border,
-                            background: group.color.dim,
-                        }}
-                        title={group.teamName || `Team (${groupSessions.length})`}
-                    >
-                        {groupSessions.map((session) => (
-                            <RailSessionButton
-                                key={session.id}
-                                session={session}
-                                isActive={session.id === activeSessionId}
-                                onSelect={() => onSelectSession(session.id)}
-                                maestroSessions={maestroSessions}
-                            />
-                        ))}
-                    </div>
-                ))}
+                {grouped.map(({ sessions: groupSessions }) =>
+                    groupSessions.map((session) => (
+                        <RailSessionButton
+                            key={session.id}
+                            session={session}
+                            isActive={session.id === activeSessionId}
+                            onSelect={() => onSelectSession(session.id)}
+                            maestroSessions={maestroSessions}
+                        />
+                    )),
+                )}
 
                 {ungrouped.map((session) => (
                     <RailSessionButton
@@ -242,12 +176,11 @@ export const SpacesRail: React.FC<SpacesRailProps> = ({
                 {spaces.filter((s) => s.type !== "document").map((space) => (
                     <button type="button"
                         key={space.id}
-                        className={`spacesRailSession spacesRailSpace spacesRailSpace--${space.type} ${space.id === activeSessionId ? "spacesRailSession--active" : ""}`}
+                        className={`pn-srail-s ${space.id === activeSessionId ? "pn-srail-s--active" : ""}`}
                         onClick={() => onSelectSession(space.id)}
                         title={space.name}
                     >
-                        {space.id === activeSessionId && <span className="iconRailActiveIndicator iconRailActiveIndicator--right" />}
-                        {space.type === "whiteboard" ? <WhiteboardIcon /> : <FileCodeIcon />}
+                        <Icon name={space.type === "whiteboard" ? "pen" : "doc"} />
                     </button>
                 ))}
             </div>

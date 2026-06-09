@@ -4,6 +4,7 @@ import { TeamMember, AgentTool, LaunchConfig, MemberLaunchOverride } from "../..
 import { TeamLaunchConfigModal } from "./TeamLaunchConfigModal";
 import { createLaunchConfig, DEFAULT_MODEL_BY_AGENT_TOOL } from "../../app/constants/agentTools";
 import { LaunchConfigDropdown } from "./LaunchConfigDropdown";
+import { RunCoordButton } from "./redesign/RunCoordButton";
 
 type ExecutionMode = 'none' | 'execute' | 'orchestrate';
 
@@ -313,18 +314,12 @@ export function ExecutionBar({
     if (!isActive) {
         return (
             <div className="executionBar executionBar--inactive">
-                <button type="button"
-                    className="terminalCmd terminalCmdPrimary"
-                    onClick={onActivate}
-                >
-                    <span className="executionBarBtnIcon">▶</span> run
-                </button>
-                <button type="button"
-                    className="terminalCmd terminalCmdOrchestrate"
-                    onClick={onActivateOrchestrate}
-                >
-                    <span className="executionBarBtnIcon">⊛</span> coordinate
-                </button>
+                <RunCoordButton kind="run" onClick={onActivate} sub="single worker" title="Run with a single worker">
+                    run
+                </RunCoordButton>
+                <RunCoordButton kind="coord" onClick={onActivateOrchestrate} sub="spawn a team" title="Coordinate a team">
+                    coordinate
+                </RunCoordButton>
             </div>
         );
     }
@@ -395,7 +390,7 @@ export function ExecutionBar({
                             members={coordinatorMembers}
                             selectedId={selectedCoordinatorId}
                             onSelect={handleSelectCoordinator}
-                            accentColor="var(--terminal-amber, #ffab00)"
+                            accentColor="var(--pn-wait, #BD8A2A)"
                         />
                         <TeamMemberMultiDropdown
                             label="Team Roster"
@@ -411,7 +406,7 @@ export function ExecutionBar({
                             }}
                             onSelectAll={() => setSelectedWorkerIds(new Set(workerMembers.map(m => m.id)))}
                             onClearAll={() => setSelectedWorkerIds(new Set())}
-                            accentColor="var(--terminal-amber, #ffab00)"
+                            accentColor="var(--pn-wait, #BD8A2A)"
                         />
                     </div>
                     <div className="executionBarRow">
@@ -438,8 +433,9 @@ export function ExecutionBar({
                             >
                                 {'\u2699'}
                             </button>
-                            <button type="button"
-                                className="terminalCmd terminalCmdOrchestrate terminalCmdPrimary--prominent"
+                            <RunCoordButton
+                                kind="coord"
+                                solid
                                 onClick={() => onOrchestrate(
                                     selectedCoordinatorId || undefined,
                                     selectedWorkerIds.size > 0 ? Array.from(selectedWorkerIds) : undefined,
@@ -450,8 +446,8 @@ export function ExecutionBar({
                                 )}
                                 disabled={selectedCount === 0}
                             >
-                                <span className="executionBarBtnIcon">⊛</span> coordinate ({selectedCount} task{selectedCount !== 1 ? "s" : ""}{totalWorkerCount > 0 ? `, ${totalWorkerCount} member${totalWorkerCount !== 1 ? 's' : ''}` : ''})
-                            </button>
+                                coordinate ({selectedCount} task{selectedCount !== 1 ? "s" : ""}{totalWorkerCount > 0 ? `, ${totalWorkerCount} member${totalWorkerCount !== 1 ? 's' : ''}` : ''})
+                            </RunCoordButton>
                         </div>
                     </div>
                 </div>
@@ -512,8 +508,9 @@ export function ExecutionBar({
                         >
                             {'\u2699'}
                         </button>
-                        <button type="button"
-                            className="terminalCmd terminalCmdPrimary terminalCmdPrimary--prominent"
+                        <RunCoordButton
+                            kind="run"
+                            solid
                             onClick={() => onExecute(
                                 selectedExecuteMemberId || undefined,
                                 launchOverride || undefined,
@@ -521,8 +518,8 @@ export function ExecutionBar({
                             )}
                             disabled={selectedCount === 0}
                         >
-                            <span className="executionBarBtnIcon">▶</span> run ({selectedCount} task{selectedCount !== 1 ? "s" : ""})
-                        </button>
+                            run ({selectedCount} task{selectedCount !== 1 ? "s" : ""})
+                        </RunCoordButton>
                     </div>
                 </div>
             </div>

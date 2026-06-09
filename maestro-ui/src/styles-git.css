@@ -872,3 +872,255 @@
 .timelineEventPrLink:hover {
   text-decoration: underline;
 }
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* REDESIGN OVERRIDES — warm-paper "pn" tokens                               */
+/* Repoints legacy dark bg / border / text on .git-panel__* to pn tokens.    */
+/* Base rules above are untouched; semantic status colors (success/warning/  */
+/* error/info/accent) are intentionally left as-is.                          */
+/* ════════════════════════════════════════════════════════════════════════ */
+
+html[data-redesign] .git-panel {
+  border-top-color: var(--pn-line);
+}
+
+html[data-redesign] .git-panel--loading,
+html[data-redesign] .git-panel--error {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__branch {
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .git-panel__base {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__refresh-btn {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__refresh-btn:hover {
+  color: var(--pn-ink);
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .git-panel__section-title {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__stub {
+  color: var(--pn-ink-2);
+}
+
+html[data-redesign] .git-panel__changes-count {
+  color: var(--pn-ink-2);
+}
+
+html[data-redesign] .git-panel__changes-commits {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__file-list {
+  background: var(--pn-surface);
+}
+
+html[data-redesign] .git-panel__file-row:hover {
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .git-panel__file-status--\\? {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__file-path {
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .git-panel__file-row--selected {
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .git-panel__diff-toggle {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__diff-toggle:hover {
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .git-panel__diff-body {
+  background: var(--pn-surface);
+  border-color: var(--pn-line);
+}
+
+html[data-redesign] .git-panel__diff-loading,
+html[data-redesign] .git-panel__diff-empty {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .diff-line--file {
+  color: var(--pn-ink-2);
+  background: var(--pn-card);
+}
+
+html[data-redesign] .diff-line--ctx {
+  color: var(--pn-ink-2);
+}
+
+html[data-redesign] .git-panel__merge-label {
+  color: var(--pn-ink-2);
+}
+
+html[data-redesign] .git-panel__merge-target {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .git-panel__merge-btn,
+html[data-redesign] .git-panel__merge-confirm-yes,
+html[data-redesign] .git-panel__merge-confirm-no {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .git-panel__merge-btn:hover:not(:disabled),
+html[data-redesign] .git-panel__merge-confirm-yes:hover:not(:disabled),
+html[data-redesign] .git-panel__merge-confirm-no:hover:not(:disabled) {
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .git-panel__merge-confirm-text {
+  color: var(--pn-ink-2);
+}
+
+html[data-redesign] .git-panel__merge-disabled-reason {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__merge-conflicts-title {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__branch-name-btn {
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .git-panel__branch-name-btn:hover {
+  border-color: var(--pn-line);
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .git-panel__branch-input {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .git-panel__branch-save,
+html[data-redesign] .git-panel__branch-cancel {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .git-panel__branch-save:hover:not(:disabled),
+html[data-redesign] .git-panel__branch-cancel:hover:not(:disabled) {
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .git-panel__discard-btn,
+html[data-redesign] .git-panel__discard-keep,
+html[data-redesign] .git-panel__discard-confirm-yes {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .git-panel__discard-btn:hover:not(:disabled),
+html[data-redesign] .git-panel__discard-keep:hover:not(:disabled),
+html[data-redesign] .git-panel__discard-confirm-yes:hover:not(:disabled) {
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .git-panel__discard-confirm-text {
+  color: var(--pn-ink-2);
+}
+
+html[data-redesign] .git-panel__discard-disabled-reason {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__pr-toggle,
+html[data-redesign] .git-panel__pr-submit,
+html[data-redesign] .git-panel__pr-cancel {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .git-panel__pr-toggle:hover:not(:disabled),
+html[data-redesign] .git-panel__pr-submit:hover:not(:disabled),
+html[data-redesign] .git-panel__pr-cancel:hover:not(:disabled) {
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .git-panel__pr-field-label {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__pr-title,
+html[data-redesign] .git-panel__pr-base,
+html[data-redesign] .git-panel__pr-body {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .git-panel__pr-disabled-reason {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__pr-unavailable {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__pr-chip {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .git-panel__pr-chip:hover {
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .git-panel__pr-chip--closed .git-panel__pr-state,
+html[data-redesign] .git-panel__pr-chip--draft .git-panel__pr-state {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .git-panel__pr-checks,
+html[data-redesign] .git-panel__pr-review {
+  background: var(--pn-card);
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .prChip {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .prChip:hover {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-brand);
+}
+
+html[data-redesign] .prChip__open {
+  color: var(--pn-ink-3);
+}

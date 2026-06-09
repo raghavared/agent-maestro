@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ProcessEffect } from "../processEffects";
+import { Icon } from "./maestro/redesign/kit";
 
 const TerminalIcon: React.FC = () => (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
@@ -128,23 +129,21 @@ export const NewSpaceDropdown: React.FC<NewSpaceDropdownProps> = ({
         document.body,
     ) : null;
 
-    const plusSvg = (
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width={variant === "toolbar" ? 14 : 18} height={variant === "toolbar" ? 14 : 18}>
-            <line x1="8" y1="3" x2="8" y2="13" strokeLinecap="round" />
-            <line x1="3" y1="8" x2="13" y2="8" strokeLinecap="round" />
-        </svg>
-    );
-
     return (
         <>
             <button
                 ref={btnRef}
-                className={variant === "toolbar" ? "spacesPanelAction" : "iconRailButton"}
+                className={variant === "toolbar" ? "pn-ib" : "pn-srail-s"}
+                style={
+                    variant === "toolbar"
+                        ? { alignSelf: "center" }
+                        : { background: "var(--pn-ink)", borderColor: "var(--pn-ink)", color: "var(--pn-paper)" }
+                }
                 onClick={toggle}
                 title="New Space"
                 type="button"
             >
-                {plusSvg}
+                <Icon name="plus" size={variant === "toolbar" ? 14 : 18} />
             </button>
             {menu}
         </>

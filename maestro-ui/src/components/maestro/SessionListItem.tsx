@@ -7,13 +7,15 @@ import {
   MaestroSessionStatus,
   MaestroTask,
 } from "../../app/types/maestro";
-import { WorktreeBadge, getWorktreeInfo } from "./WorktreeBadge";
+import { getWorktreeInfo } from "./WorktreeBadge";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useUIStore } from "../../stores/useUIStore";
+import { useSessionStore } from "../../stores/useSessionStore";
 import type { TeamColor } from "../../app/constants/teamColors";
 import type { SessionSubTab } from "../../utils/sessionLifecycle";
 import { willOpenStatsOnClick } from "../../utils/sessionClickRouting";
 import { copyToClipboard } from "../../utils/domUtils";
+import { Icon, Glyph, AgentTile, type AgentKind } from "./redesign/kit";
 
 const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   spawning: "Spawning",
@@ -22,15 +24,6 @@ const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   completed: "Done",
   failed: "Failed",
   stopped: "Stopped",
-};
-
-const SESSION_STATUS_SYMBOLS: Record<MaestroSessionStatus, string> = {
-  spawning: "◐",
-  idle: "○",
-  working: "◉",
-  completed: "✓",
-  failed: "✗",
-  stopped: "■",
 };
 
 const MODE_LABELS: Record<AgentMode, string> = {
@@ -45,26 +38,6 @@ const MODE_OPTIONS: AgentMode[] = [
   "coordinator",
   "coordinated-worker",
   "coordinated-coordinator",
-];
-
-const TASK_STATUS_SYMBOLS: Record<string, string> = {
-  todo: "○",
-  in_progress: "◉",
-  in_review: "◎",
-  completed: "✓",
-  cancelled: "⊘",
-  blocked: "✗",
-  archived: "▫",
-};
-
-// Cycling accent palette so each linked task line gets a visually distinct border.
-const TASK_LINE_COLORS = [
-  "#6B8AFD",
-  "#34d399",
-  "#f59e0b",
-  "#a78bfa",
-  "#22d3ee",
-  "#f472b6",
 ];
 
 function formatTimeAgo(timestamp: number): string {
@@ -158,7 +131,6 @@ export const SessionListItem = React.memo(function SessionListItem({
     : session.teamMemberSnapshot
       ? [session.teamMemberSnapshot]
       : [];
-  const avatars = snapshots.map((m) => m.avatar).join("");
   const memberNames = snapshots.map((m) => m.name).join(", ");
   const title = memberNames || session.name || session.id.slice(0, 12);
 
@@ -222,50 +194,73 @@ export const SessionListItem = React.memo(function SessionListItem({
   const willOpenStats = willOpenStatsOnClick(session, link);
   const isShowingTerminalOnClick = !willOpenStats;
 
+  // The blink (ping ring) rides on raw PTY byte-streaming, not on a terminal
+  // merely existing. A live-but-idle terminal shows a solid green dot; only a
+  // terminal pushing bytes right now pulses. `agentWorking` is the authoritative
+  // streaming signal (2s idle debounce in useSessionStore).
+  const isStreaming = useSessionStore((s) => {
+    if (!link) return false;
+    const term = s.sessions.find((t) => t.id === link.localSessionId);
+    if (!term || term.exited || term.closing) return false;
+    return Boolean(term.agentWorking);
+  });
+
+  // Agent logo for the tile. Known tools → real logo; anything else
+  // (hermes, persona-only) → initial-letter fallback from the kit's AgentTile.
+  const agentTool = session.metadata?.agentTool;
+  const agentKind: AgentKind =
+    !agentTool || agentTool === "claude-code"
+      ? "claude"
+      : agentTool === "codex"
+        ? "codex"
+        : agentTool === "gemini"
+          ? "gemini"
+          : agentTool;
+
+  // Glyph status kind — needs-input wins; otherwise the raw session status
+  // (all six map onto kit Glyph kinds 1:1).
+  const statusKind = needsInput ? "needsInput" : status;
+  const elapsed = session.completedAt
+    ? formatDuration(session.startedAt, session.completedAt)
+    : formatTimeAgo(session.lastActivity);
+
   return (
     <div
-      className={`sessionTile sessionTile--${status} ${needsInput ? "sessionTile--needsInput" : ""} ${isSelected ? "sessionTile--selected" : ""} ${depth > 0 ? "sessionTile--child" : ""} ${isArchived ? "sessionTile--archived" : ""} ${isOutOfTab ? "sessionTile--outOfTab" : ""}`}
-      style={teamColor ? ({ "--session-team-color": teamColor.primary } as React.CSSProperties) : undefined}
+      className={`pn-st${needsInput ? " pn-st--needsInput" : ""}${isSelected ? " pn-st--selected" : ""}${isArchived ? " pn-st--archived" : ""}${isOutOfTab ? " pn-st--outOfTab" : ""}`}
       onClick={() => onSelect(session, link)}
     >
-      {teamColor && <span className="sessionTile__accent" aria-hidden="true" />}
-
-      <div className="sessionTile__main">
-        {/* Sub-session arrow + count */}
+      <div className="pn-st__main">
+        {/* Sub-session disclosure arrow + child count */}
         <button
           type="button"
-          className={`sessionTile__arrow ${hasChildren ? (isCollapsed ? "sessionTile__arrow--collapsed" : "sessionTile__arrow--expanded") : "sessionTile__arrow--empty"}`}
+          className={`pn-st__arrow ${hasChildren ? (isCollapsed ? "" : "pn-st__arrow--expanded") : "pn-st__arrow--empty"}`}
+          disabled={!hasChildren}
           onClick={(e) => {
             e.stopPropagation();
             if (hasChildren) onToggleCollapse();
           }}
-          disabled={!hasChildren}
           title={hasChildren ? (isCollapsed ? `Expand ${childCount} sub-sessions` : "Collapse sub-sessions") : "No sub-sessions"}
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M6 4l4 4-4 4" />
-          </svg>
-          {childCount > 0 && <span className="sessionTile__arrowCount">{childCount}</span>}
+          <Icon name="chevronR" />
         </button>
+        {hasChildren && <span className="pn-st__arrowCount">{childCount}</span>}
 
         {/* Leading control.
-            Open/Done → "mark done" radio. Marking done is a pure intent marker:
-            it stamps humanCompletedAt (moving the session to the Done tab) and does
-            NOT touch any terminal — liveness stays as decoration. Clicking again
-            clears the stamp and moves it back to Open.
-            Archived → static archive glyph (archived precedence wins). */}
+            Open/Done → "mark done" radio (pure intent marker: stamps
+            humanCompletedAt, never touches the terminal). Archived → static
+            archive glyph (archived precedence wins). */}
         {isArchived ? (
           <span
-            className="sessionTile__radio sessionTile__radio--archived"
+            className="pn-st__radio pn-st__radio--archived"
             title="Archived — use Restore to bring it back"
             aria-hidden="true"
           >
-            ▫
+            <Glyph kind="archived" size={13} />
           </span>
         ) : (
           <button
             type="button"
-            className={`sessionTile__radio ${isHumanCompleted ? "sessionTile__radio--on" : ""}`}
+            className={`pn-st__radio${isHumanCompleted ? " pn-st__radio--on" : ""}`}
             onClick={(e) => {
               e.stopPropagation();
               onToggleHumanComplete(session);
@@ -273,95 +268,95 @@ export const SessionListItem = React.memo(function SessionListItem({
             title={isHumanCompleted ? "Marked done — click to move back to Open" : "Mark done — moves to the Done tab (terminal keeps running)"}
             aria-pressed={isHumanCompleted}
           >
-            {isHumanCompleted ? "✓" : "○"}
+            {isHumanCompleted && <Icon name="check" size={10} sw={2.2} />}
           </button>
         )}
 
-        {/* Title folds into the whole-tile select (handled on the root). Live
-            tiles switch to their terminal; non-live tiles just get selected. */}
+        {/* Title — agent logo + name. Clicks fold into the whole-tile select
+            (handled on the root); no own handler so behaviour is unchanged. */}
         <span
-          className="sessionTile__title"
+          className="pn-st__title"
           title={isLinkedLive ? `Switch to ${title}` : `Select ${title}`}
         >
-          {avatars && <span className="sessionTile__avatar">{avatars}</span>}
-          <span className="sessionTile__titleText">{title}</span>
+          <AgentTile kind={agentKind} />
+          <span className="pn-st__titleText">{title}</span>
         </span>
 
         {isOutOfTab && (
-          <span className="sessionTile__tag sessionTile__tag--archived" title="This sub-session is archived">
-            archived
-          </span>
+          <span className="pn-st__tag" title="This sub-session is archived">archived</span>
         )}
         {isHumanCompleted && !isArchived && (
-          <span className="sessionTile__tag sessionTile__tag--done" title="Marked done by you">
-            done
-          </span>
+          <span className="pn-st__tag pn-st__tag--done" title="Marked done by you">done</span>
         )}
-        {/* Click-affordance dot. Green whenever a live PTY exists, since clicking
-            opens that terminal (even an idle one — resumed sessions stay
-            reachable between turns). Stopped only when the terminal has exited,
-            where clicking surfaces stats and Resume revives it. */}
+
+        {/* Click-affordance live/stopped indicator. Live whenever a terminal
+            exists (clicking opens it); stopped when exited (clicking → stats). */}
         {!isArchived && (
           isShowingTerminalOnClick ? (
-            <span className="sessionTile__linkedDot" title="Live terminal — click to open" />
+            <span className="pn-st__live pn-dot-wrap" title="Live terminal — click to open">
+              <span className={`pn-dot pn-dot--run${isStreaming ? " pn-dot--live" : ""}`} style={{ position: "absolute", inset: 0 }} />
+            </span>
           ) : (
-            <span
-              className="sessionTile__stoppedDot"
-              title="No live terminal — Resume to reactivate"
-            />
+            <span className="pn-st__stopped" title="No live terminal — Resume to reactivate" />
           )
         )}
+
         {docs.length > 0 && (
-          <span
-            className="sessionTile__docBadge"
+          <button
+            type="button"
+            className="pn-mini"
             title={`${docs.length} doc${docs.length !== 1 ? "s" : ""}`}
             onClick={(e) => {
               e.stopPropagation();
               setIsMetaExpanded(true);
             }}
           >
+            <Icon name="doc" size={12} />
             {docs.length}
-          </span>
+          </button>
         )}
         {(() => {
           const wt = getWorktreeInfo(session);
-          return wt ? <WorktreeBadge branch={wt.branch} compact /> : null;
+          return wt ? (
+            <span className="pn-mini" title={`worktree ${wt.branch}`}>
+              <Icon name="gitBranch" size={12} />
+            </span>
+          ) : null;
         })()}
 
-        {/* Agent status (read-only) — symbol + color, trailing like the task tile's session indicator */}
+        {/* Agent status glyph (read-only) */}
         <span
-          className={`sessionTile__status sessionTile__status--${status} ${needsInput ? "sessionTile__status--needsInput" : ""}`}
+          className="pn-st__statusglyph"
           title={needsInput ? "Needs input" : SESSION_STATUS_LABELS[status]}
           data-status-anchor
         >
-          {needsInput ? "!" : SESSION_STATUS_SYMBOLS[status]}
+          <Glyph kind={statusKind} size={16} />
         </span>
 
         {/* Actions */}
-        <div className="sessionTile__actions">
+        <div className="pn-st__actions">
           {/* Team view (terminals) — only when this node has children */}
           {hasChildren && (
             <button
               type="button"
-              className="sessionTile__btn sessionTile__btn--teamView"
+              className="pn-st__btn"
               onClick={(e) => {
                 e.stopPropagation();
                 onOpenTeamView(session);
               }}
               title="Open team view (terminals)"
             >
-              ⊞
+              <Icon name="teamview" />
             </button>
           )}
 
           {/* Resume — visibility locked to the click-routing predicate (see
-              utils/sessionClickRouting). Shown ⟺ clicking would open the
-              stats view. Covers Archived tiles too — resumeSessionFlow clears
-              archivedAt/humanCompletedAt as part of the resume. */}
+              utils/sessionClickRouting). Shown ⟺ clicking would open the stats
+              view. Covers Archived tiles too. */}
           {willOpenStats && (
             <button
               type="button"
-              className="sessionTile__resumeBtn"
+              className="pn-st__resume"
               disabled={!canResume || isResuming}
               onClick={(e) => {
                 e.stopPropagation();
@@ -375,8 +370,7 @@ export const SessionListItem = React.memo(function SessionListItem({
                   : "Resume is only available for Claude Code sessions"
               }
             >
-              <span className="sessionTile__resumeBtnIcon" aria-hidden="true">↻</span>
-              <span className="sessionTile__resumeBtnLabel">{isResuming ? "Resuming…" : "Resume"}</span>
+              <Icon name="refresh" /> {isResuming ? "Resuming…" : "Resume"}
             </button>
           )}
 
@@ -384,39 +378,36 @@ export const SessionListItem = React.memo(function SessionListItem({
           {!isArchived && (
             <button
               type="button"
-              className="sessionTile__btn sessionTile__btn--stop"
+              className="pn-st__btn pn-st__btn--danger"
               onClick={(e) => {
                 e.stopPropagation();
                 onStop(session, link);
               }}
               title={hasChildren ? "Close session + all sub-sessions (move to Archived)" : isLinkedLive ? "Stop & close session" : "Close session (move to Archived)"}
             >
-              ✕
+              <Icon name="x" />
             </button>
           )}
 
-          {/* Restore — only archived tiles. Clears archivedAt across the subtree,
-              un-archiving the session (it returns to Open, or Done if it was also
-              marked done before being archived). Works for every agent type, unlike
-              Resume (which also revives the terminal). */}
+          {/* Restore — only archived tiles. Un-archives the subtree. */}
           {isArchived && (
             <button
               type="button"
-              className="sessionTile__btn sessionTile__btn--restore"
+              className="pn-st__btn"
               onClick={(e) => {
                 e.stopPropagation();
                 onRestore(session);
               }}
               title={hasChildren ? "Restore session + all sub-sessions (un-archive)" : "Restore session (un-archive)"}
             >
-              ↩
+              <Icon name="undo" />
             </button>
           )}
 
           {/* Copy a reference (Name + id) to paste into another session */}
           <button
             type="button"
-            className={`sessionTile__btn sessionTile__btn--copyRef ${copiedRef ? "sessionTile__btn--copied" : ""}`}
+            className="pn-st__btn"
             onClick={(e) => {
               e.stopPropagation();
               void handleCopyReference();
@@ -424,178 +415,163 @@ export const SessionListItem = React.memo(function SessionListItem({
             title={copiedRef ? "Copied reference" : "Copy session reference"}
             aria-label="Copy session reference"
           >
-            {copiedRef ? "✓" : "⧉"}
+            <Icon name={copiedRef ? "check" : "copy"} />
           </button>
 
           {/* Expand meta caret (rightmost) */}
           <button
             type="button"
-            className={`sessionTile__btn sessionTile__btn--caret ${isMetaExpanded ? "sessionTile__btn--caretOpen" : ""}`}
+            className="pn-st__btn"
             onClick={(e) => {
               e.stopPropagation();
               setIsMetaExpanded((v) => !v);
             }}
             title={isMetaExpanded ? "Collapse details" : "Expand details"}
           >
-            ▾
+            <Icon name="chevronD" style={isMetaExpanded ? { transform: "rotate(180deg)" } : undefined} />
           </button>
         </div>
       </div>
 
       {showTaskDetails && linkedTasks.length > 0 && (
-        <div className="sessionTile__taskLines">
-          {linkedTasks.map((task, i) => (
-            <div
-              key={task.id}
-              className={`sessionTile__taskLine sessionTile__taskLine--${task.status}`}
-              style={{ "--task-accent": TASK_LINE_COLORS[i % TASK_LINE_COLORS.length] } as React.CSSProperties}
-              title={detailsTooltip}
-            >
-              <span className="sessionTile__taskLineSymbol">{TASK_STATUS_SYMBOLS[task.status] || "○"}</span>
-              <span className="sessionTile__taskLineLabel">{task.title}</span>
+        <div className="pn-st__tasklines">
+          {linkedTasks.map((task) => (
+            <div key={task.id} className="pn-st__taskline" title={detailsTooltip}>
+              <Glyph kind={task.status} size={13} />
+              <span className="pn-st__tasklineLabel">{task.title}</span>
             </div>
           ))}
         </div>
       )}
 
       {isMetaExpanded && (
-        <div className="sessionTile__meta" onClick={(e) => e.stopPropagation()}>
+        <div className="pn-st__meta" onClick={(e) => e.stopPropagation()}>
           {/* Status / mode / model */}
-          <div className="sessionTile__metaSection">
-            <span className="sessionTile__metaLabel">Status</span>
-            <div className="sessionTile__metaContent">
-              <span className={`sessionTile__badge sessionTile__badge--status sessionTile__badge--status-${status}`}>
-                <span className="sessionTile__badgeSymbol">{needsInput ? "!" : SESSION_STATUS_SYMBOLS[status]}</span>
+          <div className="pn-st__metasec">
+            <span className="pn-st__metalabel">Status</span>
+            <div className="pn-st__metacontent">
+              <span className={`pn-badge pn-badge--status-${statusKind}`}>
+                <Glyph kind={statusKind} size={12} />{" "}
                 {needsInput ? "NEEDS INPUT" : (SESSION_STATUS_LABELS[status] || status).toUpperCase()}
               </span>
 
-              {/* Editable mode */}
-              <div className="sessionTile__modePicker">
-                <button
-                  type="button"
-                  ref={modeBtnRef}
-                  className={`sessionTile__badge sessionTile__badge--mode sessionTile__badge--clickable ${showModeDropdown ? "sessionTile__badge--open" : ""}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowModeDropdown((v) => !v);
-                  }}
-                  title="Click to change mode"
-                >
-                  {mode ? MODE_LABELS[mode] : "Mode"}
-                  <span className="sessionTile__badgeCaret">{showModeDropdown ? "▴" : "▾"}</span>
-                </button>
-                {showModeDropdown && modeDropdownPos && createPortal(
-                  <>
-                    <div className="terminalInlineStatusOverlay" onClick={(e) => { e.stopPropagation(); setShowModeDropdown(false); }} />
-                    <div
-                      className="sessionTile__modeDropdown"
-                      style={{ position: "fixed", top: modeDropdownPos.top, left: modeDropdownPos.left }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {MODE_OPTIONS.map((opt) => (
-                        <button
-                          type="button"
-                          key={opt}
-                          className={`sessionTile__modeOption ${opt === mode ? "sessionTile__modeOption--current" : ""}`}
-                          onClick={(e) => { e.stopPropagation(); handleModeChange(opt); }}
-                        >
-                          <span>{MODE_LABELS[opt]}</span>
-                          {opt === mode && <span className="terminalStatusCheck">✓</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </>,
-                  document.body,
-                )}
-              </div>
+              {/* Editable mode (portal dropdown — mutates the session mode store) */}
+              <button
+                type="button"
+                ref={modeBtnRef}
+                className="pn-badge pn-badge--btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowModeDropdown((v) => !v);
+                }}
+                title="Click to change mode"
+              >
+                {mode ? MODE_LABELS[mode] : "Mode"}
+                <Icon name="chevronD" size={9} className="pn-badge__caret" />
+              </button>
+              {showModeDropdown && modeDropdownPos && createPortal(
+                <>
+                  <div className="pn-pop-ov" onClick={(e) => { e.stopPropagation(); setShowModeDropdown(false); }} />
+                  <div
+                    className="pn-pop"
+                    style={{ position: "fixed", top: modeDropdownPos.top, left: modeDropdownPos.left }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {MODE_OPTIONS.map((opt) => (
+                      <button
+                        type="button"
+                        key={opt}
+                        className={`pn-opt${opt === mode ? " pn-opt--cur" : ""}`}
+                        onClick={(e) => { e.stopPropagation(); handleModeChange(opt); }}
+                      >
+                        {MODE_LABELS[opt]}
+                        {opt === mode && <span className="pn-opt__chk"><Icon name="check" size={12} /></span>}
+                      </button>
+                    ))}
+                  </div>
+                </>,
+                document.body,
+              )}
 
               {session.model && (
-                <span className="sessionTile__badge sessionTile__badge--model">{session.model.toUpperCase()}</span>
+                <span className="pn-badge pn-badge--model">{session.model.toUpperCase()}</span>
               )}
-              {session.strategy && (
-                <span className="sessionTile__badge sessionTile__badge--strategy">{session.strategy}</span>
-              )}
+              {session.strategy && <span className="pn-badge">{session.strategy}</span>}
               {(() => {
                 const wt = getWorktreeInfo(session);
-                return wt ? <WorktreeBadge branch={wt.branch} /> : null;
+                return wt ? (
+                  <span className="pn-badge">
+                    <Icon name="gitBranch" size={11} /> {wt.branch}
+                  </span>
+                ) : null;
               })()}
 
-              <span className="sessionTile__time" title={`Started ${new Date(session.startedAt).toLocaleString()}`}>
-                {session.completedAt
-                  ? formatDuration(session.startedAt, session.completedAt)
-                  : formatTimeAgo(session.lastActivity)}
+              <span className="pn-st__time pn-tt__time" style={{ marginLeft: "auto" }} title={`Started ${new Date(session.startedAt).toLocaleString()}`}>
+                {elapsed}
               </span>
             </div>
           </div>
 
           {/* Linked tasks */}
           {linkedTasks.length > 0 && (
-            <div className="sessionTile__metaSection">
-              <span className="sessionTile__metaLabel">Tasks</span>
-              <div className="sessionTile__metaContent">
-                <div className="sessionTile__taskChips">
-                  {linkedTasks.slice(0, 4).map((task) => (
-                    <span
-                      key={task.id}
-                      className={`sessionTile__taskChip sessionTile__taskChip--${task.status}`}
-                      title={`${task.title} (${task.status})`}
-                    >
-                      <span className="sessionTile__taskChipSymbol">{TASK_STATUS_SYMBOLS[task.status] || "○"}</span>
-                      <span className="sessionTile__taskChipLabel">{task.title}</span>
-                    </span>
-                  ))}
-                  {linkedTasks.length > 4 && (
-                    <span className="sessionTile__taskChip sessionTile__taskChip--more">+{linkedTasks.length - 4}</span>
-                  )}
-                </div>
+            <div className="pn-st__metasec">
+              <span className="pn-st__metalabel">Tasks</span>
+              <div className="pn-st__metacontent">
+                {linkedTasks.slice(0, 4).map((task) => (
+                  <span key={task.id} className="pn-st__taskchip" title={`${task.title} (${task.status})`}>
+                    <Glyph kind={task.status} size={12} />
+                    <span className="t">{task.title}</span>
+                  </span>
+                ))}
+                {linkedTasks.length > 4 && (
+                  <span className="pn-st__taskchip">+{linkedTasks.length - 4}</span>
+                )}
               </div>
             </div>
           )}
 
           {/* Docs */}
           {docs.length > 0 && (
-            <div className="sessionTile__metaSection">
-              <span className="sessionTile__metaLabel">Docs</span>
-              <div className="sessionTile__metaContent">
-                <div className="sessionTile__docsList">
-                  {docs.map((doc) => {
-                    const ext = doc.filePath.split(".").pop()?.toLowerCase() || "";
-                    const isMarkdown = ["md", "mdx", "markdown"].includes(ext);
-                    return (
-                      <button
-                        type="button"
-                        key={doc.id}
-                        className="sessionTile__docItem"
-                        title={doc.filePath}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDocOverlay(doc);
-                        }}
-                      >
-                        <span className="sessionTile__docIcon">{isMarkdown ? "M↓" : "{ }"}</span>
-                        <span className="sessionTile__docTitle">{doc.title}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+            <div className="pn-st__metasec">
+              <span className="pn-st__metalabel">Docs</span>
+              <div className="pn-st__metacontent">
+                {docs.map((doc) => {
+                  const ext = doc.filePath.split(".").pop()?.toLowerCase() || "";
+                  const isMarkdown = ["md", "mdx", "markdown"].includes(ext);
+                  return (
+                    <button
+                      type="button"
+                      key={doc.id}
+                      className="pn-docpill"
+                      title={doc.filePath}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDocOverlay(doc);
+                      }}
+                    >
+                      <span className="pn-docpill__ic">{isMarkdown ? "M↓" : "{}"}</span>
+                      <span className="pn-docpill__t">{doc.title}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
           {/* Actions */}
-          <div className="sessionTile__metaSection">
-            <span className="sessionTile__metaLabel">Actions</span>
-            <div className="sessionTile__metaContent">
+          <div className="pn-st__metasec">
+            <span className="pn-st__metalabel">Actions</span>
+            <div className="pn-st__metacontent">
               <button
                 type="button"
-                className="sessionTile__actionBtn"
+                className="pn-st__actbtn"
                 onClick={(e) => {
                   e.stopPropagation();
                   onOpenDetail(session.id);
                 }}
                 title="Open full session details"
               >
-                ⓘ Details
+                <Icon name="info" size={13} /> Details
               </button>
             </div>
           </div>

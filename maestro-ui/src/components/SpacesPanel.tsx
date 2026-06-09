@@ -9,6 +9,7 @@ import { useSpacesStore } from "../stores/useSpacesStore";
 import { useSessionStore } from "../stores/useSessionStore";
 import { isWhiteboardId, isDocumentId, isFileId } from "../app/types/space";
 import { maestroClient } from "../utils/MaestroClient";
+import { Icon } from "./maestro/redesign/kit";
 
 type SpacesPanelProps = {
     agentShortcuts: ProcessEffect[];
@@ -26,7 +27,6 @@ type SpacesPanelProps = {
     onOpenPersistentSessions: () => void;
     onOpenSshManager: () => void;
     onOpenManageTerminals: () => void;
-    contentWidth: number;
     activeSection: 'sessions' | null;
     onToggle: () => void;
 };
@@ -47,7 +47,6 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
     onOpenPersistentSessions,
     onOpenSshManager,
     onOpenManageTerminals,
-    contentWidth,
     activeSection,
     onToggle,
 }) => {
@@ -102,13 +101,15 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
 
     return (
         <aside
-            className={`spacesPanel ${isExpanded ? 'spacesPanel--expanded' : ''}`}
+            className="pn-sp"
             style={{
+                // Width is driven by the CSS var so a resize commit never
+                // re-renders this panel — see useAppLayoutResizing.
                 width: isExpanded
-                    ? `${contentWidth}px`
+                    ? 'var(--right-panel-width)'
                     : `${DEFAULTS.SPACES_RAIL_WIDTH}px`,
                 maxWidth: isExpanded
-                    ? `${contentWidth}px`
+                    ? 'var(--right-panel-width)'
                     : `${DEFAULTS.SPACES_RAIL_WIDTH}px`,
                 flexShrink: 0,
                 flexGrow: 0,
@@ -117,47 +118,45 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
             {isExpanded ? (
                 <div
                     className="spacesPanelContent"
-                    style={{ width: `${contentWidth}px` }}
+                    style={{ width: 'var(--right-panel-width)', position: 'relative' }}
                 >
-                    <div className="spacesPanelToolbar">
-                        <div className="spacesPanelTabs">
-                            <button
-                                type="button"
-                                className={`spacesPanelTab ${panelMode === 'sessions' ? 'spacesPanelTab--active' : ''}`}
-                                onClick={() => setPanelMode('sessions')}
-                            >
-                                Sessions
-                            </button>
-                            <button
-                                type="button"
-                                className={`spacesPanelTab ${panelMode === 'resources' ? 'spacesPanelTab--active' : ''}`}
-                                onClick={() => setPanelMode('resources')}
-                                data-testid="resources-tab-btn"
-                            >
-                                Resources
-                            </button>
-                        </div>
-                        <div className="spacesPanelActions">
-                            {panelMode === 'sessions' && (
-                                <NewSpaceDropdown
-                                    variant="toolbar"
-                                    onOpenNewSession={onOpenNewSession}
-                                    onOpenWhiteboard={handleCreateWhiteboard}
-                                    agentShortcuts={agentShortcuts}
-                                    onQuickStart={onQuickStart}
-                                />
-                            )}
-                            <button
-                                className="spacesPanelAction"
-                                title="Collapse Panel"
-                                type="button"
-                                onClick={onToggle}
-                            >
-                                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14">
-                                    <path d="M6 3l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                            </button>
-                        </div>
+                    <div className="pn-tabs" style={{ paddingTop: 0 }}>
+                        <button
+                            type="button"
+                            className={`pn-tab ${panelMode === 'sessions' ? 'pn-tab--active' : ''}`}
+                            style={{ paddingTop: 13 }}
+                            onClick={() => setPanelMode('sessions')}
+                        >
+                            Sessions <span className="pn-tab-n">{sessions.length}</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`pn-tab ${panelMode === 'resources' ? 'pn-tab--active' : ''}`}
+                            style={{ paddingTop: 13 }}
+                            onClick={() => setPanelMode('resources')}
+                            data-testid="resources-tab-btn"
+                        >
+                            Resources
+                        </button>
+                        <span className="pn-head-spacer" style={{ flex: 1 }} />
+                        {panelMode === 'sessions' && (
+                            <NewSpaceDropdown
+                                variant="toolbar"
+                                onOpenNewSession={onOpenNewSession}
+                                onOpenWhiteboard={handleCreateWhiteboard}
+                                agentShortcuts={agentShortcuts}
+                                onQuickStart={onQuickStart}
+                            />
+                        )}
+                        <button
+                            className="pn-ib"
+                            style={{ alignSelf: 'center' }}
+                            title="Collapse Panel"
+                            type="button"
+                            onClick={onToggle}
+                        >
+                            <Icon name="chevronR" />
+                        </button>
                     </div>
 
                     {panelMode === 'sessions' ? (

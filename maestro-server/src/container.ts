@@ -14,6 +14,7 @@ import { FileSystemOrderingRepository } from './infrastructure/repositories/File
 import { FileSystemTeamMemberRepository } from './infrastructure/repositories/FileSystemTeamMemberRepository';
 import { FileSystemTeamRepository } from './infrastructure/repositories/FileSystemTeamRepository';
 import { FileSystemCustomPromptRepository } from './infrastructure/repositories/FileSystemCustomPromptRepository';
+import { FileSystemModelProfileRepository } from './infrastructure/repositories/FileSystemModelProfileRepository';
 import { MultiScopeSkillLoader } from './infrastructure/skills/MultiScopeSkillLoader';
 import { ProjectService } from './application/services/ProjectService';
 import { TaskService } from './application/services/TaskService';
@@ -25,6 +26,7 @@ import { LogDigestService } from './application/services/LogDigestService';
 import { OrderingService } from './application/services/OrderingService';
 import { TeamMemberService } from './application/services/TeamMemberService';
 import { TeamService } from './application/services/TeamService';
+import { ModelProfileService } from './application/services/ModelProfileService';
 import { SpellService } from './application/services/SpellService';
 import { AnnouncementService } from './application/services/AnnouncementService';
 import { AlexaIngressService } from './application/services/AlexaIngressService';
@@ -43,6 +45,7 @@ import { IOrderingRepository } from './domain/repositories/IOrderingRepository';
 import { ITeamMemberRepository } from './domain/repositories/ITeamMemberRepository';
 import { ITeamRepository } from './domain/repositories/ITeamRepository';
 import { ICustomPromptRepository } from './domain/repositories/ICustomPromptRepository';
+import { IModelProfileRepository } from './domain/repositories/IModelProfileRepository';
 import { ISkillLoader } from './domain/services/ISkillLoader';
 
 /**
@@ -111,6 +114,7 @@ export interface Container {
   teamMemberRepo: ITeamMemberRepository;
   teamRepo: ITeamRepository;
   customPromptRepo: ICustomPromptRepository;
+  modelProfileRepo: IModelProfileRepository;
 
   // Loaders
   skillLoader: ISkillLoader;
@@ -125,6 +129,7 @@ export interface Container {
   orderingService: OrderingService;
   teamMemberService: TeamMemberService;
   teamService: TeamService;
+  modelProfileService: ModelProfileService;
   spellService: SpellService;
   announcementService: AnnouncementService;
   alexaIngressService: AlexaIngressService;
@@ -163,6 +168,7 @@ export async function createContainer(): Promise<Container> {
   const teamMemberRepo = new FileSystemTeamMemberRepository(config.dataDir, idGenerator, logger);
   const teamRepo = new FileSystemTeamRepository(config.dataDir, idGenerator, logger);
   const customPromptRepo = new FileSystemCustomPromptRepository(config.dataDir, idGenerator, logger);
+  const modelProfileRepo = new FileSystemModelProfileRepository(config.dataDir, idGenerator, logger);
 
   // 4. Loaders
   const skillLoader = new MultiScopeSkillLoader(logger);
@@ -177,6 +183,7 @@ export async function createContainer(): Promise<Container> {
   const orderingService = new OrderingService(orderingRepo);
   const teamMemberService = new TeamMemberService(teamMemberRepo, eventBus, idGenerator);
   const teamService = new TeamService(teamRepo, teamMemberRepo, eventBus, idGenerator);
+  const modelProfileService = new ModelProfileService(modelProfileRepo, eventBus, idGenerator);
   const spellService = new SpellService(
     projectRepo,
     taskRepo,
@@ -233,6 +240,7 @@ export async function createContainer(): Promise<Container> {
     teamMemberRepo,
     teamRepo,
     customPromptRepo,
+    modelProfileRepo,
     skillLoader,
     projectService,
     taskService,
@@ -243,6 +251,7 @@ export async function createContainer(): Promise<Container> {
     orderingService,
     teamMemberService,
     teamService,
+    modelProfileService,
     spellService,
     announcementService,
     alexaIngressService,
@@ -261,6 +270,7 @@ export async function createContainer(): Promise<Container> {
         teamMemberRepo.initialize(),
         teamRepo.initialize(),
         customPromptRepo.initialize(),
+        modelProfileRepo.initialize(),
       ]);
 
       // Migration: Delete old team member tasks (skip if already done)

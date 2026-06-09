@@ -8,7 +8,7 @@
   bottom: 0;
   left: 0;
   z-index: 10000;
-  background: var(--bg, #0a0e16);
+  background: var(--pn-paper, var(--bg, #0a0e16));
   display: flex;
   align-items: stretch;
   justify-content: center;
@@ -20,7 +20,7 @@
   flex-direction: column;
   width: 100%;
   height: 100%;
-  background: var(--bg, #0a0e16);
+  background: var(--pn-surface, var(--bg, #0a0e16));
   overflow: hidden;
 }
 
@@ -324,7 +324,7 @@
 
 .mpbProjectRowChevron {
   font-size: 10px;
-  color: rgba(var(--theme-primary-rgb), 0.4);
+  color: var(--pn-ink-3);
   transition: transform 0.2s ease;
 }
 
@@ -475,21 +475,21 @@
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  background: rgba(var(--theme-primary-rgb), 0.02);
+  background: var(--pn-brand-soft);
 }
 
 .mpbSessionProjectName {
-  font-family: var(--style-font-ui);
+  font-family: var(--pn-ui);
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text, #f0f4f8);
+  color: var(--pn-ink);
   flex: 1;
 }
 
 .mpbSessionProjectCount {
-  font-family: var(--style-font-ui);
+  font-family: var(--pn-ui);
   font-size: 12px;
-  color: rgba(var(--theme-primary-rgb), 0.4);
+  color: var(--pn-ink-3);
 }
 
 .mpbSessionColumns {
@@ -552,36 +552,6 @@
   text-align: center;
 }
 
-/* ── Session Resize Handle ── */
-
-.mpbSessionResizeHandle {
-  flex: 0 0 4px;
-  cursor: col-resize;
-  background: transparent;
-  transition: background 0.15s ease;
-  position: relative;
-  z-index: 1;
-}
-
-.mpbSessionResizeHandle::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 1px;
-  width: 2px;
-  background: rgba(var(--theme-primary-rgb), 0.08);
-  transition: background 0.15s ease;
-}
-
-.mpbSessionResizeHandle:hover::after {
-  background: rgba(var(--theme-primary-rgb), 0.3);
-}
-
-.mpbSessionResizeHandle:active::after {
-  background: var(--theme-primary);
-}
-
 /* ── Collapsed Session Column ── */
 
 .mpbSessionColumnCollapsed {
@@ -592,14 +562,14 @@
   gap: 8px;
   padding: 12px 0;
   min-height: 100%;
-  background: var(--bg, #0a0e16);
-  border-right: 1px solid var(--theme-border, rgba(255,255,255,0.08));
+  background: var(--pn-surface);
+  border-right: 1px solid var(--pn-line);
   cursor: pointer;
   transition: background 0.15s ease;
 }
 
 .mpbSessionColumnCollapsed:hover {
-  background: rgba(var(--theme-primary-rgb), 0.05);
+  background: var(--pn-hover);
 }
 
 .mpbSessionColumnCollapsedDot {
@@ -667,8 +637,8 @@
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  background: rgba(var(--theme-primary-rgb), 0.03);
-  border-bottom: 2px solid rgba(var(--theme-primary-rgb), 0.1);
+  background: var(--pn-brand-soft);
+  border-bottom: 2px solid var(--pn-line);
   cursor: grab;
   user-select: none;
 }
@@ -685,10 +655,10 @@
 }
 
 .mpbUnifiedSessionBadgeName {
-  font-family: var(--style-font-ui);
+  font-family: var(--pn-ui);
   font-size: 11px;
   font-weight: 600;
-  color: var(--theme-text, #f0f4f8);
+  color: var(--pn-ink);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -711,5 +681,536 @@
 .mpbUnifiedSessionWrapper .sessionBoardColumn {
   border-top: none;
   border-radius: 0 0 6px 6px;
+}
+
+/* ============================================================ */
+/* Project Selector Sidebar (redesign) — component-local pn-psb* */
+/* classes for ProjectSelectorSidebar.tsx. Token-bound (flips    */
+/* light/dark). The old mpbSidebar*, mpbProject*, mpbCheckbox*   */
+/* rules above are shared with MultiProjectSessionsView and are  */
+/* intentionally LEFT ORPHANED — do not fold these into them.    */
+/* ============================================================ */
+
+html[data-redesign] .pn-psb {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--pn-surface);
+  border-right: 1px solid var(--pn-line);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+html[data-redesign] .pn-psb--collapsed {
+  width: 40px;
+  align-items: center;
+  padding-top: 8px;
+}
+
+html[data-redesign] .pn-psb__hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--pn-line);
+}
+
+html[data-redesign] .pn-psb__dots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+html[data-redesign] .pn-psb__selectall {
+  padding: 8px 12px;
+}
+
+html[data-redesign] .pn-psb__divider {
+  height: 1px;
+  background: var(--pn-line);
+  margin: 0 12px;
+}
+
+html[data-redesign] .pn-psb__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+html[data-redesign] .pn-psb__checklabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-family: var(--pn-mono);
+  font-size: 11px;
+  color: var(--pn-ink-2);
+}
+
+html[data-redesign] .pn-psb__checkbox {
+  display: none;
+}
+
+html[data-redesign] .pn-psb__checkbox-custom {
+  width: 13px;
+  height: 13px;
+  border: 1px solid var(--pn-line-2);
+  border-radius: var(--pn-r-xs);
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  transition: background 140ms, border-color 140ms;
+}
+
+html[data-redesign] .pn-psb__checkbox:checked + .pn-psb__checkbox-custom {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-brand);
+}
+
+html[data-redesign] .pn-psb__checkbox:checked + .pn-psb__checkbox-custom::after {
+  content: "✓";
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--pn-brand);
+}
+
+html[data-redesign] .pn-psb__selectall-text {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+html[data-redesign] .pn-psb__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 140ms;
+}
+
+html[data-redesign] .pn-psb__item:hover {
+  background: var(--pn-hover);
+}
+
+html[data-redesign] .pn-psb__item--sel {
+  background: var(--pn-active);
+}
+
+html[data-redesign] .pn-psb__swatch {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+html[data-redesign] .pn-psb__name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  font-family: var(--pn-ui);
+  font-size: 13px;
+  color: var(--pn-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-redesign] .pn-psb__master {
+  color: var(--pn-brand);
+  flex-shrink: 0;
+}
+
+html[data-redesign] .pn-psb__stats {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+html[data-redesign] .pn-psb__stat {
+  font-family: var(--pn-mono);
+  font-size: 10.5px;
+  color: var(--pn-ink-3);
+}
+
+/* ===================================================================
+   REDESIGN OVERRIDES (residual mpb* chrome) + MOVED BASE RULES
+   Board column, card, and terminal classes moved from styles-excalidraw.css.
+   All use pn-* tokens directly — they flip light/dark automatically.
+   =================================================================== */
+
+/* ── A) mpb* wrapper overrides (base in this file, legacy props) ── */
+
+html[data-redesign] .mpbEmptyText {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .mpbSessionsView {
+  scrollbar-color: var(--pn-line-2) transparent;
+}
+
+html[data-redesign] .mpbSessionProjectGroup {
+  border-bottom-color: var(--pn-line);
+}
+
+html[data-redesign] .mpbSessionColumns {
+  scrollbar-color: var(--pn-line-2) transparent;
+}
+
+html[data-redesign] .mpbSessionColumnCollapsedDot {
+  font-family: var(--pn-ui);
+}
+
+html[data-redesign] .mpbSessionColumnCollapsedName {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .mpbUnifiedSessionWrapper--dragOver {
+  border-color: var(--pn-brand);
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .mpbUnifiedSessionDragHandle {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .mpbUnifiedSessionDragHandle:hover {
+  color: var(--pn-ink);
+}
+
+/* ── B) Session board columns (moved from styles-excalidraw.css) ── */
+
+@keyframes taskBoardPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+body.dragging-active,
+body.dragging-active * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.sessionBoardColumns .sessionBoardColumn {
+  flex: 1 1 0;
+  min-width: 200px;
+  max-width: none;
+}
+
+.sessionBoardColumn {
+  flex: 1 0 280px;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  background: var(--pn-surface);
+  border-right: 1px solid var(--pn-line);
+  transition: opacity 0.2s ease;
+}
+
+.sessionBoardColumn:last-child {
+  border-right: none;
+}
+
+.sessionBoardColumn--inactive {
+  opacity: 0.5;
+}
+
+.sessionBoardColumn--inactive:hover {
+  opacity: 0.75;
+}
+
+/* ── Session Column Header ── */
+
+.sessionColumnHeader {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--pn-line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.sessionColumnHeader:hover {
+  background: var(--pn-hover);
+}
+
+.sessionColumnHeaderTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sessionColumnStatusDot {
+  font-size: 14px;
+  font-family: var(--pn-ui);
+  flex-shrink: 0;
+}
+
+.sessionColumnStatusDot--working {
+  animation: taskBoardPulse 2s ease-in-out infinite;
+}
+
+.sessionColumnName {
+  font-family: var(--pn-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pn-ink);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessionColumnHeaderBottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sessionColumnMeta {
+  font-family: var(--pn-ui);
+  font-size: 11px;
+  color: var(--pn-ink-3);
+}
+
+/* ── Session Column Timeline ── */
+
+.sessionColumnTimeline {
+  border-bottom: 1px solid var(--pn-line);
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pn-line) transparent;
+}
+
+.sessionColumnTimeline--full {
+  flex: 1;
+  max-height: none;
+  overflow-y: auto;
+}
+
+/* ── Session Column Toggle ── */
+
+.sessionColumnToggle {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.sessionColumnToggleBtn {
+  font-family: var(--pn-ui);
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 1px solid var(--pn-line);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--pn-ink-3);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sessionColumnToggleBtn:hover {
+  color: var(--pn-brand);
+  border-color: var(--pn-line-2);
+}
+
+.sessionColumnToggleBtn--active {
+  color: var(--pn-brand);
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-line-2);
+}
+
+/* ── Session Column Terminal Host ── */
+
+.sessionColumnTerminalHost {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.sessionColumnTerminalHost .terminalContainer {
+  position: absolute;
+  inset: 0;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.sessionBoardColumn--terminal {
+  min-height: 0;
+}
+
+.sessionBoardColumn--working {
+  border-color: var(--pn-run-soft);
+}
+
+/* ── Session Column Tasks ── */
+
+.sessionColumnTasks {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pn-line) transparent;
+}
+
+/* Terminal reparented into board column */
+.terminalInBoard {
+  position: absolute !important;
+  inset: 0 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Terminal reparented into TeamView slot host */
+.terminalInTeamView {
+  position: absolute !important;
+  inset: 0 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  border-radius: 0 0 4px 4px;
+}
+
+/* ── C) Drag ghost card (moved from styles-excalidraw.css) ── */
+
+.dragGhostCard {
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.12))
+          drop-shadow(0 0 12px var(--pn-brand-soft));
+}
+
+.taskBoardCard {
+  display: flex;
+  flex-shrink: 0;
+  background: var(--pn-card);
+  border: 1px solid var(--pn-line);
+  border-radius: var(--pn-r-sm);
+  cursor: grab;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+  overflow: hidden;
+  box-shadow: var(--pn-sh-sm);
+}
+
+.taskBoardCard:hover {
+  border-color: var(--pn-line-2);
+  box-shadow: var(--pn-sh-md);
+  transform: translateY(-1px);
+}
+
+.taskBoardCard:active {
+  cursor: grabbing;
+}
+
+.taskBoardCard--dragging {
+  opacity: 0.2;
+  transform: scale(0.97);
+  border-style: dashed;
+  border-color: var(--pn-line-2);
+}
+
+.taskBoardCard--ghost {
+  border-color: var(--pn-line-2);
+  box-shadow: var(--pn-sh-pop);
+  background: var(--pn-card);
+}
+
+.taskBoardCard--active {
+  border-left: none;
+}
+
+.taskBoardCard--blocked {
+  border-left: none;
+}
+
+.taskBoardCard--done {
+  opacity: 0.6;
+}
+
+.taskBoardCard--cancelled {
+  opacity: 0.4;
+}
+
+/* ── Card Stripe ── */
+
+.taskBoardCardStripe {
+  width: 3px;
+  flex-shrink: 0;
+}
+
+.taskBoardCard--active .taskBoardCardStripe {
+  background: var(--pn-run) !important;
+}
+
+.taskBoardCard--blocked .taskBoardCardStripe {
+  background: var(--pn-block) !important;
+}
+
+/* ── Card Content ── */
+
+.taskBoardCardContent {
+  flex: 1;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.taskBoardCardTitle {
+  font-family: var(--pn-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pn-ink);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.taskBoardCardTitle--cancelled {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+/* ── Card Meta ── */
+
+.taskBoardCardMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--pn-ui);
+  font-size: 11px;
+}
+
+.taskBoardCardPriority {
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.taskBoardCardPriority--high { color: var(--pn-block); }
+.taskBoardCardPriority--medium { color: var(--pn-wait); }
+.taskBoardCardPriority--low { color: var(--pn-ink-3); }
+
+/* ── D) Inline doc embed (base kept in styles-excalidraw.css) ── */
+
+html[data-redesign] .docViewerInline {
+  background: var(--pn-surface);
+}
+
+html[data-redesign] .docViewerPanel--inline {
+  background: var(--pn-surface);
 }
 

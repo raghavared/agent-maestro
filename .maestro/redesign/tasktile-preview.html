@@ -1,0 +1,124 @@
+<!doctype html>
+<html data-redesign>
+<head>
+<meta charset="utf-8" />
+<title>TaskListItem → pn-tt preview</title>
+<link rel="stylesheet" href="../../maestro-ui/src/components/maestro/redesign/redesign-tokens.css" />
+<link rel="stylesheet" href="../../maestro-ui/src/components/maestro/redesign/redesign-tiles.css" />
+<style>
+  body { margin: 0; font-family: var(--pn-ui); background: var(--pn-paper); }
+  .wrap { display: flex; gap: 0; }
+  .col { flex: 1; }
+  .col h3 { font-family: var(--pn-mono); font-size: 11px; color: var(--pn-ink-3); text-transform: uppercase; letter-spacing: .08em; padding: 14px 16px 6px; margin: 0; }
+  .pane { background: var(--pn-paper); border-right: 1px solid var(--pn-line); min-height: 100vh; }
+  /* force action buttons visible for the shot */
+  .pn-tt__actions { display: flex !important; }
+  .pn-mp { width: 360px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="col"><div class="pane" data-pane="light">
+    <h3>Light</h3>
+    <div class="tiles"></div>
+  </div></div>
+  <div class="col"><div class="pane" data-pane="dark" data-theme="dark">
+    <h3>Dark</h3>
+    <div class="tiles"></div>
+  </div></div>
+</div>
+
+<script>
+// Glyph inner SVGs ported from redesign/kit.tsx Glyph
+function glyph(kind, size){
+  const ring='<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/>';
+  let inner=ring;
+  if(kind==='in_progress') inner='<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.28"/><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" pathLength="100" stroke-dasharray="62 100" transform="rotate(-90 8 8)"/>';
+  else if(kind==='working') inner=ring+'<circle cx="8" cy="8" r="2.6" fill="currentColor"/>';
+  else if(kind==='in_review') inner='<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2 2.3"/>';
+  else if(kind==='completed') inner='<circle cx="8" cy="8" r="6.5" fill="currentColor"/><path d="M5 8.2l2.1 2.1L11 6.4" fill="none" stroke="var(--pn-card)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>';
+  else if(kind==='cancelled') inner=ring+'<path d="M4.5 11.5l7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>';
+  else if(kind==='blocked'||kind==='failed') inner=ring+'<path d="M5.7 5.7l4.6 4.6M10.3 5.7l-4.6 4.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>';
+  return '<span class="pn-stat pn-stat--'+kind+'" style="width:'+size+'px;height:'+size+'px"><svg width="'+size+'" height="'+size+'" viewBox="0 0 16 16">'+inner+'</svg></span>';
+}
+function icon(d,size){ return '<svg width="'+(size||16)+'" height="'+(size||16)+'" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+d.split('M').filter(Boolean).map(s=>'<path d="M'+s+'"/>').join('')+'</svg>'; }
+const I={ chevronR:'M6 3.5L10.5 8 6 12.5', chevronD:'M3.5 6L8 10.5 12.5 6', play:'M5 3.5l7 4.5-7 4.5z', doc:'M5 2h5l3.5 3.5V13a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1zM10 2v4h4M6.5 9h4M6.5 11.5h2.5', shield:'M8 2l5 2v4c0 3-2.2 5.2-5 6-2.8-.8-5-3-5-6V4l5-2z', gitBranch:'M5 3.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM5 5v3a3 3 0 003 3M12.5 3.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM11 5v.5a3 3 0 01-3 3M5 12.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z', users:'M6 7.5a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5zM2.5 13c0-2 1.6-3.2 3.5-3.2S9.5 11 9.5 13M10.5 7.2a2 2 0 000-4M11 9.9c1.5.2 2.5 1.3 2.5 3.1' };
+
+function collapsed(){ return `
+<div class="pn-tt pn-tt--active">
+  <div class="pn-tt__main">
+    <button class="pn-tt__arrow pn-tt__arrow--expanded">${icon(I.chevronR)}</button>
+    <span class="pn-tt__arrowCount">3</span>
+    <button class="pn-tt__status">${glyph('in_progress',16)}</button>
+    <span class="pn-tt__title">Fix terminal reparenting crash on board close</span>
+    <span class="pn-tt__activedot"></span>
+    <div class="pn-tt__inline">
+      <span class="pn-tag pn-tag--high">high</span>
+      <span class="pn-av" style="color:var(--pn-ink)">🟦</span>
+      <span class="pn-mini">${icon(I.doc,12)}2</span>
+    </div>
+    <div class="pn-tt__actions">
+      <button class="pn-tt__run">${icon(I.play,12)}</button>
+      <button class="pn-tt__ind">${icon(I.chevronD,14)}</button>
+    </div>
+  </div>
+</div>`; }
+
+function collapsed2(){ return `
+<div class="pn-tt">
+  <div class="pn-tt__main">
+    <button class="pn-tt__arrow pn-tt__arrow--empty">${icon(I.chevronR)}</button>
+    <button class="pn-tt__status">${glyph('blocked',16)}</button>
+    <span class="pn-tt__title">Migrate task ordering to server persistence</span>
+    <div class="pn-tt__inline">
+      <span class="pn-tag pn-tag--med">med</span>
+    </div>
+    <div class="pn-tt__actions">
+      <button class="pn-tt__run">${icon(I.play,12)}</button>
+      <button class="pn-tt__ind">${icon(I.chevronD,14)}</button>
+    </div>
+  </div>
+</div>`; }
+
+function expanded(){ return `
+<div class="pn-tt">
+  <div class="pn-tt__main">
+    <button class="pn-tt__arrow pn-tt__arrow--empty">${icon(I.chevronR)}</button>
+    <button class="pn-tt__status">${glyph('todo',16)}</button>
+    <span class="pn-tt__title">Add a model-profile indirection layer</span>
+    <div class="pn-tt__inline">
+      <span class="pn-tag pn-tag--med">med</span>
+      <span class="pn-av-group"><span class="pn-av pn-av--stack" style="color:var(--pn-ink)">🟦</span><span class="pn-av pn-av--stack" style="color:var(--pn-ink)">🟩</span></span>
+    </div>
+    <div class="pn-tt__actions">
+      <button class="pn-tt__run">${icon(I.play,12)}</button>
+      <button class="pn-tt__ind pn-tt__ind--open">${icon(I.chevronD,14)}</button>
+    </div>
+  </div>
+  <div class="pn-tt__meta">
+    <div class="pn-tt__metarow">
+      <button class="pn-badge pn-badge--btn pn-badge--status-todo">${glyph('todo',12)} Todo ${icon(I.chevronD,9)}</button>
+      <button class="pn-badge pn-badge--btn">MED ${icon(I.chevronD,9)}</button>
+      <button class="pn-badge pn-badge--btn"><span class="pn-av" style="color:var(--pn-ink)">🟦</span> Task Tile Worker ${icon(I.chevronD,9)}</button>
+      <button class="pn-badge pn-badge--btn pn-badge--model">opus-4.8 ${icon(I.chevronD,9)}</button>
+    </div>
+    <div class="pn-tt__metarow">
+      <button class="pn-toggle pn-toggle--on-danger">${icon(I.shield,13)} YOLO</button>
+      <button class="pn-toggle pn-toggle--on-wt">${icon(I.gitBranch,13)} worktree</button>
+      <span class="pn-tt__time">2m ago</span>
+    </div>
+    <div class="pn-tt__metarow">
+      <span class="pn-actchip pn-actchip--working">WORKING</span>
+      <span class="pn-actchip pn-actchip--completed">DONE</span>
+    </div>
+    <div class="pn-tt__metarow">
+      <button class="pn-docpill"><span class="pn-docpill__ic">M↓</span><span class="pn-docpill__t">TaskListItem-CONTRACT</span></button>
+      <button class="pn-docpill pn-docpill--add">${icon('M8 3.5v9M3.5 8h9',11)}<span class="pn-docpill__t">Diagram</span></button>
+    </div>
+  </div>
+</div>`; }
+
+document.querySelectorAll('.tiles').forEach(t=>{ t.innerHTML = collapsed()+collapsed2()+expanded(); });
+</script>
+</body>
+</html>

@@ -2,6 +2,7 @@ import React from "react";
 import { MaestroTask } from "../../../app/types/maestro";
 import { useSubtaskProgress } from "../../../hooks/useSubtaskProgress";
 import { useTaskSessions } from "../../../hooks/useTaskSessions";
+import { Icon } from "../redesign/kit";
 
 type TaskTabBarProps = {
     activeTab: string | null;
@@ -28,16 +29,16 @@ export function TaskTabBar({
     const { sessions } = useTaskSessions(isEditMode ? taskId ?? null : null);
 
     return (
-        <div className="themedModalTabBar" style={{ borderTop: '1px solid var(--theme-border)', marginTop: 'auto' }}>
+        <div className="pn-mtabs" style={{ marginTop: 'auto' }}>
             {isEditMode && (
                 <button
                     type="button"
-                    className={`themedModalTab ${activeTab === 'subtasks' ? 'themedModalTab--active' : ''}`}
+                    className={`pn-mtab ${activeTab === 'subtasks' ? 'pn-mtab--active' : ''}`}
                     onClick={() => onToggleTab('subtasks')}
                 >
-                    Subtasks
+                    <Icon name="listChecks" /> Subtasks
                     {subtaskProgress.total > 0 && (
-                        <span className="themedModalTabBadge">
+                        <span className="pn-mtab__n">
                             {subtaskProgress.completed}/{subtaskProgress.total}
                         </span>
                     )}
@@ -45,70 +46,71 @@ export function TaskTabBar({
             )}
             <button
                 type="button"
-                className={`themedModalTab ${activeTab === 'skills' ? 'themedModalTab--active' : ''}`}
+                className={`pn-mtab ${activeTab === 'skills' ? 'pn-mtab--active' : ''}`}
                 onClick={() => onToggleTab('skills')}
             >
-                Skills
+                <Icon name="sparkles" /> Skills
                 {selectedSkillsCount > 0 && (
-                    <span className="themedModalTabBadge">{selectedSkillsCount}</span>
+                    <span className="pn-mtab__n">{selectedSkillsCount}</span>
                 )}
             </button>
             {isEditMode && sessions.length > 0 && (
                 <button
                     type="button"
-                    className={`themedModalTab ${activeTab === 'sessions' ? 'themedModalTab--active' : ''}`}
+                    className={`pn-mtab ${activeTab === 'sessions' ? 'pn-mtab--active' : ''}`}
                     onClick={() => onToggleTab('sessions')}
                 >
-                    Sessions
-                    <span className="themedModalTabBadge">{sessions.length}</span>
+                    <Icon name="terminal" /> Sessions
+                    <span className="pn-mtab__n">{sessions.length}</span>
                 </button>
             )}
             <button
                 type="button"
-                className={`themedModalTab ${activeTab === 'ref-docs' ? 'themedModalTab--active' : ''}`}
+                className={`pn-mtab ${activeTab === 'ref-docs' ? 'pn-mtab--active' : ''}`}
                 onClick={() => onToggleTab('ref-docs')}
             >
-                Ref Tasks
+                <Icon name="at" /> Ref Tasks
                 {selectedRefTasksCount > 0 && (
-                    <span className="themedModalTabBadge">{selectedRefTasksCount}</span>
+                    <span className="pn-mtab__n">{selectedRefTasksCount}</span>
                 )}
             </button>
             {isEditMode && (
                 <button
                     type="button"
-                    className={`themedModalTab ${activeTab === 'gen-docs' ? 'themedModalTab--active' : ''}`}
+                    className={`pn-mtab ${activeTab === 'gen-docs' ? 'pn-mtab--active' : ''}`}
                     onClick={() => onToggleTab('gen-docs')}
                 >
-                    Gen Docs
+                    <Icon name="doc" /> Gen Docs
                     {taskDocsCount > 0 && (
-                        <span className="themedModalTabBadge">{taskDocsCount}</span>
+                        <span className="pn-mtab__n">{taskDocsCount}</span>
                     )}
                 </button>
             )}
             {isEditMode && (
                 <button
                     type="button"
-                    className={`themedModalTab ${activeTab === 'timeline' ? 'themedModalTab--active' : ''}`}
+                    className={`pn-mtab ${activeTab === 'timeline' ? 'pn-mtab--active' : ''}`}
                     onClick={() => onToggleTab('timeline')}
                 >
-                    Timeline
+                    <Icon name="clock" /> Timeline
                 </button>
             )}
             <button
                 type="button"
-                className={`themedModalTab ${activeTab === 'details' ? 'themedModalTab--active' : ''}`}
+                className={`pn-mtab ${activeTab === 'details' ? 'pn-mtab--active' : ''}`}
                 onClick={() => onToggleTab('details')}
             >
-                Details
+                <Icon name="sliders" /> Details
             </button>
             {activeTab && (
                 <button
                     type="button"
-                    className="themedModalTab themedModalTabClose"
+                    className="pn-mtab"
+                    style={{ marginLeft: 'auto' }}
                     onClick={onCloseTab}
                     title="Collapse tab panel"
                 >
-                    ×
+                    <Icon name="x" />
                 </button>
             )}
         </div>

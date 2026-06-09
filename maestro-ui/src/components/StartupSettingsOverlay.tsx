@@ -80,13 +80,13 @@ export function StartupSettingsOverlay({ onComplete }: StartupSettingsOverlayPro
                       className={`startupThemeOption ${isActive ? 'startupThemeOptionActive' : ''}`}
                       onClick={() => setStyle(sid)}
                       style={{
-                        '--swatch-color': 'var(--theme-primary)',
+                        '--swatch-color': 'var(--pn-brand)',
                         '--swatch-rgb': 'var(--theme-primary-rgb)',
                       } as React.CSSProperties}
                     >
                       <span className="startupThemeSwatch" style={{
-                        background: isActive ? 'var(--theme-primary)' : 'rgba(255,255,255,0.15)',
-                        boxShadow: isActive ? '0 0 8px var(--theme-primary)' : 'none',
+                        background: isActive ? 'var(--pn-brand)' : 'rgba(255,255,255,0.15)',
+                        boxShadow: 'none',
                       }} />
                       <span className="startupThemeName">{style.name}</span>
                     </button>

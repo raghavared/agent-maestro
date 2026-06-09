@@ -313,3 +313,120 @@
   font-family: var(--style-font-code);
 }
 
+/* ========================================================================
+   REDESIGN OVERRIDES — warm-paper pn tokens
+   Repoints the legacy dark surfaces onto pn tokens when
+   html[data-redesign] is active. Base rules above are untouched.
+   ======================================================================== */
+
+html[data-redesign] .commandPaletteBackdrop {
+  background: rgba(35, 32, 27, 0.45);
+}
+
+html[data-redesign] .commandPalette {
+  background: var(--pn-card);
+  border-color: var(--pn-line-2);
+  box-shadow: var(--pn-sh-pop);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .commandPaletteSearch {
+  border-bottom-color: var(--pn-line-2);
+}
+
+html[data-redesign] .commandPaletteSearchIcon {
+  color: var(--pn-brand);
+  font-family: var(--pn-mono);
+}
+
+html[data-redesign] .commandPaletteInput {
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .commandPaletteInput::placeholder {
+  color: var(--pn-ink-4);
+}
+
+html[data-redesign] .commandPaletteEmpty,
+html[data-redesign] .commandPaletteGroupLabel {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .commandPaletteItem:hover {
+  background: var(--pn-hover);
+}
+
+html[data-redesign] .commandPaletteItemSelected {
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .commandPaletteItemIcon {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .commandPaletteItemIcon.iconActive {
+  color: var(--pn-brand);
+}
+
+html[data-redesign] .commandPaletteItemSubtitle {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .commandPaletteItemShortcut {
+  color: var(--pn-ink-3);
+  background: var(--pn-hover);
+  font-family: var(--pn-mono);
+}
+
+html[data-redesign] .commandPaletteFooter {
+  border-top-color: var(--pn-line-2);
+  background: var(--pn-surface);
+}
+
+html[data-redesign] .commandPaletteHint {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .commandPaletteHint kbd {
+  background: var(--pn-hover);
+  font-family: var(--pn-mono);
+}
+
+html[data-redesign] .quickPromptItem {
+  background: var(--pn-surface);
+  border-color: var(--pn-line);
+}
+
+html[data-redesign] .quickPromptItem:hover {
+  border-color: var(--pn-line-2);
+  background: var(--pn-hover);
+}
+
+html[data-redesign] .quickPromptShortcut {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-mono);
+}
+
+html[data-redesign] .iconBtn {
+  border-color: var(--pn-line-2);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .iconBtn:hover {
+  background: var(--pn-hover);
+}
+
+html[data-redesign] .iconBtn.iconBtnActive {
+  border-color: var(--pn-brand);
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .shortcutHint {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .shortcutHint kbd {
+  background: var(--pn-hover);
+  font-family: var(--pn-mono);
+}
+

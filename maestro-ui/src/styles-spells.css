@@ -555,3 +555,151 @@
   text-transform: uppercase;
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
+
+/* ===================================================================
+   REDESIGN OVERRIDE (Atelier / pn-* tokens) — scoped to html[data-redesign].
+   The base .spellPicker__* styles above are neon-terminal (green
+   --theme-primary, dark surface-2 popup, black scrim, white-alpha borders)
+   so they render dark/neon in the warm-paper redesign. These overrides
+   repoint the offending selectors to --pn-* tokens. Token-only; no hex.
+   Mirrors the override style in styles-mentions.css. Used by SpellPicker.tsx.
+   =================================================================== */
+html[data-redesign] .spellPicker__backdrop {
+  background: rgba(40, 34, 24, 0.4);
+}
+html[data-redesign] .spellPicker {
+  background: var(--pn-card);
+  border: 1px solid var(--pn-line);
+  box-shadow: var(--pn-sh-md);
+}
+html[data-redesign] .spellPicker__header {
+  border-bottom: 1px solid var(--pn-line);
+}
+html[data-redesign] .spellPicker__title {
+  font-family: var(--pn-ui);
+  color: var(--pn-brand);
+}
+html[data-redesign] .spellPicker__close {
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .spellPicker__close:hover {
+  border-color: var(--pn-line-2);
+  background: var(--pn-hover);
+  color: var(--pn-ink);
+}
+html[data-redesign] .spellPicker__tabs {
+  border-bottom: 1px solid var(--pn-line);
+}
+html[data-redesign] .spellPicker__tab {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .spellPicker__tab:hover {
+  background: var(--pn-hover);
+  color: var(--pn-ink);
+}
+html[data-redesign] .spellPicker__tab--active {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-brand);
+  color: var(--pn-brand);
+}
+html[data-redesign] .spellPicker__list::-webkit-scrollbar-thumb {
+  background: var(--pn-line-2);
+}
+html[data-redesign] .spellPicker__list::-webkit-scrollbar-thumb:hover {
+  background: var(--pn-brand);
+}
+html[data-redesign] .spellPicker__sectionHeader {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .spellPicker__entityRow {
+  color: var(--pn-ink);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .spellPicker__entityRow:hover {
+  background: var(--pn-hover);
+}
+html[data-redesign] .spellPicker__entityType {
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .spellPicker__entityExpand {
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .spellPicker__spellBadge {
+  background: var(--pn-brand-soft);
+  color: var(--pn-brand);
+  border: 1px solid var(--pn-line);
+}
+html[data-redesign] .spellPicker__spellRow {
+  border-left: 2px solid var(--pn-line);
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .spellPicker__spellRow:hover {
+  color: var(--pn-brand);
+  border-left-color: var(--pn-brand);
+  background: var(--pn-brand-soft);
+}
+html[data-redesign] .spellPicker__empty {
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .spellPicker__createBtn {
+  background: var(--pn-brand-soft);
+  border: 1px solid var(--pn-brand);
+  color: var(--pn-brand);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .spellPicker__createBtn:hover {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-brand);
+}
+html[data-redesign] .spellPicker__formLabel {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .spellPicker__formInput {
+  background: var(--pn-surface);
+  border: 1px solid var(--pn-line);
+  color: var(--pn-ink);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .spellPicker__formInput:focus {
+  border-color: var(--pn-brand);
+}
+html[data-redesign] .spellPicker__formTextarea {
+  background: var(--pn-surface);
+  border: 1px solid var(--pn-line);
+  color: var(--pn-ink);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .spellPicker__formTextarea:focus {
+  border-color: var(--pn-brand);
+}
+html[data-redesign] .spellPicker__formBtnCancel {
+  border: 1px solid var(--pn-line);
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .spellPicker__formBtnCancel:hover {
+  border-color: var(--pn-line-2);
+  color: var(--pn-ink);
+}
+html[data-redesign] .spellPicker__formBtnSave {
+  background: var(--pn-brand-soft);
+  border: 1px solid var(--pn-brand);
+  color: var(--pn-brand);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .spellPicker__formBtnSave:hover:not(:disabled) {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-brand);
+}
+html[data-redesign] .spellPicker__entityDelete {
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .spellPicker__defaultBadge {
+  background: var(--pn-surface);
+  color: var(--pn-ink-3);
+  border: 1px solid var(--pn-line);
+}

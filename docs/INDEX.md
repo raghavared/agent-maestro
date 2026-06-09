@@ -1,7 +1,7 @@
 # Maestro Integration Documentation Index
 
 **Current Architecture:** Server-Generated Manifests (Approach C)
-**Last Updated:** February 3, 2026
+**Last Updated:** June 9, 2026
 
 ---
 

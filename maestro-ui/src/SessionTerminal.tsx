@@ -3,8 +3,26 @@ import React, { useEffect, useRef } from "react";
 import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import type { PendingDataBuffer } from "./app/types/app-state";
+import { useTerminalSettingsStore, buildITheme } from "./stores/useTerminalSettingsStore";
 
 export type TerminalRegistry = Map<string, { term: Terminal; fit: FitAddon }>;
+
+/* ---------------------------------------------------------------------------
+   Terminal background follows the app light/dark toggle: it stays DARK in both
+   modes, flipping between two dark values to match the --pn-term-bg chrome
+   gutter — UNLESS the user pins an explicit background in Terminal settings
+   (see buildITheme + useTerminalSettingsStore). All other colors, font, cursor
+   and spacing come from the terminal-settings store.
+--------------------------------------------------------------------------- */
+const MAESTRO_TERMINAL_BG_LIGHT = "#1B1812";
+const MAESTRO_TERMINAL_BG_DARK = "#100E0A";
+
+function currentTerminalBg(): string {
+  return typeof document !== "undefined" &&
+    document.documentElement.dataset.theme === "dark"
+    ? MAESTRO_TERMINAL_BG_DARK
+    : MAESTRO_TERMINAL_BG_LIGHT;
+}
 
 type RenderDimension = { width: number; height: number };
 type RenderDimensionsFallback = {
@@ -108,25 +126,106 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
     const container = containerRef.current;
     if (!container) return;
 
+    const termSettings = useTerminalSettingsStore.getState();
     const term = new Terminal({
       allowProposedApi: true,
-      cursorBlink: true,
+      cursorBlink: termSettings.cursorBlink,
+      cursorStyle: termSettings.cursorStyle,
+      cursorInactiveStyle: termSettings.cursorInactiveStyle,
       disableStdin: props.readOnly,
-      fontFamily:
-        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-      fontSize: 13,
-      theme: {
-        background: "#0a0e16",
-        foreground: "#f0f4f8",
-        cursor: "#6b8afd",
-        selectionBackground: "rgba(34,211,238,0.25)",
-      },
-      scrollback: 5000,
+      fontFamily: termSettings.fontStack,
+      fontSize: termSettings.fontSize,
+      fontWeight: termSettings.fontWeight,
+      fontWeightBold: termSettings.fontWeightBold,
+      lineHeight: termSettings.lineHeight,
+      letterSpacing: termSettings.letterSpacing,
+      theme: buildITheme(termSettings.colors, currentTerminalBg()),
+      scrollback: termSettings.scrollback,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(container);
     patchXtermRenderServiceDimensions(term);
+
+    // Keep the terminal background in sync with the app light/dark toggle.
+    // The terminal stays dark in both modes; only the bg flips between two
+    // dark values to match the --pn-term-bg chrome gutter. Theme-only update —
+    // does not touch the PTY, registry, or fit.
+    const themeObserver = new MutationObserver(() => {
+      const ts = useTerminalSettingsStore.getState();
+      term.options.theme = buildITheme(ts.colors, currentTerminalBg());
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+
+    // xterm measures glyph metrics at open() and (with the DOM renderer) paints
+    // glyphs via CSS font-family. In WKWebView (macOS Tauri) the "JetBrains
+    // Mono" webfont usually isn't ready at open(), and — unlike Chromium — the
+    // terminal does NOT reflow/repaint when it finishes loading, so it sticks on
+    // the system-mono fallback. Force a re-measure + full repaint once the font
+    // loads. A fontSize round-trip reliably re-triggers xterm's CharSizeService
+    // and a renderer repaint (a same-value fontFamily set does not). Retries
+    // cover WKWebView reporting `fonts.ready` a frame or two before paint.
+    const forceFontReflow = () => {
+      if (!term.element) return; // terminal disposed before the font loaded
+      const ts = useTerminalSettingsStore.getState();
+      const size = ts.fontSize ?? term.options.fontSize ?? 13;
+      // Re-assert the configured font and round-trip fontSize: this forces
+      // xterm's CharSizeService/WidthCache to re-measure with the now-loaded
+      // font and triggers a full repaint (a same-value fontFamily set alone
+      // does not).
+      term.options.fontFamily = ts.fontStack;
+      term.options.fontSize = size + 1;
+      term.options.fontSize = size;
+      // Canvas/webgl renderers cache glyphs in a texture atlas keyed on the
+      // font measured at open(); clear it so glyphs re-rasterize in the new
+      // font. No-op on the DOM renderer.
+      try {
+        (term as unknown as { clearTextureAtlas?: () => void }).clearTextureAtlas?.();
+      } catch {
+        /* not applicable to this renderer */
+      }
+      try {
+        fit.fit();
+      } catch {
+        /* container not measurable yet — next resize will re-fit */
+      }
+      try {
+        term.refresh(0, term.rows - 1);
+      } catch {
+        /* renderer not ready yet */
+      }
+      // WKWebView (macOS) paints terminal glyphs with the fallback font before
+      // the webfont finishes decoding and does NOT repaint on font-display:swap,
+      // so the rows stay system-mono even though their computed font-family is
+      // already "JetBrains Mono". Force a hard re-rasterization by toggling the
+      // element's display — WKWebView discards the cached glyph layer and
+      // repaints with the now-loaded font.
+      const el = term.element;
+      if (el) {
+        const prevDisplay = el.style.display;
+        el.style.display = "none";
+        void el.offsetHeight; // force synchronous reflow
+        el.style.display = prevDisplay;
+      }
+    };
+    if (typeof document !== "undefined" && document.fonts) {
+      // Trigger the actual font fetch, then reflow on ready regardless of
+      // whether the explicit load resolved (WKWebView can reject spuriously).
+      try {
+        document.fonts.load('13px "JetBrains Mono"');
+        document.fonts.load('600 13px "JetBrains Mono"');
+      } catch {
+        /* FontFaceSet.load unsupported — the timed retries below still cover it */
+      }
+      document.fonts.ready.then(forceFontReflow).catch(() => {});
+    }
+    // Belt-and-suspenders for WKWebView: re-assert a few times after paint.
+    const fontReflowTimers = [120, 360, 900].map((ms) =>
+      window.setTimeout(forceFontReflow, ms),
+    );
 
     if (props.persistent) {
       const skipEscapeSequence = (data: string, start: number): number => {
@@ -372,7 +471,16 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
 
 	    }
 
+	    function isPanelResizing() {
+	      const cl = document.documentElement.classList;
+	      return cl.contains("maestro-sidebar-resizing") || cl.contains("right-panel-resizing");
+	    }
+
 	    function scheduleResize() {
+	      // While a panel splitter is being dragged the terminal box resizes every
+	      // frame. Skip fit()/PTY-resize entirely during the drag (the box just
+	      // stretches via CSS) and reflow once on drag-end (maestro:panel-resize-end).
+	      if (isPanelResizing()) return;
 	      if (resizeRafRef.current !== null) return;
 	      if (resizeTimeoutRef.current !== null) return;
 
@@ -466,9 +574,17 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
 		    resizeObserver.observe(container);
 		    scheduleResize();
 
+		    // After a panel splitter drag ends, run a single fit() to reflow to the
+		    // final size (the per-frame fits were skipped during the drag).
+		    const handlePanelResizeEnd = () => scheduleResize();
+		    window.addEventListener("maestro:panel-resize-end", handlePanelResizeEnd);
+
 
 	    return () => {
+	      themeObserver.disconnect();
+	      for (const t of fontReflowTimers) window.clearTimeout(t);
 	      resizeObserver.disconnect();
+	      window.removeEventListener("maestro:panel-resize-end", handlePanelResizeEnd);
 	      if (resizeRafRef.current !== null) {
 	        window.cancelAnimationFrame(resizeRafRef.current);
 	      }
@@ -546,6 +662,86 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
     if (!term) return;
     term.options.disableStdin = props.readOnly;
   }, [props.readOnly]);
+
+  // Apply ALL user-configured terminal settings live to every open terminal
+  // when any setting changes. Re-measure + re-fit so the grid reflows, with
+  // the same WKWebView hard-repaint used at creation.
+  const termFontStack = useTerminalSettingsStore((s) => s.fontStack);
+  const termFontSize = useTerminalSettingsStore((s) => s.fontSize);
+  const termFontWeight = useTerminalSettingsStore((s) => s.fontWeight);
+  const termFontWeightBold = useTerminalSettingsStore((s) => s.fontWeightBold);
+  const termLineHeight = useTerminalSettingsStore((s) => s.lineHeight);
+  const termLetterSpacing = useTerminalSettingsStore((s) => s.letterSpacing);
+  const termCursorStyle = useTerminalSettingsStore((s) => s.cursorStyle);
+  const termCursorBlink = useTerminalSettingsStore((s) => s.cursorBlink);
+  const termCursorInactiveStyle = useTerminalSettingsStore((s) => s.cursorInactiveStyle);
+  const termScrollback = useTerminalSettingsStore((s) => s.scrollback);
+  const termColors = useTerminalSettingsStore((s) => s.colors);
+
+  useEffect(() => {
+    const term = termRef.current;
+    const fit = fitRef.current;
+    if (!term) return;
+
+    // Font / layout options — trigger WKWebView reflow for any of these
+    const needsReflow =
+      term.options.fontFamily !== termFontStack ||
+      term.options.fontSize !== termFontSize ||
+      term.options.fontWeight !== termFontWeight ||
+      term.options.fontWeightBold !== termFontWeightBold ||
+      term.options.lineHeight !== termLineHeight ||
+      term.options.letterSpacing !== termLetterSpacing;
+
+    term.options.fontFamily = termFontStack;
+    term.options.fontSize = termFontSize;
+    term.options.fontWeight = termFontWeight;
+    term.options.fontWeightBold = termFontWeightBold;
+    term.options.lineHeight = termLineHeight;
+    term.options.letterSpacing = termLetterSpacing;
+
+    // Cursor options
+    term.options.cursorStyle = termCursorStyle;
+    term.options.cursorBlink = termCursorBlink;
+    term.options.cursorInactiveStyle = termCursorInactiveStyle;
+
+    // Scrollback
+    term.options.scrollback = termScrollback;
+
+    // Theme colors
+    term.options.theme = buildITheme(termColors, currentTerminalBg());
+
+    if (needsReflow) {
+      try {
+        fit?.fit();
+      } catch {
+        /* not measurable yet */
+      }
+      try {
+        term.refresh(0, term.rows - 1);
+      } catch {
+        /* renderer not ready */
+      }
+      const el = term.element;
+      if (el) {
+        const prevDisplay = el.style.display;
+        el.style.display = "none";
+        void el.offsetHeight;
+        el.style.display = prevDisplay;
+      }
+    }
+  }, [
+    termFontStack,
+    termFontSize,
+    termFontWeight,
+    termFontWeightBold,
+    termLineHeight,
+    termLetterSpacing,
+    termCursorStyle,
+    termCursorBlink,
+    termCursorInactiveStyle,
+    termScrollback,
+    termColors,
+  ]);
 
   return <div ref={containerRef} style={{ height: "100%", width: "100%" }} />;
 });

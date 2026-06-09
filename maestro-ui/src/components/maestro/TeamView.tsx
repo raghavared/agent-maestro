@@ -6,7 +6,8 @@ import type { ChildStats } from '../../utils/resolveTeamView';
 import { useSessionStore } from '../../stores/useSessionStore';
 import { useMaestroStore } from '../../stores/useMaestroStore';
 import { useUIStore } from '../../stores/useUIStore';
-import { WorktreeBadge, getWorktreeInfo } from './WorktreeBadge';
+import { getWorktreeInfo } from './WorktreeBadge';
+import { Icon, Glyph, Avatar, AgentTile, type AgentKind } from './redesign/kit';
 
 interface TeamViewProps {
   root: MaestroSession;
@@ -24,8 +25,9 @@ interface SlotInfo {
   maestroSessionId: string;
   localSessionId: string | null;
   label: string;
-  avatar: string;
+  agent: AgentKind;
   status: string;
+  needsInput: boolean;
   drillable: boolean;
   resumable: boolean;
   stats: ChildStats;
@@ -41,6 +43,17 @@ function snapshotOf(session: MaestroSession) {
 function labelOf(session: MaestroSession): string {
   const snap = snapshotOf(session);
   return snap?.name || session.name || session.id.slice(0, 12);
+}
+
+function agentKindOf(session: MaestroSession): AgentKind {
+  const agentTool = (session.metadata as { agentTool?: string } | undefined)?.agentTool;
+  return !agentTool || agentTool === 'claude-code'
+    ? 'claude'
+    : agentTool === 'codex'
+      ? 'codex'
+      : agentTool === 'gemini'
+        ? 'gemini'
+        : agentTool;
 }
 
 function isResumable(session: MaestroSession): boolean {
@@ -82,8 +95,9 @@ export const TeamView = React.memo(function TeamView({
     maestroSessionId: root.id,
     localSessionId: linkMap.get(root.id) ?? null,
     label: labelOf(root),
-    avatar: snapshotOf(root)?.avatar || '\u{1F451}',
+    agent: agentKindOf(root),
     status: root.status || 'idle',
+    needsInput: root.needsInput?.active ?? false,
     drillable: false,
     resumable: isResumable(root),
     stats: childStats(root.id),
@@ -97,8 +111,9 @@ export const TeamView = React.memo(function TeamView({
         maestroSessionId: child.id,
         localSessionId: linkMap.get(child.id) ?? null,
         label: labelOf(child),
-        avatar: snapshotOf(child)?.avatar || '⚡',
+        agent: agentKindOf(child),
         status: child.status || 'idle',
+        needsInput: child.needsInput?.active ?? false,
         drillable: stats.total > 0,
         resumable: isResumable(child),
         stats,
@@ -206,12 +221,7 @@ export const TeamView = React.memo(function TeamView({
       : root.status === 'completed'
         ? 'Done'
         : 'Idle';
-  const statusKey =
-    root.status === 'working' || root.status === 'spawning'
-      ? 'active'
-      : root.status === 'completed'
-        ? 'done'
-        : 'idle';
+  const pillActive = root.status === 'working' || root.status === 'spawning';
 
   const memberCount = 1 + childSlots.length;
 
@@ -225,43 +235,46 @@ export const TeamView = React.memo(function TeamView({
 
   return createPortal(
     <div className="teamViewOverlay">
-      <div className="teamViewContainer">
+      <div className="pn-screen pn-tv" style={{ height: '100%' }}>
         {/* Header */}
-        <div className="teamViewHeader">
-          <div className="teamViewHeaderLeft">
-            <span className="teamViewHeaderLabel">{rootSlot.avatar} {rootSlot.label}</span>
-            <span className={`teamViewHeaderStatus teamViewHeaderStatus--${statusKey}`}>
-              {statusLabel}
-            </span>
-            <span className="teamViewHeaderCount">
-              {memberCount} {memberCount === 1 ? 'member' : 'members'}
-            </span>
-          </div>
-          <div className="teamViewHeaderRight">
-            <span className="teamViewHeaderHint">click child to drill / double-click to open / Esc to close</span>
-            <button type="button" className="teamViewCloseBtn" onClick={onClose} title="Close team view (Esc)">
-              {'✕'}
-            </button>
-          </div>
+        <div className="pn-tv__hd">
+          <span className="pn-tv__title">
+            <AgentTile kind={rootSlot.agent} lg /> {rootSlot.label}
+          </span>
+          <span className={`pn-tv__pill ${pillActive ? 'pn-tv__pill--active' : 'pn-tv__pill--idle'}`}>
+            <span className={`pn-dot ${pillActive ? 'pn-dot--run' : 'pn-dot--idle'}`} /> {statusLabel}
+          </span>
+          <span className="pn-tv__count">
+            {memberCount} {memberCount === 1 ? 'member' : 'members'}
+          </span>
+          <span className="pn-tv__hint">click child to drill · double-click to open · Esc to close</span>
+          <button type="button" className="pn-tv__close" onClick={onClose} title="Close team view (Esc)">
+            <Icon name="x" />
+          </button>
         </div>
 
         {/* Breadcrumbs: trueRoot ▸ … ▸ currentRoot */}
         {trail.length > 0 && (
-          <div className="teamViewBreadcrumbs">
+          <div className="pn-tv__crumbs">
             {trail.map((s, i) => {
               const isCurrent = s.id === root.id;
+              const name = labelOf(s);
               return (
                 <React.Fragment key={s.id}>
-                  {i > 0 && <span className="teamViewBreadcrumbs__sep">{'▸'}</span>}
+                  {i > 0 && (
+                    <span className="pn-tv__crumb-sep">
+                      <Icon name="chevronR" size={12} />
+                    </span>
+                  )}
                   <button
                     type="button"
-                    className={`teamViewBreadcrumbs__crumb ${isCurrent ? 'teamViewBreadcrumbs__crumb--current' : ''}`}
+                    className={`pn-tv__crumb ${isCurrent ? 'pn-tv__crumb--current' : ''}`}
                     disabled={isCurrent}
                     onClick={() => onReRoot(s.id)}
-                    title={isCurrent ? labelOf(s) : `Re-root at ${labelOf(s)}`}
+                    title={isCurrent ? name : `Re-root at ${name}`}
                   >
-                    <span className="teamViewBreadcrumbs__avatar">{snapshotOf(s)?.avatar || '\u{1F465}'}</span>
-                    <span className="teamViewBreadcrumbs__name">{labelOf(s)}</span>
+                    <Avatar a={{ initial: (name[0] || '?').toUpperCase(), name, color: 'var(--pn-ink-2)' }} />
+                    <span>{name}</span>
                   </button>
                 </React.Fragment>
               );
@@ -269,31 +282,35 @@ export const TeamView = React.memo(function TeamView({
           </div>
         )}
 
-        {/* Body: root left, children right */}
-        <div className="teamViewBody" ref={bodyRef}>
-          {/* Root panel - left side, full height */}
+        {/* Body: coordinator left, workers right */}
+        <div className="pn-tv__body" ref={bodyRef}>
+          {/* Coordinator (root) column - left side, full height */}
           <div
-            className="teamViewCoordinator"
+            className="pn-tv__coord"
             data-maestro-session-id={rootSlot.maestroSessionId}
             style={(rootStyle || {}) as React.CSSProperties}
           >
-            <div className="teamViewSlotHeader">
-              <span className="teamViewSlotAvatar">{rootSlot.avatar}</span>
-              <span className="teamViewSlotName">{rootSlot.label}</span>
-              <span className="teamViewSlotRole">root</span>
-              <span className={`teamViewSlotStatus teamViewSlotStatus--${rootSlot.status}`}>
-                {rootSlot.status}
+            <div className="pn-tv__coordhd">
+              <span className="pn-tv__coordring">
+                <AgentTile kind={rootSlot.agent} lg />
               </span>
-              {rootSlot.branch && <WorktreeBadge branch={rootSlot.branch} compact />}
-              <div className="teamViewSlotHeaderActions">
-                <TeamViewSlotStats stats={rootSlot.stats} />
-                {rootSlot.resumable && (
-                  <TeamViewResumeBtn
-                    resuming={resumingId === rootSlot.maestroSessionId}
-                    onResume={() => handleResume(rootSlot.maestroSessionId)}
-                  />
-                )}
-              </div>
+              <span className="pn-tv__coordname">{rootSlot.label}</span>
+              <span className="pn-tv__coordbadge">
+                <Icon name="baton" /> Coordinator
+              </span>
+              {rootSlot.branch && (
+                <span className="pn-mini" title={`worktree ${rootSlot.branch}`}>
+                  <Icon name="gitBranch" size={12} />
+                </span>
+              )}
+              <span className="pn-tv__slotsp" />
+              <TeamViewSlotStats stats={rootSlot.stats} />
+              {rootSlot.resumable && (
+                <TeamViewResumeBtn
+                  resuming={resumingId === rootSlot.maestroSessionId}
+                  onResume={() => handleResume(rootSlot.maestroSessionId)}
+                />
+              )}
             </div>
             {rootSlot.localSessionId ? (
               <TeamViewTerminalSlot
@@ -306,46 +323,36 @@ export const TeamView = React.memo(function TeamView({
             )}
           </div>
 
-          {/* Resize handle between root and children */}
+          {/* Resize handle between coordinator and workers */}
           {hasChildSlots && (
-            <div className="teamViewResizeHandle" onMouseDown={handleResizeStart} />
+            <div className="pn-tv__resize" onMouseDown={handleResizeStart} />
           )}
 
-          {/* Children panel - right side, split horizontally */}
+          {/* Workers panel - right side, horizontally scrollable columns */}
           {hasChildSlots && (
-            <div className="teamViewWorkers" style={childrenStyle as React.CSSProperties}>
+            <div className="pn-tv__workers" style={childrenStyle as React.CSSProperties}>
               {childSlots.map((child) => (
                 <div
                   key={child.maestroSessionId}
-                  className={`teamViewWorkerSlot ${child.drillable ? 'teamViewWorkerSlot--drillable' : ''}`}
+                  className={`pn-tv__col ${child.needsInput ? 'pn-tv__col--needs' : ''}`}
                   data-maestro-session-id={child.maestroSessionId}
                 >
-                  <div className="teamViewSlotHeader">
-                    <span className="teamViewSlotAvatar">{child.avatar}</span>
-                    <span className="teamViewSlotName">{child.label}</span>
-                    <span className={`teamViewSlotStatus teamViewSlotStatus--${child.status}`}>
-                      {child.status}
-                    </span>
-                    {child.branch && <WorktreeBadge branch={child.branch} compact />}
-                    <div className="teamViewSlotHeaderActions">
-                      <TeamViewSlotStats stats={child.stats} />
-                      {child.resumable && (
-                        <TeamViewResumeBtn
-                          resuming={resumingId === child.maestroSessionId}
-                          onResume={() => handleResume(child.maestroSessionId)}
-                        />
-                      )}
-                      {child.drillable && (
-                        <button
-                          type="button"
-                          className="teamViewSlotDrillBtn"
-                          onClick={() => onReRoot(child.maestroSessionId)}
-                          title={`Drill into this team (${child.stats.total} ${child.stats.total === 1 ? 'worker' : 'workers'})`}
-                        >
-                          {'⤵'}
-                        </button>
-                      )}
-                    </div>
+                  <div className="pn-tv__slothd">
+                    <AgentTile kind={child.agent} />
+                    <span className="pn-tv__slotname">{child.label}</span>
+                    <Glyph kind={child.needsInput ? 'needsInput' : child.status} size={14} />
+                    <span className="pn-tv__slotsp" />
+                    {child.branch && (
+                      <span className="pn-mini" title={`worktree ${child.branch}`}>
+                        <Icon name="gitBranch" size={12} />
+                      </span>
+                    )}
+                    {child.resumable && (
+                      <TeamViewResumeBtn
+                        resuming={resumingId === child.maestroSessionId}
+                        onResume={() => handleResume(child.maestroSessionId)}
+                      />
+                    )}
                   </div>
                   {child.localSessionId ? (
                     <TeamViewTerminalSlot
@@ -359,6 +366,18 @@ export const TeamView = React.memo(function TeamView({
                       drillable={child.drillable}
                       onDrill={() => onReRoot(child.maestroSessionId)}
                     />
+                  )}
+                  {child.drillable && (
+                    <div
+                      className="pn-tv__drillbar"
+                      onClick={() => onReRoot(child.maestroSessionId)}
+                      title={`Drill into this team (${child.stats.total} ${child.stats.total === 1 ? 'worker' : 'workers'})`}
+                    >
+                      {child.stats.total} {child.stats.total === 1 ? 'worker' : 'workers'} — drill in
+                      <span className="arrow">
+                        <Icon name="arrowRight" size={13} />
+                      </span>
+                    </div>
                   )}
                 </div>
               ))}
@@ -379,21 +398,21 @@ function TeamViewSlotStats({ stats }: { stats: ChildStats }) {
   if (stats.total === 0) return null;
   return (
     <span
-      className="teamViewSlotStats"
+      className="pn-tv__stats"
       title={`${stats.total} sub-agent${stats.total === 1 ? '' : 's'} · ${stats.active} active · ${stats.inactive} inactive`}
     >
-      <span className="teamViewSlotStats__total">
+      <span>
         {stats.total} {stats.total === 1 ? 'worker' : 'workers'}
       </span>
       {stats.active > 0 && (
-        <span className="teamViewSlotStats__chip teamViewSlotStats__chip--active">
-          <span className="teamViewSlotStats__dot" />
+        <span className="pn-tv__statchip" style={{ color: 'var(--pn-run)' }}>
+          <span className="pn-dot pn-dot--run" />
           {stats.active}
         </span>
       )}
       {stats.inactive > 0 && (
-        <span className="teamViewSlotStats__chip teamViewSlotStats__chip--inactive">
-          <span className="teamViewSlotStats__dot" />
+        <span className="pn-tv__statchip">
+          <span className="pn-dot pn-dot--idle" />
           {stats.inactive}
         </span>
       )}
@@ -411,12 +430,12 @@ function TeamViewResumeBtn({
   return (
     <button
       type="button"
-      className="teamViewSlotResumeBtn"
+      className="pn-tv__colbtn"
       onClick={onResume}
       disabled={resuming}
       title="Resume session"
     >
-      {resuming ? '…' : '↻'}
+      {resuming ? '…' : <Icon name="refresh" />}
     </button>
   );
 }
@@ -431,11 +450,11 @@ function TeamViewPlaceholder({
   onDrill?: () => void;
 }) {
   return (
-    <div className="teamViewSlotPlaceholder">
-      <span className="teamViewSlotPlaceholder__text">No live terminal for {label}</span>
+    <div className="pn-tv__ph">
+      <span>No live terminal for {label}</span>
       {drillable && onDrill && (
-        <button type="button" className="teamViewSlotPlaceholder__drill" onClick={onDrill}>
-          Drill in {'⤵'}
+        <button type="button" className="pn-tv__ph__resume" onClick={onDrill}>
+          <Icon name="arrowRight" /> Drill in
         </button>
       )}
     </div>
@@ -508,7 +527,7 @@ const TeamViewTerminalSlot = React.memo(function TeamViewTerminalSlot({
 
   return (
     <div
-      className="teamViewSlotTerminal teamViewSlotTerminal--host"
+      className="pn-tv__term pn-tv__term--host"
       ref={hostRef}
       onDoubleClick={onDoubleClick}
     />

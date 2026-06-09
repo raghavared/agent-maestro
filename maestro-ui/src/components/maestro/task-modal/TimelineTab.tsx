@@ -27,11 +27,11 @@ export function TimelineTab({ taskId }: TimelineTabProps) {
     }, [sessions, taskId]);
 
     if (sessions.length === 0) {
-        return <div className="themedFormHint">No sessions to show timeline for</div>;
+        return <div className="pn-fhint">No sessions to show timeline for</div>;
     }
 
     if (!hasTimelineEvents) {
-        return <div className="themedFormHint">No timeline events recorded yet</div>;
+        return <div className="pn-fhint">No timeline events recorded yet</div>;
     }
 
     return (

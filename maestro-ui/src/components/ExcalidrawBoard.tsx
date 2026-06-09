@@ -34,6 +34,23 @@ type ExcalidrawBoardProps = {
 
 type ExcalidrawChangeHandler = NonNullable<React.ComponentProps<typeof Excalidraw>["onChange"]>;
 
+/** Reactively follow the app's redesign light/dark axis (<html data-theme>) so
+ *  Excalidraw's built-in theme tracks the global toggle. */
+function useExcalidrawTheme(): "light" | "dark" {
+  const [isDark, setIsDark] = useState(
+    () => typeof document !== "undefined" && document.documentElement.dataset.theme === "dark",
+  );
+  useEffect(() => {
+    const el = document.documentElement;
+    const sync = () => setIsDark(el.dataset.theme === "dark");
+    const observer = new MutationObserver(sync);
+    observer.observe(el, { attributes: true, attributeFilter: ["data-theme"] });
+    sync();
+    return () => observer.disconnect();
+  }, []);
+  return isDark ? "dark" : "light";
+}
+
 function loadInitialData(key: string): ExcalidrawInitialDataState | null {
   try {
     const raw = localStorage.getItem(key);
@@ -55,6 +72,7 @@ export function ExcalidrawBoard({ onClose, inline, storageKey, name, originSessi
   const saveTimeoutRef = useRef<number | null>(null);
   const isViewMode = mode === 'view';
   const isDocBacked = Boolean(docId && docSessionId);
+  const excalidrawTheme = useExcalidrawTheme();
 
   const initialData = useMemo(() => {
     // Server-provided JSON takes priority over localStorage cache
@@ -439,6 +457,7 @@ export function ExcalidrawBoard({ onClose, inline, storageKey, name, originSessi
             onChange={handleChange}
             excalidrawAPI={(api) => { excalidrawAPIRef.current = api; setApiReady(true); }}
             viewModeEnabled={isViewMode}
+            theme={excalidrawTheme}
           />
         </div>
       </div>

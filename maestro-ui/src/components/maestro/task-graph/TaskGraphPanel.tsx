@@ -97,7 +97,7 @@ export const TaskGraphPanel: React.FC<TaskGraphPanelProps> = ({ projectId, creat
   // Graph list view (no graph selected)
   if (!selectedGraph) {
     return (
-      <div className="taskGraphPanel" style={{ padding: '12px 16px', height: '100%', overflow: 'auto' }}>
+      <div className="taskGraphPanel pnLeakSkin" style={{ padding: '12px 16px', height: '100%', overflow: 'auto' }}>
         {showNewGraphInput && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
             <input
@@ -112,7 +112,7 @@ export const TaskGraphPanel: React.FC<TaskGraphPanelProps> = ({ projectId, creat
                 padding: '6px 10px',
                 fontSize: 12,
                 background: 'var(--bg-tertiary, #1f1f1f)',
-                border: '1px solid rgba(255,255,255,0.15)',
+                border: '1px solid var(--pn-line-2)',
                 borderRadius: 6,
                 color: 'var(--text-primary, #e5e5e5)',
                 outline: 'none',
@@ -124,10 +124,10 @@ export const TaskGraphPanel: React.FC<TaskGraphPanelProps> = ({ projectId, creat
               style={{
                 padding: '6px 12px',
                 fontSize: 12,
-                background: '#3b82f6',
+                background: 'var(--pn-brand)',
                 border: 'none',
                 borderRadius: 6,
-                color: '#fff',
+                color: 'var(--pn-paper)',
                 cursor: 'pointer',
               }}
             >
@@ -140,7 +140,7 @@ export const TaskGraphPanel: React.FC<TaskGraphPanelProps> = ({ projectId, creat
                 padding: '6px 8px',
                 fontSize: 12,
                 background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.15)',
+                border: '1px solid var(--pn-line-2)',
                 borderRadius: 6,
                 color: 'var(--text-secondary, #a0a0a0)',
                 cursor: 'pointer',
@@ -167,7 +167,7 @@ export const TaskGraphPanel: React.FC<TaskGraphPanelProps> = ({ projectId, creat
               padding: '10px 12px',
               marginBottom: 6,
               background: 'var(--bg-tertiary, #1f1f1f)',
-              border: '1px solid rgba(255,255,255,0.08)',
+              border: '1px solid var(--pn-line)',
               borderRadius: 8,
               cursor: 'pointer',
               display: 'flex',
@@ -175,8 +175,8 @@ export const TaskGraphPanel: React.FC<TaskGraphPanelProps> = ({ projectId, creat
               alignItems: 'center',
               transition: 'border-color 0.15s',
             }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--pn-line-2)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--pn-line)'; }}
           >
             <div>
               <div style={{ fontWeight: 600, fontSize: 13 }}>{graph.name}</div>
@@ -209,14 +209,14 @@ export const TaskGraphPanel: React.FC<TaskGraphPanelProps> = ({ projectId, creat
 
   // Graph editor view
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div className="pnLeakSkin" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Toolbar */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         gap: 8,
         padding: '6px 12px',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        borderBottom: '1px solid var(--pn-line)',
         fontSize: 12,
         flexShrink: 0,
       }}>
@@ -242,10 +242,10 @@ export const TaskGraphPanel: React.FC<TaskGraphPanelProps> = ({ projectId, creat
           style={{
             padding: '4px 10px',
             fontSize: 11,
-            background: showTaskPicker ? '#3b82f6' : 'var(--bg-tertiary, #1f1f1f)',
-            border: '1px solid rgba(255,255,255,0.15)',
+            background: showTaskPicker ? 'var(--pn-brand)' : 'var(--bg-tertiary, #1f1f1f)',
+            border: '1px solid var(--pn-line-2)',
             borderRadius: 5,
-            color: showTaskPicker ? '#fff' : 'var(--text-primary, #e5e5e5)',
+            color: showTaskPicker ? 'var(--pn-paper)' : 'var(--text-primary, #e5e5e5)',
             cursor: 'pointer',
           }}
         >
@@ -258,7 +258,7 @@ export const TaskGraphPanel: React.FC<TaskGraphPanelProps> = ({ projectId, creat
             padding: '4px 10px',
             fontSize: 11,
             background: 'var(--bg-tertiary, #1f1f1f)',
-            border: '1px solid rgba(255,255,255,0.15)',
+            border: '1px solid var(--pn-line-2)',
             borderRadius: 5,
             color: 'var(--text-primary, #e5e5e5)',
             cursor: 'pointer',
@@ -273,7 +273,7 @@ export const TaskGraphPanel: React.FC<TaskGraphPanelProps> = ({ projectId, creat
             padding: '4px 10px',
             fontSize: 11,
             background: 'var(--bg-tertiary, #1f1f1f)',
-            border: '1px solid rgba(255,255,255,0.15)',
+            border: '1px solid var(--pn-line-2)',
             borderRadius: 5,
             color: 'var(--text-primary, #e5e5e5)',
             cursor: 'pointer',
@@ -288,9 +288,9 @@ export const TaskGraphPanel: React.FC<TaskGraphPanelProps> = ({ projectId, creat
         <div style={{
           padding: '6px 12px',
           fontSize: 11,
-          background: validationResult.valid ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-          borderBottom: `1px solid ${validationResult.valid ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
-          color: validationResult.valid ? '#22c55e' : '#ef4444',
+          background: validationResult.valid ? 'var(--pn-run-soft)' : 'var(--pn-block-soft)',
+          borderBottom: `1px solid ${validationResult.valid ? 'var(--pn-run)' : 'var(--pn-block)'}`,
+          color: validationResult.valid ? 'var(--pn-run)' : 'var(--pn-block)',
           flexShrink: 0,
         }}>
           {validationResult.valid
@@ -304,7 +304,7 @@ export const TaskGraphPanel: React.FC<TaskGraphPanelProps> = ({ projectId, creat
         {showTaskPicker && (
           <div style={{
             width: 200,
-            borderRight: '1px solid rgba(255,255,255,0.08)',
+            borderRight: '1px solid var(--pn-line)',
             overflow: 'auto',
             padding: 8,
             flexShrink: 0,
@@ -321,13 +321,13 @@ export const TaskGraphPanel: React.FC<TaskGraphPanelProps> = ({ projectId, creat
                   marginBottom: 4,
                   borderRadius: 5,
                   background: 'var(--bg-tertiary, #1f1f1f)',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  border: '1px solid var(--pn-line)',
                   cursor: 'pointer',
                   fontSize: 11,
                   transition: 'border-color 0.15s',
                 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(59,130,246,0.5)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.06)'; }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--pn-brand)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--pn-line)'; }}
               >
                 <div style={{ fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                   {task.title || 'Untitled'}

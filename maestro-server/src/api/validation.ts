@@ -107,6 +107,20 @@ const memberLaunchOverrideSchema = z.object({
   }).optional(),
 }).strict();
 
+// --- Model profile schemas ---
+
+export const createModelProfileSchema = z.object({
+  name: shortString.max(100),
+  description: z.string().max(500).optional(),
+  launchConfig: launchConfigSchema,
+}).strict();
+
+export const updateModelProfileSchema = z.object({
+  name: shortString.max(100).optional(),
+  description: z.string().max(500).optional(),
+  launchConfig: launchConfigSchema.optional(),
+}).strict();
+
 // --- Task schemas ---
 
 export const createTaskSchema = z.object({
@@ -253,6 +267,7 @@ export const createTeamMemberSchema = z.object({
   identity: z.string().max(10000).optional(),
   avatar: shortString,
   model: z.string().max(100).optional(),
+  modelProfileId: safeId.optional(),
   agentTool: z.string().max(100).optional(),
   mode: agentModeSchema.optional(),
   permissionMode: permissionModeSchema.optional(),
@@ -281,6 +296,8 @@ export const updateTeamMemberSchema = z.object({
   identity: z.string().max(10000).optional(),
   avatar: shortString.optional(),
   model: z.string().max(100).optional(),
+  // Empty string clears the binding (member falls back to its raw model).
+  modelProfileId: z.string().regex(/^[a-zA-Z0-9_-]*$/, 'ID must be alphanumeric with hyphens/underscores only').max(100).optional(),
   agentTool: z.string().max(100).optional(),
   mode: agentModeSchema.optional(),
   permissionMode: permissionModeSchema.optional(),

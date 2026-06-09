@@ -126,6 +126,7 @@ export interface TeamMember {
   identity: string;
   avatar: string;
   model?: string;
+  modelProfileId?: string;
   agentTool?: AgentTool;
   mode?: AgentMode;
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
@@ -191,6 +192,7 @@ export interface CreateTeamMemberPayload {
   identity: string;
   avatar: string;
   model?: ModelType;
+  modelProfileId?: string;
   agentTool?: AgentTool;
   mode?: AgentMode;
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
@@ -208,6 +210,7 @@ export interface UpdateTeamMemberPayload {
   identity?: string;
   avatar?: string;
   model?: ModelType;
+  modelProfileId?: string;
   agentTool?: AgentTool;
   mode?: AgentMode;
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
@@ -220,6 +223,30 @@ export interface UpdateTeamMemberPayload {
   customWorkflow?: string;
   memory?: string[];
   soundInstrument?: InstrumentType;
+}
+
+// Model profile types — a named, workspace-global launch config that team members
+// reference by id. Mirrors maestro-server/src/types.ts ModelProfile.
+export interface ModelProfile {
+  id: string;
+  name: string;
+  description?: string;
+  launchConfig: LaunchConfig;
+  isDefault?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateModelProfilePayload {
+  name: string;
+  description?: string;
+  launchConfig: LaunchConfig;
+}
+
+export interface UpdateModelProfilePayload {
+  name?: string;
+  description?: string;
+  launchConfig?: LaunchConfig;
 }
 
 // Session timeline event types

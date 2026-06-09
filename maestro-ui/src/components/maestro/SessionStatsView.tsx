@@ -219,7 +219,7 @@ const TASK_STATUS_VISUAL: Record<TaskSessionStatus, StatusVisual> = {
   working: { color: "var(--ssv-info)", dim: "var(--ssv-info-dim)", icon: "loader", label: "working" },
   queued: { color: "var(--ssv-fg-4)", dim: "var(--ssv-idle-dim)", icon: "circle-dashed", label: "queued" },
   blocked: { color: "var(--ssv-block)", dim: "var(--ssv-block-dim)", icon: "ban", label: "blocked" },
-  skipped: { color: "var(--ssv-baton-400)", dim: "var(--ssv-baton-tint)", icon: "skip-forward", label: "skipped" },
+  skipped: { color: "var(--pn-wait)", dim: "var(--pn-wait-soft)", icon: "skip-forward", label: "skipped" },
 };
 
 const TIMELINE_SEVERITY: Record<SessionTimelineEventType, "neutral" | "info" | "success" | "warn" | "error"> = {
@@ -241,7 +241,7 @@ const SEVERITY_COLOR: Record<string, string> = {
   neutral: "var(--ssv-fg-4)",
   info: "var(--ssv-info)",
   success: "var(--ssv-run)",
-  warn: "var(--ssv-baton-400)",
+  warn: "var(--pn-wait)",
   error: "var(--ssv-block)",
 };
 
@@ -263,7 +263,7 @@ const TIMELINE_LABEL: Record<SessionTimelineEventType, string> = {
 const PRIORITY_VISUAL: Record<string, { label: string; bg: string; fg: string }> = {
   urgent: { label: "Urgent", bg: "var(--ssv-block-dim)", fg: "var(--ssv-block)" },
   high: { label: "High", bg: "var(--ssv-block-dim)", fg: "var(--ssv-block)" },
-  medium: { label: "Medium", bg: "var(--ssv-baton-tint)", fg: "var(--ssv-baton-400)" },
+  medium: { label: "Medium", bg: "var(--pn-wait-soft)", fg: "var(--pn-wait)" },
   low: { label: "Low", bg: "var(--ssv-bg-active)", fg: "var(--ssv-fg-3)" },
 };
 
@@ -946,13 +946,13 @@ export function SessionStatsView({ session: rootSession }: SessionStatsViewProps
                           className="ssv-msg-mark"
                           style={{
                             background:
-                              m.source === "assistant" ? "var(--ssv-info-dim)" : "var(--ssv-baton-tint)",
+                              m.source === "assistant" ? "var(--ssv-info-dim)" : "var(--pn-brand-soft)",
                           }}
                         >
                           <StatIcon
                             name={m.source === "assistant" ? "bot" : "user"}
                             size={13}
-                            color={m.source === "assistant" ? "var(--ssv-info)" : "var(--ssv-baton-400)"}
+                            color={m.source === "assistant" ? "var(--ssv-info)" : "var(--pn-brand)"}
                           />
                         </span>
                         <div className="ssv-msg-bubble">
@@ -961,7 +961,7 @@ export function SessionStatsView({ session: rootSession }: SessionStatsViewProps
                               className="ssv-msg-who"
                               style={{
                                 color:
-                                  m.source === "assistant" ? "var(--ssv-info)" : "var(--ssv-baton-400)",
+                                  m.source === "assistant" ? "var(--ssv-info)" : "var(--pn-brand)",
                               }}
                             >
                               {m.source}

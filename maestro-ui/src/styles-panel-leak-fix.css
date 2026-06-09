@@ -1,0 +1,77 @@
+/* ==========================================================================
+   SECONDARY PRIMARY-TAB PANELS — LIGHT-LEAK FIX (tokenization only)
+   ------------------------------------------------------------------------
+   The design-silent secondary left-panel content panels (Task Lists, Task
+   Graph, Model Profiles) render inside the redesigned pn-mp shell but still
+   consume the legacy terminal/neon theme variables
+   (--theme-*, --terminal-*, --panel, --style-surface-*, …). Those legacy
+   vars are always dark/neon and never flip for light mode, so the panels
+   leaked dark-on-light when the redesign runs in light theme.
+
+   This file does NOT touch any shared rule. It introduces one scoped skin
+   class — .pnLeakSkin — applied to each panel's own root container. Inside
+   that scope (and only there) the legacy variables are re-pointed to the
+   foundation --pn-* tokens. Because CSS custom properties inherit, every
+   descendant leaf rule resolves to paper-in-light / graphite-in-dark
+   automatically, in BOTH themes (the --pn-* tokens flip under
+   html[data-redesign][data-theme='dark']). No layout, no behaviour change.
+   ========================================================================== */
+
+html[data-redesign] .pnLeakSkin {
+  /* dynamic color theme (neon green by default) → calm warm ink/paper ----- */
+  --theme-primary:      var(--pn-brand);
+  --theme-primary-dim:  var(--pn-brand-2);
+  --theme-primary-rgb:  35, 32, 27;          /* --pn-ink (light) as an rgb triple */
+  --theme-border:       var(--pn-line);
+  --theme-text:         var(--pn-ink);
+  --theme-text-dim:     var(--pn-ink-3);
+
+  /* terminal aesthetic aliases (cyberpunk CLI) → editorial neutrals ------- */
+  --terminal-green:     var(--pn-run);
+  --terminal-green-dim: var(--pn-run);
+  --terminal-amber:     var(--pn-wait);
+  --terminal-cyan:      var(--pn-info);
+  --terminal-blue:      var(--pn-info);
+  --terminal-red:       var(--pn-block);
+  --terminal-gray:      var(--pn-ink-3);
+  --terminal-bg:        var(--pn-surface);
+  --terminal-bg-alt:    var(--pn-card);
+  --terminal-border:    var(--pn-line);
+  --terminal-text:      var(--pn-ink);
+  --terminal-text-dim:  var(--pn-ink-3);
+  --terminal-dim:       var(--pn-ink-3);
+
+  /* app-chrome surfaces ---------------------------------------------------- */
+  --bg:            var(--pn-paper);
+  --panel:         var(--pn-surface);
+  --panel-2:       var(--pn-card);
+  --border:        var(--pn-line);
+  --border-subtle: var(--pn-line);
+  --text:          var(--pn-ink);
+  --muted:         var(--pn-ink-3);
+
+  /* style-personality surface/shadow tokens -------------------------------- */
+  --style-surface-1:      var(--pn-paper);
+  --style-surface-2:      var(--pn-surface);
+  --style-surface-3:      var(--pn-card);
+  --style-surface-hover:  var(--pn-hover);
+  --style-surface-active: var(--pn-active);
+  --style-input-bg:       var(--pn-card);
+  --style-border-accent:  1px solid var(--pn-line);
+  --style-shadow-glow:    var(--pn-sh-sm);
+  --style-shadow-hover:   var(--pn-sh-md);
+  --style-shadow-card:    var(--pn-sh-sm);
+  --style-shadow-modal:   var(--pn-sh-pop);
+
+  /* TaskGraphPanel inline var() fallbacks (vars are otherwise undefined) --- */
+  --bg-secondary:   var(--pn-surface);
+  --bg-tertiary:    var(--pn-card);
+  --text-primary:   var(--pn-ink);
+  --text-secondary: var(--pn-ink-3);
+}
+
+/* In dark theme the ink token is near-white — flip the rgb triple so text /
+   fills built from rgba(var(--theme-primary-rgb), α) stay readable. */
+html[data-redesign][data-theme='dark'] .pnLeakSkin {
+  --theme-primary-rgb: 239, 233, 219;        /* --pn-ink (dark) */
+}

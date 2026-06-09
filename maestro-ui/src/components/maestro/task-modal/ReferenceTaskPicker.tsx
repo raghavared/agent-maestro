@@ -2,6 +2,7 @@ import React, { useRef } from "react";
 import { createPortal } from "react-dom";
 import { MaestroTask } from "../../../app/types/maestro";
 import { useDropdownPosition } from "../../../hooks/useDropdownPosition";
+import { Icon } from "../redesign/kit";
 
 type RefTaskCandidate = MaestroTask & { docCount: number };
 
@@ -37,36 +38,15 @@ export function ReferenceTaskPicker({
         <>
             {/* Selected reference task chips */}
             {selectedReferenceTasks.map(rt => (
-                <span
-                    key={rt.id}
-                    style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '2px 8px',
-                        fontSize: '10px',
-                        border: '1px solid var(--theme-border)',
-                        borderRadius: '3px',
-                        backgroundColor: 'rgba(var(--theme-primary-rgb), 0.05)',
-                        color: 'var(--theme-primary)',
-                    }}
-                >
-                    <span style={{ opacity: 0.5 }}>ref:</span>
+                <span key={rt.id} className="pn-mchip pn-mchip--ref">
+                    <Icon name="doc" size={12} />
                     {rt.title.length > 30 ? rt.title.slice(0, 30) + '...' : rt.title}
                     <button
                         type="button"
                         onClick={() => onRemoveTask(rt.id)}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--theme-primary)',
-                            cursor: 'pointer',
-                            padding: '0 2px',
-                            fontSize: '12px',
-                            opacity: 0.6,
-                        }}
+                        style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'inline-flex' }}
                     >
-                        ×
+                        <Icon name="x" size={11} />
                     </button>
                 </span>
             ))}
@@ -75,15 +55,14 @@ export function ReferenceTaskPicker({
             <button
                 ref={btnRef}
                 type="button"
-                className="themedBtn"
-                style={{ padding: '1px 6px', fontSize: '10px' }}
+                className="pn-mchip"
                 onClick={(e) => {
                     e.stopPropagation();
                     onTogglePicker();
                 }}
                 title="Add reference tasks for context"
             >
-                + ref tasks
+                <Icon name="at" size={12} /> Reference
             </button>
 
             {/* Dropdown portal */}
@@ -104,10 +83,15 @@ export function ReferenceTaskPicker({
                             maxHeight: '240px',
                             overflowY: 'auto',
                             minWidth: '320px',
+                            background: 'var(--pn-card)',
+                            border: '1px solid var(--pn-line-2)',
+                            borderRadius: 'var(--pn-r-sm)',
+                            color: 'var(--pn-ink)',
+                            boxShadow: 'var(--pn-sh-pop)',
                         }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div style={{ padding: '4px 8px', fontSize: '10px', opacity: 0.5, borderBottom: '1px solid var(--theme-border)' }}>
+                        <div className="pn-fhint" style={{ padding: '6px 10px', borderBottom: '1px solid var(--pn-line)' }}>
                             Reference tasks (select for context)
                         </div>
                         {loading ? (

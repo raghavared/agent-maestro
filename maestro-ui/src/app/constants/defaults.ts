@@ -42,7 +42,7 @@ export const MIN_WORKSPACE_EDITOR_WIDTH = 260;
 export const MIN_WORKSPACE_FILE_TREE_WIDTH = 200;
 
 // Icon rail + Maestro sidebar (left panel)
-export const ICON_RAIL_WIDTH = 48;
+export const ICON_RAIL_WIDTH = 56;
 export const DEFAULT_MAESTRO_SIDEBAR_WIDTH = 280;
 export const MIN_MAESTRO_SIDEBAR_WIDTH = 200;
 export const MAX_MAESTRO_SIDEBAR_WIDTH = 600;

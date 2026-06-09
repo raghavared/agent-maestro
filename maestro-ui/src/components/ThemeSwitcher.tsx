@@ -16,50 +16,48 @@ export function ThemeSwitcher() {
   const currentStyleThemes = STYLE_THEMES[styleId];
 
   return (
-    <div className="themeSwitcher">
+    <div className="pn-fld">
       {/* ---- Style Picker ---- */}
-      <div className="themeSwitcherLabel">App Style</div>
-      <div className="styleSwitcherGrid">
-        {STYLE_IDS.map((sid) => {
-          const style = STYLES[sid];
-          const isActive = sid === styleId;
-          return (
-            <button type="button"
-              key={sid}
-              className={`styleSwitcherOption ${isActive ? 'styleSwitcherOptionActive' : ''}`}
-              onClick={() => setStyle(sid)}
-              title={style.description}
-            >
-              <span className="styleSwitcherIcon">{style.icon}</span>
-              <span className="styleSwitcherName">{style.name}</span>
-            </button>
-          );
-        })}
+      <div className="pn-fld">
+        <div className="pn-flabel">App Style</div>
+        <div className="pn-toolsel" style={{ flexWrap: 'wrap' }}>
+          {STYLE_IDS.map((sid) => {
+            const style = STYLES[sid];
+            const isActive = sid === styleId;
+            return (
+              <button type="button"
+                key={sid}
+                className={`pn-tool${isActive ? ' pn-tool--active' : ''}`}
+                onClick={() => setStyle(sid)}
+                title={style.description}
+              >
+                <span>{style.icon}</span>
+                <span className="pn-tool__name">{style.name}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* ---- Color Picker ---- */}
-      <div className="themeSwitcherLabel" style={{ marginTop: 16 }}>
-        Color Theme
-      </div>
-      <div className="themeSwitcherGrid">
-        {currentStyleThemes.variants.map((variant) => {
-          const isActive = variant.key === colorKey;
-          return (
-            <button type="button"
-              key={variant.key}
-              className={`themeSwitcherOption ${isActive ? 'themeSwitcherOptionActive' : ''}`}
-              onClick={() => setColor(variant.key)}
-              title={variant.name}
-              style={{
-                '--swatch-color': variant.colors.primary,
-                '--swatch-border': variant.colors.border,
-              } as React.CSSProperties}
-            >
-              <span className="themeSwitcherSwatch" />
-              <span className="themeSwitcherName">{variant.name}</span>
-            </button>
-          );
-        })}
+      <div className="pn-fld">
+        <div className="pn-flabel">Color Theme</div>
+        <div className="pn-toolsel" style={{ flexWrap: 'wrap' }}>
+          {currentStyleThemes.variants.map((variant) => {
+            const isActive = variant.key === colorKey;
+            return (
+              <button type="button"
+                key={variant.key}
+                className={`pn-tool${isActive ? ' pn-tool--active' : ''}`}
+                onClick={() => setColor(variant.key)}
+                title={variant.name}
+              >
+                <span className="pn-dot" style={{ background: variant.colors.primary }} />
+                <span className="pn-tool__name">{variant.name}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

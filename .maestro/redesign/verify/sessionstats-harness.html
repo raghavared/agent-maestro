@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html data-redesign>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/Users/subhang/Desktop/Projects/maestro/agent-maestro/maestro-ui/src/components/maestro/redesign/redesign-tokens.css">
+<link rel="stylesheet" href="/Users/subhang/Desktop/Projects/maestro/agent-maestro/maestro-ui/src/styles-session-stats.css">
+<style>
+  /* harness frame only — give the absolutely-positioned view a box to live in */
+  html, body { margin: 0; }
+  .frame { position: relative; width: 1080px; height: 1640px; }
+</style>
+</head>
+<body>
+<div class="frame">
+<div class="sessionStatsView" data-session-id="demo">
+  <div class="ssv-wrap">
+    <button type="button" class="ssv-back"><span>‹</span> Back to Coordinator</button>
+
+    <!-- HERO -->
+    <div class="ssv-hero">
+      <div class="ssv-card ssv-hero-card">
+        <div class="ssv-id-row">
+          <span class="ssv-av-lg" style="background:#f5a524">SP</span>
+          <div class="ssv-id-meta">
+            <div class="ssv-id-name">Session Stats Theme Worker</div>
+            <div class="ssv-id-role">coordinated-worker · middle panel</div>
+          </div>
+        </div>
+        <div class="ssv-member-chips">
+          <span class="ssv-mchip"><span class="ssv-mchip-dot" style="background:#2dd4bf">TL</span><span class="ssv-mchip-nm">Terminal Lead</span></span>
+          <span class="ssv-mchip"><span class="ssv-mchip-dot" style="background:#a78bfa">RP</span><span class="ssv-mchip-nm">Roster Pro</span></span>
+          <span class="ssv-mchip ssv-mchip-more">+3 more</span>
+        </div>
+        <div class="ssv-final">
+          <div class="ssv-final-label">❝ Final message</div>
+          <div class="ssv-final-body">
+            <p>Tokenization <strong>complete</strong>. Every <code>--ssv-*</code> now references a foundation <code>--pn-*</code> token, so the view honors light + dark automatically.</p>
+            <p>All <strong>.ssv-* rule bodies</strong> were kept byte-identical — only the token definitions changed.</p>
+          </div>
+          <button type="button" class="ssv-final-expand">Read full message ▾</button>
+        </div>
+      </div>
+
+      <div class="ssv-card ssv-outcome-card">
+        <div class="ssv-outcome-badge">
+          <div class="ssv-outcome-ring" style="background:var(--ssv-run-dim);border:1px solid var(--ssv-run)">✓</div>
+          <div class="ssv-outcome-text">
+            <div class="ssv-outcome-big" style="color:var(--ssv-run)">Completed</div>
+            <div class="ssv-outcome-sub">2m 14s · 01:55:32</div>
+          </div>
+        </div>
+        <div class="ssv-stat-grid">
+          <div class="ssv-stat-line"><span class="ssv-stat-k">Duration</span><span class="ssv-stat-v mono">2m 14s</span></div>
+          <div class="ssv-stat-line"><span class="ssv-stat-k">Started</span><span class="ssv-stat-v mono">Jun 9, 2026 · 01:55:32</span></div>
+          <div class="ssv-stat-line"><span class="ssv-stat-k">Completed</span><span class="ssv-stat-v mono">Jun 9, 2026 · 01:57:46</span></div>
+        </div>
+        <div class="ssv-chip-row">
+          <span class="ssv-meta-chip">claude-code</span>
+          <span class="ssv-meta-chip"><span class="ssv-meta-chip-lbl">model</span> opus-4-8</span>
+          <span class="ssv-meta-chip"><span class="ssv-meta-chip-lbl">mode</span> worker</span>
+        </div>
+        <div class="ssv-action-row">
+          <button type="button" class="ssv-btn ssv-btn-secondary">↺ Restore</button>
+          <button type="button" class="ssv-btn ssv-btn-primary">▶ Resume session</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TASKS -->
+    <section class="ssv-sec">
+      <div class="ssv-sec-head"><span class="ssv-eyebrow">Tasks</span><span class="ssv-rule"></span><span class="ssv-count">1 linked</span></div>
+      <div class="ssv-card ssv-task-card">
+        <button type="button" class="ssv-task-head">
+          <span style="color:var(--ssv-fg-4)">›</span>
+          <span class="ssv-task-title">Tokenize SessionStatsView</span>
+          <span class="ssv-task-id">#7zlamz</span>
+          <span class="ssv-schip" style="background:var(--ssv-run-dim);color:var(--ssv-run)">✓ completed</span>
+        </button>
+        <div class="ssv-task-body">
+          <div class="ssv-task-meta-strip">
+            <span class="ssv-meta-chip"><span class="ssv-meta-chip-lbl">task</span> in progress</span>
+            <span class="ssv-meta-chip" style="background:var(--pn-wait-soft);color:var(--pn-wait);border-color:transparent">Medium priority</span>
+            <span class="ssv-meta-chip">▤ 1 doc</span>
+          </div>
+          <div class="ssv-task-desc"><p>Replace hardcoded values with foundation tokens. <code>appearance only</code>.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TOKENS / TOOLS -->
+    <section class="ssv-sec">
+      <div class="ssv-sec-head"><span class="ssv-eyebrow">Tokens &amp; tools</span><span class="ssv-rule"></span><span class="ssv-count">claude</span></div>
+      <div class="ssv-metrics-grid">
+        <div class="ssv-card ssv-token-card">
+          <div class="ssv-token-top"><span class="ssv-token-total">1.24M</span><span class="ssv-token-total-lbl">total tokens</span></div>
+          <div class="ssv-token-bar">
+            <div class="ssv-token-seg" style="width:55%;background:var(--ssv-violet)"></div>
+            <div class="ssv-token-seg" style="width:20%;background:var(--ssv-info)"></div>
+            <div class="ssv-token-seg" style="width:15%;background:var(--ssv-teal)"></div>
+            <div class="ssv-token-seg" style="width:10%;background:var(--ssv-baton-500)"></div>
+          </div>
+          <div class="ssv-token-legend">
+            <div class="ssv-legend-item"><span class="ssv-legend-swatch" style="background:var(--ssv-violet)"></span><span class="ssv-legend-k">Cache read</span><span class="ssv-legend-v">682k</span><span class="ssv-legend-pct">55%</span></div>
+            <div class="ssv-legend-item"><span class="ssv-legend-swatch" style="background:var(--ssv-info)"></span><span class="ssv-legend-k">Input</span><span class="ssv-legend-v">248k</span><span class="ssv-legend-pct">20%</span></div>
+            <div class="ssv-legend-item"><span class="ssv-legend-swatch" style="background:var(--ssv-teal)"></span><span class="ssv-legend-k">Cache create</span><span class="ssv-legend-v">186k</span><span class="ssv-legend-pct">15%</span></div>
+            <div class="ssv-legend-item"><span class="ssv-legend-swatch" style="background:var(--ssv-baton-500)"></span><span class="ssv-legend-k">Output</span><span class="ssv-legend-v">124k</span><span class="ssv-legend-pct">10%</span></div>
+          </div>
+          <div class="ssv-models-row"><span class="ssv-meta-chip">⚙ claude-opus-4-8</span></div>
+        </div>
+        <div class="ssv-card ssv-tools-card">
+          <div class="ssv-tool-row"><span class="ssv-tool-name">Edit</span><span class="ssv-tool-track"><span class="ssv-tool-fill" style="width:100%"></span></span><span class="ssv-tool-count">9</span></div>
+          <div class="ssv-tool-row"><span class="ssv-tool-name">Read</span><span class="ssv-tool-track"><span class="ssv-tool-fill" style="width:66%"></span></span><span class="ssv-tool-count">6</span></div>
+          <div class="ssv-tool-row"><span class="ssv-tool-name">Bash</span><span class="ssv-tool-track"><span class="ssv-tool-fill" style="width:44%"></span></span><span class="ssv-tool-count">4</span></div>
+        </div>
+      </div>
+      <div class="ssv-msg-counts">
+        <div class="ssv-mcount"><div class="ssv-mcount-n">42</div><div class="ssv-mcount-l">assistant msgs</div></div>
+        <div class="ssv-mcount"><div class="ssv-mcount-n">8</div><div class="ssv-mcount-l">user prompts</div></div>
+        <div class="ssv-mcount"><div class="ssv-mcount-n">19</div><div class="ssv-mcount-l">tool calls</div></div>
+      </div>
+    </section>
+
+    <!-- LAST MESSAGES (assistant + user bubble) -->
+    <section class="ssv-sec">
+      <div class="ssv-sec-head"><span class="ssv-eyebrow">Last messages</span><span class="ssv-rule"></span><span class="ssv-count">2</span></div>
+      <div class="ssv-thread">
+        <div class="ssv-msg ssv-msg-assistant">
+          <span class="ssv-msg-mark" style="background:var(--ssv-info-dim)">◆</span>
+          <div class="ssv-msg-bubble">
+            <div class="ssv-msg-head"><span class="ssv-msg-who" style="color:var(--ssv-info)">assistant</span><span class="ssv-msg-time">01:57:46</span></div>
+            <div class="ssv-msg-text">Token block remapped — all surfaces now pull from <code>--pn-*</code>.</div>
+          </div>
+        </div>
+        <div class="ssv-msg ssv-msg-user">
+          <span class="ssv-msg-mark" style="background:var(--pn-brand-soft)">●</span>
+          <div class="ssv-msg-bubble">
+            <div class="ssv-msg-head"><span class="ssv-msg-who" style="color:var(--pn-brand)">user</span><span class="ssv-msg-time">01:56:10</span></div>
+            <div class="ssv-msg-text">Proceed with the locked plan.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TIMELINE breakdown chips (status dots incl. wait) -->
+    <section class="ssv-sec">
+      <div class="ssv-sec-head"><span class="ssv-eyebrow">Timeline</span><span class="ssv-rule"></span><span class="ssv-count">5 events</span></div>
+      <div class="ssv-tl-breakdown">
+        <span class="ssv-tl-bchip"><span class="ssv-tl-bdot" style="background:var(--ssv-run)"></span><span class="ssv-tl-bty">task done</span><span class="ssv-tl-bct">2</span></span>
+        <span class="ssv-tl-bchip"><span class="ssv-tl-bdot" style="background:var(--pn-wait)"></span><span class="ssv-tl-bty">blocked</span><span class="ssv-tl-bct">1</span></span>
+        <span class="ssv-tl-bchip"><span class="ssv-tl-bdot" style="background:var(--ssv-info)"></span><span class="ssv-tl-bty">progress</span><span class="ssv-tl-bct">2</span></span>
+      </div>
+      <button type="button" class="ssv-tl-toggle"><span style="color:var(--ssv-fg-4)">›</span> Show full timeline</button>
+    </section>
+
+    <!-- DOCS -->
+    <section class="ssv-sec">
+      <div class="ssv-sec-head"><span class="ssv-eyebrow">Docs produced</span><span class="ssv-rule"></span><span class="ssv-count">1</span></div>
+      <div class="ssv-docs-grid">
+        <button type="button" class="ssv-card ssv-doc-card">
+          <span class="ssv-doc-ico md">▤</span>
+          <span class="ssv-doc-main">
+            <span class="ssv-doc-title">SessionStats-CONTRACT.md</span>
+            <span class="ssv-doc-path">/SessionStats-CONTRACT.md</span>
+            <span class="ssv-doc-foot"><span>worker</span><span>·</span><span>2m ago</span></span>
+          </span>
+        </button>
+      </div>
+    </section>
+
+    <!-- FOLD KV -->
+    <section class="ssv-fold">
+      <button type="button" class="ssv-fold-head"><span style="color:var(--ssv-fg-4)">›</span><span class="ssv-eyebrow">Identity details</span><span class="ssv-rule"></span><span class="ssv-count">for --resume</span></button>
+      <div class="ssv-kv-table">
+        <div class="ssv-kv-k">Maestro session ID</div><div class="ssv-kv-v mono"><span class="ssv-kv-val">sess_1780949406004_s388hwzpf</span></div>
+        <div class="ssv-kv-k">Hostname</div><div class="ssv-kv-v mono"><span class="ssv-kv-val">studio.local</span></div>
+      </div>
+    </section>
+
+    <div class="ssv-banner">⚠ Transcript stats unavailable — log file not present locally.</div>
+  </div>
+</div>
+</div>
+</body>
+</html>

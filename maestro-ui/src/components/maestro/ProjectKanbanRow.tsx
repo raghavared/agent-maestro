@@ -5,6 +5,7 @@ import { useBoardDrag } from "../../hooks/useBoardDrag";
 import { DragGhostCard } from "./DragGhostCard";
 import { TaskCard } from "./TaskCard";
 import { COLUMNS } from "./boardConstants";
+import { Icon, Glyph } from "./redesign/kit";
 
 type ProjectKanbanRowProps = {
     projectId: string;
@@ -77,20 +78,20 @@ export const ProjectKanbanRow = React.memo(function ProjectKanbanRow({
     }, []);
 
     return (
-        <div className="mpbProjectRow">
+        <div className="pn-mpr">
             {/* Project header */}
-            <div className="mpbProjectRowHeader" onClick={toggleCollapse}>
-                <span className="mpbProjectRowColor" style={{ background: projectColor }} />
-                <span className="mpbProjectRowName">{projectName}</span>
-                <span className="mpbProjectRowCount">{rootTaskCount} tasks</span>
-                <span className={`mpbProjectRowChevron ${collapsed ? "mpbProjectRowChevron--collapsed" : ""}`}>
-                    ▼
+            <div className="pn-mpr__hd" onClick={toggleCollapse}>
+                <span className="pn-mpr__dot" style={{ background: projectColor }} />
+                <span className="pn-mpr__name">{projectName}</span>
+                <span className="pn-mpr__count">{rootTaskCount} tasks</span>
+                <span className="pn-mpr__chev">
+                    <Icon name={collapsed ? "chevronR" : "chevronD"} size={14} />
                 </span>
             </div>
 
             {/* Kanban columns */}
             {!collapsed && (
-                <div className="mpbProjectRowColumns">
+                <div className="pn-bcols">
                     {COLUMNS.map((col) => {
                         const colTasks = columnData.get(col.status) ?? [];
                         const isDragOver = dragOverColumn === col.status;
@@ -100,17 +101,16 @@ export const ProjectKanbanRow = React.memo(function ProjectKanbanRow({
                             return (
                                 <div
                                     key={col.status}
-                                    className="mpbKanbanColumnCollapsed"
+                                    className="pn-bcol--collapsed"
                                     ref={(el) => registerColumn(col.status, el)}
                                     onClick={() => toggleColumnCollapse(col.status)}
                                     title={`${col.label} (${colTasks.length}) — click to expand`}
                                 >
-                                    <span className="mpbKanbanColumnCollapsedSymbol">
-                                        {col.symbol}
-                                    </span>
-                                    <span className="mpbKanbanColumnCollapsedCount">
+                                    <Glyph kind={col.status} size={15} />
+                                    <span className="pn-bcol__count">
                                         {colTasks.length}
                                     </span>
+                                    <span className="pn-bcol__label">{col.label}</span>
                                 </div>
                             );
                         }
@@ -118,21 +118,20 @@ export const ProjectKanbanRow = React.memo(function ProjectKanbanRow({
                         return (
                             <div
                                 key={col.status}
-                                className={`mpbKanbanColumn ${isDragOver ? "mpbKanbanColumn--dragOver" : ""}`}
+                                className={`pn-bcol ${isDragOver ? "pn-bcol--over" : ""}`}
                                 ref={(el) => registerColumn(col.status, el)}
                             >
                                 <div
-                                    className="mpbKanbanColumnHeader"
+                                    className="pn-bcol__hd"
                                     onClick={() => toggleColumnCollapse(col.status)}
                                     title="Click to collapse"
+                                    style={{ cursor: "pointer" }}
                                 >
-                                    <span className={`taskBoardColumnDot taskBoardColumnDot--${col.status}`}>
-                                        {col.symbol}
-                                    </span>
-                                    <span className="mpbKanbanColumnLabel">{col.label}</span>
-                                    <span className="mpbKanbanColumnCount">{colTasks.length}</span>
+                                    <Glyph kind={col.status} size={14} />
+                                    <span className="pn-bcol__label">{col.label}</span>
+                                    <span className="pn-bcol__count">{colTasks.length}</span>
                                 </div>
-                                <div className="mpbKanbanColumnBody">
+                                <div className="pn-bcol__body">
                                     {colTasks.map((task) => (
                                         <TaskCard
                                             key={task.id}
@@ -144,8 +143,8 @@ export const ProjectKanbanRow = React.memo(function ProjectKanbanRow({
                                         />
                                     ))}
                                     {colTasks.length === 0 && (
-                                        <div className="mpbKanbanColumnEmpty">
-                                            {dragState ? "drop here" : "—"}
+                                        <div className="pn-bcol__empty">
+                                            {dragState ? "drop here" : "no tasks"}
                                         </div>
                                     )}
                                 </div>

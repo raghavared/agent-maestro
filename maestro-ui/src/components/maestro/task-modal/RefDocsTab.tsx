@@ -1,5 +1,6 @@
 import React from "react";
 import { MaestroTask } from "../../../app/types/maestro";
+import { Icon } from "../redesign/kit";
 
 type RefDocsTabProps = {
     selectedReferenceTasks: MaestroTask[];
@@ -8,7 +9,7 @@ type RefDocsTabProps = {
 
 export function RefDocsTab({ selectedReferenceTasks, onRemoveTask }: RefDocsTabProps) {
     if (selectedReferenceTasks.length === 0) {
-        return <div className="themedFormHint">No reference tasks. Use "+ ref tasks" above to add.</div>;
+        return <div className="pn-fhint">Reference other tasks to give this one context. None linked yet.</div>;
     }
 
     return (
@@ -20,23 +21,21 @@ export function RefDocsTab({ selectedReferenceTasks, onRemoveTask }: RefDocsTabP
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
-                        padding: '4px 0',
-                        borderBottom: '1px solid var(--theme-border)',
-                        fontSize: '11px',
+                        padding: '6px 0',
+                        borderBottom: '1px solid var(--pn-line)',
+                        fontSize: '12px',
+                        color: 'var(--pn-ink)',
                     }}
                 >
-                    <span style={{ opacity: 0.5, flexShrink: 0 }}>ref</span>
-                    <span style={{ flex: 1, color: 'var(--theme-primary)' }}>
-                        {rt.title}
-                    </span>
+                    <Icon name="doc" size={13} style={{ color: 'var(--pn-ink-3)', flexShrink: 0 }} />
+                    <span style={{ flex: 1 }}>{rt.title}</span>
                     <button
                         type="button"
-                        className="themedBtn themedBtnDanger"
-                        style={{ padding: '0 4px', fontSize: '12px' }}
+                        className="pn-mchip"
                         onClick={() => onRemoveTask(rt.id)}
                         title="Remove reference"
                     >
-                        ×
+                        <Icon name="x" size={12} />
                     </button>
                 </div>
             ))}

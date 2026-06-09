@@ -6,6 +6,7 @@ import { startDrag } from "@crabnebula/tauri-plugin-drag";
 import React from "react";
 import { shortenPathSmart } from "../pathDisplay";
 import { Icon } from "./Icon";
+import { Icon as PnIcon } from "./maestro/redesign/kit";
 import { FileIcon } from "./FileIcon";
 import { ConfirmActionModal } from "./modals/ConfirmActionModal";
 
@@ -940,32 +941,33 @@ export function FileExplorerPanel({
 
   return (
     <aside className="fileExplorerPanel" aria-label="Files" ref={panelRef}>
-      <div className="fileExplorerHeader">
-        <div className="fileExplorerTitle">
-          <span>Files</span>
-          <span className="fileExplorerPath" title={rootDir}>
+      <div className="pn-vhd">
+        <PnIcon name="folder" size={16} style={{ color: "var(--pn-ink-3)", flex: "0 0 auto" }} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="pn-vhd__title">Files</div>
+          <div className="pn-files__path" title={rootDir}>
             {shortenPathSmart(rootDir, 46)}
-          </span>
+          </div>
         </div>
-        <div className="fileExplorerActions">
-          <button type="button" className="btnSmall btnIcon" onClick={refreshRoot} title="Refresh">
-            <Icon name="refresh" />
-          </button>
-          <button type="button" className="btnSmall btnIcon" onClick={onClose} title="Close">
-            <Icon name="close" />
-          </button>
-        </div>
+        <span className="pn-head-spacer" />
+        <button type="button" className="pn-ib" onClick={refreshRoot} title="Refresh">
+          <PnIcon name="refresh" />
+        </button>
+        <button type="button" className="pn-ib" onClick={onClose} title="Close">
+          <PnIcon name="x" />
+        </button>
       </div>
 
       <div
         className={[
-          "fileExplorerList",
+          "pn-vscroll",
           dragDropActive && dropTarget === root ? "fileExplorerListDropTarget" : "",
         ]
           .filter(Boolean)
           .join(" ")}
         role="tree"
         ref={listRef}
+        style={{ paddingTop: 6 }}
       >
         {visibleItems.length === 0 ? (
           <div className="empty">No files.</div>
@@ -988,10 +990,13 @@ export function FileExplorerPanel({
                     return (
                       <div
                         key={`loading:${item.path}`}
-                        className="fileExplorerRow fileExplorerMeta"
-                        style={{ paddingLeft: 12 + item.depth * 14, height: rowHeight }}
+                        className="pn-fvrow"
+                        style={{ paddingLeft: 10 + item.depth * 15, height: rowHeight, cursor: "default" }}
                       >
-                        loading…
+                        <span className="pn-fvrow__tw" />
+                        <span className="pn-fvrow__name" style={{ opacity: 0.6 }}>
+                          loading…
+                        </span>
                       </div>
                     );
                   }
@@ -999,11 +1004,14 @@ export function FileExplorerPanel({
                     return (
                       <div
                         key={`error:${item.path}`}
-                        className="fileExplorerRow fileExplorerMeta fileExplorerError"
-                        style={{ paddingLeft: 12 + item.depth * 14, height: rowHeight }}
+                        className="pn-fvrow"
+                        style={{ paddingLeft: 10 + item.depth * 15, height: rowHeight, cursor: "default" }}
                         title={item.message}
                       >
-                        failed to load
+                        <span className="pn-fvrow__tw" />
+                        <span className="pn-fvrow__name" style={{ color: "var(--pn-block)" }}>
+                          failed to load
+                        </span>
                       </div>
                     );
                   }
@@ -1014,14 +1022,14 @@ export function FileExplorerPanel({
                   const isExpanded = entry.isDir && expandedDirs.has(entry.path);
                   const isDropTarget = dropTarget === entry.path;
                   const isPreparing = dragPreparing === entry.path;
-                  const indent = 12 + item.depth * 14;
+                  const indent = 10 + item.depth * 15;
                   return (
                     <button
                       key={entry.path}
                       type="button"
                       className={[
-                        "fileExplorerRow",
-                        isActive ? "fileExplorerRowActive" : "",
+                        "pn-fvrow",
+                        isActive ? "pn-fvrow--active" : "",
                         isContextTarget ? "fileExplorerRowContext" : "",
                         isDropTarget ? "fileExplorerRowDropTarget" : "",
                         isPreparing ? "fileExplorerRowPreparing" : "",
@@ -1051,16 +1059,22 @@ export function FileExplorerPanel({
                       title={entry.path}
                     >
                       {entry.isDir ? (
-                        <span className="fileExplorerDisclosure" aria-hidden="true">
-                          {isExpanded ? "▾" : "▸"}
+                        <span
+                          className={"pn-fvrow__tw" + (isExpanded ? " pn-fvrow__tw--open" : "")}
+                          aria-hidden="true"
+                        >
+                          <PnIcon name="chevronR" />
                         </span>
                       ) : (
-                        <span className="fileExplorerDisclosure" aria-hidden="true" />
+                        <span className="pn-fvrow__tw" aria-hidden="true" />
                       )}
-                      <span className="fileExplorerIcon" aria-hidden="true">
+                      <span
+                        className={"pn-fvrow__ic pn-fvrow__ic--" + (entry.isDir ? "folder" : "file")}
+                        aria-hidden="true"
+                      >
                         <FileIcon name={entry.name} isDir={entry.isDir} isExpanded={isExpanded} size={16} />
                       </span>
-                      <span className="fileExplorerName">{entry.name}</span>
+                      <span className="pn-fvrow__name">{entry.name}</span>
                     </button>
                   );
                 })}

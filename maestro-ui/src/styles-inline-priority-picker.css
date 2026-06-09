@@ -1827,11 +1827,6 @@
   opacity: 0.7;
 }
 
-.terminalMetaBadge--status-archived {
-  color: var(--terminal-yellow, #e5c07b);
-  border-color: var(--terminal-yellow, #e5c07b);
-}
-
 /* Sessions Subsection */
 .terminalSessions {
   padding: 8px 12px 8px 40px;
@@ -2638,4 +2633,88 @@
   background: rgba(255, 176, 0, 0.1);
   border-radius: 3px;
   animation: blinkAlert 1s infinite;
+}
+
+/* ===================================================================
+   REDESIGN OVERRIDE (Atelier / pn-* tokens) — scoped to html[data-redesign].
+   The base .terminalLaunchDropdown* styles above are solid-DARK + neon-green
+   and UNSCOPED, so in the redesign LIGHT theme this popover stays dark while
+   the host modal is paper = a container leak. These overrides repoint every
+   container bg / border / text colour to --pn-* tokens (token-only, no hex)
+   so the dropdown renders PAPER in light and flips correctly in dark.
+   CSS-ONLY — LaunchConfigDropdown.tsx is untouched (all functionality verbatim:
+   provider/model/reasoningEffort/speed). Owner: Team Member Modal worker.
+   Inherited by all consumers (TeamMemberModal, ModelProfileModal).
+   =================================================================== */
+html[data-redesign] .terminalLaunchDropdown {
+  background: var(--pn-card);
+  border: 1px solid var(--pn-line-2);
+  box-shadow: var(--pn-sh-pop);
+}
+html[data-redesign] .terminalLaunchDropdown__providers {
+  background: var(--pn-surface);
+  border-right: 1px solid var(--pn-line);
+}
+html[data-redesign] .terminalLaunchDropdown__details {
+  background: var(--pn-card);
+}
+html[data-redesign] .terminalLaunchDropdown__detailsHeader {
+  background: var(--pn-surface);
+  border-bottom: 1px solid var(--pn-line);
+}
+html[data-redesign] .terminalLaunchDropdown__detailsTitle { color: var(--pn-ink); }
+html[data-redesign] .terminalLaunchDropdown__detailsMeta { color: var(--pn-brand); }
+html[data-redesign] .terminalLaunchDropdown__header {
+  color: var(--pn-ink-3);
+  border-bottom: 1px solid var(--pn-line);
+}
+html[data-redesign] .terminalLaunchDropdown__toolGroup { border-bottom: 1px solid var(--pn-line); }
+html[data-redesign] .terminalLaunchDropdown__tool {
+  color: var(--pn-ink);
+  border-bottom: 1px solid var(--pn-line);
+}
+html[data-redesign] .terminalLaunchDropdown__tool:hover { background: var(--pn-hover); }
+html[data-redesign] .terminalLaunchDropdown__tool--expanded {
+  background: var(--pn-active);
+  color: var(--pn-ink);
+}
+html[data-redesign] .terminalLaunchDropdown__toolSymbol { color: var(--pn-ink-2); }
+html[data-redesign] .terminalLaunchDropdown__toolMeta { color: var(--pn-ink-3); }
+html[data-redesign] .terminalLaunchDropdown__toolCaret { color: var(--pn-ink-4); }
+html[data-redesign] .terminalLaunchDropdown__models {
+  background: var(--pn-surface);
+  border-top: 1px solid var(--pn-line);
+}
+html[data-redesign] .terminalLaunchDropdown__section { border-top: 1px solid var(--pn-line); }
+html[data-redesign] .terminalLaunchDropdown__sectionTitle { color: var(--pn-ink-3); }
+html[data-redesign] .terminalLaunchDropdown__model {
+  background: var(--pn-surface);
+  border: 1px solid var(--pn-line-2);
+  color: var(--pn-ink);
+}
+html[data-redesign] .terminalLaunchDropdown__model:last-child { border-bottom: 1px solid var(--pn-line-2); }
+html[data-redesign] .terminalLaunchDropdown__model:hover {
+  background: var(--pn-brand-soft);
+  color: var(--pn-brand);
+  border-color: rgba(178, 106, 43, 0.4);
+}
+html[data-redesign] .terminalLaunchDropdown__model--selected {
+  color: var(--pn-brand);
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-brand);
+}
+html[data-redesign] .terminalLaunchDropdown__modelDescription { color: var(--pn-ink-3); }
+html[data-redesign] .terminalLaunchDropdown__aliases { border-top: 1px solid var(--pn-line); }
+html[data-redesign] .terminalLaunchDropdown__aliases summary { color: var(--pn-ink-3); }
+html[data-redesign] .terminalLaunchDropdown__clear {
+  color: var(--pn-ink-3);
+  border-top: 1px solid var(--pn-line);
+}
+html[data-redesign] .terminalLaunchDropdown__clear:hover {
+  color: var(--pn-brand);
+  background: var(--pn-hover);
+}
+html[data-redesign] .terminalLaunchDropdown__model .terminalStatusCheck { color: var(--pn-brand); }
+@media (max-width: 640px) {
+  html[data-redesign] .terminalLaunchDropdown__providers { border-bottom: 1px solid var(--pn-line); }
 }

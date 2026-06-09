@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { TeamMember, AgentTool } from "../../app/types/maestro";
 import { AGENT_TOOL_LABELS } from "../../app/constants/agentTools";
-import { AgentChip } from "./AgentChip";
+import { AgentLogo } from "./AgentChip";
+import { Icon } from "./redesign/kit";
+import { useMaestroStore } from "../../stores/useMaestroStore";
 
 type TeamMemberListProps = {
     teamMembers: TeamMember[];
@@ -113,95 +115,105 @@ function TeamMemberRow({
             ? AGENT_TOOL_LABELS[member.agentTool]
             : null;
 
-    return (
-        <div
-            className={`terminalTaskRow ${isArchived ? 'terminalTaskRow--completed' : ''}`}
-        >
-            {/* Single row: avatar + name + model + default badge */}
-            <div className="terminalTaskMain" onClick={() => setIsExpanded(!isExpanded)}>
-                <div className="terminalTaskPrimaryContent" style={{ flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '14px', flexShrink: 0 }}>
-                        {member.avatar}
-                    </span>
-                    <span className="terminalTaskTitle" style={{ flex: 1, minWidth: 0 }}>{member.name}</span>
+    const profileName = useMaestroStore(s =>
+        member.modelProfileId ? s.modelProfiles[member.modelProfileId]?.name : undefined,
+    );
 
-                    {/* Agent chip: brand logo + tool name (+ model) */}
-                    {member.agentTool ? (
-                        <AgentChip agentTool={member.agentTool} model={member.model ? modelLabel : undefined} />
+    return (
+        <div className={'pn-mem' + (isArchived ? ' pn-mem--archived' : '')}>
+            {/* Single row: avatar + name/role + badges + chevron */}
+            <div className="pn-mem__main" onClick={() => setIsExpanded(!isExpanded)}>
+                <span className={'pn-mem__av' + (member.isDefault ? ' pn-mem__av--ring' : '')}>
+                    {member.avatar}
+                </span>
+                <div className="pn-mem__body">
+                    <div className="pn-mem__name">{member.name}</div>
+                    {member.role && <div className="pn-mem__role">{member.role}</div>}
+                </div>
+
+                <div className="pn-mem__badges">
+                    {/* Model: profile badge when bound, else agent badge / raw model */}
+                    {member.modelProfileId && profileName ? (
+                        <span className="pn-mbadge pn-mbadge--profile" title="Bound to a model profile">
+                            {'◈'} {profileName}
+                        </span>
+                    ) : member.agentTool ? (
+                        <span className="pn-mbadge pn-mbadge--model">
+                            <AgentLogo agentTool={member.agentTool} size={12} /> {modelLabel}
+                        </span>
                     ) : modelLabel ? (
-                        <span className="terminalMetaBadge terminalMetaBadge--model">{modelLabel}</span>
+                        <span className="pn-mbadge pn-mbadge--model">{modelLabel}</span>
                     ) : null}
 
                     {/* Global scope indicator */}
                     {member.scope === 'global' && (
-                        <span className="terminalMetaBadge terminalMetaBadge--status" style={{ opacity: 0.8 }}>
+                        <span className="pn-mbadge pn-mbadge--global">
                             {'\uD83C\uDF10'} GLOBAL
                         </span>
                     )}
 
                     {/* Default indicator */}
                     {member.isDefault && (
-                        <span className="terminalMetaBadge terminalMetaBadge--status terminalMetaBadge--status-in_progress">
-                            DEFAULT
-                        </span>
+                        <span className="pn-mbadge pn-mbadge--default">DEFAULT</span>
                     )}
                 </div>
+
+                <span className={'pn-mem__chev' + (isExpanded ? ' pn-mem__chev--open' : '')}>
+                    <Icon name="chevronD" size={14} />
+                </span>
             </div>
 
             {/* Expanded content - shown on click */}
             {isExpanded && (
-                <div className="terminalTaskExpanded">
-                    <div className="terminalTaskTabContent" onClick={(e) => e.stopPropagation()}>
-                        <div className="terminalTabPane terminalTabPane--context">
-                            {/* Role */}
-                            {member.role && (
-                                <div className="terminalDetailBlock">
-                                    <div className="terminalDetailBlockLabel">Role</div>
-                                    <div className="terminalDetailBlockContent terminalDescriptionText">
-                                        {member.role}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Identity / Instructions */}
-                            {member.identity && (
-                                <div className="terminalDetailBlock">
-                                    <div className="terminalDetailBlockLabel">Instructions</div>
-                                    <div className="terminalDetailBlockContent terminalDescriptionText">
-                                        {member.identity}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Skills */}
-                            {member.skillIds && member.skillIds.length > 0 && (
-                                <div className="terminalDetailBlock">
-                                    <div className="terminalDetailBlockLabel">Skills</div>
-                                    <div className="terminalDetailBlockContent terminalDescriptionText">
-                                        {member.skillIds.join(', ')}
-                                    </div>
-                                </div>
-                            )}
+                <div className="pn-mem__exp">
+                    {/* Role */}
+                    {member.role && (
+                        <div className="pn-mem__block">
+                            <div className="pn-mem__blocklabel">Role</div>
+                            <div className="pn-mem__blocktext">{member.role}</div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* Identity / Instructions */}
+                    {member.identity && (
+                        <div className="pn-mem__block">
+                            <div className="pn-mem__blocklabel">Instructions</div>
+                            <div className="pn-mem__blocktext pn-mem__blocktext--mono">{member.identity}</div>
+                        </div>
+                    )}
+
+                    {/* Skills */}
+                    {member.skillIds && member.skillIds.length > 0 && (
+                        <div className="pn-mem__block">
+                            <div className="pn-mem__blocklabel">Skills</div>
+                            <div className="pn-mem__skills">
+                                {member.skillIds.map(s => (
+                                    <span key={s} className="pn-skill__tag">{s}</span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Actions bar */}
-                    <div className="terminalTaskActionsBar terminalTaskActionsBar--right">
+                    <div className="pn-mem__actions">
                         {!isArchived && onRun && (
                             <button type="button"
-                                className="terminalCmd terminalCmdPrimary"
+                                className="pn-btn pn-btn--primary"
+                                style={{ height: 28 }}
                                 onClick={handleRun}
                                 disabled={!!loadingAction}
                                 title={`Run a session with ${member.name}`}
-                                style={{ padding: '2px 8px', fontSize: '11px' }}
                             >
-                                {isLoading('run') ? 'Starting...' : '▶ Run'}
+                                <Icon name="play" size={12} /> {isLoading('run') ? 'Starting…' : 'Run'}
                             </button>
                         )}
 
+                        <span className="pn-head-spacer" />
+
                         {!isArchived && (
                             <button type="button"
-                                className="terminalViewDetailsBtn"
+                                className="pn-btn"
+                                style={{ height: 28 }}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onEdit(member);
@@ -214,29 +226,32 @@ function TeamMemberRow({
 
                         {!isArchived && (
                             <button type="button"
-                                className="terminalArchiveBtn"
+                                className="pn-btn pn-btn--ghost"
+                                style={{ height: 28 }}
                                 onClick={handleArchive}
                                 disabled={!!loadingAction}
                             >
-                                {isLoading('archive') ? 'Archiving...' : 'Archive'}
+                                <Icon name="archiveBox" size={12} /> {isLoading('archive') ? 'Archiving…' : 'Archive'}
                             </button>
                         )}
 
                         {isArchived && (
                             <>
                                 <button type="button"
-                                    className="terminalViewDetailsBtn"
+                                    className="pn-btn"
+                                    style={{ height: 28 }}
                                     onClick={handleUnarchive}
                                     disabled={!!loadingAction}
                                 >
-                                    {isLoading('unarchive') ? '...' : 'Restore'}
+                                    <Icon name="refresh" size={12} /> {isLoading('unarchive') ? '…' : 'Restore'}
                                 </button>
                                 <button type="button"
-                                    className="terminalDeleteBtn"
+                                    className="pn-btn pn-btn--ghost"
+                                    style={{ height: 28, color: 'var(--pn-block)' }}
                                     onClick={handleDelete}
                                     disabled={!!loadingAction}
                                 >
-                                    {isLoading('delete') ? '...' : 'Delete'}
+                                    <Icon name="trash" size={12} /> {isLoading('delete') ? '…' : 'Delete'}
                                 </button>
                             </>
                         )}
@@ -292,14 +307,14 @@ export function TeamMemberList({
         <div>
             {/* Default members section */}
             {defaultMembers.length > 0 && (
-                <div className="terminalTaskList">
+                <div>
                     {defaultMembers.map(member => renderMemberRow(member))}
                 </div>
             )}
 
             {/* Custom members section */}
             {customMembers.length > 0 && (
-                <div className="terminalTaskList">
+                <div>
                     {customMembers.map(member => renderMemberRow(member))}
                 </div>
             )}
@@ -307,17 +322,14 @@ export function TeamMemberList({
             {/* Global members section */}
             {globalMembers.length > 0 && (
                 <div>
-                    <div style={{
-                        padding: '4px 12px',
-                        fontSize: '9px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                        opacity: 0.5,
-                        borderTop: (defaultMembers.length > 0 || customMembers.length > 0) ? '1px solid var(--theme-border)' : 'none',
-                    }}>
-                        {'\uD83C\uDF10'} Global Members
+                    <div className="pn-vsec">
+                        <span className="pn-eyebrow">
+                            <Icon name="globe" size={11} style={{ verticalAlign: '-1px', marginRight: 5 }} />
+                            Global Members
+                        </span>
+                        <span className="pn-line" />
                     </div>
-                    <div className="terminalTaskList">
+                    <div>
                         {globalMembers.map(member => renderMemberRow(member))}
                     </div>
                 </div>
@@ -327,23 +339,27 @@ export function TeamMemberList({
             {archivedMembers.length > 0 && (
                 <div>
                     <button type="button"
-                        className="terminalViewDetailsBtn"
                         style={{
-                            width: '100%',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            padding: '4px 12px',
-                            fontSize: '10px',
-                            borderTop: '1px solid var(--theme-border)',
+                            width: '100%',
+                            padding: '13px 15px 6px',
+                            background: 'transparent',
+                            border: 'none',
+                            borderTop: '1px solid var(--pn-line)',
+                            cursor: 'pointer',
                         }}
                         onClick={() => setShowArchived(!showArchived)}
                     >
-                        <span>ARCHIVED ({archivedMembers.length})</span>
-                        <span>{showArchived ? '\u25B4' : '\u25BE'}</span>
+                        <span className="pn-eyebrow">
+                            <Icon name="archive" size={11} style={{ verticalAlign: '-1px', marginRight: 5 }} />
+                            Archived \u00B7 {archivedMembers.length}
+                        </span>
+                        <Icon name="chevronD" size={13} style={{ color: 'var(--pn-ink-4)', transform: showArchived ? 'rotate(180deg)' : 'none', transition: 'transform 140ms' }} />
                     </button>
                     {showArchived && (
-                        <div className="terminalTaskList terminalTaskListCompleted">
+                        <div>
                             {archivedMembers.map(member => renderMemberRow(member, { isArchived: true }))}
                         </div>
                     )}
@@ -352,9 +368,9 @@ export function TeamMemberList({
 
             {/* Empty state */}
             {activeMembers.length === 0 && (
-                <div className="terminalEmptyState">
-                    <p className="terminalEmptyMessage">NO TEAM MEMBERS</p>
-                    <p className="terminalEmptySubMessage">$ create your first team member</p>
+                <div style={{ padding: '40px 16px', textAlign: 'center' }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--pn-ink-2)' }}>NO TEAM MEMBERS</p>
+                    <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--pn-ink-4)', fontFamily: 'var(--pn-mono)' }}>$ create your first team member</p>
                 </div>
             )}
         </div>
