@@ -49,7 +49,10 @@
 /* ─── Overlay variant for CreateTaskModal: fills parent ─────────── */
 /* Overrides the default centered pn-mdl card dimensions/shadow so   */
 /* the modal expands to fill .taskDetailOverlay (inset:0).           */
-html[data-redesign] .pn-mdl--overlay {
+/* NOTE: chained `.pn-mdl.pn-mdl--overlay` (specificity 0,3,1) so    */
+/* these win over the base `.pn-mdl` rules in redesign-modals.css    */
+/* (0,2,1), which is imported AFTER this file in main.tsx.           */
+html[data-redesign] .pn-mdl.pn-mdl--overlay {
   position: relative;
   max-width: none;
   max-height: none;
@@ -153,6 +156,18 @@ html[data-redesign] .pn-mdl--overlay {
 .pn-mdl--overlay .pn-mtabs,
 .pn-mdl--overlay .pn-mdl__foot {
   flex-shrink: 0;
+}
+
+/* Flatten dividers for a seamless, edge-to-edge panel (no card seams).
+   html[data-redesign] prefix (0,3,1) beats base .pn-mdl__hd/.pn-mdl__foot
+   (0,2,1) in redesign-modals.css, which would otherwise re-add the lines. */
+html[data-redesign] .pn-mdl--overlay .pn-mdl__hd {
+  border-bottom: none;
+}
+
+html[data-redesign] .pn-mdl--overlay .pn-mdl__foot {
+  border-top: none;
+  background: transparent;
 }
 
 .pn-mdl--overlay .pn-mtabs {
