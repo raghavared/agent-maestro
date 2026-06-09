@@ -71,77 +71,61 @@ const SHORTCUT_ROWS: ShortcutRow[] = [
 function AppSettingsDialog({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('theme');
 
+  const TABS: { id: SettingsTab; label: string }[] = [
+    { id: 'theme', label: 'Theme' },
+    { id: 'display', label: 'Display' },
+    { id: 'sounds', label: 'Sounds' },
+    { id: 'git', label: 'Git' },
+    { id: 'shortcuts', label: 'Shortcuts' },
+  ];
+
   return (
     <div className="projectSettingsBackdrop" onClick={onClose}>
-      <div className="appSettingsDialog" onClick={(e) => e.stopPropagation()}>
-        <div className="projectSettingsHeader">
-          <span className="projectSettingsTitle">[ SETTINGS ]</span>
-          <button type="button" className="projectSettingsClose" onClick={onClose}>×</button>
+      <div
+        className="pn-mdl appSettingsDialog"
+        style={{ width: 720, maxWidth: '92vw' }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Settings"
+      >
+        <div className="pn-mdl__hd">
+          <div className="pn-mdl__hdmain">
+            <div className="pn-mdl__titleinput">Settings</div>
+          </div>
+          <button type="button" className="pn-mdl__close" onClick={onClose} aria-label="Close">
+            <PnIcon name="x" size={16} />
+          </button>
         </div>
 
-        <div className="appSettingsBody">
-          <div className="appSettingsSidebar">
-            <button
-              type="button"
-              className={`appSettingsTabBtn ${activeTab === 'theme' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('theme')}
-            >
-              THEME
-            </button>
-            <button
-              type="button"
-              className={`appSettingsTabBtn ${activeTab === 'display' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('display')}
-            >
-              DISPLAY
-            </button>
-            <button
-              type="button"
-              className={`appSettingsTabBtn ${activeTab === 'sounds' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('sounds')}
-            >
-              SOUNDS
-            </button>
-            <button
-              type="button"
-              className={`appSettingsTabBtn ${activeTab === 'git' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('git')}
-            >
-              GIT
-            </button>
-            <button
-              type="button"
-              className={`appSettingsTabBtn ${activeTab === 'shortcuts' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('shortcuts')}
-            >
-              SHORTCUTS
-            </button>
+        <div style={{ display: 'flex', minHeight: 0 }}>
+          <div
+            className="pn-mtabs pn-mtabs--vert"
+            role="tablist"
+            aria-orientation="vertical"
+            style={{ flex: '0 0 auto' }}
+          >
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === t.id}
+                className={`pn-mtab ${activeTab === t.id ? 'pn-mtab--active' : ''}`}
+                onClick={() => setActiveTab(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
 
-          <div className="appSettingsTabContent">
-            {activeTab === 'theme' && (
-              <div className="appSettingsContent">
-                <ThemeSwitcher />
-              </div>
-            )}
-            {activeTab === 'display' && (
-              <div className="appSettingsContent">
-                <DisplaySettings />
-              </div>
-            )}
-            {activeTab === 'sounds' && (
-              <SoundSettingsContent />
-            )}
-            {activeTab === 'git' && (
-              <div className="appSettingsContent">
-                <GitSettings />
-              </div>
-            )}
+          <div className="pn-mdl__body" style={{ flex: 1, minWidth: 0 }}>
+            {activeTab === 'theme' && <ThemeSwitcher />}
+            {activeTab === 'display' && <DisplaySettings />}
+            {activeTab === 'sounds' && <SoundSettingsContent />}
+            {activeTab === 'git' && <GitSettings />}
             {activeTab === 'shortcuts' && (
-              <div className="appSettingsContent">
-                <div className="appShortcutsHeader">
-                  Available keyboard shortcuts
-                </div>
+              <div className="pn-fld">
+                <div className="pn-flabel">Available keyboard shortcuts</div>
                 <div className="appShortcutsTable" role="table" aria-label="Keyboard shortcuts">
                   <div className="appShortcutsRow appShortcutsRowHeader" role="row">
                     <span role="columnheader">Action</span>
@@ -193,130 +177,139 @@ function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete, onClo
     }
   };
 
+  const TABS: { id: ProjectSettingsTab; label: string }[] = [
+    { id: 'info', label: 'Info' },
+    { id: 'sounds', label: 'Sounds' },
+    { id: 'terminal', label: 'Terminal' },
+  ];
+
+  const isMaster = project.isMaster ?? false;
+
   return (
     <div className="projectSettingsBackdrop" onClick={onClose}>
-      <div className="appSettingsDialog" onClick={(e) => e.stopPropagation()}>
-        <div className="projectSettingsHeader">
-          <span className="projectSettingsTitle">[ PROJECT SETTINGS ]</span>
-          <button type="button" className="projectSettingsClose" onClick={onClose}>×</button>
+      <div
+        className={`pn-mdl appSettingsDialog${activeTab === 'terminal' ? ' appSettingsDialog--wide' : ''}`}
+        style={{ width: activeTab === 'terminal' ? 820 : 640, maxWidth: '94vw' }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Project settings"
+      >
+        <div className="pn-mdl__hd">
+          <div className="pn-mdl__hdmain">
+            <div className="pn-mdl__crumb">
+              <span>PROJECT</span>
+              <PnIcon name="chevronR" size={12} />
+              <b>{project.name}</b>
+            </div>
+            <div className="pn-mdl__titleinput">Project Settings</div>
+          </div>
+          <button type="button" className="pn-mdl__close" onClick={onClose} aria-label="Close">
+            <PnIcon name="x" size={16} />
+          </button>
         </div>
 
-        <div className="appSettingsBody">
-          <div className="appSettingsSidebar">
+        <div className="pn-mtabs" role="tablist">
+          {TABS.map((t) => (
             <button
+              key={t.id}
               type="button"
-              className={`appSettingsTabBtn ${activeTab === 'info' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('info')}
+              role="tab"
+              aria-selected={activeTab === t.id}
+              className={`pn-mtab ${activeTab === t.id ? 'pn-mtab--active' : ''}`}
+              onClick={() => setActiveTab(t.id)}
             >
-              INFO
+              {t.label}
             </button>
-            <button
-              type="button"
-              className={`appSettingsTabBtn ${activeTab === 'sounds' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('sounds')}
-            >
-              SOUNDS
-            </button>
-            <button
-              type="button"
-              className={`appSettingsTabBtn ${activeTab === 'terminal' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('terminal')}
-            >
-              TERMINAL
-            </button>
-          </div>
+          ))}
+        </div>
 
-          <div className="appSettingsTabContent">
-            {activeTab === 'info' && (
-              <div className="appSettingsContent">
-                <div className="projectSettingsContent">
-                  <div className="projectSettingsRow">
-                    <span className="projectSettingsLabel">NAME:</span>
-                    <span className="projectSettingsValue">{project.name}</span>
-                  </div>
+        <div className="pn-mdl__body">
+          {activeTab === 'info' && (
+            <>
+              <div className="pn-fld">
+                <span className="pn-flabel">Name</span>
+                <span style={{ fontSize: 13.5, color: 'var(--pn-ink)' }}>{project.name}</span>
+              </div>
 
-                  {project.basePath && (
-                    <div className="projectSettingsRow">
-                      <span className="projectSettingsLabel">PATH:</span>
-                      <span className="projectSettingsValue projectSettingsPath">{project.basePath}</span>
-                    </div>
-                  )}
-
-                  <div className="projectSettingsRow">
-                    <span className="projectSettingsLabel">SESSIONS:</span>
-                    <span className="projectSettingsValue">{sessionCount}</span>
-                  </div>
-
-                  <div className="projectSettingsRow">
-                    <span className="projectSettingsLabel">CREATED:</span>
-                    <span className="projectSettingsValue">
-                      {new Date(project.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-
-                  <div className="projectSettingsRow projectSettingsMasterRow">
-                    <span className="projectSettingsLabel">MASTER PROJECT:</span>
-                    <label
-                      className="projectSettingsMasterToggle"
-                      title="Sessions in this project can access all other projects"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={project.isMaster ?? false}
-                        onChange={() => void toggleMasterProject(project.id)}
-                      />
-                      <span className="projectSettingsMasterSwitch" />
-                      <span className="projectSettingsMasterLabel">
-                        {project.isMaster ? '★ Enabled' : 'Disabled'}
-                      </span>
-                    </label>
-                    <div className="projectSettingsMasterHint">
-                      Sessions in this project can access all other projects
-                    </div>
-                  </div>
+              {project.basePath && (
+                <div className="pn-fld">
+                  <span className="pn-flabel">Path</span>
+                  <span style={{ fontFamily: 'var(--pn-mono)', fontSize: 12, color: 'var(--pn-ink-2)', wordBreak: 'break-all' }}>
+                    {project.basePath}
+                  </span>
                 </div>
+              )}
 
-                <div className="projectSettingsDivider" />
+              <div className="pn-frow">
+                <div className="pn-fld" style={{ flex: 1 }}>
+                  <span className="pn-flabel">Sessions</span>
+                  <span style={{ fontSize: 13.5, color: 'var(--pn-ink)' }}>{sessionCount}</span>
+                </div>
+                <div className="pn-fld" style={{ flex: 1 }}>
+                  <span className="pn-flabel">Created</span>
+                  <span style={{ fontSize: 13.5, color: 'var(--pn-ink)' }}>
+                    {new Date(project.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
 
-                <button type="button"
-                  className="projectSettingsCloseBtn"
+              <div className="pn-caps">
+                <label className="pn-cap" title="Sessions in this project can access all other projects">
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+                    checked={isMaster}
+                    onChange={() => void toggleMasterProject(project.id)}
+                  />
+                  <div className="pn-cap__body">
+                    <div className="pn-cap__name">{isMaster ? '★ Master Project' : 'Master Project'}</div>
+                    <div className="pn-cap__desc">Sessions in this project can access all other projects</div>
+                  </div>
+                  <span className={`pn-switch ${isMaster ? 'pn-switch--on' : ''}`} />
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <button
+                  type="button"
+                  className="pn-btn"
                   onClick={() => {
                     onCloseProject();
                     onClose();
                   }}
                 >
                   <Icon name="close" size={14} />
-                  CLOSE PROJECT
+                  Close project
                 </button>
 
-                <button type="button"
-                  className="projectSettingsDeleteBtn"
+                <button
+                  type="button"
+                  className="pn-btn pn-btn--danger"
                   onClick={() => {
                     onDelete();
                     onClose();
                   }}
                 >
                   <Icon name="trash" size={14} />
-                  DELETE PROJECT
+                  Delete project
                 </button>
               </div>
-            )}
+            </>
+          )}
 
-            {activeTab === 'sounds' && (
-              <div className="appSettingsContent">
-                <ProjectSoundSettings
-                  config={project.soundConfig}
-                  onChange={handleSoundConfigChange}
-                />
-              </div>
-            )}
+          {activeTab === 'sounds' && (
+            <ProjectSoundSettings
+              config={project.soundConfig}
+              onChange={handleSoundConfigChange}
+            />
+          )}
 
-            {activeTab === 'terminal' && (
-              <div className="appSettingsContent">
-                <TerminalSettings />
-              </div>
-            )}
-          </div>
+          {activeTab === 'terminal' && (
+            <div className="appSettingsContent appSettingsContent--terminal">
+              <TerminalSettings />
+            </div>
+          )}
         </div>
       </div>
     </div>

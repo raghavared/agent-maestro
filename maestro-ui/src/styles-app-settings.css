@@ -736,3 +736,26 @@
   border-color: #ff4444;
 }
 
+
+/* ---------------- Terminal settings tab ---------------- */
+/* When the project settings dialog shows the comprehensive TERMINAL tab,
+   give the body more vertical room (the panel has many sections — font,
+   cursor, behavior, colors with 16 ANSI swatches). */
+.appSettingsDialog--wide .appSettingsBody {
+  min-height: 480px;
+}
+.appSettingsDialog--wide .appSettingsTabContent {
+  max-height: 70vh;
+}
+.appSettingsContent--terminal {
+  padding: 16px 18px;
+}
+/* Pack color swatches into a responsive grid so 16 ANSI colors don't stack
+   into a tall column inside .pn-card-s. Falls back gracefully if the swatch
+   markup changes. */
+.appSettingsContent--terminal .pn-card-s {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px 14px;
+  align-items: center;
+}
