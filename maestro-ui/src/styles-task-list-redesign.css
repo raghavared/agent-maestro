@@ -311,6 +311,8 @@
 .terminalDangerousToggle--bar {
   font-size: 11px;
   padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Git worktree toggle button */

@@ -113,8 +113,15 @@
 /* ------------------------------------------------------------------ */
 
 .docViewerOverlay {
-  position: absolute;
-  inset: 0;
+  /* Height of the project tab bar (.pn-top) — the overlay starts below it so
+     the doc viewer never covers/goes under the tab bar, regardless of whether
+     it's mounted in the workspace or portaled to <body>. */
+  --doc-viewer-top: 42px;
+  position: fixed;
+  top: var(--doc-viewer-top);
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -874,17 +881,21 @@
 /* ------------------------------------------------------------------ */
 
 .docViewerOverlay--fullscreen {
-  background: #0a0a0a;
+  /* Dim, translucent scrim so the terminal stays visible around the panel. */
+  background: rgba(0, 0, 0, 0.45);
+  /* Inset the panel from all four edges so terminal peeks through. */
+  padding: 22px 24px;
 }
 
 .docViewerPanel--fullscreen {
-  width: 100vw !important;
-  max-width: 100vw !important;
-  max-height: 100vh !important;
-  height: 100vh;
-  border-radius: 0;
-  border: none;
-  box-shadow: none;
+  /* Fill the padded overlay (not the full viewport) → margins on every side. */
+  width: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  height: 100%;
+  border-radius: 8px;
+  border: 2px solid var(--terminal-green);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
 }
 
 .docViewerHeaderActions {
@@ -1021,13 +1032,18 @@ html[data-redesign] .docViewerOverlay {
   background: rgba(40, 34, 24, 0.4);
 }
 html[data-redesign] .docViewerOverlay--fullscreen {
-  background: var(--pn-paper);
+  background: rgba(40, 34, 24, 0.4);
 }
 html[data-redesign] .docViewerPanel {
   background: var(--pn-card);
   border-color: var(--pn-line-2);
   box-shadow: var(--pn-sh-pop);
   font-family: var(--pn-ui);
+}
+html[data-redesign] .docViewerPanel--fullscreen {
+  border: 1px solid var(--pn-line-2);
+  border-radius: 8px;
+  box-shadow: var(--pn-sh-pop);
 }
 
 /* --- Header --- */

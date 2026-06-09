@@ -781,7 +781,7 @@
   padding: 6px 0;
   background: none;
   border: none;
-  color: var(--text);
+  color: var(--pn-ink, var(--text));
   font-family: var(--style-font-ui);
   font-size: 11px;
   cursor: pointer;
@@ -790,11 +790,11 @@
 }
 
 .sessionDetailsSectionHeader:hover {
-  color: var(--theme-primary);
+  color: var(--pn-brand, var(--theme-primary));
 }
 
 .sessionDetailsSectionToggle {
-  color: var(--muted);
+  color: var(--pn-ink-3, var(--muted));
 }
 
 .sessionDetailsSectionTitle {
@@ -817,12 +817,12 @@
 }
 
 .sessionDetailsLabel {
-  color: var(--muted);
+  color: var(--pn-ink-3, var(--muted));
   white-space: nowrap;
 }
 
 .sessionDetailsValue {
-  color: var(--text);
+  color: var(--pn-ink, var(--text));
   word-break: break-word;
 }
 
@@ -834,8 +834,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--surface-2, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  background: var(--pn-surface, var(--surface-2, rgba(255, 255, 255, 0.04)));
+  border: 1px solid var(--pn-line-2, var(--border, rgba(255, 255, 255, 0.08)));
   border-radius: 4px;
   padding: 1px 6px;
   cursor: pointer;
@@ -844,7 +844,7 @@
 }
 
 .sessionDetailsValue--copy:hover {
-  border-color: var(--accent, #6B8AFD);
+  border-color: var(--pn-brand, var(--accent, #6B8AFD));
 }
 
 .sessionDetailsIdText {
@@ -854,7 +854,7 @@
 }
 
 .sessionDetailsCopyHint {
-  color: var(--muted);
+  color: var(--pn-ink-3, var(--muted));
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -862,7 +862,7 @@
 }
 
 .sessionDetailsValue--copy:hover .sessionDetailsCopyHint {
-  color: var(--accent, #6B8AFD);
+  color: var(--pn-brand, var(--accent, #6B8AFD));
 }
 
 .sessionDetailsValue--strategy-simple {
@@ -886,7 +886,7 @@
 .sessionDetailsGroup {
   margin-top: 12px;
   padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--pn-line, rgba(255, 255, 255, 0.05));
 }
 
 .sessionDetailsGroupHeader {
@@ -899,7 +899,7 @@
 .sessionDetailsGroupTitle {
   font-size: 10px;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--pn-ink-3, var(--muted));
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 8px;
@@ -909,16 +909,16 @@
   padding: 2px 6px;
   font-family: var(--style-font-ui);
   font-size: 9px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--pn-surface, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--pn-line-2, rgba(255, 255, 255, 0.1));
   border-radius: 2px;
-  color: var(--muted);
+  color: var(--pn-ink-3, var(--muted));
   cursor: pointer;
 }
 
 .sessionDetailsShowBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text);
+  background: var(--pn-hover, rgba(255, 255, 255, 0.08));
+  color: var(--pn-ink, var(--text));
 }
 
 .sessionDetailsEnvList {
@@ -935,11 +935,11 @@
 }
 
 .sessionDetailsEnvKey {
-  color: var(--accent);
+  color: var(--pn-brand, var(--accent));
 }
 
 .sessionDetailsEnvValue {
-  color: var(--muted);
+  color: var(--pn-ink-2, var(--muted));
   word-break: break-all;
 }
 
@@ -949,7 +949,7 @@
   align-items: center;
   gap: 4px;
   font-size: 10px;
-  color: var(--muted);
+  color: var(--pn-ink-3, var(--muted));
   font-family: var(--style-font-ui);
 }
 
@@ -1723,9 +1723,11 @@
 .executionBarActions {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
   margin-left: auto;
+  justify-content: flex-end;
 }
 
 /* Ghost-style cancel button */
@@ -1736,6 +1738,7 @@
   opacity: 0.6;
   padding: 6px 8px !important;
   font-size: 11px !important;
+  flex-shrink: 0;
 }
 
 .executionBarCancelBtn:hover {
@@ -1797,8 +1800,10 @@
 .executionBarRow {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .executionBarDropdowns {

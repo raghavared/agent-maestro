@@ -410,8 +410,8 @@ export function ExecutionBar({
                         />
                     </div>
                     <div className="executionBarRow">
+                        <button type="button" className="terminalCmd executionBarCancelBtn" onClick={onCancel}>cancel</button>
                         <div className="executionBarActions">
-                            <button type="button" className="terminalCmd executionBarCancelBtn" onClick={onCancel}>cancel</button>
                             <button type="button"
                                 className={`terminalDangerousToggle terminalDangerousToggle--bar ${coordinatorDangerous ? 'terminalDangerousToggle--on' : ''}`}
                                 title={coordinatorDangerous ? 'Coordinator: dangerous mode ON' : 'Coordinator: enable dangerous mode'}
@@ -499,8 +499,8 @@ export function ExecutionBar({
                     />
                 </div>
                 <div className="executionBarRow">
+                    <button type="button" className="terminalCmd executionBarCancelBtn" onClick={onCancel}>cancel</button>
                     <div className="executionBarActions">
-                        <button type="button" className="terminalCmd executionBarCancelBtn" onClick={onCancel}>cancel</button>
                         <button type="button"
                             className="executionBarConfigBtn"
                             onClick={() => setShowConfigModal(true)}

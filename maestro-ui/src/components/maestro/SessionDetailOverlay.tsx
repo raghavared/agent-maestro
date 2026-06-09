@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useUIStore } from "../../stores/useUIStore";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useProjectStore } from "../../stores/useProjectStore";
@@ -117,7 +118,7 @@ export function SessionDetailOverlay() {
 
   const statusKind = session?.needsInput?.active ? "needsInput" : session?.status;
 
-  return (
+  return createPortal(
     <div
       className="pn-mdl-scrim"
       onClick={handleClose}
@@ -131,7 +132,11 @@ export function SessionDetailOverlay() {
         padding: 24,
       }}
     >
-      <div className="pn-mdl" onClick={(e) => e.stopPropagation()} style={{ width: 720, maxHeight: "90vh" }}>
+      <div
+        className="pn-mdl"
+        onClick={(e) => e.stopPropagation()}
+        style={{ width: 720, maxWidth: "calc(100vw - 48px)", maxHeight: "90vh" }}
+      >
         {/* Header */}
         <div className="pn-mdl__hd">
           <div className="pn-mdl__hdmain">
@@ -320,6 +325,7 @@ export function SessionDetailOverlay() {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
