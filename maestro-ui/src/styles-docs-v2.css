@@ -163,7 +163,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: 8px 16px;
   background: rgba(var(--theme-primary-rgb), 0.04);
   border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.15);
 }
@@ -177,8 +177,8 @@
 
 .docViewerIcon {
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -883,8 +883,9 @@
 .docViewerOverlay--fullscreen {
   /* Dim, translucent scrim so the terminal stays visible around the panel. */
   background: rgba(0, 0, 0, 0.45);
-  /* Inset the panel from all four edges so terminal peeks through. */
-  padding: 22px 24px;
+  /* Inset the panel from all four edges so terminal peeks through.
+     Smaller top gap so the panel reaches a little higher under the tab bar. */
+  padding: 9px 24px 18px;
 }
 
 .docViewerPanel--fullscreen {
