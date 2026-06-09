@@ -1,56 +1,21 @@
 import { invoke } from "@tauri-apps/api/core";
 import React, { useEffect, useRef } from "react";
 import { Terminal } from "xterm";
-import type { ITheme } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import type { PendingDataBuffer } from "./app/types/app-state";
-import { useTerminalSettingsStore } from "./stores/useTerminalSettingsStore";
+import { useTerminalSettingsStore, buildITheme } from "./stores/useTerminalSettingsStore";
 
 export type TerminalRegistry = Map<string, { term: Terminal; fit: FitAddon }>;
 
 /* ---------------------------------------------------------------------------
-   MAESTRO TERMINAL THEME — warm, desaturated, FULL 16-color ANSI palette.
-
-   The old theme set only 4 colors, so all real program output (diffs, test
-   results, `ls`, syntax highlighting) fell through to xterm's default neon
-   ANSI palette — the cold/"AI" look. This defines the complete ITheme so the
-   WHOLE terminal reads warm parchment-on-graphite, matching the panel-redesign
-   --pn-term-* / --pn-* design tokens.
-
-   The terminal stays DARK in both light and dark mode; only the background
-   flips between two dark values (#1B1812 light / #100E0A dark) to match the
-   --pn-term-bg chrome gutter. ink/accent/ANSI stay constant across themes.
+   Terminal background follows the app light/dark toggle: it stays DARK in both
+   modes, flipping between two dark values to match the --pn-term-bg chrome
+   gutter — UNLESS the user pins an explicit background in Terminal settings
+   (see buildITheme + useTerminalSettingsStore). All other colors, font, cursor
+   and spacing come from the terminal-settings store.
 --------------------------------------------------------------------------- */
 const MAESTRO_TERMINAL_BG_LIGHT = "#1B1812";
 const MAESTRO_TERMINAL_BG_DARK = "#100E0A";
-
-function maestroTerminalTheme(background: string): ITheme {
-  return {
-    background,
-    foreground: "#D9D2C4", // parchment ink
-    cursor: "#E0A45A", // brass accent
-    cursorAccent: background,
-    selectionBackground: "rgba(224,164,90,0.22)", // warm brass wash
-    selectionForeground: "#F3EEE2",
-    // 16-color ANSI — warm & desaturated, no neon
-    black: "#322D24",
-    red: "#CB7059",
-    green: "#74B083",
-    yellow: "#D2A24C",
-    blue: "#6E9BC4",
-    magenta: "#B98BC0",
-    cyan: "#6FB2A8",
-    white: "#CFC8BA",
-    brightBlack: "#6B6453",
-    brightRed: "#DC8B73",
-    brightGreen: "#8FC79C",
-    brightYellow: "#E6B968",
-    brightBlue: "#88B0D6",
-    brightMagenta: "#CCA0D2",
-    brightCyan: "#86C4BA",
-    brightWhite: "#EFE9DB",
-  };
-}
 
 function currentTerminalBg(): string {
   return typeof document !== "undefined" &&
@@ -164,12 +129,18 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
     const termSettings = useTerminalSettingsStore.getState();
     const term = new Terminal({
       allowProposedApi: true,
-      cursorBlink: true,
+      cursorBlink: termSettings.cursorBlink,
+      cursorStyle: termSettings.cursorStyle,
+      cursorInactiveStyle: termSettings.cursorInactiveStyle,
       disableStdin: props.readOnly,
       fontFamily: termSettings.fontStack,
       fontSize: termSettings.fontSize,
-      theme: maestroTerminalTheme(currentTerminalBg()),
-      scrollback: 5000,
+      fontWeight: termSettings.fontWeight,
+      fontWeightBold: termSettings.fontWeightBold,
+      lineHeight: termSettings.lineHeight,
+      letterSpacing: termSettings.letterSpacing,
+      theme: buildITheme(termSettings.colors, currentTerminalBg()),
+      scrollback: termSettings.scrollback,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -181,7 +152,8 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
     // dark values to match the --pn-term-bg chrome gutter. Theme-only update —
     // does not touch the PTY, registry, or fit.
     const themeObserver = new MutationObserver(() => {
-      term.options.theme = maestroTerminalTheme(currentTerminalBg());
+      const ts = useTerminalSettingsStore.getState();
+      term.options.theme = buildITheme(ts.colors, currentTerminalBg());
     });
     themeObserver.observe(document.documentElement, {
       attributes: true,
@@ -198,12 +170,13 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
     // cover WKWebView reporting `fonts.ready` a frame or two before paint.
     const forceFontReflow = () => {
       if (!term.element) return; // terminal disposed before the font loaded
-      const size = term.options.fontSize ?? 13;
+      const ts = useTerminalSettingsStore.getState();
+      const size = ts.fontSize ?? term.options.fontSize ?? 13;
       // Re-assert the configured font and round-trip fontSize: this forces
       // xterm's CharSizeService/WidthCache to re-measure with the now-loaded
       // font and triggers a full repaint (a same-value fontFamily set alone
       // does not).
-      term.options.fontFamily = useTerminalSettingsStore.getState().fontStack;
+      term.options.fontFamily = ts.fontStack;
       term.options.fontSize = size + 1;
       term.options.fontSize = size;
       // Canvas/webgl renderers cache glyphs in a texture atlas keyed on the
@@ -690,35 +663,85 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
     term.options.disableStdin = props.readOnly;
   }, [props.readOnly]);
 
-  // Apply user-configured terminal font + size live to every open terminal
-  // when the setting changes (Settings → Display). Re-measure + re-fit so the
-  // grid reflows, with the same WKWebView hard-repaint used at creation.
+  // Apply ALL user-configured terminal settings live to every open terminal
+  // when any setting changes. Re-measure + re-fit so the grid reflows, with
+  // the same WKWebView hard-repaint used at creation.
   const termFontStack = useTerminalSettingsStore((s) => s.fontStack);
   const termFontSize = useTerminalSettingsStore((s) => s.fontSize);
+  const termFontWeight = useTerminalSettingsStore((s) => s.fontWeight);
+  const termFontWeightBold = useTerminalSettingsStore((s) => s.fontWeightBold);
+  const termLineHeight = useTerminalSettingsStore((s) => s.lineHeight);
+  const termLetterSpacing = useTerminalSettingsStore((s) => s.letterSpacing);
+  const termCursorStyle = useTerminalSettingsStore((s) => s.cursorStyle);
+  const termCursorBlink = useTerminalSettingsStore((s) => s.cursorBlink);
+  const termCursorInactiveStyle = useTerminalSettingsStore((s) => s.cursorInactiveStyle);
+  const termScrollback = useTerminalSettingsStore((s) => s.scrollback);
+  const termColors = useTerminalSettingsStore((s) => s.colors);
+
   useEffect(() => {
     const term = termRef.current;
     const fit = fitRef.current;
     if (!term) return;
+
+    // Font / layout options — trigger WKWebView reflow for any of these
+    const needsReflow =
+      term.options.fontFamily !== termFontStack ||
+      term.options.fontSize !== termFontSize ||
+      term.options.fontWeight !== termFontWeight ||
+      term.options.fontWeightBold !== termFontWeightBold ||
+      term.options.lineHeight !== termLineHeight ||
+      term.options.letterSpacing !== termLetterSpacing;
+
     term.options.fontFamily = termFontStack;
     term.options.fontSize = termFontSize;
-    try {
-      fit?.fit();
-    } catch {
-      /* not measurable yet */
+    term.options.fontWeight = termFontWeight;
+    term.options.fontWeightBold = termFontWeightBold;
+    term.options.lineHeight = termLineHeight;
+    term.options.letterSpacing = termLetterSpacing;
+
+    // Cursor options
+    term.options.cursorStyle = termCursorStyle;
+    term.options.cursorBlink = termCursorBlink;
+    term.options.cursorInactiveStyle = termCursorInactiveStyle;
+
+    // Scrollback
+    term.options.scrollback = termScrollback;
+
+    // Theme colors
+    term.options.theme = buildITheme(termColors, currentTerminalBg());
+
+    if (needsReflow) {
+      try {
+        fit?.fit();
+      } catch {
+        /* not measurable yet */
+      }
+      try {
+        term.refresh(0, term.rows - 1);
+      } catch {
+        /* renderer not ready */
+      }
+      const el = term.element;
+      if (el) {
+        const prevDisplay = el.style.display;
+        el.style.display = "none";
+        void el.offsetHeight;
+        el.style.display = prevDisplay;
+      }
     }
-    try {
-      term.refresh(0, term.rows - 1);
-    } catch {
-      /* renderer not ready */
-    }
-    const el = term.element;
-    if (el) {
-      const prevDisplay = el.style.display;
-      el.style.display = "none";
-      void el.offsetHeight;
-      el.style.display = prevDisplay;
-    }
-  }, [termFontStack, termFontSize]);
+  }, [
+    termFontStack,
+    termFontSize,
+    termFontWeight,
+    termFontWeightBold,
+    termLineHeight,
+    termLetterSpacing,
+    termCursorStyle,
+    termCursorBlink,
+    termCursorInactiveStyle,
+    termScrollback,
+    termColors,
+  ]);
 
   return <div ref={containerRef} style={{ height: "100%", width: "100%" }} />;
 });

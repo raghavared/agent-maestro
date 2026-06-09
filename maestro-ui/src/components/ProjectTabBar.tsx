@@ -6,6 +6,7 @@ import { DisplaySettings } from "./DisplaySettings";
 import { GitSettings } from "./GitSettings";
 import { SoundSettingsContent } from "./modals/SoundSettingsModal";
 import { ProjectSoundSettings } from "./modals/ProjectSoundSettings";
+import { TerminalSettings } from "./TerminalSettings";
 import { soundManager } from "../services/soundManager";
 import { useProjectStore } from "../stores/useProjectStore";
 
@@ -41,7 +42,7 @@ type SettingsDialogProps = {
 };
 
 type SettingsTab = 'theme' | 'display' | 'sounds' | 'git' | 'shortcuts';
-type ProjectSettingsTab = 'info' | 'sounds';
+type ProjectSettingsTab = 'info' | 'sounds' | 'terminal';
 
 type ShortcutRow = {
   action: string;
@@ -213,6 +214,13 @@ function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete, onClo
             >
               SOUNDS
             </button>
+            <button
+              type="button"
+              className={`appSettingsTabBtn ${activeTab === 'terminal' ? 'appSettingsTabBtnActive' : ''}`}
+              onClick={() => setActiveTab('terminal')}
+            >
+              TERMINAL
+            </button>
           </div>
 
           <div className="appSettingsTabContent">
@@ -297,6 +305,12 @@ function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete, onClo
                   config={project.soundConfig}
                   onChange={handleSoundConfigChange}
                 />
+              </div>
+            )}
+
+            {activeTab === 'terminal' && (
+              <div className="appSettingsContent">
+                <TerminalSettings />
               </div>
             )}
           </div>
