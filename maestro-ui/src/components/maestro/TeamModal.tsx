@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Team, CreateTeamPayload, UpdateTeamPayload } from "../../app/types/maestro";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { Icon } from "./redesign/kit";
 
 type TeamModalProps = {
     isOpen: boolean;
@@ -166,24 +167,17 @@ export function TeamModal({ isOpen, onClose, projectId, team }: TeamModalProps) 
     return createPortal(
         <div className="themedModalBackdrop" onClick={handleClose}>
             <div
-                className="themedModal themedModal--wide"
+                className="pn-mdl"
                 onClick={(e) => e.stopPropagation()}
                 style={{ overflow: 'hidden' }}
             >
                 {/* Header */}
-                <div className="themedModalHeader">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
-                        <span className="themedModalTitle" style={{ flexShrink: 0 }}>
-                            {isEditMode ? '[ EDIT TEAM ]' : '[ NEW TEAM ]'}
-                        </span>
+                <div className="pn-mdl__hd">
+                    <div className="pn-mdl__hdmain">
+                        <div className="pn-mdl__crumb"><Icon name="users" /> <b>Team</b> <Icon name="chevronR" size={11} /> {isEditMode ? 'Edit team' : 'New team'}</div>
                         <input
                             type="text"
-                            className="themedFormInput"
-                            style={{
-                                flex: 1, minWidth: 0, margin: 0,
-                                padding: '6px 10px', fontSize: '13px', fontWeight: 600,
-                                boxSizing: 'border-box',
-                            }}
+                            className="pn-mdl__titleinput"
                             placeholder="e.g., Frontend Squad"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
@@ -192,56 +186,51 @@ export function TeamModal({ isOpen, onClose, projectId, team }: TeamModalProps) 
                             autoFocus
                         />
                     </div>
-                    <button type="button" className="themedModalClose" onClick={handleClose} disabled={isSaving}>{'\u00D7'}</button>
+                    <button type="button" className="pn-mdl__close" onClick={handleClose} disabled={isSaving}><Icon name="x" /></button>
                 </div>
 
                 {/* Content */}
-                <div className="themedModalContent" style={{ overflowX: 'hidden' }}>
+                <div className="pn-mdl__body" style={{ overflowX: 'hidden' }}>
                     {error && (
-                        <div className="terminalErrorBanner" style={{ marginBottom: '10px' }}>
-                            <span className="terminalErrorSymbol">[ERROR]</span>
-                            <span className="terminalErrorText">{error}</span>
-                            <button type="button" className="terminalErrorClose" onClick={() => setError(null)}>{'\u00D7'}</button>
+                        <div className="pn-fhint" style={{ color: 'var(--pn-block)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ flex: 1 }}>{error}</span>
+                            <button type="button" className="pn-mdl__close" style={{ width: 22, height: 22 }} onClick={() => setError(null)}><Icon name="x" size={13} /></button>
                         </div>
                     )}
 
                     {/* Description & Avatar */}
-                    <div className="tmModal__section">
-                        <div className="tmModal__sectionLabel">Details</div>
-                        <div className="tmModal__row">
-                            <div className="tmModal__field">
-                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Description</div>
-                                <textarea
-                                    className="themedFormInput"
-                                    style={{ margin: 0, padding: '6px 10px', fontSize: '12px', width: '100%', boxSizing: 'border-box', minHeight: '60px', resize: 'vertical' }}
-                                    placeholder="What this team does..."
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    disabled={isSaving}
-                                />
-                            </div>
-                            <div className="tmModal__fieldSmall">
-                                <div className="themedFormLabel" style={{ fontSize: '10px', marginBottom: '4px' }}>Avatar</div>
-                                <input
-                                    type="text"
-                                    className="themedFormInput"
-                                    style={{ margin: 0, padding: '6px 10px', fontSize: '16px', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}
-                                    placeholder={'\u{1F46A}'}
-                                    value={avatar}
-                                    onChange={(e) => setAvatar(e.target.value)}
-                                    maxLength={2}
-                                    disabled={isSaving}
-                                />
-                            </div>
+                    <div className="pn-frow" style={{ alignItems: 'flex-end' }}>
+                        <div className="pn-fld" style={{ flex: 1, minWidth: 160 }}>
+                            <span className="pn-flabel">Description</span>
+                            <textarea
+                                className="pn-textarea"
+                                style={{ minHeight: 60 }}
+                                placeholder="What this team does..."
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                disabled={isSaving}
+                            />
+                        </div>
+                        <div className="pn-fld">
+                            <span className="pn-flabel">Avatar</span>
+                            <input
+                                type="text"
+                                className="pn-avatar-edit"
+                                style={{ textAlign: 'center' }}
+                                placeholder={'\u{1F46A}'}
+                                value={avatar}
+                                onChange={(e) => setAvatar(e.target.value)}
+                                maxLength={2}
+                                disabled={isSaving}
+                            />
                         </div>
                     </div>
 
                     {/* Leader */}
-                    <div className="tmModal__section">
-                        <div className="tmModal__sectionLabel">Leader *</div>
+                    <div className="pn-fld">
+                        <span className="pn-flabel">Leader <span className="req">*</span></span>
                         <select
-                            className="themedFormSelect"
-                            style={{ margin: 0, padding: '5px 8px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }}
+                            className="pn-select"
                             value={leaderId}
                             onChange={(e) => setLeaderId(e.target.value)}
                             disabled={isSaving}
@@ -254,33 +243,29 @@ export function TeamModal({ isOpen, onClose, projectId, team }: TeamModalProps) 
                     </div>
 
                     {/* Members */}
-                    <div className="tmModal__section">
-                        <div className="tmModal__sectionLabel">Members ({selectedMemberIds.length})</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 8px', maxHeight: '120px', overflowY: 'auto' }}>
+                    <div className="pn-fld">
+                        <span className="pn-flabel">Members ({selectedMemberIds.length})</span>
+                        <div className="pn-caps" style={{ maxHeight: '160px', overflowY: 'auto' }}>
                             {activeMembers.map(m => {
                                 const isSelected = selectedMemberIds.includes(m.id);
                                 const isLeader = m.id === leaderId;
                                 return (
-                                    <label
+                                    <div
                                         key={m.id}
-                                        className="terminalTaskCheckbox"
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: '5px',
-                                            cursor: isLeader ? 'default' : 'pointer',
-                                            opacity: isLeader ? 0.7 : 1,
-                                            marginRight: 0,
-                                        }}
+                                        className="pn-cap"
+                                        style={{ cursor: isLeader ? 'default' : 'pointer', opacity: isLeader ? 0.7 : 1 }}
                                         onClick={(e) => { e.preventDefault(); if (!isSaving && !isLeader) toggleMember(m.id); }}
                                     >
-                                        <input type="checkbox" checked={isSelected} readOnly />
-                                        <span className={`terminalTaskCheckmark ${isSelected ? 'terminalTaskCheckmark--checked' : ''}`} style={{ width: '14px', height: '14px', fontSize: '9px' }}>
-                                            {isSelected ? '\u2713' : ''}
-                                        </span>
-                                        <span style={{ fontSize: '11px', fontFamily: '"JetBrains Mono", monospace', color: 'var(--theme-text)', whiteSpace: 'nowrap' }}>
-                                            {m.avatar} {m.name}
-                                            {isLeader && <span style={{ opacity: 0.5, marginLeft: '4px' }}>(leader)</span>}
-                                        </span>
-                                    </label>
+                                        <input type="checkbox" checked={isSelected} readOnly style={{ display: 'none' }} />
+                                        <div className="pn-cap__body">
+                                            <div className="pn-cap__name">
+                                                {m.avatar} {m.name}
+                                                {isLeader && <span style={{ opacity: 0.5, marginLeft: '6px' }}>(leader)</span>}
+                                            </div>
+                                            <div className="pn-cap__desc">{m.role}</div>
+                                        </div>
+                                        <span className={`pn-switch ${isSelected ? 'pn-switch--on' : ''}`}></span>
+                                    </div>
                                 );
                             })}
                         </div>
@@ -288,29 +273,24 @@ export function TeamModal({ isOpen, onClose, projectId, team }: TeamModalProps) 
 
                     {/* Sub-teams */}
                     {availableSubTeams.length > 0 && (
-                        <div className="tmModal__section" style={{ borderBottom: 'none', paddingBottom: 0, marginBottom: 0 }}>
-                            <div className="tmModal__sectionLabel">Sub-teams ({selectedSubTeamIds.length})</div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 8px', maxHeight: '100px', overflowY: 'auto' }}>
+                        <div className="pn-fld">
+                            <span className="pn-flabel">Sub-teams ({selectedSubTeamIds.length})</span>
+                            <div className="pn-caps" style={{ maxHeight: '140px', overflowY: 'auto' }}>
                                 {availableSubTeams.map(t => {
                                     const isSelected = selectedSubTeamIds.includes(t.id);
                                     return (
-                                        <label
+                                        <div
                                             key={t.id}
-                                            className="terminalTaskCheckbox"
-                                            style={{
-                                                display: 'flex', alignItems: 'center', gap: '5px',
-                                                cursor: 'pointer', marginRight: 0,
-                                            }}
+                                            className="pn-cap"
+                                            style={{ cursor: 'pointer' }}
                                             onClick={(e) => { e.preventDefault(); if (!isSaving) toggleSubTeam(t.id); }}
                                         >
-                                            <input type="checkbox" checked={isSelected} readOnly />
-                                            <span className={`terminalTaskCheckmark ${isSelected ? 'terminalTaskCheckmark--checked' : ''}`} style={{ width: '14px', height: '14px', fontSize: '9px' }}>
-                                                {isSelected ? '\u2713' : ''}
-                                            </span>
-                                            <span style={{ fontSize: '11px', fontFamily: '"JetBrains Mono", monospace', color: 'var(--theme-text)', whiteSpace: 'nowrap' }}>
-                                                {t.avatar || '\u{1F46A}'} {t.name}
-                                            </span>
-                                        </label>
+                                            <input type="checkbox" checked={isSelected} readOnly style={{ display: 'none' }} />
+                                            <div className="pn-cap__body">
+                                                <div className="pn-cap__name">{t.avatar || '\u{1F46A}'} {t.name}</div>
+                                            </div>
+                                            <span className={`pn-switch ${isSelected ? 'pn-switch--on' : ''}`}></span>
+                                        </div>
                                     );
                                 })}
                             </div>
@@ -319,15 +299,15 @@ export function TeamModal({ isOpen, onClose, projectId, team }: TeamModalProps) 
                 </div>
 
                 {/* Footer */}
-                <div className="tmModal__footer">
-                    <div className="tmModal__footerLeft" />
-                    <div className="tmModal__footerRight">
-                        <button type="button" className="themedBtn" onClick={handleClose} disabled={isSaving}>
+                <div className="pn-mdl__foot">
+                    <div className="pn-mdl__footL" />
+                    <div className="pn-mdl__footR">
+                        <button type="button" className="pn-btn pn-btn--ghost" onClick={handleClose} disabled={isSaving}>
                             Cancel
                         </button>
                         <button
                             type="button"
-                            className="themedBtn themedBtnPrimary"
+                            className="pn-btn pn-btn--primary"
                             onClick={handleSubmit}
                             disabled={isSaving || !name.trim() || !leaderId}
                         >

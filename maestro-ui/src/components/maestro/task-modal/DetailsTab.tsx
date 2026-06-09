@@ -1,5 +1,6 @@
 import React from "react";
 import { TaskPriority, MaestroTask } from "../../../app/types/maestro";
+import { Icon } from "../redesign/kit";
 
 const STATUS_LABELS: Record<string, string> = {
     todo: "Todo",
@@ -8,6 +9,18 @@ const STATUS_LABELS: Record<string, string> = {
     completed: "Completed",
     cancelled: "Cancelled",
     blocked: "Blocked",
+};
+
+const PRIO_DOT: Record<TaskPriority, string> = {
+    high: "var(--pn-block)",
+    medium: "var(--pn-wait)",
+    low: "var(--pn-idle)",
+};
+
+const PRIO_LABEL: Record<TaskPriority, string> = {
+    high: "High",
+    medium: "Medium",
+    low: "Low",
 };
 
 type DetailsTabProps = {
@@ -23,82 +36,65 @@ type DetailsTabProps = {
 
 export function DetailsTab({ priority, onPriorityChange, dueDate, onDueDateChange, useWorktree, onUseWorktreeChange, isEditMode, task }: DetailsTabProps) {
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div className="themedFormRow" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
-                <div className="themedFormLabel" style={{ marginBottom: 0, flexShrink: 0 }}>Priority</div>
-                <div className="themedSegmentedControl" style={{ margin: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="pn-fld">
+                <span className="pn-flabel">Priority</span>
+                <div className="pn-prio-pills">
+                    {(["high", "medium", "low"] as TaskPriority[]).map((p) => (
+                        <button
+                            key={p}
+                            type="button"
+                            className={`pn-prio-pill ${priority === p ? "pn-prio-pill--active" : ""}`}
+                            onClick={() => onPriorityChange(p)}
+                        >
+                            <span className="pn-pdot" style={{ background: PRIO_DOT[p] }}></span>
+                            {PRIO_LABEL[p]}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="pn-frow">
+                <div className="pn-fld" style={{ flex: 1 }}>
+                    <span className="pn-flabel">Due date</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                            type="date"
+                            value={dueDate}
+                            onChange={(e) => onDueDateChange(e.target.value)}
+                            className="pn-input"
+                            style={{ width: 'auto', flex: 1 }}
+                        />
+                        {dueDate && (
+                            <button
+                                type="button"
+                                className="pn-mchip"
+                                onClick={() => onDueDateChange("")}
+                            >
+                                Clear
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                <div className="pn-fld">
+                    <span className="pn-flabel">Isolation</span>
                     <button
                         type="button"
-                        className={`themedSegmentedBtn ${priority === "low" ? "active" : ""}`}
-                        onClick={() => onPriorityChange("low")}
+                        className={`pn-toggle ${useWorktree ? 'pn-toggle--on-wt' : ''}`}
+                        onClick={() => onUseWorktreeChange(!useWorktree)}
+                        style={{ height: 38 }}
+                        title={useWorktree ? 'Session runs in an isolated git branch' : 'Session runs in-place'}
                     >
-                        Low
-                    </button>
-                    <button
-                        type="button"
-                        className={`themedSegmentedBtn ${priority === "medium" ? "active" : ""}`}
-                        onClick={() => onPriorityChange("medium")}
-                    >
-                        Medium
-                    </button>
-                    <button
-                        type="button"
-                        className={`themedSegmentedBtn ${priority === "high" ? "active" : ""}`}
-                        onClick={() => onPriorityChange("high")}
-                    >
-                        High
+                        <Icon name="gitBranch" size={14} /> {useWorktree ? 'Git worktree' : 'In-place'}
                     </button>
                 </div>
             </div>
-            <div className="themedFormRow" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
-                <div className="themedFormLabel" style={{ marginBottom: 0, flexShrink: 0 }}>Due Date</div>
-                <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => onDueDateChange(e.target.value)}
-                    className="themedInput"
-                    style={{ padding: '4px 8px', fontSize: '12px', width: 'auto' }}
-                />
-                {dueDate && (
-                    <button
-                        type="button"
-                        className="themedSegmentedBtn"
-                        onClick={() => onDueDateChange("")}
-                        style={{ padding: '4px 8px', fontSize: '11px' }}
-                    >
-                        Clear
-                    </button>
-                )}
-            </div>
-            <div className="themedFormRow" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
-                <div className="themedFormLabel" style={{ marginBottom: 0, flexShrink: 0 }}>Isolation</div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', color: 'var(--theme-primary)' }}>
-                    <input
-                        type="checkbox"
-                        checked={useWorktree}
-                        onChange={(e) => onUseWorktreeChange(e.target.checked)}
-                        style={{ cursor: 'pointer', accentColor: 'var(--theme-accent, var(--theme-primary))' }}
-                    />
-                    Worktree
-                </label>
-                {useWorktree && (
-                    <span style={{ fontSize: '10px', color: 'var(--theme-text-secondary)', opacity: 0.7 }}>
-                        session runs in an isolated git branch
-                    </span>
-                )}
-            </div>
+
             {isEditMode && task && (
-                <div style={{ display: 'flex', gap: '16px', fontSize: '11px' }}>
-                    <span>
-                        <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)' }}>status:</span>{' '}
-                        <span className="themedTaskStatusBadge" data-status={task.status}>
-                            {STATUS_LABELS[task.status] || task.status}
-                        </span>
-                    </span>
-                    <span>
-                        <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)' }}>id:</span>{' '}
-                        <span style={{ color: 'var(--theme-primary)', fontSize: '10px' }}>{task.id}</span>
-                    </span>
+                <div className="pn-fhint" style={{ display: 'flex', gap: '16px' }}>
+                    <span>status: {STATUS_LABELS[task.status] || task.status}</span>
+                    <span>id: {task.id}</span>
                 </div>
             )}
         </div>

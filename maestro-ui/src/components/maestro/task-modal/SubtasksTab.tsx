@@ -1,6 +1,7 @@
 import React from "react";
 import { MaestroTask } from "../../../app/types/maestro";
 import { useSubtaskProgress } from "../../../hooks/useSubtaskProgress";
+import { Icon } from "../redesign/kit";
 
 function formatDate(timestamp: number): string {
     return new Date(timestamp).toLocaleDateString("en-US", {
@@ -44,18 +45,17 @@ export function SubtasksTab({
     return (
         <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <div className="themedFormHint" style={{ margin: 0 }}>
+                <div className="pn-fhint" style={{ margin: 0 }}>
                     {subtaskProgress.total > 0
                         ? `${subtaskProgress.completed}/${subtaskProgress.total} completed (${subtaskProgress.percentage}%)`
                         : 'No subtasks yet'}
                 </div>
                 <button
                     type="button"
-                    className="themedBtn"
+                    className="pn-mchip"
                     onClick={() => onToggleSubtaskInput(!showSubtaskInput)}
-                    style={{ padding: '2px 8px', fontSize: '10px' }}
                 >
-                    + add
+                    <Icon name="plus" size={12} /> Add
                 </button>
             </div>
 
@@ -63,8 +63,8 @@ export function SubtasksTab({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
                     <input
                         type="text"
-                        className="themedFormInput"
-                        placeholder="$ enter subtask title..."
+                        className="pn-input"
+                        placeholder="Subtask title…"
                         value={newSubtaskTitle}
                         onChange={(e) => onNewSubtaskTitleChange(e.target.value)}
                         onKeyDown={(e) => {
@@ -79,21 +79,21 @@ export function SubtasksTab({
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                         <button
                             type="button"
-                            className="themedBtn"
+                            className="pn-btn pn-btn--ghost"
                             onClick={() => {
                                 onToggleSubtaskInput(false);
                                 onNewSubtaskTitleChange("");
                             }}
                         >
-                            cancel
+                            Cancel
                         </button>
                         <button
                             type="button"
-                            className="themedBtn themedBtnPrimary"
+                            className="pn-btn pn-btn--primary"
                             onClick={onAddSubtask}
                             disabled={!newSubtaskTitle.trim()}
                         >
-                            add
+                            Add
                         </button>
                     </div>
                 </div>
@@ -118,34 +118,32 @@ export function SubtasksTab({
                             {subtask.status === "completed" ? "[✓]" : "[ ]"}
                         </span>
                         <span className="themedSubtaskTitle">{subtask.title}</span>
-                        <span className="themedFormHint" style={{ flexShrink: 0 }}>
+                        <span className="pn-fhint" style={{ flexShrink: 0 }}>
                             {formatDate(subtask.createdAt)}
                         </span>
                         {onWorkOnSubtask && (
                             <button
                                 type="button"
-                                className="themedBtn"
-                                style={{ padding: '0 4px', fontSize: '10px' }}
+                                className="pn-mchip"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onWorkOnSubtask(subtask);
                                 }}
                                 title="Work on subtask"
                             >
-                                ▶
+                                <Icon name="play" size={12} />
                             </button>
                         )}
                         <button
                             type="button"
-                            className="themedBtn themedBtnDanger"
-                            style={{ padding: '0 4px', fontSize: '12px' }}
+                            className="pn-mchip"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onDeleteSubtask?.(subtask.id);
                             }}
                             title="Delete subtask"
                         >
-                            ×
+                            <Icon name="x" size={12} />
                         </button>
                     </div>
                 ))}

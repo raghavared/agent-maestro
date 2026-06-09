@@ -1,0 +1,48 @@
+/* ==========================================================================
+   MAESTRO · PANEL REDESIGN — DARK VARIANT
+   Same warm-editorial system, inverted into warm graphite (never neon).
+   Activated by html[data-theme="dark"]. Token-only override — no component
+   rules change. Link AFTER theme.css.
+   ========================================================================== */
+html[data-theme="dark"] {
+  --pn-paper:   #15130E;   /* app canvas — warm near-black */
+  --pn-surface: #1B1810;   /* panel surface */
+  --pn-card:    #221E15;   /* raised card */
+  --pn-hover:   #262117;   /* row hover */
+  --pn-active:  #302A1D;   /* selected fill */
+
+  --pn-line:    #2C2719;   /* hairline */
+  --pn-line-2:  #3B3524;   /* stronger border */
+
+  --pn-ink:     #EFE9DB;   /* primary text — warm near-white */
+  --pn-ink-2:   #BDB5A2;   /* secondary */
+  --pn-ink-3:   #8C8470;   /* muted / meta */
+  --pn-ink-4:   #665E4C;   /* faint / placeholder */
+
+  --pn-brand:    #E0A45A;
+  --pn-brand-2:  #C98A3E;
+  --pn-brand-soft: rgba(224, 164, 90, 0.15);
+
+  --pn-run:   #5CB381;  --pn-run-soft:   rgba(92, 179, 129, 0.17);
+  --pn-wait:  #D9AA49;  --pn-wait-soft:  rgba(217, 170, 73, 0.18);
+  --pn-block: #DA7D6A;  --pn-block-soft: rgba(218, 125, 106, 0.17);
+  --pn-info:  #6F9FC7;  --pn-info-soft:  rgba(111, 159, 199, 0.17);
+  --pn-idle:  #7A7360;  --pn-idle-soft:  rgba(122, 115, 96, 0.20);
+
+  --pn-sh-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --pn-sh-md: 0 2px 8px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.4);
+  --pn-sh-pop: 0 16px 44px rgba(0, 0, 0, 0.6);
+}
+
+/* the center terminal sits a touch darker than the panels for separation */
+html[data-theme="dark"] .pn-term { background: #100E0A; }
+html[data-theme="dark"] .pn-term-bar,
+html[data-theme="dark"] .pn-term-input { border-color: #221E15; }
+
+/* priority/status tag borders read a bit stronger on dark */
+html[data-theme="dark"] .pn-tag { border-color: var(--pn-line-2); }
+
+/* tab background fills (used a near-white in light) stay subtle on dark */
+html[data-theme="dark"] body,
+html[data-theme="dark"] #stage,
+html[data-theme="dark"] #frame { background: var(--pn-paper); }

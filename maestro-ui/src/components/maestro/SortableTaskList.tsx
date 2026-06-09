@@ -88,26 +88,41 @@ export function SortableTaskList({
     })
   );
 
+  // Presentational partition of the (already manually-ordered) roots into the
+  // two design sections — "In progress" (in_progress) and "Up next" (the rest).
+  // Read-only: order within each slice is preserved verbatim, no status mutation.
+  const inProgress = useMemo(() => roots.filter((r) => r.status === "in_progress"), [roots]);
+  const upNext = useMemo(() => roots.filter((r) => r.status !== "in_progress"), [roots]);
+  // Single sortable list over the flat display order (in_progress-first); the two
+  // section headers are interspersed render-only and are not sortable items.
+  const displayRoots = useMemo(() => [...inProgress, ...upNext], [inProgress, upNext]);
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
-      const oldIndex = roots.findIndex((r) => r.id === active.id);
-      const newIndex = roots.findIndex((r) => r.id === over.id);
+      const oldIndex = displayRoots.findIndex((r) => r.id === active.id);
+      const newIndex = displayRoots.findIndex((r) => r.id === over.id);
       if (oldIndex === -1 || newIndex === -1) return;
 
       const newOrder = arrayMove(
-        roots.map((r) => r.id),
+        displayRoots.map((r) => r.id),
         oldIndex,
         newIndex
       );
       onReorder(newOrder);
     },
-    [roots, onReorder]
+    [displayRoots, onReorder]
   );
 
-  const ids = useMemo(() => roots.map((r) => r.id), [roots]);
+  const ids = useMemo(() => displayRoots.map((r) => r.id), [displayRoots]);
+
+  const renderItem = (node: TaskTreeNode) => (
+    <SortableTaskItem key={node.id} id={node.id}>
+      {renderTaskNode(node, 0, showPermanentDelete ? PERMANENT_DELETE_OPTIONS : undefined)}
+    </SortableTaskItem>
+  );
 
   return (
     <DndContext
@@ -116,24 +131,25 @@ export function SortableTaskList({
       onDragEnd={handleDragEnd}
     >
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-        <div className={`terminalTaskList ${listClassName || ""}`}>
-          <div className="terminalTaskHeader">
-            <span>STATUS</span>
-            <span>TASK</span>
-            <span>AGENT</span>
-            <span>ACTIONS</span>
-          </div>
-          {roots.map((node) => (
-            <SortableTaskItem key={node.id} id={node.id}>
-              {renderTaskNode(
-                node,
-                0,
-                showPermanentDelete
-                  ? PERMANENT_DELETE_OPTIONS
-                  : undefined
-              )}
-            </SortableTaskItem>
-          ))}
+        <div className={listClassName || undefined}>
+          {inProgress.length > 0 && (
+            <>
+              <div className="pn-sec-head">
+                <span className="pn-eyebrow">In progress <span className="pn-count">· {inProgress.length}</span></span>
+                <span className="pn-line" />
+              </div>
+              <div className="pn-list">{inProgress.map(renderItem)}</div>
+            </>
+          )}
+          {upNext.length > 0 && (
+            <>
+              <div className="pn-sec-head">
+                <span className="pn-eyebrow">Up next <span className="pn-count">· {upNext.length}</span></span>
+                <span className="pn-line" />
+              </div>
+              <div className="pn-list">{upNext.map(renderItem)}</div>
+            </>
+          )}
         </div>
       </SortableContext>
     </DndContext>

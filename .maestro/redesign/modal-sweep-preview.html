@@ -1,0 +1,264 @@
+<!doctype html>
+<html data-redesign lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Modal Sweep — preview harness</title>
+  <!-- Real foundation stylesheets (scoped under html[data-redesign]) -->
+  <link rel="stylesheet" href="../../maestro-ui/src/components/maestro/redesign/redesign-tokens.css" />
+  <link rel="stylesheet" href="../../maestro-ui/src/components/maestro/redesign/redesign-tiles.css" />
+  <link rel="stylesheet" href="../../maestro-ui/src/components/maestro/redesign/redesign-modals.css" />
+  <style>
+    body { margin: 0; }
+    .sweep-stage {
+      min-height: 100vh; padding: 36px 24px;
+      display: flex; gap: 30px; align-items: flex-start; justify-content: center; flex-wrap: wrap;
+      background: var(--pn-paper);
+    }
+    .sweep-col { display: flex; flex-direction: column; gap: 10px; }
+    .sweep-cap { font-family: var(--pn-mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--pn-ink-3); }
+    /* card sizing parity with .pn-mdl (no portal/scrim in harness) */
+    .pn-mdl { position: relative; }
+  </style>
+</head>
+<body>
+  <div class="sweep-stage" id="stage"></div>
+
+  <script>
+    const ICONS = {
+      x: "M4 4l8 8M12 4l-8 8",
+      chevronR: "M6 3.5L10.5 8 6 12.5",
+      chevronD: "M3.5 6L8 10.5 12.5 6",
+      listChecks: "M3 4l1 1 1.5-1.5M3 9l1 1 1.5-1.5M8 4h5M8 9h5M8 13.5h5",
+      users: "M6 7.5a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5zM2.5 13c0-2 1.6-3.2 3.5-3.2S9.5 11 9.5 13M10.5 7.2a2 2 0 000-4M11 9.9c1.5.2 2.5 1.3 2.5 3.1",
+      sliders: "M3 5h7M12.5 5H13M3 11h.5M6 11h7M9 3.5v3M5 9.5v3",
+      terminal: "M3 4l3 3-3 3M8 11h5",
+      play: "M5 3.5l7 4.5-7 4.5z",
+      shield: "M8 2l5 2v4c0 3-2.2 5.2-5 6-2.8-.8-5-3-5-6V4l5-2z",
+    };
+    function icon(name, size = 16, sw = 1.6, color) {
+      const d = ICONS[name] || "";
+      const paths = d.split("M").filter(Boolean).map(s => `<path d="M${s}"/>`).join("");
+      return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${color ? `style="color:${color}"` : ""}>${paths}</svg>`;
+    }
+
+    /* ---------- 1. TaskListModal ---------- */
+    const taskList = `
+      <div class="pn-mdl">
+        <div class="pn-mdl__hd">
+          <div class="pn-mdl__hdmain">
+            <div class="pn-mdl__crumb">${icon("listChecks")} <b>Task list</b></div>
+            <h2 class="pn-mdl__titleinput" style="margin:0">New list</h2>
+          </div>
+          <button class="pn-mdl__close">${icon("x")}</button>
+        </div>
+        <div class="pn-mdl__body">
+          <div class="pn-fld"><span class="pn-flabel">Name</span><input class="pn-input" value="release prep" /></div>
+          <div class="pn-fld"><span class="pn-flabel">Description</span><textarea class="pn-textarea">Tasks gating the 1.4 cut.</textarea></div>
+          <div class="pn-fhint" style="color:var(--pn-block)">Name is required</div>
+        </div>
+        <div class="pn-mdl__foot">
+          <div class="pn-mdl__footL"></div>
+          <div class="pn-mdl__footR">
+            <button class="pn-btn pn-btn--ghost">Cancel</button>
+            <button class="pn-btn pn-btn--primary">Create List</button>
+          </div>
+        </div>
+      </div>`;
+
+    /* ---------- 2. ModelProfileModal ---------- */
+    const modelProfile = `
+      <div class="pn-mdl">
+        <div class="pn-mdl__hd">
+          <div class="pn-mdl__hdmain">
+            <div class="pn-mdl__crumb">${icon("sliders")} <b>Model profile</b> ${icon("chevronR", 11)} New</div>
+            <input class="pn-mdl__titleinput" value="Heavy" />
+          </div>
+          <button class="pn-mdl__close">${icon("x")}</button>
+        </div>
+        <div class="pn-mdl__body">
+          <div class="pn-fhint">Team members bound to this profile resolve their model + launch settings here. Editing this profile re-points every bound member the next time they spawn.</div>
+          <div class="pn-fld"><span class="pn-flabel">Description</span><input class="pn-input" value="Opus for the hard stuff" /></div>
+          <div class="pn-fld">
+            <span class="pn-flabel">Launch config <span style="opacity:.6;font-weight:500;text-transform:none;letter-spacing:0">— Claude Code · opus-4.8</span></span>
+            <div class="terminalLaunchDropdown terminalLaunchDropdown--inline" style="border:1px solid var(--pn-line-2);border-radius:var(--pn-r-sm);padding:10px 11px;color:var(--pn-ink-3);font-size:12.5px;background:var(--pn-surface)">LaunchConfigDropdown (child component — owned separately)</div>
+          </div>
+        </div>
+        <div class="pn-mdl__foot">
+          <div class="pn-mdl__footL"></div>
+          <div class="pn-mdl__footR">
+            <button class="pn-btn pn-btn--ghost">Cancel</button>
+            <button class="pn-btn pn-btn--primary">Create Profile</button>
+          </div>
+        </div>
+      </div>`;
+
+    /* ---------- 3. TeamModal ---------- */
+    const capRow = (name, desc, on) => `
+      <div class="pn-cap" style="cursor:pointer">
+        <div class="pn-cap__body"><div class="pn-cap__name">${name}</div>${desc ? `<div class="pn-cap__desc">${desc}</div>` : ""}</div>
+        <span class="pn-switch ${on ? "pn-switch--on" : ""}"></span>
+      </div>`;
+    const team = `
+      <div class="pn-mdl">
+        <div class="pn-mdl__hd">
+          <div class="pn-mdl__hdmain">
+            <div class="pn-mdl__crumb">${icon("users")} <b>Team</b> ${icon("chevronR", 11)} New team</div>
+            <input class="pn-mdl__titleinput" value="Frontend Squad" />
+          </div>
+          <button class="pn-mdl__close">${icon("x")}</button>
+        </div>
+        <div class="pn-mdl__body">
+          <div class="pn-frow" style="align-items:flex-end">
+            <div class="pn-fld" style="flex:1;min-width:160px"><span class="pn-flabel">Description</span><textarea class="pn-textarea" style="min-height:60px">Owns the panel redesign.</textarea></div>
+            <div class="pn-fld"><span class="pn-flabel">Avatar</span><input class="pn-avatar-edit" style="text-align:center" value="🪄" /></div>
+          </div>
+          <div class="pn-fld"><span class="pn-flabel">Leader <span class="req">*</span></span>
+            <select class="pn-select"><option>🦊 Rhea (strike lead)</option></select>
+          </div>
+          <div class="pn-fld"><span class="pn-flabel">Members (2)</span>
+            <div class="pn-caps">
+              ${capRow("🦊 Rhea <span style='opacity:.5;margin-left:6px'>(leader)</span>", "strike lead", true)}
+              ${capRow("🐱 Kit", "test runner", true)}
+              ${capRow("🦉 Ada", "reviewer", false)}
+            </div>
+          </div>
+          <div class="pn-fld"><span class="pn-flabel">Sub-teams (1)</span>
+            <div class="pn-caps">
+              ${capRow("👪 Infra Pod", "", true)}
+              ${capRow("👪 Docs Pod", "", false)}
+            </div>
+          </div>
+        </div>
+        <div class="pn-mdl__foot">
+          <div class="pn-mdl__footL"></div>
+          <div class="pn-mdl__footR">
+            <button class="pn-btn pn-btn--ghost">Cancel</button>
+            <button class="pn-btn pn-btn--primary">Create Team</button>
+          </div>
+        </div>
+      </div>`;
+
+    /* ---------- 4. SessionDetailModal ---------- */
+    const kv = (k, v) => `<div class="pn-fld" style="gap:3px"><span class="pn-flabel">${k}</span><span style="font-size:12.5px;color:var(--pn-ink-2)">${v}</span></div>`;
+    const taskRow = (tone, sym, title) => `
+      <div class="pn-cap" style="cursor:default">
+        <span style="font-family:var(--pn-mono);font-size:13px;width:16px;flex:0 0 auto;text-align:center;color:var(--pn-${tone})">${sym}</span>
+        <div class="pn-cap__body"><div class="pn-cap__name">${title}</div></div>
+      </div>`;
+    const sessionDetail = `
+      <div class="pn-mdl">
+        <div class="pn-mdl__hd">
+          <div class="pn-mdl__hdmain">
+            <div class="pn-mdl__crumb">${icon("terminal")} <b>Session</b></div>
+            <h2 class="pn-mdl__titleinput" style="margin:0">worker-reparent-3</h2>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px">
+              <span class="pn-pill pn-pill--run"><span class="pn-dot-wrap"><span class="pn-dot pn-dot--run pn-dot--live"></span></span>Working</span>
+              <span class="pn-badge pn-badge--model">OPUS-4.8</span>
+              <span class="pn-badge">COORDINATED-WORKER</span>
+            </div>
+          </div>
+          <button class="pn-mdl__close">${icon("x")}</button>
+        </div>
+        <div class="pn-mdl__body">
+          <div class="pn-fld">
+            <span class="pn-flabel" style="padding-bottom:6px;border-bottom:1px solid var(--pn-line)">Info</span>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;margin-top:4px">
+              ${kv("Started", "Jun 9, 2026, 01:42 AM")}
+              ${kv("Last Activity", "just now")}
+              ${kv("Agent", "tm_178…m0hj")}
+              ${kv("Hostname", "studio.local")}
+              ${kv("Platform", "darwin")}
+              ${kv("Spawn Source", "coordinator")}
+            </div>
+          </div>
+          <div class="pn-fld">
+            <span class="pn-flabel" style="padding-bottom:6px;border-bottom:1px solid var(--pn-line)">Linked Tasks (3)</span>
+            <div class="pn-caps">
+              ${taskRow("run", "✓", "Re-skin TaskListModal")}
+              ${taskRow("info", "◉", "Re-skin SessionDetailModal")}
+              ${taskRow("block", "✗", "Awaiting foundation badge")}
+            </div>
+          </div>
+          <div class="pn-fld">
+            <span class="pn-flabel" style="padding-bottom:6px;border-bottom:1px solid var(--pn-line)">Timeline</span>
+            <div class="sessionDetailTimelineScroller" style="border:1px solid var(--pn-line-2);border-radius:var(--pn-r-sm);padding:10px;color:var(--pn-ink-3);font-size:12px;background:var(--pn-surface)">SessionTimeline (child component — untouched)</div>
+          </div>
+        </div>
+        <div class="pn-mdl__foot">
+          <div class="pn-mdl__footL"><span class="pn-flabel">Session</span><span style="font-family:var(--pn-mono);font-size:11px;color:var(--pn-ink-3)">sess_1780949…</span></div>
+          <div class="pn-mdl__footR"><button class="pn-btn pn-btn--ghost">Close</button></div>
+        </div>
+      </div>`;
+
+    /* ---------- 5. TeamLaunchConfigModal ---------- */
+    const memberCard = (coord, avatar, name, role, danger, expanded) => `
+      <div class="launchConfigCard" style="border:1px solid ${coord ? "rgba(178,106,43,0.4)" : "var(--pn-line-2)"};border-radius:var(--pn-r-md);background:${coord ? "var(--pn-brand-soft)" : "var(--pn-surface)"};padding:12px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:160px">
+            <span style="width:30px;height:30px;border-radius:var(--pn-r-sm);display:grid;place-items:center;background:var(--pn-active);font-size:16px;flex:0 0 auto">${avatar}</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-size:13px;font-weight:600;color:var(--pn-ink)">${name}</span>
+              ${coord ? `<span class="pn-badge">COORD</span>` : ""}
+              <span style="font-size:11px;color:var(--pn-ink-3)">${role}</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select class="pn-select" style="width:auto"><option>Claude Code</option></select>
+            <select class="pn-select" style="width:auto"><option>opus-4.8</option></select>
+            <button class="pn-toggle ${danger ? "pn-toggle--on-danger" : ""}">${icon("shield", 14)} ${danger ? "dangerous" : "safe"}</button>
+            <button class="pn-mdl__close">${icon(expanded ? "chevronD" : "chevronR", 15)}</button>
+          </div>
+        </div>
+        ${expanded ? `
+        <div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">
+          <div class="pn-fld">
+            <span class="pn-flabel">Command Permissions</span>
+            <div class="pn-fhint" style="margin-bottom:4px">Defaults depend on mode. Toggle to restrict or explicitly grant mode-supported commands.</div>
+            <button style="background:none;border:none;cursor:pointer;font-size:11.5px;padding:4px 0;color:var(--pn-ink);display:flex;align-items:center;gap:6px;width:100%;font-family:var(--pn-ui)">${icon("chevronD", 12, 1.6, "var(--pn-ink-3)")}<span style="font-weight:600">Task</span><span style="opacity:.5;font-size:10px;font-family:var(--pn-mono)">(2/4)</span></button>
+            <div class="pn-caps" style="padding-left:18px">
+              ${capRow("<span style='font-family:var(--pn-mono);font-size:11.5px'>task:list</span>", "", true)}
+              ${capRow("<span style='font-family:var(--pn-mono);font-size:11.5px'>task:create</span>", "", true)}
+              ${capRow("<span style='font-family:var(--pn-mono);font-size:11.5px'>task:delete</span>", "", false)}
+            </div>
+          </div>
+        </div>` : ""}
+      </div>`;
+    const launchConfig = `
+      <div class="pn-mdl launchConfigModal">
+        <div class="pn-mdl__hd">
+          <div class="pn-mdl__hdmain">
+            <div class="pn-mdl__crumb">${icon("play")} <b>Launch</b></div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <h2 class="pn-mdl__titleinput" style="margin:0;width:auto">Launch configuration</h2>
+              <span class="pn-badge">2 members</span>
+            </div>
+          </div>
+          <button class="pn-mdl__close">${icon("x")}</button>
+        </div>
+        <div class="pn-mdl__body">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            ${memberCard(true, "🎯", "Coordinator", "task orchestrator", false, false)}
+            ${memberCard(false, "🦊", "Rhea", "strike lead", true, true)}
+          </div>
+        </div>
+        <div class="pn-mdl__foot">
+          <div class="pn-mdl__footL"></div>
+          <div class="pn-mdl__footR">
+            <button class="pn-btn pn-btn--ghost">Cancel</button>
+            <button class="pn-btn">Save</button>
+            <button class="pn-btn">Save as Team</button>
+            <button class="pn-btn pn-btn--primary">${icon("play", 13)} Launch</button>
+          </div>
+        </div>
+      </div>`;
+
+    const col = (cap, html) => `<div class="sweep-col"><div class="sweep-cap">${cap}</div>${html}</div>`;
+    document.getElementById("stage").innerHTML =
+      col("Task list", taskList) +
+      col("Model profile", modelProfile) +
+      col("Team", team) +
+      col("Session detail", sessionDetail) +
+      col("Launch configuration", launchConfig);
+  </script>
+</body>
+</html>

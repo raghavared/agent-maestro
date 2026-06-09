@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import type { TaskList, CreateTaskListPayload, UpdateTaskListPayload } from "../../app/types/maestro";
+import { Icon } from "./redesign/kit";
 
 type TaskListModalProps = {
   isOpen: boolean;
@@ -68,39 +69,45 @@ export function TaskListModal({ isOpen, projectId, list, onClose }: TaskListModa
 
   return (
     <div className="themedModalBackdrop" onClick={onClose}>
-      <div className="themedModal" onClick={(e) => e.stopPropagation()}>
-        <div className="themedModalHeader">
-          <span className="themedModalTitle">[ {isEditMode ? "EDIT TASK LIST" : "NEW TASK LIST"} ]</span>
-          <button type="button" className="themedModalClose" onClick={onClose} disabled={isSaving}>×</button>
+      <div className="pn-mdl" onClick={(e) => e.stopPropagation()}>
+        <div className="pn-mdl__hd">
+          <div className="pn-mdl__hdmain">
+            <div className="pn-mdl__crumb"><Icon name="listChecks" /> <b>Task list</b></div>
+            <h2 className="pn-mdl__titleinput" style={{ margin: 0 }}>{isEditMode ? "Edit list" : "New list"}</h2>
+          </div>
+          <button type="button" className="pn-mdl__close" onClick={onClose} disabled={isSaving}><Icon name="x" /></button>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="themedModalContent">
-            <div className="themedFormRow">
-              <div className="themedFormLabel">Name</div>
+          <div className="pn-mdl__body">
+            <div className="pn-fld">
+              <span className="pn-flabel">Name</span>
               <input
-                className="themedFormInput"
+                className="pn-input"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. release prep"
               />
             </div>
-            <div className="themedFormRow">
-              <div className="themedFormLabel">Description</div>
+            <div className="pn-fld">
+              <span className="pn-flabel">Description</span>
               <textarea
-                className="themedFormTextarea"
+                className="pn-textarea"
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional notes for this list"
               />
             </div>
-            {error && <div className="themedFormHint" style={{ color: "var(--danger)" }}>{error}</div>}
+            {error && <div className="pn-fhint" style={{ color: "var(--pn-block)" }}>{error}</div>}
           </div>
-          <div className="themedFormActions">
-            <button type="button" className="themedBtn" onClick={onClose} disabled={isSaving}>Cancel</button>
-            <button type="submit" className="themedBtn themedBtnPrimary" disabled={isSaving}>
-              {isSaving ? "Saving..." : isEditMode ? "Save Changes" : "Create List"}
-            </button>
+          <div className="pn-mdl__foot">
+            <div className="pn-mdl__footL" />
+            <div className="pn-mdl__footR">
+              <button type="button" className="pn-btn pn-btn--ghost" onClick={onClose} disabled={isSaving}>Cancel</button>
+              <button type="submit" className="pn-btn pn-btn--primary" disabled={isSaving}>
+                {isSaving ? "Saving..." : isEditMode ? "Save Changes" : "Create List"}
+              </button>
+            </div>
           </div>
         </form>
       </div>

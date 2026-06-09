@@ -532,6 +532,10 @@
     border-radius: 50%;
     background: #22d3ee;
     box-shadow: 0 0 0 2px rgba(11, 15, 20, 0.9), 0 0 6px rgba(34, 211, 238, 0.5);
+}
+
+/* Blink only while bytes are actively streaming; idle-but-working stays solid green */
+.sessionAgentIcon__liveDot--streaming {
     animation: livePulse 1.4s ease-in-out infinite;
 }
 
@@ -936,10 +940,24 @@
     position: fixed;
     inset: 0;
     z-index: 9999;
-    background: rgba(0, 0, 0, 0.92);
+    background: var(--pn-paper);
     display: flex;
     flex-direction: column;
     animation: teamViewOverlayIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* pn-tv__term reparent host: the design's pn-tv__term styles static text lines;
+   when reused as the xterm reparent host it needs a positioning context + the
+   absolute-fill rule the old teamViewSlotTerminal--host provided. */
+html[data-redesign] .pn-tv__term--host {
+    position: relative;
+    padding: 0;
+}
+html[data-redesign] .pn-tv__term--host > .terminalInTeamView {
+    position: absolute;
+    inset: 0;
+    visibility: visible !important;
+    pointer-events: auto !important;
 }
 
 @keyframes teamViewOverlayIn {

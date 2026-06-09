@@ -1,16 +1,20 @@
 /* ------------------------------------------------------------------ */
 /*  Task Detail Overlay                                                */
+/*                                                                     */
+/*  Hosts CreateTaskModal in `variant="overlay"` mode (edit a task     */
+/*  pinned over the terminal area, not a centered floating dialog).    */
+/*  All selectors are scoped under .taskDetailOverlay / .pn-mdl--      */
+/*  overlay; they're safe to edit because nothing else uses them.      */
 /* ------------------------------------------------------------------ */
 
 .taskDetailOverlay {
   position: absolute;
   inset: 0;
-  background: var(--terminal-bg, #1a1a2e);
+  background: var(--pn-paper, var(--terminal-bg, #1a1a2e));
   z-index: 9999;
   display: flex;
   flex-direction: column;
   animation: fadeInOverlay 0.15s ease-out;
-  /* Ensure overlay sits above everything in the terminal area */
   isolation: isolate;
   overflow: hidden;
 }
@@ -21,29 +25,31 @@
 }
 
 .taskDetailOverlay__backBtn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: none;
-  border: 1px solid var(--terminal-border);
-  color: var(--terminal-text-dim);
+  background: transparent;
+  border: 1px solid var(--pn-line-2);
+  color: var(--pn-ink-2);
   cursor: pointer;
   padding: 4px 10px;
   font-size: 12px;
-  font-family: var(--terminal-font);
-  border-radius: 3px;
-  transition: all 0.15s ease;
+  font-family: var(--pn-ui);
+  border-radius: var(--pn-r-sm);
+  transition: border-color 140ms, color 140ms, background 140ms;
   flex-shrink: 0;
 }
 
 .taskDetailOverlay__backBtn:hover {
-  border-color: var(--terminal-green);
-  color: var(--terminal-green);
-  background: rgba(var(--theme-primary-rgb), 0.1);
+  border-color: var(--pn-ink-4);
+  color: var(--pn-ink);
+  background: var(--pn-hover);
 }
 
-/* Overlay variant for CreateTaskModal - fills parent instead of portal */
-.themedModal--overlay {
+/* ─── Overlay variant for CreateTaskModal: fills parent ─────────── */
+/* Overrides the default centered pn-mdl card dimensions/shadow so   */
+/* the modal expands to fill .taskDetailOverlay (inset:0).           */
+html[data-redesign] .pn-mdl--overlay {
   position: relative;
   max-width: none;
   max-height: none;
@@ -60,16 +66,30 @@
   overflow: hidden;
 }
 
-.themedModal--overlay .themedModalContent {
+/* The description region (wrapper + body) flex-fills the remaining
+   vertical space between the header and the tab bar. */
+.pn-mdl--overlay .themedModalDescriptionArea {
   flex: 1 1 0;
   min-height: 0;
-  overflow: hidden;
+  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 8px 16px;
+  overflow: hidden;
 }
 
-.themedModal--overlay .themedFormRow {
+.pn-mdl--overlay .themedModalDescriptionArea > .pn-mdl__body {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The pn-desc/pn-fld field inside the description body fills the
+   body so the mentions textarea can grow to full height. */
+.pn-mdl--overlay .pn-desc {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
@@ -77,7 +97,7 @@
   margin-bottom: 0;
 }
 
-.themedModal--overlay .mentionsWrapper {
+.pn-mdl--overlay .mentionsWrapper {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
@@ -85,20 +105,20 @@
   overflow: hidden;
 }
 
-.themedModal--overlay .mentionsInput {
+.pn-mdl--overlay .mentionsInput {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
-.themedModal--overlay .mentionsInput > div {
+.pn-mdl--overlay .mentionsInput > div {
   flex: 1 1 0;
   min-height: 0;
   position: relative;
 }
 
-.themedModal--overlay .mentionsInput > div > div {
+.pn-mdl--overlay .mentionsInput > div > div {
   position: absolute !important;
   top: 0;
   left: 0;
@@ -106,7 +126,7 @@
   bottom: 0;
 }
 
-.themedModal--overlay .mentionsInput textarea {
+.pn-mdl--overlay .mentionsInput textarea {
   position: absolute !important;
   top: 0;
   left: 0;
@@ -116,43 +136,32 @@
   max-height: none !important;
   min-height: 0 !important;
   overflow-y: auto !important;
+  border: none !important;
+  border-radius: 0 !important;
+  resize: none !important;
+  background: transparent;
+  color: var(--pn-ink);
 }
 
-.themedModal--overlay .themedModalHeader {
+.pn-mdl--overlay .mentionsInput textarea:focus {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Header / tab bar / footer don't grow; description does. */
+.pn-mdl--overlay .pn-mdl__hd,
+.pn-mdl--overlay .pn-mtabs,
+.pn-mdl--overlay .pn-mdl__foot {
   flex-shrink: 0;
 }
 
-.themedModal--overlay .themedModalTabBar {
-  flex-shrink: 0;
+.pn-mdl--overlay .pn-mtabs {
   margin-top: 0 !important;
 }
 
-.themedModal--overlay .themedModalTabContent {
-  flex-shrink: 0;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-/* Description area wrapper - relative container so tab panel can overlay it */
-.themedModalDescriptionArea {
-  flex: 1 1 0;
-  min-height: 0;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.themedModalDescriptionArea .themedModalContent {
-  flex: 1 1 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* Tab content overlays on top of the description area */
-.themedModalTabContent--overlay {
+/* Tab content panel: in overlay mode it's positioned as an absolute
+   sheet over the description so it doesn't push other regions. */
+.pn-mdl--overlay .themedModalTabContent--overlay {
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
@@ -160,24 +169,7 @@
   bottom: 0 !important;
   max-height: none !important;
   overflow-y: auto;
-  background: #000000;
+  background: var(--pn-card);
   border-top: none !important;
   z-index: 5;
 }
-
-/* Remove border and resize handle from description textarea in overlay mode */
-.themedModal--overlay .mentionsInput textarea {
-  border: none !important;
-  border-radius: 0 !important;
-  resize: none !important;
-}
-
-.themedModal--overlay .mentionsInput textarea:focus {
-  border: none !important;
-  box-shadow: none !important;
-}
-
-.themedModal--overlay .themedFormActions {
-  flex-shrink: 0;
-}
-

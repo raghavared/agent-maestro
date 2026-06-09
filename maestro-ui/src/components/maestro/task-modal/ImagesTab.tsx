@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { TaskImage } from "../../../app/types/maestro";
 import { maestroClient } from "../../../utils/MaestroClient";
+import { Icon } from "../redesign/kit";
 
 type ImagesTabProps = {
     taskId: string;
@@ -113,19 +114,8 @@ export function ImagesTab({ taskId, images, onImagesChange, variant = 'tab' }: I
                 {images.map(img => (
                     <span
                         key={img.id}
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '2px 6px 2px 3px',
-                            fontSize: '10px',
-                            border: '1px solid var(--theme-border)',
-                            borderRadius: '3px',
-                            backgroundColor: 'rgba(var(--theme-primary-rgb), 0.05)',
-                            color: 'var(--theme-text-secondary)',
-                            cursor: 'pointer',
-                            maxWidth: '120px',
-                        }}
+                        className="pn-mchip pn-mchip--ref"
+                        style={{ maxWidth: '120px', cursor: 'pointer' }}
                         onClick={() => setPreviewImage(img)}
                         title={img.filename}
                     >
@@ -151,45 +141,22 @@ export function ImagesTab({ taskId, images, onImagesChange, variant = 'tab' }: I
                         <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handleDelete(img.id); }}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                color: 'var(--theme-text-secondary)',
-                                padding: '0',
-                                fontSize: '12px',
-                                lineHeight: 1,
-                                flexShrink: 0,
-                                opacity: 0.6,
-                            }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, display: 'inline-flex', lineHeight: 1, flexShrink: 0 }}
                             title="Remove image"
                         >
-                            ×
+                            <Icon name="x" size={11} />
                         </button>
                     </span>
                 ))}
 
                 <button
                     type="button"
+                    className="pn-mchip"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '3px',
-                        padding: '2px 7px',
-                        fontSize: '10px',
-                        border: '1px solid var(--theme-border)',
-                        borderRadius: '3px',
-                        background: 'transparent',
-                        color: 'var(--theme-text-secondary)',
-                        cursor: uploading ? 'default' : 'pointer',
-                        opacity: uploading ? 0.5 : 1,
-                        fontFamily: 'inherit',
-                    }}
                     title="Attach image"
                 >
-                    {uploading ? '…' : '+ img'}
+                    {uploading ? '…' : <><Icon name="paperclip" size={12} /> Attach</>}
                 </button>
                 <input
                     ref={fileInputRef}
@@ -213,18 +180,17 @@ export function ImagesTab({ taskId, images, onImagesChange, variant = 'tab' }: I
             tabIndex={0}
         >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--theme-text-secondary)' }}>
+                <span className="pn-fhint">
                     {images.length} image{images.length !== 1 ? 's' : ''}
                     {' '}&middot; paste or click to add
                 </span>
                 <button
                     type="button"
-                    className="themedBtn themedBtn--sm"
+                    className="pn-mchip"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    style={{ fontSize: '11px', padding: '2px 8px' }}
                 >
-                    {uploading ? 'Uploading...' : '+ Add Image'}
+                    {uploading ? 'Uploading...' : <><Icon name="paperclip" size={12} /> Add Image</>}
                 </button>
                 <input
                     ref={fileInputRef}
@@ -240,10 +206,11 @@ export function ImagesTab({ taskId, images, onImagesChange, variant = 'tab' }: I
                 <div style={{
                     textAlign: 'center',
                     padding: '16px',
-                    color: 'var(--theme-text-tertiary)',
+                    color: 'var(--pn-ink-4)',
                     fontSize: '11px',
-                    border: '1px dashed var(--theme-border)',
-                    borderRadius: '6px',
+                    border: '1px dashed var(--pn-line-2)',
+                    borderRadius: 'var(--pn-r-sm)',
+                    background: 'var(--pn-surface)',
                 }}>
                     No images yet. Click "Add Image" or paste from clipboard.
                 </div>
@@ -260,9 +227,9 @@ export function ImagesTab({ taskId, images, onImagesChange, variant = 'tab' }: I
                             key={img.id}
                             style={{
                                 position: 'relative',
-                                borderRadius: '6px',
+                                borderRadius: 'var(--pn-r-sm)',
                                 overflow: 'hidden',
-                                border: '1px solid var(--theme-border)',
+                                border: '1px solid var(--pn-line-2)',
                                 cursor: 'pointer',
                                 aspectRatio: '1',
                             }}

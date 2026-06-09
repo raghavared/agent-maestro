@@ -1,5 +1,6 @@
 import React from "react";
 import { MaestroProject } from "../../app/types/maestro";
+import { Icon } from "./redesign/kit";
 
 type ProjectSelectorSidebarProps = {
     projects: MaestroProject[];
@@ -30,19 +31,19 @@ export const ProjectSelectorSidebar = React.memo(function ProjectSelectorSidebar
 
     if (collapsed) {
         return (
-            <div className="mpbSidebar mpbSidebar--collapsed">
+            <div className="pn-psb pn-psb--collapsed">
                 <button type="button"
-                    className="mpbSidebarToggle"
+                    className="pn-ib"
                     onClick={onToggleCollapse}
                     title="Expand project selector"
                 >
-                    ▶
+                    <Icon name="chevronR" />
                 </button>
-                <div className="mpbSidebarCollapsedDots">
+                <div className="pn-psb__dots">
                     {projects.map((p) => (
                         <span
                             key={p.id}
-                            className={`mpbSidebarDot ${selectedProjectIds.has(p.id) ? "mpbSidebarDot--selected" : ""}`}
+                            className="pn-dot"
                             style={{ background: selectedProjectIds.has(p.id) ? projectColors.get(p.id) : undefined }}
                             title={p.name}
                         />
@@ -53,36 +54,36 @@ export const ProjectSelectorSidebar = React.memo(function ProjectSelectorSidebar
     }
 
     return (
-        <div className="mpbSidebar">
-            <div className="mpbSidebarHeader">
-                <span className="mpbSidebarTitle">Projects</span>
+        <div className="pn-psb">
+            <div className="pn-psb__hd">
+                <span className="pn-eyebrow">Projects</span>
                 <button type="button"
-                    className="mpbSidebarToggle"
+                    className="pn-ib"
                     onClick={onToggleCollapse}
                     title="Collapse sidebar"
                 >
-                    ◀
+                    <Icon name="chevronL" />
                 </button>
             </div>
 
-            <div className="mpbSidebarSelectAll">
-                <label className="mpbCheckboxLabel">
+            <div className="pn-psb__selectall">
+                <label className="pn-psb__checklabel">
                     <input
                         type="checkbox"
-                        className="mpbCheckbox"
+                        className="pn-psb__checkbox"
                         checked={allSelected}
                         onChange={() => (allSelected ? onDeselectAll() : onSelectAll())}
                     />
-                    <span className="mpbCheckboxCustom" />
-                    <span className="mpbSelectAllText">
+                    <span className="pn-psb__checkbox-custom" />
+                    <span className="pn-psb__selectall-text">
                         {allSelected ? "Deselect All" : "Select All"}
                     </span>
                 </label>
             </div>
 
-            <div className="mpbSidebarDivider" />
+            <div className="pn-psb__divider" />
 
-            <div className="mpbSidebarList">
+            <div className="pn-psb__list">
                 {projects.map((project) => {
                     const isSelected = selectedProjectIds.has(project.id);
                     const color = projectColors.get(project.id) ?? "#00d9ff";
@@ -92,30 +93,30 @@ export const ProjectSelectorSidebar = React.memo(function ProjectSelectorSidebar
                     return (
                         <label
                             key={project.id}
-                            className={`mpbProjectItem ${isSelected ? "mpbProjectItem--selected" : ""}`}
+                            className={`pn-psb__item ${isSelected ? "pn-psb__item--sel" : ""}`}
                         >
                             <input
                                 type="checkbox"
-                                className="mpbCheckbox"
+                                className="pn-psb__checkbox"
                                 checked={isSelected}
                                 onChange={() => onToggleProject(project.id)}
                             />
                             <span
-                                className="mpbProjectColor"
+                                className="pn-psb__swatch"
                                 style={{ background: color }}
                             />
-                            <span className="mpbProjectName" title={project.name}>
+                            <span className="pn-psb__name" title={project.name}>
                                 {project.isMaster && (
-                                    <span className="mpbProjectMasterIcon" title="Master Project">★</span>
+                                    <span className="pn-psb__master" title="Master Project">★</span>
                                 )}
                                 {project.name}
                             </span>
-                            <span className="mpbProjectStats">
+                            <span className="pn-psb__stats">
                                 {taskCount > 0 && (
-                                    <span className="mpbProjectStatItem">{taskCount} tasks</span>
+                                    <span className="pn-psb__stat">{taskCount} tasks</span>
                                 )}
                                 {sessionCount > 0 && (
-                                    <span className="mpbProjectStatItem">{sessionCount} sess</span>
+                                    <span className="pn-psb__stat">{sessionCount} sess</span>
                                 )}
                             </span>
                         </label>

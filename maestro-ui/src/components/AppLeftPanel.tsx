@@ -38,7 +38,6 @@ function sectionToTeamSubTab(section: IconRailSection): TeamSubTab | undefined {
 export const AppLeftPanel: React.FC = () => {
     const iconRailActiveSection = useUIStore((s) => s.iconRailActiveSection);
     const toggleIconRailSection = useUIStore((s) => s.toggleIconRailSection);
-    const maestroSidebarWidth = useUIStore((s) => s.maestroSidebarWidth);
     const homeDir = useUIStore((s) => s.homeDir);
 
     // Project & session stores
@@ -141,8 +140,10 @@ export const AppLeftPanel: React.FC = () => {
         <div
             className={`appLeftPanel ${isExpanded ? "appLeftPanel--expanded" : ""}`}
             style={{
+                // Width is driven by the CSS var so a resize commit never
+                // re-renders this (heavy) panel — see useAppLayoutResizing.
                 width: isExpanded
-                    ? `${DEFAULTS.ICON_RAIL_WIDTH + maestroSidebarWidth}px`
+                    ? `calc(${DEFAULTS.ICON_RAIL_WIDTH}px + var(--maestro-sidebar-width))`
                     : `${DEFAULTS.ICON_RAIL_WIDTH}px`,
             }}
         >
@@ -158,7 +159,7 @@ export const AppLeftPanel: React.FC = () => {
             <div
                 className="appLeftPanelContent"
                 style={{
-                    width: `${maestroSidebarWidth}px`,
+                    width: 'var(--maestro-sidebar-width)',
                     display: isExpanded ? undefined : 'none',
                 }}
             >

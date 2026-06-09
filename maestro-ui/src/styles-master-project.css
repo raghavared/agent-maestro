@@ -14,6 +14,12 @@
   text-shadow: 0 0 6px rgba(255, 215, 0, 0.6);
 }
 
+/* redesign: active tab star uses the brass brand token, no neon glow */
+html[data-redesign] .pn-ptab--active .projectTabMasterIcon {
+  color: var(--pn-brand);
+  text-shadow: none;
+}
+
 .mpbProjectMasterIcon {
   font-size: 11px;
   color: #ffd700;
@@ -85,5 +91,32 @@
   font-size: 11px;
   color: rgba(var(--theme-primary-rgb), 0.5);
   padding-left: 0;
+}
+
+/* ================================================================== */
+/* REDESIGN OVERRIDES — warm-paper "pn" tokens                        */
+/* Repoints the master-toggle row (.projectSettingsMaster*) off the   */
+/* legacy theme-primary accent + style-font-ui onto pn tokens.        */
+/* The gold star (#ffd700) rules and the .pn-ptab--active block above */
+/* are intentionally left untouched.                                  */
+/* ================================================================== */
+
+html[data-redesign] .projectSettingsMasterSwitch {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-line-2);
+}
+
+html[data-redesign] .projectSettingsMasterSwitch::after {
+  background: var(--pn-brand);
+}
+
+html[data-redesign] .projectSettingsMasterLabel {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .projectSettingsMasterHint {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-3);
 }
 

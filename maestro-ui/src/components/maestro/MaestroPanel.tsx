@@ -24,6 +24,7 @@ import { TaskGraphPanel } from "./task-graph/TaskGraphPanel";
 import { useTaskLists } from "../../hooks/useTaskLists";
 import { useTaskGraphStore } from "../../stores/useTaskGraphStore";
 import { createLaunchConfig, DEFAULT_MODEL_BY_AGENT_TOOL } from "../../app/constants/agentTools";
+import { Icon } from "./redesign/kit";
 
 // Extracted hooks
 import { useExecutionMode } from "../../hooks/useExecutionMode";
@@ -33,6 +34,7 @@ import { useTeamActions } from "../../hooks/useTeamActions";
 // Extracted panels
 import { TeamMembersPanel } from "./panels/TeamMembersPanel";
 import { TeamsPanel } from "./panels/TeamsPanel";
+import { ModelProfilesPanel } from "./panels/ModelProfilesPanel";
 
 // Phase 6: Module-scope noop callback
 const NOOP = () => {};
@@ -104,10 +106,10 @@ const TaskNodeRenderer = React.memo(function TaskNodeRenderer({
 
     if (depth === 0 && (hasChildren || isAddingSubtask)) {
         return (
-            <div key={node.id} className={`terminalTaskGroup ${isCollapsed && !isAddingSubtask ? 'terminalTaskGroup--collapsed' : 'terminalTaskGroup--expanded'} ${isSlidingOut ? 'terminalTaskSlideOut' : ''}`}>
+            <div key={node.id} className={isSlidingOut ? 'terminalTaskSlideOut' : undefined}>
                 {taskItem}
                 {(!isCollapsed || isAddingSubtask) && (
-                    <div className="terminalTaskGroupChildren">
+                    <div className="pn-kids">
                         {!isCollapsed && node.children.map(child => (
                             <TaskNodeRenderer
                                 key={child.id}
@@ -142,31 +144,35 @@ const TaskNodeRenderer = React.memo(function TaskNodeRenderer({
     return (
         <React.Fragment key={node.id}>
             {taskItem}
-            {!isCollapsed && node.children.map(child => (
-                <TaskNodeRenderer
-                    key={child.id}
-                    node={child}
-                    depth={depth + 1}
-                    showPermanentDelete={showPermanentDelete}
-                    collapsedTasks={collapsedTasks}
-                    slidingOutTasks={slidingOutTasks}
-                    addingSubtaskTo={addingSubtaskTo}
-                    executionMode={executionMode}
-                    selectedForExecution={selectedForExecution}
-                    currentSessionTaskIds={currentSessionTaskIds}
-                    projectId={projectId}
-                    onSelectTask={onSelectTask}
-                    onWorkOnTask={onWorkOnTask}
-                    onAssignTeamMember={onAssignTeamMember}
-                    onJumpToSession={onJumpToSession}
-                    onNavigateToTask={onNavigateToTask}
-                    onToggleAddSubtask={onToggleAddSubtask}
-                    onTogglePin={onTogglePin}
-                    onToggleSelect={onToggleSelect}
-                    onInlineAddSubtask={onInlineAddSubtask}
-                />
-            ))}
-            {subtaskInput}
+            {((!isCollapsed && hasChildren) || subtaskInput) && (
+                <div className="pn-kids">
+                    {!isCollapsed && node.children.map(child => (
+                        <TaskNodeRenderer
+                            key={child.id}
+                            node={child}
+                            depth={depth + 1}
+                            showPermanentDelete={showPermanentDelete}
+                            collapsedTasks={collapsedTasks}
+                            slidingOutTasks={slidingOutTasks}
+                            addingSubtaskTo={addingSubtaskTo}
+                            executionMode={executionMode}
+                            selectedForExecution={selectedForExecution}
+                            currentSessionTaskIds={currentSessionTaskIds}
+                            projectId={projectId}
+                            onSelectTask={onSelectTask}
+                            onWorkOnTask={onWorkOnTask}
+                            onAssignTeamMember={onAssignTeamMember}
+                            onJumpToSession={onJumpToSession}
+                            onNavigateToTask={onNavigateToTask}
+                            onToggleAddSubtask={onToggleAddSubtask}
+                            onTogglePin={onTogglePin}
+                            onToggleSelect={onToggleSelect}
+                            onInlineAddSubtask={onInlineAddSubtask}
+                        />
+                    ))}
+                    {subtaskInput}
+                </div>
+            )}
         </React.Fragment>
     );
 });
@@ -262,6 +268,8 @@ export const MaestroPanel = React.memo(function MaestroPanel({
     const [taskListCreateSignal, setTaskListCreateSignal] = React.useState(0);
     const [graphCreateSignal, setGraphCreateSignal] = React.useState(0);
     const [teamMemberCreateSignal, setTeamMemberCreateSignal] = React.useState(0);
+    const [modelProfileCreateSignal, setModelProfileCreateSignal] = React.useState(0);
+    const modelProfileCount = useMaestroStore((s) => Object.keys(s.modelProfiles).length);
     const [searchQuery, setSearchQuery] = React.useState("");
 
     // ==================== EXTRACTED HOOKS ====================
@@ -609,137 +617,199 @@ export const MaestroPanel = React.memo(function MaestroPanel({
 
     return (
         <>
-            <div className={`maestroPanel terminalTheme ${execution.executionMode ? 'maestroPanel--executionMode' : ''}`}>
-                <PanelIconBar
-                    primaryTab={primaryTab}
-                    onPrimaryTabChange={forcedPrimaryTab ? () => {} : setPrimaryTab}
-                    taskSubTab={taskSubTab}
-                    onTaskSubTabChange={setTaskSubTab}
-                    skillSubTab={skillSubTab}
-                    onSkillSubTabChange={setSkillSubTab}
-                    teamSubTab={teamSubTab}
-                    onTeamSubTabChange={setTeamSubTab}
-                    activeCount={activeRoots.length}
-                    pinnedCount={pinnedRoots.length}
-                    completedCount={completedRoots.length}
-                    archivedCount={archivedRoots.length}
-                    teamMembers={teamMembers}
-                    loading={loading}
-                    projectId={projectId}
-                    onNewTask={() => setShowCreateModal(true)}
-                    onNewTaskList={() => setTaskListCreateSignal(prev => prev + 1)}
-                    onNewTeamMember={() => setTeamMemberCreateSignal(prev => prev + 1)}
-                    onNewTeam={() => {}}
-                    onNewGraph={() => { setPrimaryTab("graphs"); setGraphCreateSignal(prev => prev + 1); }}
-                    onTeamStandup={handleTeamStandup}
-                    teamCount={activeTeams.length}
-                    taskListCount={taskListArray.length}
-                    graphCount={graphCount}
-                    {...(forcedPrimaryTab ? { hidePrimaryTabs: true } : {})}
-                />
-
-                {primaryTab === "tasks" && (
-                    <div className="taskSearchBar">
-                        <span className="taskSearchBar__icon">⌕</span>
-                        <input type="text" className="taskSearchBar__input" placeholder="Search tasks..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                        {searchQuery && <button type="button" className="taskSearchBar__clear" onClick={() => setSearchQuery("")}>×</button>}
+            <div
+                className="pn-mp"
+                style={{ width: '100%', height: '100%', ...(execution.executionMode ? { boxShadow: 'inset 0 0 0 2px var(--pn-brand)' } : {}) }}
+            >
+                    {/* pn-head — project name + standup/more */}
+                    <div className="pn-head">
+                        <span className="pn-proj">{project.name}<Icon name="chevronD" size={13} /></span>
+                        <span className="pn-head-spacer" />
+                        <button type="button" className="pn-ib" title="Team standup" onClick={handleTeamStandup}><Icon name="more" /></button>
                     </div>
-                )}
 
-                {(error || fetchError) && (
-                    <div className="terminalErrorBanner">
-                        <span className="terminalErrorSymbol">[ERROR]</span>
-                        <span className="terminalErrorText">{error || fetchError}</span>
-                        <button type="button" className="terminalErrorClose" onClick={() => setError(null)}>×</button>
-                    </div>
-                )}
-
-                {/* Tasks Tab */}
-                {primaryTab === "tasks" && (
+                    {/* nav: pn-subbar in rail-driven (forced) context; PanelIconBar standalone (right-panel) context. Exactly one renders. */}
+                    {forcedPrimaryTab ? (
                     <>
-                        {taskSubTab === "current" && (
-                            <>
-                                <TaskFilters statusFilter={statusFilter} priorityFilter={priorityFilter} sortBy={sortBy} overdueFilter={overdueFilter} onStatusFilterChange={setStatusFilter} onPriorityFilterChange={setPriorityFilter} onSortChange={setSortBy} onOverdueFilterChange={setOverdueFilter} />
-                                <ExecutionBar
-                                    isActive={execution.executionMode}
-                                    activeMode={execution.activeBarMode}
-                                    onActivate={() => { execution.setExecutionMode(true); execution.setActiveBarMode('execute'); }}
-                                    onActivateOrchestrate={() => { execution.setExecutionMode(true); execution.setActiveBarMode('orchestrate'); }}
-                                    onCancel={execution.handleCancelExecution}
-                                    onExecute={execution.handleBatchExecute}
-                                    onOrchestrate={execution.handleBatchOrchestrate}
-                                    selectedCount={execution.selectedForExecution.size}
+                    {primaryTab === "tasks" && (
+                        <div className="pn-subbar">
+                            <button type="button" className="pn-btn pn-btn--primary" style={{ height: 30 }} onClick={() => setShowCreateModal(true)}><Icon name="plus" size={14} /> New task</button>
+                            <span className="pn-head-spacer" />
+                            <button type="button" className={`pn-subtab ${taskSubTab === "current" ? "pn-subtab--active" : ""}`} onClick={() => setTaskSubTab("current")} title="Current"><Icon name="listChecks" /> {activeRoots.length}</button>
+                            <button type="button" className={`pn-subtab ${taskSubTab === "pinned" ? "pn-subtab--active" : ""}`} onClick={() => setTaskSubTab("pinned")} title="Pinned"><Icon name="pin" /> {pinnedRoots.length}</button>
+                            <button type="button" className={`pn-subtab ${taskSubTab === "completed" ? "pn-subtab--active" : ""}`} onClick={() => setTaskSubTab("completed")} title="Completed"><Icon name="check" /> {completedRoots.length}</button>
+                            <button type="button" className={`pn-subtab ${taskSubTab === "archived" ? "pn-subtab--active" : ""}`} onClick={() => setTaskSubTab("archived")} title="Archived"><Icon name="archive" /> {archivedRoots.length}</button>
+                        </div>
+                    )}
+                    {primaryTab === "lists" && (
+                        <div className="pn-subbar">
+                            <button type="button" className="pn-btn pn-btn--primary" style={{ height: 30 }} onClick={() => setTaskListCreateSignal(prev => prev + 1)}><Icon name="plus" size={14} /> New list</button>
+                            <span className="pn-head-spacer" />
+                            <span className="pn-meta">Lists · {taskListArray.length}</span>
+                        </div>
+                    )}
+                    {primaryTab === "team" && teamSubTab === "members" && (
+                        <div className="pn-subbar">
+                            <button type="button" className="pn-btn pn-btn--primary" style={{ height: 30 }} onClick={() => setTeamMemberCreateSignal(prev => prev + 1)}><Icon name="plus" size={14} /> New member</button>
+                            <button type="button" className="pn-btn" style={{ height: 30 }} onClick={handleTeamStandup} title="Run a team standup to audit and optimize the roster">Standup</button>
+                            <span className="pn-head-spacer" />
+                            <span className="pn-meta">Members · {teamMembers.filter(t => t.status !== 'archived').length}</span>
+                        </div>
+                    )}
+                    {primaryTab === "team" && teamSubTab === "teams" && (
+                        <div className="pn-subbar">
+                            <span className="pn-head-spacer" />
+                            <span className="pn-meta">Teams · {activeTeams.length}</span>
+                        </div>
+                    )}
+                    {primaryTab === "profiles" && (
+                        <div className="pn-subbar">
+                            <button type="button" className="pn-btn pn-btn--primary" style={{ height: 30 }} onClick={() => { setPrimaryTab("profiles"); setModelProfileCreateSignal(prev => prev + 1); }}><Icon name="plus" size={14} /> New profile</button>
+                            <span className="pn-head-spacer" />
+                            <span className="pn-meta">Profiles · {modelProfileCount}</span>
+                        </div>
+                    )}
+                    {primaryTab === "graphs" && (
+                        <div className="pn-subbar">
+                            <button type="button" className="pn-btn pn-btn--primary" style={{ height: 30 }} onClick={() => { setPrimaryTab("graphs"); setGraphCreateSignal(prev => prev + 1); }}><Icon name="plus" size={14} /> New graph</button>
+                            <span className="pn-head-spacer" />
+                            <span className="pn-meta">Graphs · {graphCount}</span>
+                        </div>
+                    )}
+                    </>
+                    ) : (
+                        <PanelIconBar
+                            primaryTab={primaryTab}
+                            onPrimaryTabChange={setPrimaryTab}
+                            taskSubTab={taskSubTab}
+                            onTaskSubTabChange={setTaskSubTab}
+                            skillSubTab={skillSubTab}
+                            onSkillSubTabChange={setSkillSubTab}
+                            teamSubTab={teamSubTab}
+                            onTeamSubTabChange={setTeamSubTab}
+                            activeCount={activeRoots.length}
+                            pinnedCount={pinnedRoots.length}
+                            completedCount={completedRoots.length}
+                            archivedCount={archivedRoots.length}
+                            teamMembers={teamMembers}
+                            loading={loading}
+                            projectId={projectId}
+                            onNewTask={() => setShowCreateModal(true)}
+                            onNewTaskList={() => setTaskListCreateSignal(prev => prev + 1)}
+                            onNewTeamMember={() => setTeamMemberCreateSignal(prev => prev + 1)}
+                            onNewTeam={() => {}}
+                            onNewGraph={() => { setPrimaryTab("graphs"); setGraphCreateSignal(prev => prev + 1); }}
+                            onNewModelProfile={() => { setPrimaryTab("profiles"); setModelProfileCreateSignal(prev => prev + 1); }}
+                            onTeamStandup={handleTeamStandup}
+                            teamCount={activeTeams.length}
+                            taskListCount={taskListArray.length}
+                            graphCount={graphCount}
+                            modelProfileCount={modelProfileCount}
+                        />
+                    )}
+
+                    {primaryTab === "tasks" && (
+                        <div className="pn-search">
+                            <Icon name="search" />
+                            <input type="text" placeholder="Search tasks" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                            {searchQuery
+                                ? <button type="button" className="pn-ib" style={{ width: 22, height: 22 }} title="Clear" onClick={() => setSearchQuery("")}><Icon name="x" size={13} /></button>
+                                : <span className="pn-kbd">⌘K</span>}
+                        </div>
+                    )}
+
+                    {(error || fetchError) && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 14px 8px', padding: '7px 10px', background: 'var(--pn-block-soft)', border: '1px solid var(--pn-block)', borderRadius: 'var(--pn-r-sm)' }}>
+                            <Icon name="info" size={14} style={{ color: 'var(--pn-block)', flex: '0 0 auto' }} />
+                            <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--pn-ink-2)' }}>{error || fetchError}</span>
+                            <button type="button" className="pn-ib" style={{ width: 20, height: 20 }} title="Dismiss" onClick={() => setError(null)}><Icon name="x" size={12} /></button>
+                        </div>
+                    )}
+
+                    {/* Tasks Tab */}
+                    {primaryTab === "tasks" && (
+                        <>
+                            {taskSubTab === "current" && (
+                                <>
+                                    <TaskFilters statusFilter={statusFilter} priorityFilter={priorityFilter} sortBy={sortBy} overdueFilter={overdueFilter} onStatusFilterChange={setStatusFilter} onPriorityFilterChange={setPriorityFilter} onSortChange={setSortBy} onOverdueFilterChange={setOverdueFilter} />
+                                    <ExecutionBar
+                                        isActive={execution.executionMode}
+                                        activeMode={execution.activeBarMode}
+                                        onActivate={() => { execution.setExecutionMode(true); execution.setActiveBarMode('execute'); }}
+                                        onActivateOrchestrate={() => { execution.setExecutionMode(true); execution.setActiveBarMode('orchestrate'); }}
+                                        onCancel={execution.handleCancelExecution}
+                                        onExecute={execution.handleBatchExecute}
+                                        onOrchestrate={execution.handleBatchOrchestrate}
+                                        selectedCount={execution.selectedForExecution.size}
+                                        projectId={projectId}
+                                        teamMembers={teamMembers}
+                                        onSaveAsTeam={execution.handleSaveAsTeam}
+                                    />
+                                </>
+                            )}
+                            <div className="pn-scroll">
+                                {taskSubTab === "current" && (
+                                    sortBy === "custom" ? (
+                                        loading ? (
+                                            <div style={{ padding: 24, textAlign: 'center', color: 'var(--pn-ink-3)', fontFamily: 'var(--pn-mono)', fontSize: 12 }}>Loading tasks…</div>
+                                        ) : activeRoots.length === 0 ? (
+                                            <TaskTabContent loading={false} emptyMessage="NO TASKS IN QUEUE" emptySubMessage="$ maestro new task" roots={[]} renderTaskNode={renderTaskNode} showNewTaskButton onNewTask={() => setShowCreateModal(true)} />
+                                        ) : (
+                                            <SortableTaskList roots={activeRoots} renderTaskNode={renderTaskNode} onReorder={handleTaskReorder} />
+                                        )
+                                    ) : (
+                                        <TaskTabContent loading={loading} emptyMessage="NO TASKS IN QUEUE" emptySubMessage="$ maestro new task" roots={activeRoots} renderTaskNode={renderTaskNode} showNewTaskButton onNewTask={() => setShowCreateModal(true)} sectionLabel="Current" />
+                                    )
+                                )}
+                                {taskSubTab === "pinned" && <TaskTabContent loading={loading} emptyMessage="NO PINNED TASKS" emptySubMessage="Pin tasks you run frequently" roots={pinnedRoots} renderTaskNode={renderTaskNode} sectionLabel="Pinned" />}
+                                {taskSubTab === "completed" && <TaskTabContent loading={loading} emptyMessage="NO COMPLETED TASKS YET" emptySubMessage="Tasks will appear here when" roots={completedRoots} renderTaskNode={renderTaskNode} listClassName="terminalTaskListCompleted" sectionLabel="Completed" />}
+                                {taskSubTab === "archived" && <TaskTabContent loading={loading} emptyMessage="NO ARCHIVED TASKS" emptySubMessage="Archived tasks will appear here" roots={archivedRoots} renderTaskNode={renderTaskNode} listClassName="terminalTaskListArchived" showPermanentDelete sectionLabel="Archived" />}
+                            </div>
+                            <div className="pn-fade" />
+                        </>
+                    )}
+
+                    {/* Skills Tab */}
+                    {primaryTab === "skills" && <SkillsPanel project={project} />}
+
+                    {/* Lists Tab */}
+                    {primaryTab === "lists" && <TaskListsPanel projectId={projectId} createListSignal={taskListCreateSignal} />}
+
+                    {/* Graphs Tab */}
+                    {primaryTab === "graphs" && <TaskGraphPanel projectId={projectId} createGraphSignal={graphCreateSignal} />}
+
+                    {/* Team Tab */}
+                    {primaryTab === "team" && (
+                        <>
+                            {teamSubTab === "members" && (
+                                <TeamMembersPanel
                                     projectId={projectId}
                                     teamMembers={teamMembers}
-                                    onSaveAsTeam={execution.handleSaveAsTeam}
+                                    teamMembersLoading={teamMembersLoading}
+                                    onEdit={() => {}}
+                                    onArchive={handleArchiveTeamMember}
+                                    onUnarchive={handleUnarchiveTeamMember}
+                                    onDelete={handleDeleteTeamMember}
+                                    onRun={handleRunTeamMember}
+                                    createSignal={teamMemberCreateSignal}
                                 />
-                                {sortBy === "custom" ? (
-                                    loading ? (
-                                        <div className="terminalContent">
-                                            <div className="terminalLoadingState">
-                                                <div className="terminalSpinner">
-                                                    <span className="terminalSpinnerDot">●</span>
-                                                    <span className="terminalSpinnerDot">●</span>
-                                                    <span className="terminalSpinnerDot">●</span>
-                                                </div>
-                                                <p className="terminalLoadingText"><span className="terminalCursor">█</span> Loading tasks...</p>
-                                            </div>
-                                        </div>
-                                    ) : activeRoots.length === 0 ? (
-                                        <TaskTabContent loading={false} emptyMessage="NO TASKS IN QUEUE" emptySubMessage="$ maestro new task" roots={[]} renderTaskNode={renderTaskNode} showNewTaskButton onNewTask={() => setShowCreateModal(true)} />
-                                    ) : (
-                                        <div className="terminalContent">
-                                            <SortableTaskList roots={activeRoots} renderTaskNode={renderTaskNode} onReorder={handleTaskReorder} />
-                                        </div>
-                                    )
-                                ) : (
-                                    <TaskTabContent loading={loading} emptyMessage="NO TASKS IN QUEUE" emptySubMessage="$ maestro new task" roots={activeRoots} renderTaskNode={renderTaskNode} showNewTaskButton onNewTask={() => setShowCreateModal(true)} />
-                                )}
-                            </>
-                        )}
-                        {taskSubTab === "pinned" && <TaskTabContent loading={loading} emptyMessage="NO PINNED TASKS" emptySubMessage="Pin tasks you run frequently" roots={pinnedRoots} renderTaskNode={renderTaskNode} />}
-                        {taskSubTab === "completed" && <TaskTabContent loading={loading} emptyMessage="NO COMPLETED TASKS YET" emptySubMessage="Tasks will appear here when" roots={completedRoots} renderTaskNode={renderTaskNode} listClassName="terminalTaskListCompleted" />}
-                        {taskSubTab === "archived" && <TaskTabContent loading={loading} emptyMessage="NO ARCHIVED TASKS" emptySubMessage="Archived tasks will appear here" roots={archivedRoots} renderTaskNode={renderTaskNode} listClassName="terminalTaskListArchived" showPermanentDelete />}
-                    </>
-                )}
+                            )}
+                            {teamSubTab === "teams" && (
+                                <TeamsPanel
+                                    projectId={projectId}
+                                    teams={teams}
+                                    topLevelTeams={topLevelTeams}
+                                    onEdit={() => {}}
+                                    onRun={handleRunTeam}
+                                />
+                            )}
+                        </>
+                    )}
 
-                {/* Skills Tab */}
-                {primaryTab === "skills" && <SkillsPanel project={project} />}
-
-                {/* Lists Tab */}
-                {primaryTab === "lists" && <TaskListsPanel projectId={projectId} createListSignal={taskListCreateSignal} />}
-
-                {/* Graphs Tab */}
-                {primaryTab === "graphs" && <TaskGraphPanel projectId={projectId} createGraphSignal={graphCreateSignal} />}
-
-                {/* Team Tab */}
-                {primaryTab === "team" && (
-                    <>
-                        {teamSubTab === "members" && (
-                            <TeamMembersPanel
-                                projectId={projectId}
-                                teamMembers={teamMembers}
-                                teamMembersLoading={teamMembersLoading}
-                                onEdit={() => {}}
-                                onArchive={handleArchiveTeamMember}
-                                onUnarchive={handleUnarchiveTeamMember}
-                                onDelete={handleDeleteTeamMember}
-                                onRun={handleRunTeamMember}
-                                createSignal={teamMemberCreateSignal}
-                            />
-                        )}
-                        {teamSubTab === "teams" && (
-                            <TeamsPanel
-                                projectId={projectId}
-                                teams={teams}
-                                topLevelTeams={topLevelTeams}
-                                onEdit={() => {}}
-                                onRun={handleRunTeam}
-                            />
-                        )}
-                    </>
-                )}
-            </div>
+                    {primaryTab === "profiles" && (
+                        <ModelProfilesPanel createSignal={modelProfileCreateSignal} />
+                    )}
+                </div>
 
             <CreateTaskModal
                 isOpen={showCreateModal}

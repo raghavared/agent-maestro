@@ -16,6 +16,7 @@ import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
 import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, MemberLaunchOverride, LaunchConfig, isCoordinatorMode, normalizeMode } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
+import { IModelProfileRepository } from '../domain/repositories/IModelProfileRepository';
 import { SessionFilter } from '../domain/repositories/ISessionRepository';
 import { handleRouteError } from './middleware/errorHandler';
 import {
@@ -451,6 +452,7 @@ interface SessionRouteDependencies {
   projectRepo: IProjectRepository;
   taskRepo: ITaskRepository;
   teamMemberRepo: ITeamMemberRepository;
+  modelProfileRepo: IModelProfileRepository;
   eventBus: IEventBus;
   config: Config;
 }
@@ -459,7 +461,7 @@ interface SessionRouteDependencies {
  * Create session routes using the SessionService.
  */
 export function createSessionRoutes(deps: SessionRouteDependencies) {
-  const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, eventBus, config } = deps;
+  const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, eventBus, config } = deps;
   const gitService = new GitService();
   const router = express.Router();
 
@@ -1432,6 +1434,11 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const projectTeamMembers = await teamMemberRepo.findByProjectId(projectId);
       const teamMemberMap = new Map(projectTeamMembers.map((m) => [m.id, m]));
 
+      // Workspace-global model profiles (cached). Members with a modelProfileId resolve
+      // their launch config from the profile at spawn, so a profile edit re-points them.
+      const allModelProfiles = await modelProfileRepo.findAll();
+      const modelProfileMap = new Map(allModelProfiles.map((p) => [p.id, p]));
+
       // Coordinator modes must include exactly one self identity profile for prompt normalization.
       // If none was provided/resolved, pick a deterministic active coordinator member from the project.
       if (requestedCoordinatorMode && effectiveTeamMemberIds.length === 0) {
@@ -1473,7 +1480,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         'gpt-5-codex-mini': 1.5,
         'haiku': 1,
       };
-      let teamMemberDefaults: { mode?: AgentMode; model?: string; agentTool?: AgentTool; permissionMode?: string } = {};
+      let teamMemberDefaults: { mode?: AgentMode; model?: string; agentTool?: AgentTool; permissionMode?: string; launchConfig?: LaunchConfig } = {};
       const teamMemberSnapshots: TeamMemberSnapshot[] = [];
 
       if (effectiveTeamMemberIds.length > 0 && projectId) {
@@ -1482,13 +1489,22 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         for (const tmId of effectiveTeamMemberIds) {
           const teamMember = teamMemberMap.get(tmId);
           if (teamMember && teamMember.status !== 'archived') {
-              // Apply per-member overrides if provided
+              // Apply per-member overrides if provided. Precedence for the launch
+              // config: explicit override > bound model profile > raw member fields.
               const override = normalizedMemberOverrides && normalizedMemberOverrides[tmId];
-              const effectiveModel = override?.launchConfig?.model || teamMember.model;
-              const effectiveAgentTool = override?.launchConfig
-                ? agentToolForProvider(override.launchConfig.provider)
+              const profileConfig = teamMember.modelProfileId
+                ? modelProfileMap.get(teamMember.modelProfileId)?.launchConfig
+                : undefined;
+              // Full launch config of the winning candidate (carries reasoning/speed/access).
+              const effectiveLaunchConfig = override?.launchConfig || profileConfig || undefined;
+              const effectiveModel = override?.launchConfig?.model || profileConfig?.model || teamMember.model;
+              const effectiveAgentTool = effectiveLaunchConfig
+                ? agentToolForProvider(effectiveLaunchConfig.provider)
                 : teamMember.agentTool;
-              const effectivePermissionMode = permissionModeForAccessMode(override?.launchConfig?.accessMode) || teamMember.permissionMode;
+              const effectivePermissionMode =
+                permissionModeForAccessMode(override?.launchConfig?.accessMode)
+                || permissionModeForAccessMode(profileConfig?.accessMode)
+                || teamMember.permissionMode;
               const effectiveSkillIds = override?.skillIds || teamMember.skillIds;
               const effectiveCommandPermissions = override?.commandPermissions
                 ? { ...teamMember.commandPermissions, ...override.commandPermissions }
@@ -1510,6 +1526,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
                 teamMemberDefaults.model = effectiveModel;
                 teamMemberDefaults.agentTool = effectiveAgentTool;
                 teamMemberDefaults.permissionMode = effectivePermissionMode;
+                teamMemberDefaults.launchConfig = effectiveLaunchConfig;
               }
               // Build snapshot for UI display (with overrides applied)
               teamMemberSnapshots.push({
@@ -1545,18 +1562,22 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       const hasCoordinator = !!resolvedParentSessionId;
       const resolvedMode: AgentMode = normalizeMode(rawMode, hasCoordinator);
 
-      // Resolve launch config and agent tool: explicit launch config wins over team member defaults.
-      const resolvedLaunchConfig: LaunchConfig | undefined = requestedLaunchConfig || sanitizeLaunchConfig(
-        teamMemberDefaults.model
-          ? {
-              // The model is authoritative: derive the provider from the model name
-              // and only fall back to the member's agentTool when the model is unrecognized.
-              provider: providerForModel(teamMemberDefaults.model)
-                || providerForAgentTool(teamMemberDefaults.agentTool),
-              model: teamMemberDefaults.model,
-            }
-          : undefined
-      );
+      // Resolve launch config and agent tool: explicit launch config wins over team
+      // member defaults, which in turn prefer a resolved profile/override config
+      // (carries reasoning/speed/access) before reconstructing from the bare model.
+      const resolvedLaunchConfig: LaunchConfig | undefined = requestedLaunchConfig
+        || sanitizeLaunchConfig(teamMemberDefaults.launchConfig)
+        || sanitizeLaunchConfig(
+          teamMemberDefaults.model
+            ? {
+                // The model is authoritative: derive the provider from the model name
+                // and only fall back to the member's agentTool when the model is unrecognized.
+                provider: providerForModel(teamMemberDefaults.model)
+                  || providerForAgentTool(teamMemberDefaults.agentTool),
+                model: teamMemberDefaults.model,
+              }
+            : undefined
+        );
       const resolvedModel = resolvedLaunchConfig?.model || teamMemberDefaults.model;
       const resolvedAgentToolFromMember = resolvedLaunchConfig
         ? agentToolForProvider(resolvedLaunchConfig.provider)

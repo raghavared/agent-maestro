@@ -151,3 +151,73 @@ html[data-style="minimal"] .themeSwitcherOptionActive {
   box-shadow: none;
 }
 
+/* ========================================================================
+   REDESIGN OVERRIDES — warm-paper "pn" tokens
+   Repoints the legacy dark/neon themeSwitcher (UI-Scale grid) onto pn tokens
+   when html[data-redesign] is active. Token-only; base rules above are
+   untouched so the redesign toggle still works.
+   ======================================================================== */
+
+html[data-redesign] .themeSwitcher {
+  background: var(--pn-card);
+  border-color: var(--pn-line);
+}
+
+html[data-redesign] .themeSwitcherLabel {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .themeSwitcherOption {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+}
+
+html[data-redesign] .themeSwitcherOption:hover {
+  background: var(--pn-hover);
+  border-color: var(--pn-line-2);
+}
+
+html[data-redesign] .themeSwitcherOptionActive {
+  border-color: var(--pn-brand);
+  background: var(--pn-active);
+  box-shadow: none;
+}
+
+html[data-redesign] .themeSwitcherName {
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .styleSwitcherOption {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+  font-family: var(--pn-ui);
+}
+
+html[data-redesign] .styleSwitcherOption:hover {
+  background: var(--pn-hover);
+  border-color: var(--pn-line-2);
+}
+
+html[data-redesign] .styleSwitcherOptionActive {
+  border-color: var(--pn-brand);
+  background: var(--pn-active);
+  box-shadow: none;
+}
+
+html[data-redesign] .styleSwitcherIcon {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .styleSwitcherOptionActive .styleSwitcherIcon {
+  color: var(--pn-brand);
+}
+
+html[data-redesign] .styleSwitcherName {
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .styleSwitcherOptionActive .styleSwitcherName {
+  color: var(--pn-brand);
+}
+

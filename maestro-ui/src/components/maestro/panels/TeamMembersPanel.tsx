@@ -49,17 +49,10 @@ export function TeamMembersPanel({
 
     return (
         <>
-            <div className="terminalContent">
+            <div className="pn-vscroll">
                 {teamMembersLoading && teamMembers.length === 0 ? (
-                    <div className="terminalLoadingState">
-                        <div className="terminalSpinner">
-                            <span className="terminalSpinnerDot">●</span>
-                            <span className="terminalSpinnerDot">●</span>
-                            <span className="terminalSpinnerDot">●</span>
-                        </div>
-                        <p className="terminalLoadingText">
-                            <span className="terminalCursor">█</span> Loading team members...
-                        </p>
+                    <div style={{ padding: "40px 16px", textAlign: "center", fontSize: 13, color: "var(--pn-ink-3)" }}>
+                        Loading team members…
                     </div>
                 ) : (
                     <TeamMemberList

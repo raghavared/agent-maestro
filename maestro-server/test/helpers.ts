@@ -8,6 +8,7 @@ import { FileSystemTaskRepository } from '../src/infrastructure/repositories/Fil
 import { FileSystemSessionRepository } from '../src/infrastructure/repositories/FileSystemSessionRepository';
 import { FileSystemTaskListRepository } from '../src/infrastructure/repositories/FileSystemTaskListRepository';
 import { FileSystemTeamMemberRepository } from '../src/infrastructure/repositories/FileSystemTeamMemberRepository';
+import { FileSystemModelProfileRepository } from '../src/infrastructure/repositories/FileSystemModelProfileRepository';
 import { ProjectService } from '../src/application/services/ProjectService';
 import { TaskService } from '../src/application/services/TaskService';
 import { SessionService } from '../src/application/services/SessionService';
@@ -58,6 +59,7 @@ export async function createTestContainer(dataDir: string) {
   const sessionRepo = new FileSystemSessionRepository(dataDir, idGenerator, silentLogger);
   const taskListRepo = new FileSystemTaskListRepository(dataDir, idGenerator, silentLogger);
   const teamMemberRepo = new FileSystemTeamMemberRepository(dataDir, idGenerator, silentLogger);
+  const modelProfileRepo = new FileSystemModelProfileRepository(dataDir, idGenerator, silentLogger);
   const projectRepo = new FileSystemProjectRepository(
     dataDir,
     idGenerator,
@@ -71,6 +73,7 @@ export async function createTestContainer(dataDir: string) {
   await sessionRepo.initialize();
   await taskListRepo.initialize();
   await teamMemberRepo.initialize();
+  await modelProfileRepo.initialize();
 
   const projectService = new ProjectService(projectRepo, eventBus);
   const taskService = new TaskService(taskRepo, projectRepo, eventBus, idGenerator, taskListRepo);
@@ -84,6 +87,7 @@ export async function createTestContainer(dataDir: string) {
     taskRepo,
     sessionRepo,
     teamMemberRepo,
+    modelProfileRepo,
     eventBus,
     idGenerator,
   };

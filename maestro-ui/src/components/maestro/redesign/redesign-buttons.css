@@ -1,0 +1,103 @@
+/* ==========================================================================
+   MAESTRO · RUN + COORDINATE BUTTONS  (ported verbatim from panel-redesign 4/
+   buttons.css; scoped under html[data-redesign], showcase scaffold dropped).
+
+   Run  = a single worker executes (green / go).
+   Coordinate = an orchestrator spawns a team (brass / conductor).
+   A hairline button, an accent icon-chip that fills on hover, the play nudges /
+   the spawn-dots fan out. All colours/radii from --pn-* tokens.
+   ========================================================================== */
+
+html[data-redesign] .pn-run2 {
+  display: inline-flex; align-items: center; gap: 9px;
+  height: 42px; padding: 0 16px 0 7px;
+  background: var(--pn-card); color: var(--pn-ink);
+  border: 1px solid var(--pn-line-2); border-radius: var(--pn-r-md);
+  font-family: var(--pn-ui); font-size: 13.5px; font-weight: 600; letter-spacing: -0.005em;
+  cursor: pointer; position: relative; white-space: nowrap;
+  transition: border-color 180ms cubic-bezier(0.2,0.8,0.2,1), box-shadow 180ms, transform 120ms, background 180ms;
+}
+html[data-redesign] .pn-run2:hover { box-shadow: var(--pn-sh-md); transform: translateY(-1px); }
+html[data-redesign] .pn-run2:active { transform: translateY(0); box-shadow: var(--pn-sh-sm); }
+html[data-redesign] .pn-run2:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; transform: none; }
+
+/* accent icon chip */
+html[data-redesign] .pn-run2__chip {
+  width: 28px; height: 28px; flex: 0 0 auto; border-radius: 8px;
+  display: grid; place-items: center; position: relative; overflow: hidden;
+  transition: background 200ms, color 200ms, box-shadow 200ms;
+}
+html[data-redesign] .pn-run2__chip svg { width: 16px; height: 16px; position: relative; z-index: 1; }
+html[data-redesign] .pn-run2__label { display: inline-flex; align-items: baseline; gap: 7px; }
+html[data-redesign] .pn-run2__sub { font-family: var(--pn-mono); font-size: 10px; font-weight: 600; color: var(--pn-ink-4); letter-spacing: 0.02em; }
+html[data-redesign] .pn-run2__kbd { font-family: var(--pn-mono); font-size: 10px; font-weight: 600; color: var(--pn-ink-4); border: 1px solid var(--pn-line-2); border-radius: 4px; padding: 0 4px; line-height: 15px; margin-left: 2px; }
+
+/* ---- RUN (green / go) ---- */
+html[data-redesign] .pn-run2--run .pn-run2__chip { background: var(--pn-run-soft); color: var(--pn-run); }
+html[data-redesign] .pn-run2--run .pn-run2__chip svg { transition: transform 200ms cubic-bezier(0.2,0.8,0.2,1); }
+html[data-redesign] .pn-run2--run:not(:disabled):hover { border-color: var(--pn-run); }
+html[data-redesign] .pn-run2--run:not(:disabled):hover .pn-run2__chip { background: var(--pn-run); color: #fff; box-shadow: 0 2px 8px rgba(62,142,90,0.36); }
+html[data-redesign] .pn-run2--run:not(:disabled):hover .pn-run2__chip svg { transform: translateX(2px); }
+
+/* ---- COORDINATE (brass / conductor) ---- */
+html[data-redesign] .pn-run2--coord .pn-run2__chip { background: var(--pn-brand-soft); color: var(--pn-brand); }
+html[data-redesign] .pn-run2--coord:not(:disabled):hover { border-color: var(--pn-brand); }
+html[data-redesign] .pn-run2--coord:not(:disabled):hover .pn-run2__chip { background: var(--pn-brand); color: #fff; box-shadow: 0 2px 8px rgba(178,106,43,0.36); }
+/* spawn dots fan out on hover */
+html[data-redesign] .pn-spawn__node { transition: transform 240ms cubic-bezier(0.2,0.9,0.2,1), opacity 200ms; transform-origin: 4px 8px; }
+html[data-redesign] .pn-run2--coord:not(:disabled):hover .pn-spawn__n1 { transform: translateY(-3.4px); }
+html[data-redesign] .pn-run2--coord:not(:disabled):hover .pn-spawn__n3 { transform: translateY(3.4px); }
+html[data-redesign] .pn-run2--coord:not(:disabled):hover .pn-spawn__line { stroke-dashoffset: 0; }
+html[data-redesign] .pn-spawn__line { stroke-dasharray: 7; stroke-dashoffset: 0; transition: stroke-dashoffset 240ms; }
+
+/* ---- solid (primary) variant ---- */
+html[data-redesign] .pn-run2--solid { color: #fff; border-color: transparent; padding-left: 14px; }
+html[data-redesign] .pn-run2--solid .pn-run2__chip { width: auto; height: auto; background: transparent !important; box-shadow: none !important; }
+html[data-redesign] .pn-run2--run.pn-run2--solid { background: var(--pn-run); }
+html[data-redesign] .pn-run2--run.pn-run2--solid .pn-run2__chip { color: #fff; }
+html[data-redesign] .pn-run2--run.pn-run2--solid:not(:disabled):hover { background: var(--pn-run); border-color: transparent; filter: brightness(1.05); }
+html[data-redesign] .pn-run2--coord.pn-run2--solid { background: var(--pn-brand); }
+html[data-redesign] .pn-run2--coord.pn-run2--solid .pn-run2__chip { color: #fff; }
+html[data-redesign] .pn-run2--coord.pn-run2--solid:not(:disabled):hover { background: var(--pn-brand); border-color: transparent; filter: brightness(1.05); }
+html[data-redesign] .pn-run2--solid .pn-run2__sub, html[data-redesign] .pn-run2--solid .pn-run2__kbd { color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.28); }
+
+/* ---- compact (in-row) variant ---- */
+html[data-redesign] .pn-run2--sm { height: 30px; padding: 0 11px 0 5px; font-size: 12px; gap: 7px; border-radius: var(--pn-r-sm); }
+html[data-redesign] .pn-run2--sm .pn-run2__chip { width: 22px; height: 22px; border-radius: 6px; }
+html[data-redesign] .pn-run2--sm .pn-run2__chip svg { width: 13px; height: 13px; }
+
+/* ==========================================================================
+   Responsive (ExecutionBar) — the launch bar lives in the resizable left panel
+   (200–600px). Track the panel's own width via a container query and collapse
+   the Run/Coordinate buttons to their compact form as it narrows: drop the mono
+   sub-label first, then shrink to the `sm` metrics and drop the kbd chip.
+   ========================================================================== */
+html[data-redesign] .executionBar { container-type: inline-size; container-name: execbar; }
+
+/* Inactive entry pair shares the row width evenly and may shrink. */
+html[data-redesign] .executionBar--inactive .pn-run2 { flex: 1 1 0; min-width: 0; justify-content: center; }
+html[data-redesign] .executionBar--inactive .pn-run2 .pn-run2__label { min-width: 0; }
+
+/* Narrow: the sub-label ("single worker" / "spawn a team") is the first to go. */
+@container execbar (max-width: 360px) {
+  html[data-redesign] .executionBar .pn-run2__sub { display: none; }
+}
+
+/* Narrower: compact metrics (the design's `sm` spec) + drop the kbd chip. */
+@container execbar (max-width: 280px) {
+  html[data-redesign] .executionBar .pn-run2 { height: 30px; padding: 0 11px 0 5px; font-size: 12px; gap: 7px; border-radius: var(--pn-r-sm); }
+  html[data-redesign] .executionBar .pn-run2.pn-run2--solid { padding-left: 11px; }
+  html[data-redesign] .executionBar .pn-run2:not(.pn-run2--solid) .pn-run2__chip { width: 22px; height: 22px; border-radius: 6px; }
+  html[data-redesign] .executionBar .pn-run2 .pn-run2__chip svg { width: 13px; height: 13px; }
+  html[data-redesign] .executionBar .pn-run2__kbd { display: none; }
+}
+
+/* ---- split run (avatar + caret), mirrors SplitPlayButton ---- */
+html[data-redesign] .pn-split { display: inline-flex; align-items: stretch; height: 42px; border-radius: var(--pn-r-md); border: 1px solid var(--pn-line-2); background: var(--pn-card); overflow: hidden; transition: border-color 180ms, box-shadow 180ms; }
+html[data-redesign] .pn-split:hover { border-color: var(--pn-run); box-shadow: var(--pn-sh-md); }
+html[data-redesign] .pn-split__play { display: inline-flex; align-items: center; gap: 9px; padding: 0 14px 0 7px; background: transparent; border: none; cursor: pointer; font-family: var(--pn-ui); font-size: 13.5px; font-weight: 600; color: var(--pn-ink); white-space: nowrap; }
+html[data-redesign] .pn-split__av { width: 28px; height: 28px; flex: 0 0 auto; border-radius: 8px; display: grid; place-items: center; font-size: 15px; background: var(--pn-active); }
+html[data-redesign] .pn-split__div { width: 1px; align-self: stretch; background: var(--pn-line-2); margin: 6px 0; }
+html[data-redesign] .pn-split__caret { width: 34px; display: grid; place-items: center; background: transparent; border: none; cursor: pointer; color: var(--pn-ink-3); transition: background 140ms, color 140ms; }
+html[data-redesign] .pn-split__caret:hover { background: var(--pn-hover); color: var(--pn-ink); }
+html[data-redesign] .pn-split__caret svg { width: 14px; height: 14px; }

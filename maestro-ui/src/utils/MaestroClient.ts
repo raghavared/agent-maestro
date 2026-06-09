@@ -26,6 +26,9 @@ import type {
     TeamMember,
     CreateTeamMemberPayload,
     UpdateTeamMemberPayload,
+    ModelProfile,
+    CreateModelProfilePayload,
+    UpdateModelProfilePayload,
     Team,
     CreateTeamPayload,
     UpdateTeamPayload,
@@ -609,6 +612,36 @@ class MaestroClient {
         await this.fetch<TeamMember>(`/team-members/${id}/reset`, {
             method: 'POST',
             body: JSON.stringify({ projectId }),
+        });
+    }
+
+    // ==================== MODEL PROFILES ====================
+
+    /** List all workspace-global model profiles */
+    async getModelProfiles(): Promise<ModelProfile[]> {
+        return this.fetch<ModelProfile[]>('/model-profiles');
+    }
+
+    /** Create a model profile */
+    async createModelProfile(data: CreateModelProfilePayload): Promise<ModelProfile> {
+        return this.fetch<ModelProfile>('/model-profiles', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    /** Update a model profile */
+    async updateModelProfile(id: string, updates: UpdateModelProfilePayload): Promise<ModelProfile> {
+        return this.fetch<ModelProfile>(`/model-profiles/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(updates),
+        });
+    }
+
+    /** Delete a model profile */
+    async deleteModelProfile(id: string): Promise<void> {
+        await this.fetch<{ success: boolean }>(`/model-profiles/${id}`, {
+            method: 'DELETE',
         });
     }
 

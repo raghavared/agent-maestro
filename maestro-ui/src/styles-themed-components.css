@@ -1009,3 +1009,267 @@
   border: 1px solid rgba(251, 191, 36, 0.3);
 }
 
+/* ===================================================================
+   REDESIGN OVERRIDE (Atelier / pn-* tokens) — scoped to html[data-redesign].
+   The base .themed* design system above is dark-neon (black #000000 panels,
+   var(--theme-primary) green/cyan accents, var(--theme-border)). In the
+   redesign LIGHT theme those vars are undefined/dark, so every themed modal
+   (NewSession, Project, PathPicker, ConfirmDeleteProject, …) rendered
+   black-on-paper. These overrides repoint the whole themed-* system + the
+   "no projects" empty state to --pn-* tokens. Token-only; one warm scrim.
+   Also fixes shared .themedBtn used by ExcalidrawBoard. Auto-flips dark.
+   =================================================================== */
+html[data-redesign] .themedModalBackdrop { background: rgba(40, 34, 24, 0.45); }
+html[data-redesign] .themedModal {
+  background: var(--pn-card);
+  border: 1px solid var(--pn-line-2);
+  border-radius: var(--pn-r-lg);
+  box-shadow: var(--pn-sh-pop);
+  font-family: var(--pn-ui);
+  color: var(--pn-ink);
+}
+html[data-redesign] .themedModalHeader {
+  border-bottom: 1px solid var(--pn-line);
+  background: var(--pn-surface);
+}
+html[data-redesign] .themedModalTitle { color: var(--pn-ink); }
+html[data-redesign] .themedModalClose {
+  border: 1px solid var(--pn-line);
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .themedModalClose:hover {
+  color: var(--pn-ink);
+  border-color: var(--pn-line-2);
+  background: var(--pn-hover);
+}
+
+/* form controls */
+html[data-redesign] .themedFormLabel { color: var(--pn-ink-2); }
+html[data-redesign] .themedFormInput {
+  border: 1px solid var(--pn-line);
+  background: var(--pn-surface);
+  color: var(--pn-ink);
+  font-family: var(--pn-ui);
+  border-radius: var(--pn-r-sm);
+}
+html[data-redesign] .themedFormInput:focus {
+  border-color: var(--pn-brand);
+  box-shadow: 0 0 0 3px var(--pn-brand-soft);
+}
+html[data-redesign] .themedFormInput::placeholder { color: var(--pn-ink-4); }
+html[data-redesign] .themedFormSelect {
+  border: 1px solid var(--pn-line);
+  background: var(--pn-surface);
+  color: var(--pn-ink);
+  font-family: var(--pn-ui);
+  border-radius: var(--pn-r-sm);
+}
+html[data-redesign] .themedFormSelect:focus { border-color: var(--pn-brand); }
+html[data-redesign] .themedFormHint { color: var(--pn-ink-3); }
+html[data-redesign] .themedFormActions { border-top: 1px solid var(--pn-line); }
+
+/* buttons (also used by ExcalidrawBoard .themedBtn) */
+html[data-redesign] .themedBtn {
+  border: 1px solid var(--pn-line);
+  color: var(--pn-ink-2);
+  font-family: var(--pn-ui);
+  border-radius: var(--pn-r-sm);
+}
+html[data-redesign] .themedBtn:hover {
+  color: var(--pn-ink);
+  border-color: var(--pn-line-2);
+  background: var(--pn-hover);
+}
+html[data-redesign] .themedBtnPrimary {
+  border-color: var(--pn-brand);
+  color: #fff;
+  background: var(--pn-brand);
+}
+html[data-redesign] .themedBtnPrimary:hover {
+  background: var(--pn-brand-2);
+  border-color: var(--pn-brand-2);
+  box-shadow: var(--pn-sh-md);
+}
+html[data-redesign] .themedBtnDanger {
+  border-color: var(--pn-block);
+  color: var(--pn-block);
+  background: var(--pn-block-soft);
+}
+html[data-redesign] .themedBtnDanger:hover {
+  background: var(--pn-block-soft);
+  border-color: var(--pn-block);
+  box-shadow: var(--pn-sh-sm);
+}
+html[data-redesign] .themedBtnSuccess {
+  border-color: var(--pn-run);
+  color: var(--pn-run);
+  background: var(--pn-run-soft);
+}
+html[data-redesign] .themedBtnSuccess:hover {
+  background: var(--pn-run-soft);
+  border-color: var(--pn-run);
+  box-shadow: var(--pn-sh-sm);
+}
+
+/* segmented control */
+html[data-redesign] .themedSegmentedControl { border: 1px solid var(--pn-line); }
+html[data-redesign] .themedSegmentedBtn {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+  border-right: 1px solid var(--pn-line);
+}
+html[data-redesign] .themedSegmentedBtn:hover {
+  color: var(--pn-ink-2);
+  background: var(--pn-hover);
+}
+html[data-redesign] .themedSegmentedBtn.active {
+  color: var(--pn-brand);
+  background: var(--pn-active);
+  box-shadow: none;
+}
+
+/* dropdown */
+html[data-redesign] .themedDropdownButton {
+  border: 1px solid var(--pn-line);
+  color: var(--pn-ink-2);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .themedDropdownButton:hover,
+html[data-redesign] .themedDropdownButton--open {
+  color: var(--pn-brand);
+  border-color: var(--pn-line-2);
+  background: var(--pn-hover);
+}
+html[data-redesign] .themedDropdownMenu {
+  background: var(--pn-card);
+  border: 1px solid var(--pn-line-2);
+  box-shadow: var(--pn-sh-pop);
+  font-family: var(--pn-ui);
+  border-radius: var(--pn-r-md);
+}
+html[data-redesign] .themedDropdownOption {
+  color: var(--pn-ink-2);
+  font-family: var(--pn-ui);
+  border-bottom: 1px solid var(--pn-line);
+}
+html[data-redesign] .themedDropdownOption:hover {
+  background: var(--pn-hover);
+  color: var(--pn-ink);
+}
+html[data-redesign] .themedDropdownOption--current {
+  background: var(--pn-active);
+  color: var(--pn-brand);
+}
+html[data-redesign] .themedDropdownCheck { color: var(--pn-brand); }
+
+/* task status badge */
+html[data-redesign] .themedTaskStatusBadge {
+  font-family: var(--pn-ui);
+  border: 1px solid var(--pn-line);
+  color: var(--pn-ink-3);
+  border-radius: var(--pn-r-xs);
+}
+html[data-redesign] .themedTaskStatusBadge[data-status="in_progress"] {
+  border-color: var(--pn-run); color: var(--pn-run); background: var(--pn-run-soft);
+}
+html[data-redesign] .themedTaskStatusBadge[data-status="in_review"] {
+  border-color: var(--pn-info); color: var(--pn-info); background: var(--pn-info-soft);
+}
+html[data-redesign] .themedTaskStatusBadge[data-status="completed"] {
+  border-color: var(--pn-run); color: var(--pn-run); background: var(--pn-run-soft);
+}
+html[data-redesign] .themedTaskStatusBadge[data-status="blocked"] {
+  border-color: var(--pn-block); color: var(--pn-block); background: var(--pn-block-soft);
+}
+html[data-redesign] .themedTaskStatusBadge[data-status="cancelled"] {
+  border-color: var(--pn-line); color: var(--pn-ink-3); background: var(--pn-idle-soft);
+}
+
+/* subtasks + check rows */
+html[data-redesign] .themedSubtaskItem {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-2);
+}
+html[data-redesign] .themedSubtaskItem:hover {
+  border-color: var(--pn-line);
+  background: var(--pn-hover);
+}
+html[data-redesign] .themedSubtaskCheckbox { color: var(--pn-brand); }
+html[data-redesign] .themedCheckRow { color: var(--pn-ink-2); }
+html[data-redesign] .themedCheckRow input[type="checkbox"] { accent-color: var(--pn-brand); }
+
+/* folder browser */
+html[data-redesign] .themedFolderBrowser {
+  border: 1px solid var(--pn-line);
+  font-family: var(--pn-ui);
+  border-radius: var(--pn-r-sm);
+}
+html[data-redesign] .themedBreadcrumb { border-bottom: 1px solid var(--pn-line); }
+html[data-redesign] .themedBreadcrumbSegment { color: var(--pn-ink-2); font-family: var(--pn-ui); }
+html[data-redesign] .themedBreadcrumbSegment:hover { color: var(--pn-brand); }
+html[data-redesign] .themedBreadcrumbSeparator { color: var(--pn-ink-4); }
+html[data-redesign] .themedFolderToolbar { border-bottom: 1px solid var(--pn-line); }
+html[data-redesign] .themedFolderItem {
+  border-bottom: 1px solid var(--pn-line);
+  color: var(--pn-ink-2);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .themedFolderItem:hover { background: var(--pn-hover); color: var(--pn-ink); }
+html[data-redesign] .themedFolderEmpty { color: var(--pn-ink-3); }
+html[data-redesign] .themedFolderError {
+  color: var(--pn-block);
+  background: var(--pn-block-soft);
+  border-bottom: 1px solid var(--pn-line);
+}
+html[data-redesign] .themedBrowseToggle {
+  border: 1px solid var(--pn-line);
+  color: var(--pn-ink-2);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .themedBrowseToggle:hover { color: var(--pn-brand); border-color: var(--pn-line-2); }
+
+/* wide-modal + folder scrollbars */
+html[data-redesign] .themedModal--wide .themedModalContent::-webkit-scrollbar-track,
+html[data-redesign] .themedFolderList::-webkit-scrollbar-track { background: transparent; }
+html[data-redesign] .themedModal--wide .themedModalContent::-webkit-scrollbar-thumb,
+html[data-redesign] .themedFolderList::-webkit-scrollbar-thumb { background: var(--pn-line-2); }
+html[data-redesign] .themedModal--wide .themedModalContent::-webkit-scrollbar-thumb:hover,
+html[data-redesign] .themedFolderList::-webkit-scrollbar-thumb:hover { background: var(--pn-ink-4); }
+
+/* modal tab bar */
+html[data-redesign] .themedModalTabBar { border: 1px solid var(--pn-line); }
+html[data-redesign] .themedModalTab {
+  border-right: 1px solid var(--pn-line);
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .themedModalTab:hover { color: var(--pn-ink-2); background: var(--pn-hover); }
+html[data-redesign] .themedModalTab--active {
+  color: var(--pn-brand);
+  background: var(--pn-active);
+  box-shadow: inset 0 -2px 0 var(--pn-brand);
+}
+html[data-redesign] .themedModalTabClose {
+  border-left: 1px solid var(--pn-line);
+  color: var(--pn-ink-4);
+}
+html[data-redesign] .themedModalTabClose:hover { color: var(--pn-brand); background: var(--pn-hover); }
+html[data-redesign] .themedModalTabBadge { border: 1px solid var(--pn-line); }
+html[data-redesign] .themedModalTabContent { border: 1px solid var(--pn-line); }
+
+/* empty state — "no projects" */
+html[data-redesign] .emptyState { font-family: var(--pn-ui); }
+html[data-redesign] .emptyStateTitle { color: var(--pn-ink); }
+html[data-redesign] .emptyStateHint { color: var(--pn-ink-3); }
+html[data-redesign] .emptyStateBtn {
+  border: 1px solid var(--pn-brand);
+  background: var(--pn-brand);
+  color: #fff;
+  font-family: var(--pn-ui);
+  border-radius: var(--pn-r-sm);
+}
+html[data-redesign] .emptyStateBtn:hover {
+  background: var(--pn-brand-2);
+  box-shadow: var(--pn-sh-md);
+}
+

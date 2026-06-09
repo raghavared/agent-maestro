@@ -192,7 +192,7 @@ export function SessionLogModal({ sessionName, cwd, onClose, maestroSessionId, a
 
   return (
     <div className="maestroModalOverlay" onClick={onClose}>
-      <div className="terminalTaskModal sessionLogModal" onClick={(e) => e.stopPropagation()}>
+      <div className="terminalTaskModal sessionLogModal pnLeakSkin" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="terminalModalHeader">
           <div className="terminalModalHeaderContent">

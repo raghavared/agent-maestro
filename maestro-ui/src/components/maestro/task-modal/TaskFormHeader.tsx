@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { MaestroTask } from "../../../app/types/maestro";
 import { useTaskBreadcrumb } from "../../../hooks/useTaskBreadcrumb";
+import { Icon } from "../redesign/kit";
 
 const STATUS_LABELS: Record<string, string> = {
     todo: "Todo",
@@ -21,6 +22,7 @@ type TaskFormHeaderProps = {
     onClose: () => void;
     parentId?: string;
     parentTitle?: string;
+    projectName?: string;
     onNavigateToTask?: (taskId: string) => void;
     autoFocus?: boolean;
 };
@@ -35,6 +37,7 @@ export function TaskFormHeader({
     onClose,
     parentId,
     parentTitle,
+    projectName,
     onNavigateToTask,
     autoFocus,
 }: TaskFormHeaderProps) {
@@ -47,10 +50,14 @@ export function TaskFormHeader({
         }
     }, [autoFocus]);
 
+    const crumbLeaf = isEditMode && task
+        ? (STATUS_LABELS[task.status] || task.status)
+        : (parentId ? 'New subtask' : 'New task');
+
     return (
-        <>
-            <div className="themedModalHeader">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+        <div className="pn-mdl__hd">
+            <div className="pn-mdl__hdmain">
+                <div className="pn-mdl__crumb">
                     {isOverlay && (
                         <button type="button"
                             className="taskDetailOverlay__backBtn"
@@ -58,58 +65,51 @@ export function TaskFormHeader({
                             title="Back to terminal"
                             style={{ flexShrink: 0 }}
                         >
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M10 12L6 8l4-4" />
-                            </svg>
-                            Back
+                            <Icon name="chevronL" size={13} /> Back
                         </button>
                     )}
-                    {isEditMode && task ? (
-                        <span className="themedTaskStatusBadge" data-status={task.status} style={{ flexShrink: 0, padding: '6px 10px', fontSize: '12px', lineHeight: '1' }}>
-                            {STATUS_LABELS[task.status] || task.status}
-                        </span>
-                    ) : (
-                        <span className="themedModalTitle" style={{ flexShrink: 0 }}>
-                            [ {parentId ? 'NEW SUBTASK' : 'NEW TASK'} ]
-                        </span>
-                    )}
-                    <input
-                        ref={titleInputRef}
-                        type="text"
-                        className="themedFormInput"
-                        style={{ flex: 1, margin: 0, padding: '6px 8px', fontSize: '13px', fontWeight: 600 }}
-                        placeholder={isEditMode ? "Task title..." : "e.g., Build user authentication system"}
-                        value={title}
-                        onChange={(e) => onTitleChange(e.target.value)}
-                        onKeyDown={onKeyDown}
-                    />
+                    <Icon name="listChecks" />
+                    {projectName && <b>{projectName}</b>}
+                    <Icon name="chevronR" size={11} /> {crumbLeaf}
                 </div>
-                {!isOverlay && (
-                    <button type="button" className="themedModalClose" onClick={onClose}>×</button>
+
+                {/* Breadcrumb ancestors (edit mode) */}
+                {isEditMode && breadcrumb.length > 1 && (
+                    <div className="pn-fhint" style={{ marginBottom: '4px' }}>
+                        {breadcrumb.slice(0, -1).map(t => (
+                            <span
+                                key={t.id}
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => onNavigateToTask?.(t.id)}
+                            >
+                                {t.title} &rsaquo;{' '}
+                            </span>
+                        ))}
+                    </div>
                 )}
+
+                {/* Subtitle for create-subtask mode */}
+                {!isEditMode && parentId && parentTitle && (
+                    <div className="pn-fhint" style={{ marginBottom: '4px' }}>
+                        Subtask of: {parentTitle}
+                    </div>
+                )}
+
+                <input
+                    ref={titleInputRef}
+                    type="text"
+                    className="pn-mdl__titleinput"
+                    placeholder={isEditMode ? "Untitled task" : "Untitled task"}
+                    value={title}
+                    onChange={(e) => onTitleChange(e.target.value)}
+                    onKeyDown={onKeyDown}
+                />
             </div>
-
-            {/* Breadcrumb for edit mode */}
-            {isEditMode && breadcrumb.length > 1 && (
-                <div className="themedFormHint" style={{ marginBottom: '4px', padding: '0 16px' }}>
-                    {breadcrumb.slice(0, -1).map(t => (
-                        <span
-                            key={t.id}
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => onNavigateToTask?.(t.id)}
-                        >
-                            {t.title} &rsaquo;{' '}
-                        </span>
-                    ))}
-                </div>
+            {!isOverlay && (
+                <button type="button" className="pn-mdl__close" onClick={onClose}>
+                    <Icon name="x" />
+                </button>
             )}
-
-            {/* Subtitle for create mode */}
-            {!isEditMode && parentId && parentTitle && (
-                <div className="themedFormHint" style={{ marginBottom: '4px', padding: '0 16px' }}>
-                    Subtask of: {parentTitle}
-                </div>
-            )}
-        </>
+        </div>
     );
 }

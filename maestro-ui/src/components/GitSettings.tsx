@@ -39,17 +39,17 @@ export function GitSettings() {
     autoDiscardOnMerge === false;
 
   return (
-    <div className="gitSettings">
-      <div className="gitSettingsSection">
-        <div className="gitSettingsLabel">Environment</div>
-        <div className="gitSettingsHint">
+    <div className="pn-fld">
+      <div className="pn-fld">
+        <div className="pn-flabel">Environment</div>
+        <div className="pn-fhint">
           Detected git tooling. PR features require GitHub CLI (gh), installed and authenticated.
         </div>
-        <div className="gitSettingsCaps">
+        <div className="pn-frow">
           {capsError ? (
-            <span className="gitSettingsCapsError">Unable to read git capabilities.</span>
+            <span className="pn-fhint">Unable to read git capabilities.</span>
           ) : caps === null ? (
-            <span className="gitSettingsCapsLoading">Checking…</span>
+            <span className="pn-fhint">Checking…</span>
           ) : (
             <>
               <CapBadge ok={caps.hasGit} label="git" />
@@ -59,27 +59,27 @@ export function GitSettings() {
           )}
         </div>
         {caps && !caps.hasGh && (
-          <div className="gitSettingsCapsNote">
+          <div className="pn-fhint">
             Install GitHub CLI from https://cli.github.com to enable pull requests.
           </div>
         )}
         {caps && caps.hasGh && !caps.ghAuthed && (
-          <div className="gitSettingsCapsNote">
+          <div className="pn-fhint">
             Run <code>gh auth login</code> to enable pull requests.
           </div>
         )}
       </div>
 
-      <div className="gitSettingsSection">
-        <label className="gitSettingsLabel" htmlFor="gitDefaultBaseBranch">
+      <div className="pn-fld">
+        <label className="pn-flabel" htmlFor="gitDefaultBaseBranch">
           Default base branch
         </label>
-        <div className="gitSettingsHint">
+        <div className="pn-fhint">
           Overrides the auto-detected base (origin/HEAD) when merging or opening PRs. Leave blank to auto-detect.
         </div>
         <input
           id="gitDefaultBaseBranch"
-          className="gitSettingsInput"
+          className="pn-input"
           type="text"
           spellCheck={false}
           placeholder="auto-detect (e.g. main)"
@@ -88,43 +88,54 @@ export function GitSettings() {
         />
       </div>
 
-      <div className="gitSettingsSection">
-        <label className="gitSettingsLabel" htmlFor="gitBranchScheme">
+      <div className="pn-fld">
+        <label className="pn-flabel" htmlFor="gitBranchScheme">
           Branch naming scheme
         </label>
-        <div className="gitSettingsHint">
+        <div className="pn-fhint">
           Template for worktree branch names. <code>{'{slug}'}</code> = task slug, <code>{'{id}'}</code> = short id.
         </div>
         <input
           id="gitBranchScheme"
-          className="gitSettingsInput"
+          className="pn-input"
           type="text"
           spellCheck={false}
           placeholder={DEFAULT_BRANCH_NAMING_SCHEME}
           value={branchNamingScheme}
           onChange={(e) => setBranchNamingScheme(e.target.value)}
         />
-        <div className="gitSettingsPreview">
+        <div className="pn-fhint">
           Example: <code>{previewBranchName(branchNamingScheme)}</code>
         </div>
       </div>
 
-      <div className="gitSettingsSection">
-        <label className="gitSettingsToggle">
-          <input
-            type="checkbox"
-            checked={autoDiscardOnMerge}
-            onChange={(e) => setAutoDiscardOnMerge(e.target.checked)}
-          />
-          <span className="gitSettingsToggleLabel">Auto-discard worktree after merge</span>
-        </label>
-        <div className="gitSettingsHint">
-          Remove the worktree and its branch automatically once it merges cleanly.
+      <div className="pn-fld">
+        <div className="pn-caps">
+          <div className="pn-cap">
+            <input
+              type="checkbox"
+              id="gitAutoDiscard"
+              className="sr-only"
+              checked={autoDiscardOnMerge}
+              onChange={(e) => setAutoDiscardOnMerge(e.target.checked)}
+            />
+            <div className="pn-cap__body">
+              <span className="pn-cap__name">Auto-discard worktree after merge</span>
+              <span className="pn-cap__desc">
+                Remove the worktree and its branch automatically once it merges cleanly.
+              </span>
+            </div>
+            <label
+              htmlFor="gitAutoDiscard"
+              className={`pn-switch${autoDiscardOnMerge ? ' pn-switch--on' : ''}`}
+              aria-label="Auto-discard worktree after merge"
+            />
+          </div>
         </div>
       </div>
 
       {!isDefault && (
-        <button type="button" className="gitSettingsReset" onClick={reset}>
+        <button type="button" className="pn-btn" onClick={reset}>
           Reset to Default
         </button>
       )}
@@ -135,10 +146,10 @@ export function GitSettings() {
 function CapBadge({ ok, label }: { ok: boolean; label: string }) {
   return (
     <span
-      className={`gitSettingsCapBadge ${ok ? 'gitSettingsCapBadge--ok' : 'gitSettingsCapBadge--missing'}`}
+      className={`pn-pill ${ok ? 'pn-pill--run' : 'pn-pill--idle'}`}
       title={ok ? `${label} available` : `${label} not available`}
     >
-      <span className="gitSettingsCapBadgeIcon" aria-hidden="true">{ok ? '✓' : '✕'}</span>
+      <span aria-hidden="true">{ok ? '✓' : '✕'}</span>
       {label}
     </span>
   );

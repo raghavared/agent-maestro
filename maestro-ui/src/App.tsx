@@ -19,6 +19,7 @@ import { useMaestroStore } from "./stores/useMaestroStore";
 import { initApp } from "./stores/initApp";
 import { initCentralPersistence, initWorkspaceViewPersistence } from "./stores/persistence";
 import { initTheme } from "./stores/useThemeStore";
+import { initRedesignTheme } from "./components/maestro/redesign/useRedesignTheme";
 import { initZoom } from "./stores/useZoomStore";
 
 // Hooks
@@ -158,6 +159,10 @@ export default function App() {
   // ---------- bootstrap stores & persistence ----------
   useEffect(() => {
     initTheme();
+    // Apply the persisted light/dark axis (data-theme) AFTER initTheme. initTheme no
+    // longer writes data-theme, so these don't collide; this restores a saved dark
+    // choice on reload app-wide (even before the TopBar toggle mounts).
+    initRedesignTheme();
     initZoom();
     initSessionStoreRefs(registry, pendingData, { current: null });
     const cleanupApp = initApp(registry, pendingData);
@@ -193,7 +198,6 @@ export default function App() {
   // re-rendering the entire App tree on every pixel change.
   const iconRailActiveSection = useUIStore((s) => s.iconRailActiveSection);
   const spacesRailActiveSection = useUIStore((s) => s.spacesRailActiveSection);
-  const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
   const toggleSpacesPanel = useUIStore((s) => s.toggleSpacesPanel);
   const docOverlay = useUIStore((s) => s.docOverlay);
   const setDocOverlay = useUIStore((s) => s.setDocOverlay);
@@ -579,7 +583,6 @@ export default function App() {
                     aria-orientation="vertical"
                     aria-valuemin={DEFAULTS.MIN_RIGHT_PANEL_WIDTH}
                     aria-valuemax={DEFAULTS.MAX_RIGHT_PANEL_WIDTH}
-                    aria-valuenow={rightPanelWidth}
                     tabIndex={0}
                     onPointerDown={handleRightPanelResizePointerDown}
                     title="Drag to resize"
@@ -603,7 +606,6 @@ export default function App() {
                   onOpenSshManager={openSshManager}
                   onOpenAgentShortcuts={handleOpenAgentShortcuts}
                   onOpenManageTerminals={handleOpenManageTerminals}
-                  contentWidth={rightPanelWidth}
                   activeSection={spacesRailActiveSection}
                   onToggle={toggleSpacesPanel}
                 />

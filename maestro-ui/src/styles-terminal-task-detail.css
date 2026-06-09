@@ -584,3 +584,18 @@
   box-shadow: 0 0 20px rgba(var(--theme-primary-rgb), 0.4);
 }
 
+/* ===================================================================
+   REDESIGN OVERRIDE (Atelier / pn-* tokens) — scoped to html[data-redesign].
+   .terminalTaskModal (used only by SessionLogModal) has a literal #0a0a0a
+   bg + 2px neon-green border + neon glow that pnLeakSkin (a var remapper)
+   cannot reach. The modal root now also carries .pnLeakSkin, which repoints
+   its --terminal-, --panel, --text legacy vars to pn tokens; these rules
+   finish the job for the hard-coded shell values. Auto-flips dark.
+   =================================================================== */
+html[data-redesign] .terminalTaskModal {
+  background: var(--pn-card);
+  border: 1px solid var(--pn-line-2);
+  box-shadow: var(--pn-sh-pop);
+}
+html[data-redesign] .terminalTaskModal .terminalModalHeader { background: var(--pn-surface); }
+

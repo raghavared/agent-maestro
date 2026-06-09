@@ -113,7 +113,7 @@
 /* ------------------------------------------------------------------ */
 
 .docViewerOverlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 10000;
   display: flex;
@@ -964,5 +964,286 @@
 
 .appContentResponsive .rightPanel {
   border-left: none;
+}
+
+/* ===================================================================
+   REDESIGN OVERRIDE (Atelier / pn-* tokens) — scoped to html[data-redesign].
+   The Document Viewer (DocViewer.tsx / DocsList.tsx + mermaid renderer) was
+   never migrated to the warm-paper "pn" theme; the base rules above are the
+   legacy dark/neon-green skin (var(--bg)/#0a0a0a surfaces, --theme-primary
+   accents, white-alpha hairlines, var(--text)/var(--muted) text). In the
+   redesign LIGHT theme those render as dark panels / neon text on paper.
+   These overrides repoint every offending selector to --pn-* tokens so the
+   viewer flips correctly with data-theme (incl. data-theme=dark auto-flip).
+   The html[data-redesign] prefix raises specificity so it wins over the base
+   rules WITHOUT mutating them — the redesign toggle still falls back cleanly.
+   Token-only; the sole raw value is the warm modal scrim. Mirrors the override
+   block in styles-mentions.css.
+   =================================================================== */
+
+/* --- Docs List cards --- */
+html[data-redesign] .docsListCard {
+  background: var(--pn-card);
+  border-color: var(--pn-line);
+}
+html[data-redesign] .docsListCard:hover {
+  background: var(--pn-hover);
+  border-color: var(--pn-line-2);
+}
+html[data-redesign] .docsListCardIcon {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-line);
+  color: var(--pn-brand);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .docsListCardTitle {
+  color: var(--pn-ink);
+}
+html[data-redesign] .docsListCardFile {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .docsListCardExt {
+  color: var(--pn-ink-4);
+}
+html[data-redesign] .docsListCardSession {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-line);
+  color: var(--pn-brand);
+}
+html[data-redesign] .docsListCardTime {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+}
+
+/* --- Doc Viewer overlay / panel --- */
+html[data-redesign] .docViewerOverlay {
+  background: rgba(40, 34, 24, 0.4);
+}
+html[data-redesign] .docViewerOverlay--fullscreen {
+  background: var(--pn-paper);
+}
+html[data-redesign] .docViewerPanel {
+  background: var(--pn-card);
+  border-color: var(--pn-line-2);
+  box-shadow: var(--pn-sh-pop);
+  font-family: var(--pn-ui);
+}
+
+/* --- Header --- */
+html[data-redesign] .docViewerHeader {
+  background: var(--pn-brand-soft);
+  border-bottom-color: var(--pn-line);
+}
+html[data-redesign] .docViewerIcon {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-line);
+  color: var(--pn-brand);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .docViewerTitle {
+  color: var(--pn-ink);
+}
+html[data-redesign] .docViewerFileName {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .docViewerExtBadge {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-line);
+  color: var(--pn-brand);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .docViewerCloseBtn {
+  background: var(--pn-surface);
+  border-color: var(--pn-line);
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .docViewerFullscreenBtn {
+  background: var(--pn-surface);
+  border-color: var(--pn-line);
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .docViewerFullscreenBtn:hover {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-line-2);
+  color: var(--pn-brand);
+}
+
+/* --- Metadata bar --- */
+html[data-redesign] .docViewerMeta {
+  background: var(--pn-surface);
+  border-bottom-color: var(--pn-line);
+}
+html[data-redesign] .docViewerMetaLabel {
+  color: var(--pn-ink-4);
+}
+html[data-redesign] .docViewerMetaValue {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .docViewerMetaSessionBadge {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-line);
+  color: var(--pn-brand);
+}
+
+/* --- Body / scrollbar --- */
+html[data-redesign] .docViewerBody::-webkit-scrollbar-thumb {
+  background: var(--pn-line-2);
+}
+html[data-redesign] .docViewerBody::-webkit-scrollbar-thumb:hover {
+  background: var(--pn-ink-4);
+}
+
+/* --- Code (non-markdown) view --- */
+html[data-redesign] .docViewerCode {
+  background: var(--pn-surface);
+  border-color: var(--pn-line);
+  font-family: var(--pn-mono);
+  color: var(--pn-ink);
+}
+
+/* --- Empty state --- */
+html[data-redesign] .docViewerEmpty {
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .docViewerEmptyPath {
+  font-family: var(--pn-mono);
+}
+
+/* --- Markdown renderer --- */
+html[data-redesign] .docViewerMarkdown {
+  color: var(--pn-ink);
+}
+html[data-redesign] .docViewerMarkdown h1,
+html[data-redesign] .docViewerMarkdown h2,
+html[data-redesign] .docViewerMarkdown h3,
+html[data-redesign] .docViewerMarkdown h4,
+html[data-redesign] .docViewerMarkdown h5,
+html[data-redesign] .docViewerMarkdown h6 {
+  color: var(--pn-ink);
+}
+html[data-redesign] .docViewerMarkdown h1 {
+  border-bottom-color: var(--pn-line);
+}
+html[data-redesign] .docViewerMarkdown h2 {
+  border-bottom-color: var(--pn-line);
+}
+html[data-redesign] .docViewerMarkdown h6 {
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .docViewerMarkdown a {
+  color: var(--pn-brand);
+  border-bottom-color: var(--pn-line-2);
+}
+html[data-redesign] .docViewerMarkdown a:hover {
+  border-bottom-color: var(--pn-brand);
+}
+html[data-redesign] .docViewerMarkdown strong {
+  color: var(--pn-ink);
+}
+html[data-redesign] .docViewerMarkdown em {
+  color: var(--pn-ink-2);
+}
+html[data-redesign] .docViewerMarkdown code {
+  font-family: var(--pn-mono);
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-line);
+  color: var(--pn-brand);
+}
+html[data-redesign] .docViewerMarkdown pre {
+  background: var(--pn-surface);
+  border-color: var(--pn-line);
+}
+html[data-redesign] .docViewerMarkdown pre code {
+  color: var(--pn-ink);
+}
+html[data-redesign] .docViewerMarkdown blockquote {
+  border-left-color: var(--pn-line-2);
+  background: var(--pn-surface);
+  color: var(--pn-ink-2);
+}
+html[data-redesign] .docViewerMarkdown th,
+html[data-redesign] .docViewerMarkdown td {
+  border-color: var(--pn-line);
+}
+html[data-redesign] .docViewerMarkdown th {
+  background: var(--pn-brand-soft);
+  color: var(--pn-ink);
+}
+html[data-redesign] .docViewerMarkdown td {
+  color: var(--pn-ink-2);
+}
+html[data-redesign] .docViewerMarkdown tr:hover td {
+  background: var(--pn-hover);
+}
+html[data-redesign] .docViewerMarkdown hr {
+  background: var(--pn-line);
+}
+html[data-redesign] .docViewerMarkdown img {
+  border-color: var(--pn-line);
+}
+html[data-redesign] .docViewerMarkdown input[type="checkbox"] {
+  accent-color: var(--pn-brand);
+}
+
+/* --- Mermaid diagram renderer --- */
+html[data-redesign] .mermaidDiagram {
+  background: var(--pn-surface);
+  border-color: var(--pn-line);
+}
+html[data-redesign] .mermaidDiagram:hover {
+  border-color: var(--pn-line-2);
+  background: var(--pn-hover);
+}
+html[data-redesign] .mermaidDiagramOverlay {
+  background: rgba(40, 34, 24, 0.4);
+}
+html[data-redesign] .mermaidDiagramOverlayContent::-webkit-scrollbar-thumb {
+  background: var(--pn-line-2);
+}
+html[data-redesign] .mermaidDiagramOverlayClose {
+  background: var(--pn-surface);
+  border-color: var(--pn-line);
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .mermaidZoomControls {
+  background: var(--pn-card);
+  border-color: var(--pn-line);
+}
+html[data-redesign] .mermaidZoomBtn {
+  color: var(--pn-ink-3);
+}
+html[data-redesign] .mermaidZoomBtn:hover:not(:disabled) {
+  background: var(--pn-hover);
+  color: var(--pn-ink);
+}
+html[data-redesign] .mermaidZoomLevel {
+  color: var(--pn-ink);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .mermaidZoomLevel:hover {
+  background: var(--pn-hover);
+}
+html[data-redesign] .mermaidDiagramLoading {
+  background: var(--pn-surface);
+  border-color: var(--pn-line);
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+}
+html[data-redesign] .mermaidDiagramSpinner {
+  border-color: var(--pn-line-2);
+  border-top-color: var(--pn-brand);
+}
+html[data-redesign] .mermaidDiagramErrorDetail {
+  color: var(--pn-ink-3);
+  border-bottom-color: var(--pn-line);
+  font-family: var(--pn-mono);
+}
+html[data-redesign] .mermaidDiagramFallback {
+  color: var(--pn-ink);
+  background: var(--pn-surface);
+  font-family: var(--pn-mono);
 }
 

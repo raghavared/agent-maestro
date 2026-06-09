@@ -10,6 +10,7 @@ import React, { useState, useCallback } from 'react';
 import type { InstrumentType, ProjectSoundConfig, SoundCategoryType } from '../../app/types/maestro';
 import { soundManager } from '../../services/soundManager';
 import type { SoundCategory } from '../../services/soundManager';
+import { Icon } from '../maestro/redesign/kit';
 import {
   getTemplates,
   getTemplateById,
@@ -166,12 +167,12 @@ export function ProjectSoundSettings({ config, onChange }: ProjectSoundSettingsP
   };
 
   return (
-    <div className="projectSoundSettings">
+    <div className="pn-fld">
       {/* Template Picker */}
-      <div className="projectSoundRow">
-        <label className="projectSoundLabel">Template</label>
+      <div className="pn-fld">
+        <label className="pn-flabel">Template</label>
         <select
-          className="themedFormSelect"
+          className="pn-select"
           value={config?.templateId ?? ''}
           onChange={(e) => handleTemplateChange(e.target.value)}
         >
@@ -185,52 +186,38 @@ export function ProjectSoundSettings({ config, onChange }: ProjectSoundSettingsP
       </div>
 
       {/* Instrument Selector — visual button picker */}
-      <div className="projectSoundRow">
-        <label className="projectSoundLabel">Instrument</label>
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+      <div className="pn-fld">
+        <label className="pn-flabel">Instrument</label>
+        <div className="pn-instr">
           {INSTRUMENTS.map((inst) => (
             <button
               key={inst}
               type="button"
               title={getInstrumentRole(inst)}
               onClick={() => handleInstrumentChange(inst)}
-              style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                gap: '3px', padding: '6px 10px', cursor: 'pointer',
-                border: `1px solid ${currentInstrument === inst ? 'var(--theme-primary)' : 'var(--theme-border)'}`,
-                borderRadius: '4px', fontSize: '10px',
-                background: currentInstrument === inst
-                  ? 'rgba(var(--theme-primary-rgb), 0.12)'
-                  : 'transparent',
-                color: currentInstrument === inst ? 'var(--theme-primary)' : 'var(--theme-text)',
-                fontFamily: 'var(--style-font-ui)',
-                transition: 'all 0.15s',
-                minWidth: '56px',
-              }}
+              className={`pn-instr-i${currentInstrument === inst ? ' pn-instr-i--active' : ''}`}
             >
               <span style={{ fontSize: '16px' }}>{getInstrumentEmoji(inst)}</span>
-              <span style={{ textTransform: 'capitalize', fontWeight: currentInstrument === inst ? 600 : 400 }}>
-                {inst}
-              </span>
+              <span className="pn-instr-i__name">{inst}</span>
             </button>
           ))}
         </div>
       </div>
 
       {/* Actions */}
-      <div className="projectSoundActions">
+      <div className="pn-frow">
         {config && (
           <>
             <button
               type="button"
-              className="themedBtn"
+              className="pn-btn"
               onClick={() => setShowSaveTemplate((v) => !v)}
             >
               Save as Template
             </button>
             <button
               type="button"
-              className="themedBtn"
+              className="pn-btn"
               onClick={handleResetToGlobal}
             >
               Reset to Global
@@ -241,16 +228,16 @@ export function ProjectSoundSettings({ config, onChange }: ProjectSoundSettingsP
 
       {/* Save Template Dialog */}
       {showSaveTemplate && (
-        <div className="projectSoundSaveTemplate">
+        <div className="pn-frow">
           <input
-            className="themedFormInput"
+            className="pn-input"
             value={saveTemplateName}
             onChange={(e) => setSaveTemplateName(e.target.value)}
             placeholder="Template name..."
           />
           <button
             type="button"
-            className="themedBtn themedBtnPrimary"
+            className="pn-btn pn-btn--primary"
             onClick={handleSaveTemplate}
             disabled={!saveTemplateName.trim()}
           >
@@ -258,7 +245,7 @@ export function ProjectSoundSettings({ config, onChange }: ProjectSoundSettingsP
           </button>
           <button
             type="button"
-            className="themedBtn"
+            className="pn-btn"
             onClick={() => setShowSaveTemplate(false)}
           >
             Cancel
@@ -267,57 +254,61 @@ export function ProjectSoundSettings({ config, onChange }: ProjectSoundSettingsP
       )}
 
       {/* Advanced: Per-Category Overrides (collapsed by default) */}
-      <div className="projectSoundRow" style={{ marginTop: '4px' }}>
+      <div className="pn-fld">
         <button
           type="button"
-          className="themedBrowseToggle"
+          className="pn-btn pn-btn--ghost"
           onClick={() => setShowAdvanced((v) => !v)}
-          style={{ fontSize: '10px', opacity: 0.7 }}
         >
-          <span className={`themedBrowseToggleArrow${showAdvanced ? " themedBrowseToggleArrow--open" : ""}`}>
-            &#9654;
-          </span>
+          <Icon name={showAdvanced ? 'chevronD' : 'chevronR'} size={12} />
           Advanced: Per-Category Overrides
         </button>
       </div>
 
       {showAdvanced && (
-        <div className="projectSoundOverrides">
+        <div className="pn-fld">
           {CATEGORY_GROUPS.map((group) => (
-            <div key={group.name} className="projectSoundGroup">
-              <div className="projectSoundGroupTitle">{group.name}</div>
-              {group.categories.map((category) => (
-                <div key={category} className="projectSoundCategoryRow">
-                  <label className="projectSoundCategoryToggle">
+            <div key={group.name} className="pn-fld">
+              <div className="pn-flabel">{group.name}</div>
+              <div className="pn-caps">
+                {group.categories.map((category) => (
+                  <div key={category} className="pn-cap">
                     <input
                       type="checkbox"
+                      id={`pso-cat-${category}`}
+                      className="sr-only"
                       checked={enabledCategories.has(category)}
                       onChange={() => handleCategoryToggle(category)}
                     />
-                    <span>{CATEGORY_LABELS[category]}</span>
-                  </label>
-                  <select
-                    className="projectSoundCategoryInstrument"
-                    value={categoryOverrides[category]?.instrument ?? ''}
-                    onChange={(e) => handleCategoryInstrumentOverride(category, e.target.value as InstrumentType | '')}
-                    title="Override instrument for this category"
-                  >
-                    <option value="">Default ({currentInstrument})</option>
-                    {INSTRUMENTS.filter((i) => i !== currentInstrument).map((inst) => (
-                      <option key={inst} value={inst}>{getInstrumentEmoji(inst)} {inst}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    className="soundTestBtn"
-                    onClick={() => handleTestSound(category)}
-                    title="Preview sound"
-                    disabled={!enabledCategories.has(category)}
-                  >
-                    &#9654;
-                  </button>
-                </div>
-              ))}
+                    <label
+                      htmlFor={`pso-cat-${category}`}
+                      className={`pn-switch${enabledCategories.has(category) ? ' pn-switch--on' : ''}`}
+                      aria-label={CATEGORY_LABELS[category]}
+                    />
+                    <span className="pn-cap__name pn-cap__body">{CATEGORY_LABELS[category]}</span>
+                    <select
+                      className="pn-select"
+                      value={categoryOverrides[category]?.instrument ?? ''}
+                      onChange={(e) => handleCategoryInstrumentOverride(category, e.target.value as InstrumentType | '')}
+                      title="Override instrument for this category"
+                    >
+                      <option value="">Default ({currentInstrument})</option>
+                      {INSTRUMENTS.filter((i) => i !== currentInstrument).map((inst) => (
+                        <option key={inst} value={inst}>{getInstrumentEmoji(inst)} {inst}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="pn-btn pn-btn--ghost"
+                      onClick={() => handleTestSound(category)}
+                      title="Preview sound"
+                      disabled={!enabledCategories.has(category)}
+                    >
+                      <Icon name="play" size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -325,20 +316,22 @@ export function ProjectSoundSettings({ config, onChange }: ProjectSoundSettingsP
 
       {/* Custom Template Management */}
       {templates.filter((t) => !t.builtIn).length > 0 && (
-        <div className="projectSoundCustomTemplates">
-          <div className="projectSoundLabel">Custom Templates</div>
-          {templates.filter((t) => !t.builtIn).map((t) => (
-            <div key={t.id} className="projectSoundCustomTemplateRow">
-              <span>{getInstrumentEmoji(t.instrument)} {t.name}</span>
-              <button
-                type="button"
-                className="themedBtn projectSoundDeleteBtn"
-                onClick={() => handleDeleteCustomTemplate(t.id)}
-              >
-                Delete
-              </button>
-            </div>
-          ))}
+        <div className="pn-fld">
+          <div className="pn-flabel">Custom Templates</div>
+          <div className="pn-caps">
+            {templates.filter((t) => !t.builtIn).map((t) => (
+              <div key={t.id} className="pn-cap">
+                <span className="pn-cap__name pn-cap__body">{getInstrumentEmoji(t.instrument)} {t.name}</span>
+                <button
+                  type="button"
+                  className="pn-btn pn-btn--danger"
+                  onClick={() => handleDeleteCustomTemplate(t.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

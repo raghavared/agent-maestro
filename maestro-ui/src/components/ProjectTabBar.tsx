@@ -1,13 +1,17 @@
 import React, { useState, useRef, useLayoutEffect } from "react";
 import { Icon } from "./Icon";
+import { Icon as PnIcon } from "./maestro/redesign/kit";
+import { useRedesignTheme } from "./maestro/redesign/useRedesignTheme";
 import { MaestroProject, ProjectSoundConfig } from "../app/types/maestro";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { DisplaySettings } from "./DisplaySettings";
 import { GitSettings } from "./GitSettings";
 import { SoundSettingsContent } from "./modals/SoundSettingsModal";
 import { ProjectSoundSettings } from "./modals/ProjectSoundSettings";
+import { TerminalSettings } from "./TerminalSettings";
 import { soundManager } from "../services/soundManager";
 import { useProjectStore } from "../stores/useProjectStore";
+import { useUIStore } from "../stores/useUIStore";
 
 type SavedProject = {
   id: string;
@@ -41,7 +45,7 @@ type SettingsDialogProps = {
 };
 
 type SettingsTab = 'theme' | 'display' | 'sounds' | 'git' | 'shortcuts';
-type ProjectSettingsTab = 'info' | 'sounds';
+type ProjectSettingsTab = 'info' | 'sounds' | 'terminal';
 
 type ShortcutRow = {
   action: string;
@@ -67,77 +71,65 @@ const SHORTCUT_ROWS: ShortcutRow[] = [
 function AppSettingsDialog({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('theme');
 
+  const TABS: { id: SettingsTab; label: string }[] = [
+    { id: 'theme', label: 'Theme' },
+    { id: 'display', label: 'Display' },
+    { id: 'sounds', label: 'Sounds' },
+    { id: 'git', label: 'Git' },
+    { id: 'shortcuts', label: 'Shortcuts' },
+  ];
+
   return (
     <div className="projectSettingsBackdrop" onClick={onClose}>
-      <div className="appSettingsDialog" onClick={(e) => e.stopPropagation()}>
-        <div className="projectSettingsHeader">
-          <span className="projectSettingsTitle">[ SETTINGS ]</span>
-          <button type="button" className="projectSettingsClose" onClick={onClose}>×</button>
+      <div
+        className={`pn-mdl appSettingsDialog${activeTab === 'display' ? ' appSettingsDialog--wide' : ''}`}
+        style={{ width: activeTab === 'display' ? 820 : 720, maxWidth: '94vw' }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Settings"
+      >
+        <div className="pn-mdl__hd">
+          <div className="pn-mdl__hdmain">
+            <div className="pn-mdl__titleinput">Settings</div>
+          </div>
+          <button type="button" className="pn-mdl__close" onClick={onClose} aria-label="Close">
+            <PnIcon name="x" size={16} />
+          </button>
         </div>
 
-        <div className="appSettingsBody">
-          <div className="appSettingsSidebar">
-            <button
-              type="button"
-              className={`appSettingsTabBtn ${activeTab === 'theme' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('theme')}
-            >
-              THEME
-            </button>
-            <button
-              type="button"
-              className={`appSettingsTabBtn ${activeTab === 'display' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('display')}
-            >
-              DISPLAY
-            </button>
-            <button
-              type="button"
-              className={`appSettingsTabBtn ${activeTab === 'sounds' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('sounds')}
-            >
-              SOUNDS
-            </button>
-            <button
-              type="button"
-              className={`appSettingsTabBtn ${activeTab === 'git' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('git')}
-            >
-              GIT
-            </button>
-            <button
-              type="button"
-              className={`appSettingsTabBtn ${activeTab === 'shortcuts' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('shortcuts')}
-            >
-              SHORTCUTS
-            </button>
+        <div style={{ display: 'flex', minHeight: 0 }}>
+          <div
+            className="pn-mtabs pn-mtabs--vert"
+            role="tablist"
+            aria-orientation="vertical"
+            style={{ flex: '0 0 auto' }}
+          >
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === t.id}
+                className={`pn-mtab ${activeTab === t.id ? 'pn-mtab--active' : ''}`}
+                onClick={() => setActiveTab(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
 
-          <div className="appSettingsTabContent">
-            {activeTab === 'theme' && (
-              <div className="appSettingsContent">
-                <ThemeSwitcher />
-              </div>
-            )}
+          <div className="pn-mdl__body" style={{ flex: 1, minWidth: 0 }}>
+            {activeTab === 'theme' && <ThemeSwitcher />}
             {activeTab === 'display' && (
-              <div className="appSettingsContent">
+              <div className="appSettingsContent--terminal">
                 <DisplaySettings />
               </div>
             )}
-            {activeTab === 'sounds' && (
-              <SoundSettingsContent />
-            )}
-            {activeTab === 'git' && (
-              <div className="appSettingsContent">
-                <GitSettings />
-              </div>
-            )}
+            {activeTab === 'sounds' && <SoundSettingsContent />}
+            {activeTab === 'git' && <GitSettings />}
             {activeTab === 'shortcuts' && (
-              <div className="appSettingsContent">
-                <div className="appShortcutsHeader">
-                  Available keyboard shortcuts
-                </div>
+              <div className="pn-fld">
+                <div className="pn-flabel">Available keyboard shortcuts</div>
                 <div className="appShortcutsTable" role="table" aria-label="Keyboard shortcuts">
                   <div className="appShortcutsRow appShortcutsRowHeader" role="row">
                     <span role="columnheader">Action</span>
@@ -189,117 +181,139 @@ function ProjectSettingsDialog({ project, sessionCount, onClose, onDelete, onClo
     }
   };
 
+  const TABS: { id: ProjectSettingsTab; label: string }[] = [
+    { id: 'info', label: 'Info' },
+    { id: 'sounds', label: 'Sounds' },
+    { id: 'terminal', label: 'Terminal' },
+  ];
+
+  const isMaster = project.isMaster ?? false;
+
   return (
     <div className="projectSettingsBackdrop" onClick={onClose}>
-      <div className="appSettingsDialog" onClick={(e) => e.stopPropagation()}>
-        <div className="projectSettingsHeader">
-          <span className="projectSettingsTitle">[ PROJECT SETTINGS ]</span>
-          <button type="button" className="projectSettingsClose" onClick={onClose}>×</button>
+      <div
+        className={`pn-mdl appSettingsDialog${activeTab === 'terminal' ? ' appSettingsDialog--wide' : ''}`}
+        style={{ width: activeTab === 'terminal' ? 820 : 640, maxWidth: '94vw' }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Project settings"
+      >
+        <div className="pn-mdl__hd">
+          <div className="pn-mdl__hdmain">
+            <div className="pn-mdl__crumb">
+              <span>PROJECT</span>
+              <PnIcon name="chevronR" size={12} />
+              <b>{project.name}</b>
+            </div>
+            <div className="pn-mdl__titleinput">Project Settings</div>
+          </div>
+          <button type="button" className="pn-mdl__close" onClick={onClose} aria-label="Close">
+            <PnIcon name="x" size={16} />
+          </button>
         </div>
 
-        <div className="appSettingsBody">
-          <div className="appSettingsSidebar">
+        <div className="pn-mtabs" role="tablist">
+          {TABS.map((t) => (
             <button
+              key={t.id}
               type="button"
-              className={`appSettingsTabBtn ${activeTab === 'info' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('info')}
+              role="tab"
+              aria-selected={activeTab === t.id}
+              className={`pn-mtab ${activeTab === t.id ? 'pn-mtab--active' : ''}`}
+              onClick={() => setActiveTab(t.id)}
             >
-              INFO
+              {t.label}
             </button>
-            <button
-              type="button"
-              className={`appSettingsTabBtn ${activeTab === 'sounds' ? 'appSettingsTabBtnActive' : ''}`}
-              onClick={() => setActiveTab('sounds')}
-            >
-              SOUNDS
-            </button>
-          </div>
+          ))}
+        </div>
 
-          <div className="appSettingsTabContent">
-            {activeTab === 'info' && (
-              <div className="appSettingsContent">
-                <div className="projectSettingsContent">
-                  <div className="projectSettingsRow">
-                    <span className="projectSettingsLabel">NAME:</span>
-                    <span className="projectSettingsValue">{project.name}</span>
-                  </div>
+        <div className="pn-mdl__body">
+          {activeTab === 'info' && (
+            <>
+              <div className="pn-fld">
+                <span className="pn-flabel">Name</span>
+                <span style={{ fontSize: 13.5, color: 'var(--pn-ink)' }}>{project.name}</span>
+              </div>
 
-                  {project.basePath && (
-                    <div className="projectSettingsRow">
-                      <span className="projectSettingsLabel">PATH:</span>
-                      <span className="projectSettingsValue projectSettingsPath">{project.basePath}</span>
-                    </div>
-                  )}
-
-                  <div className="projectSettingsRow">
-                    <span className="projectSettingsLabel">SESSIONS:</span>
-                    <span className="projectSettingsValue">{sessionCount}</span>
-                  </div>
-
-                  <div className="projectSettingsRow">
-                    <span className="projectSettingsLabel">CREATED:</span>
-                    <span className="projectSettingsValue">
-                      {new Date(project.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-
-                  <div className="projectSettingsRow projectSettingsMasterRow">
-                    <span className="projectSettingsLabel">MASTER PROJECT:</span>
-                    <label
-                      className="projectSettingsMasterToggle"
-                      title="Sessions in this project can access all other projects"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={project.isMaster ?? false}
-                        onChange={() => void toggleMasterProject(project.id)}
-                      />
-                      <span className="projectSettingsMasterSwitch" />
-                      <span className="projectSettingsMasterLabel">
-                        {project.isMaster ? '★ Enabled' : 'Disabled'}
-                      </span>
-                    </label>
-                    <div className="projectSettingsMasterHint">
-                      Sessions in this project can access all other projects
-                    </div>
-                  </div>
+              {project.basePath && (
+                <div className="pn-fld">
+                  <span className="pn-flabel">Path</span>
+                  <span style={{ fontFamily: 'var(--pn-mono)', fontSize: 12, color: 'var(--pn-ink-2)', wordBreak: 'break-all' }}>
+                    {project.basePath}
+                  </span>
                 </div>
+              )}
 
-                <div className="projectSettingsDivider" />
+              <div className="pn-frow">
+                <div className="pn-fld" style={{ flex: 1 }}>
+                  <span className="pn-flabel">Sessions</span>
+                  <span style={{ fontSize: 13.5, color: 'var(--pn-ink)' }}>{sessionCount}</span>
+                </div>
+                <div className="pn-fld" style={{ flex: 1 }}>
+                  <span className="pn-flabel">Created</span>
+                  <span style={{ fontSize: 13.5, color: 'var(--pn-ink)' }}>
+                    {new Date(project.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
 
-                <button type="button"
-                  className="projectSettingsCloseBtn"
+              <div className="pn-caps">
+                <label className="pn-cap" title="Sessions in this project can access all other projects">
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+                    checked={isMaster}
+                    onChange={() => void toggleMasterProject(project.id)}
+                  />
+                  <div className="pn-cap__body">
+                    <div className="pn-cap__name">{isMaster ? '★ Master Project' : 'Master Project'}</div>
+                    <div className="pn-cap__desc">Sessions in this project can access all other projects</div>
+                  </div>
+                  <span className={`pn-switch ${isMaster ? 'pn-switch--on' : ''}`} />
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <button
+                  type="button"
+                  className="pn-btn"
                   onClick={() => {
                     onCloseProject();
                     onClose();
                   }}
                 >
                   <Icon name="close" size={14} />
-                  CLOSE PROJECT
+                  Close project
                 </button>
 
-                <button type="button"
-                  className="projectSettingsDeleteBtn"
+                <button
+                  type="button"
+                  className="pn-btn pn-btn--danger"
                   onClick={() => {
                     onDelete();
                     onClose();
                   }}
                 >
                   <Icon name="trash" size={14} />
-                  DELETE PROJECT
+                  Delete project
                 </button>
               </div>
-            )}
+            </>
+          )}
 
-            {activeTab === 'sounds' && (
-              <div className="appSettingsContent">
-                <ProjectSoundSettings
-                  config={project.soundConfig}
-                  onChange={handleSoundConfigChange}
-                />
-              </div>
-            )}
-          </div>
+          {activeTab === 'sounds' && (
+            <ProjectSoundSettings
+              config={project.soundConfig}
+              onChange={handleSoundConfigChange}
+            />
+          )}
+
+          {activeTab === 'terminal' && (
+            <div className="appSettingsContent appSettingsContent--terminal">
+              <TerminalSettings />
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -322,6 +336,8 @@ export function ProjectTabBar({
   onOpenMultiProjectBoard,
   onOpenWhiteboard,
 }: ProjectTabBarProps) {
+  const { isDark, toggle: toggleTheme } = useRedesignTheme({ ensureRedesign: false });
+  const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const [settingsProjectId, setSettingsProjectId] = useState<string | null>(null);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(soundManager.isEnabled());
@@ -562,8 +578,8 @@ export function ProjectTabBar({
 
   return (
     <>
-      <div className="projectTabBar">
-        <div className="projectTabs" ref={tabsRef}>
+      <div className="pn-top projectTabBar">
+        <div className="pn-ptabs projectTabs" ref={tabsRef}>
           {projects.map((p) => {
             const isActive = p.id === activeProjectId;
             const count = sessionCountByProject.get(p.id) ?? 0;
@@ -572,12 +588,14 @@ export function ProjectTabBar({
             const isDropBefore = dropTarget?.projectId === p.id && dropTarget.position === 'before';
             const isDropAfter = dropTarget?.projectId === p.id && dropTarget.position === 'after';
             const hasNeedsInput = needsInputByProject.get(p.id) ?? false;
+            const dotKind = hasNeedsInput ? "wait" : workingCount > 0 ? "run" : "idle";
+            const dotLive = dotKind === "run" ? " pn-dot--live" : "";
 
             return (
               <div
                 key={p.id}
                 data-project-id={p.id}
-                className={`projectTab ${isActive ? "projectTabActive" : ""} ${isDragging ? "projectTabDragging" : ""} ${isDropBefore ? "projectTabDropBefore" : ""} ${isDropAfter ? "projectTabDropAfter" : ""} ${hasNeedsInput ? "projectTabNeedsInput" : ""}`}
+                className={`pn-ptab ${isActive ? "pn-ptab--active" : ""} projectTab ${isActive ? "projectTabActive" : ""} ${isDragging ? "projectTabDragging" : ""} ${isDropBefore ? "projectTabDropBefore" : ""} ${isDropAfter ? "projectTabDropAfter" : ""} ${hasNeedsInput ? "projectTabNeedsInput" : ""}`}
                 style={{ touchAction: 'none' }}
                 onPointerDown={(e) => handleTabPointerDown(e, p)}
               >
@@ -587,6 +605,7 @@ export function ProjectTabBar({
                   onClick={() => onSelectProject(p.id)}
                   title={p.basePath || p.name}
                 >
+                  <span className={`pn-dot pn-dot--${dotKind}${dotLive}`} />
                   {p.isMaster && <span className="projectTabMasterIcon" title="Master Project">★</span>}
                   <span className="projectTabName">{p.name}</span>
                   {workingCount > 0 && (
@@ -607,22 +626,21 @@ export function ProjectTabBar({
                     }}
                     title="Project settings"
                   >
-                    <Icon name="settings" size={12} />
+                    <PnIcon name="settings" size={12} />
                   </button>
                 )}
               </div>
             );
           })}
-        </div>
-        <div className="projectTabBarActions">
           <div className="projectAddMenuWrapper" ref={addMenuRef}>
             <button
               type="button"
-              className="projectTabBarBtn"
+              className="pn-ib"
+              style={{ width: 26, height: 26 }}
               onClick={() => setAddMenuOpen((v) => !v)}
               title="Add project"
             >
-              <Icon name="plus" size={14} />
+              <PnIcon name="plus" size={14} />
             </button>
             {addMenuOpen && (
               <div className="projectAddMenu">
@@ -634,7 +652,7 @@ export function ProjectTabBar({
                     onNewProject();
                   }}
                 >
-                  <Icon name="plus" size={12} />
+                  <PnIcon name="plus" size={12} />
                   NEW PROJECT
                 </button>
                 <button
@@ -642,43 +660,37 @@ export function ProjectTabBar({
                   className="projectAddMenuItem"
                   onClick={() => void handleOpenSavedProjects()}
                 >
-                  <Icon name="folder" size={12} />
+                  <PnIcon name="folder" size={12} />
                   OPEN SAVED PROJECT
                 </button>
               </div>
             )}
           </div>
+        </div>
+        <div className="pn-top-r">
           {onOpenMultiProjectBoard && (
             <button
               type="button"
-              className="projectTabBarBtn"
+              className="pn-ib"
               onClick={onOpenMultiProjectBoard}
               title="Multi-Project Board (Cmd/Ctrl+Shift+B)"
             >
-              <Icon name="layers" size={14} />
+              <PnIcon name="layers" size={16} />
             </button>
           )}
           {onOpenWhiteboard && (
             <button
               type="button"
-              className="projectTabBarBtn"
+              className="pn-ib"
               onClick={onOpenWhiteboard}
               title="Whiteboard (Cmd/Ctrl+Shift+X)"
             >
-              <Icon name="edit" size={14} />
+              <PnIcon name="pen" size={16} />
             </button>
           )}
           <button
             type="button"
-            className="projectTabBarBtn"
-            onClick={() => setAppSettingsOpen(true)}
-            title="Settings"
-          >
-            <Icon name="settings" size={14} />
-          </button>
-          <button
-            type="button"
-            className="projectTabBarBtn globalSoundToggle"
+            className="pn-ib globalSoundToggle"
             onClick={() => {
               const next = !soundEnabled;
               soundManager.setEnabled(next);
@@ -686,7 +698,39 @@ export function ProjectTabBar({
             }}
             title={soundEnabled ? "Mute sounds" : "Unmute sounds"}
           >
-            <Icon name={soundEnabled ? "volume" : "volume-off"} size={14} />
+            <PnIcon name={soundEnabled ? "volume" : "volumeOff"} size={16} />
+          </button>
+          <button
+            type="button"
+            className="pn-ib"
+            onClick={() => setAppSettingsOpen(true)}
+            title="Settings"
+          >
+            <PnIcon name="settings" size={16} />
+          </button>
+          <button
+            type="button"
+            className="pn-ib"
+            onClick={toggleTheme}
+            title={isDark ? "Light mode" : "Dark mode"}
+          >
+            <PnIcon name={isDark ? "sun" : "moon"} size={16} />
+          </button>
+          <button
+            type="button"
+            className="pn-ib"
+            onClick={() => setCommandPaletteOpen(true)}
+            title="Search"
+          >
+            <PnIcon name="search" size={16} />
+          </button>
+          <button
+            type="button"
+            className="pn-ib"
+            onClick={() => setCommandPaletteOpen(true)}
+            title="Command palette (Cmd/Ctrl+K)"
+          >
+            <span className="pn-kbd">⌘K</span>
           </button>
         </div>
       </div>

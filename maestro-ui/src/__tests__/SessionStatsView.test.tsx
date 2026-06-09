@@ -133,9 +133,10 @@ describe("<SessionStatsView />", () => {
     render(<SessionStatsView session={session} />);
     expect(screen.getByText("UI Architect")).toBeTruthy();
     expect(screen.getByText("Frontend Engineer")).toBeTruthy();
-    expect(screen.getByText("Completed")).toBeTruthy();
-    // 65s duration → 1m 5s
-    expect(screen.getByText("1m 5s")).toBeTruthy();
+    // "Completed" shows as the outcome label (and as a stat-grid key).
+    expect(screen.getAllByText("Completed").length).toBeGreaterThan(0);
+    // 65s duration → 1m 5s (appears in the outcome badge + duration stat row).
+    expect(screen.getAllByText(/1m 5s/).length).toBeGreaterThan(0);
   });
 
   it("shows empty-state floor when there's no work to summarize", () => {
@@ -177,7 +178,8 @@ describe("<SessionStatsView />", () => {
     const session = makeSession({ id: sessionId, taskIds: [taskId] });
     render(<SessionStatsView session={session} />);
     expect(screen.getByText("Implement stats view")).toBeTruthy();
-    expect(screen.getByText("completed")).toBeTruthy();
+    // Per-session status chip renders the lowercase "completed" label.
+    expect(screen.getAllByText("completed").length).toBeGreaterThan(0);
   });
 
   it("renders coordinator sub-session rollup when children exist", () => {
@@ -200,7 +202,7 @@ describe("<SessionStatsView />", () => {
     };
     render(<SessionStatsView session={coord} />);
     expect(screen.getByText(/Sub-sessions/i)).toBeTruthy();
-    expect(screen.getByText("(2 in subtree)")).toBeTruthy();
+    expect(screen.getByText("2 in subtree")).toBeTruthy();
   });
 
   it("does not render sub-session rollup for non-coordinators", () => {
@@ -209,12 +211,13 @@ describe("<SessionStatsView />", () => {
     expect(screen.queryByText(/Sub-sessions/i)).toBeNull();
   });
 
-  it("renders a Resume action button in the header", () => {
+  it("renders a Resume action button in the hero", () => {
     const session = makeSession({ status: "completed" });
-    render(<SessionStatsView session={session} />);
-    const btn = screen.getByRole("button", { name: /resume/i });
-    expect(btn).toBeTruthy();
-    expect((btn as HTMLButtonElement).disabled).toBe(false);
+    const { container } = render(<SessionStatsView session={session} />);
+    const btn = container.querySelector(".ssv-btn-primary") as HTMLButtonElement | null;
+    expect(btn).not.toBeNull();
+    expect(btn!.textContent).toMatch(/resume/i);
+    expect(btn!.disabled).toBe(false);
   });
 
   it("disables Resume for non-claude-code sessions", () => {
@@ -222,15 +225,16 @@ describe("<SessionStatsView />", () => {
       status: "completed",
       metadata: { agentTool: "codex" },
     });
-    render(<SessionStatsView session={session} />);
-    const btn = screen.getByRole("button", { name: /resume/i });
-    expect((btn as HTMLButtonElement).disabled).toBe(true);
+    const { container } = render(<SessionStatsView session={session} />);
+    const btn = container.querySelector(".ssv-btn-primary") as HTMLButtonElement | null;
+    expect(btn).not.toBeNull();
+    expect(btn!.disabled).toBe(true);
   });
 
   it("renders Restore alongside Resume for archived sessions", () => {
     const session = makeSession({ status: "stopped", archivedAt: 12345 });
-    render(<SessionStatsView session={session} />);
-    expect(screen.getByRole("button", { name: /resume/i })).toBeTruthy();
+    const { container } = render(<SessionStatsView session={session} />);
+    expect(container.querySelector(".ssv-btn-primary")?.textContent).toMatch(/resume/i);
     expect(screen.getByRole("button", { name: /restore/i })).toBeTruthy();
   });
 
@@ -247,11 +251,14 @@ describe("<SessionStatsView />", () => {
       { id: "e3", type: "progress", timestamp: 3 },
     ];
     const session = makeSession({ timeline });
-    render(<SessionStatsView session={session} />);
-    // Find the "errors" stat card and confirm value is 2.
-    const errorLabel = screen.getByText(/^errors$/i);
-    const card = errorLabel.closest(".sessionStatsCard");
-    expect(card).not.toBeNull();
-    expect(card!.querySelector(".sessionStatsCardValue")!.textContent).toBe("2");
+    const { container } = render(<SessionStatsView session={session} />);
+    // The timeline breakdown renders one chip per event type; the "error"
+    // chip's count should read 2.
+    const chips = Array.from(container.querySelectorAll(".ssv-tl-bchip"));
+    const errorChip = chips.find(
+      (c) => c.querySelector(".ssv-tl-bty")?.textContent === "error",
+    );
+    expect(errorChip).toBeTruthy();
+    expect(errorChip!.querySelector(".ssv-tl-bct")!.textContent).toBe("2");
   });
 });

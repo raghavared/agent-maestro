@@ -1,0 +1,67 @@
+<!doctype html>
+<html data-redesign>
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../maestro-ui/src/components/maestro/redesign/redesign-tokens.css" />
+<style>
+  body { margin: 0; background: var(--pn-paper); font-family: var(--pn-ui); }
+  .stage { display: flex; height: 760px; }
+  .filler { flex: 1; }
+  /* mimic the real layout: pn-sp panel (340) + pn-srail (48) */
+  .pn-sp { width: 340px; }
+  .srail-wrap { width: 48px; display: flex; }
+  .pn-srail { width: 100%; }
+  /* minimal session row context inside pn-scroll (List worker styles real rows) */
+  .demo-row { display:flex; align-items:center; gap:10px; padding:9px 14px; }
+  .demo-av { width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--pn-card);border:1px solid var(--pn-line);overflow:hidden;font-family:var(--pn-mono);font-weight:700;color:var(--pn-run);font-size:13px;}
+  .demo-name { font-size:13px;color:var(--pn-ink);font-weight:600;}
+  .demo-sub { font-size:11.5px;color:var(--pn-ink-2);margin-top:3px;}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="filler"></div>
+
+  <!-- ===== pn-sp : Spaces panel (expanded) ===== -->
+  <aside class="pn-sp">
+    <div class="pn-tabs" style="padding-top:0">
+      <button class="pn-tab pn-tab--active" style="padding-top:13px">Sessions <span class="pn-tab-n">4</span></button>
+      <button class="pn-tab" style="padding-top:13px">Resources</button>
+      <span class="pn-head-spacer" style="flex:1"></span>
+      <button class="pn-ib" style="align-self:center" title="New space">＋</button>
+      <button class="pn-ib" style="align-self:center" title="Collapse">›</button>
+    </div>
+
+    <div class="pn-quick">
+      <button class="pn-qchip"><span class="pn-plus">＋</span> Terminal</button>
+      <button class="pn-qchip">◆ Claude</button>
+      <button class="pn-qchip">◆ Codex</button>
+      <button class="pn-qchip">◆ Gemini</button>
+    </div>
+
+    <div class="pn-scroll">
+      <div class="demo-row"><div class="demo-av">&gt;_</div><div><div class="demo-name">fluffy-starlight</div><div class="demo-sub">Editing SessionTerminal.tsx · 4m</div></div></div>
+      <div class="demo-row"><div class="demo-av">A</div><div><div class="demo-name">Alexa coordinator</div><div class="demo-sub">Running test suite · 12m</div></div></div>
+      <div class="demo-row"><div class="demo-av">V</div><div><div class="demo-name">vast-neumann</div><div class="demo-sub">Waiting on your reply · 2m</div></div></div>
+    </div>
+    <div class="pn-fade"></div>
+  </aside>
+
+  <!-- ===== pn-srail : collapsed rail ===== -->
+  <div class="srail-wrap">
+    <div class="pn-srail" style="width:100%">
+      <button class="pn-srail-s" title="New space" style="background:var(--pn-ink);border-color:var(--pn-ink);color:var(--pn-paper)">＋</button>
+      <button class="pn-srail-s" title="Expand">▦<span class="pn-rail-badge">6</span></button>
+      <div class="pn-rail-div"></div>
+      <button class="pn-srail-s" title="Resources">▤</button>
+      <div class="pn-rail-div"></div>
+      <button class="pn-srail-s pn-srail-s--active" title="active">A<span class="pn-srail-pulse"></span></button>
+      <button class="pn-srail-s" title="working">C<span class="pn-srail-pulse"></span></button>
+      <button class="pn-srail-s" title="needs input">V<span class="pn-srail-wait"></span></button>
+      <button class="pn-srail-s pn-agent--term" title="terminal">&gt;_</button>
+      <button class="pn-srail-s pn-srail-s--exited" title="exited">G</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Team } from "../../app/types/maestro";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { ConfirmActionModal } from "../modals/ConfirmActionModal";
+import { Icon } from "./redesign/kit";
 
 type TeamTab = 'members' | 'subteams' | 'details';
 
@@ -104,167 +105,137 @@ export function TeamListItem({
     return (
         <>
             <div
-                className={`terminalTaskRow ${isArchived ? 'terminalTaskRow--cancelled' : 'terminalTaskRow--in_progress'} ${depth > 0 ? 'terminalTaskRow--subtask' : ''}`}
+                className={'pn-mem' + (isArchived ? ' pn-mem--archived' : '')}
                 style={depth > 0 ? { marginLeft: `${depth * 16}px` } : undefined}
             >
-                <div className="terminalTeamMain" onClick={() => setIsExpanded(!isExpanded)}>
-                    {/* Row 1: Avatar + Team name (bold) */}
-                    <div className="terminalTeamMain__titleRow">
-                        <span className="terminalTeamAvatar">
-                            {team.avatar || '\u{1F46A}'}
-                        </span>
-                        <span className="terminalTeamName" title={team.name}>{team.name}</span>
+                <div className="pn-mem__main" onClick={() => setIsExpanded(!isExpanded)}>
+                    <span className="pn-mem__av">{team.avatar || '\u{1F46A}'}</span>
+                    <div className="pn-mem__body">
+                        <div className="pn-mem__name" title={team.name} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{team.name}</div>
+                        {leader && (
+                            <div className="pn-mem__role">{leader.avatar} {leader.name}</div>
+                        )}
                     </div>
 
-                    {/* Row 2: Meta badges + action buttons */}
-                    <div className="terminalTeamMain__metaRow">
-                        {/* Sub-team expand/collapse button */}
-                        <button type="button"
-                            className={`terminalSubtaskBtn ${hasSubTeams ? (childrenCollapsed ? 'terminalSubtaskBtn--collapsed' : 'terminalSubtaskBtn--expanded') : 'terminalSubtaskBtn--empty'}`}
-                            onClick={handleSubTeamToggle}
-                            title={hasSubTeams ? (childrenCollapsed ? `Expand ${subTeams.length} sub-team${subTeams.length !== 1 ? 's' : ''}` : `Collapse sub-teams`) : "No sub-teams"}
-                        >
-                            <span className="terminalSubtaskIcon">
-                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                                    <path d="M4 3v6c0 1 .5 1.5 1.5 1.5H8" />
-                                    <path d="M4 6.5h3.5c1 0 1.5.5 1.5 1.5v0" />
-                                </svg>
-                            </span>
-                            {subTeams.length > 0 && (
-                                <span className="terminalSubtaskCount">{subTeams.length}</span>
-                            )}
-                        </button>
-
-                        <span className={`terminalMetaBadge terminalMetaBadge--status terminalMetaBadge--status-${isArchived ? 'archived' : 'in_progress'}`}>
-                            {isArchived ? '▫ Archived' : '◉ Active'}
-                        </span>
-
-                        <span className="terminalMetaBadge">
-                            {team.memberIds.length} member{team.memberIds.length !== 1 ? 's' : ''}
-                        </span>
-
-                        {leader && (
-                            <span className="terminalMetaBadge terminalMetaBadge--agent terminalTeamInlineBadge">
-                                {leader.avatar} {leader.name}
-                            </span>
+                    <div className="pn-mem__badges">
+                        {hasSubTeams && (
+                            <button type="button"
+                                onClick={handleSubTeamToggle}
+                                title={childrenCollapsed ? `Expand ${subTeams.length} sub-team${subTeams.length !== 1 ? 's' : ''}` : `Collapse sub-teams`}
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                                    height: 21, padding: '0 6px',
+                                    background: 'transparent', border: '1px solid var(--pn-line-2)',
+                                    borderRadius: 'var(--pn-r-xs)',
+                                    color: 'var(--pn-ink-3)',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                <Icon name="gitBranch" size={11} />
+                                <span style={{ fontFamily: 'var(--pn-mono)', fontSize: 9.5, fontWeight: 700 }}>{subTeams.length}</span>
+                            </button>
                         )}
 
-                        <span className="terminalTimeAgo">{formatTimeAgo(team.updatedAt)}</span>
+                        <span className={'pn-mbadge' + (isArchived ? '' : ' pn-mbadge--default')}>
+                            {isArchived ? 'ARCHIVED' : 'ACTIVE'}
+                        </span>
 
-                        {/* Spacer to push actions right */}
-                        <span className="terminalTeamMain__spacer" />
+                        <span className="pn-mbadge">
+                            {team.memberIds.length} {team.memberIds.length === 1 ? 'MEMBER' : 'MEMBERS'}
+                        </span>
 
-                        {/* Action buttons */}
-                        <div className="terminalTaskActions">
-                            <button type="button"
-                                className="terminalEditBtn terminalTeamEditBtn"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onEdit(team);
-                                }}
-                                title="Edit team"
-                            >
-                                Edit
-                            </button>
-
-                            <button type="button"
-                                className="terminalSplitPlay__play"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRun(team);
-                                }}
-                                title="Run team (spawn coordinator session)"
-                            >
-                                &#9654;
-                            </button>
-                        </div>
+                        <span style={{ fontFamily: 'var(--pn-mono)', fontSize: 10, color: 'var(--pn-ink-4)', whiteSpace: 'nowrap' }}>
+                            {formatTimeAgo(team.updatedAt)}
+                        </span>
                     </div>
+
+                    <span className={'pn-mem__chev' + (isExpanded ? ' pn-mem__chev--open' : '')}>
+                        <Icon name="chevronD" size={14} />
+                    </span>
                 </div>
 
                 {/* Expanded Content */}
                 {isExpanded && (
-                    <div className="terminalTaskExpanded">
+                    <div className="pn-mem__exp">
                         {/* Tab Navigation */}
-                        <div className="terminalTaskTabs" onClick={(e) => e.stopPropagation()}>
-                            <button type="button"
-                                className={`terminalTaskTab ${activeTab === 'members' ? 'terminalTaskTab--active' : ''}`}
-                                onClick={() => setActiveTab('members')}
-                            >
-                                [Members]
-                            </button>
-                            <button type="button"
-                                className={`terminalTaskTab ${activeTab === 'subteams' ? 'terminalTaskTab--active' : ''}`}
-                                onClick={() => setActiveTab('subteams')}
-                            >
-                                [Sub-Teams{subTeams.length > 0 ? ` (${subTeams.length})` : ''}]
-                            </button>
-                            <button type="button"
-                                className={`terminalTaskTab ${activeTab === 'details' ? 'terminalTaskTab--active' : ''}`}
-                                onClick={() => setActiveTab('details')}
-                            >
-                                [Details]
-                            </button>
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <div className="pn-vtoggle">
+                                <button type="button"
+                                    className={activeTab === 'members' ? 'on' : ''}
+                                    onClick={() => setActiveTab('members')}
+                                >
+                                    Members <span className="n">{members.length}</span>
+                                </button>
+                                <button type="button"
+                                    className={activeTab === 'subteams' ? 'on' : ''}
+                                    onClick={() => setActiveTab('subteams')}
+                                >
+                                    Sub-Teams <span className="n">{subTeams.length}</span>
+                                </button>
+                                <button type="button"
+                                    className={activeTab === 'details' ? 'on' : ''}
+                                    onClick={() => setActiveTab('details')}
+                                >
+                                    Details
+                                </button>
+                            </div>
                         </div>
 
                         {/* Tab Content */}
-                        <div className="terminalTaskTabContent" onClick={(e) => e.stopPropagation()}>
+                        <div onClick={(e) => e.stopPropagation()}>
                             {/* Members Tab */}
                             {activeTab === 'members' && (
-                                <div className="terminalTabPane terminalTabPane--sessions">
+                                <>
                                     {members.length === 0 ? (
-                                        <div className="terminalEmptyState">No members in this team</div>
+                                        <div style={{ padding: '12px 0', fontSize: 12, color: 'var(--pn-ink-4)' }}>No members in this team</div>
                                     ) : (
-                                        <div className="terminalSessionsList">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                             {members.map(member => {
                                                 if (!member) return null;
                                                 const isLeader = member.id === team.leaderId;
                                                 return (
                                                     <div
                                                         key={member.id}
-                                                        className="terminalTeamMemberRow"
+                                                        style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
                                                     >
-                                                        <span className="terminalTeamMemberRow__avatar">{member.avatar}</span>
-                                                        <span className={`terminalTeamMemberRow__name ${isLeader ? 'terminalTeamMemberRow__name--leader' : ''}`}>
+                                                        <span style={{ fontSize: 14, flex: '0 0 auto' }}>{member.avatar}</span>
+                                                        <span style={{
+                                                            fontSize: 12.5,
+                                                            fontWeight: isLeader ? 700 : 500,
+                                                            color: 'var(--pn-ink-2)',
+                                                        }}>
                                                             {member.name}
                                                         </span>
-                                                        <span className="terminalMetaBadge terminalTeamMemberRow__badge">
-                                                            {member.role}
-                                                        </span>
+                                                        {member.role && (
+                                                            <span className="pn-mbadge">{member.role}</span>
+                                                        )}
                                                         {member.mode && (
-                                                            <span className={`terminalMetaBadge terminalTeamMemberRow__badge terminalMetaBadge--status-${member.mode === 'coordinator' || member.mode === 'coordinated-coordinator' || (member.mode as string) === 'coordinate' ? 'in_review' : 'in_progress'}`}>
-                                                                {member.mode}
-                                                            </span>
+                                                            <span className="pn-mbadge">{member.mode}</span>
                                                         )}
                                                         {isLeader && (
-                                                            <span className="terminalMetaBadge terminalTeamMemberRow__badge terminalMetaBadge--priority terminalMetaBadge--priority-high">
-                                                                &#9733; Leader
-                                                            </span>
+                                                            <span className="pn-mbadge pn-mbadge--profile">★ Leader</span>
                                                         )}
                                                         {member.agentTool && (
-                                                            <span className="terminalMetaBadge terminalTeamMemberRow__badge terminalTeamMemberRow__badge--dim">
-                                                                {member.agentTool}
-                                                            </span>
+                                                            <span className="pn-mbadge">{member.agentTool}</span>
                                                         )}
                                                         {member.model && (
-                                                            <span className="terminalMetaBadge terminalTeamMemberRow__badge terminalMetaBadge--model">
-                                                                {member.model}
-                                                            </span>
+                                                            <span className="pn-mbadge pn-mbadge--model">{member.model}</span>
                                                         )}
                                                     </div>
                                                 );
                                             })}
                                         </div>
                                     )}
-                                </div>
+                                </>
                             )}
 
                             {/* Sub-Teams Tab */}
                             {activeTab === 'subteams' && (
-                                <div className="terminalTabPane">
+                                <>
                                     {subTeams.length === 0 ? (
-                                        <div className="terminalEmptyState">No sub-teams</div>
+                                        <div style={{ padding: '12px 0', fontSize: 12, color: 'var(--pn-ink-4)' }}>No sub-teams</div>
                                     ) : (
-                                        <div className="terminalTaskList terminalTeamSubTeamsList">
+                                        <div>
                                             {subTeams.map(subTeam => (
                                                 <TeamListItem
                                                     key={subTeam.id}
@@ -277,79 +248,107 @@ export function TeamListItem({
                                             ))}
                                         </div>
                                     )}
-                                </div>
+                                </>
                             )}
 
                             {/* Details Tab */}
                             {activeTab === 'details' && (
-                                <div className="terminalTabPane terminalTabPane--details">
-                                    <div className="terminalDetailGrid">
-                                        {team.description && (
-                                            <div className="terminalDetailRow">
-                                                <span className="terminalDetailLabel">Description:</span>
-                                                <span className="terminalDetailValue">{team.description}</span>
-                                            </div>
-                                        )}
-                                        <div className="terminalDetailRow">
-                                            <span className="terminalDetailLabel">Created:</span>
-                                            <span className="terminalDetailValue">{formatDate(team.createdAt)}</span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                                    {team.description && (
+                                        <div className="pn-mem__block">
+                                            <div className="pn-mem__blocklabel">Description</div>
+                                            <div className="pn-mem__blocktext">{team.description}</div>
                                         </div>
-                                        <div className="terminalDetailRow">
-                                            <span className="terminalDetailLabel">Updated:</span>
-                                            <span className="terminalDetailValue">{formatDate(team.updatedAt)}</span>
-                                        </div>
-                                        <div className="terminalDetailRow">
-                                            <span className="terminalDetailLabel">Team ID:</span>
-                                            <span className="terminalDetailValue" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <code style={{ fontSize: '10px', opacity: 0.8 }}>{team.id}</code>
-                                                <button type="button"
-                                                    className="terminalCopyBtn"
-                                                    onClick={() => handleCopyField('id', team.id)}
-                                                    style={{ fontSize: '9px', padding: '1px 4px' }}
-                                                >
-                                                    {copiedField === 'id' ? 'Copied!' : 'Copy'}
-                                                </button>
-                                            </span>
-                                        </div>
-                                        {team.parentTeamId && (
-                                            <div className="terminalDetailRow">
-                                                <span className="terminalDetailLabel">Parent Team:</span>
-                                                <span className="terminalDetailValue">
-                                                    {allTeams.find(t => t.id === team.parentTeamId)?.name || team.parentTeamId}
-                                                </span>
-                                            </div>
-                                        )}
+                                    )}
+                                    <div className="pn-mem__block">
+                                        <div className="pn-mem__blocklabel">Created</div>
+                                        <div className="pn-mem__blocktext">{formatDate(team.createdAt)}</div>
                                     </div>
+                                    <div className="pn-mem__block">
+                                        <div className="pn-mem__blocklabel">Updated</div>
+                                        <div className="pn-mem__blocktext">{formatDate(team.updatedAt)}</div>
+                                    </div>
+                                    <div className="pn-mem__block">
+                                        <div className="pn-mem__blocklabel">Team ID</div>
+                                        <div className="pn-mem__blocktext pn-mem__blocktext--mono" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <code style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{team.id}</code>
+                                            <button type="button"
+                                                className="pn-btn pn-btn--ghost"
+                                                style={{ height: 22, padding: '0 7px', fontSize: 10 }}
+                                                onClick={() => handleCopyField('id', team.id)}
+                                            >
+                                                <Icon name="copy" size={10} /> {copiedField === 'id' ? 'Copied!' : 'Copy'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {team.parentTeamId && (
+                                        <div className="pn-mem__block">
+                                            <div className="pn-mem__blocklabel">Parent Team</div>
+                                            <div className="pn-mem__blocktext">{allTeams.find(t => t.id === team.parentTeamId)?.name || team.parentTeamId}</div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
 
-                        {/* Actions Bar at Bottom Right */}
-                        <div className="terminalTaskActionsBar terminalTaskActionsBar--right">
+                        {/* Actions Bar at Bottom */}
+                        <div className="pn-mem__actions">
+                            {!isArchived && (
+                                <button type="button"
+                                    className="pn-btn pn-btn--primary"
+                                    style={{ height: 28 }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRun(team);
+                                    }}
+                                    title="Run team (spawn coordinator session)"
+                                >
+                                    <Icon name="play" size={12} /> Run
+                                </button>
+                            )}
+
+                            <span className="pn-head-spacer" />
+
                             <button type="button"
-                                className="terminalCopyBtn"
+                                className="pn-btn"
+                                style={{ height: 28 }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(team);
+                                }}
+                                title="Edit team"
+                            >
+                                <Icon name="pen" size={12} /> Edit
+                            </button>
+                            <button type="button"
+                                className="pn-btn pn-btn--ghost"
+                                style={{ height: 28 }}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleCopyField('id', team.id);
                                 }}
                                 title="Copy team ID"
                             >
-                                {copiedField === 'id' ? 'Copied!' : 'Copy ID'}
+                                <Icon name="copy" size={12} /> {copiedField === 'id' ? 'Copied!' : 'Copy ID'}
                             </button>
                             <button type="button"
-                                className={isArchived ? "terminalViewDetailsBtn" : "terminalArchiveBtn"}
+                                className="pn-btn pn-btn--ghost"
+                                style={{ height: 28 }}
                                 onClick={handleArchiveToggle}
                                 title={isArchived ? "Unarchive team" : "Archive team"}
                             >
-                                {isArchived ? 'Unarchive' : 'Archive'}
+                                {isArchived
+                                    ? <><Icon name="refresh" size={12} /> Unarchive</>
+                                    : <><Icon name="archiveBox" size={12} /> Archive</>}
                             </button>
                             {isArchived && (
                                 <button type="button"
-                                    className="terminalDeleteBtn"
+                                    className="pn-btn pn-btn--ghost"
+                                    style={{ height: 28, color: 'var(--pn-block)' }}
                                     onClick={handleDeleteClick}
                                     title="Permanently delete team"
                                 >
-                                    Delete Team
+                                    <Icon name="trash" size={12} /> Delete Team
                                 </button>
                             )}
                         </div>
@@ -359,7 +358,7 @@ export function TeamListItem({
 
             {/* Nested sub-teams (when expanded via the tree button, outside the row) */}
             {hasSubTeams && !childrenCollapsed && (
-                <div className="terminalTaskGroupChildren">
+                <div>
                     {subTeams.map(subTeam => (
                         <TeamListItem
                             key={subTeam.id}

@@ -500,3 +500,207 @@
 .dashChartWrap .recharts-default-legend {
   padding-left: 0 !important;
 }
+
+/* ================================================================== */
+/*  Redesign Overrides — warm-paper "pn" tokens                        */
+/*  Applies only under html[data-redesign]; base rules untouched so    */
+/*  the toggle continues to work. Data-viz colors (heatmap levels +    */
+/*  chart series hexes) are set inline in Dashboard.tsx and are NOT    */
+/*  overridden here.                                                    */
+/* ================================================================== */
+
+/* ── Container ── */
+html[data-redesign] .dashContainer {
+  scrollbar-color: var(--pn-line) transparent;
+}
+
+/* ── Time Range Bar ── */
+html[data-redesign] .dashTimeBar {
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-line);
+}
+
+html[data-redesign] .dashTimeLabel {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .dashTimePresets {
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .dashTimeBtn {
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
+}
+
+html[data-redesign] .dashTimeBtn:hover {
+  color: var(--pn-ink-2);
+  background: var(--pn-hover);
+}
+
+html[data-redesign] .dashTimeBtn--active {
+  color: var(--pn-brand);
+  background: var(--pn-brand-soft);
+  box-shadow: none;
+}
+
+/* ── Sections ── */
+html[data-redesign] .dashSectionTitle {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-2);
+}
+
+/* ── Metric Card ── */
+html[data-redesign] .dashMetricCard {
+  background: var(--pn-card);
+  border-color: var(--pn-line);
+}
+
+html[data-redesign] .dashMetricCard:hover {
+  background: var(--pn-hover);
+}
+
+html[data-redesign] .dashMetricCardLabel {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .dashMetricCardValue {
+  font-family: var(--pn-ui);
+  color: var(--pn-brand);
+}
+
+html[data-redesign] .dashMetricCardSub {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-3);
+}
+
+/* ── Chart Wrapper ── */
+html[data-redesign] .dashChartWrap {
+  background: var(--pn-card);
+  border-color: var(--pn-line);
+}
+
+/* ── Custom Tooltip ── */
+html[data-redesign] .dashTooltip {
+  background: var(--pn-card);
+  border-color: var(--pn-line);
+}
+
+html[data-redesign] .dashTooltipLabel {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-2);
+}
+
+html[data-redesign] .dashTooltipName {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .dashTooltipValue {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink);
+}
+
+/* ── Calendar Heatmap ── */
+html[data-redesign] .dashCalendarWrap {
+  scrollbar-color: var(--pn-line) transparent;
+}
+
+html[data-redesign] .dashCalendarMonth {
+  font-family: var(--pn-ui);
+  fill: var(--pn-ink-3);
+}
+
+html[data-redesign] .dashCalendarDayLabel {
+  font-family: var(--pn-ui);
+  fill: var(--pn-ink-4);
+}
+
+html[data-redesign] .dashCalendarCell:hover {
+  stroke: var(--pn-line-2);
+}
+
+/* ── Due Date List ── */
+html[data-redesign] .dashDueItem:hover {
+  background: var(--pn-hover);
+}
+
+html[data-redesign] .dashDuePriority {
+  background: var(--pn-ink-4);
+}
+
+html[data-redesign] .dashDueTitle {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .dashDueProject {
+  font-family: var(--pn-ui);
+}
+
+html[data-redesign] .dashDueDate {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-3);
+}
+
+/* ── Team Members Grid ── */
+html[data-redesign] .dashTeamCard {
+  background: var(--pn-card);
+  border-color: var(--pn-line);
+}
+
+html[data-redesign] .dashTeamCard:hover {
+  background: var(--pn-hover);
+  border-color: var(--pn-line-2);
+}
+
+html[data-redesign] .dashTeamName {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .dashTeamRole {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .dashTeamMetric {
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .dashTeamMetricValue {
+  font-family: var(--pn-ui);
+  color: var(--pn-brand);
+}
+
+html[data-redesign] .dashTeamMetricLabel {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-4);
+}
+
+/* ── Team Progress Bar ── */
+html[data-redesign] .dashTeamProgressBar {
+  background: var(--pn-line);
+}
+
+html[data-redesign] .dashTeamProgressFill {
+  background: linear-gradient(90deg, var(--pn-brand), var(--pn-brand-soft));
+}
+
+/* ── Empty State ── */
+html[data-redesign] .dashEmptyState {
+  font-family: var(--pn-ui);
+  color: var(--pn-ink-4);
+}
+
+/* ── Recharts Overrides ── */
+html[data-redesign] .dashChartWrap .recharts-legend-item-text {
+  font-family: var(--pn-ui) !important;
+}
+
+html[data-redesign] .dashChartWrap .recharts-cartesian-grid-horizontal line,
+html[data-redesign] .dashChartWrap .recharts-cartesian-grid-vertical line {
+  stroke: var(--pn-line);
+}

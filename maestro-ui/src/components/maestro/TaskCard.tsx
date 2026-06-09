@@ -1,6 +1,15 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import { MaestroTask } from "../../app/types/maestro";
-import { PRIORITY_COLORS, timeAgo } from "./boardConstants";
+import { Glyph } from "./redesign/kit";
+
+// Priority dot colours (boards.jsx PRIO_DOT) — CSS vars, flip with theme.
+const PRIO_DOT: Record<string, string> = {
+    high: "var(--pn-block)",
+    medium: "var(--pn-wait)",
+    low: "var(--pn-idle)",
+};
+const PRIO_TAG: Record<string, string> = { high: "high", medium: "med", low: "low" };
+const PRIO_LABEL: Record<string, string> = { high: "HIGH", medium: "MED", low: "LOW" };
 
 type TaskCardProps = {
     task: MaestroTask;
@@ -63,64 +72,77 @@ export const TaskCard = React.memo(function TaskCard({
 
     return (
         <div
-            className={`taskBoardCard ${isDragging ? "taskBoardCard--dragging" : ""} ${isActive ? "taskBoardCard--active" : ""} ${isBlocked ? "taskBoardCard--blocked" : ""} ${isDone ? "taskBoardCard--done" : ""} ${isCancelled ? "taskBoardCard--cancelled" : ""} ${isOverdue ? "taskBoardCard--overdue" : ""}`}
+            className={`pn-bcard ${isBlocked ? "pn-bcard--blocked" : ""} ${isDone ? "pn-bcard--done" : ""}`}
             draggable
             onDragStart={handleDragStart}
             onPointerDown={handlePointerDown}
             onClick={handleClick}
         >
-            <div
-                className="taskBoardCardStripe"
-                style={{ backgroundColor: PRIORITY_COLORS[task.priority] }}
-            />
-            <div className="taskBoardCardContent">
-                {projectBadge && (
-                    <span
-                        className="mpbProjectBadge"
-                        style={{ borderColor: projectBadge.color, color: projectBadge.color }}
-                    >
-                        {projectBadge.name}
+            <div className="pn-bcard__top">
+                <span
+                    className="pn-bcard__pdot"
+                    style={{ background: PRIO_DOT[task.priority] }}
+                />
+                <span className="pn-bcard__title">{task.title}</span>
+                {isActive && (
+                    <span className="pn-bcard__glyph pn-dot-wrap">
+                        <span className="pn-dot pn-dot--run pn-dot--live" />
                     </span>
                 )}
-                <div className={`taskBoardCardTitle ${isCancelled ? "taskBoardCardTitle--cancelled" : ""}`}>
-                    {task.title}
-                </div>
-                <div className="taskBoardCardMeta">
-                    <span className={`taskBoardCardPriority taskBoardCardPriority--${task.priority}`}>
-                        {task.priority.toUpperCase()}
+                {isBlocked && (
+                    <span className="pn-bcard__glyph">
+                        <Glyph kind="blocked" size={14} />
                     </span>
-                    {subtaskCount > 0 && (
-                        <span className="taskBoardCardSubtasks">
-                            {completedSubtasks}/{subtaskCount}
-                        </span>
-                    )}
-                    {task.dueDate && (
-                        <span className={`taskBoardCardDueDate ${isOverdue ? "taskBoardCardDueDate--overdue" : ""}`}>
-                            {isOverdue ? "Overdue" : `Due ${new Date(task.dueDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
-                        </span>
-                    )}
-                    <span className="taskBoardCardTime">
-                        {timeAgo(task.updatedAt)}
+                )}
+                {isDone && (
+                    <span className="pn-bcard__glyph">
+                        <Glyph kind="completed" size={14} />
                     </span>
-                </div>
+                )}
+            </div>
+            {projectBadge && (
+                <span
+                    className="pn-bcard__pbadge"
+                    style={{ color: projectBadge.color, borderColor: projectBadge.color }}
+                >
+                    {projectBadge.name}
+                </span>
+            )}
+            <div className="pn-bcard__meta">
+                <span className={`pn-tag pn-tag--${PRIO_TAG[task.priority]}`}>
+                    {PRIO_LABEL[task.priority]}
+                </span>
+                {subtaskCount > 0 && (
+                    <span className="pn-bcard__prog">
+                        {completedSubtasks}/{subtaskCount}
+                        <span className="pn-bcard__progbar">
+                            <i style={{ width: `${(completedSubtasks / subtaskCount) * 100}%` }} />
+                        </span>
+                    </span>
+                )}
+                {task.dueDate && (
+                    <span className={`pn-bcard__due ${isOverdue ? "pn-bcard__due--over" : ""}`}>
+                        {isOverdue ? "Overdue" : `Due ${new Date(task.dueDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                    </span>
+                )}
+            </div>
+            <div className="pn-bcard__foot">
                 {task.sessionIds.length > 0 && (
-                    <div className="taskBoardCardSessions">
-                        <span className={`taskBoardCardSessionDot ${isActive ? "taskBoardCardSessionDot--active" : ""}`} />
-                        <span className="taskBoardCardSessionCount">
-                            {task.sessionIds.length} session{task.sessionIds.length !== 1 ? "s" : ""}
-                        </span>
-                    </div>
+                    <span className="pn-bcard__sessions">
+                        <span className={`pn-dot ${isActive ? "pn-dot--run" : "pn-dot--idle"}`} />
+                        {task.sessionIds.length} session{task.sessionIds.length !== 1 ? "s" : ""}
+                    </span>
                 )}
                 {(task.status === "todo" || task.status === "blocked") && (
                     <button type="button"
-                        className="taskBoardCardAction"
+                        className="pn-bcard__run"
                         onClick={(e) => {
                             e.stopPropagation();
                             onWorkOn(task);
                         }}
                         title="Start working on this task"
                     >
-                        <span className="terminalPrompt">$</span> work on
+                        <span className="pn-prompt">$</span> work on
                     </button>
                 )}
             </div>

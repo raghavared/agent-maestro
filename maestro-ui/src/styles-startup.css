@@ -375,3 +375,170 @@
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.2);
 }
+
+/* ========================================================================
+   REDESIGN OVERRIDES — warm-paper "pn" tokens
+   Repoints the legacy dark/neon StartupSettingsOverlay onto pn tokens when
+   html[data-redesign] is active. Token-only; base rules above are untouched
+   so the redesign toggle still works.
+   ======================================================================== */
+
+html[data-redesign] .startupOverlayBackdrop {
+  background: var(--pn-paper);
+}
+
+html[data-redesign] .startupOverlayContent {
+  border-color: var(--pn-brand);
+  background: var(--pn-surface);
+  box-shadow: var(--pn-sh-md);
+}
+
+html[data-redesign] .startupOverlayHeader {
+  border-bottom-color: var(--pn-line);
+}
+
+html[data-redesign] .startupOverlayTitle {
+  color: var(--pn-brand);
+  text-shadow: none;
+}
+
+html[data-redesign] .startupOverlaySubtitle {
+  color: var(--pn-ink-2);
+}
+
+html[data-redesign] .startupStep {
+  border-color: var(--pn-line);
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .startupStep.startupStepActive {
+  border-color: var(--pn-brand);
+  color: var(--pn-brand);
+  background: var(--pn-active);
+  box-shadow: none;
+}
+
+html[data-redesign] .startupStep.startupStepDone {
+  border-color: var(--pn-line-2);
+  color: var(--pn-brand);
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .startupStepLine {
+  background: var(--pn-line);
+}
+
+html[data-redesign] .startupSectionTitle {
+  color: var(--pn-ink-2);
+}
+
+html[data-redesign] .startupSectionHint {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .startupThemeOption {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .startupThemeOption:hover {
+  background: var(--pn-hover);
+  border-color: var(--pn-line-2);
+}
+
+html[data-redesign] .startupThemeOption.startupThemeOptionActive {
+  border-color: var(--pn-brand);
+  background: var(--pn-active);
+  box-shadow: none;
+}
+
+html[data-redesign] .startupZoomOption {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .startupZoomOption:hover {
+  background: var(--pn-hover);
+  border-color: var(--pn-line-2);
+}
+
+html[data-redesign] .startupZoomOption.startupZoomOptionActive {
+  border-color: var(--pn-brand);
+  background: var(--pn-active);
+  box-shadow: none;
+}
+
+html[data-redesign] .startupZoomOption.startupZoomOptionActive .startupZoomLabel {
+  color: var(--pn-brand);
+}
+
+html[data-redesign] .startupZoomPercent {
+  color: var(--pn-ink-3);
+}
+
+html[data-redesign] .startupSoundBtn {
+  border-color: var(--pn-line);
+  background: var(--pn-card);
+  color: var(--pn-ink);
+}
+
+html[data-redesign] .startupSoundBtn:hover {
+  background: var(--pn-hover);
+  border-color: var(--pn-line-2);
+}
+
+html[data-redesign] .startupSoundBtn.startupSoundBtnActive {
+  border-color: var(--pn-brand);
+  background: var(--pn-active);
+  color: var(--pn-brand);
+  box-shadow: none;
+}
+
+html[data-redesign] .startupVolumeLabel {
+  color: var(--pn-ink-2);
+}
+
+html[data-redesign] .startupVolumeValue {
+  color: var(--pn-brand);
+}
+
+html[data-redesign] .startupVolumeSlider {
+  background: var(--pn-brand-soft);
+}
+
+html[data-redesign] .startupVolumeSlider::-webkit-slider-thumb {
+  background: var(--pn-brand);
+  box-shadow: none;
+}
+
+html[data-redesign] .startupVolumeSlider::-moz-range-thumb {
+  background: var(--pn-brand);
+  box-shadow: none;
+}
+
+html[data-redesign] .startupOverlayFooter {
+  border-top-color: var(--pn-line);
+}
+
+html[data-redesign] .startupBtnPrimary {
+  background: var(--pn-brand);
+  border-color: var(--pn-brand);
+  color: #fff;
+}
+
+html[data-redesign] .startupBtnPrimary:hover {
+  background: var(--pn-brand-2);
+  box-shadow: var(--pn-sh-md);
+}
+
+html[data-redesign] .startupBtnSecondary {
+  border-color: var(--pn-line);
+  color: var(--pn-ink-2);
+}
+
+html[data-redesign] .startupBtnSecondary:hover {
+  background: var(--pn-hover);
+  border-color: var(--pn-line-2);
+}

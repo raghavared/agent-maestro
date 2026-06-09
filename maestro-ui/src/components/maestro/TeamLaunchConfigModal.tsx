@@ -4,6 +4,7 @@ import {
     AgentTool, ModelType, TeamMember, MemberLaunchOverride,
 } from "../../app/types/maestro";
 import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
+import { Icon } from "./redesign/kit";
 import { useProjectStore } from "../../stores/useProjectStore";
 import {
     getEffectiveCommandEnabled,
@@ -211,28 +212,29 @@ export function TeamLaunchConfigModal({
     return createPortal(
         <div className="themedModalBackdrop" onClick={onClose}>
             <div
-                className="themedModal themedModal--wide launchConfigModal"
+                className="pn-mdl launchConfigModal"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="themedModalHeader">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                        <span className="themedModalTitle">[ LAUNCH CONFIGURATION ]</span>
-                        <span style={{ fontSize: '10px', color: 'rgba(var(--theme-primary-rgb), 0.4)' }}>
-                            {members.length} member{members.length !== 1 ? 's' : ''}
-                        </span>
+                <div className="pn-mdl__hd">
+                    <div className="pn-mdl__hdmain">
+                        <div className="pn-mdl__crumb"><Icon name="play" /> <b>Launch</b></div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                            <h2 className="pn-mdl__titleinput" style={{ margin: 0, width: 'auto' }}>Launch configuration</h2>
+                            <span className="pn-badge">{members.length} member{members.length !== 1 ? 's' : ''}</span>
+                        </div>
                     </div>
-                    <button type="button" className="themedModalClose" onClick={onClose}>{'\u00D7'}</button>
+                    <button type="button" className="pn-mdl__close" onClick={onClose}><Icon name="x" /></button>
                 </div>
 
                 {/* Content */}
-                <div className="themedModalContent" style={{ overflowY: 'auto', flex: 1 }}>
+                <div className="pn-mdl__body" style={{ flex: 1 }}>
                     {members.length === 0 ? (
-                        <div style={{ color: 'rgba(var(--theme-primary-rgb), 0.4)', textAlign: 'center', padding: '20px' }}>
+                        <div className="pn-fhint" style={{ textAlign: 'center', padding: '20px' }}>
                             No team members selected. Select a coordinator and workers first.
                         </div>
                     ) : (
-                        <div className="launchConfigMembers">
+                        <div className="launchConfigMembers" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             {members.map((member) => {
                                 const config = configs[member.id];
                                 if (!config) return null;
@@ -241,24 +243,34 @@ export function TeamLaunchConfigModal({
                                 const memberMode = member.mode || 'worker';
 
                                 return (
-                                    <div key={member.id} className={`launchConfigCard ${isCoordinator ? 'launchConfigCard--coordinator' : ''}`}>
+                                    <div
+                                        key={member.id}
+                                        className={`launchConfigCard ${isCoordinator ? 'launchConfigCard--coordinator' : ''}`}
+                                        style={{
+                                            border: `1px solid ${isCoordinator ? 'rgba(178,106,43,0.4)' : 'var(--pn-line-2)'}`,
+                                            borderRadius: 'var(--pn-r-md)',
+                                            background: isCoordinator ? 'var(--pn-brand-soft)' : 'var(--pn-surface)',
+                                            padding: 12,
+                                        }}
+                                    >
                                         {/* Card header row */}
-                                        <div className="launchConfigCardHeader">
-                                            <div className="launchConfigCardIdentity">
-                                                <span className="launchConfigCardAvatar">{member.avatar}</span>
-                                                <div>
-                                                    <span className="launchConfigCardName">{member.name}</span>
+                                        <div className="launchConfigCardHeader" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                            <div className="launchConfigCardIdentity" style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 160 }}>
+                                                <span className="launchConfigCardAvatar" style={{ width: 30, height: 30, borderRadius: 'var(--pn-r-sm)', display: 'grid', placeItems: 'center', background: 'var(--pn-active)', fontSize: 16, flex: '0 0 auto' }}>{member.avatar}</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                    <span className="launchConfigCardName" style={{ fontSize: 13, fontWeight: 600, color: 'var(--pn-ink)' }}>{member.name}</span>
                                                     {isCoordinator && (
-                                                        <span className="launchConfigBadge launchConfigBadge--coordinator">COORD</span>
+                                                        <span className="pn-badge">COORD</span>
                                                     )}
-                                                    <span className="launchConfigCardRole">{member.role}</span>
+                                                    <span className="launchConfigCardRole" style={{ fontSize: 11, color: 'var(--pn-ink-3)' }}>{member.role}</span>
                                                 </div>
                                             </div>
 
-                                            <div className="launchConfigCardControls">
+                                            <div className="launchConfigCardControls" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                                 {/* Agent Tool */}
                                                 <select
-                                                    className="launchConfigSelect"
+                                                    className="pn-select"
+                                                    style={{ width: 'auto' }}
                                                     value={config.agentTool}
                                                     onChange={(e) => handleToolChange(member.id, e.target.value as AgentTool)}
                                                 >
@@ -269,7 +281,8 @@ export function TeamLaunchConfigModal({
 
                                                 {/* Model */}
                                                 <select
-                                                    className="launchConfigSelect"
+                                                    className="pn-select"
+                                                    style={{ width: 'auto' }}
                                                     value={config.model}
                                                     onChange={(e) => updateConfig(member.id, { model: e.target.value as ModelType })}
                                                 >
@@ -280,29 +293,29 @@ export function TeamLaunchConfigModal({
 
                                                 {/* Dangerous mode toggle */}
                                                 <button type="button"
-                                                    className={`launchConfigToggle ${config.isDangerous ? 'launchConfigToggle--active launchConfigToggle--danger' : ''}`}
+                                                    className={`pn-toggle ${config.isDangerous ? 'pn-toggle--on-danger' : ''}`}
                                                     onClick={() => updateConfig(member.id, { isDangerous: !config.isDangerous })}
                                                     title={config.isDangerous ? 'Dangerous mode ON (bypassPermissions)' : 'Dangerous mode OFF'}
                                                 >
-                                                    {config.isDangerous ? '\u26A0 dangerous' : '\u{1F6E1} safe'}
+                                                    <Icon name="shield" size={14} /> {config.isDangerous ? 'dangerous' : 'safe'}
                                                 </button>
 
                                                 {/* Expand/collapse */}
                                                 <button type="button"
-                                                    className="launchConfigExpandBtn"
+                                                    className="pn-mdl__close"
                                                     onClick={() => toggleMemberExpanded(member.id)}
                                                     title={config.expanded ? 'Collapse' : 'Skills & Commands'}
                                                 >
-                                                    {config.expanded ? '\u25B2' : '\u25BC'}
+                                                    <Icon name={config.expanded ? 'chevronD' : 'chevronR'} size={15} />
                                                 </button>
                                             </div>
                                         </div>
 
                                         {/* Expanded details */}
                                         {config.expanded && (
-                                            <div className="launchConfigCardDetails">
+                                            <div className="launchConfigCardDetails" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
                                                 {/* Skills */}
-                                                <div className="launchConfigSection">
+                                                <div className="pn-fld">
                                                     <ClaudeCodeSkillsSelector
                                                         selectedSkills={config.skillIds}
                                                         onSelectionChange={(skills) => updateConfig(member.id, { skillIds: skills })}
@@ -311,78 +324,67 @@ export function TeamLaunchConfigModal({
                                                 </div>
 
                                                 {/* Command Permissions */}
-                                                <div className="launchConfigSection">
-                                                    <div className="tmModal__permCard">
-                                                        <div className="tmModal__permCardLabel">Command Permissions</div>
-                                                        <div className="themedFormHint" style={{ marginBottom: '6px' }}>
-                                                            Defaults depend on mode. Toggle to restrict or explicitly grant mode-supported commands.
-                                                        </div>
-                                                        {COMMAND_GROUPS.map(group => {
-                                                            const isExpanded = expandedCommandGroups.has(`${member.id}:${group.key}`);
-                                                            const supportedCommands = group.commands.filter(c => isCommandAllowedForMode(c, memberMode));
-                                                            const enabledCount = supportedCommands.filter(c => getEffectiveCommandEnabled(c, memberMode, config.commandOverrides)).length;
-                                                            return (
-                                                                <div key={group.key} style={{ marginBottom: '2px' }}>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => toggleCommandGroup(`${member.id}:${group.key}`)}
-                                                                        style={{
-                                                                            background: 'none', border: 'none', cursor: 'pointer',
-                                                                            fontSize: '11px', padding: '3px 0', color: 'var(--theme-text)',
-                                                                            display: 'flex', alignItems: 'center', gap: '6px',
-                                                                            width: '100%', fontFamily: '"JetBrains Mono", monospace',
-                                                                        }}
-                                                                    >
-                                                                        <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)', fontSize: '10px' }}>
-                                                                            {isExpanded ? '\u25BC' : '\u25B6'}
-                                                                        </span>
-                                                                        <span style={{ fontWeight: 500 }}>{group.label}</span>
-                                                                        <span style={{ opacity: 0.5, fontSize: '10px' }}>
-                                                                            ({enabledCount}/{supportedCommands.length})
-                                                                        </span>
-                                                                    </button>
-                                                                    {isExpanded && (
-                                                                        <div style={{ paddingLeft: '20px', display: 'flex', flexWrap: 'wrap', gap: '4px 16px', paddingTop: '4px', paddingBottom: '4px' }}>
-                                                                            {group.commands.map(cmd => {
-                                                                                const modeSupported = isCommandAllowedForMode(cmd, memberMode);
-                                                                                const isChecked = getEffectiveCommandEnabled(cmd, memberMode, config.commandOverrides);
-                                                                                return (
-                                                                                    <label
-                                                                                        key={cmd}
-                                                                                        className="terminalTaskCheckbox"
-                                                                                        title={modeSupported ? undefined : 'Not available for current mode'}
-                                                                                        style={{
-                                                                                            display: 'flex', alignItems: 'center', gap: '5px',
-                                                                                            cursor: modeSupported ? 'pointer' : 'not-allowed',
-                                                                                            opacity: modeSupported ? (isChecked ? 1 : 0.6) : 0.35,
-                                                                                            marginRight: 0,
-                                                                                        }}
-                                                                                        onClick={(e) => {
-                                                                                            e.preventDefault();
-                                                                                            if (modeSupported) {
-                                                                                                handleCommandToggle(member.id, cmd, memberMode);
-                                                                                            }
-                                                                                        }}
-                                                                                    >
-                                                                                        <input type="checkbox" checked={isChecked} readOnly />
-                                                                                        <span
-                                                                                            className={`terminalTaskCheckmark ${isChecked ? 'terminalTaskCheckmark--checked' : ''}`}
-                                                                                            style={{ width: '14px', height: '14px', fontSize: '9px' }}
-                                                                                        >
-                                                                                            {isChecked ? '\u2713' : ''}
-                                                                                        </span>
-                                                                                        <span style={{ fontSize: '10px', whiteSpace: 'nowrap', fontFamily: '"JetBrains Mono", monospace', color: 'var(--theme-text)' }}>
-                                                                                            {cmd}
-                                                                                        </span>
-                                                                                    </label>
-                                                                                );
-                                                                            })}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })}
+                                                <div className="pn-fld">
+                                                    <span className="pn-flabel">Command Permissions</span>
+                                                    <div className="pn-fhint" style={{ marginBottom: '4px' }}>
+                                                        Defaults depend on mode. Toggle to restrict or explicitly grant mode-supported commands.
                                                     </div>
+                                                    {COMMAND_GROUPS.map(group => {
+                                                        const isExpanded = expandedCommandGroups.has(`${member.id}:${group.key}`);
+                                                        const supportedCommands = group.commands.filter(c => isCommandAllowedForMode(c, memberMode));
+                                                        const enabledCount = supportedCommands.filter(c => getEffectiveCommandEnabled(c, memberMode, config.commandOverrides)).length;
+                                                        return (
+                                                            <div key={group.key} style={{ marginBottom: '2px' }}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => toggleCommandGroup(`${member.id}:${group.key}`)}
+                                                                    style={{
+                                                                        background: 'none', border: 'none', cursor: 'pointer',
+                                                                        fontSize: '11.5px', padding: '4px 0', color: 'var(--pn-ink)',
+                                                                        display: 'flex', alignItems: 'center', gap: '6px',
+                                                                        width: '100%', fontFamily: 'var(--pn-ui)',
+                                                                    }}
+                                                                >
+                                                                    <Icon name={isExpanded ? 'chevronD' : 'chevronR'} size={12} style={{ color: 'var(--pn-ink-3)' }} />
+                                                                    <span style={{ fontWeight: 600 }}>{group.label}</span>
+                                                                    <span style={{ opacity: 0.5, fontSize: '10px', fontFamily: 'var(--pn-mono)' }}>
+                                                                        ({enabledCount}/{supportedCommands.length})
+                                                                    </span>
+                                                                </button>
+                                                                {isExpanded && (
+                                                                    <div className="pn-caps" style={{ paddingLeft: 18 }}>
+                                                                        {group.commands.map(cmd => {
+                                                                            const modeSupported = isCommandAllowedForMode(cmd, memberMode);
+                                                                            const isChecked = getEffectiveCommandEnabled(cmd, memberMode, config.commandOverrides);
+                                                                            return (
+                                                                                <div
+                                                                                    key={cmd}
+                                                                                    className="pn-cap"
+                                                                                    title={modeSupported ? undefined : 'Not available for current mode'}
+                                                                                    style={{
+                                                                                        cursor: modeSupported ? 'pointer' : 'not-allowed',
+                                                                                        opacity: modeSupported ? 1 : 0.4,
+                                                                                    }}
+                                                                                    onClick={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        if (modeSupported) {
+                                                                                            handleCommandToggle(member.id, cmd, memberMode);
+                                                                                        }
+                                                                                    }}
+                                                                                >
+                                                                                    <input type="checkbox" checked={isChecked} readOnly style={{ display: 'none' }} />
+                                                                                    <div className="pn-cap__body">
+                                                                                        <div className="pn-cap__name" style={{ fontFamily: 'var(--pn-mono)', fontSize: 11.5 }}>{cmd}</div>
+                                                                                    </div>
+                                                                                    <span className={`pn-switch ${isChecked ? 'pn-switch--on' : ''}`}></span>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         )}
@@ -394,10 +396,10 @@ export function TeamLaunchConfigModal({
                 </div>
 
                 {/* Footer */}
-                <div className="tmModal__footer">
-                    <div className="tmModal__footerLeft" />
-                    <div className="tmModal__footerRight">
-                        <button type="button" className="themedBtn" onClick={onClose}>
+                <div className="pn-mdl__foot">
+                    <div className="pn-mdl__footL" />
+                    <div className="pn-mdl__footR">
+                        <button type="button" className="pn-btn pn-btn--ghost" onClick={onClose}>
                             Cancel
                         </button>
 
@@ -406,7 +408,7 @@ export function TeamLaunchConfigModal({
                                 {onSave && (
                                     <button
                                         type="button"
-                                        className="themedBtn"
+                                        className="pn-btn"
                                         onClick={handleSave}
                                         title="Save overrides for this launch context"
                                     >
@@ -415,7 +417,7 @@ export function TeamLaunchConfigModal({
                                 )}
                                 <button
                                     type="button"
-                                    className="themedBtn"
+                                    className="pn-btn"
                                     onClick={() => setShowSaveDialog(true)}
                                     title="Save this configuration as a reusable team"
                                 >
@@ -423,19 +425,19 @@ export function TeamLaunchConfigModal({
                                 </button>
                                 <button
                                     type="button"
-                                    className="themedBtn themedBtnPrimary"
+                                    className="pn-btn pn-btn--primary"
                                     onClick={handleLaunch}
                                     disabled={members.length === 0}
                                 >
-                                    Launch
+                                    <Icon name="play" size={13} /> Launch
                                 </button>
                             </>
                         ) : (
                             <>
                                 <input
                                     type="text"
-                                    className="themedFormInput"
-                                    style={{ margin: 0, padding: '5px 8px', fontSize: '11px', width: '160px' }}
+                                    className="pn-input"
+                                    style={{ width: '160px' }}
                                     placeholder="Team name..."
                                     value={teamName}
                                     onChange={(e) => setTeamName(e.target.value)}
@@ -447,14 +449,14 @@ export function TeamLaunchConfigModal({
                                 />
                                 <button
                                     type="button"
-                                    className="themedBtn"
+                                    className="pn-btn pn-btn--ghost"
                                     onClick={() => setShowSaveDialog(false)}
                                 >
                                     Back
                                 </button>
                                 <button
                                     type="button"
-                                    className="themedBtn themedBtnPrimary"
+                                    className="pn-btn pn-btn--primary"
                                     onClick={handleSaveAsTeam}
                                     disabled={!teamName.trim()}
                                 >

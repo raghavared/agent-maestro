@@ -15,6 +15,9 @@ import type {
   TeamMember,
   CreateTeamMemberPayload,
   UpdateTeamMemberPayload,
+  ModelProfile,
+  CreateModelProfilePayload,
+  UpdateModelProfilePayload,
   Team,
   CreateTeamPayload,
   UpdateTeamPayload,
@@ -88,6 +91,7 @@ interface MaestroState {
   taskLists: Record<string, TaskList>;
   sessions: Record<string, MaestroSession>;
   teamMembers: Record<string, TeamMember>;
+  modelProfiles: Record<string, ModelProfile>;
   teams: Record<string, Team>;
   activeModals: AgentModal[];
   loading: Record<string, boolean>;
@@ -147,6 +151,11 @@ interface MaestroState {
   archiveTeamMember: (id: string, projectId: string) => Promise<void>;
   unarchiveTeamMember: (id: string, projectId: string) => Promise<void>;
   resetDefaultTeamMember: (id: string, projectId: string) => Promise<void>;
+  // Model profile actions (workspace-global)
+  fetchModelProfiles: () => Promise<void>;
+  createModelProfile: (data: CreateModelProfilePayload) => Promise<ModelProfile>;
+  updateModelProfile: (id: string, updates: UpdateModelProfilePayload) => Promise<ModelProfile>;
+  deleteModelProfile: (id: string) => Promise<void>;
   setLastUsedTeamMember: (taskId: string, teamMemberId: string) => void;
   fetchWorkflowTemplates: () => Promise<void>;
   // Team actions
@@ -619,6 +628,19 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         playEventSound(message.event as any);
         break;
       }
+      case 'model_profile:created':
+      case 'model_profile:updated': {
+        const modelProfile = message.data;
+        batchSet((prev) => ({ modelProfiles: { ...prev.modelProfiles, [modelProfile.id]: modelProfile } }));
+        break;
+      }
+      case 'model_profile:deleted': {
+        batchSet((prev) => {
+          const { [message.data.id]: _, ...modelProfiles } = prev.modelProfiles;
+          return { modelProfiles };
+        });
+        break;
+      }
       case 'task_list:created':
       case 'task_list:updated':
       case 'task_list:reordered': {
@@ -697,6 +719,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
         set({ wsConnected: true });
         globalConnecting = false;
         globalReconnectAttempts = 0;
+        get().fetchModelProfiles();
         const { activeProjectIdRef } = get();
         if (activeProjectIdRef) {
           get().fetchTasks(activeProjectIdRef);
@@ -753,6 +776,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     taskLists: {},
     sessions: {},
     teamMembers: {},
+    modelProfiles: {},
     teams: {},
     activeModals: [],
     loading: {},
@@ -1082,6 +1106,7 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
       taskLists: {},
       sessions: {},
       teamMembers: {},
+      modelProfiles: {},
       teams: {},
       activeModals: [],
       loading: {},
@@ -1217,6 +1242,46 @@ export const useMaestroStore = create<MaestroState>((set, get) => {
     resetDefaultTeamMember: async (id, projectId) => {
       await maestroClient.resetDefaultTeamMember(id, projectId);
       // The server will emit team_member:updated which will update the store
+    },
+
+    // ==================== MODEL PROFILES ====================
+
+    fetchModelProfiles: async () => {
+      const key = 'modelProfiles';
+      setLoading(key, true);
+      setError(key, null);
+      try {
+        const profiles = await maestroClient.getModelProfiles();
+        set(() => {
+          const next: Record<string, ModelProfile> = {};
+          for (const p of profiles) next[p.id] = p;
+          return { modelProfiles: next };
+        });
+      } catch (err) {
+        setError(key, err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(key, false);
+      }
+    },
+
+    createModelProfile: async (data) => {
+      const profile = await maestroClient.createModelProfile(data);
+      set((prev) => ({ modelProfiles: { ...prev.modelProfiles, [profile.id]: profile } }));
+      return profile;
+    },
+
+    updateModelProfile: async (id, updates) => {
+      const profile = await maestroClient.updateModelProfile(id, updates);
+      set((prev) => ({ modelProfiles: { ...prev.modelProfiles, [profile.id]: profile } }));
+      return profile;
+    },
+
+    deleteModelProfile: async (id) => {
+      await maestroClient.deleteModelProfile(id);
+      set((prev) => {
+        const { [id]: _, ...modelProfiles } = prev.modelProfiles;
+        return { modelProfiles };
+      });
     },
 
     setLastUsedTeamMember: (taskId, teamMemberId) => {

@@ -7,7 +7,8 @@
   align-items: center;
   justify-content: center;
   gap: 20px;
-  font-family: var(--style-font-ui);
+  /* pn-term-body idiom: warm mono on the dark terminal surround */
+  font-family: var(--pn-mono);
   user-select: none;
 }
 
@@ -15,14 +16,14 @@
   white-space: pre;
   font-size: 11px;
   line-height: 1.35;
-  color: rgba(var(--theme-primary-rgb), 0.18);
+  color: var(--pn-term-dim);
   text-align: center;
   letter-spacing: 1px;
 }
 
 .terminalEmptyPrompt {
   font-size: 14px;
-  color: var(--theme-primary);
+  color: var(--pn-term-ink);
 }
 
 .terminalEmptyCaretLine {
@@ -32,19 +33,19 @@
 }
 
 .terminalEmptyCaret {
-  color: var(--theme-primary);
+  color: var(--pn-term-acc);
   font-weight: 700;
   animation: caretPulse 1.2s step-end infinite;
 }
 
 .terminalEmptyTyping {
-  color: rgba(var(--theme-primary-rgb), 0.7);
+  color: var(--pn-term-ink);
   animation: blinkUnderscore 1s step-end infinite;
 }
 
 .terminalEmptyHint {
   font-size: 11px;
-  color: rgba(var(--theme-primary-rgb), 0.35);
+  color: var(--pn-term-dim);
   letter-spacing: 0.5px;
 }
 
@@ -54,7 +55,7 @@
 }
 
 @keyframes blinkUnderscore {
-  0%, 100% { border-right: 2px solid var(--theme-primary); }
+  0%, 100% { border-right: 2px solid var(--pn-term-acc); }
   50% { border-right: 2px solid transparent; }
 }
 

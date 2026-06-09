@@ -1,5 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { TaskStatus, TaskPriority } from "../../app/types/maestro";
+import { Icon } from "./redesign/kit";
 
 export type SortByOption = "updatedAt" | "createdAt" | "priority" | "dueDate" | "custom";
 
@@ -37,50 +39,41 @@ const SORT_OPTIONS: { value: SortByOption; label: string }[] = [
     { value: "dueDate", label: "Due Date" },
 ];
 
-function InlineDropdown({
-    label,
-    children,
-    isOpen,
-    onToggle,
+/* Portal dropdown in the redesign pn-pop / pn-opt idiom (matches the task-tile
+   badge dropdowns). Positioned fixed under its trigger; pn-pop-ov backdrop
+   dismisses on outside click. */
+function FilterPop({
+    open,
+    anchorRef,
     onClose,
-    hasActive,
+    children,
 }: {
-    label: string;
-    children: React.ReactNode;
-    isOpen: boolean;
-    onToggle: () => void;
+    open: boolean;
+    anchorRef: React.RefObject<HTMLElement>;
     onClose: () => void;
-    hasActive?: boolean;
+    children: React.ReactNode;
 }) {
-    const ref = useRef<HTMLDivElement>(null);
+    const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handler = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) {
-                onClose();
-            }
-        };
-        document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-    }, [isOpen, onClose]);
+    useLayoutEffect(() => {
+        if (open && anchorRef.current) {
+            const r = anchorRef.current.getBoundingClientRect();
+            setPos({ left: r.left, top: r.bottom + 5 });
+        } else {
+            setPos(null);
+        }
+    }, [open, anchorRef]);
 
-    return (
-        <div className="filterInlineDropdown" ref={ref}>
-            <button
-                type="button"
-                className={`filterInlineDropdown__trigger ${hasActive ? 'filterInlineDropdown__trigger--active' : ''}`}
-                onClick={onToggle}
-            >
-                <span className="filterInlineDropdown__label">{label}</span>
-                <span className={`filterInlineDropdown__caret ${isOpen ? 'filterInlineDropdown__caret--open' : ''}`}>▾</span>
-            </button>
-            {isOpen && (
-                <div className="filterInlineDropdown__menu">
-                    {children}
-                </div>
-            )}
-        </div>
+    if (!open || !pos) return null;
+
+    return createPortal(
+        <>
+            <div className="pn-pop-ov" onClick={onClose} />
+            <div className="pn-pop" style={{ left: pos.left, top: pos.top }}>
+                {children}
+            </div>
+        </>,
+        document.body
     );
 }
 
@@ -96,6 +89,22 @@ export function TaskFilters({
 }: TaskFiltersProps) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
+    const statusRef = useRef<HTMLButtonElement>(null);
+    const priorityRef = useRef<HTMLButtonElement>(null);
+    const sortRef = useRef<HTMLButtonElement>(null);
+
+    // Close any open dropdown on scroll/resize so the fixed-position pop never drifts.
+    useEffect(() => {
+        if (!openDropdown) return;
+        const close = () => setOpenDropdown(null);
+        window.addEventListener("resize", close);
+        window.addEventListener("scroll", close, true);
+        return () => {
+            window.removeEventListener("resize", close);
+            window.removeEventListener("scroll", close, true);
+        };
+    }, [openDropdown]);
 
     const toggleStatus = (status: TaskStatus) => {
         if (statusFilter.includes(status)) {
@@ -114,6 +123,7 @@ export function TaskFilters({
     };
 
     const activeFilterCount = statusFilter.length + priorityFilter.length + (sortBy !== "updatedAt" ? 1 : 0) + (overdueFilter ? 1 : 0);
+    const noFilters = activeFilterCount === 0;
 
     const handleClearAll = () => {
         onStatusFilterChange([]);
@@ -122,180 +132,160 @@ export function TaskFilters({
         onOverdueFilterChange(false);
     };
 
+    const toggle = (key: string) => setOpenDropdown((cur) => (cur === key ? null : key));
+
     return (
-        <div className={`filterBar ${isExpanded ? "filterBar--expanded" : ""}`}>
-            <div className="filterBar__header">
-                <button type="button"
-                    className="filterBar__toggle"
+        <>
+            <div className="pn-filters">
+                {/* Quick pills */}
+                <button
+                    type="button"
+                    className={`pn-filter ${noFilters ? "pn-filter--active" : ""}`}
+                    onClick={handleClearAll}
+                    title="All tasks (clear filters)"
+                >
+                    All
+                </button>
+                <button
+                    type="button"
+                    className={`pn-filter ${priorityFilter.includes("high") ? "pn-filter--active" : ""}`}
+                    onClick={() => togglePriority("high")}
+                >
+                    High
+                </button>
+                <button
+                    type="button"
+                    className={`pn-filter ${overdueFilter ? "pn-filter--active" : ""}`}
+                    onClick={() => onOverdueFilterChange(!overdueFilter)}
+                >
+                    Overdue
+                </button>
+
+                {/* Status multi-select (preserved IA, pn-pop dropdown) */}
+                <button
+                    type="button"
+                    ref={statusRef}
+                    className={`pn-filter ${statusFilter.length > 0 ? "pn-filter--active" : ""}`}
+                    onClick={() => toggle("status")}
+                >
+                    Status{statusFilter.length > 0 ? ` · ${statusFilter.length}` : ""}
+                    <Icon name="chevronD" size={12} />
+                </button>
+                <FilterPop open={openDropdown === "status"} anchorRef={statusRef} onClose={() => setOpenDropdown(null)}>
+                    {STATUS_CONFIG.map(({ value, label, icon }) => {
+                        const isActive = statusFilter.includes(value);
+                        return (
+                            <button
+                                type="button"
+                                key={value}
+                                className={`pn-opt ${isActive ? "pn-opt--cur" : ""}`}
+                                onClick={() => toggleStatus(value)}
+                            >
+                                <span aria-hidden="true">{icon}</span>
+                                <span>{label}</span>
+                                {isActive && <Icon name="check" size={13} sw={2} className="pn-opt__chk" />}
+                            </button>
+                        );
+                    })}
+                </FilterPop>
+
+                {/* Priority multi-select (preserved IA, pn-pop dropdown) */}
+                <button
+                    type="button"
+                    ref={priorityRef}
+                    className={`pn-filter ${priorityFilter.length > 0 ? "pn-filter--active" : ""}`}
+                    onClick={() => toggle("priority")}
+                >
+                    Priority{priorityFilter.length > 0 ? ` · ${priorityFilter.length}` : ""}
+                    <Icon name="chevronD" size={12} />
+                </button>
+                <FilterPop open={openDropdown === "priority"} anchorRef={priorityRef} onClose={() => setOpenDropdown(null)}>
+                    {PRIORITY_CONFIG.map(({ value, label }) => {
+                        const isActive = priorityFilter.includes(value);
+                        return (
+                            <button
+                                type="button"
+                                key={value}
+                                className={`pn-opt ${isActive ? "pn-opt--cur" : ""}`}
+                                onClick={() => togglePriority(value)}
+                            >
+                                <span>{label}</span>
+                                {isActive && <Icon name="check" size={13} sw={2} className="pn-opt__chk" />}
+                            </button>
+                        );
+                    })}
+                </FilterPop>
+
+                {/* Sort (pushed right) */}
+                <button
+                    type="button"
+                    ref={sortRef}
+                    className={`pn-filter ${sortBy !== "updatedAt" ? "pn-filter--active" : ""}`}
+                    style={{ marginLeft: "auto" }}
+                    onClick={() => toggle("sort")}
+                >
+                    <Icon name="sliders" size={13} /> Sort
+                </button>
+                <FilterPop open={openDropdown === "sort"} anchorRef={sortRef} onClose={() => setOpenDropdown(null)}>
+                    {SORT_OPTIONS.map(({ value, label }) => (
+                        <button
+                            type="button"
+                            key={value}
+                            className={`pn-opt ${sortBy === value ? "pn-opt--cur" : ""}`}
+                            onClick={() => { onSortChange(value); setOpenDropdown(null); }}
+                        >
+                            <span>{label}</span>
+                            {sortBy === value && <Icon name="check" size={13} sw={2} className="pn-opt__chk" />}
+                        </button>
+                    ))}
+                </FilterPop>
+
+                {/* Expanded full-panel toggle (preserved surface) */}
+                <button
+                    type="button"
+                    className={`pn-filter ${isExpanded ? "pn-filter--active" : ""}`}
                     onClick={() => { setIsExpanded(!isExpanded); setOpenDropdown(null); }}
                     title={isExpanded ? "Collapse filters" : "Expand filters"}
                 >
-                    <svg className="filterBar__filterIcon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M1.5 2h13M3.5 6h9M5.5 10h5M7 14h2" />
-                    </svg>
-                    {activeFilterCount > 0 && (
-                        <span className="filterBar__badge">{activeFilterCount}</span>
-                    )}
-                    <span className={`filterBar__arrow ${isExpanded ? "filterBar__arrow--open" : ""}`}>▾</span>
+                    <Icon name="filter" size={13} />
+                    {activeFilterCount > 0 && <span>{activeFilterCount}</span>}
                 </button>
-
-                {/* Collapsed: inline dropdowns */}
-                {!isExpanded && (
-                    <div className="filterBar__inlineControls">
-                        <InlineDropdown
-                            label="Status"
-                            isOpen={openDropdown === "status"}
-                            onToggle={() => setOpenDropdown(openDropdown === "status" ? null : "status")}
-                            onClose={() => setOpenDropdown(null)}
-                            hasActive={statusFilter.length > 0}
-                        >
-                            {STATUS_CONFIG.map(({ value, label, icon, colorClass }) => {
-                                const isActive = statusFilter.includes(value);
-                                return (
-                                    <button type="button"
-                                        key={value}
-                                        className={`filterInlineDropdown__item ${colorClass} ${isActive ? "filterInlineDropdown__item--active" : ""}`}
-                                        onClick={() => toggleStatus(value)}
-                                    >
-                                        <span className="filterInlineDropdown__itemIcon">{icon}</span>
-                                        <span className="filterInlineDropdown__itemLabel">{label}</span>
-                                        {isActive && <span className="filterInlineDropdown__check">✓</span>}
-                                    </button>
-                                );
-                            })}
-                        </InlineDropdown>
-
-                        <InlineDropdown
-                            label="Priority"
-                            isOpen={openDropdown === "priority"}
-                            onToggle={() => setOpenDropdown(openDropdown === "priority" ? null : "priority")}
-                            onClose={() => setOpenDropdown(null)}
-                            hasActive={priorityFilter.length > 0}
-                        >
-                            {PRIORITY_CONFIG.map(({ value, label, colorClass }) => {
-                                const isActive = priorityFilter.includes(value);
-                                return (
-                                    <button type="button"
-                                        key={value}
-                                        className={`filterInlineDropdown__item ${colorClass} ${isActive ? "filterInlineDropdown__item--active" : ""}`}
-                                        onClick={() => togglePriority(value)}
-                                    >
-                                        <span className="filterInlineDropdown__itemDot" />
-                                        <span className="filterInlineDropdown__itemLabel">{label}</span>
-                                        {isActive && <span className="filterInlineDropdown__check">✓</span>}
-                                    </button>
-                                );
-                            })}
-                        </InlineDropdown>
-
-                        <InlineDropdown
-                            label="Sort"
-                            isOpen={openDropdown === "sort"}
-                            onToggle={() => setOpenDropdown(openDropdown === "sort" ? null : "sort")}
-                            onClose={() => setOpenDropdown(null)}
-                            hasActive={sortBy !== "updatedAt"}
-                        >
-                            {SORT_OPTIONS.map(({ value, label }) => (
-                                <button type="button"
-                                    key={value}
-                                    className={`filterInlineDropdown__item ${sortBy === value ? "filterInlineDropdown__item--active" : ""}`}
-                                    onClick={() => { onSortChange(value); setOpenDropdown(null); }}
-                                >
-                                    <span className="filterInlineDropdown__itemLabel">{label}</span>
-                                    {sortBy === value && <span className="filterInlineDropdown__check">✓</span>}
-                                </button>
-                            ))}
-                        </InlineDropdown>
-
-                        <button
-                            type="button"
-                            className={`filterBar__overdueToggle ${overdueFilter ? 'filterBar__overdueToggle--active' : ''}`}
-                            onClick={() => onOverdueFilterChange(!overdueFilter)}
-                            title="Overdue tasks"
-                        >
-                            ⚠
-                        </button>
-
-                        {activeFilterCount > 0 && (
-                            <button type="button" className="filterBar__clearAll" onClick={handleClearAll}>Clear</button>
-                        )}
-                    </div>
-                )}
             </div>
 
-            {/* Collapsed: selected filters row */}
-            {!isExpanded && activeFilterCount > 0 && (
-                <div className="filterBar__selectedRow">
-                    {statusFilter.map(s => {
-                        const cfg = STATUS_CONFIG.find(c => c.value === s);
-                        return cfg ? (
-                            <span key={s} className={`filterChip filterChip--active filterChip--sm ${cfg.colorClass}`}>
-                                <span className="filterChip__icon">{cfg.icon}</span>
-                                {cfg.label}
-                                <button type="button" className="filterChip__remove" onClick={() => toggleStatus(s)}>×</button>
-                            </span>
-                        ) : null;
-                    })}
-                    {priorityFilter.map(p => {
-                        const cfg = PRIORITY_CONFIG.find(c => c.value === p);
-                        return cfg ? (
-                            <span key={p} className={`filterChip filterChip--active filterChip--sm ${cfg.colorClass}`}>
-                                <span className="filterChip__dot" />
-                                {cfg.label}
-                                <button type="button" className="filterChip__remove" onClick={() => togglePriority(p)}>×</button>
-                            </span>
-                        ) : null;
-                    })}
-                    {overdueFilter && (
-                        <span className="filterChip filterChip--active filterChip--sm filterChip--overdue">
-                            <span className="filterChip__icon">⚠</span>
-                            Overdue
-                            <button type="button" className="filterChip__remove" onClick={() => onOverdueFilterChange(false)}>×</button>
-                        </span>
-                    )}
-                    {sortBy !== "updatedAt" && (
-                        <span className="filterChip filterChip--active filterChip--sm filterChip--sort">
-                            Sort: {SORT_OPTIONS.find(o => o.value === sortBy)?.label}
-                            <button type="button" className="filterChip__remove" onClick={() => onSortChange("updatedAt")}>×</button>
-                        </span>
-                    )}
-                </div>
-            )}
-
-            {/* Expanded: full filter panel (unchanged) */}
+            {/* Expanded full filter panel — preserved structure + handlers, restyled to pn idiom */}
             {isExpanded && (
-                <div className="filterBar__panel">
-                    <div className="filterGroup">
-                        <span className="filterGroup__label">Status</span>
-                        <div className="filterGroup__chips">
-                            {STATUS_CONFIG.map(({ value, label, icon, colorClass }) => {
+                <div className="pn-filters" style={{ flexDirection: "column", alignItems: "stretch", gap: 10, paddingTop: 0 }}>
+                    <div>
+                        <span className="pn-eyebrow">Status</span>
+                        <div className="pn-filters" style={{ padding: "6px 0 0" }}>
+                            {STATUS_CONFIG.map(({ value, label, icon }) => {
                                 const isActive = statusFilter.includes(value);
                                 return (
-                                    <button type="button"
+                                    <button
+                                        type="button"
                                         key={value}
-                                        className={`filterChip ${colorClass} ${isActive ? "filterChip--active" : ""}`}
+                                        className={`pn-filter ${isActive ? "pn-filter--active" : ""}`}
                                         onClick={() => toggleStatus(value)}
                                     >
-                                        <span className="filterChip__icon">{icon}</span>
-                                        {label}
+                                        <span aria-hidden="true">{icon}</span> {label}
                                     </button>
                                 );
                             })}
                         </div>
                     </div>
 
-                    <div className="filterGroup">
-                        <span className="filterGroup__label">Priority</span>
-                        <div className="filterGroup__chips">
-                            {PRIORITY_CONFIG.map(({ value, label, colorClass }) => {
+                    <div>
+                        <span className="pn-eyebrow">Priority</span>
+                        <div className="pn-filters" style={{ padding: "6px 0 0" }}>
+                            {PRIORITY_CONFIG.map(({ value, label }) => {
                                 const isActive = priorityFilter.includes(value);
                                 return (
-                                    <button type="button"
+                                    <button
+                                        type="button"
                                         key={value}
-                                        className={`filterChip ${colorClass} ${isActive ? "filterChip--active" : ""}`}
+                                        className={`pn-filter ${isActive ? "pn-filter--active" : ""}`}
                                         onClick={() => togglePriority(value)}
                                     >
-                                        <span className="filterChip__dot" />
                                         {label}
                                     </button>
                                 );
@@ -303,26 +293,27 @@ export function TaskFilters({
                         </div>
                     </div>
 
-                    <div className="filterGroup">
-                        <span className="filterGroup__label">Due Date</span>
-                        <div className="filterGroup__chips">
+                    <div>
+                        <span className="pn-eyebrow">Due Date</span>
+                        <div className="pn-filters" style={{ padding: "6px 0 0" }}>
                             <button
-                                className={`filterChip filterChip--overdue ${overdueFilter ? "filterChip--active" : ""}`}
+                                type="button"
+                                className={`pn-filter ${overdueFilter ? "pn-filter--active" : ""}`}
                                 onClick={() => onOverdueFilterChange(!overdueFilter)}
                             >
-                                <span className="filterChip__icon">⚠</span>
                                 Overdue
                             </button>
                         </div>
                     </div>
 
-                    <div className="filterGroup">
-                        <span className="filterGroup__label">Sort by</span>
-                        <div className="filterGroup__segmented">
+                    <div>
+                        <span className="pn-eyebrow">Sort by</span>
+                        <div className="pn-filters" style={{ padding: "6px 0 0" }}>
                             {SORT_OPTIONS.map(({ value, label }) => (
-                                <button type="button"
+                                <button
+                                    type="button"
                                     key={value}
-                                    className={`filterSegment ${sortBy === value ? "filterSegment--active" : ""}`}
+                                    className={`pn-filter ${sortBy === value ? "pn-filter--active" : ""}`}
                                     onClick={() => onSortChange(value)}
                                 >
                                     {label}
@@ -332,12 +323,12 @@ export function TaskFilters({
                     </div>
 
                     {activeFilterCount > 0 && (
-                        <button type="button" className="filterBar__clearAll" onClick={handleClearAll}>
+                        <button type="button" className="pn-filter" style={{ alignSelf: "flex-start" }} onClick={handleClearAll}>
                             Clear all filters
                         </button>
                     )}
                 </div>
             )}
-        </div>
+        </>
     );
 }
