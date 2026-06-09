@@ -429,7 +429,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const { sessions, activeId } = get();
     const session = sessions.find((s) => s.id === id);
     if (!session) return;
-    if (!session.effectId || session.exited || session.closing) return;
+    // Maestro agent terminals carry no process effectId (they're identified by
+    // maestroSessionId + metadata.agentTool), but they still stream bytes and
+    // must drive the live/streaming indicators.
+    if ((!session.effectId && !session.maestroSessionId) || session.exited || session.closing) return;
     if (!data) return;
 
     const lastResize = lastResizeAtRef.get(id);
@@ -449,9 +452,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       }));
     }
 
-    // Schedule agent idle
+    // Schedule agent idle — for process-effect terminals AND maestro agent
+    // sessions (no effectId, default idle timeout) so agentWorking resets when
+    // the byte stream stops.
     get().clearAgentIdleTimer(id);
-    if (session.effectId) {
+    if (session.effectId || session.maestroSessionId) {
       const effect = getProcessEffectById(session.effectId);
       const idleAfterMs = effect?.idleAfterMs ?? DEFAULTS.AGENT_IDLE_TIMEOUT_MS;
       const timeout = window.setTimeout(() => {
