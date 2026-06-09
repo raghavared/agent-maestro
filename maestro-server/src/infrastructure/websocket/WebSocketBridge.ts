@@ -187,6 +187,10 @@ export class WebSocketBridge {
       'custom_prompt:created',
       'custom_prompt:updated',
       'custom_prompt:deleted',
+      // Model profile events (workspace-global)
+      'model_profile:created',
+      'model_profile:updated',
+      'model_profile:deleted',
       // Task list events
       'task_list:created',
       'task_list:updated',
@@ -371,6 +375,11 @@ export class WebSocketBridge {
 
     // Custom prompt events — pass through to all clients (global)
     if (event.startsWith('custom_prompt:')) {
+      return false;
+    }
+
+    // Model profile events — workspace-global, pass through to all clients
+    if (event.startsWith('model_profile:')) {
       return false;
     }
 

@@ -34,28 +34,29 @@ export function TaskDescriptionField({
         },
         '&multiLine': {
             control: {
-                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                fontFamily: 'var(--pn-mono)',
                 ...(isOverlay
                     ? { height: '100%', minHeight: 0 }
                     : { minHeight: '250px', maxHeight: '400px' }),
             },
             highlighter: {
-                padding: '8px 10px',
+                padding: '9px 11px',
                 border: '1px solid transparent',
                 color: 'transparent',
-                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                fontFamily: 'var(--pn-mono)',
                 fontSize: '12px',
                 lineHeight: '1.5',
                 pointerEvents: 'none' as const,
                 overflow: 'hidden' as const,
             },
             input: {
-                padding: '8px 10px',
+                padding: '9px 11px',
                 border: '1px solid transparent',
                 outline: 'none',
-                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                fontFamily: 'var(--pn-mono)',
                 fontSize: '12px',
                 lineHeight: '1.5',
+                color: 'var(--pn-ink)',
                 ...(isOverlay ? {} : { maxHeight: '400px' }),
                 overflow: 'auto' as const,
             },
@@ -76,22 +77,25 @@ export function TaskDescriptionField({
     };
 
     return (
-        <div className="themedFormRow" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, marginBottom: 0 }}>
-            {(!isOverlay || children) && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    {!isOverlay && <div className="themedFormLabel" style={{ marginBottom: 0 }}>Description</div>}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                        {children}
-                    </div>
-                </div>
-            )}
+        <div className="pn-desc pn-fld" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, marginBottom: 0 }}>
+            {!isOverlay && <span className="pn-flabel">Description</span>}
 
-            <div className="mentionsWrapper" style={{ flex: 1, minHeight: 0 }}>
+            <div
+                className="mentionsWrapper"
+                style={{
+                    flex: 1,
+                    minHeight: 0,
+                    background: 'var(--pn-surface)',
+                    border: '1px solid var(--pn-line-2)',
+                    borderRadius: 'var(--pn-r-sm)',
+                    color: 'var(--pn-ink)',
+                }}
+            >
                 <MentionsInput
                     value={prompt}
                     onChange={(e) => onPromptChange(e.target.value)}
                     style={mentionsStyle}
-                    placeholder="Describe the requirements... Use @ to tag files, / to add skills"
+                    placeholder="Describe the task — type @ to reference a file, / to pull in a skill."
                     className="mentionsInput"
                     onKeyDown={onKeyDown}
                 >
@@ -130,6 +134,12 @@ export function TaskDescriptionField({
                     />
                 </MentionsInput>
             </div>
+
+            {children && (
+                <div className="pn-desc__bar">
+                    {children}
+                </div>
+            )}
         </div>
     );
 }

@@ -11,22 +11,27 @@ export function ConfirmDiscardDialog({ isOpen, onConfirm, onCancel }: ConfirmDis
 
     return (
         <div className="themedModalBackdrop" onClick={onCancel}>
-            <div className="themedModal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-                <div className="themedModalHeader">
-                    <span className="themedModalTitle">[ UNSAVED CHANGES ]</span>
+            <div className="pn-mdl" onClick={(e) => e.stopPropagation()} style={{ width: '400px' }}>
+                <div className="pn-mdl__hd">
+                    <div className="pn-mdl__hdmain">
+                        <div className="pn-mdl__crumb">Unsaved changes</div>
+                    </div>
                 </div>
-                <div className="themedModalContent">
-                    <p style={{ margin: 0, fontSize: '12px', color: 'rgba(var(--theme-primary-rgb), 0.7)' }}>
+                <div className="pn-mdl__body">
+                    <p className="pn-fhint" style={{ margin: 0 }}>
                         You have unsaved task details. Are you sure you want to discard them?
                     </p>
                 </div>
-                <div className="themedFormActions">
-                    <button type="button" className="themedBtn" onClick={onCancel}>
-                        Keep Editing
-                    </button>
-                    <button type="button" className="themedBtn themedBtnDanger" onClick={onConfirm}>
-                        Discard
-                    </button>
+                <div className="pn-mdl__foot">
+                    <div className="pn-mdl__footL"></div>
+                    <div className="pn-mdl__footR">
+                        <button type="button" className="pn-btn pn-btn--ghost" onClick={onCancel}>
+                            Keep Editing
+                        </button>
+                        <button type="button" className="pn-btn pn-btn--primary" onClick={onConfirm}>
+                            Discard
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

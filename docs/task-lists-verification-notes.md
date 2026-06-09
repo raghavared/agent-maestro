@@ -2,6 +2,8 @@
 
 Not run (UI changes only).
 
+> Worktree test marker: trivial edit to validate GitHub worktree changes (sess_1780939544450_jzq16m64o).
+
 Suggested checks:
 - Open Maestro panel and switch to the Lists primary tab.
 - Click "New List" in the subtab bar; confirm create modal opens.
@@ -10,3 +12,5 @@ Suggested checks:
 - Remove a task from the list and confirm error banner appears if backend rejects.
 - Reorder lists (drag or up/down) and confirm ordering persists on refresh.
 - Verify missing task references render with "Missing task reference" warning.
+
+> Note: Checklist reviewed 2026-06-08 — still current.

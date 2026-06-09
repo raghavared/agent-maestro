@@ -106,6 +106,31 @@ export interface LaunchConfig {
   accessMode?: LaunchAccessMode;
 }
 
+// Model Profile — a named, workspace-global launch config ("class" of model)
+// that team members reference by id. Updating a profile re-points every member
+// bound to it, so the fleet can be upgraded in one place (dependency inversion).
+export interface ModelProfile {
+  id: string;
+  name: string;
+  description?: string;
+  launchConfig: LaunchConfig;
+  isDefault?: boolean;                 // true for the auto-seeded tiers
+  createdAt: string;                   // ISO 8601
+  updatedAt: string;                   // ISO 8601
+}
+
+export interface CreateModelProfilePayload {
+  name: string;
+  description?: string;
+  launchConfig: LaunchConfig;
+}
+
+export interface UpdateModelProfilePayload {
+  name?: string;
+  description?: string;
+  launchConfig?: LaunchConfig;
+}
+
 // Four-mode model types
 export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coordinated-coordinator';
 /** Legacy mode aliases for backward compatibility */
@@ -169,7 +194,8 @@ export interface TeamMember {
   role: string;                        // "Default executor", "Task orchestrator"
   identity?: string;                   // Custom instructions / persona prompt (optional; empty means no persona)
   avatar: string;                      // Emoji: "🔧", "🎯", "🎨"
-  model?: string;                      // "opus", "sonnet", "haiku"
+  model?: string;                      // "opus", "sonnet", "haiku" — fallback when no modelProfileId
+  modelProfileId?: string;             // Points at a ModelProfile; resolved to a launch config at spawn
   agentTool?: AgentTool;               // "claude-code", "codex", "hermes", "gemini"
   mode?: AgentMode;                    // "execute" or "coordinate"
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
@@ -222,6 +248,7 @@ export interface CreateTeamMemberPayload {
   identity?: string;
   avatar: string;
   model?: string;
+  modelProfileId?: string;
   agentTool?: AgentTool;
   mode?: AgentMode;
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
@@ -240,6 +267,7 @@ export interface UpdateTeamMemberPayload {
   identity?: string;
   avatar?: string;
   model?: string;
+  modelProfileId?: string;
   agentTool?: AgentTool;
   mode?: AgentMode;
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';

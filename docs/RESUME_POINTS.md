@@ -2,6 +2,9 @@
 
 Use the sections below to strengthen your resume. Pick and tailor based on the role you're targeting.
 
+<!-- worktree test edit: sess_1780988896927_nelypb9t9 -->
+
+
 ---
 
 ## Project Summary (for "Projects" section)
@@ -116,3 +119,5 @@ Built a full-stack desktop platform for orchestrating multiple AI coding agents 
 **Scale:** 4-package monorepo, 40+ API endpoints, 60+ CLI commands, 3 AI providers, cross-platform builds.
 
 **What I learned:** Multi-agent coordination is fundamentally a distributed systems problem — you need clear contracts (manifests), reliable communication (WebSocket + mail), and graceful failure handling (blocked/error states).
+
+> Note: Reviewed 2026-06-08 — content still accurate.

@@ -14,6 +14,12 @@
   text-shadow: 0 0 6px rgba(255, 215, 0, 0.6);
 }
 
+/* redesign: active tab star uses the brass brand token, no neon glow */
+html[data-redesign] .pn-ptab--active .projectTabMasterIcon {
+  color: var(--pn-brand);
+  text-shadow: none;
+}
+
 .mpbProjectMasterIcon {
   font-size: 11px;
   color: #ffd700;

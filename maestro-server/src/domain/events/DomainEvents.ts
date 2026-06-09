@@ -1,4 +1,4 @@
-import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember, Team, TaskList, TaskGraph, SpellInvocationResult, CustomPrompt, SessionModeChangedPayload } from '../../types';
+import { Project, Task, Session, SpawnRequestEvent, TaskSessionStatus, TeamMember, Team, TaskList, TaskGraph, SpellInvocationResult, CustomPrompt, ModelProfile, SessionModeChangedPayload } from '../../types';
 
 /**
  * Type-safe domain event definitions.
@@ -269,6 +269,22 @@ export interface CustomPromptDeletedEvent {
   data: { id: string };
 }
 
+// Model Profile Events
+export interface ModelProfileCreatedEvent {
+  type: 'model_profile:created';
+  data: ModelProfile;
+}
+
+export interface ModelProfileUpdatedEvent {
+  type: 'model_profile:updated';
+  data: ModelProfile;
+}
+
+export interface ModelProfileDeletedEvent {
+  type: 'model_profile:deleted';
+  data: { id: string };
+}
+
 /**
  * Union type of all domain events.
  * Use this for type-safe event handling.
@@ -319,7 +335,10 @@ export type DomainEvent =
   | SpellInvokedEvent
   | CustomPromptCreatedEvent
   | CustomPromptUpdatedEvent
-  | CustomPromptDeletedEvent;
+  | CustomPromptDeletedEvent
+  | ModelProfileCreatedEvent
+  | ModelProfileUpdatedEvent
+  | ModelProfileDeletedEvent;
 
 /**
  * Type-safe event map for event bus.
@@ -400,6 +419,10 @@ export interface TypedEventMap {
   'custom_prompt:created': CustomPrompt;
   'custom_prompt:updated': CustomPrompt;
   'custom_prompt:deleted': { id: string };
+  // Model profile events
+  'model_profile:created': ModelProfile;
+  'model_profile:updated': ModelProfile;
+  'model_profile:deleted': { id: string };
   // Task graph events
   'task_graph:created': TaskGraph;
   'task_graph:updated': TaskGraph;

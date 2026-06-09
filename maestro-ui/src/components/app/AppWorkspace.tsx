@@ -16,8 +16,7 @@ import {
 } from "../../stores/useWorkspaceStore";
 import { isSshCommandLine, sshTargetFromCommandLine } from "../../app/utils/ssh";
 import { invoke } from "@tauri-apps/api/core";
-import { SessionLogStrip } from "../session-log/SessionLogStrip";
-import { SessionActionBar } from "../maestro/SessionActionBar";
+import { TerminalStrip } from "../session-log/TerminalStrip";
 import { ModeChip } from "../maestro/ModeChip";
 import { isCoordinatorRole } from "../../utils/coordinatorRole";
 import { isWhiteboardId, isFileId } from "../../app/types/space";
@@ -312,23 +311,6 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
         onDragLeave={handleTerminalDragLeave}
         onDrop={handleTerminalDrop}
       >
-        {/* Live session log strip for Maestro sessions - inside terminalPane for overlay */}
-        {active?.maestroSessionId && active?.cwd && (
-          <SessionLogStrip
-            key={active.id}
-            cwd={active.cwd}
-            maestroSessionId={active.maestroSessionId}
-            agentTool={activeLogAgentTool}
-          />
-        )}
-        {/* Session action bar overlay (attach / draw / spell) */}
-        {active?.maestroSessionId && (
-          <SessionActionBar
-            maestroSessionId={active.maestroSessionId}
-            onAttach={handleAttach}
-            onDraw={handleDraw}
-          />
-        )}
         {/* Mode chip — shows current session role (coordinator / worker) */}
         {activeMaestroSession && (
           <ModeChip mode={activeMaestroSession.mode} />
@@ -417,6 +399,18 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
               );
             })}
           </>
+        )}
+
+        {/* Fused terminal strip — log toggle + stats + model + actions, pinned at the foot */}
+        {active?.maestroSessionId && active?.cwd && (
+          <TerminalStrip
+            key={active.id}
+            cwd={active.cwd}
+            maestroSessionId={active.maestroSessionId}
+            agentTool={activeLogAgentTool}
+            onAttach={handleAttach}
+            onDraw={handleDraw}
+          />
         )}
       </div>
 

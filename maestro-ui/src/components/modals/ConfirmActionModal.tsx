@@ -1,4 +1,5 @@
 import React from "react";
+import { Icon } from "../maestro/redesign/kit";
 
 type ConfirmActionModalProps = {
   isOpen: boolean;
@@ -33,23 +34,27 @@ export function ConfirmActionModal({
         onClose();
       }}
     >
-      <div className="themedModal" onClick={(e) => e.stopPropagation()}>
-        <div className="themedModalHeader">
-          <span className="themedModalTitle">{title}</span>
-          <button type="button" className="themedModalClose" onClick={onClose} disabled={busy}>×</button>
+      <div className="pn-dlg" onClick={(e) => e.stopPropagation()}>
+        <div className="pn-dlg__hd">
+          <span className={`pn-dlg__icon ${confirmDanger ? "pn-dlg__icon--danger" : "pn-dlg__icon--warn"}`}>
+            <Icon name="alert" size={18} />
+          </span>
+          <span className="pn-dlg__title">{title}</span>
         </div>
-        <div className="themedModalContent">
-          <div className="themedFormHint">
+        <div className="pn-dlg__body">
+          <div className="pn-dlg__msg">
             {message}
           </div>
         </div>
-        <div className="themedFormActions">
-          <button type="button" className="themedBtn" onClick={onClose} disabled={busy}>
+        <div className="pn-dlg__foot">
+          <span className="pn-head-spacer" />
+          <button type="button" className="pn-btn pn-btn--ghost" onClick={onClose} disabled={busy}>
             {cancelLabel}
           </button>
           <button
             type="button"
-            className={`themedBtn ${confirmDanger ? "themedBtnDanger" : "themedBtnPrimary"}`}
+            className={`pn-btn${confirmDanger ? "" : " pn-btn--primary"}`}
+            style={confirmDanger ? { background: "var(--pn-block)", color: "#fff", borderColor: "var(--pn-block)" } : undefined}
             onClick={onConfirm}
             disabled={busy}
           >

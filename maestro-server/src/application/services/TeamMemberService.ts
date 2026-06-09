@@ -48,6 +48,7 @@ export class TeamMemberService {
       identity: data.identity ? data.identity.trim() : `You are ${data.name.trim()}. ${data.role.trim()}.`,
       avatar: data.avatar.trim(),
       model: data.model,
+      ...(data.modelProfileId && { modelProfileId: data.modelProfileId }),
       agentTool: data.agentTool,
       mode: data.mode,
       permissionMode: data.permissionMode,
@@ -152,6 +153,8 @@ export class TeamMemberService {
     if (updates.identity !== undefined) cleanUpdates.identity = updates.identity.trim();
     if (updates.avatar !== undefined) cleanUpdates.avatar = updates.avatar.trim();
     if (updates.model !== undefined) cleanUpdates.model = updates.model;
+    // Empty string clears the binding; undefined leaves it untouched.
+    if (updates.modelProfileId !== undefined) cleanUpdates.modelProfileId = updates.modelProfileId || undefined;
     if (updates.agentTool !== undefined) cleanUpdates.agentTool = updates.agentTool;
     if (updates.mode !== undefined) cleanUpdates.mode = updates.mode;
     if (updates.skillIds !== undefined) cleanUpdates.skillIds = updates.skillIds;

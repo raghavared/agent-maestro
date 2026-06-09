@@ -22,8 +22,9 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border);
-  background: #000;
+  border-right: 1px solid var(--pn-line);
+  /* redesign: paper surface (matches pn-mp); falls back to legacy black when data-redesign is off */
+  background: var(--pn-surface, #000);
   contain: strict;
 }
 

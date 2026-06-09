@@ -19,6 +19,7 @@ import { useMaestroStore } from "./stores/useMaestroStore";
 import { initApp } from "./stores/initApp";
 import { initCentralPersistence, initWorkspaceViewPersistence } from "./stores/persistence";
 import { initTheme } from "./stores/useThemeStore";
+import { initRedesignTheme } from "./components/maestro/redesign/useRedesignTheme";
 import { initZoom } from "./stores/useZoomStore";
 
 // Hooks
@@ -158,6 +159,10 @@ export default function App() {
   // ---------- bootstrap stores & persistence ----------
   useEffect(() => {
     initTheme();
+    // Apply the persisted light/dark axis (data-theme) AFTER initTheme. initTheme no
+    // longer writes data-theme, so these don't collide; this restores a saved dark
+    // choice on reload app-wide (even before the TopBar toggle mounts).
+    initRedesignTheme();
     initZoom();
     initSessionStoreRefs(registry, pendingData, { current: null });
     const cleanupApp = initApp(registry, pendingData);

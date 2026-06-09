@@ -252,3 +252,64 @@
 .suggestionItem--skill.focused .skillSuggestionDesc {
     color: rgba(var(--theme-primary-rgb, 0, 255, 65), 0.5);
 }
+
+/* ===================================================================
+   REDESIGN OVERRIDE (Atelier / pn-* tokens) — scoped to html[data-redesign].
+   The base mentions styles above are neon-terminal (green #00ff41, black
+   popup) and UNSCOPED with !important, so in the redesign LIGHT theme the
+   MentionsInput textarea text renders near-white on paper (invisible) with a
+   green-tinted bg. These overrides repoint the editor + suggestion popup to
+   --pn-* tokens so they flip correctly with data-theme. Token-only; no hex.
+   Used by every redesigned MentionsInput (TeamMemberModal identity, etc.).
+   =================================================================== */
+html[data-redesign] .mentionsInput {
+    color: var(--pn-ink);
+}
+html[data-redesign] .mentionsInput textarea {
+    background: transparent !important;
+    color: var(--pn-ink) !important;
+    border: 1px solid transparent !important;
+    caret-color: var(--pn-brand) !important;
+    box-shadow: none !important;
+}
+html[data-redesign] .mentionsInput textarea:focus {
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+html[data-redesign] .mentionsInput textarea::selection {
+    background: var(--pn-brand-soft);
+    color: var(--pn-ink);
+}
+html[data-redesign] .mentionsInput div[class*="highlighter"] strong,
+html[data-redesign] .mentionsInput div[class*="highlighter"] [class*="mention"] {
+    background-color: var(--pn-brand-soft) !important;
+}
+html[data-redesign] .mentionsInput [class*="suggestions__list"],
+html[data-redesign] .mentionsWrapper [class*="suggestions__list"] {
+    background: var(--pn-card) !important;
+    border: 1px solid var(--pn-line-2) !important;
+    box-shadow: var(--pn-sh-pop) !important;
+}
+html[data-redesign] .suggestionItem {
+    color: var(--pn-ink-2);
+}
+html[data-redesign] .suggestionItem::before {
+    color: var(--pn-brand);
+}
+html[data-redesign] .suggestionItem:hover,
+html[data-redesign] .suggestionItem.focused {
+    border-color: var(--pn-brand);
+    background: var(--pn-brand-soft);
+    color: var(--pn-brand);
+    box-shadow: none;
+    text-shadow: none;
+}
+html[data-redesign] .skillSuggestionScope {
+    border: 1px solid var(--pn-line-2);
+    color: var(--pn-ink-3);
+}
+html[data-redesign] .suggestionItem--skill:hover .skillSuggestionDesc,
+html[data-redesign] .suggestionItem--skill.focused .skillSuggestionDesc {
+    color: var(--pn-ink-3);
+}

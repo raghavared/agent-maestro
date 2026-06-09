@@ -9,6 +9,7 @@ import { useSpacesStore } from "../stores/useSpacesStore";
 import { useSessionStore } from "../stores/useSessionStore";
 import { isWhiteboardId, isDocumentId, isFileId } from "../app/types/space";
 import { maestroClient } from "../utils/MaestroClient";
+import { Icon } from "./maestro/redesign/kit";
 
 type SpacesPanelProps = {
     agentShortcuts: ProcessEffect[];
@@ -102,7 +103,7 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
 
     return (
         <aside
-            className={`spacesPanel ${isExpanded ? 'spacesPanel--expanded' : ''}`}
+            className="pn-sp"
             style={{
                 width: isExpanded
                     ? `${contentWidth}px`
@@ -117,47 +118,45 @@ export const SpacesPanel: React.FC<SpacesPanelProps> = ({
             {isExpanded ? (
                 <div
                     className="spacesPanelContent"
-                    style={{ width: `${contentWidth}px` }}
+                    style={{ width: `${contentWidth}px`, position: 'relative' }}
                 >
-                    <div className="spacesPanelToolbar">
-                        <div className="spacesPanelTabs">
-                            <button
-                                type="button"
-                                className={`spacesPanelTab ${panelMode === 'sessions' ? 'spacesPanelTab--active' : ''}`}
-                                onClick={() => setPanelMode('sessions')}
-                            >
-                                Sessions
-                            </button>
-                            <button
-                                type="button"
-                                className={`spacesPanelTab ${panelMode === 'resources' ? 'spacesPanelTab--active' : ''}`}
-                                onClick={() => setPanelMode('resources')}
-                                data-testid="resources-tab-btn"
-                            >
-                                Resources
-                            </button>
-                        </div>
-                        <div className="spacesPanelActions">
-                            {panelMode === 'sessions' && (
-                                <NewSpaceDropdown
-                                    variant="toolbar"
-                                    onOpenNewSession={onOpenNewSession}
-                                    onOpenWhiteboard={handleCreateWhiteboard}
-                                    agentShortcuts={agentShortcuts}
-                                    onQuickStart={onQuickStart}
-                                />
-                            )}
-                            <button
-                                className="spacesPanelAction"
-                                title="Collapse Panel"
-                                type="button"
-                                onClick={onToggle}
-                            >
-                                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14">
-                                    <path d="M6 3l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                            </button>
-                        </div>
+                    <div className="pn-tabs" style={{ paddingTop: 0 }}>
+                        <button
+                            type="button"
+                            className={`pn-tab ${panelMode === 'sessions' ? 'pn-tab--active' : ''}`}
+                            style={{ paddingTop: 13 }}
+                            onClick={() => setPanelMode('sessions')}
+                        >
+                            Sessions <span className="pn-tab-n">{sessions.length}</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`pn-tab ${panelMode === 'resources' ? 'pn-tab--active' : ''}`}
+                            style={{ paddingTop: 13 }}
+                            onClick={() => setPanelMode('resources')}
+                            data-testid="resources-tab-btn"
+                        >
+                            Resources
+                        </button>
+                        <span className="pn-head-spacer" style={{ flex: 1 }} />
+                        {panelMode === 'sessions' && (
+                            <NewSpaceDropdown
+                                variant="toolbar"
+                                onOpenNewSession={onOpenNewSession}
+                                onOpenWhiteboard={handleCreateWhiteboard}
+                                agentShortcuts={agentShortcuts}
+                                onQuickStart={onQuickStart}
+                            />
+                        )}
+                        <button
+                            className="pn-ib"
+                            style={{ alignSelf: 'center' }}
+                            title="Collapse Panel"
+                            type="button"
+                            onClick={onToggle}
+                        >
+                            <Icon name="chevronR" />
+                        </button>
                     </div>
 
                     {panelMode === 'sessions' ? (

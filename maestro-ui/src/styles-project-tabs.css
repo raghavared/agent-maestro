@@ -1,245 +1,168 @@
 /* ------------------------------------------------------------------ */
-/*  Project Tab Bar                                                    */
+/*  Project Tab Bar — redesign (pn-top host)                          */
+/*  The bar chrome (pn-top / pn-ptab / pn-ib / pn-kbd) comes from      */
+/*  redesign-tokens.css. The rules below cover the functional          */
+/*  surfaces that have no home in the simplified design (drag/drop     */
+/*  feedback, master ★, count chips, the settings gear, the add-       */
+/*  project dropdown, horizontal scroll) — each re-tokenized with      */
+/*  --pn-* variables. Everything is scoped to html[data-redesign].     */
 /* ------------------------------------------------------------------ */
 
-.projectTabBar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  flex-shrink: 0;
-  background: #000000;
-  border-bottom: 1px solid var(--theme-border);
-  position: relative;
-  z-index: 100;
-}
-
-.projectTabs {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
+/* tabs scroller — pn-ptabs provides display/gap/align; this keeps the
+   horizontal scroll + edge auto-scroll (handleTabPointerDown) working
+   when tabs overflow, without growing past the right-hand controls. */
+html[data-redesign] .projectTabs {
   min-width: 0;
+  flex: 0 1 auto;
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+html[data-redesign] .projectTabs::-webkit-scrollbar { display: none; }
 
-.projectTabs::-webkit-scrollbar {
-  display: none;
-}
-
-.projectTab {
-  display: flex;
-  align-items: center;
-  flex: 0 1 200px;
-  min-width: 80px;
-  max-width: 200px;
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  background: linear-gradient(
-    180deg,
-    rgba(var(--theme-primary-rgb), 0.06) 0%,
-    rgba(var(--theme-primary-rgb), 0.02) 100%
-  );
-  color: rgba(var(--theme-primary-rgb), 0.6);
-  font-family: var(--style-font-ui);
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: all 0.2s ease;
+/* tab = pn-ptab visually; .projectTab stays as the JS hook (FLIP +
+   pointer-drag query it) and as the positioning host for drop markers. */
+html[data-redesign] .projectTab {
   position: relative;
+  max-width: 220px;
+  cursor: pointer;
 }
 
-.projectTab::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  border-radius: 6px 0 0 6px;
-  background: rgba(var(--theme-primary-rgb), 0.25);
-  transition: all 0.2s ease;
-}
-
-.projectTab:hover {
-  color: var(--theme-primary);
-  border-color: rgba(var(--theme-primary-rgb), 0.5);
-  background: linear-gradient(
-    180deg,
-    rgba(var(--theme-primary-rgb), 0.12) 0%,
-    rgba(var(--theme-primary-rgb), 0.06) 100%
-  );
-  box-shadow: 0 1px 8px rgba(var(--theme-primary-rgb), 0.15);
-}
-
-.projectTab:hover::before {
-  background: var(--theme-primary);
-  box-shadow: 0 0 6px var(--theme-primary);
-}
-
-.projectTabActive {
-  color: var(--theme-primary);
-  border-color: var(--theme-primary);
-  background: linear-gradient(
-    180deg,
-    rgba(var(--theme-primary-rgb), 0.15) 0%,
-    rgba(var(--theme-primary-rgb), 0.07) 100%
-  );
-  box-shadow:
-    0 1px 8px rgba(var(--theme-primary-rgb), 0.2),
-    inset 0 1px 0 rgba(var(--theme-primary-rgb), 0.1);
-}
-
-.projectTabActive::before {
-  background: var(--theme-primary);
-  box-shadow: 0 0 8px var(--theme-primary);
-}
-
-.projectTabActive:hover {
-  background: linear-gradient(
-    180deg,
-    rgba(var(--theme-primary-rgb), 0.18) 0%,
-    rgba(var(--theme-primary-rgb), 0.1) 100%
-  );
-}
-
-.projectTabNeedsInput {
-  animation: projectTabNeedsInputGlow 2s ease-in-out infinite;
-  border-color: rgba(255, 255, 255, 0.5);
-}
-
-@keyframes projectTabNeedsInputGlow {
-  0%, 100% { box-shadow: 0 0 4px rgba(255, 255, 255, 0.3); border-color: rgba(255, 255, 255, 0.4); }
-  50% { box-shadow: 0 0 12px rgba(255, 255, 255, 0.7); border-color: rgba(255, 255, 255, 0.9); }
-}
-
-.projectTabMain {
-  display: flex;
+html[data-redesign] .projectTabMain {
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-  flex: 1;
+  gap: 7px;
   min-width: 0;
-  padding: 6px 10px;
+  padding: 0;
   border: none;
   background: transparent;
   color: inherit;
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: inherit;
+  font: inherit;
   cursor: pointer;
 }
 
-.projectTabName {
+html[data-redesign] .projectTabName {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.projectTabCount {
-  font-family: var(--style-font-ui);
+html[data-redesign] .projectTabMasterIcon {
+  color: var(--pn-brand);
+  font-size: 11px;
+  line-height: 1;
+}
+
+html[data-redesign] .projectTabCount {
+  font-family: var(--pn-mono);
   font-size: 10px;
-  color: rgba(var(--theme-primary-rgb), 0.5);
-  background: rgba(var(--theme-primary-rgb), 0.1);
-  border: 1px solid rgba(var(--theme-primary-rgb), 0.2);
-  padding: 2px 6px;
-  min-width: 18px;
+  color: var(--pn-ink-3);
+  background: var(--pn-hover);
+  border: 1px solid var(--pn-line);
+  padding: 1px 5px;
+  min-width: 16px;
   text-align: center;
-  border-radius: 3px;
+  border-radius: var(--pn-r-xs);
 }
 
-.projectTabActive .projectTabCount {
-  background: rgba(var(--theme-primary-rgb), 0.15);
-  border-color: rgba(var(--theme-primary-rgb), 0.4);
-  color: var(--theme-primary);
-}
-
-.projectTabWorking {
+html[data-redesign] .projectTabWorking {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-family: var(--style-font-ui);
+  font-family: var(--pn-mono);
   font-size: 10px;
-  color: #00ffff;
-  background: rgba(0, 255, 255, 0.1);
-  border: 1px solid rgba(0, 255, 255, 0.3);
-  padding: 2px 6px;
-  border-radius: 3px;
+  color: var(--pn-run);
+  background: var(--pn-run-soft);
+  border: 1px solid transparent;
+  padding: 1px 5px;
+  border-radius: var(--pn-r-xs);
 }
-
-.projectTabWorkingDot {
+html[data-redesign] .projectTabWorkingDot {
   width: 5px;
   height: 5px;
   border-radius: 999px;
-  background: #00ffff;
-  box-shadow: 0 0 6px #00ffff;
-  animation: terminalPulse 1s ease-in-out infinite;
+  background: var(--pn-run);
 }
 
-@keyframes terminalPulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 6px #00ffff; }
-  50% { opacity: 0.5; box-shadow: 0 0 2px #00ffff; }
-}
-
-.projectTabBarActions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.projectTabBarBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--theme-border);
-  background: rgba(var(--theme-primary-rgb), 0.03);
-  color: rgba(var(--theme-primary-rgb), 0.6);
+/* active-tab settings gear (kept; .projectTabSettingsBtn is also the
+   selector handleTabPointerDown skips so the gear stays clickable). */
+html[data-redesign] .projectTabSettingsBtn {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 2px;
+  border: none;
+  background: transparent;
+  color: var(--pn-ink-3);
+  border-radius: var(--pn-r-xs);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 140ms, color 140ms;
+}
+html[data-redesign] .projectTabSettingsBtn:hover {
+  background: var(--pn-hover);
+  color: var(--pn-ink);
 }
 
-.projectTabBarBtn:hover {
-  color: var(--theme-primary);
-  border-color: var(--theme-primary);
-  background: rgba(var(--theme-primary-rgb), 0.1);
-  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.2);
+/* needs-input attention pulse */
+html[data-redesign] .projectTabNeedsInput {
+  animation: projectTabNeedsInputGlow 2s ease-in-out infinite;
+}
+@keyframes projectTabNeedsInputGlow {
+  0%, 100% { box-shadow: 0 0 0 1px var(--pn-wait-soft); }
+  50% { box-shadow: 0 0 8px 1px var(--pn-wait-soft); }
 }
 
-.projectTabBarBtn.projectTabBarBtnActive {
-  color: var(--theme-primary);
-  background: rgba(var(--theme-primary-rgb), 0.12);
-  border-color: var(--theme-primary);
-}
-
-/* Drag & drop states */
-.projectTabDragging {
-  opacity: 0.5;
-}
-
-.projectTabDropBefore::after {
+/* drag & drop affordances */
+html[data-redesign] .projectTabDragging { opacity: 0.5; }
+html[data-redesign] .projectTabDropBefore::after,
+html[data-redesign] .projectTabDropAfter::after {
   content: '';
   position: absolute;
-  left: -4px;
-  top: 2px;
-  bottom: 2px;
+  top: 3px;
+  bottom: 3px;
   width: 2px;
-  background: var(--theme-primary);
+  background: var(--pn-brand);
   border-radius: 1px;
-  box-shadow: 0 0 6px var(--theme-primary);
 }
+html[data-redesign] .projectTabDropBefore::after { left: -3px; }
+html[data-redesign] .projectTabDropAfter::after { right: -3px; }
 
-.projectTabDropAfter::after {
-  content: '';
+/* add-project dropdown */
+html[data-redesign] .projectAddMenuWrapper {
+  position: relative;
+  display: inline-flex;
+}
+html[data-redesign] .projectAddMenu {
   position: absolute;
-  right: -4px;
-  top: 2px;
-  bottom: 2px;
-  width: 2px;
-  background: var(--theme-primary);
-  border-radius: 1px;
-  box-shadow: 0 0 6px var(--theme-primary);
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  min-width: 184px;
+  padding: 5px;
+  background: var(--pn-card);
+  border: 1px solid var(--pn-line);
+  border-radius: var(--pn-r-md);
+  box-shadow: var(--pn-sh-pop);
+}
+html[data-redesign] .projectAddMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: none;
+  background: transparent;
+  color: var(--pn-ink-2);
+  font-family: var(--pn-ui);
+  font-size: 12px;
+  text-align: left;
+  border-radius: var(--pn-r-sm);
+  cursor: pointer;
+  transition: background 140ms, color 140ms;
+}
+html[data-redesign] .projectAddMenuItem:hover {
+  background: var(--pn-hover);
+  color: var(--pn-ink);
 }

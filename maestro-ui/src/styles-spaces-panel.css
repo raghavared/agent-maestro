@@ -14,24 +14,32 @@
   /* No width transition — instant toggle avoids layout thrashing */
 }
 
+/* Ease the terminal↔right-panel hairline when it recolors to brass on
+   divider hover/drag (see .sidebarLeftResizeHandle:hover + .pn-sp). */
+.pn-sp {
+  transition: border-color 0.15s ease;
+}
+
 .spacesPanelContent {
   height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(900px 520px at 90% 0%, rgba(var(--theme-primary-rgb), 0.06), transparent 55%),
-    linear-gradient(180deg, var(--panel), var(--panel-2));
-  border-left: 1px solid rgba(var(--theme-primary-rgb), 0.15);
+  /* Transparent so the pn-sp panel surface (--pn-surface) shows through in
+     both themes; pn-sp owns the surface + left hairline. */
+  background: transparent;
+  border-left: none;
   contain: strict;
 }
 
+/* NOTE: the rail now renders as .pn-srail (foundation); this legacy rule is
+   no longer applied. Tokens kept here as insurance against any fallback path. */
 .spacesRail {
   width: 48px;
   min-width: 48px;
   height: 100%;
-  background: #080a0f;
-  border-left: 1px solid var(--border);
+  background: var(--pn-paper);
+  border-left: 1px solid var(--pn-line);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -76,12 +84,12 @@
 /* Dropdown menu from plus button (rendered via portal with fixed positioning) */
 .spacesRailDropdown {
   min-width: 160px;
-  background: var(--bg-elevated, #1a1b26);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  background: var(--pn-surface);
+  border: 1px solid var(--pn-line);
+  border-radius: var(--pn-r-sm);
   padding: 4px;
   z-index: 100;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--pn-sh-md);
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -94,17 +102,18 @@
   padding: 6px 10px;
   background: transparent;
   border: none;
-  color: var(--fg, #c0caf5);
-  font-family: var(--style-font-ui);
+  color: var(--pn-ink-2);
+  font-family: var(--pn-ui);
   font-size: 12px;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--pn-r-xs);
   white-space: nowrap;
   transition: background 0.1s ease;
 }
 
 .spacesRailDropdownItem:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--pn-hover);
+  color: var(--pn-ink);
 }
 
 .spacesRailDropdownItem:disabled {
@@ -321,12 +330,12 @@
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  border-bottom: 1px solid var(--pn-line);
   flex-shrink: 0;
 }
 
 .resourcesViewSearchIcon {
-  color: rgba(240, 244, 248, 0.35);
+  color: var(--pn-ink-4);
   flex-shrink: 0;
 }
 
@@ -335,14 +344,14 @@
   background: transparent;
   border: none;
   outline: none;
-  color: rgba(240, 244, 248, 0.85);
-  font-family: var(--style-font-ui);
+  color: var(--pn-ink);
+  font-family: var(--pn-ui);
   font-size: 12px;
-  caret-color: var(--theme-primary);
+  caret-color: var(--pn-brand);
 }
 
 .resourcesViewSearchInput::placeholder {
-  color: rgba(240, 244, 248, 0.3);
+  color: var(--pn-ink-4);
 }
 
 .resourcesViewFilters {
@@ -350,18 +359,18 @@
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  border-bottom: 1px solid rgba(var(--theme-primary-rgb), 0.06);
+  border-bottom: 1px solid var(--pn-line);
   flex-shrink: 0;
   flex-wrap: wrap;
 }
 
 .resourcesViewFilter {
   padding: 3px 9px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: transparent;
-  color: rgba(240, 244, 248, 0.45);
-  font-family: var(--style-font-ui);
+  border-radius: var(--pn-r-pill);
+  border: 1px solid var(--pn-line-2);
+  background: var(--pn-card);
+  color: var(--pn-ink-3);
+  font-family: var(--pn-ui);
   font-size: 10px;
   font-weight: 600;
   cursor: pointer;
@@ -370,14 +379,14 @@
 }
 
 .resourcesViewFilter:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(240, 244, 248, 0.75);
+  background: var(--pn-hover);
+  color: var(--pn-ink);
 }
 
 .resourcesViewFilter--active {
-  background: rgba(var(--theme-primary-rgb), 0.12);
-  border-color: rgba(var(--theme-primary-rgb), 0.35);
-  color: var(--theme-primary);
+  background: var(--pn-brand-soft);
+  border-color: var(--pn-brand);
+  color: var(--pn-brand);
 }
 
 .resourcesViewList {
@@ -386,15 +395,15 @@
   overflow-x: hidden;
   padding: 6px 0;
   scrollbar-width: thin;
-  scrollbar-color: rgba(var(--theme-primary-rgb), 0.15) transparent;
+  scrollbar-color: var(--pn-line-2) transparent;
 }
 
 .resourcesViewEmpty {
   padding: 16px;
   text-align: center;
   font-size: 12px;
-  color: rgba(240, 244, 248, 0.3);
-  font-family: var(--style-font-ui);
+  color: var(--pn-ink-4);
+  font-family: var(--pn-ui);
 }
 
 .resourcesViewItem {
@@ -404,7 +413,7 @@
   padding: 7px 14px;
   background: transparent;
   border: none;
-  color: rgba(240, 244, 248, 0.75);
+  color: var(--pn-ink-2);
   cursor: pointer;
   width: 100%;
   text-align: left;
@@ -412,7 +421,7 @@
 }
 
 .resourcesViewItem:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--pn-hover);
 }
 
 .resourcesViewItemIcon {
@@ -421,23 +430,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: var(--pn-r-sm);
   flex-shrink: 0;
 }
 
 .resourcesViewItemIcon--doc {
-  background: rgba(107, 138, 253, 0.12);
-  color: rgba(107, 138, 253, 0.85);
+  background: var(--pn-info-soft);
+  color: var(--pn-info);
 }
 
 .resourcesViewItemIcon--diagram {
-  background: rgba(var(--theme-primary-rgb), 0.12);
-  color: var(--theme-primary);
+  background: var(--pn-brand-soft);
+  color: var(--pn-brand);
 }
 
 .resourcesViewItemIcon--image {
-  background: rgba(34, 211, 153, 0.12);
-  color: rgba(34, 211, 153, 0.85);
+  background: var(--pn-run-soft);
+  color: var(--pn-run);
 }
 
 .resourcesViewItemBody {
@@ -449,51 +458,51 @@
 }
 
 .resourcesViewItemTitle {
-  font-family: var(--style-font-ui);
+  font-family: var(--pn-ui);
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: rgba(240, 244, 248, 0.85);
+  color: var(--pn-ink);
 }
 
 .resourcesViewItemMeta {
-  font-family: var(--style-font-ui);
+  font-family: var(--pn-ui);
   font-size: 10px;
-  color: rgba(240, 244, 248, 0.35);
+  color: var(--pn-ink-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .resourcesViewItemBadge {
-  font-family: var(--style-font-ui);
+  font-family: var(--pn-ui);
   font-size: 9px;
   font-weight: 600;
   padding: 2px 6px;
-  border-radius: 999px;
+  border-radius: var(--pn-r-pill);
   border: 1px solid;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .resourcesViewItemBadge--doc {
-  color: rgba(107, 138, 253, 0.75);
-  border-color: rgba(107, 138, 253, 0.25);
-  background: rgba(107, 138, 253, 0.08);
+  color: var(--pn-info);
+  border-color: var(--pn-info-soft);
+  background: var(--pn-info-soft);
 }
 
 .resourcesViewItemBadge--diagram {
-  color: var(--theme-primary);
-  border-color: rgba(var(--theme-primary-rgb), 0.25);
-  background: rgba(var(--theme-primary-rgb), 0.08);
+  color: var(--pn-brand);
+  border-color: var(--pn-brand-soft);
+  background: var(--pn-brand-soft);
 }
 
 .resourcesViewItemBadge--image {
-  color: rgba(34, 211, 153, 0.8);
-  border-color: rgba(34, 211, 153, 0.25);
-  background: rgba(34, 211, 153, 0.08);
+  color: var(--pn-run);
+  border-color: var(--pn-run-soft);
+  background: var(--pn-run-soft);
 }
 
 /* Image preview overlay */
@@ -1110,23 +1119,23 @@
 .sidebarRightResizeHandle::before {
   content: '';
   position: absolute;
-  left: 3px;
+  left: -1px;
   top: 0;
   bottom: 0;
-  width: 2px;
-  background: var(--border);
+  width: 1px;
+  background: transparent;
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .sidebarRightResizeHandle:hover::before,
 .sidebarRightResizeHandle:focus-visible::before {
-  background: rgba(var(--theme-primary-rgb), 0.8);
-  box-shadow: 0 0 8px rgba(var(--theme-primary-rgb), 0.5);
+  background: var(--pn-brand);
+  box-shadow: 0 0 6px var(--pn-brand-soft);
 }
 
 .sidebarRightResizeHandle:hover,
 .sidebarRightResizeHandle:focus-visible {
-  background: rgba(var(--theme-primary-rgb), 0.1);
+  background: var(--pn-brand-soft);
 }
 
 .sidebarRightResizeHandle:focus-visible {
@@ -1144,7 +1153,8 @@
   padding: 0;
 }
 
-/* Invisible hit target for drag interaction */
+/* Invisible 8px hit target for drag interaction (no fill — the visible line is
+   pn-sp's 1px left hairline, recolored to brass on hover below). */
 .sidebarLeftResizeHandle::before {
   content: '';
   position: absolute;
@@ -1154,12 +1164,13 @@
   width: 8px;
   background: transparent;
   cursor: col-resize;
-  transition: background 0.15s ease;
 }
 
-.sidebarLeftResizeHandle:hover::before,
-.sidebarLeftResizeHandle:focus-visible::before {
-  background: rgba(var(--theme-primary-rgb), 0.5);
+/* Hover/drag: turn the adjacent pn-sp hairline brass — a 1px line, matching the
+   left divider (instead of painting the fat 8px hit target). */
+.sidebarLeftResizeHandle:hover + .pn-sp,
+.sidebarLeftResizeHandle:focus-visible + .pn-sp {
+  border-left-color: var(--pn-brand);
 }
 
 .sidebarLeftResizeHandle:focus-visible {

@@ -3,6 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { parseJsonlText, groupMessages, checkMessagesOngoing } from '../../utils/claude-log';
 import type { ParsedMessage, ConversationGroup } from '../../utils/claude-log';
 import { LogMessageGroup } from './LogMessageGroup';
+import { useSpellStore } from '../../stores/useSpellStore';
+import { Icon } from '../Icon';
 
 interface ClaudeLogFile {
   filename: string;
@@ -18,13 +20,17 @@ interface LogTailResult {
   fileSize: number;
 }
 
-interface SessionLogStripProps {
+interface TerminalStripProps {
   cwd: string;
   maestroSessionId: string;
   agentTool?: string | null;
+  onAttach: () => void;
+  onDraw: () => void;
 }
 
 const POLL_INTERVAL = 2000;
+/** Default model context window used to fill the circular gauge. */
+const CONTEXT_WINDOW_MAX = 200_000;
 type LogProvider = 'claude' | 'codex';
 
 function resolveLogProvider(agentTool?: string | null): LogProvider {
@@ -115,8 +121,37 @@ function computeStripStats(messages: ParsedMessage[]): StripStats {
   };
 }
 
-export function SessionLogStrip({ cwd, maestroSessionId, agentTool }: SessionLogStripProps) {
+/** Small circular context-window gauge (contextTokens / window max). */
+function ContextGauge({ tokens }: { tokens: number }) {
+  const pct = Math.max(0, Math.min(1, tokens / CONTEXT_WINDOW_MAX));
+  const r = 7;
+  const c = 2 * Math.PI * r;
+  const dash = c * pct;
+  const pctLabel = Math.round(pct * 100);
+  return (
+    <span
+      className="termStripGauge"
+      title={`Context window — ${formatTokens(tokens)} / ${formatTokens(CONTEXT_WINDOW_MAX)} (${pctLabel}%)`}
+    >
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+        <circle className="termStripGaugeTrack" cx="9" cy="9" r={r} />
+        <circle
+          className="termStripGaugeFill"
+          cx="9"
+          cy="9"
+          r={r}
+          strokeDasharray={`${dash} ${c}`}
+          transform="rotate(-90 9 9)"
+        />
+      </svg>
+      <span className="termStripGaugeLabel">{formatTokens(tokens)}</span>
+    </span>
+  );
+}
+
+export function TerminalStrip({ cwd, maestroSessionId, agentTool, onAttach, onDraw }: TerminalStripProps) {
   const provider = resolveLogProvider(agentTool);
+  const openPicker = useSpellStore((s) => s.openPicker);
   const [resolvedProvider, setResolvedProvider] = useState<LogProvider>(provider);
   const [allMessages, setAllMessages] = useState<ParsedMessage[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -245,69 +280,12 @@ export function SessionLogStrip({ cwd, maestroSessionId, agentTool }: SessionLog
   if (!ready || !selectedFile) return null;
 
   return (
-    <div className={`sessionLogStrip ${expanded ? 'sessionLogStrip--expanded' : ''}`}>
-      {/* Collapsed stats bar - always visible */}
-      <div
-        className="sessionLogStripBar"
-        onClick={() => setExpanded((v) => !v)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setExpanded((v) => !v); }}
-      >
-        <div className="sessionLogStripBarLeft">
-          <span className="sessionLogStripChevron">{expanded ? '▾' : '▸'}</span>
-          <span className="sessionLogStripLabel">Session Log</span>
-          {isOngoing && <span className="sessionLogStripLiveDot" />}
-          {isOngoing && <span className="sessionLogStripLiveTag">LIVE</span>}
-        </div>
-        <div className="sessionLogStripBarStats">
-          {stats.contextTokens > 0 && (
-            <span className="sessionLogStripStat" title="Current context window">
-              ctx {formatTokens(stats.contextTokens)}
-            </span>
-          )}
-          {stats.cacheHitPct > 0 && (
-            <span className="sessionLogStripStat sessionLogStripStat--cache" title="Cache hit rate">
-              ⚡{stats.cacheHitPct}%
-            </span>
-          )}
-          {stats.totalOutput > 0 && (
-            <span className="sessionLogStripStat sessionLogStripStat--dim" title="Total output tokens">
-              out {formatTokens(stats.totalOutput)}
-            </span>
-          )}
-          {stats.turns > 0 && (
-            <span className="sessionLogStripStat sessionLogStripStat--dim" title="API turns">
-              {stats.turns} {stats.turns === 1 ? 'turn' : 'turns'}
-            </span>
-          )}
-          {stats.toolCalls > 0 && (
-            <span className="sessionLogStripStat sessionLogStripStat--dim" title="Tool calls">
-              {stats.toolCalls} tools
-            </span>
-          )}
-          {stats.durationMs > 0 && (
-            <span className="sessionLogStripStat sessionLogStripStat--dim" title="Duration">
-              {formatDuration(stats.durationMs)}
-            </span>
-          )}
-          {stats.model && (
-            <span className="sessionLogStripStat sessionLogStripStat--model" title="Model">
-              {stats.model.replace('claude-', '').replace(/-\d{8}$/, '')}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Expanded: full log viewer overlay */}
+    <div className={`termStrip ${expanded ? 'termStrip--expanded' : ''}`}>
+      {/* Expanded: full log transcript — opens UPWARD, above the strip */}
       {expanded && (
-        <div
-          className="sessionLogStripOverlay"
-          ref={bodyRef}
-          onScroll={handleScroll}
-        >
+        <div className="termStripOverlay" ref={bodyRef} onScroll={handleScroll}>
           {allMessages.length === 0 ? (
-            <div className="sessionLogStripEmpty">Waiting for log data...</div>
+            <div className="termStripEmpty">Waiting for log data...</div>
           ) : (
             <div className="sessionLogViewer">
               {groups.map((group, i) => (
@@ -317,6 +295,93 @@ export function SessionLogStrip({ cwd, maestroSessionId, agentTool }: SessionLog
           )}
         </div>
       )}
+
+      {/* The fused bottom strip */}
+      <div className="termStripBar">
+        {/* 1. Session Log toggle */}
+        <button
+          type="button"
+          className="termStripToggle"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          title={expanded ? 'Collapse session log' : 'Expand session log'}
+        >
+          <span className="termStripChevron">{expanded ? '▾' : '▸'}</span>
+          <span className="termStripLabel">Session Log</span>
+          {isOngoing && <span className="termStripLiveDot" />}
+          {isOngoing && <span className="termStripLiveTag">LIVE</span>}
+        </button>
+
+        {/* 2. Stats rail (edge-faded) */}
+        <div className="termStripRail">
+          <div className="termStripRailInner">
+            {stats.contextTokens > 0 && <ContextGauge tokens={stats.contextTokens} />}
+            {stats.cacheHitPct > 0 && (
+              <span className="termStripStat termStripStat--cache" title="Cache hit rate">
+                {stats.cacheHitPct}% cache
+              </span>
+            )}
+            {stats.totalOutput > 0 && (
+              <span className="termStripStat termStripStat--dim" title="Total output tokens">
+                out {formatTokens(stats.totalOutput)}
+              </span>
+            )}
+            {stats.turns > 0 && (
+              <span className="termStripStat termStripStat--dim" title="API turns">
+                {stats.turns} {stats.turns === 1 ? 'turn' : 'turns'}
+              </span>
+            )}
+            {stats.toolCalls > 0 && (
+              <span className="termStripStat termStripStat--dim" title="Tool calls">
+                {stats.toolCalls} tools
+              </span>
+            )}
+            {stats.durationMs > 0 && (
+              <span className="termStripStat termStripStat--dim" title="Duration">
+                {formatDuration(stats.durationMs)}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* 3. Model badge — brass pill, kept fully visible */}
+        {stats.model && (
+          <span className="termStripModel" title="Model">
+            {stats.model.replace('claude-', '').replace(/-\d{8}$/, '')}
+          </span>
+        )}
+
+        {/* 4. Actions */}
+        <div className="termStripActions">
+          <button
+            type="button"
+            className="termStripActionBtn"
+            onClick={onAttach}
+            title="Attach files — inject @paths into session"
+            aria-label="Attach files"
+          >
+            <Icon name="paperclip" size={15} />
+          </button>
+          <button
+            type="button"
+            className="termStripActionBtn"
+            onClick={onDraw}
+            title="Draw — sketch and inject the drawing into session"
+            aria-label="Open drawing board"
+          >
+            <Icon name="pencil" size={15} />
+          </button>
+          <button
+            type="button"
+            className="termStripActionBtn"
+            onClick={() => openPicker(maestroSessionId)}
+            title="Cast spell — inject prompt into session"
+            aria-label="Open spell picker"
+          >
+            <span className="termStripActionGlyph">✦</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -25,12 +25,16 @@ import { COLUMNS, PRIORITY_COLORS } from "./boardConstants";
 import { useTasks } from "../../hooks/useTasks";
 import { Dashboard } from "./Dashboard";
 import { ErrorBoundary } from "../ErrorBoundary";
+import { Icon, Glyph } from "./redesign/kit";
 
 type BoardView = "tasks" | "sessions" | "dashboard";
 type LayoutMode = "grouped" | "unified";
 type SessionLayoutMode = "grouped" | "unified";
 
 const STORAGE_KEY = "maestro-board-selected-projects";
+
+// inline-flex helper so a Glyph + count read as one chip inside pn-meta
+const STAT_CHIP: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5 };
 
 export type BoardProps = {
     onClose: () => void;
@@ -240,93 +244,90 @@ export const Board = React.memo(function Board({
         <div className={isSingleProject ? "taskBoardOverlay" : "mpbOverlay"}>
             <div className={isSingleProject ? "taskBoardContainer" : "mpbContainer"}>
                 {/* Header */}
-                <div className={isSingleProject ? "taskBoardHeader" : "mpbHeader"}>
-                    <div className={isSingleProject ? "taskBoardHeaderLeft" : "mpbHeaderLeft"}>
-                        <div className="taskBoardTabs">
+                <div className="pn-bd-hd">
+                    <div className="pn-tabs">
+                        <button type="button"
+                            className={`pn-tab ${activeView === "tasks" ? "pn-tab--active" : ""}`}
+                            onClick={() => setActiveView("tasks")}
+                        >
+                            <Icon name="listChecks" size={14} /> Tasks
+                        </button>
+                        <button type="button"
+                            className={`pn-tab ${activeView === "sessions" ? "pn-tab--active" : ""}`}
+                            onClick={() => setActiveView("sessions")}
+                        >
+                            <Icon name="terminal" size={14} /> Sessions
+                        </button>
+                        <button type="button"
+                            className={`pn-tab ${activeView === "dashboard" ? "pn-tab--active" : ""}`}
+                            onClick={() => setActiveView("dashboard")}
+                        >
+                            <Icon name="graph" size={14} /> Dashboard
+                        </button>
+                    </div>
+                    {isSingleProject ? (
+                        <span className="pn-bd-hd__title">{headerLabel}</span>
+                    ) : (
+                        <span className="pn-bd-hd__sub">{headerLabel}</span>
+                    )}
+                    {!isSingleProject && activeView === "tasks" && (
+                        <div className="pn-seg">
                             <button type="button"
-                                className={`taskBoardTab ${activeView === "tasks" ? "taskBoardTab--active" : ""}`}
-                                onClick={() => setActiveView("tasks")}
+                                className={`pn-seg-i ${layoutMode === "grouped" ? "pn-seg-i--active" : ""}`}
+                                onClick={() => setLayoutMode("grouped")}
+                                title="Grouped by project"
                             >
-                                <span className="taskBoardTabSymbol">⊞</span> Tasks
+                                <Icon name="layers" size={14} />
                             </button>
                             <button type="button"
-                                className={`taskBoardTab ${activeView === "sessions" ? "taskBoardTab--active" : ""}`}
-                                onClick={() => setActiveView("sessions")}
+                                className={`pn-seg-i ${layoutMode === "unified" ? "pn-seg-i--active" : ""}`}
+                                onClick={() => setLayoutMode("unified")}
+                                title="Unified kanban"
                             >
-                                <span className="taskBoardTabSymbol">◈</span> Sessions
-                            </button>
-                            <button
-                                className={`taskBoardTab ${activeView === "dashboard" ? "taskBoardTab--active" : ""}`}
-                                onClick={() => setActiveView("dashboard")}
-                            >
-                                <span className="taskBoardTabSymbol">◫</span> Dashboard
+                                <Icon name="grid" size={14} />
                             </button>
                         </div>
-                        {isSingleProject ? (
-                            <span className="taskBoardProjectName">{headerLabel}</span>
-                        ) : (
-                            <>
-                                <span className="mpbProjectCount">{headerLabel}</span>
-                                {activeView === "tasks" && (
-                                    <div className="mpbLayoutToggle">
-                                        <button type="button"
-                                            className={`mpbLayoutBtn ${layoutMode === "grouped" ? "mpbLayoutBtn--active" : ""}`}
-                                            onClick={() => setLayoutMode("grouped")}
-                                            title="Grouped by project"
-                                        >
-                                            ≡
-                                        </button>
-                                        <button type="button"
-                                            className={`mpbLayoutBtn ${layoutMode === "unified" ? "mpbLayoutBtn--active" : ""}`}
-                                            onClick={() => setLayoutMode("unified")}
-                                            title="Unified kanban"
-                                        >
-                                            ⊞
-                                        </button>
-                                    </div>
-                                )}
-                                {activeView === "sessions" && (
-                                    <div className="mpbLayoutToggle">
-                                        <button type="button"
-                                            className={`mpbLayoutBtn ${sessionLayoutMode === "grouped" ? "mpbLayoutBtn--active" : ""}`}
-                                            onClick={() => setSessionLayoutMode("grouped")}
-                                            title="Grouped by project"
-                                        >
-                                            ≡
-                                        </button>
-                                        <button type="button"
-                                            className={`mpbLayoutBtn ${sessionLayoutMode === "unified" ? "mpbLayoutBtn--active" : ""}`}
-                                            onClick={() => setSessionLayoutMode("unified")}
-                                            title="Unified view"
-                                        >
-                                            ⊞
-                                        </button>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                    <div className="taskBoardHeaderStats">
+                    )}
+                    {!isSingleProject && activeView === "sessions" && (
+                        <div className="pn-seg">
+                            <button type="button"
+                                className={`pn-seg-i ${sessionLayoutMode === "grouped" ? "pn-seg-i--active" : ""}`}
+                                onClick={() => setSessionLayoutMode("grouped")}
+                                title="Grouped by project"
+                            >
+                                <Icon name="layers" size={14} />
+                            </button>
+                            <button type="button"
+                                className={`pn-seg-i ${sessionLayoutMode === "unified" ? "pn-seg-i--active" : ""}`}
+                                onClick={() => setSessionLayoutMode("unified")}
+                                title="Unified view"
+                            >
+                                <Icon name="grid" size={14} />
+                            </button>
+                        </div>
+                    )}
+                    <span className="pn-bd-hd__sp" />
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
                         {activeView === "tasks" ? (
                             <>
-                                <span className="taskBoardStat taskBoardStatActive">◉ {taskStats.active}</span>
-                                <span className="taskBoardStat taskBoardStatPending">○ {taskStats.pending}</span>
-                                <span className="taskBoardStat taskBoardStatBlocked">✗ {taskStats.blocked}</span>
-                                <span className="taskBoardStat taskBoardStatReview">◎ {taskStats.review}</span>
-                                <span className="taskBoardStat taskBoardStatDone">✓ {taskStats.done}</span>
+                                <span className="pn-meta" style={STAT_CHIP}><Glyph kind="in_progress" size={14} />{taskStats.active}</span>
+                                <span className="pn-meta" style={STAT_CHIP}><Glyph kind="todo" size={14} />{taskStats.pending}</span>
+                                <span className="pn-meta" style={STAT_CHIP}><Glyph kind="blocked" size={14} />{taskStats.blocked}</span>
+                                <span className="pn-meta" style={STAT_CHIP}><Glyph kind="in_review" size={14} />{taskStats.review}</span>
+                                <span className="pn-meta" style={STAT_CHIP}><Glyph kind="completed" size={14} />{taskStats.done}</span>
                             </>
                         ) : activeView === "sessions" ? (
                             <>
-                                <span className="taskBoardStat taskBoardStatActive">◉ {sessionStats.working}</span>
-                                <span className="taskBoardStat taskBoardStatPending">○ {sessionStats.idle}</span>
-                                <span className="taskBoardStat taskBoardStatDone">✓ {sessionStats.total}</span>
+                                <span className="pn-meta" style={STAT_CHIP}><Glyph kind="working" size={14} />{sessionStats.working}</span>
+                                <span className="pn-meta" style={STAT_CHIP}><Glyph kind="idle" size={14} />{sessionStats.idle}</span>
+                                <span className="pn-meta">{sessionStats.total} total</span>
                             </>
                         ) : (
-                            <span className="taskBoardStat" style={{ color: 'rgba(var(--theme-primary-rgb), 0.4)' }}>Analytics</span>
+                            <span className="pn-meta">Analytics</span>
                         )}
                     </div>
-                    <button type="button" className="taskBoardCloseBtn" onClick={onClose} title="Close board (Esc)">
-                        ✕
+                    <button type="button" className="pn-ib" onClick={onClose} title="Close board (Esc)">
+                        <Icon name="x" />
                     </button>
                 </div>
 
@@ -379,8 +380,8 @@ export const Board = React.memo(function Board({
                                         );
                                     })}
                                     {selectedProjectIdArray.length === 0 && (
-                                        <div className="mpbEmptyState">
-                                            <span className="mpbEmptyText">Select projects from the sidebar</span>
+                                        <div className="pn-empty">
+                                            <span className="pn-empty__p">Select projects from the sidebar</span>
                                         </div>
                                     )}
                                 </div>
@@ -437,30 +438,30 @@ function VirtualizedColumnBody({
     const rowVirtualizer = useVirtualizer({
         count: tasks.length,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => 72,
+        estimateSize: () => 110,
         overscan: 5,
     });
 
     if (tasks.length === 0) {
         return (
-            <div className="taskBoardColumnBody">
-                <div className="taskBoardColumnEmpty">
-                    <span className="taskBoardColumnEmptyText">
-                        {dragState ? "drop here" : "no tasks"}
-                    </span>
+            <div className="pn-bcol__body">
+                <div className="pn-bcol__empty">
+                    {dragState ? "drop here" : "no tasks"}
                 </div>
             </div>
         );
     }
 
     return (
-        <div ref={parentRef} className="taskBoardColumnBody">
+        <div ref={parentRef} className="pn-bcol__body">
             <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                     const task = tasks[virtualRow.index];
                     return (
                         <div
                             key={task.id}
+                            data-index={virtualRow.index}
+                            ref={rowVirtualizer.measureElement}
                             style={{
                                 position: 'absolute',
                                 top: 0,
@@ -551,7 +552,7 @@ const UnifiedKanbanView = React.memo(function UnifiedKanbanView({
 
     return (
         <>
-            <div className="taskBoardColumns">
+            <div className="pn-bcols">
                 {COLUMNS.map((col) => {
                     const colTasks = columnData.get(col.status) ?? [];
                     const isDragOver = dragOverColumn === col.status;
@@ -561,17 +562,16 @@ const UnifiedKanbanView = React.memo(function UnifiedKanbanView({
                         return (
                             <div
                                 key={col.status}
-                                className="taskBoardColumnCollapsed"
+                                className="pn-bcol--collapsed"
                                 ref={(el) => registerColumn(col.status, el)}
                                 onClick={() => toggleColumnCollapse(col.status)}
                                 title={`${col.label} (${colTasks.length}) — click to expand`}
                             >
-                                <span className="taskBoardColumnCollapsedLabel">
-                                    {col.symbol}
-                                </span>
-                                <span className="taskBoardColumnCollapsedCount">
+                                <Glyph kind={col.status} size={15} />
+                                <span className="pn-bcol__count">
                                     {colTasks.length}
                                 </span>
+                                <span className="pn-bcol__label">{col.label}</span>
                             </div>
                         );
                     }
@@ -579,20 +579,18 @@ const UnifiedKanbanView = React.memo(function UnifiedKanbanView({
                     return (
                         <div
                             key={col.status}
-                            className={`taskBoardColumn ${isDragOver ? "taskBoardColumn--dragOver" : ""}`}
+                            className={`pn-bcol ${isDragOver ? "pn-bcol--over" : ""}`}
                             ref={(el) => registerColumn(col.status, el)}
-                            style={{ maxWidth: "none" }}
                         >
                             <div
-                                className="taskBoardColumnHeader"
+                                className="pn-bcol__hd"
                                 onClick={() => toggleColumnCollapse(col.status)}
                                 title="Click to collapse"
+                                style={{ cursor: "pointer" }}
                             >
-                                <span className={`taskBoardColumnDot taskBoardColumnDot--${col.status}`}>
-                                    {col.symbol}
-                                </span>
-                                <span className="taskBoardColumnLabel">{col.label}</span>
-                                <span className="taskBoardColumnCount">{colTasks.length}</span>
+                                <Glyph kind={col.status} size={14} />
+                                <span className="pn-bcol__label">{col.label}</span>
+                                <span className="pn-bcol__count">{colTasks.length}</span>
                             </div>
                             <VirtualizedColumnBody
                                 tasks={colTasks}

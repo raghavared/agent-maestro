@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { soundManager, type SoundCategory, type MultiMemberSoundMode } from '../../services/soundManager';
+import { Icon } from '../maestro/redesign/kit';
 
 interface SoundSettingsModalProps {
   isOpen: boolean;
@@ -149,135 +150,130 @@ export function SoundSettingsContent() {
   };
 
   return (
-    <div className="soundSettingsContent">
+    <div className="pn-fld">
       {/* Master Enable/Disable */}
-      <div className="soundSettingSection">
-        <div className="soundSettingRow soundMasterToggle">
-          <label className="soundSettingLabel">
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={e => handleEnabledChange(e.target.checked)}
-            />
-            <span className="soundSettingTitle">Enable Sound Effects</span>
-          </label>
+      <div className="pn-caps">
+        <div className="pn-cap">
+          <input
+            type="checkbox"
+            id="snd-master-enable"
+            className="sr-only"
+            checked={enabled}
+            onChange={e => handleEnabledChange(e.target.checked)}
+          />
+          <span className="pn-cap__name pn-cap__body">Enable Sound Effects</span>
+          <label
+            htmlFor="snd-master-enable"
+            className={`pn-switch${enabled ? ' pn-switch--on' : ''}`}
+            aria-label="Enable Sound Effects"
+          />
         </div>
       </div>
 
       {/* Volume Control */}
-      <div className="soundSettingSection">
-        <div className="soundSettingRow">
-          <label className="soundSettingLabel">
-            <span className="soundSettingTitle">Volume</span>
-            <div className="soundSettingVolume">
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={volume}
-                onChange={handleVolumeChange}
-                disabled={!enabled}
-                className="soundVolumeSlider"
-              />
-              <span className="soundVolumeValue">{Math.round(volume * 100)}%</span>
-            </div>
-          </label>
+      <div className="pn-fld">
+        <label className="pn-flabel" htmlFor="snd-volume">Volume</label>
+        <div className="pn-frow">
+          <input
+            id="snd-volume"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={volume}
+            onChange={handleVolumeChange}
+            disabled={!enabled}
+            className="pn-range"
+          />
+          <span className="pn-meta">{Math.round(volume * 100)}%</span>
         </div>
       </div>
 
       {/* Multi-Member Sound Mode */}
-      <div className="soundSettingSection">
-        <div className="soundSettingRow">
-          <label className="soundSettingLabel">
-            <span className="soundSettingTitle">Multi-Member Sessions</span>
-            <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-              <button
-                type="button"
-                onClick={() => { setMultiMemberMode('ensemble'); soundManager.setMultiMemberMode('ensemble'); }}
-                disabled={!enabled}
-                className="soundBulkBtn"
-                style={{
-                  background: multiMemberMode === 'ensemble' ? 'var(--theme-primary)' : undefined,
-                  color: multiMemberMode === 'ensemble' ? '#fff' : undefined,
-                }}
-              >
-                Ensemble (combine)
-              </button>
-              <button
-                type="button"
-                onClick={() => { setMultiMemberMode('primary'); soundManager.setMultiMemberMode('primary'); }}
-                disabled={!enabled}
-                className="soundBulkBtn"
-                style={{
-                  background: multiMemberMode === 'primary' ? 'var(--theme-primary)' : undefined,
-                  color: multiMemberMode === 'primary' ? '#fff' : undefined,
-                }}
-              >
-                Primary (first member)
-              </button>
-            </div>
-            <span className="soundSettingDescription" style={{ marginTop: '2px' }}>
-              {multiMemberMode === 'ensemble'
-                ? 'All team members\u2019 instruments play together as a chord'
-                : 'Only the first team member\u2019s instrument plays'}
-            </span>
-          </label>
+      <div className="pn-fld">
+        <span className="pn-flabel">Multi-Member Sessions</span>
+        <div className="pn-seg">
+          <button
+            type="button"
+            onClick={() => { setMultiMemberMode('ensemble'); soundManager.setMultiMemberMode('ensemble'); }}
+            disabled={!enabled}
+            className={`pn-seg-i${multiMemberMode === 'ensemble' ? ' pn-seg-i--active' : ''}`}
+          >
+            Ensemble (combine)
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMultiMemberMode('primary'); soundManager.setMultiMemberMode('primary'); }}
+            disabled={!enabled}
+            className={`pn-seg-i${multiMemberMode === 'primary' ? ' pn-seg-i--active' : ''}`}
+          >
+            Primary (first member)
+          </button>
         </div>
+        <span className="pn-fhint">
+          {multiMemberMode === 'ensemble'
+            ? 'All team members\u2019 instruments play together as a chord'
+            : 'Only the first team member\u2019s instrument plays'}
+        </span>
       </div>
 
       {/* Bulk Actions */}
-      <div className="soundSettingSection">
-        <div className="soundBulkActions">
-          <button type="button"
-            onClick={handleEnableAll}
-            disabled={!enabled}
-            className="soundBulkBtn"
-          >
-            Enable All
-          </button>
-          <button type="button"
-            onClick={handleDisableAll}
-            disabled={!enabled}
-            className="soundBulkBtn"
-          >
-            Disable All
-          </button>
-        </div>
+      <div className="pn-frow">
+        <button type="button"
+          onClick={handleEnableAll}
+          disabled={!enabled}
+          className="pn-btn"
+        >
+          Enable All
+        </button>
+        <button type="button"
+          onClick={handleDisableAll}
+          disabled={!enabled}
+          className="pn-btn"
+        >
+          Disable All
+        </button>
       </div>
 
       {/* Category Groups */}
       {Object.entries(CATEGORY_GROUPS).map(([groupName, categories]) => (
-        <div key={groupName} className="soundSettingSection">
-          <h3 className="soundSettingGroupTitle">{groupName}</h3>
-          {categories.map(category => (
-            <div key={category} className="soundSettingRow">
-              <label className="soundSettingLabel">
+        <div key={groupName} className="pn-fld">
+          <h3 className="pn-flabel">{groupName}</h3>
+          <div className="pn-caps">
+            {categories.map(category => (
+              <div key={category} className="pn-cap">
                 <input
                   type="checkbox"
+                  id={`snd-cat-${category}`}
+                  className="sr-only"
                   checked={enabledCategories.has(category)}
                   onChange={() => handleCategoryToggle(category)}
                   disabled={!enabled}
                 />
-                <div className="soundSettingInfo">
-                  <span className="soundSettingTitle">
+                <label
+                  htmlFor={`snd-cat-${category}`}
+                  className={`pn-switch${enabledCategories.has(category) ? ' pn-switch--on' : ''}`}
+                  aria-label={CATEGORY_LABELS[category]}
+                />
+                <div className="pn-cap__body">
+                  <span className="pn-cap__name">
                     {CATEGORY_LABELS[category]}
                   </span>
-                  <span className="soundSettingDescription">
+                  <span className="pn-cap__desc">
                     {CATEGORY_DESCRIPTIONS[category]}
                   </span>
                 </div>
-              </label>
-              <button type="button"
-                onClick={() => handleTestSound(category)}
-                disabled={!enabled || !enabledCategories.has(category)}
-                className="soundTestBtn"
-                title="Test sound"
-              >
-                ▶
-              </button>
-            </div>
-          ))}
+                <button type="button"
+                  onClick={() => handleTestSound(category)}
+                  disabled={!enabled || !enabledCategories.has(category)}
+                  className="pn-btn pn-btn--ghost"
+                  title="Test sound"
+                >
+                  <Icon name="play" size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       ))}
     </div>

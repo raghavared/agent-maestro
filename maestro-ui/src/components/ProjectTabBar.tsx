@@ -1,5 +1,7 @@
 import React, { useState, useRef, useLayoutEffect } from "react";
 import { Icon } from "./Icon";
+import { Icon as PnIcon } from "./maestro/redesign/kit";
+import { useRedesignTheme } from "./maestro/redesign/useRedesignTheme";
 import { MaestroProject, ProjectSoundConfig } from "../app/types/maestro";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { DisplaySettings } from "./DisplaySettings";
@@ -9,6 +11,7 @@ import { ProjectSoundSettings } from "./modals/ProjectSoundSettings";
 import { TerminalSettings } from "./TerminalSettings";
 import { soundManager } from "../services/soundManager";
 import { useProjectStore } from "../stores/useProjectStore";
+import { useUIStore } from "../stores/useUIStore";
 
 type SavedProject = {
   id: string;
@@ -336,6 +339,8 @@ export function ProjectTabBar({
   onOpenMultiProjectBoard,
   onOpenWhiteboard,
 }: ProjectTabBarProps) {
+  const { isDark, toggle: toggleTheme } = useRedesignTheme({ ensureRedesign: false });
+  const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const [settingsProjectId, setSettingsProjectId] = useState<string | null>(null);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(soundManager.isEnabled());
@@ -576,8 +581,8 @@ export function ProjectTabBar({
 
   return (
     <>
-      <div className="projectTabBar">
-        <div className="projectTabs" ref={tabsRef}>
+      <div className="pn-top projectTabBar">
+        <div className="pn-ptabs projectTabs" ref={tabsRef}>
           {projects.map((p) => {
             const isActive = p.id === activeProjectId;
             const count = sessionCountByProject.get(p.id) ?? 0;
@@ -586,12 +591,14 @@ export function ProjectTabBar({
             const isDropBefore = dropTarget?.projectId === p.id && dropTarget.position === 'before';
             const isDropAfter = dropTarget?.projectId === p.id && dropTarget.position === 'after';
             const hasNeedsInput = needsInputByProject.get(p.id) ?? false;
+            const dotKind = hasNeedsInput ? "wait" : workingCount > 0 ? "run" : "idle";
+            const dotLive = dotKind === "run" ? " pn-dot--live" : "";
 
             return (
               <div
                 key={p.id}
                 data-project-id={p.id}
-                className={`projectTab ${isActive ? "projectTabActive" : ""} ${isDragging ? "projectTabDragging" : ""} ${isDropBefore ? "projectTabDropBefore" : ""} ${isDropAfter ? "projectTabDropAfter" : ""} ${hasNeedsInput ? "projectTabNeedsInput" : ""}`}
+                className={`pn-ptab ${isActive ? "pn-ptab--active" : ""} projectTab ${isActive ? "projectTabActive" : ""} ${isDragging ? "projectTabDragging" : ""} ${isDropBefore ? "projectTabDropBefore" : ""} ${isDropAfter ? "projectTabDropAfter" : ""} ${hasNeedsInput ? "projectTabNeedsInput" : ""}`}
                 style={{ touchAction: 'none' }}
                 onPointerDown={(e) => handleTabPointerDown(e, p)}
               >
@@ -601,6 +608,7 @@ export function ProjectTabBar({
                   onClick={() => onSelectProject(p.id)}
                   title={p.basePath || p.name}
                 >
+                  <span className={`pn-dot pn-dot--${dotKind}${dotLive}`} />
                   {p.isMaster && <span className="projectTabMasterIcon" title="Master Project">★</span>}
                   <span className="projectTabName">{p.name}</span>
                   {workingCount > 0 && (
@@ -621,22 +629,21 @@ export function ProjectTabBar({
                     }}
                     title="Project settings"
                   >
-                    <Icon name="settings" size={12} />
+                    <PnIcon name="settings" size={12} />
                   </button>
                 )}
               </div>
             );
           })}
-        </div>
-        <div className="projectTabBarActions">
           <div className="projectAddMenuWrapper" ref={addMenuRef}>
             <button
               type="button"
-              className="projectTabBarBtn"
+              className="pn-ib"
+              style={{ width: 26, height: 26 }}
               onClick={() => setAddMenuOpen((v) => !v)}
               title="Add project"
             >
-              <Icon name="plus" size={14} />
+              <PnIcon name="plus" size={14} />
             </button>
             {addMenuOpen && (
               <div className="projectAddMenu">
@@ -648,7 +655,7 @@ export function ProjectTabBar({
                     onNewProject();
                   }}
                 >
-                  <Icon name="plus" size={12} />
+                  <PnIcon name="plus" size={12} />
                   NEW PROJECT
                 </button>
                 <button
@@ -656,43 +663,37 @@ export function ProjectTabBar({
                   className="projectAddMenuItem"
                   onClick={() => void handleOpenSavedProjects()}
                 >
-                  <Icon name="folder" size={12} />
+                  <PnIcon name="folder" size={12} />
                   OPEN SAVED PROJECT
                 </button>
               </div>
             )}
           </div>
+        </div>
+        <div className="pn-top-r">
           {onOpenMultiProjectBoard && (
             <button
               type="button"
-              className="projectTabBarBtn"
+              className="pn-ib"
               onClick={onOpenMultiProjectBoard}
               title="Multi-Project Board (Cmd/Ctrl+Shift+B)"
             >
-              <Icon name="layers" size={14} />
+              <PnIcon name="layers" size={16} />
             </button>
           )}
           {onOpenWhiteboard && (
             <button
               type="button"
-              className="projectTabBarBtn"
+              className="pn-ib"
               onClick={onOpenWhiteboard}
               title="Whiteboard (Cmd/Ctrl+Shift+X)"
             >
-              <Icon name="edit" size={14} />
+              <PnIcon name="pen" size={16} />
             </button>
           )}
           <button
             type="button"
-            className="projectTabBarBtn"
-            onClick={() => setAppSettingsOpen(true)}
-            title="Settings"
-          >
-            <Icon name="settings" size={14} />
-          </button>
-          <button
-            type="button"
-            className="projectTabBarBtn globalSoundToggle"
+            className="pn-ib globalSoundToggle"
             onClick={() => {
               const next = !soundEnabled;
               soundManager.setEnabled(next);
@@ -700,7 +701,39 @@ export function ProjectTabBar({
             }}
             title={soundEnabled ? "Mute sounds" : "Unmute sounds"}
           >
-            <Icon name={soundEnabled ? "volume" : "volume-off"} size={14} />
+            <PnIcon name={soundEnabled ? "volume" : "volumeOff"} size={16} />
+          </button>
+          <button
+            type="button"
+            className="pn-ib"
+            onClick={() => setAppSettingsOpen(true)}
+            title="Settings"
+          >
+            <PnIcon name="settings" size={16} />
+          </button>
+          <button
+            type="button"
+            className="pn-ib"
+            onClick={toggleTheme}
+            title={isDark ? "Light mode" : "Dark mode"}
+          >
+            <PnIcon name={isDark ? "sun" : "moon"} size={16} />
+          </button>
+          <button
+            type="button"
+            className="pn-ib"
+            onClick={() => setCommandPaletteOpen(true)}
+            title="Search"
+          >
+            <PnIcon name="search" size={16} />
+          </button>
+          <button
+            type="button"
+            className="pn-ib"
+            onClick={() => setCommandPaletteOpen(true)}
+            title="Command palette (Cmd/Ctrl+K)"
+          >
+            <span className="pn-kbd">⌘K</span>
           </button>
         </div>
       </div>

@@ -1011,3 +1011,285 @@
   text-align: center;
   padding: 40px 0;
 }
+
+/* ------------------------------------------------------------------ */
+/*  Terminal Strip — fused log toggle + stats + model + actions        */
+/*  Pinned at the foot of the terminal; lives in the always-dark       */
+/*  terminal warm-graphite palette (NOT the panel light theme).        */
+/* ------------------------------------------------------------------ */
+
+.termStrip {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  /* Anchored at the bottom; expanded transcript grows upward. */
+  pointer-events: auto;
+  /* Terminal-chrome hairline; flips with the terminal theme below. */
+  --term-strip-line: #2c2922;
+}
+html[data-redesign][data-theme='dark'] .termStrip {
+  --term-strip-line: #221E15;
+}
+
+/* The bottom bar — same idiom as the redesign terminal bar/input chrome */
+.termStripBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0 12px;
+  /* Inherits the terminal canvas; flips #1c1a16 -> #100E0A like the pane. */
+  background: var(--pn-term-bg, #1B1812);
+  border-top: 1px solid var(--term-strip-line);
+  font-family: var(--pn-mono, 'JetBrains Mono', ui-monospace, monospace);
+  color: #a9a294;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* 1. Session Log toggle */
+.termStripToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 22px;
+  padding: 0 8px 0 6px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--pn-term-ink, #cfc9bb);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+.termStripToggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--term-strip-line);
+}
+
+.termStripChevron {
+  font-size: 9px;
+  color: var(--pn-term-dim, #8a8474);
+  width: 9px;
+  flex-shrink: 0;
+}
+
+.termStripLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pn-term-ink, #cfc9bb);
+  white-space: nowrap;
+}
+
+.termStripLiveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  /* Same green as the redesign terminal-bar status dot (.pn-tdot). */
+  background: #5aa777;
+  flex-shrink: 0;
+  box-shadow: 0 0 5px rgba(90, 167, 119, 0.7);
+  animation: termStripPulse 1.5s ease-in-out infinite;
+}
+
+.termStripLiveTag {
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(90, 167, 119, 0.14);
+  color: #7bb98e;
+  border: 1px solid rgba(90, 167, 119, 0.35);
+  letter-spacing: 0.08em;
+}
+
+@keyframes termStripPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* 2. Stats rail — edge-faded so it never hard-clips */
+.termStripRail {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+}
+.termStripRailInner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.termStripRailInner::-webkit-scrollbar { display: none; }
+
+.termStripStat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-family: var(--pn-mono, 'JetBrains Mono', ui-monospace, monospace);
+  color: var(--pn-term-ink, #cfc9bb);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.termStripStat--dim {
+  color: var(--pn-term-dim, #8a8474);
+  font-size: 9px;
+}
+.termStripStat--cache {
+  color: #7bb98e;
+  font-size: 9px;
+}
+
+/* Circular context-window gauge */
+.termStripGauge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.termStripGaugeTrack {
+  fill: none;
+  stroke: rgba(207, 201, 187, 0.18);
+  stroke-width: 2.5;
+}
+.termStripGaugeFill {
+  fill: none;
+  stroke: var(--pn-term-acc, #d99a4e);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.4s ease;
+}
+.termStripGaugeLabel {
+  font-size: 10px;
+  font-family: var(--pn-mono, 'JetBrains Mono', ui-monospace, monospace);
+  color: var(--pn-term-ink, #cfc9bb);
+  white-space: nowrap;
+}
+
+/* 3. Model badge — brass pill, kept fully visible outside the fade */
+.termStripModel {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 600;
+  font-family: var(--pn-mono, 'JetBrains Mono', ui-monospace, monospace);
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: var(--pn-r-pill, 999px);
+  color: var(--pn-term-acc, #d99a4e);
+  background: rgba(217, 154, 78, 0.1);
+  border: 1px solid rgba(217, 154, 78, 0.38);
+  white-space: nowrap;
+}
+
+/* 4. Actions */
+.termStripActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.termStripActionBtn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--pn-term-dim, #8a8474);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.termStripActionBtn:hover {
+  color: var(--pn-term-acc, #d99a4e);
+  background: rgba(217, 154, 78, 0.1);
+  border-color: rgba(217, 154, 78, 0.32);
+}
+.termStripActionBtn:active {
+  transform: scale(0.94);
+}
+.termStripActionGlyph {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Expanded transcript — opens upward, above the bar */
+.termStripOverlay {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 16px;
+  background: var(--pn-term-bg, #1B1812);
+  border-top: 1px solid var(--term-strip-line);
+  color: var(--pn-term-ink, #cfc9bb);
+  scrollbar-width: thin;
+}
+.termStripOverlay::-webkit-scrollbar { width: 5px; }
+.termStripOverlay::-webkit-scrollbar-track { background: transparent; }
+.termStripOverlay::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+.termStripOverlay::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.termStripEmpty {
+  font-size: 11px;
+  color: var(--pn-term-dim, #8a8474);
+  font-style: italic;
+  text-align: center;
+  padding: 40px 0;
+}
+
+/* Expanded transcript reuses LogMessageGroup (.sessionLog* classes), which are
+   styled against the legacy panel tokens (blue --accent, light --panel/--border).
+   Inside the always-dark terminal overlay those read as the wrong palette, so we
+   remap the legacy tokens to the terminal warm-graphite palette for everything
+   rendered within the overlay. Custom props inherit, so descendants pick these up
+   without touching the shared LogMessageGroup component. */
+.termStripOverlay {
+  --text: var(--pn-term-ink, #cfc9bb);
+  --muted: var(--pn-term-dim, #8a8474);
+  --accent: var(--pn-term-acc, #d99a4e);
+  --accent-2: #7bb98e;
+  --accent-3: var(--pn-term-acc, #d99a4e);
+  --panel: rgba(255, 255, 255, 0.04);
+  --panel-2: rgba(255, 255, 255, 0.06);
+  --border: rgba(207, 201, 187, 0.14);
+  --border-subtle: rgba(207, 201, 187, 0.08);
+  --bg: var(--pn-term-bg, #1B1812);
+  /* Render the transcript in the live terminal font (JetBrains Mono via
+     --pn-mono — matches SessionTerminal's xterm fontFamily). Remapping
+     --style-font-ui carries the mono code/diff/bash/json blocks too.
+     Size/line-height mirror the design's .pn-term-body (12.5px / 1.7). */
+  font-family: var(--pn-mono, 'JetBrains Mono', ui-monospace, 'SF Mono', monospace);
+  --style-font-ui: var(--pn-mono, 'JetBrains Mono', ui-monospace, 'SF Mono', monospace);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+/* Hardcoded-blue spots in the transcript styles → brass-tinted to match. */
+.termStripOverlay .sessionLogUserMsg {
+  background: rgba(217, 154, 78, 0.08);
+  border-color: rgba(217, 154, 78, 0.2);
+}
+.termStripOverlay .sessionLogShowMore:hover,
+.termStripOverlay .sessionLogViewBtnActive {
+  background: rgba(217, 154, 78, 0.12);
+}

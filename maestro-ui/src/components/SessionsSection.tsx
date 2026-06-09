@@ -29,7 +29,7 @@ import { MaestroSessionContent } from "./maestro/MaestroSessionContent";
 import { SessionDetailModal } from "./maestro/SessionDetailModal";
 import { SessionLogModal } from "./session-log/SessionLogModal";
 import { ConfirmActionModal } from "./modals/ConfirmActionModal";
-import { buildTeamGroups } from "../utils/teamGrouping";
+import { buildTeamGroups, type TeamGroup } from "../utils/teamGrouping";
 import type { TeamColor } from "../app/constants/teamColors";
 import type { Space } from "../app/types/space";
 import { ProjectDocsList } from "./ProjectDocsList";
@@ -630,7 +630,7 @@ const SessionNodeRenderer = React.memo(function SessionNodeRenderer({
         isResuming={resumingSessionId === node.id}
       />
       {!isCollapsed && node.children.length > 0 && (
-        <div className="sessionTreeChildren">
+        <div className="pn-kids pn-kids--st">
           {node.children.map((child) => (
             <SessionNodeRenderer
               key={child.id}
@@ -767,6 +767,15 @@ export const SessionsSection = React.memo(function SessionsSection({
   const teamGroupData = useMemo(() => {
     return buildTeamGroups(sessions, maestroSessions, teamsMap);
   }, [sessions, maestroSessions, teamsMap]);
+
+  // Pure-read index: coordinator maestroSessionId → its TeamGroup. Lets the tree
+  // wrap each coordinator root in a pn-team box (head: dot/name/count) with no new
+  // grouping logic — all data comes from buildTeamGroups above.
+  const teamGroupByCoordinator = useMemo(() => {
+    const m = new Map<string, TeamGroup>();
+    for (const g of teamGroupData.groups) m.set(g.coordinatorMaestroSessionId, g);
+    return m;
+  }, [teamGroupData.groups]);
 
   const [showHistory, setShowHistory] = React.useState(false);
   const showTaskDetails = useUIStore((s) => s.sessionShowTaskDetails);
@@ -1131,12 +1140,13 @@ export const SessionsSection = React.memo(function SessionsSection({
 
   return (
     <>
-      <div className="sidebarHeader">
-        <div className="title">Sessions</div>
+      <div className="pn-head">
+        <span className="pn-proj">Sessions</span>
+        <span className="pn-head-spacer" />
         <div className="sidebarHeaderActions">
           <button
             type="button"
-            className="btnSmall btnIcon"
+            className="pn-ib"
             onClick={handleRefresh}
             disabled={refreshing || !activeProjectId}
             title="Refresh tasks"
@@ -1146,7 +1156,7 @@ export const SessionsSection = React.memo(function SessionsSection({
           </button>
           <button
             type="button"
-            className="btnSmall btnIcon"
+            className="pn-ib"
             onClick={handleShowBoard}
             disabled={!activeProjectId}
             title="Open board view"
@@ -1156,7 +1166,7 @@ export const SessionsSection = React.memo(function SessionsSection({
           </button>
           <button
             type="button"
-            className={`btnSmall btnIcon ${showTaskDetails ? "btnIconActive" : ""}`}
+            className={`pn-ib ${showTaskDetails ? "pn-ib--active" : ""}`}
             onClick={toggleSessionShowTaskDetails}
             title={showTaskDetails ? "Hide linked task details on session tiles" : "Show linked task details on session tiles"}
             aria-label="Toggle task details on session tiles"
@@ -1167,7 +1177,7 @@ export const SessionsSection = React.memo(function SessionsSection({
           <button
             ref={historyBtnRef}
             type="button"
-            className={`btnSmall btnIcon ${showHistory ? "btnIconActive" : ""}`}
+            className={`pn-ib ${showHistory ? "pn-ib--active" : ""}`}
             onClick={() => setShowHistory(prev => !prev)}
             disabled={!activeProjectId}
             title="Session history"
@@ -1182,7 +1192,7 @@ export const SessionsSection = React.memo(function SessionsSection({
             <button
               ref={settingsBtnRef}
               type="button"
-              className={`btnSmall btnIcon ${settingsOpen ? "btnIconActive" : ""}`}
+              className={`pn-ib ${settingsOpen ? "pn-ib--active" : ""}`}
               onClick={() =>
                 setSettingsOpen((prev) => !prev)
               }
@@ -1284,16 +1294,15 @@ export const SessionsSection = React.memo(function SessionsSection({
         document.body
       )}
 
-      <div className="agentShortcutRow" role="toolbar" aria-label="Quick launch">
+      <div className="pn-quick" role="toolbar" aria-label="Quick launch">
         <button
           type="button"
-          className="agentShortcutBtn agentShortcutBtn--chip agentShortcutBtn--terminal"
+          className="pn-qchip"
           onClick={onOpenNewSession}
           aria-label="New terminal"
           title="New terminal"
         >
-          <span className="agentShortcutChip__icon" aria-hidden="true">{">_"}</span>
-          <span className="agentShortcutChip__label">Terminal</span>
+          <span className="pn-plus" aria-hidden="true">＋</span> Terminal
         </button>
         {agentShortcuts.map((effect) => {
           const tool = SHORTCUT_AGENT_TOOL[effect.id];
@@ -1302,42 +1311,42 @@ export const SessionsSection = React.memo(function SessionsSection({
             <button
               key={effect.id}
               type="button"
-              className={`agentShortcutBtn agentShortcutBtn--chip agentShortcutBtn--${effect.id}`}
+              className="pn-qchip"
               onClick={() => onQuickStart(effect)}
               aria-label={`Start ${label}`}
               title={`Start ${label}`}
             >
               {tool ? (
-                <AgentLogo agentTool={tool} size={14} className={`agentShortcutChip__icon agentChip--${tool}`} />
+                <AgentLogo agentTool={tool} size={14} className={`agentChip--${tool}`} />
               ) : effect.iconSrc ? (
-                <img className="agentShortcutChip__img" src={effect.iconSrc} alt="" aria-hidden="true" />
+                <img src={effect.iconSrc} alt="" aria-hidden="true" />
               ) : null}
-              <span className="agentShortcutChip__label">{label}</span>
+              {label}
             </button>
           );
         })}
       </div>
 
       {/* Segmented filter: Terminals / Agents / Docs / Drawings / Files */}
-      <div className="sessionsSegmentedFilter">
+      <div className="pn-filters">
         {SESSION_FILTER_TABS.map(({ id, label, icon }) => (
           <button
             key={id}
             type="button"
-            className={`sessionsSegmentedFilter__btn ${activeFilter === id ? 'sessionsSegmentedFilter__btn--active' : ''}`}
+            className={`pn-filter ${activeFilter === id ? 'pn-filter--active' : ''}`}
             onClick={() => setActiveFilter(id)}
             title={label}
             aria-pressed={activeFilter === id}
           >
-            <span className="sessionsSegmentedFilter__icon" aria-hidden="true">{icon}</span>
-            <span className="sessionsSegmentedFilter__label">{label}</span>
+            <span aria-hidden="true">{icon}</span>
+            {label}
           </button>
         ))}
       </div>
 
       {/* Sub-tabs for the maestro session tree */}
       {showAgents && (
-        <div className="sessionSubTabs" role="tablist" aria-label="Session filter">
+        <div className="pn-subbar" role="tablist" aria-label="Session filter">
           {(['open', 'done', 'archived'] as SessionSubTab[]).map((tab) => {
             const count = sessionTabCounts[tab];
             const label = tab === 'open' ? 'Open' : tab === 'done' ? 'Done' : 'Archived';
@@ -1347,18 +1356,22 @@ export const SessionsSection = React.memo(function SessionsSection({
                 type="button"
                 role="tab"
                 aria-selected={sessionSubTab === tab}
-                className={`sessionSubTabs__btn ${sessionSubTab === tab ? 'sessionSubTabs__btn--active' : ''}`}
+                className={`pn-subtab ${sessionSubTab === tab ? 'pn-subtab--active' : ''}`}
                 onClick={() => setSessionSubTab(tab)}
               >
                 <span>{label}</span>
-                {count > 0 && <span className="sessionSubTabs__count">{count}</span>}
+                {count > 0 && <span className="pn-tab-n">{count}</span>}
               </button>
             );
           })}
           {liveCount > 0 && (
-            <span className="sessionSubTabs__live" title={`${liveCount} running live`}>
-              <span className="sessionSubTabs__liveDot" />
-              <span className="sessionSubTabs__liveText">{liveCount} live</span>
+            <span
+              className="pn-chip"
+              title={`${liveCount} running live`}
+              style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <span className="pn-dot-wrap"><span className="pn-dot pn-dot--run pn-dot--live" /></span>
+              {liveCount} live
             </span>
           )}
         </div>
@@ -1370,7 +1383,7 @@ export const SessionsSection = React.memo(function SessionsSection({
       {/* Drawings tab — project-wide paginated list of diagram docs */}
       {showDrawings && <ProjectDocsList projectId={activeProjectId} kind="diagram" />}
 
-      <div className="sessionList" style={showDocs || showDrawings ? { display: 'none' } : undefined}>
+      <div className="pn-scroll" style={showDocs || showDrawings ? { display: 'none' } : undefined}>
         {sessions.length === 0 && projectMaestroSessions.length === 0 ? (
           <div className="empty">No sessions in this project.</div>
         ) : (
@@ -1379,17 +1392,17 @@ export const SessionsSection = React.memo(function SessionsSection({
             {showAgents && (
               visibleRoots.length === 0 ? (
                 <div className="sessionEmptyState">
-                  <span className="sessionEmptyState__icon" aria-hidden="true">
+                  <span className="sessionEmptyState__icon" aria-hidden="true" style={{ color: 'var(--pn-ink-4)' }}>
                     {sessionSubTab === 'open' ? '◉' : sessionSubTab === 'done' ? '✓' : '▫'}
                   </span>
-                  <span className="sessionEmptyState__title">
+                  <span className="sessionEmptyState__title" style={{ color: 'var(--pn-ink)' }}>
                     {sessionSubTab === 'open'
                       ? 'No open sessions'
                       : sessionSubTab === 'done'
                         ? 'No sessions marked done'
                         : 'No archived sessions'}
                   </span>
-                  <span className="sessionEmptyState__hint">
+                  <span className="sessionEmptyState__hint" style={{ color: 'var(--pn-ink-3)' }}>
                     {sessionSubTab === 'open'
                       ? 'New and unaddressed sessions appear here. Spawn one to get started.'
                       : sessionSubTab === 'done'
@@ -1398,31 +1411,49 @@ export const SessionsSection = React.memo(function SessionsSection({
                   </span>
                 </div>
               ) : (
-                <div className="sessionTree">
-                  {visibleRoots.map((root) => (
-                    <SessionNodeRenderer
-                      key={root.id}
-                      node={root}
-                      depth={0}
-                      tab={sessionSubTab}
-                      collapsedSessions={collapsedSessions}
-                      maestroColorMap={maestroColorMap}
-                      linkMap={linkMap}
-                      activeLocalSessionId={activeSessionId}
-                      inspectedSessionId={inspectedSessionId}
-                      maestroTasks={maestroTasks}
-                      resumingSessionId={resumingSessionId}
-                      onToggleCollapse={handleToggleSessionCollapse}
-                      onOpenDetail={handleOpenSessionDetail}
-                      onSelect={handleSelectTile}
-                      onJumpToTerminal={handleJumpToTerminal}
-                      onStop={handleStopSession}
-                      onResume={handleResume}
-                      onRestore={handleRestoreTree}
-                      onToggleHumanComplete={handleToggleHumanComplete}
-                      onOpenTeamView={handleOpenTeamView}
-                    />
-                  ))}
+                <div className="pn-list">
+                  {visibleRoots.map((root) => {
+                    const node = (
+                      <SessionNodeRenderer
+                        key={root.id}
+                        node={root}
+                        depth={0}
+                        tab={sessionSubTab}
+                        collapsedSessions={collapsedSessions}
+                        maestroColorMap={maestroColorMap}
+                        linkMap={linkMap}
+                        activeLocalSessionId={activeSessionId}
+                        inspectedSessionId={inspectedSessionId}
+                        maestroTasks={maestroTasks}
+                        resumingSessionId={resumingSessionId}
+                        onToggleCollapse={handleToggleSessionCollapse}
+                        onOpenDetail={handleOpenSessionDetail}
+                        onSelect={handleSelectTile}
+                        onJumpToTerminal={handleJumpToTerminal}
+                        onStop={handleStopSession}
+                        onResume={handleResume}
+                        onRestore={handleRestoreTree}
+                        onToggleHumanComplete={handleToggleHumanComplete}
+                        onOpenTeamView={handleOpenTeamView}
+                      />
+                    );
+                    // Coordinator roots get a labelled pn-team box (team color on the
+                    // dot only); standalone roots render bare, matching the design.
+                    const group = teamGroupByCoordinator.get(root.id);
+                    if (!group) return node;
+                    const n = group.workerMaestroSessionIds.length + 1;
+                    const teamName = group.teamName ?? root.teamMemberSnapshot?.name ?? root.name;
+                    return (
+                      <div className="pn-team" key={root.id}>
+                        <div className="pn-team__head">
+                          <span className="pn-team__dot" style={{ background: group.color.primary }} />
+                          <span className="pn-team__name">{teamName}</span>
+                          <span className="pn-team__count">{n} session{n === 1 ? "" : "s"}</span>
+                        </div>
+                        {node}
+                      </div>
+                    );
+                  })}
                 </div>
               )
             )}
@@ -1446,6 +1477,8 @@ export const SessionsSection = React.memo(function SessionsSection({
         )}
       </div>
 
+      <div className="pn-fade" />
+
       {/* Spaces — grouped: Drawings → Documents → Files */}
       {showSpaces && (spaceGroups.some((g) => g.items.length > 0) || (showDrawings && onCreateWhiteboard)) && (
         <div className="spacesGroups">
@@ -1453,9 +1486,9 @@ export const SessionsSection = React.memo(function SessionsSection({
             if (group.items.length === 0) return null;
             return (
               <div className="spacesGroup" key={group.key}>
-                <div className="spacesGroup__header">
-                  <span className="spacesGroup__label">{group.label}</span>
-                  <span className="spacesGroup__count">{group.items.length}</span>
+                <div className="pn-sec-head">
+                  <span className="pn-eyebrow">{group.label} <span className="pn-count">· {group.items.length}</span></span>
+                  <span className="pn-line" />
                 </div>
                 <div className="spacesGroup__list">
                   {group.items.map((space) => {

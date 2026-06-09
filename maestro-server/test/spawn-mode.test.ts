@@ -110,6 +110,7 @@ async function buildApp(dataDir: string) {
     projectRepo: container.projectRepo,
     taskRepo: container.taskRepo,
     teamMemberRepo: container.teamMemberRepo,
+    modelProfileRepo: container.modelProfileRepo,
     eventBus: container.eventBus,
     config,
   });

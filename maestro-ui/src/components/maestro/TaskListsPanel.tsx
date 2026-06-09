@@ -250,7 +250,7 @@ export function TaskListsPanel({ projectId, createListSignal }: TaskListsPanelPr
   };
 
   return (
-    <div className="terminalContent taskListsPanel">
+    <div className="terminalContent taskListsPanel pnLeakSkin">
       {(error || actionError) && (
         <div className="terminalErrorBanner">
           <span className="terminalErrorSymbol">[ERROR]</span>

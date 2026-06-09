@@ -7,8 +7,8 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(15, 22, 32, 0.92), rgba(10, 14, 20, 0.98));
+  border-left: 1px solid var(--pn-line-2);
+  background: var(--pn-surface);
 }
 
 /* When hosted inside the left panel sidebar, fill all available space */

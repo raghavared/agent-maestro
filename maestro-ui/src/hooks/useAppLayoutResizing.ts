@@ -64,6 +64,9 @@ export function useAppLayoutResizing() {
 
                 useUIStore.getState().setMaestroSidebarWidth(current);
                 useUIStore.getState().persistMaestroSidebarWidth(current);
+
+                // Terminals skip fit() during the drag; tell them to reflow once now.
+                window.dispatchEvent(new Event("maestro:panel-resize-end"));
             };
 
             document.addEventListener("pointermove", handlePointerMove);
@@ -126,6 +129,9 @@ export function useAppLayoutResizing() {
 
                 useUIStore.getState().setRightPanelWidth(current);
                 useUIStore.getState().persistRightPanelWidth(current);
+
+                // Terminals skip fit() during the drag; tell them to reflow once now.
+                window.dispatchEvent(new Event("maestro:panel-resize-end"));
             };
 
             document.addEventListener("pointermove", handlePointerMove);

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { MaestroTask, MaestroProject, TeamMember, MemberLaunchOverride } from "../../app/types/maestro";
 import { ClaudeCodeSkillsSelector } from "./ClaudeCodeSkillsSelector";
 import { useMaestroStore } from "../../stores/useMaestroStore";
+import { Icon } from "./redesign/kit";
 import { useTaskForm } from "../../hooks/useTaskForm";
 import { useReferenceTaskPicker } from "../../hooks/useReferenceTaskPicker";
 import { useFileAutocomplete } from "../../hooks/useFileAutocomplete";
@@ -323,7 +324,7 @@ export function CreateTaskModal({
 
     const modalContent = (
         <>
-            <div className={`themedModal themedModal--wide ${isOverlay ? 'themedModal--overlay' : ''}`} onClick={(e) => e.stopPropagation()}>
+            <div className={`pn-mdl ${isOverlay ? 'pn-mdl--overlay' : ''}`} onClick={(e) => e.stopPropagation()}>
                 <TaskFormHeader
                     title={form.title}
                     onTitleChange={form.setTitle}
@@ -334,13 +335,14 @@ export function CreateTaskModal({
                     onClose={handleClose}
                     parentId={parentId}
                     parentTitle={parentTitle}
+                    projectName={project?.name}
                     onNavigateToTask={onNavigateToTask}
                     autoFocus={!isEditMode}
                 />
 
                 {form.showLaunchConfig ? (
                     /* Launch config panel replaces description + tabs */
-                    <div className="themedModalContent">
+                    <div className="pn-mdl__body">
                         <LaunchConfigPanel
                             selectedTeamMemberIds={form.selectedTeamMemberIds}
                             teamMembers={teamMembers}
@@ -353,7 +355,7 @@ export function CreateTaskModal({
                     /* Normal description + tabs view */
                     <>
                         <div className={isOverlay ? 'themedModalDescriptionArea' : ''}>
-                            <div className="themedModalContent">
+                            <div className="pn-mdl__body">
                                 <TaskDescriptionField
                                     prompt={form.prompt}
                                     onPromptChange={form.setPrompt}
@@ -374,18 +376,8 @@ export function CreateTaskModal({
                                             {form.stagedImagePreviews.map((preview, i) => (
                                                 <span
                                                     key={i}
-                                                    style={{
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                        padding: '2px 6px 2px 3px',
-                                                        fontSize: '10px',
-                                                        border: '1px solid var(--theme-border)',
-                                                        borderRadius: '3px',
-                                                        backgroundColor: 'rgba(var(--theme-primary-rgb), 0.05)',
-                                                        color: 'var(--theme-text-secondary)',
-                                                        maxWidth: '120px',
-                                                    }}
+                                                    className="pn-mchip pn-mchip--ref"
+                                                    style={{ maxWidth: '120px' }}
                                                     title={form.stagedImageFiles[i]?.name}
                                                 >
                                                     <img
@@ -399,16 +391,16 @@ export function CreateTaskModal({
                                                     <button
                                                         type="button"
                                                         onClick={() => form.removeStagedFile(i)}
-                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--theme-text-secondary)', padding: '0', fontSize: '12px', lineHeight: 1, flexShrink: 0, opacity: 0.6 }}
-                                                    >×</button>
+                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '0', display: 'inline-flex', lineHeight: 1, flexShrink: 0 }}
+                                                    ><Icon name="x" size={11} /></button>
                                                 </span>
                                             ))}
                                             <button
                                                 type="button"
+                                                className="pn-mchip"
                                                 onClick={() => stagedFileInputRef.current?.click()}
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 7px', fontSize: '10px', border: '1px solid var(--theme-border)', borderRadius: '3px', background: 'transparent', color: 'var(--theme-text-secondary)', cursor: 'pointer', fontFamily: 'inherit' }}
                                                 title="Attach image"
-                                            >+ img</button>
+                                            ><Icon name="paperclip" size={12} /> Attach</button>
                                             <input
                                                 ref={stagedFileInputRef}
                                                 type="file"
@@ -436,7 +428,7 @@ export function CreateTaskModal({
 
                             {/* Tab Content */}
                             {form.activeTab && (
-                            <div className={`themedModalTabContent${isOverlay ? ' themedModalTabContent--overlay' : ''}`} style={!isOverlay ? { maxHeight: '200px', overflowY: 'auto', borderTop: '1px solid var(--theme-border)' } : undefined}>
+                            <div className={`pn-mdl__body${isOverlay ? ' themedModalTabContent--overlay' : ''}`} style={!isOverlay ? { maxHeight: '220px', borderTop: '1px solid var(--pn-line)' } : undefined}>
                                 {form.activeTab === 'subtasks' && effectiveEditMode && effectiveTask && (
                                     <SubtasksTab
                                         taskId={effectiveTask.id}

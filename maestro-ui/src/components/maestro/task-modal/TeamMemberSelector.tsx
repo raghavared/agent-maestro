@@ -33,12 +33,13 @@ export function TeamMemberSelector({
     };
 
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span className="pn-flabel" style={{ letterSpacing: '0.06em' }}>Assignee</span>
             <div className="themedDropdownPicker" style={{ position: 'relative' }}>
                 <button
                     ref={btnRef}
                     type="button"
-                    className={`themedDropdownButton ${showDropdown ? 'themedDropdownButton--open' : ''}`}
+                    className="pn-mchip"
                     onClick={(e) => {
                         e.stopPropagation();
                         setShowDropdown(!showDropdown);
@@ -65,10 +66,10 @@ export function TeamMemberSelector({
                         />
                         <div
                             className="themedDropdownMenu"
-                            style={{ top: 'auto', bottom: pos.bottom, left: pos.left, minWidth: '240px', maxHeight: `${Math.min(window.innerHeight - 40, 320)}px`, overflowY: 'auto' }}
+                            style={{ top: 'auto', bottom: pos.bottom, left: pos.left, minWidth: '240px', maxHeight: `${Math.min(window.innerHeight - 40, 320)}px`, overflowY: 'auto', background: 'var(--pn-card)', border: '1px solid var(--pn-line-2)', borderRadius: 'var(--pn-r-sm)', color: 'var(--pn-ink)', boxShadow: 'var(--pn-sh-pop)' }}
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div style={{ padding: '4px 8px', fontSize: '10px', opacity: 0.5, borderBottom: '1px solid var(--theme-border)', position: 'sticky', top: 0, backgroundColor: 'var(--theme-bg)', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div className="pn-fhint" style={{ padding: '6px 10px', borderBottom: '1px solid var(--pn-line)', position: 'sticky', top: 0, backgroundColor: 'var(--pn-card)', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span>Select team members</span>
                                 {selectedTeamMemberIds.length > 0 && (
                                     <button

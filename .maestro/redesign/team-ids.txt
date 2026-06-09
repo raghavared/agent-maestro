@@ -1,0 +1,19 @@
+foundation|tm_1780948938536_noqih1g29|Redesign Foundation Engineer
+left_coord|tm_1780948938669_3ugg9ikkv|Left Panel Coordinator
+left_iconrail|tm_1780948938792_yyg2rl326|Icon Rail Worker
+left_shell|tm_1780948938920_sypksn5wm|Maestro Panel Shell Worker
+left_listtree|tm_1780948939045_veaws1m9e|Task List & Tree Worker
+left_tile|tm_1780948939178_ntw6sjc3w|Task Tile Worker
+mid_coord|tm_1780948939299_d0m1zhizq|Middle Panel Coordinator
+mid_term|tm_1780948939436_q7ap3u0fe|Terminal Theme Worker
+mid_stats|tm_1780948939575_17886a7jb|Session Stats Theme Worker
+right_coord|tm_1780948939727_148ykok8p|Right Panel Coordinator
+right_layout|tm_1780948939861_pc3fdqsz0|Spaces Layout Worker
+right_list|tm_1780948939988_p44zlteor|Session List Worker
+right_tile|tm_1780948940118_o0obnlthy|Session Tile Worker
+misc_coord|tm_1780948940236_xytclu2gp|Misc Coordinator
+misc_top|tm_1780948940364_m0hjcurua|Project Bar / TopBar Worker
+misc_taskmodal|tm_1780948940503_yqq1c649j|Task Create Modal Worker
+misc_teamodal|tm_1780948940669_urd37beqv|Team Member Modal Worker
+misc_settings|tm_1780948940802_hkx8mi2bf|Settings Panel Worker
+misc_sweep|tm_1780948940921_2zck1yd0x|Modal Sweep Worker

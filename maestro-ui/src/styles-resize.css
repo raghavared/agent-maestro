@@ -39,9 +39,14 @@
   will-change: width;
 }
 
-/* During right panel resize: use live CSS variable, optimize for performance */
+/* During right panel resize: use live CSS variable, optimize for performance.
+   .pn-sp is the rendered root of SpacesPanel (the redesign); .rightPanel /
+   .spacesPanel are legacy layouts kept for safety. The live var MUST drive the
+   real root or the outer panel freezes while only its inner content resizes —
+   clipping when widening, gapping when narrowing, then snapping on release. */
 :root.right-panel-resizing .rightPanel,
-:root.right-panel-resizing .spacesPanel {
+:root.right-panel-resizing .spacesPanel,
+:root.right-panel-resizing .pn-sp {
   width: var(--right-panel-width-live) !important;
   max-width: var(--right-panel-width-live) !important;
   will-change: width;

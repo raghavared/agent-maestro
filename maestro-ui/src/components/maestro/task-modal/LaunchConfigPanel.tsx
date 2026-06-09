@@ -3,6 +3,7 @@ import {
     AgentTool, ModelType, TeamMember, MemberLaunchOverride, LaunchAccessMode,
 } from "../../../app/types/maestro";
 import { ClaudeCodeSkillsSelector } from "../ClaudeCodeSkillsSelector";
+import { Icon } from "../redesign/kit";
 import {
     getEffectiveCommandEnabled,
     isCommandAllowedForMode,
@@ -196,12 +197,12 @@ export function LaunchConfigPanel({
 
     if (selectedMembers.length === 0) {
         return (
-            <div className="launchConfigInline">
-                <div className="launchConfigInline__header">
-                    <span className="launchConfigInline__title">Launch Configuration</span>
-                    <button type="button" className="launchConfigInline__closeBtn" onClick={onClose} title="Back to description">&times;</button>
+            <div className="launchConfigInline" style={{ background: 'transparent', border: 'none' }}>
+                <div className="launchConfigInline__header" style={{ borderColor: 'var(--pn-line)' }}>
+                    <span className="pn-flabel">Launch Configuration</span>
+                    <button type="button" className="pn-mchip" onClick={onClose} title="Back to description"><Icon name="x" size={13} /></button>
                 </div>
-                <div style={{ color: 'rgba(var(--theme-primary-rgb), 0.4)', textAlign: 'center', padding: '20px', fontSize: '11px' }}>
+                <div className="pn-fhint" style={{ textAlign: 'center', padding: '20px' }}>
                     Select at least one team member to configure launch options.
                 </div>
             </div>
@@ -217,22 +218,22 @@ export function LaunchConfigPanel({
         const isAdvancedOpen = expandedAdvanced.has(member.id);
 
         return (
-            <div key={member.id} className="launchConfigInline__card">
+            <div key={member.id} className="launchConfigInline__card" style={{ background: 'var(--pn-surface)', border: '1px solid var(--pn-line-2)', borderRadius: 'var(--pn-r-sm)' }}>
                 {/* Member identity (only show for multi-member) */}
                 {!isSingleMember && (
                     <div className="launchConfigInline__cardIdentity">
                         <span className="launchConfigInline__avatar">{member.avatar}</span>
-                        <span className="launchConfigInline__name">{member.name}</span>
-                        <span className="launchConfigInline__role">{member.role}</span>
+                        <span className="launchConfigInline__name" style={{ color: 'var(--pn-ink)' }}>{member.name}</span>
+                        <span className="pn-fhint">{member.role}</span>
                     </div>
                 )}
 
                 {/* Core controls row */}
-                <div className="launchConfigInline__controls">
-                    <div className="launchConfigInline__field">
-                        <label className="launchConfigInline__label">Agent</label>
+                <div className="launchConfigInline__controls" style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+                    <div className="pn-fld" style={{ flex: 1 }}>
+                        <label className="pn-flabel">Agent</label>
                         <select
-                            className="launchConfigSelect launchConfigSelect--compact"
+                            className="pn-select"
                             value={config.agentTool}
                             onChange={(e) => handleToolChange(member.id, e.target.value as AgentTool)}
                         >
@@ -242,10 +243,10 @@ export function LaunchConfigPanel({
                         </select>
                     </div>
 
-                    <div className="launchConfigInline__field">
-                        <label className="launchConfigInline__label">Model</label>
+                    <div className="pn-fld" style={{ flex: 1 }}>
+                        <label className="pn-flabel">Model</label>
                         <select
-                            className="launchConfigSelect launchConfigSelect--compact"
+                            className="pn-select"
                             value={config.model}
                             onChange={(e) => onUpdateConfig(member.id, { model: e.target.value as ModelType })}
                         >
@@ -255,14 +256,15 @@ export function LaunchConfigPanel({
                         </select>
                     </div>
 
-                    <div className="launchConfigInline__field">
-                        <label className="launchConfigInline__label">Permissions</label>
+                    <div className="pn-fld">
+                        <label className="pn-flabel">Permissions</label>
                         <button type="button"
-                            className={`launchConfigToggle launchConfigToggle--compact ${config.isDangerous ? 'launchConfigToggle--active launchConfigToggle--danger' : ''}`}
+                            className={`pn-toggle ${config.isDangerous ? 'pn-toggle--on-danger' : ''}`}
+                            style={{ height: 36 }}
                             onClick={() => onUpdateConfig(member.id, { isDangerous: !config.isDangerous })}
                             title={config.isDangerous ? 'Dangerous mode ON (bypassPermissions)' : 'Dangerous mode OFF'}
                         >
-                            {config.isDangerous ? '\u26A0 dangerous' : '\u{1F6E1} safe'}
+                            <Icon name="shield" size={14} /> {config.isDangerous ? 'YOLO' : 'Safe'}
                         </button>
                     </div>
                 </div>
@@ -270,12 +272,13 @@ export function LaunchConfigPanel({
                 {/* Advanced toggle */}
                 <button type="button"
                     className="launchConfigInline__advancedToggle"
+                    style={{ color: 'var(--pn-ink-2)' }}
                     onClick={() => toggleAdvanced(member.id)}
                 >
-                    <span style={{ fontSize: '9px', opacity: 0.5 }}>{isAdvancedOpen ? '\u25BC' : '\u25B6'}</span>
+                    <Icon name={isAdvancedOpen ? 'chevronD' : 'chevronR'} size={11} />
                     <span>Advanced</span>
                     {(config.skillIds.length > 0 || Object.keys(config.commandOverrides).length > 0) && (
-                        <span className="launchConfigInline__badge">
+                        <span className="pn-mtab__n">
                             {config.skillIds.length + Object.keys(config.commandOverrides).length}
                         </span>
                     )}
@@ -294,9 +297,9 @@ export function LaunchConfigPanel({
 
                         {/* Command Permissions */}
                         <div className="launchConfigInline__section">
-                            <div className="tmModal__permCard">
-                                <div className="tmModal__permCardLabel">Command Permissions</div>
-                                <div className="themedFormHint" style={{ marginBottom: '6px' }}>
+                            <div className="tmModal__permCard" style={{ background: 'var(--pn-surface)', border: '1px solid var(--pn-line)', borderRadius: 'var(--pn-r-sm)' }}>
+                                <div className="pn-flabel" style={{ marginBottom: '6px' }}>Command Permissions</div>
+                                <div className="pn-fhint" style={{ marginBottom: '6px' }}>
                                     Toggle to restrict or grant commands.
                                 </div>
                                 {COMMAND_GROUPS.map(group => {
@@ -311,13 +314,13 @@ export function LaunchConfigPanel({
                                                 onClick={() => toggleCommandGroup(groupKey)}
                                                 style={{
                                                     background: 'none', border: 'none', cursor: 'pointer',
-                                                    fontSize: '11px', padding: '3px 0', color: 'var(--theme-text)',
+                                                    fontSize: '11px', padding: '3px 0', color: 'var(--pn-ink)',
                                                     display: 'flex', alignItems: 'center', gap: '6px',
-                                                    width: '100%', fontFamily: '"JetBrains Mono", monospace',
+                                                    width: '100%', fontFamily: 'var(--pn-mono)',
                                                 }}
                                             >
-                                                <span style={{ color: 'rgba(var(--theme-primary-rgb), 0.5)', fontSize: '10px' }}>
-                                                    {isExpanded ? '\u25BC' : '\u25B6'}
+                                                <span style={{ color: 'var(--pn-ink-3)', fontSize: '10px', display: 'inline-flex' }}>
+                                                    <Icon name={isExpanded ? 'chevronD' : 'chevronR'} size={10} />
                                                 </span>
                                                 <span style={{ fontWeight: 500 }}>{group.label}</span>
                                                 <span style={{ opacity: 0.5, fontSize: '10px' }}>
@@ -354,7 +357,7 @@ export function LaunchConfigPanel({
                                                                 >
                                                                     {isChecked ? '\u2713' : ''}
                                                                 </span>
-                                                                <span style={{ fontSize: '10px', whiteSpace: 'nowrap', fontFamily: '"JetBrains Mono", monospace', color: 'var(--theme-text)' }}>
+                                                                <span style={{ fontSize: '10px', whiteSpace: 'nowrap', fontFamily: 'var(--pn-mono)', color: 'var(--pn-ink)' }}>
                                                                     {cmd}
                                                                 </span>
                                                             </label>
@@ -374,18 +377,18 @@ export function LaunchConfigPanel({
     };
 
     return (
-        <div className="launchConfigInline">
-            <div className="launchConfigInline__header">
-                <span className="launchConfigInline__title">
+        <div className="launchConfigInline" style={{ background: 'transparent', border: 'none' }}>
+            <div className="launchConfigInline__header" style={{ borderColor: 'var(--pn-line)' }}>
+                <span className="pn-flabel" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     Launch Configuration
                     {isSingleMember && selectedMembers[0] && (
-                        <span className="launchConfigInline__headerMember">
+                        <span className="launchConfigInline__headerMember" style={{ color: 'var(--pn-ink-2)' }}>
                             <span>{selectedMembers[0].avatar}</span>
                             <span>{selectedMembers[0].name}</span>
                         </span>
                     )}
                 </span>
-                <button type="button" className="launchConfigInline__closeBtn" onClick={onClose} title="Back to description">&times;</button>
+                <button type="button" className="pn-mchip" onClick={onClose} title="Back to description"><Icon name="x" size={13} /></button>
             </div>
             <div className="launchConfigInline__body">
                 {selectedMembers.map(renderMemberConfig)}

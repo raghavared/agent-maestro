@@ -15,9 +15,9 @@ export function SessionsTab({ taskId, tasks, onJumpToSession }: SessionsTabProps
     return (
         <div className="terminalTabPane terminalTabPane--sessions">
             {loading ? (
-                <div className="terminalLoading">Loading sessions...</div>
+                <div className="pn-fhint">Loading sessions...</div>
             ) : sessions.length === 0 ? (
-                <div className="themedFormHint">No sessions working on this task</div>
+                <div className="pn-fhint">No sessions working on this task.</div>
             ) : (
                 <div className="terminalSessionsList">
                     {sessions.map(session => (

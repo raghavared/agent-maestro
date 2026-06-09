@@ -9,59 +9,58 @@
    ========================================================================== */
 
 .sessionStatsView {
-  /* ---- canvas / surfaces ---- */
-  --ssv-bg-app: #0a0c10;
-  --ssv-bg-surface: #0e1117;
-  --ssv-bg-raised: #131720;
-  --ssv-bg-hover: #181d28;
-  --ssv-bg-active: #1e2430;
-  --ssv-border-1: #2a3140;
-  --ssv-border-2: #3a4354;
+  /* ---- canvas / surfaces (foundation --pn-* indirection) ---- */
+  --ssv-bg-app: var(--pn-paper);
+  --ssv-bg-surface: var(--pn-surface);
+  --ssv-bg-raised: var(--pn-card);
+  --ssv-bg-hover: var(--pn-hover);
+  --ssv-bg-active: var(--pn-active);
+  --ssv-border-1: var(--pn-line);
+  --ssv-border-2: var(--pn-line-2);
 
   /* ---- text ---- */
-  --ssv-fg-1: #e4e8f0;
-  --ssv-fg-2: #b9c0cf;
-  --ssv-fg-3: #8b93a6;
-  --ssv-fg-4: #586073;
+  --ssv-fg-1: var(--pn-ink);
+  --ssv-fg-2: var(--pn-ink-2);
+  --ssv-fg-3: var(--pn-ink-3);
+  --ssv-fg-4: var(--pn-ink-4);
 
-  /* ---- baton (amber signature) ---- */
-  --ssv-baton-500: #f5a524;
-  --ssv-baton-400: #ffb845;
-  --ssv-baton-600: #d4881a;
-  --ssv-baton-300: #ffcd7a;
-  --ssv-baton-rgb: 245, 165, 36;
-  --ssv-baton-tint: rgba(245, 165, 36, 0.1);
+  /* ---- baton (signature accent → foundation brass brand) ---- */
+  --ssv-baton-500: var(--pn-brand);
+  --ssv-baton-400: var(--pn-brand);
+  --ssv-baton-600: var(--pn-brand-2);
+  --ssv-baton-300: var(--pn-brand);
+  --ssv-baton-tint: var(--pn-brand-soft);
   --ssv-accent: var(--ssv-baton-500);
   --ssv-accent-hover: var(--ssv-baton-400);
   --ssv-accent-press: var(--ssv-baton-600);
-  --ssv-on-accent: #1a1206;
+  --ssv-on-accent: #20160a;
 
   /* ---- status signals ---- */
-  --ssv-run: #34d399;
-  --ssv-run-dim: rgba(52, 211, 153, 0.14);
-  --ssv-block: #fb7185;
-  --ssv-block-dim: rgba(251, 113, 133, 0.14);
-  --ssv-info: #60a5fa;
-  --ssv-info-dim: rgba(96, 165, 250, 0.14);
-  --ssv-idle-dim: rgba(88, 96, 115, 0.18);
+  --ssv-run: var(--pn-run);
+  --ssv-run-dim: var(--pn-run-soft);
+  --ssv-block: var(--pn-block);
+  --ssv-block-dim: var(--pn-block-soft);
+  --ssv-info: var(--pn-info);
+  --ssv-info-dim: var(--pn-info-soft);
+  --ssv-idle-dim: var(--pn-idle-soft);
 
-  /* ---- categorical / token hues ---- */
+  /* ---- categorical / token hues (kept — data identity, not chrome) ---- */
   --ssv-violet: #a78bfa;
   --ssv-teal: #2dd4bf;
 
   /* ---- type ---- */
-  --ssv-font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --ssv-font-mono: "JetBrains Mono", "SF Mono", ui-monospace, "Menlo", monospace;
+  --ssv-font-ui: var(--pn-ui);
+  --ssv-font-mono: var(--pn-mono);
 
   /* ---- radii ---- */
-  --ssv-r-xs: 4px;
-  --ssv-r-sm: 6px;
-  --ssv-r-md: 8px;
-  --ssv-r-lg: 12px;
-  --ssv-r-pill: 999px;
+  --ssv-r-xs: var(--pn-r-xs);
+  --ssv-r-sm: var(--pn-r-sm);
+  --ssv-r-md: var(--pn-r-md);
+  --ssv-r-lg: var(--pn-r-lg);
+  --ssv-r-pill: var(--pn-r-pill);
 
   /* ---- elevation / motion ---- */
-  --ssv-inner-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --ssv-inner-top: var(--pn-sh-sm);
   --ssv-dur-fast: 120ms;
   --ssv-dur-base: 180ms;
   --ssv-dur-slow: 280ms;
@@ -74,9 +73,7 @@
   overflow-y: auto;
   font-family: var(--ssv-font-ui);
   color: var(--ssv-fg-2);
-  background:
-    radial-gradient(1100px 420px at 78% -8%, rgba(var(--ssv-baton-rgb), 0.06), transparent 60%),
-    var(--ssv-bg-app);
+  background: var(--pn-paper);
 }
 
 .sessionStatsView *,
@@ -89,11 +86,11 @@
   width: 9px;
 }
 .sessionStatsView::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--pn-line-2);
   border-radius: 5px;
 }
 .sessionStatsView::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--pn-ink-4);
 }
 
 .ssv-wrap {
@@ -258,7 +255,7 @@
   font-family: var(--ssv-font-mono);
   font-weight: 700;
   font-size: 19px;
-  color: #0a0c10;
+  color: var(--ssv-on-accent);
   box-shadow: var(--ssv-inner-top);
 }
 .ssv-id-meta {
@@ -305,7 +302,7 @@
   font-family: var(--ssv-font-mono);
   font-size: 9px;
   font-weight: 700;
-  color: #0a0c10;
+  color: var(--ssv-on-accent);
 }
 .ssv-mchip-nm {
   font-size: 11.5px;
@@ -834,7 +831,7 @@
 }
 .ssv-msg-user .ssv-msg-bubble {
   background: var(--ssv-baton-tint);
-  border-color: rgba(var(--ssv-baton-rgb), 0.25);
+  border-color: var(--pn-line-2);
 }
 .ssv-msg-head {
   display: flex;
@@ -1040,7 +1037,7 @@
   font-family: var(--ssv-font-mono);
   font-weight: 700;
   font-size: 11px;
-  color: #0a0c10;
+  color: var(--ssv-on-accent);
 }
 .ssv-sub-meta {
   flex: 1;

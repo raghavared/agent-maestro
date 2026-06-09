@@ -60,10 +60,14 @@ function readColorFromStorage(styleId: StyleId): string {
 function applyToDom(styleId: StyleId, colorKey: string): void {
   const el = document.documentElement;
   el.setAttribute('data-style', styleId);
-  // Set per-color theme vars as a composite key for CSS
-  el.setAttribute('data-theme', buildThemeId(styleId, colorKey));
+  // NOTE: data-theme is the light/dark axis, owned EXCLUSIVELY by useRedesignTheme.
+  // The legacy style/color axis lives on data-style + the --theme-* vars below, and
+  // persists via STORAGE_STYLE_KEY/STORAGE_THEME_KEY in localStorage (read back through
+  // parseThemeId — never from the DOM attribute). A previous composite write here
+  // (`data-theme = buildThemeId(...)`) clobbered the light/dark axis and broke dark-mode
+  // detection in SessionTerminal.tsx / MermaidDiagram.tsx, so it was removed.
 
-  // Also apply color CSS vars directly so existing var(--theme-primary) etc. still work
+  // Apply color CSS vars directly so existing var(--theme-primary) etc. still work
   const variant = getColorVariant(styleId, colorKey);
   if (variant) {
     el.style.setProperty('--theme-primary', variant.colors.primary);
