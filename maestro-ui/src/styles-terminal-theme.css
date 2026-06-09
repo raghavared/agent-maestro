@@ -412,17 +412,17 @@
   border-radius: 0;
 }
 
-/* Show scrollbar only when hovering over the terminal pane */
+/* Show scrollbar only when hovering over the terminal pane — warm pn-term tint */
 .terminalPane:hover .xterm-viewport::-webkit-scrollbar-thumb {
-  background: rgba(var(--theme-primary-rgb), 0.3);
+  background: var(--pn-term-dim);
 }
 
 .terminalPane:hover .xterm-viewport::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--theme-primary-rgb), 0.5);
+  background: var(--pn-term-ink);
 }
 
 .terminalPane:hover .xterm-viewport::-webkit-scrollbar-thumb:active {
-  background: rgba(var(--theme-primary-rgb), 0.6);
+  background: var(--pn-term-ink);
 }
 
 /* Firefox scrollbar support */
@@ -432,7 +432,7 @@
 }
 
 .terminalPane:hover .xterm-viewport {
-  scrollbar-color: rgba(var(--theme-primary-rgb), 0.3) transparent;
+  scrollbar-color: var(--pn-term-dim) transparent;
 }
 
 /* Overlay scrollbar: don't consume layout space */

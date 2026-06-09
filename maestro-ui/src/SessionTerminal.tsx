@@ -1,10 +1,62 @@
 import { invoke } from "@tauri-apps/api/core";
 import React, { useEffect, useRef } from "react";
 import { Terminal } from "xterm";
+import type { ITheme } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import type { PendingDataBuffer } from "./app/types/app-state";
 
 export type TerminalRegistry = Map<string, { term: Terminal; fit: FitAddon }>;
+
+/* ---------------------------------------------------------------------------
+   MAESTRO TERMINAL THEME — warm, desaturated, FULL 16-color ANSI palette.
+
+   The old theme set only 4 colors, so all real program output (diffs, test
+   results, `ls`, syntax highlighting) fell through to xterm's default neon
+   ANSI palette — the cold/"AI" look. This defines the complete ITheme so the
+   WHOLE terminal reads warm parchment-on-graphite, matching the panel-redesign
+   --pn-term-* / --pn-* design tokens.
+
+   The terminal stays DARK in both light and dark mode; only the background
+   flips between two dark values (#1B1812 light / #100E0A dark) to match the
+   --pn-term-bg chrome gutter. ink/accent/ANSI stay constant across themes.
+--------------------------------------------------------------------------- */
+const MAESTRO_TERMINAL_BG_LIGHT = "#1B1812";
+const MAESTRO_TERMINAL_BG_DARK = "#100E0A";
+
+function maestroTerminalTheme(background: string): ITheme {
+  return {
+    background,
+    foreground: "#D9D2C4", // parchment ink
+    cursor: "#E0A45A", // brass accent
+    cursorAccent: background,
+    selectionBackground: "rgba(224,164,90,0.22)", // warm brass wash
+    selectionForeground: "#F3EEE2",
+    // 16-color ANSI — warm & desaturated, no neon
+    black: "#322D24",
+    red: "#CB7059",
+    green: "#74B083",
+    yellow: "#D2A24C",
+    blue: "#6E9BC4",
+    magenta: "#B98BC0",
+    cyan: "#6FB2A8",
+    white: "#CFC8BA",
+    brightBlack: "#6B6453",
+    brightRed: "#DC8B73",
+    brightGreen: "#8FC79C",
+    brightYellow: "#E6B968",
+    brightBlue: "#88B0D6",
+    brightMagenta: "#CCA0D2",
+    brightCyan: "#86C4BA",
+    brightWhite: "#EFE9DB",
+  };
+}
+
+function currentTerminalBg(): string {
+  return typeof document !== "undefined" &&
+    document.documentElement.dataset.theme === "dark"
+    ? MAESTRO_TERMINAL_BG_DARK
+    : MAESTRO_TERMINAL_BG_LIGHT;
+}
 
 type RenderDimension = { width: number; height: number };
 type RenderDimensionsFallback = {
@@ -113,20 +165,93 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
       cursorBlink: true,
       disableStdin: props.readOnly,
       fontFamily:
-        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+        '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
       fontSize: 13,
-      theme: {
-        background: "#0a0e16",
-        foreground: "#f0f4f8",
-        cursor: "#6b8afd",
-        selectionBackground: "rgba(34,211,238,0.25)",
-      },
+      theme: maestroTerminalTheme(currentTerminalBg()),
       scrollback: 5000,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(container);
     patchXtermRenderServiceDimensions(term);
+
+    // Keep the terminal background in sync with the app light/dark toggle.
+    // The terminal stays dark in both modes; only the bg flips between two
+    // dark values to match the --pn-term-bg chrome gutter. Theme-only update —
+    // does not touch the PTY, registry, or fit.
+    const themeObserver = new MutationObserver(() => {
+      term.options.theme = maestroTerminalTheme(currentTerminalBg());
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+
+    // xterm measures glyph metrics at open() and (with the DOM renderer) paints
+    // glyphs via CSS font-family. In WKWebView (macOS Tauri) the "JetBrains
+    // Mono" webfont usually isn't ready at open(), and — unlike Chromium — the
+    // terminal does NOT reflow/repaint when it finishes loading, so it sticks on
+    // the system-mono fallback. Force a re-measure + full repaint once the font
+    // loads. A fontSize round-trip reliably re-triggers xterm's CharSizeService
+    // and a renderer repaint (a same-value fontFamily set does not). Retries
+    // cover WKWebView reporting `fonts.ready` a frame or two before paint.
+    const forceFontReflow = () => {
+      if (!term.element) return; // terminal disposed before the font loaded
+      const size = term.options.fontSize ?? 13;
+      // Re-assert the font and round-trip fontSize: this forces xterm's
+      // CharSizeService/WidthCache to re-measure with the now-loaded font and
+      // triggers a full repaint (a same-value fontFamily set alone does not).
+      term.options.fontFamily =
+        '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+      term.options.fontSize = size + 1;
+      term.options.fontSize = size;
+      // Canvas/webgl renderers cache glyphs in a texture atlas keyed on the
+      // font measured at open(); clear it so glyphs re-rasterize in the new
+      // font. No-op on the DOM renderer.
+      try {
+        (term as unknown as { clearTextureAtlas?: () => void }).clearTextureAtlas?.();
+      } catch {
+        /* not applicable to this renderer */
+      }
+      try {
+        fit.fit();
+      } catch {
+        /* container not measurable yet — next resize will re-fit */
+      }
+      try {
+        term.refresh(0, term.rows - 1);
+      } catch {
+        /* renderer not ready yet */
+      }
+      // WKWebView (macOS) paints terminal glyphs with the fallback font before
+      // the webfont finishes decoding and does NOT repaint on font-display:swap,
+      // so the rows stay system-mono even though their computed font-family is
+      // already "JetBrains Mono". Force a hard re-rasterization by toggling the
+      // element's display — WKWebView discards the cached glyph layer and
+      // repaints with the now-loaded font.
+      const el = term.element;
+      if (el) {
+        const prevDisplay = el.style.display;
+        el.style.display = "none";
+        void el.offsetHeight; // force synchronous reflow
+        el.style.display = prevDisplay;
+      }
+    };
+    if (typeof document !== "undefined" && document.fonts) {
+      // Trigger the actual font fetch, then reflow on ready regardless of
+      // whether the explicit load resolved (WKWebView can reject spuriously).
+      try {
+        document.fonts.load('13px "JetBrains Mono"');
+        document.fonts.load('600 13px "JetBrains Mono"');
+      } catch {
+        /* FontFaceSet.load unsupported — the timed retries below still cover it */
+      }
+      document.fonts.ready.then(forceFontReflow).catch(() => {});
+    }
+    // Belt-and-suspenders for WKWebView: re-assert a few times after paint.
+    const fontReflowTimers = [120, 360, 900].map((ms) =>
+      window.setTimeout(forceFontReflow, ms),
+    );
 
     if (props.persistent) {
       const skipEscapeSequence = (data: string, start: number): number => {
@@ -372,7 +497,16 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
 
 	    }
 
+	    function isPanelResizing() {
+	      const cl = document.documentElement.classList;
+	      return cl.contains("maestro-sidebar-resizing") || cl.contains("right-panel-resizing");
+	    }
+
 	    function scheduleResize() {
+	      // While a panel splitter is being dragged the terminal box resizes every
+	      // frame. Skip fit()/PTY-resize entirely during the drag (the box just
+	      // stretches via CSS) and reflow once on drag-end (maestro:panel-resize-end).
+	      if (isPanelResizing()) return;
 	      if (resizeRafRef.current !== null) return;
 	      if (resizeTimeoutRef.current !== null) return;
 
@@ -466,9 +600,17 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
 		    resizeObserver.observe(container);
 		    scheduleResize();
 
+		    // After a panel splitter drag ends, run a single fit() to reflow to the
+		    // final size (the per-frame fits were skipped during the drag).
+		    const handlePanelResizeEnd = () => scheduleResize();
+		    window.addEventListener("maestro:panel-resize-end", handlePanelResizeEnd);
+
 
 	    return () => {
+	      themeObserver.disconnect();
+	      for (const t of fontReflowTimers) window.clearTimeout(t);
 	      resizeObserver.disconnect();
+	      window.removeEventListener("maestro:panel-resize-end", handlePanelResizeEnd);
 	      if (resizeRafRef.current !== null) {
 	        window.cancelAnimationFrame(resizeRafRef.current);
 	      }
