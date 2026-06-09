@@ -309,18 +309,18 @@ html[data-redesign] .pn-search input::placeholder { color: var(--pn-ink-4); }
 /* filter tabs — single-row segmented control */
 html[data-redesign] .pn-filters {
   display: flex; align-items: stretch; gap: 2px; margin: 4px 14px 10px;
-  padding: 3px; flex-wrap: nowrap;
+  padding: 3px; flex-wrap: wrap;
   background: var(--pn-active); border: 1px solid var(--pn-line);
   border-radius: var(--pn-r-sm);
 }
 html[data-redesign] .pn-filter {
-  flex: 1 1 0; min-width: 0;
+  flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center; gap: 4px;
   font-size: 11px; font-weight: 600; color: var(--pn-ink-3);
   background: transparent; border: none;
-  border-radius: calc(var(--pn-r-sm) - 2px); padding: 5px 5px;
+  border-radius: calc(var(--pn-r-sm) - 2px); padding: 5px 8px;
   transition: color 140ms, background 140ms, box-shadow 140ms; cursor: pointer;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
 }
 html[data-redesign] .pn-filter:hover { color: var(--pn-ink-2); }
 html[data-redesign] .pn-filter--active {
@@ -731,6 +731,14 @@ html[data-redesign][data-theme='dark'] .pn-term-input { border-color: #221E15; }
 html[data-redesign][data-theme='dark'] .pn-tag { border-color: var(--pn-line-2); }
 
 /* tab background fills (used a near-white in light) stay subtle on dark */
-html[data-redesign][data-theme='dark'] body,
 html[data-redesign][data-theme='dark'] #stage,
 html[data-redesign][data-theme='dark'] #frame { background: var(--pn-paper); }
+
+/* App canvas behind and between panels. The legacy --bg (#0a0e16, near-black)
+   is the body background and shows through panel gaps — e.g. the transparent
+   resize-handle gutter — as a hard black vertical band. Repaint the canvas with
+   the warm paper token (flips per theme) so gutters read as the theme, not black. */
+html[data-redesign] body,
+html[data-redesign] #root,
+html[data-redesign] .app,
+html[data-redesign] .appContent { background: var(--pn-paper); }
