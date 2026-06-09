@@ -4,6 +4,7 @@ import { Terminal } from "xterm";
 import type { ITheme } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import type { PendingDataBuffer } from "./app/types/app-state";
+import { useTerminalSettingsStore } from "./stores/useTerminalSettingsStore";
 
 export type TerminalRegistry = Map<string, { term: Terminal; fit: FitAddon }>;
 
@@ -160,13 +161,13 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
     const container = containerRef.current;
     if (!container) return;
 
+    const termSettings = useTerminalSettingsStore.getState();
     const term = new Terminal({
       allowProposedApi: true,
       cursorBlink: true,
       disableStdin: props.readOnly,
-      fontFamily:
-        '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-      fontSize: 13,
+      fontFamily: termSettings.fontStack,
+      fontSize: termSettings.fontSize,
       theme: maestroTerminalTheme(currentTerminalBg()),
       scrollback: 5000,
     });
@@ -198,11 +199,11 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
     const forceFontReflow = () => {
       if (!term.element) return; // terminal disposed before the font loaded
       const size = term.options.fontSize ?? 13;
-      // Re-assert the font and round-trip fontSize: this forces xterm's
-      // CharSizeService/WidthCache to re-measure with the now-loaded font and
-      // triggers a full repaint (a same-value fontFamily set alone does not).
-      term.options.fontFamily =
-        '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+      // Re-assert the configured font and round-trip fontSize: this forces
+      // xterm's CharSizeService/WidthCache to re-measure with the now-loaded
+      // font and triggers a full repaint (a same-value fontFamily set alone
+      // does not).
+      term.options.fontFamily = useTerminalSettingsStore.getState().fontStack;
       term.options.fontSize = size + 1;
       term.options.fontSize = size;
       // Canvas/webgl renderers cache glyphs in a texture atlas keyed on the
@@ -688,6 +689,36 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
     if (!term) return;
     term.options.disableStdin = props.readOnly;
   }, [props.readOnly]);
+
+  // Apply user-configured terminal font + size live to every open terminal
+  // when the setting changes (Settings → Display). Re-measure + re-fit so the
+  // grid reflows, with the same WKWebView hard-repaint used at creation.
+  const termFontStack = useTerminalSettingsStore((s) => s.fontStack);
+  const termFontSize = useTerminalSettingsStore((s) => s.fontSize);
+  useEffect(() => {
+    const term = termRef.current;
+    const fit = fitRef.current;
+    if (!term) return;
+    term.options.fontFamily = termFontStack;
+    term.options.fontSize = termFontSize;
+    try {
+      fit?.fit();
+    } catch {
+      /* not measurable yet */
+    }
+    try {
+      term.refresh(0, term.rows - 1);
+    } catch {
+      /* renderer not ready */
+    }
+    const el = term.element;
+    if (el) {
+      const prevDisplay = el.style.display;
+      el.style.display = "none";
+      void el.offsetHeight;
+      el.style.display = prevDisplay;
+    }
+  }, [termFontStack, termFontSize]);
 
   return <div ref={containerRef} style={{ height: "100%", width: "100%" }} />;
 });
