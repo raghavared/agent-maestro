@@ -327,20 +327,22 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
              stats view in-place (this is the original locked seam — covers
              sessions that exit in real time without a sidebar re-click).
         */}
-        {inspectedMaestroSession ? (
+        {/* Inspected stats view — a sibling of the always-mounted terminal map,
+            sharing the same absolute box (.terminalContainer is position:absolute
+            inset:0). Keeping the map mounted whether or not stats is showing means
+            toggling stats ↔ terminal never unmounts and re-creates every live PTY.
+            That remount was the long freeze on every stats → terminal switch. */}
+        {inspectedMaestroSession && (
           <div
             className={`terminalContainer ${activeIsCoordinator ? "coordinator-glow" : ""}`}
             data-terminal-id={`maestro:${inspectedMaestroSession.id}`}
           >
             <SessionStatsView session={inspectedMaestroSession} />
           </div>
-        ) : (
-          <>
-            {/* Hero shows when no terminal is actually visible: either there are
-                no sessions, or activeId is stale/null and matches no row. The
-                terminal map below still renders (hidden) so no live PTY unmounts —
-                this just prevents a blank center pane. */}
-            {!sessions.some((s) => s.id === activeId) && (
+        )}
+        {/* Hero shows when no terminal is actually visible: no sessions, or
+            activeId is stale/null. Suppressed while inspecting a stats view. */}
+        {!inspectedMaestroSession && !sessions.some((s) => s.id === activeId) && (
               <div className="terminalEmptyState">
                 <div className="terminalEmptyAscii" aria-hidden="true">
 {`  ╔══════════════════════════════╗
@@ -374,11 +376,14 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
               const inactiveMaestroSession = isInactive && s.maestroSessionId
                 ? maestroSessions[s.maestroSessionId] ?? null
                 : null;
+              // Hidden (not unmounted) while a stats overlay is showing, so the
+              // map stays mounted underneath without painting over the stats view.
+              const visible = s.id === activeId && !inspectedMaestroSession;
               return (
                 <div
                   key={s.id}
                   data-terminal-id={s.id}
-                  className={`terminalContainer ${s.id === activeId ? "" : "terminalHidden"} ${s.id === activeId && activeIsCoordinator ? "coordinator-glow" : ""}`}
+                  className={`terminalContainer ${visible ? "" : "terminalHidden"} ${visible && activeIsCoordinator ? "coordinator-glow" : ""}`}
                 >
                   {inactiveMaestroSession ? (
                     <SessionStatsView session={inactiveMaestroSession} />
@@ -398,8 +403,6 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
                 </div>
               );
             })}
-          </>
-        )}
 
         {/* Fused terminal strip — log toggle + stats + model + actions, pinned at the foot */}
         {active?.maestroSessionId && active?.cwd && (
