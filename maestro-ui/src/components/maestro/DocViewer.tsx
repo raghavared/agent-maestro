@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { DocEntry } from "../../app/types/maestro";
 import { maestroClient } from "../../utils/MaestroClient";
+import { isDiagramDoc } from "../../utils/docHelpers";
 const LazyMermaidDiagram = React.lazy(() =>
   import("./MermaidDiagram").then(m => ({ default: m.MermaidDiagram }))
 );
@@ -145,7 +146,7 @@ export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
   const [diagramEditMode, setDiagramEditMode] = useState(false);
   const fileExt = useMemo(() => getFileExtension(doc.filePath), [doc.filePath]);
   const shouldRenderMarkdown = useMemo(() => isMarkdown(doc.filePath), [doc.filePath]);
-  const isDiagramDoc = doc.kind === 'diagram';
+  const isDiagram = isDiagramDoc(doc);
   const fileName = useMemo(() => {
     const parts = doc.filePath.split("/");
     return parts[parts.length - 1];
@@ -174,7 +175,7 @@ export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
       <div className="docViewerHeader">
         <div className="docViewerHeaderLeft">
           <span className="docViewerIcon">
-            {isDiagramDoc ? "⬡" : shouldRenderMarkdown ? "M↓" : "{ }"}
+            {isDiagram ? "⬡" : shouldRenderMarkdown ? "M↓" : "{ }"}
           </span>
           <div className="docViewerHeaderInfo">
             <h3 className="docViewerTitle">{doc.title}</h3>
@@ -187,7 +188,7 @@ export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
           </div>
         </div>
         <div className="docViewerHeaderActions">
-          {isDiagramDoc && (
+          {isDiagram && (
             <button
               type="button"
               className="themedBtn"
@@ -248,8 +249,8 @@ export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
       </div>
 
       {/* Content body */}
-      <div className={`docViewerBody ${isDiagramDoc ? 'docViewerBody--diagram' : ''}`}>
-        {isDiagramDoc ? (
+      <div className={`docViewerBody ${isDiagram ? 'docViewerBody--diagram' : ''}`}>
+        {isDiagram ? (
           <React.Suspense fallback={<div style={{ padding: 20, opacity: 0.5 }}>Loading diagram...</div>}>
             <LazyExcalidrawBoard
               key={`${doc.id}-${diagramEditMode ? 'edit' : 'view'}`}

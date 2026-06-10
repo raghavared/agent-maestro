@@ -15,6 +15,7 @@ import type { TeamColor } from "../../app/constants/teamColors";
 import type { SessionSubTab } from "../../utils/sessionLifecycle";
 import { willOpenStatsOnClick } from "../../utils/sessionClickRouting";
 import { copyToClipboard } from "../../utils/domUtils";
+import { isDiagramDoc } from "../../utils/docHelpers";
 import { Icon, Glyph, AgentTile, type AgentKind } from "./redesign/kit";
 
 const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
@@ -536,20 +537,21 @@ export const SessionListItem = React.memo(function SessionListItem({
               <span className="pn-st__metalabel">Docs</span>
               <div className="pn-st__metacontent">
                 {docs.map((doc) => {
+                  const isDiagram = isDiagramDoc(doc);
                   const ext = doc.filePath.split(".").pop()?.toLowerCase() || "";
                   const isMarkdown = ["md", "mdx", "markdown"].includes(ext);
                   return (
                     <button
                       type="button"
                       key={doc.id}
-                      className="pn-docpill"
+                      className={`pn-docpill${isDiagram ? " pn-docpill--diagram" : ""}`}
                       title={doc.filePath}
                       onClick={(e) => {
                         e.stopPropagation();
                         setDocOverlay(doc);
                       }}
                     >
-                      <span className="pn-docpill__ic">{isMarkdown ? "M↓" : "{}"}</span>
+                      <span className="pn-docpill__ic">{isDiagram ? "⬡" : isMarkdown ? "M↓" : "{}"}</span>
                       <span className="pn-docpill__t">{doc.title}</span>
                     </button>
                   );
