@@ -362,6 +362,59 @@ export interface MaestroSessionEvent {
   data?: any;
 }
 
+/**
+ * A prompt sent between two sessions (sender → receiver). Mirrors the
+ * server's GET /api/sessions/:id/prompts response — returned sorted by
+ * timestamp ascending, including prompts where this session is sender OR
+ * receiver. Reused by Session Stats and Huddles.
+ */
+export interface SessionPrompt {
+  id: string;
+  fromSessionId: string;
+  toSessionId: string;
+  fromProjectId: string;
+  toProjectId: string;
+  content: string;
+  mode?: string;
+  fromTeamMember: TeamMemberSnapshot | null;
+  toTeamMember: TeamMemberSnapshot | null;
+  fromSessionName: string;
+  toSessionName: string;
+  timestamp: number;
+}
+
+// One tracked maestro CLI invocation (written by the CLI command-tracker).
+export interface CommandUsageRecord {
+  ts: string;
+  sessionId: string | null;
+  projectId: string | null;
+  command: string | null;
+  argv: string[];
+  exitCode: number;
+  durationMs: number;
+  success: boolean;
+  cliVersion: string | null;
+}
+
+export interface CommandUsagePerCommand {
+  command: string;
+  total: number;
+  failed: number;
+}
+
+export interface CommandUsageSummary {
+  total: number;
+  succeeded: number;
+  failed: number;
+  byCommand: CommandUsagePerCommand[];
+}
+
+export interface SessionCommandUsage {
+  sessionId: string;
+  summary: CommandUsageSummary;
+  records: CommandUsageRecord[];
+}
+
 export interface MaestroTask {
   // Core Identity
   id: string;

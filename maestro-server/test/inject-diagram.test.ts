@@ -35,6 +35,8 @@ async function buildApp(dataDir: string) {
 
   const sessionRoutes = createSessionRoutes({
     sessionService: container.sessionService,
+    sessionPromptService: container.sessionPromptService,
+    commandUsageService: container.commandUsageService,
     logDigestService,
     projectRepo: container.projectRepo,
     taskRepo: container.taskRepo,

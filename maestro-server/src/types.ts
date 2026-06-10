@@ -131,6 +131,34 @@ export interface UpdateModelProfilePayload {
   launchConfig?: LaunchConfig;
 }
 
+/**
+ * A durable, cross-project record of one session prompting another via
+ * POST /api/sessions/:id/prompt. Stored flat at <dataDir>/session-prompts/<id>.json.
+ * `content` is the FULL, clean message WITHOUT the [From: name (id)] terminal prefix.
+ */
+export interface SessionPrompt {
+  id: string;                                   // sp_<ts>_<rand>
+  fromSessionId: string;
+  toSessionId: string;
+  fromProjectId: string | null;
+  toProjectId: string | null;
+  content: string;                              // full, clean (no [From: ...] prefix)
+  mode: 'send' | 'paste';
+  fromTeamMember: TeamMemberSnapshot | null;
+  toTeamMember: TeamMemberSnapshot | null;
+  fromSessionName: string | null;
+  toSessionName: string | null;
+  timestamp: number;
+}
+
+/** Input for SessionPromptService.record — snapshots/names are resolved by the service. */
+export interface RecordSessionPromptInput {
+  fromSessionId: string;
+  toSessionId: string;
+  content: string;
+  mode: 'send' | 'paste';
+}
+
 // Four-mode model types
 export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coordinated-coordinator';
 /** Legacy mode aliases for backward compatibility */
