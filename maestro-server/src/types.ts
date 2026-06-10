@@ -146,10 +146,18 @@ export function isWorkerMode(mode: string): boolean {
 export function isCoordinatorMode(mode: string): boolean {
   return mode === 'coordinator' || mode === 'coordinated-coordinator' || mode === 'coordinate';
 }
-/** Normalize legacy mode values to the four-mode model */
+/**
+ * Normalize a mode value to the four-mode model. The "coordinated-" prefix is
+ * derived from `hasCoordinator` (i.e. whether a parent coordinator session
+ * exists), not from the input itself — so an already-coordinated input is
+ * downgraded to its base mode when spawned without a coordinator. This keeps
+ * the resolved mode coherent with `coordinatorSessionId`.
+ */
 export function normalizeMode(mode: string, hasCoordinator?: boolean): AgentMode {
-  if (mode === 'execute' || mode === 'worker') return hasCoordinator ? 'coordinated-worker' : 'worker';
-  if (mode === 'coordinate' || mode === 'coordinator') return hasCoordinator ? 'coordinated-coordinator' : 'coordinator';
+  if (mode === 'execute' || mode === 'worker' || mode === 'coordinated-worker')
+    return hasCoordinator ? 'coordinated-worker' : 'worker';
+  if (mode === 'coordinate' || mode === 'coordinator' || mode === 'coordinated-coordinator')
+    return hasCoordinator ? 'coordinated-coordinator' : 'coordinator';
   return mode as AgentMode;
 }
 
