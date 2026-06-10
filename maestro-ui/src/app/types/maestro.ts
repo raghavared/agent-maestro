@@ -372,14 +372,14 @@ export interface SessionPrompt {
   id: string;
   fromSessionId: string;
   toSessionId: string;
-  fromProjectId: string;
-  toProjectId: string;
+  fromProjectId: string | null;
+  toProjectId: string | null;
   content: string;
-  mode?: string;
+  mode: 'send' | 'paste';
   fromTeamMember: TeamMemberSnapshot | null;
   toTeamMember: TeamMemberSnapshot | null;
-  fromSessionName: string;
-  toSessionName: string;
+  fromSessionName: string | null;
+  toSessionName: string | null;
   timestamp: number;
 }
 

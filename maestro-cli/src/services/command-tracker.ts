@@ -40,6 +40,39 @@ export interface ReadOptions {
 const NO_SESSION_KEY = '_no-session';
 const MAX_ARG_LEN = 4000;
 
+/**
+ * Flags whose VALUES carry prompt/content text (messages, subjects, memory
+ * entries, descriptions). We log the flag name but never its value.
+ */
+const VALUE_BEARING_FLAGS = new Set(['--message', '--subject', '--entry', '-d', '--desc']);
+const REDACTED = '***';
+
+/**
+ * Replace the values of value-bearing flags with '***' while keeping the flag
+ * name. Handles both "--message value" (two tokens) and "--message=value".
+ */
+function redactValues(args: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    const eq = arg.indexOf('=');
+    if (eq > 0 && VALUE_BEARING_FLAGS.has(arg.slice(0, eq))) {
+      out.push(`${arg.slice(0, eq)}=${REDACTED}`);
+      continue;
+    }
+    if (VALUE_BEARING_FLAGS.has(arg)) {
+      out.push(arg);
+      if (i + 1 < args.length) {
+        out.push(REDACTED);
+        i += 1;
+      }
+      continue;
+    }
+    out.push(arg);
+  }
+  return out;
+}
+
 function resolveDataDir(): string {
   const raw = process.env.DATA_DIR;
   if (raw) {
@@ -125,7 +158,7 @@ export function installCommandTracker(version?: string | null): void {
 
   startTime = Date.now();
   cliVersion = version || process.env.MAESTRO_CLI_VERSION || null;
-  capturedArgv = sanitizeArgs(process.argv.slice(2));
+  capturedArgv = sanitizeArgs(redactValues(process.argv.slice(2)));
 
   process.on('exit', (code) => writeRecord(code));
 }

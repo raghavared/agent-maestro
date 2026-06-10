@@ -124,8 +124,8 @@ export function PromptList({ prompts, perspectiveSessionId, onCounterpartClick, 
   if (prompts.length === 0) {
     return emptyLabel ? <div className="ssv-prompt-empty">{emptyLabel}</div> : null;
   }
-  // Render newest first.
-  const ordered = [...prompts].sort((a, b) => b.timestamp - a.timestamp);
+  // Server returns prompts sorted by timestamp ascending; reverse for newest-first display.
+  const ordered = [...prompts].reverse();
   return (
     <div className="ssv-card ssv-prompt-list">
       {ordered.map((p) => (
