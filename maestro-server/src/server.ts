@@ -30,7 +30,7 @@ async function startServer() {
   const container = await createContainer();
   await container.initialize();
 
-  const { config, logger, eventBus, projectService, taskService, taskListService, taskGraphService, sessionService, logDigestService, orderingService, teamMemberService, teamService, modelProfileService, sessionPromptService, commandUsageService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, skillLoader } = container;
+  const { config, logger, eventBus, projectService, taskService, taskListService, taskGraphService, sessionService, logDigestService, orderingService, teamMemberService, teamService, modelProfileService, sessionPromptService, huddleService, commandUsageService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, skillLoader } = container;
 
   // Create Express app
   const app = express();
@@ -101,6 +101,7 @@ async function startServer() {
   const sessionRoutes = createSessionRoutes({
     sessionService,
     sessionPromptService,
+    huddleService,
     commandUsageService,
     logDigestService,
     projectRepo,

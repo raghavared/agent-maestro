@@ -29,6 +29,7 @@ import { TeamMemberService } from './application/services/TeamMemberService';
 import { TeamService } from './application/services/TeamService';
 import { ModelProfileService } from './application/services/ModelProfileService';
 import { SessionPromptService } from './application/services/SessionPromptService';
+import { HuddleService } from './application/services/HuddleService';
 import { CommandUsageService } from './application/services/CommandUsageService';
 import { FileSystemSessionCommandUsageRepository } from './infrastructure/repositories/FileSystemSessionCommandUsageRepository';
 import { SpellService } from './application/services/SpellService';
@@ -137,6 +138,7 @@ export interface Container {
   teamService: TeamService;
   modelProfileService: ModelProfileService;
   sessionPromptService: SessionPromptService;
+  huddleService: HuddleService;
   commandUsageService: CommandUsageService;
   spellService: SpellService;
   announcementService: AnnouncementService;
@@ -194,6 +196,7 @@ export async function createContainer(): Promise<Container> {
   const teamService = new TeamService(teamRepo, teamMemberRepo, eventBus, idGenerator);
   const modelProfileService = new ModelProfileService(modelProfileRepo, eventBus, idGenerator);
   const sessionPromptService = new SessionPromptService(sessionPromptRepo, sessionRepo, eventBus, idGenerator);
+  const huddleService = new HuddleService(sessionPromptService, sessionService);
   const commandUsageRepo = new FileSystemSessionCommandUsageRepository(config.dataDir, logger);
   const commandUsageService = new CommandUsageService(commandUsageRepo);
   const spellService = new SpellService(
@@ -266,6 +269,7 @@ export async function createContainer(): Promise<Container> {
     teamService,
     modelProfileService,
     sessionPromptService,
+    huddleService,
     commandUsageService,
     spellService,
     announcementService,

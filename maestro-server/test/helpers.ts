@@ -15,6 +15,7 @@ import { ProjectService } from '../src/application/services/ProjectService';
 import { TaskService } from '../src/application/services/TaskService';
 import { SessionService } from '../src/application/services/SessionService';
 import { SessionPromptService } from '../src/application/services/SessionPromptService';
+import { HuddleService } from '../src/application/services/HuddleService';
 import { CommandUsageService } from '../src/application/services/CommandUsageService';
 import { ILogger } from '../src/domain/common/ILogger';
 
@@ -85,6 +86,7 @@ export async function createTestContainer(dataDir: string) {
   const taskService = new TaskService(taskRepo, projectRepo, eventBus, idGenerator, taskListRepo);
   const sessionService = new SessionService(sessionRepo, taskRepo, projectRepo, eventBus, idGenerator);
   const sessionPromptService = new SessionPromptService(sessionPromptRepo, sessionRepo, eventBus, idGenerator);
+  const huddleService = new HuddleService(sessionPromptService, sessionService);
   const commandUsageService = new CommandUsageService(
     new FileSystemSessionCommandUsageRepository(dataDir, silentLogger)
   );
@@ -94,6 +96,7 @@ export async function createTestContainer(dataDir: string) {
     taskService,
     sessionService,
     sessionPromptService,
+    huddleService,
     commandUsageService,
     projectRepo,
     taskRepo,

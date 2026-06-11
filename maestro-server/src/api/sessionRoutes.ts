@@ -8,6 +8,7 @@ import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import { SessionService } from '../application/services/SessionService';
 import { SessionPromptService } from '../application/services/SessionPromptService';
+import { HuddleService } from '../application/services/HuddleService';
 import { CommandUsageService } from '../application/services/CommandUsageService';
 import { GitService } from '../application/services/GitService';
 import { LogDigestService } from '../application/services/LogDigestService';
@@ -452,6 +453,7 @@ function combineMode(relation: ModeRelation, role: ModeRole): AgentMode {
 interface SessionRouteDependencies {
   sessionService: SessionService;
   sessionPromptService: SessionPromptService;
+  huddleService: HuddleService;
   commandUsageService: CommandUsageService;
   logDigestService: LogDigestService;
   projectRepo: IProjectRepository;
@@ -466,7 +468,7 @@ interface SessionRouteDependencies {
  * Create session routes using the SessionService.
  */
 export function createSessionRoutes(deps: SessionRouteDependencies) {
-  const { sessionService, sessionPromptService, commandUsageService, logDigestService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, eventBus, config } = deps;
+  const { sessionService, sessionPromptService, huddleService, commandUsageService, logDigestService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, eventBus, config } = deps;
   const gitService = new GitService();
   const router = express.Router();
 
@@ -1206,6 +1208,17 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     try {
       const prompts = await sessionPromptService.getAll();
       res.json(prompts);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
+    }
+  });
+
+  // Get all Huddles: connected components over the session-prompt graph
+  // (cross-project, all-time). Sorted by lastActivity desc.
+  router.get('/huddles', async (_req: Request, res: Response) => {
+    try {
+      const huddles = await huddleService.computeHuddles();
+      res.json(huddles);
     } catch (err: unknown) {
       handleRouteError(err, res);
     }

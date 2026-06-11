@@ -159,6 +159,28 @@ export interface RecordSessionPromptInput {
   mode: 'send' | 'paste';
 }
 
+/** A session participating in a Huddle, with resolved (best-effort) metadata. */
+export interface HuddleSessionRef {
+  sessionId: string;
+  sessionName: string | null;
+  projectId: string | null;
+  teamMember: TeamMemberSnapshot | null;
+}
+
+/**
+ * A Huddle is a connected component over the graph where each SessionPrompt is
+ * an undirected edge fromSessionId<->toSessionId. All-time and cross-project.
+ * Every huddle has >=2 sessions (built from edges, so singletons never appear).
+ */
+export interface Huddle {
+  id: string;                    // huddle_<short hash of sorted sessionIds> — stable
+  sessionIds: string[];          // sorted ascending
+  sessions: HuddleSessionRef[];
+  prompts: SessionPrompt[];      // sorted by timestamp ascending
+  promptCount: number;
+  lastActivity: number;          // max prompt timestamp in the component
+}
+
 // Four-mode model types
 export type AgentMode = 'worker' | 'coordinator' | 'coordinated-worker' | 'coordinated-coordinator';
 /** Legacy mode aliases for backward compatibility */
