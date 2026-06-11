@@ -35,7 +35,10 @@ import { useProjectDocsPaginated } from "../hooks/useProjectDocsPaginated";
 import { useSessionTree } from "../hooks/useSessionTree";
 import { SessionListItem, type SessionTileLinkInfo } from "./maestro/SessionListItem";
 import type { SessionTreeNode } from "../app/types/maestro";
-import { resolveSessionTab, buildChildrenByParent, collectSubtreeIds as collectSubtreeIdsUtil, type SessionSubTab } from "../utils/sessionLifecycle";
+import { resolveSessionTab, buildChildrenByParent, collectSubtreeIds as collectSubtreeIdsUtil, type SessionSubTab, type SessionLifecycleTab } from "../utils/sessionLifecycle";
+import { HuddlesList } from "./maestro/HuddlesList";
+import type { Huddle } from "../app/types/maestro";
+import { maestroClient } from "../utils/MaestroClient";
 import { willOpenStatsOnClick } from "../utils/sessionClickRouting";
 
 // Quick-launch shortcut id → brand logo + display name.
@@ -553,7 +556,7 @@ const SessionItem = React.memo(function SessionItem({
 interface SessionNodeRendererProps {
   node: SessionTreeNode;
   depth: number;
-  tab: SessionSubTab;
+  tab: SessionLifecycleTab;
   collapsedSessions: Set<string>;
   maestroColorMap: Map<string, TeamColor>;
   linkMap: Map<string, SessionTileLinkInfo>;
@@ -1021,6 +1024,60 @@ export const SessionsSection = React.memo(function SessionsSection({
     if (liveCount === 0 && liveOnly) setLiveOnly(false);
   }, [liveCount, liveOnly]);
 
+  // ==================== HUDDLES (CROSS-PROJECT) ====================
+  // Huddles are connected components of cross-session prompting. They span
+  // projects, so the count is global — independent of sessionTabCounts.
+  // Fetched on mount and whenever the Huddles sub-tab is (re)opened; refreshed
+  // lightly on focus while it's open.
+  const [huddles, setHuddles] = React.useState<Huddle[]>([]);
+  const [huddlesLoading, setHuddlesLoading] = React.useState(false);
+  const [huddlesError, setHuddlesError] = React.useState<string | null>(null);
+
+  const refreshHuddles = useCallback(async (): Promise<void> => {
+    setHuddlesLoading(true);
+    try {
+      const data = await maestroClient.getHuddles();
+      setHuddles(data);
+      setHuddlesError(null);
+    } catch (err) {
+      setHuddlesError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setHuddlesLoading(false);
+    }
+  }, []);
+
+  // Initial fetch + refetch when the Huddles sub-tab is opened.
+  React.useEffect(() => {
+    if (sessionSubTab !== 'huddles') return;
+    let cancelled = false;
+    setHuddlesLoading(true);
+    maestroClient.getHuddles()
+      .then((data) => { if (!cancelled) { setHuddles(data); setHuddlesError(null); } })
+      .catch((err) => { if (!cancelled) setHuddlesError(err instanceof Error ? err.message : String(err)); })
+      .finally(() => { if (!cancelled) setHuddlesLoading(false); });
+    return () => { cancelled = true; };
+  }, [sessionSubTab]);
+
+  // Initial fetch so the badge count is populated even before the user opens the tab.
+  React.useEffect(() => {
+    let cancelled = false;
+    maestroClient.getHuddles()
+      .then((data) => { if (!cancelled) setHuddles(data); })
+      .catch(() => { /* fail quiet — server may not have endpoint on older builds */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // While the Huddles tab is open, refresh when the window regains focus so
+  // newly recorded inter-session prompts surface without a manual reload.
+  React.useEffect(() => {
+    if (sessionSubTab !== 'huddles') return;
+    const onFocus = () => { void refreshHuddles(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [sessionSubTab, refreshHuddles]);
+
+  const huddlesCount = huddles.length;
+
   // Filter-tab counts: active terminals, active (open) sessions, total docs, total diagrams.
   const { total: docsTotal } = useProjectDocsPaginated(activeProjectId, 'markdown');
   const { total: diagramsTotal } = useProjectDocsPaginated(activeProjectId, 'diagram');
@@ -1364,9 +1421,15 @@ export const SessionsSection = React.memo(function SessionsSection({
       {/* Sub-tabs for the maestro session tree */}
       {showAgents && (
         <div className="pn-subbar" role="tablist" aria-label="Session filter">
-          {(['open', 'done', 'archived'] as SessionSubTab[]).map((tab) => {
-            const count = sessionTabCounts[tab];
-            const label = tab === 'open' ? 'Open' : tab === 'done' ? 'Done' : 'Archived';
+          {(['open', 'done', 'archived', 'huddles'] as SessionSubTab[]).map((tab) => {
+            const count = tab === 'huddles' ? huddlesCount : sessionTabCounts[tab];
+            const label = tab === 'open'
+              ? 'Open'
+              : tab === 'done'
+                ? 'Done'
+                : tab === 'archived'
+                  ? 'Archived'
+                  : 'Huddles';
             return (
               <button
                 key={tab}
@@ -1419,8 +1482,18 @@ export const SessionsSection = React.memo(function SessionsSection({
           <div className="empty">No sessions in this project.</div>
         ) : (
           <>
+            {/* Huddles sub-tab — cross-project list of inter-session prompt clusters. */}
+            {showAgents && sessionSubTab === 'huddles' && (
+              <HuddlesList
+                huddles={huddles}
+                loading={huddlesLoading}
+                error={huddlesError}
+                onSessionClick={handleOpenSessionDetail}
+              />
+            )}
+
             {/* Maestro session tree (spawn-chain hierarchy) */}
-            {showAgents && (
+            {showAgents && sessionSubTab !== 'huddles' && (
               visibleRoots.length === 0 ? (
                 <div className="sessionEmptyState">
                   <span className="sessionEmptyState__icon" aria-hidden="true" style={{ color: 'var(--pn-ink-4)' }}>
@@ -1449,7 +1522,7 @@ export const SessionsSection = React.memo(function SessionsSection({
                         key={root.id}
                         node={root}
                         depth={0}
-                        tab={sessionSubTab}
+                        tab={sessionSubTab as SessionLifecycleTab}
                         collapsedSessions={collapsedSessions}
                         maestroColorMap={maestroColorMap}
                         linkMap={linkMap}

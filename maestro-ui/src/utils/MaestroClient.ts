@@ -43,6 +43,7 @@ import type {
     SessionStatsResponse,
     SessionPrompt,
     SessionCommandUsage,
+    Huddle,
 } from '../app/types/maestro';
 
 import { API_BASE_URL } from './serverConfig';
@@ -426,6 +427,14 @@ class MaestroClient {
 
     async getSessionCommandUsage(sessionId: string): Promise<SessionCommandUsage> {
         return this.fetch<SessionCommandUsage>(`/sessions/${encodeURIComponent(sessionId)}/command-usage`);
+    }
+
+    /**
+     * Fetch cross-project huddles — disjoint sets of sessions that have
+     * exchanged prompts with each other. Sorted by lastActivity descending.
+     */
+    async getHuddles(): Promise<Huddle[]> {
+        return this.fetch<Huddle[]>(`/huddles`);
     }
 
     // ==================== DOCS ====================

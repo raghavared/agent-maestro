@@ -383,6 +383,35 @@ export interface SessionPrompt {
   timestamp: number;
 }
 
+/**
+ * One member of a Huddle — a session that exchanged prompts with the other
+ * members. Mirrors the server's Huddle.sessions[] entry (Phase 2A).
+ */
+export interface HuddleSessionMember {
+  sessionId: string;
+  sessionName: string | null;
+  projectId: string | null;
+  teamMember: TeamMemberSnapshot | null;
+}
+
+/**
+ * A connected component of cross-session prompting — a disjoint set of
+ * sessions plus the inter-session prompts they exchanged. Huddles are
+ * cross-project (a huddle can contain sessions from other projects, unlike
+ * the project-scoped open/done/archived tabs).
+ *
+ * Mirrors the server's GET /api/huddles response (Phase 2A) — sorted by
+ * lastActivity descending.
+ */
+export interface Huddle {
+  id: string;
+  sessionIds: string[];
+  sessions: HuddleSessionMember[];
+  prompts: SessionPrompt[];
+  promptCount: number;
+  lastActivity: number;
+}
+
 // One tracked maestro CLI invocation (written by the CLI command-tracker).
 export interface CommandUsageRecord {
   ts: string;
