@@ -118,4 +118,60 @@ describe('HuddleService.computeHuddles', () => {
     expect(missing.projectId).toBeNull();
     expect(missing.teamMember).toBeNull();
   });
+
+  it('ignores self-edges: a session prompting itself produces no huddle', async () => {
+    const a = await makeSession('A');
+    await seedPrompt(a.id, a.id, 100);
+
+    const huddles = await container.huddleService.computeHuddles();
+    expect(huddles).toHaveLength(0);
+  });
+
+  it('drops a self-edge but keeps a real huddle when both are present', async () => {
+    const [a, b] = await Promise.all([makeSession('A'), makeSession('B')]);
+    await seedPrompt(a.id, a.id, 50); // self-edge — ignored
+    await seedPrompt(a.id, b.id, 100); // real edge — forms {a,b}
+
+    const huddles = await container.huddleService.computeHuddles();
+    expect(huddles).toHaveLength(1);
+    expect(huddles[0].sessionIds).toEqual([a.id, b.id].sort());
+    // Only the real edge contributes to promptCount; the self-edge is excluded.
+    expect(huddles[0].promptCount).toBe(1);
+  });
+
+  it('dedups sessionIds across duplicate edges but counts every prompt', async () => {
+    const [a, b] = await Promise.all([makeSession('A'), makeSession('B')]);
+    await seedPrompt(a.id, b.id, 100);
+    await seedPrompt(a.id, b.id, 200); // duplicate pair, opposite is not needed
+    await seedPrompt(b.id, a.id, 300); // reverse direction, same pair
+
+    const huddles = await container.huddleService.computeHuddles();
+    expect(huddles).toHaveLength(1);
+    // sessionIds is a deduped set of the two endpoints.
+    expect(huddles[0].sessionIds).toEqual([a.id, b.id].sort());
+    // promptCount counts each prompt, including duplicates between the same pair.
+    expect(huddles[0].promptCount).toBe(3);
+  });
+
+  it('exposes per-prompt from/to so a 3-session huddle can render accurate direction', async () => {
+    const [a, b, c] = await Promise.all([makeSession('A'), makeSession('B'), makeSession('C')]);
+    // Chain a->b, b->c: a never directly talks to c.
+    await seedPrompt(a.id, b.id, 100);
+    await seedPrompt(b.id, c.id, 200);
+
+    const huddles = await container.huddleService.computeHuddles();
+    expect(huddles).toHaveLength(1);
+    const huddle = huddles[0];
+    expect(huddle.sessionIds).toEqual([a.id, b.id, c.id].sort());
+
+    // Prompts are sorted ascending by timestamp; each carries its true from/to,
+    // so the UI can label direction per-prompt rather than from one perspective.
+    const [p1, p2] = huddle.prompts;
+    expect({ from: p1.fromSessionId, to: p1.toSessionId }).toEqual({ from: a.id, to: b.id });
+    expect({ from: p2.fromSessionId, to: p2.toSessionId }).toEqual({ from: b.id, to: c.id });
+    // The b->c prompt does NOT involve session a, which a single-perspective
+    // (perspective=a) view would have mislabeled as "Received".
+    expect(p2.fromSessionId).not.toBe(a.id);
+    expect(p2.toSessionId).not.toBe(a.id);
+  });
 });

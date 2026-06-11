@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import type { SessionPrompt } from "../../app/types/maestro";
+import type { HuddleSessionMember, SessionPrompt, TeamMemberSnapshot } from "../../app/types/maestro";
 import { StatIcon } from "./SessionStatsIcons";
 
 // Mirrors the formatters in SessionStatsView — kept local so this component
@@ -113,26 +113,140 @@ export function PromptRow({ prompt, perspectiveSessionId, onCounterpartClick }: 
   );
 }
 
+interface SessionDisplay {
+  name: string;
+  avatar: string;
+}
+
+/**
+ * Resolves a session's display name + avatar for explicit FROM -> TO rows.
+ * Prefers the huddle member (live name+avatar), falls back to the snapshot
+ * captured on the prompt, then to a truncated session id.
+ */
+function resolveDisplay(
+  sessionId: string,
+  snapshotMember: TeamMemberSnapshot | null,
+  snapshotName: string | null,
+  membersById: Map<string, HuddleSessionMember>
+): SessionDisplay {
+  const member = membersById.get(sessionId);
+  const name =
+    member?.teamMember?.name ??
+    snapshotMember?.name ??
+    member?.sessionName ??
+    snapshotName ??
+    sessionId.slice(0, 10);
+  const avatarRaw = (member?.teamMember?.avatar ?? snapshotMember?.avatar)?.trim();
+  const avatar = avatarRaw && (avatarRaw.length === 1 || avatarRaw.length === 2)
+    ? avatarRaw
+    : initialsOf(name);
+  return { name, avatar };
+}
+
+export interface PromptRowExplicitProps {
+  prompt: SessionPrompt;
+  membersById: Map<string, HuddleSessionMember>;
+  onSessionClick?: (sessionId: string) => void;
+}
+
+/**
+ * Renders an unambiguous FROM -> TO row: both sender and recipient are shown,
+ * so direction is always accurate regardless of how many sessions a huddle has.
+ */
+export function PromptRowExplicit({ prompt, membersById, onSessionClick }: PromptRowExplicitProps) {
+  const from = resolveDisplay(prompt.fromSessionId, prompt.fromTeamMember, prompt.fromSessionName, membersById);
+  const to = resolveDisplay(prompt.toSessionId, prompt.toTeamMember, prompt.toSessionName, membersById);
+
+  const [expanded, setExpanded] = useState(false);
+  const content = prompt.content ?? "";
+  const isTruncatable = content.length > TRUNCATE_LIMIT;
+  const shown = expanded || !isTruncatable ? content : content.slice(0, TRUNCATE_LIMIT).trimEnd() + "…";
+
+  const handleClick = () => {
+    if (isTruncatable) setExpanded((v) => !v);
+  };
+
+  const endpointButton = (sessionId: string, display: SessionDisplay) => (
+    <span
+      className="ssv-prompt-endpoint"
+      onClick={onSessionClick ? (e) => { e.stopPropagation(); onSessionClick(sessionId); } : undefined}
+      title={`Session ${sessionId}`}
+    >
+      <span className="ssv-prompt-av" style={{ background: hueFor(display.name) }}>
+        {display.avatar.length === 1 || display.avatar.length === 2 ? display.avatar : initialsOf(display.name)}
+      </span>
+      <span className="ssv-prompt-name">{display.name}</span>
+    </span>
+  );
+
+  return (
+    <div
+      className="ssv-prompt-row ssv-prompt-row-explicit"
+      onClick={handleClick}
+      role={isTruncatable ? "button" : undefined}
+      tabIndex={isTruncatable ? 0 : undefined}
+      aria-expanded={isTruncatable ? expanded : undefined}
+    >
+      <div className="ssv-prompt-meta">
+        <div className="ssv-prompt-head">
+          {endpointButton(prompt.fromSessionId, from)}
+          <span className="ssv-prompt-dir" aria-label="to">→</span>
+          {endpointButton(prompt.toSessionId, to)}
+          <span className="ssv-prompt-when">{formatTimeAgo(prompt.timestamp)}</span>
+        </div>
+        <div className="ssv-prompt-text">{shown}</div>
+        {isTruncatable && (
+          <div className="ssv-prompt-expand">
+            <StatIcon name="chevron-right" size={11} className={`ssv-chev${expanded ? " open" : ""}`} />
+            {expanded ? "Show less" : "Show more"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export interface PromptListProps {
   prompts: SessionPrompt[];
-  perspectiveSessionId: string;
+  /** Perspective-based 2-party view (per-session Stats). Ignored when `members` is set. */
+  perspectiveSessionId?: string;
+  /** When provided, render explicit FROM -> TO rows resolved against these members. */
+  members?: HuddleSessionMember[];
   onCounterpartClick?: (sessionId: string) => void;
+  onSessionClick?: (sessionId: string) => void;
   emptyLabel?: string;
 }
 
-export function PromptList({ prompts, perspectiveSessionId, onCounterpartClick, emptyLabel }: PromptListProps) {
+export function PromptList({ prompts, perspectiveSessionId, members, onCounterpartClick, onSessionClick, emptyLabel }: PromptListProps) {
   if (prompts.length === 0) {
     return emptyLabel ? <div className="ssv-prompt-empty">{emptyLabel}</div> : null;
   }
   // Server returns prompts sorted by timestamp ascending; reverse for newest-first display.
   const ordered = [...prompts].reverse();
+
+  if (members) {
+    const membersById = new Map(members.map((m) => [m.sessionId, m]));
+    return (
+      <div className="ssv-card ssv-prompt-list">
+        {ordered.map((p) => (
+          <PromptRowExplicit
+            key={p.id}
+            prompt={p}
+            membersById={membersById}
+            onSessionClick={onSessionClick}
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="ssv-card ssv-prompt-list">
       {ordered.map((p) => (
         <PromptRow
           key={p.id}
           prompt={p}
-          perspectiveSessionId={perspectiveSessionId}
+          perspectiveSessionId={perspectiveSessionId ?? ""}
           onCounterpartClick={onCounterpartClick}
         />
       ))}

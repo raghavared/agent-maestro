@@ -1167,6 +1167,25 @@
   color: var(--ssv-fg-4);
   margin-top: 2px;
 }
+.ssv-prompt-row-explicit .ssv-prompt-av {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 10px;
+}
+.ssv-prompt-endpoint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.ssv-prompt-row-explicit .ssv-prompt-endpoint {
+  cursor: pointer;
+}
+.ssv-prompt-row-explicit .ssv-prompt-dir {
+  color: var(--ssv-accent, var(--ssv-fg-3));
+  font-size: 13px;
+}
 .ssv-prompt-empty {
   font-family: var(--ssv-font-mono);
   font-size: 11px;

@@ -92,7 +92,6 @@ export function HuddleCard({ huddle, defaultExpanded = false, onSessionClick }: 
     return p?.name ?? null;
   };
 
-  const perspectiveSessionId = huddle.sessionIds[0] ?? "";
   const memberCount = huddle.sessions.length;
 
   return (
@@ -154,8 +153,8 @@ export function HuddleCard({ huddle, defaultExpanded = false, onSessionClick }: 
           </div>
           <PromptList
             prompts={huddle.prompts}
-            perspectiveSessionId={perspectiveSessionId}
-            onCounterpartClick={onSessionClick}
+            members={huddle.sessions}
+            onSessionClick={onSessionClick}
             emptyLabel="No prompts in this huddle yet."
           />
         </div>

@@ -41,6 +41,9 @@ export class HuddleService {
     };
 
     for (const p of prompts) {
+      // Self-edges (a session prompting itself) never connect two distinct
+      // sessions, so they cannot form a huddle — skip them entirely.
+      if (p.fromSessionId === p.toSessionId) continue;
       add(p.fromSessionId);
       add(p.toSessionId);
       union(p.fromSessionId, p.toSessionId);
@@ -50,6 +53,7 @@ export class HuddleService {
     const promptsByRoot = new Map<string, SessionPrompt[]>();
     const idsByRoot = new Map<string, Set<string>>();
     for (const p of prompts) {
+      if (p.fromSessionId === p.toSessionId) continue;
       const root = find(p.fromSessionId);
       if (!promptsByRoot.has(root)) {
         promptsByRoot.set(root, []);
@@ -64,6 +68,8 @@ export class HuddleService {
     const huddles: Huddle[] = [];
     for (const [root, groupPrompts] of promptsByRoot) {
       const sessionIds = Array.from(idsByRoot.get(root)!).sort();
+      // Honor the documented invariant: a huddle connects >= 2 distinct sessions.
+      if (sessionIds.length < 2) continue;
       const sortedPrompts = [...groupPrompts].sort((a, b) => a.timestamp - b.timestamp);
       const sessions = await Promise.all(sessionIds.map((id) => this.resolveSessionRef(id)));
       const lastActivity = sortedPrompts.reduce((max, p) => Math.max(max, p.timestamp), 0);

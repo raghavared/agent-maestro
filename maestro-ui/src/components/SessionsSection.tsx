@@ -1478,7 +1478,7 @@ export const SessionsSection = React.memo(function SessionsSection({
       {showDrawings && <ProjectDocsList projectId={activeProjectId} kind="diagram" />}
 
       <div className="pn-scroll" style={showDocs || showDrawings ? { display: 'none' } : undefined}>
-        {sessions.length === 0 && projectMaestroSessions.length === 0 ? (
+        {sessionSubTab !== 'huddles' && sessions.length === 0 && projectMaestroSessions.length === 0 ? (
           <div className="empty">No sessions in this project.</div>
         ) : (
           <>
