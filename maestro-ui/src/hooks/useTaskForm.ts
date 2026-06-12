@@ -72,14 +72,14 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         }
     }, [isEditMode, task?.id]);
 
-    // Load images in edit mode
+    // Load images from the server task (edit mode or created draft)
     useEffect(() => {
-        if (isEditMode && task) {
-            setTaskImages(task.images || []);
+        if (baselineTask) {
+            setTaskImages(baselineTask.images || []);
         } else {
             setTaskImages([]);
         }
-    }, [isEditMode, task?.id, JSON.stringify(task?.images)]);
+    }, [baselineTask?.id, JSON.stringify(baselineTask?.images)]);
 
     // Reset form when switching to create mode
     useEffect(() => {
@@ -110,8 +110,8 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
             );
         }
         // No baseline — pure create mode, no draft yet
-        return title.trim() !== "" || prompt.trim() !== "";
-    }, [baselineTask, title, prompt, priority, dueDate, useWorktree, selectedTeamMemberIds, selectedSkills]);
+        return title.trim() !== "" || prompt.trim() !== "" || stagedImageFiles.length > 0;
+    }, [baselineTask, title, prompt, priority, dueDate, useWorktree, selectedTeamMemberIds, selectedSkills, stagedImageFiles.length]);
 
     const isValid = title.trim() !== "" && prompt.trim() !== "";
 
@@ -166,6 +166,11 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
             URL.revokeObjectURL(prev[index]);
             return prev.filter((_, i) => i !== index);
         });
+    };
+
+    const clearStagedFiles = () => {
+        setStagedImagePreviews(prev => { prev.forEach(url => URL.revokeObjectURL(url)); return []; });
+        setStagedImageFiles([]);
     };
 
     const resetForm = () => {
@@ -246,7 +251,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         showSubtaskInput, setShowSubtaskInput,
         taskDocs,
         taskImages, setTaskImages,
-        stagedImageFiles, stagedImagePreviews, addStagedFiles, removeStagedFile,
+        stagedImageFiles, stagedImagePreviews, addStagedFiles, removeStagedFile, clearStagedFiles,
         hasUnsavedContent,
         isValid,
         resetForm,
