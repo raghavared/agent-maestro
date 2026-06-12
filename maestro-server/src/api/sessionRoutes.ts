@@ -7,6 +7,9 @@ import { join, resolve as resolvePath, delimiter as pathDelimiter } from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import { SessionService } from '../application/services/SessionService';
+import { SessionPromptService } from '../application/services/SessionPromptService';
+import { HuddleService } from '../application/services/HuddleService';
+import { CommandUsageService } from '../application/services/CommandUsageService';
 import { GitService } from '../application/services/GitService';
 import { LogDigestService } from '../application/services/LogDigestService';
 import { IProjectRepository } from '../domain/repositories/IProjectRepository';
@@ -37,6 +40,7 @@ import {
   extractPagination,
   paginate,
   updateDocContentSchema,
+  sendSessionPromptSchema,
 } from './validation';
 
 function resolveMaestroCliRuntime(cliPathOverride?: string): { maestroBin: string; monorepoRoot: string | null } {
@@ -448,6 +452,9 @@ function combineMode(relation: ModeRelation, role: ModeRole): AgentMode {
 
 interface SessionRouteDependencies {
   sessionService: SessionService;
+  sessionPromptService: SessionPromptService;
+  huddleService: HuddleService;
+  commandUsageService: CommandUsageService;
   logDigestService: LogDigestService;
   projectRepo: IProjectRepository;
   taskRepo: ITaskRepository;
@@ -461,7 +468,7 @@ interface SessionRouteDependencies {
  * Create session routes using the SessionService.
  */
 export function createSessionRoutes(deps: SessionRouteDependencies) {
-  const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, eventBus, config } = deps;
+  const { sessionService, sessionPromptService, huddleService, commandUsageService, logDigestService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, eventBus, config } = deps;
   const gitService = new GitService();
   const router = express.Router();
 
@@ -722,6 +729,61 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     }
   });
 
+  // Regenerate the on-disk manifest.json for an existing session under a new mode.
+  // `coordinator enable`/`disable` flips server-side metadata.mode, but the CLI's
+  // capability layer (guardCommand, `maestro commands`, capability flags) reads the
+  // frozen spawn-time manifest — so without this the agent keeps seeing the old
+  // role's permissions and never gains coordinator commands like `session spawn`.
+  // Coordinated modes require coordinatorSessionId or the CLI normalizer rejects
+  // the manifest, so it's threaded through from the session's parent linkage.
+  async function regenerateManifestForMode(session: any, mode: AgentMode): Promise<string> {
+    const project = await projectRepo.findById(session.projectId);
+    const storedLaunchConfig = session.metadata?.launchConfig
+      ? sanitizeLaunchConfig(session.metadata.launchConfig as LaunchConfig)
+      : undefined;
+    const resolvedModel: string | undefined = storedLaunchConfig?.model || session.metadata?.model || undefined;
+    const agentTool: AgentTool = session.metadata?.agentTool || 'claude-code';
+    const coordinatorSessionId: string | undefined =
+      session.parentSessionId || session.env?.MAESTRO_COORDINATOR_SESSION_ID || undefined;
+
+    const tasks = await Promise.all(session.taskIds.map((taskId: string) => taskRepo.findById(taskId)));
+    const referenceTaskIds: string[] = [];
+    for (const task of tasks) {
+      if (task?.referenceTaskIds) {
+        for (const refId of task.referenceTaskIds) {
+          if (!referenceTaskIds.includes(refId)) referenceTaskIds.push(refId);
+        }
+      }
+    }
+    await taskRepo.flush();
+
+    const result = await generateManifestViaCLI({
+      mode,
+      projectId: session.projectId,
+      taskIds: session.taskIds,
+      skills: session.metadata?.skills || [],
+      sessionId: session.id,
+      launchConfig: storedLaunchConfig
+        ?? (resolvedModel
+          ? sanitizeLaunchConfig({
+              provider: providerForModel(resolvedModel) || providerForAgentTool(agentTool),
+              model: resolvedModel,
+            })
+          : undefined),
+      agentTool,
+      referenceTaskIds: referenceTaskIds.length > 0 ? referenceTaskIds : undefined,
+      teamMemberIds: session.metadata?.teamMemberIds || undefined,
+      teamMemberId: session.metadata?.teamMemberId || undefined,
+      permissionMode: (session.metadata?.permissionMode as string | undefined) || undefined,
+      coordinatorSessionId,
+      serverUrl: config.serverUrl,
+      isMaster: project?.isMaster === true,
+      sessionDir: config.sessionDir,
+      cliPathOverride: config.manifestGenerator.cliPath,
+    });
+    return result.manifestPath;
+  }
+
   // Change session mode (role only — relation is immutable)
   router.post('/sessions/:id/mode', validateParams(idParamSchema), validateBody(modeBodySchema), async (req: Request, res: Response) => {
     try {
@@ -746,6 +808,23 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       }
 
       const { previousMode } = await sessionService.changeMode(id, newMode);
+
+      // Refresh the on-disk manifest so the CLI's capability layer reflects the
+      // new role immediately. Non-fatal: a stale manifest still leaves the
+      // server-side spawn gate (which reads live metadata.mode) working.
+      let manifestRegenerated = false;
+      try {
+        const manifestPath = await regenerateManifestForMode(session, newMode);
+        if (session.env?.MAESTRO_MANIFEST_PATH && session.env.MAESTRO_MANIFEST_PATH !== manifestPath) {
+          await sessionService.updateSession(id, {
+            env: { ...session.env, MAESTRO_MANIFEST_PATH: manifestPath },
+          });
+        }
+        manifestRegenerated = true;
+      } catch (regenErr) {
+        console.warn('[mode] Failed to regenerate manifest after mode change:', regenErr instanceof Error ? regenErr.message : regenErr);
+      }
+
       await eventBus.emit('session:mode_changed', {
         sessionId: id,
         mode: newMode,
@@ -754,7 +833,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         timestamp: Date.now(),
       });
 
-      res.json({ id, mode: newMode, previousMode, changed: true });
+      res.json({ id, mode: newMode, previousMode, changed: true, manifestRegenerated });
     } catch (err: unknown) {
       handleRouteError(err, res);
     }
@@ -1029,19 +1108,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
   });
 
   // Send a prompt to a session's terminal
-  router.post('/sessions/:id/prompt', validateParams(idParamSchema), async (req: Request, res: Response) => {
+  router.post('/sessions/:id/prompt', validateParams(idParamSchema), validateBody(sendSessionPromptSchema), async (req: Request, res: Response) => {
     try {
-      const { content, mode = 'send', senderSessionId } = req.body;
-
-      if (!content || typeof content !== 'string') {
-        return res.status(400).json({ error: 'content is required and must be a string' });
-      }
-      if (!['send', 'paste'].includes(mode)) {
-        return res.status(400).json({ error: 'mode must be "send" or "paste"' });
-      }
-      if (!senderSessionId || typeof senderSessionId !== 'string') {
-        return res.status(400).json({ error: 'senderSessionId is required and must be a string' });
-      }
+      const { content, mode, senderSessionId } = req.body as { content: string; mode: 'send' | 'paste'; senderSessionId: string };
 
       const sessionId = req.params.id as string;
       const [session, senderSession] = await Promise.all([
@@ -1092,7 +1161,64 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         { senderSessionId, mode }
       );
 
+      // Persist a durable, cross-project record with CLEAN content (no [From:] prefix).
+      // This is one edge in the Huddle graph. Best-effort: a failure here must not
+      // break terminal injection, which already succeeded above.
+      try {
+        await sessionPromptService.record({
+          fromSessionId: senderSessionId,
+          toSessionId: sessionId,
+          content,
+          mode,
+        });
+      } catch (recordErr) {
+        console.warn('Failed to record session prompt:', (recordErr as Error).message);
+      }
+
       res.json({ success: true });
+    } catch (err: unknown) {
+      handleRouteError(err, res);
+    }
+  });
+
+  // Get all session prompts where this session is sender or receiver
+  router.get('/sessions/:id/prompts', validateParams(idParamSchema), async (req: Request, res: Response) => {
+    try {
+      const sessionId = req.params.id as string;
+      const prompts = await sessionPromptService.getForSession(sessionId);
+      res.json(prompts);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
+    }
+  });
+
+  // Get tracked maestro CLI command usage (commands, exit codes, failures) for this session
+  router.get('/sessions/:id/command-usage', validateParams(idParamSchema), async (req: Request, res: Response) => {
+    try {
+      const sessionId = req.params.id as string;
+      const usage = await commandUsageService.getForSession(sessionId);
+      res.json(usage);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
+    }
+  });
+
+  // Get every session prompt across all projects (the full Huddle edge set)
+  router.get('/session-prompts', async (_req: Request, res: Response) => {
+    try {
+      const prompts = await sessionPromptService.getAll();
+      res.json(prompts);
+    } catch (err: unknown) {
+      handleRouteError(err, res);
+    }
+  });
+
+  // Get all Huddles: connected components over the session-prompt graph
+  // (cross-project, all-time). Sorted by lastActivity desc.
+  router.get('/huddles', async (_req: Request, res: Response) => {
+    try {
+      const huddles = await huddleService.computeHuddles();
+      res.json(huddles);
     } catch (err: unknown) {
       handleRouteError(err, res);
     }

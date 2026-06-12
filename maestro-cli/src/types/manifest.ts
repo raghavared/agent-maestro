@@ -430,3 +430,33 @@ export function isExecuteManifest(manifest: MaestroManifest): boolean {
 export function isCoordinateManifest(manifest: MaestroManifest): boolean {
   return isCoordinatorMode(manifest.mode);
 }
+
+/** Minimal team member identity captured at the time a prompt was sent. */
+export interface TeamMemberSnapshot {
+  name: string;
+  avatar: string;
+  role: string;
+  model?: string;
+  agentTool?: AgentTool;
+  permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
+}
+
+/**
+ * A durable, cross-project record of one session prompting another. `content` is
+ * the FULL, clean message WITHOUT the [From: name (id)] terminal prefix.
+ * Mirror of the server `SessionPrompt` contract.
+ */
+export interface SessionPrompt {
+  id: string;
+  fromSessionId: string;
+  toSessionId: string;
+  fromProjectId: string | null;
+  toProjectId: string | null;
+  content: string;
+  mode: 'send' | 'paste';
+  fromTeamMember: TeamMemberSnapshot | null;
+  toTeamMember: TeamMemberSnapshot | null;
+  fromSessionName: string | null;
+  toSessionName: string | null;
+  timestamp: number;
+}

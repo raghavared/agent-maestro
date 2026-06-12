@@ -41,6 +41,9 @@ import type {
     GitDiffSummary,
     GitPrInfo,
     SessionStatsResponse,
+    SessionPrompt,
+    SessionCommandUsage,
+    Huddle,
 } from '../app/types/maestro';
 
 import { API_BASE_URL } from './serverConfig';
@@ -416,6 +419,22 @@ class MaestroClient {
     async getSessionStats(sessionId: string, opts: { lastMessages?: number } = {}): Promise<SessionStatsResponse> {
         const qs = opts.lastMessages !== undefined ? `?lastMessages=${opts.lastMessages}` : '';
         return this.fetch<SessionStatsResponse>(`/sessions/${sessionId}/stats${qs}`);
+    }
+
+    async getSessionPrompts(sessionId: string): Promise<SessionPrompt[]> {
+        return this.fetch<SessionPrompt[]>(`/sessions/${encodeURIComponent(sessionId)}/prompts`);
+    }
+
+    async getSessionCommandUsage(sessionId: string): Promise<SessionCommandUsage> {
+        return this.fetch<SessionCommandUsage>(`/sessions/${encodeURIComponent(sessionId)}/command-usage`);
+    }
+
+    /**
+     * Fetch cross-project huddles — disjoint sets of sessions that have
+     * exchanged prompts with each other. Sorted by lastActivity descending.
+     */
+    async getHuddles(): Promise<Huddle[]> {
+        return this.fetch<Huddle[]>(`/huddles`);
     }
 
     // ==================== DOCS ====================
