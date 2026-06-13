@@ -41,6 +41,7 @@ import { useAgentShortcutStore } from './useAgentShortcutStore';
 import { useWorkspaceStore } from './useWorkspaceStore';
 import { useSecureStorageStore } from './useSecureStorageStore';
 import { useMaestroStore } from './useMaestroStore';
+import { IS_TAURI } from '../platform';
 
 /**
  * Initialise the application. Replaces the old useAppInit hook.
@@ -95,106 +96,114 @@ export function initApp(
     useMaestroStore.getState().initWebSocket();
 
     // ──── PTY OUTPUT LISTENER ────
-    const unlistenOutput = await listen<PtyOutput>('pty-output', (event) => {
-      if (cancelled) return;
-      const { id, data } = event.payload as { id: string; data?: unknown };
-      const text = coercePtyDataToString(data);
-      if (!text) return;
+    if (IS_TAURI) {
+      const unlistenOutput = await listen<PtyOutput>('pty-output', (event) => {
+        if (cancelled) return;
+        const { id, data } = event.payload as { id: string; data?: unknown };
+        const text = coercePtyDataToString(data);
+        if (!text) return;
 
-      const sessionStore = s.session.getState();
-      if (closingSessions.has(id)) return;
+        const sessionStore = s.session.getState();
+        if (closingSessions.has(id)) return;
 
-      sessionStore.markAgentWorkingFromOutput(id, text);
+        sessionStore.markAgentWorkingFromOutput(id, text);
 
-      const entry = registry.current.get(id);
-      if (entry && isTerminalRendererReady(entry.term)) {
-        entry.term.write(text);
-        return;
-      }
+        const entry = registry.current.get(id);
+        if (entry && isTerminalRendererReady(entry.term)) {
+          entry.term.write(text);
+          return;
+        }
 
-      // Buffer the data
-      if (
-        !pendingData.current.has(id) &&
-        pendingData.current.size >= DEFAULTS.MAX_PENDING_SESSIONS
-      ) {
-        const oldest = pendingData.current.keys().next().value as string | undefined;
-        if (oldest) pendingData.current.delete(oldest);
-      }
-      const buffer = pendingData.current.get(id) || [];
-      buffer.push(text);
-      if (buffer.length > DEFAULTS.MAX_PENDING_CHUNKS_PER_SESSION) {
-        buffer.splice(0, buffer.length - DEFAULTS.MAX_PENDING_CHUNKS_PER_SESSION);
-      }
-      pendingData.current.delete(id);
-      pendingData.current.set(id, buffer);
-    });
-    unlisteners.push(unlistenOutput);
+        // Buffer the data
+        if (
+          !pendingData.current.has(id) &&
+          pendingData.current.size >= DEFAULTS.MAX_PENDING_SESSIONS
+        ) {
+          const oldest = pendingData.current.keys().next().value as string | undefined;
+          if (oldest) pendingData.current.delete(oldest);
+        }
+        const buffer = pendingData.current.get(id) || [];
+        buffer.push(text);
+        if (buffer.length > DEFAULTS.MAX_PENDING_CHUNKS_PER_SESSION) {
+          buffer.splice(0, buffer.length - DEFAULTS.MAX_PENDING_CHUNKS_PER_SESSION);
+        }
+        pendingData.current.delete(id);
+        pendingData.current.set(id, buffer);
+      });
+      unlisteners.push(unlistenOutput);
+    }
 
     // ──── PTY EXIT LISTENER ────
-    const unlistenExit = await listen<PtyExit>('pty-exit', (event) => {
-      if (cancelled) return;
-      const { id, exit_code } = event.payload;
+    if (IS_TAURI) {
+      const unlistenExit = await listen<PtyExit>('pty-exit', (event) => {
+        if (cancelled) return;
+        const { id, exit_code } = event.payload;
 
-      const sessionStore = s.session.getState();
-      sessionStore.clearAgentIdleTimer(id);
-      lastResizeAtRef.delete(id);
+        const sessionStore = s.session.getState();
+        sessionStore.clearAgentIdleTimer(id);
+        lastResizeAtRef.delete(id);
 
-      // Consume closing session (if it was being closed, just clean up the timeout)
-      if (closingSessions.has(id)) {
-        const timeout = closingSessions.get(id);
-        if (timeout != null) window.clearTimeout(timeout);
-        closingSessions.delete(id);
-        return;
-      }
+        // Consume closing session (if it was being closed, just clean up the timeout)
+        if (closingSessions.has(id)) {
+          const timeout = closingSessions.get(id);
+          if (timeout != null) window.clearTimeout(timeout);
+          closingSessions.delete(id);
+          return;
+        }
 
-      const { sessions } = sessionStore;
-      const exitingSession = sessions.find((sess) => sess.id === id);
+        const { sessions } = sessionStore;
+        const exitingSession = sessions.find((sess) => sess.id === id);
 
-      sessionStore.setSessions((prev: TerminalSession[]) => {
-        let found = false;
-        const next = prev.map((sess) => {
-          if (sess.id !== id) return sess;
-          found = true;
-          return {
-            ...sess,
-            exited: true,
-            exitCode: exit_code ?? null,
-            agentWorking: false,
-            recordingActive: false,
-          };
+        sessionStore.setSessions((prev: TerminalSession[]) => {
+          let found = false;
+          const next = prev.map((sess) => {
+            if (sess.id !== id) return sess;
+            found = true;
+            return {
+              ...sess,
+              exited: true,
+              exitCode: exit_code ?? null,
+              agentWorking: false,
+              recordingActive: false,
+            };
+          });
+          if (!found) pendingExitCodes.set(id, exit_code ?? null);
+          return next;
         });
-        if (!found) pendingExitCodes.set(id, exit_code ?? null);
-        return next;
-      });
 
-      // Sync terminal exit to Maestro server
-      // Always send 'stopped' — the CLI's SessionEnd hook handles 'completed'.
-      // The pty-exit is only a fallback for abnormal exits.
-      if (exitingSession?.maestroSessionId) {
-        void maestroClient.updateSession(exitingSession.maestroSessionId, {
-          status: 'stopped',
-          completedAt: Date.now(),
-        }).catch(() => {});
-      }
-    });
-    unlisteners.push(unlistenExit);
+        // Sync terminal exit to Maestro server
+        // Always send 'stopped' — the CLI's SessionEnd hook handles 'completed'.
+        // The pty-exit is only a fallback for abnormal exits.
+        if (exitingSession?.maestroSessionId) {
+          void maestroClient.updateSession(exitingSession.maestroSessionId, {
+            status: 'stopped',
+            completedAt: Date.now(),
+          }).catch(() => {});
+        }
+      });
+      unlisteners.push(unlistenExit);
+    }
 
     // ──── APP MENU LISTENER ────
-    const unlistenMenu = await listen<AppMenuEventPayload>('app-menu', (event) => {
-      if (cancelled) return;
-      if (event.payload.id === 'help-check-updates') {
-        s.ui.getState().setUpdatesOpen(true);
-        void s.ui.getState().checkForUpdates();
-      }
-    });
-    unlisteners.push(unlistenMenu);
+    if (IS_TAURI) {
+      const unlistenMenu = await listen<AppMenuEventPayload>('app-menu', (event) => {
+        if (cancelled) return;
+        if (event.payload.id === 'help-check-updates') {
+          s.ui.getState().setUpdatesOpen(true);
+          void s.ui.getState().checkForUpdates();
+        }
+      });
+      unlisteners.push(unlistenMenu);
+    }
 
     // ──── TRAY MENU LISTENER ────
-    const unlistenTray = await listen<TrayMenuEventPayload>('tray-menu', (event) => {
-      if (cancelled) return;
-      pendingTrayAction = event.payload;
-    });
-    unlisteners.push(unlistenTray);
+    if (IS_TAURI) {
+      const unlistenTray = await listen<TrayMenuEventPayload>('tray-menu', (event) => {
+        if (cancelled) return;
+        pendingTrayAction = event.payload;
+      });
+      unlisteners.push(unlistenTray);
+    }
 
     if (cancelled) {
       unlisteners.forEach((fn) => fn());
@@ -203,15 +212,19 @@ export function initApp(
 
     // ──── HOME DIRECTORY ────
     let resolvedHome: string | null = null;
-    try {
-      resolvedHome = await homeDir();
-    } catch {
-      resolvedHome = null;
+    if (IS_TAURI) {
+      try {
+        resolvedHome = await homeDir();
+      } catch {
+        resolvedHome = null;
+      }
     }
     s.ui.getState().setHomeDir(resolvedHome);
 
     // ──── STARTUP FLAGS ────
-    const startupFlags = await invoke<StartupFlags>('get_startup_flags').catch(() => null);
+    const startupFlags = IS_TAURI
+      ? await invoke<StartupFlags>('get_startup_flags').catch(() => null)
+      : null;
     if (startupFlags?.clearData) {
       try {
         localStorage.removeItem(DEFAULTS.STORAGE_PROJECTS_KEY);
@@ -226,9 +239,9 @@ export function initApp(
     }
 
     // ──── SECURE STORAGE ────
-    const stateMeta = await invoke<PersistedStateMetaV1 | null>(
-      'load_persisted_state_meta',
-    ).catch(() => null);
+    const stateMeta = IS_TAURI
+      ? await invoke<PersistedStateMetaV1 | null>('load_persisted_state_meta').catch(() => null)
+      : null;
     const metaMode = stateMeta?.secureStorageMode ?? null;
     const needsSecureStorage = Boolean(
       stateMeta &&
@@ -265,18 +278,20 @@ export function initApp(
 
     // ──── LOAD PERSISTED STATE ────
     let diskState: PersistedStateV1 | null = null;
-    try {
-      diskState = await invoke<PersistedStateV1 | null>('load_persisted_state');
-    } catch (err) {
-      const msg = formatError(err);
-      if (!cancelled) {
-        s.secureStorage
-          .getState()
-          .setPersistenceDisabledReason(
-            `Failed to load saved state (changes won't be saved until restart): ${msg}`,
-          );
+    if (IS_TAURI) {
+      try {
+        diskState = await invoke<PersistedStateV1 | null>('load_persisted_state');
+      } catch (err) {
+        const msg = formatError(err);
+        if (!cancelled) {
+          s.secureStorage
+            .getState()
+            .setPersistenceDisabledReason(
+              `Failed to load saved state (changes won't be saved until restart): ${msg}`,
+            );
+        }
+        diskState = null;
       }
-      diskState = null;
     }
 
     let state: PersistedStateV1 | null = diskState;
@@ -524,6 +539,23 @@ export function initApp(
         },
       ];
     });
+
+    // ──── BROWSER EARLY-RETURN ────
+    // In browser mode there are no native PTY sessions; entity sync runs over REST+WS.
+    if (!IS_TAURI) {
+      s.session.getState().setSessions([]);
+      s.session.getState().setActiveId(null);
+      s.session.getState().setHydrated(true);
+      const updateCheckTimeout = window.setTimeout(() => {
+        void s.ui.getState().checkForUpdates();
+      }, 5000);
+      unlisteners.push(() => window.clearTimeout(updateCheckTimeout));
+      const updateCheckInterval = window.setInterval(() => {
+        void s.ui.getState().checkForUpdates();
+      }, 30 * 60 * 1000);
+      unlisteners.push(() => window.clearInterval(updateCheckInterval));
+      return;
+    }
 
     // ──── RESTORE SESSIONS ────
     const envVarsForProject = (projectId: string): Record<string, string> | null => {
@@ -805,7 +837,7 @@ export function initApp(
 
     // Only close/detach sessions on true app shutdown, NOT during HMR
     const isHmr = import.meta.hot != null;
-    if (!isHmr) {
+    if (!isHmr && IS_TAURI) {
       const { sessions } = sessionStore;
       for (const sess of sessions) {
         // Mark active maestro sessions as stopped before closing PTY
