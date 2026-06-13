@@ -413,3 +413,52 @@ html[data-redesign] .dateGroupHeader {
   border-bottom-color: var(--pn-line);
 }
 
+/* ── Mobile: full-width bottom sheet ─────────────────────────────── */
+@media (max-width: 768px) {
+  .slidePanel {
+    position: fixed !important;
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important; /* override inline style set by JS */
+    height: 65vh;
+    max-height: 90vh;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.5);
+    animation: slidePanelMobileIn 0.25s ease-out;
+  }
+
+  @keyframes slidePanelMobileIn {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .slidePanelResize {
+    display: none; /* no resize handle on mobile */
+  }
+
+  .slidePanelHeader {
+    padding: 14px 16px;
+  }
+
+  .slidePanelTab {
+    padding: 8px 12px;
+    min-height: 36px;
+  }
+
+  .slidePanelClose {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
