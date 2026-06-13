@@ -29,4 +29,71 @@
     height: calc(100% - var(--mobile-nav-height));
     overflow: hidden;
   }
+
+  /* On mobile only ONE panel renders at a time — force it full-width so the
+     desktop fixed/inline widths don't leave the single panel narrow. */
+  .appContent > .appLeftPanel,
+  .appContent > .main,
+  .appContent > .pn-sp {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Mobile panel navigation (bottom tab bar)                           */
+/*  Renders only on mobile (App gates it behind isMobile).             */
+/* ------------------------------------------------------------------ */
+.mobilePanelNav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  height: var(--mobile-nav-height);
+  display: flex;
+  align-items: stretch;
+  background: var(--pn-surface, #0a0d14);
+  border-top: 1px solid var(--pn-line, var(--border-subtle, rgba(255, 255, 255, 0.08)));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+.mobilePanelNavTab {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: none;
+  background: transparent;
+  color: var(--pn-dim, var(--text-secondary, rgba(255, 255, 255, 0.5)));
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.12s ease;
+  min-height: 44px;
+}
+
+.mobilePanelNavTab:active {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.mobilePanelNavTab--active {
+  color: var(--pn-accent, var(--accent, #7aa2ff));
+}
+
+.mobilePanelNavIcon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.mobilePanelNavLabel {
+  font-size: 10px;
+  line-height: 1;
 }
