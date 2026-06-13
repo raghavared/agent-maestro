@@ -1305,3 +1305,47 @@ html[data-redesign] .sessionLogModal {
 .termStripOverlay .sessionLogViewBtnActive {
   background: rgba(217, 154, 78, 0.12);
 }
+
+/* ------------------------------------------------------------------ */
+/*  Mobile responsive — terminal strip                                 */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+  /* Compact the bottom bar height */
+  .termStripBar {
+    height: 30px;
+    min-height: 30px;
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  /* Hide "Session Log" label text — keep toggle hitbox small */
+  .termStripLabel {
+    display: none;
+  }
+
+  /* Hide all dim stats on mobile to save horizontal space */
+  .termStripStat--dim {
+    display: none;
+  }
+
+  /* Hide the model badge on mobile */
+  .termStripModel {
+    display: none;
+  }
+
+  /* Keep action buttons but tighten the gap */
+  .termStripActions {
+    gap: 2px;
+  }
+
+  .termStripActionBtn {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Expanded overlay: cap height so the terminal is still usable */
+  .termStripOverlay {
+    max-height: min(45vh, 320px);
+  }
+}

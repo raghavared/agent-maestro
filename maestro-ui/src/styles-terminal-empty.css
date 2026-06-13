@@ -68,3 +68,29 @@
   /* match panel bg */
 }
 
+/* ------------------------------------------------------------------ */
+/*  Mobile — terminal empty state                                      */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+  .terminalEmptyState {
+    gap: 12px;
+    padding: 0 16px;
+  }
+
+  /* Hide ASCII art on very small screens — it overflows */
+  .terminalEmptyAscii {
+    display: none;
+  }
+
+  .terminalEmptyPrompt {
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .terminalEmptyHint {
+    font-size: 10px;
+    text-align: center;
+  }
+}
+
