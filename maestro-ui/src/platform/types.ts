@@ -7,6 +7,8 @@ export interface CreateSessionOpts {
   envVars: Record<string, string> | null;
   persistent: boolean;
   persistId: string;
+  /** Web mode: maestro session id — used as the /pty WebSocket session key. */
+  maestroSessionId?: string | null;
 }
 
 /** Unsubscribe function returned by onOutput / onExit. */

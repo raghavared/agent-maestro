@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import React, { useEffect, useRef } from "react";
+import { platform } from "./platform";
 import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import type { PendingDataBuffer } from "./app/types/app-state";
@@ -318,7 +318,7 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
         const isEnter = event.key === "Enter";
         if (event.shiftKey && isEnter && !event.metaKey && !event.ctrlKey && !event.altKey) {
           if (event.type === "keydown") {
-            void invoke("write_to_session", { id: props.id, data: "\x1b[13;2u", source: "user" }).catch(() => {});
+            void platform.terminal.write(props.id, "\x1b[13;2u", "user").catch(() => {});
           }
           return false;
         }
@@ -337,7 +337,7 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
         return true;
       });
       term.onData((data) => {
-        void invoke("write_to_session", { id: props.id, data, source: "user" }).catch(() => {});
+        void platform.terminal.write(props.id, data, "user").catch(() => {});
         if (data.includes("\r") || data.includes("\n")) {
           onUserEnterRef.current?.(props.id);
         }
@@ -350,7 +350,7 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
         const isEnter = event.key === "Enter";
         if (event.shiftKey && isEnter && !event.metaKey && !event.ctrlKey && !event.altKey) {
           if (event.type === "keydown") {
-            void invoke("write_to_session", { id: props.id, data: "\x1b[13;2u", source: "user" }).catch(() => {});
+            void platform.terminal.write(props.id, "\x1b[13;2u", "user").catch(() => {});
           }
           return false;
         }
@@ -369,7 +369,7 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
         return true;
       });
       term.onData((data) => {
-        void invoke("write_to_session", { id: props.id, data, source: "user" }).catch(() => {});
+        void platform.terminal.write(props.id, data, "user").catch(() => {});
         if (data.includes("\r") || data.includes("\n")) {
           onUserEnterRef.current?.(props.id);
         }
@@ -461,10 +461,7 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
           const currentFlags = kittyModeStack.length > 0
             ? kittyModeStack[kittyModeStack.length - 1]
             : 0;
-          void invoke("write_to_session", {
-            id: props.id,
-            data: `\x1b[?${currentFlags}u`,
-          }).catch(() => {});
+          void platform.terminal.write(props.id, `\x1b[?${currentFlags}u`).catch(() => {});
           return true;
         }),
       );
@@ -529,7 +526,7 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
 	      if (last && last.cols === cols && last.rows === rows) return;
 	      lastSizeRef.current = { cols, rows };
 	      onResizeRef.current?.(props.id, { cols, rows });
-	      void invoke("resize_session", { id: props.id, cols, rows }).catch(() => {});
+	      void platform.terminal.resize(props.id, cols, rows).catch(() => {});
 	    }
 
 		    // Register BEFORE flushing to avoid race with incoming events
@@ -647,7 +644,7 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
 	      const last = lastSizeRef.current;
 	      if (!last || last.cols !== cols || last.rows !== rows) {
 	        lastSizeRef.current = { cols, rows };
-	        void invoke("resize_session", { id: props.id, cols, rows }).catch(() => {});
+	        void platform.terminal.resize(props.id, cols, rows).catch(() => {});
       }
     };
 
