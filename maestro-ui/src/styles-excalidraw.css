@@ -143,4 +143,44 @@
   flex-direction: column;
 }
 
+/* ── Mobile responsive (≤768px) ── */
+
+@media (max-width: 768px) {
+  .excalidrawOverlay {
+    /* Already full-screen; ensure no padding clips the canvas */
+    padding: 0;
+  }
+
+  .excalidrawHeader {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  /* Hide keyboard shortcut hint — no keyboard on mobile */
+  .excalidrawShortcutHint {
+    display: none;
+  }
+
+  /* Scroll button row horizontally instead of wrapping or clipping */
+  .excalidrawHeaderActions {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    /* Prevent the row from shrinking and clipping the close button */
+    flex-shrink: 0;
+    max-width: 70vw;
+  }
+
+  /* Prevent the canvas from intercepting page-level scroll gestures
+     while the user's finger is on the drawing area */
+  .excalidrawCanvas {
+    touch-action: none;
+  }
+
+  /* Remove any residual min-width that causes horizontal overflow */
+  .excalidrawContainer {
+    min-width: 0;
+  }
+}
+
 /* ============================================================ */
