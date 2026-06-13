@@ -566,9 +566,9 @@ export default function App() {
       ) : (
         <>
           {/* -------- App Content -------- */}
-          <div className="appContent">
+          <div className={`appContent${isMobile ? ` appContent--${activePanel}` : ""}`}>
                 {/* -------- Left Panel (Icon Rail + Maestro Sidebar) -------- */}
-                {(!isMobile || activePanel === "left") && <AppLeftPanel />}
+                <AppLeftPanel />
 
                 {/* -------- Left panel resize handle -------- */}
                 {!isMobile && iconRailActiveSection !== null && (
@@ -586,20 +586,18 @@ export default function App() {
                 )}
 
                 {/* -------- Main content -------- */}
-                {(!isMobile || activePanel === "main") && (
-                  <main className="main">
-                    <div className="terminalArea">
-                      <AppWorkspace registry={registry} pendingData={pendingData} />
-                      <TaskDetailOverlay />
-                      <SessionDetailOverlay />
-                      {docOverlay && (
-                        <DocViewer doc={docOverlay} onClose={() => setDocOverlay(null)} />
-                      )}
-                      <AppModals />
-                      <AppSlidePanel />
-                    </div>
-                  </main>
-                )}
+                <main className="main">
+                  <div className="terminalArea">
+                    <AppWorkspace registry={registry} pendingData={pendingData} />
+                    <TaskDetailOverlay />
+                    <SessionDetailOverlay />
+                    {docOverlay && (
+                      <DocViewer doc={docOverlay} onClose={() => setDocOverlay(null)} />
+                    )}
+                    <AppModals />
+                    <AppSlidePanel />
+                  </div>
+                </main>
 
                 {/* -------- Right panel resize handle -------- */}
                 {!isMobile && spacesRailActiveSection !== null && (
@@ -617,27 +615,25 @@ export default function App() {
                 )}
 
                 {/* -------- Spaces Panel (Sessions on right) -------- */}
-                {(!isMobile || activePanel === "right") && (
-                  <SpacesPanel
-                    agentShortcuts={agentShortcuts}
-                    sessions={projectSessions}
-                    activeSessionId={activeId}
-                    activeProjectId={activeProjectId}
-                    projectName={activeProject?.name ?? null}
-                    projectBasePath={activeProject?.basePath ?? null}
-                    onSelectSession={handleSelectSession}
-                    onCloseSession={handleCloseSession}
-                    onReorderSessions={reorderSessions}
-                    onQuickStart={handleQuickStart}
-                    onOpenNewSession={handleOpenNewSession}
-                    onOpenPersistentSessions={handleOpenPersistentSessions}
-                    onOpenSshManager={openSshManager}
-                    onOpenAgentShortcuts={handleOpenAgentShortcuts}
-                    onOpenManageTerminals={handleOpenManageTerminals}
-                    activeSection={spacesRailActiveSection}
-                    onToggle={toggleSpacesPanel}
-                  />
-                )}
+                <SpacesPanel
+                  agentShortcuts={agentShortcuts}
+                  sessions={projectSessions}
+                  activeSessionId={activeId}
+                  activeProjectId={activeProjectId}
+                  projectName={activeProject?.name ?? null}
+                  projectBasePath={activeProject?.basePath ?? null}
+                  onSelectSession={handleSelectSession}
+                  onCloseSession={handleCloseSession}
+                  onReorderSessions={reorderSessions}
+                  onQuickStart={handleQuickStart}
+                  onOpenNewSession={handleOpenNewSession}
+                  onOpenPersistentSessions={handleOpenPersistentSessions}
+                  onOpenSshManager={openSshManager}
+                  onOpenAgentShortcuts={handleOpenAgentShortcuts}
+                  onOpenManageTerminals={handleOpenManageTerminals}
+                  activeSection={spacesRailActiveSection}
+                  onToggle={toggleSpacesPanel}
+                />
           </div>
 
           {/* -------- Mobile bottom tab bar -------- */}

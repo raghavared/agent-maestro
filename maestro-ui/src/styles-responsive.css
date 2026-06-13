@@ -24,21 +24,72 @@
     overflow: hidden;
   }
 
-  /* Mobile content area fills available height minus tab bar */
+  /* appContent fills remaining flex height; padding-bottom reserves space
+     for the fixed bottom nav so absolutely-positioned panels don't sit
+     underneath it. */
   .appContent {
-    height: calc(100% - var(--mobile-nav-height));
     overflow: hidden;
+    position: relative;
+    padding-bottom: var(--mobile-nav-height);
   }
 
-  /* On mobile only ONE panel renders at a time — force it full-width so the
-     desktop fixed/inline widths don't leave the single panel narrow. */
+  /* Each panel is absolutely positioned and fills the content area. All
+     panels stay mounted (xterm/Monaco never unmount); only transform
+     changes between active panels for smooth slide transitions. */
   .appContent > .appLeftPanel,
   .appContent > .main,
   .appContent > .pn-sp {
-    flex: 1 1 100% !important;
+    position: absolute;
+    inset: 0;
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+  }
+
+  /* Default: main panel visible, left off-screen left, right off-screen right */
+  .appContent > .appLeftPanel {
+    transform: translateX(-100%);
+  }
+  .appContent > .main {
+    transform: translateX(0);
+  }
+  .appContent > .pn-sp {
+    transform: translateX(100%);
+  }
+
+  /* Active left panel */
+  .appContent--left > .appLeftPanel {
+    transform: translateX(0);
+  }
+  .appContent--left > .main {
+    transform: translateX(100%);
+  }
+  .appContent--left > .pn-sp {
+    transform: translateX(200%);
+  }
+
+  /* Active main panel */
+  .appContent--main > .appLeftPanel {
+    transform: translateX(-100%);
+  }
+  .appContent--main > .main {
+    transform: translateX(0);
+  }
+  .appContent--main > .pn-sp {
+    transform: translateX(100%);
+  }
+
+  /* Active right panel */
+  .appContent--right > .appLeftPanel {
+    transform: translateX(-200%);
+  }
+  .appContent--right > .main {
+    transform: translateX(-100%);
+  }
+  .appContent--right > .pn-sp {
+    transform: translateX(0);
   }
 
   /* ----------------------------------------------------------------- */
