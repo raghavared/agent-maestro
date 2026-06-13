@@ -31,4 +31,11 @@ export interface TerminalTransport {
   onOutput(handler: (id: string, data: string) => void): Promise<Unlisten>;
   /** Web: register a handler for server→client PTY exit events; returns unsubscribe fn. */
   onExit(handler: (id: string, exitCode?: number | null) => void): Promise<Unlisten>;
+  /**
+   * Web: register a handler for the server's authoritative PTY size, sent once on
+   * attach (before scrollback replay) so the client can match the width the
+   * buffered output was authored at. Absent in Tauri (the desktop PTY is sized by
+   * the window's own FitAddon, so there is no late-join width mismatch).
+   */
+  onSize?(handler: (id: string, size: { cols: number; rows: number }) => void): Promise<Unlisten>;
 }

@@ -25,6 +25,11 @@ interface PtyEntry {
   subscribers: Set<WebSocket>;
   exited: boolean;
   exitCode: number | null;
+  /** Current PTY dimensions, kept in sync with spawn/resize so late-joining
+   *  clients can size their terminal to match the width the scrollback was
+   *  authored at (otherwise replayed output wraps at the wrong column). */
+  cols: number;
+  rows: number;
 }
 
 const DEFAULT_COLS = 80;
@@ -59,10 +64,12 @@ export class PtyHostService {
     }
 
     const shell = env.SHELL || process.env.SHELL || '/bin/bash';
+    const initialCols = cols && cols > 0 ? cols : DEFAULT_COLS;
+    const initialRows = rows && rows > 0 ? rows : DEFAULT_ROWS;
     const proc = pty.spawn(shell, ['-c', command], {
       name: 'xterm-256color',
-      cols: cols && cols > 0 ? cols : DEFAULT_COLS,
-      rows: rows && rows > 0 ? rows : DEFAULT_ROWS,
+      cols: initialCols,
+      rows: initialRows,
       cwd,
       // node-pty requires a string-keyed env; merge over the process env so the
       // child still sees HOME, etc., with caller overrides winning.
@@ -77,6 +84,8 @@ export class PtyHostService {
       subscribers: new Set(),
       exited: false,
       exitCode: null,
+      cols: initialCols,
+      rows: initialRows,
     };
     this.sessions.set(sessionId, entry);
 
@@ -121,6 +130,13 @@ export class PtyHostService {
     return this.sessions.has(sessionId);
   }
 
+  /** Current dimensions of a session's PTY, or null if no such session. */
+  getSize(sessionId: string): { cols: number; rows: number } | null {
+    const entry = this.sessions.get(sessionId);
+    if (!entry) return null;
+    return { cols: entry.cols, rows: entry.rows };
+  }
+
   /** Write input (keystrokes) to the PTY. */
   write(sessionId: string, data: string | Buffer): void {
     const entry = this.sessions.get(sessionId);
@@ -136,6 +152,8 @@ export class PtyHostService {
     if (!cols || !rows || cols < 1 || rows < 1) return;
     try {
       entry.proc.resize(cols, rows);
+      entry.cols = cols;
+      entry.rows = rows;
     } catch (err) {
       this.logger.warn('PtyHostService: resize failed', {
         sessionId,

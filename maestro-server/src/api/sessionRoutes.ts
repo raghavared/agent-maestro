@@ -2126,6 +2126,27 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       await eventBus.emit('session:resume', resumeEvent);
 
+      // When the server hosts PTYs (headless/web), spawn the agent process here.
+      // The Tauri desktop path (ptyHost === 'tauri') relies on the event above instead.
+      // Without this, the browser's PTY WebSocket attaches to a non-existent session
+      // and is immediately closed (1011 "no live PTY"), so resume hangs on web-ui.
+      if (config.ptyHost === 'server') {
+        try {
+          ptyHostService.spawn({
+            sessionId: session.id,
+            command,
+            cwd,
+            env: finalEnvVars,
+          });
+        } catch (ptyErr) {
+          return res.status(500).json({
+            error: true,
+            code: 'pty_spawn_failed',
+            message: ptyErr instanceof Error ? ptyErr.message : 'Failed to spawn server PTY',
+          });
+        }
+      }
+
       res.json({
         success: true,
         sessionId: session.id,

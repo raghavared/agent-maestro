@@ -9,7 +9,10 @@ import { PtyHostService } from '../../application/services/PtyHostService';
  * per-entity throttling, or 1MB buffer cap.
  *
  * Protocol (one socket per session, connect to `/pty?sessionId=<id>`):
- *  - server -> client: binary frames of raw PTY output (scrollback replayed on connect)
+ *  - server -> client: text frame    = JSON control message, currently:
+ *                        { "type": "size", "cols": <n>, "rows": <n> }  (sent once on attach,
+ *                          before the replay, so the client can match the PTY width)
+ *                      binary frames  = raw PTY output (scrollback replayed on connect)
  *  - client -> server: binary frame  = keystroke bytes (written to the PTY)
  *                      text frame     = JSON control message, currently:
  *                        { "type": "resize", "cols": <n>, "rows": <n> }
@@ -31,6 +34,20 @@ export class PtyWebSocketServer {
     }
 
     ws.binaryType = 'nodebuffer';
+
+    // Tell the client the PTY's current dimensions BEFORE the scrollback replay
+    // so it can size its terminal to the width the buffered output was authored
+    // at. Without this the replay renders into a differently-sized xterm grid
+    // and wraps at the wrong column (garbled history). Sent as a text frame so
+    // the client decodes it as a control message, not raw PTY bytes.
+    const size = this.ptyHostService.getSize(sessionId);
+    if (size) {
+      try {
+        ws.send(JSON.stringify({ type: 'size', cols: size.cols, rows: size.rows }));
+      } catch {
+        // best effort
+      }
+    }
 
     const attached = this.ptyHostService.addSubscriber(sessionId, ws);
     if (!attached) {

@@ -40,6 +40,14 @@ export const lastResizeAtRef = new Map<string, number>();
 export const commandLifecycleSessionsRef = new Set<string>();
 export const spawningSessionsRef = new Set<string>();
 
+/**
+ * Web mode only: the authoritative PTY dimensions the server reports on attach,
+ * before it replays scrollback. A terminal that mounts after this arrives reads
+ * it to size its xterm to the width the buffered output was authored at, so the
+ * replay doesn't wrap at the wrong column. Cleared when the terminal adopts it.
+ */
+export const serverPtySizes = new Map<string, { cols: number; rows: number }>();
+
 /* ------------------------------------------------------------------ */
 /*  DOM-bound refs initialized by App.tsx                               */
 /* ------------------------------------------------------------------ */
@@ -97,9 +105,26 @@ export function initSessionStoreRefs(
       pendingDataRef.current.set(id, buffer);
     });
 
+    void platform.terminal.onSize?.((id, size) => {
+      if (!size.cols || !size.rows) return;
+      // Remember it for terminals that haven't mounted yet (applied on mount).
+      serverPtySizes.set(id, size);
+      // If the terminal already exists, match the PTY width now so the scrollback
+      // the server is about to replay renders at the column it was authored at.
+      const entry = registryRef?.current.get(id);
+      if (entry) {
+        try {
+          entry.term.resize(size.cols, size.rows);
+        } catch {
+          // ignore — a stale/closing term
+        }
+      }
+    });
+
     void platform.terminal.onExit((id, exitCode) => {
       useSessionStore.getState().clearAgentIdleTimer(id);
       lastResizeAtRef.delete(id);
+      serverPtySizes.delete(id);
 
       if (closingSessions.has(id)) {
         const timeout = closingSessions.get(id);

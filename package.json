@@ -18,6 +18,8 @@
     "build:server": "cd maestro-server && bun run build",
     "build:cli": "cd maestro-cli && bun run build",
     "build:all": "bun run build:ui && bun run build:server && bun run build:cli",
+    "web": "bash scripts/start-web.sh",
+    "web:nobuild": "SKIP_BUILD=1 bash scripts/start-web.sh",
     "prod:server": "PORT=2357 DATA_DIR=~/.maestro/data SESSION_DIR=~/.maestro/sessions NODE_ENV=production node maestro-server/dist/server.js",
     "prod:build": "bash scripts/prod-build.sh",
     "prod": "open -a 'Maestro Prod'",

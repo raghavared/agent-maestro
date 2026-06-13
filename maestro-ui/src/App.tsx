@@ -26,6 +26,9 @@ import { initRedesignTheme } from "./components/maestro/redesign/useRedesignThem
 import { initZoom } from "./stores/useZoomStore";
 
 // Hooks
+import { useBreakpoint } from "./hooks/useBreakpoint";
+import { useMobilePanelStore } from "./stores/useMobilePanelStore";
+import { MobilePanelNav } from "./components/app/MobilePanelNav";
 import { useQuickLaunch } from "./hooks/useQuickLaunch";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useAppLayoutResizing } from "./hooks/useAppLayoutResizing";
@@ -505,6 +508,11 @@ export default function App() {
     handleRightPanelResizePointerDown,
   } = useAppLayoutResizing();
 
+  // ---------- responsive breakpoint ----------
+  const breakpoint = useBreakpoint();
+  const isMobile = breakpoint === "mobile";
+  const activePanel = useMobilePanelStore((s) => s.activePanel);
+
   // ---------- render ----------
   const isEmpty = projects.length === 0;
 
@@ -558,12 +566,12 @@ export default function App() {
       ) : (
         <>
           {/* -------- App Content -------- */}
-          <div className="appContent">
+          <div className={`appContent${isMobile ? ` appContent--${activePanel}` : ""}`}>
                 {/* -------- Left Panel (Icon Rail + Maestro Sidebar) -------- */}
                 <AppLeftPanel />
 
                 {/* -------- Left panel resize handle -------- */}
-                {iconRailActiveSection !== null && (
+                {!isMobile && iconRailActiveSection !== null && (
                   <div
                     className="sidebarRightResizeHandle"
                     role="separator"
@@ -592,7 +600,7 @@ export default function App() {
                 </main>
 
                 {/* -------- Right panel resize handle -------- */}
-                {spacesRailActiveSection !== null && (
+                {!isMobile && spacesRailActiveSection !== null && (
                   <div
                     className="sidebarLeftResizeHandle"
                     role="separator"
@@ -627,6 +635,9 @@ export default function App() {
                   onToggle={toggleSpacesPanel}
                 />
           </div>
+
+          {/* -------- Mobile bottom tab bar -------- */}
+          {isMobile && <MobilePanelNav />}
         </>
       )}
 
