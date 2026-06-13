@@ -3,8 +3,8 @@ import compression from 'compression';
 import cors from 'cors';
 import helmet from 'helmet';
 import { WebSocketServer } from 'ws';
-import { writeFileSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
+import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { dirname, join } from 'path';
 import { createContainer, Container } from './container';
 import { createProjectRoutes } from './api/projectRoutes';
 import { createTaskRoutes } from './api/taskRoutes';
@@ -162,6 +162,23 @@ async function startServer() {
     eventBus,
   });
   app.use('/api', gitRoutes);
+
+  // Browser SPA static serve — mounted AFTER all API/WS/PTY routes.
+  // Serves maestro-ui/dist so a browser can access the full app from the server origin.
+  // Skipped gracefully if the dist folder hasn't been built yet.
+  const uiDistPath = join(__dirname, '../../maestro-ui/dist');
+  if (existsSync(uiDistPath)) {
+    app.use(express.static(uiDistPath));
+    // SPA fallback: serve index.html for any route that isn't /api, /ws, or /pty
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.path.startsWith('/api') || req.path.startsWith('/ws') || req.path.startsWith('/pty')) {
+        return next();
+      }
+      res.sendFile(join(uiDistPath, 'index.html'));
+    });
+  } else {
+    logger.info('maestro-ui/dist not found — browser SPA static serve skipped (run build:web to enable)');
+  }
 
   // Global error handling middleware
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
