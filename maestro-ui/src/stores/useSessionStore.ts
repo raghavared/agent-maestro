@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
+import { platform, IS_TAURI } from '../platform';
 import { TerminalSession, TerminalSessionInfo } from '../app/types/session';
 import { PendingDataBuffer, RecentSessionKey, Prompt } from '../app/types/app-state';
 import { TerminalRegistry } from '../SessionTerminal';
@@ -47,6 +48,18 @@ let registryRef: MutableRefObject<TerminalRegistry> | null = null;
 let pendingDataRef: MutableRefObject<PendingDataBuffer> | null = null;
 let homeDirRef: MutableRefObject<string | null> | null = null;
 
+function _isRendererReady(term: unknown): boolean {
+  try {
+    const anyTerm = term as any;
+    const rs = anyTerm?._core?._renderService;
+    const ref = rs?._renderer;
+    const r = ref?.value ?? ref?._value ?? null;
+    return Boolean(r?.dimensions);
+  } catch {
+    return false;
+  }
+}
+
 export function initSessionStoreRefs(
   registry: MutableRefObject<TerminalRegistry>,
   pendingData: MutableRefObject<PendingDataBuffer>,
@@ -55,6 +68,68 @@ export function initSessionStoreRefs(
   registryRef = registry;
   pendingDataRef = pendingData;
   homeDirRef = homeDir;
+
+  if (!IS_TAURI) {
+    void platform.terminal.onOutput((id, data) => {
+      if (closingSessions.has(id)) return;
+      useSessionStore.getState().markAgentWorkingFromOutput(id, data);
+
+      const entry = registryRef?.current.get(id);
+      if (entry && _isRendererReady(entry.term)) {
+        entry.term.write(data);
+        return;
+      }
+
+      if (!pendingDataRef?.current) return;
+      if (
+        !pendingDataRef.current.has(id) &&
+        pendingDataRef.current.size >= DEFAULTS.MAX_PENDING_SESSIONS
+      ) {
+        const oldest = pendingDataRef.current.keys().next().value as string | undefined;
+        if (oldest) pendingDataRef.current.delete(oldest);
+      }
+      const buffer = pendingDataRef.current.get(id) ?? [];
+      buffer.push(data);
+      if (buffer.length > DEFAULTS.MAX_PENDING_CHUNKS_PER_SESSION) {
+        buffer.splice(0, buffer.length - DEFAULTS.MAX_PENDING_CHUNKS_PER_SESSION);
+      }
+      pendingDataRef.current.delete(id);
+      pendingDataRef.current.set(id, buffer);
+    });
+
+    void platform.terminal.onExit((id, exitCode) => {
+      useSessionStore.getState().clearAgentIdleTimer(id);
+      lastResizeAtRef.delete(id);
+
+      if (closingSessions.has(id)) {
+        const timeout = closingSessions.get(id);
+        if (timeout != null) window.clearTimeout(timeout);
+        closingSessions.delete(id);
+        return;
+      }
+
+      const { sessions } = useSessionStore.getState();
+      const exitingSession = sessions.find((s) => s.id === id);
+
+      useSessionStore.getState().setSessions((prev: TerminalSession[]) => {
+        let found = false;
+        const next = prev.map((s) => {
+          if (s.id !== id) return s;
+          found = true;
+          return { ...s, exited: true, exitCode: exitCode ?? null, agentWorking: false, recordingActive: false };
+        });
+        if (!found) pendingExitCodes.set(id, exitCode ?? null);
+        return next;
+      });
+
+      if (exitingSession?.maestroSessionId) {
+        void maestroClient.updateSession(exitingSession.maestroSessionId, {
+          status: 'stopped',
+          completedAt: Date.now(),
+        }).catch(() => {});
+      }
+    });
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1195,14 +1270,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         .join('; ');
       const envPrefix = envExports ? `${envExports}; ` : '';
 
-      const info = await invoke<TerminalSessionInfo>('create_session', {
+      const info = await platform.terminal.createSession({
         name: sessionInfo.name,
         command: sessionInfo.command ? `${envPrefix}${sessionInfo.command}; exec $SHELL` : sessionInfo.command,
         cwd: sessionInfo.cwd,
-        cols: 200,
-        rows: 50,
-        env_vars: sessionInfo.envVars,
+        envVars: sessionInfo.envVars,
         persistent: false,
+        persistId: sessionInfo.maestroSessionId ?? '',
+        maestroSessionId: sessionInfo.maestroSessionId,
       });
 
       const rawSession: TerminalSession = {

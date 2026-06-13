@@ -53,28 +53,119 @@ export const tauriTerminal: TerminalTransport = {
   },
 };
 
+// ── webTerminal: per-session WebSocket transport to /pty ──────────────────
+import { PTY_WS_URL } from '../utils/serverConfig';
+
+const _sockets = new Map<string, WebSocket>();
+const _pendingSends = new Map<string, Array<string | Uint8Array>>();
+const _outputHandlers: Array<(id: string, data: string) => void> = [];
+const _exitHandlers: Array<(id: string, exitCode?: number | null) => void> = [];
+const _decoder = new TextDecoder();
+
+function _ensureSocket(id: string): WebSocket {
+  const existing = _sockets.get(id);
+  if (
+    existing &&
+    existing.readyState !== WebSocket.CLOSED &&
+    existing.readyState !== WebSocket.CLOSING
+  ) {
+    return existing;
+  }
+
+  const ws = new WebSocket(`${PTY_WS_URL}?sessionId=${encodeURIComponent(id)}`);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => {
+    const pending = _pendingSends.get(id);
+    if (pending) {
+      for (const frame of pending) ws.send(frame);
+      _pendingSends.delete(id);
+    }
+  };
+
+  ws.onmessage = (ev) => {
+    if (typeof ev.data === 'string') {
+      try {
+        const msg = JSON.parse(ev.data) as { type?: string; exitCode?: number | null };
+        if (msg.type === 'exit') {
+          for (const h of _exitHandlers) h(id, msg.exitCode ?? null);
+          return;
+        }
+      } catch {
+        // not a control frame — fall through to PTY output
+      }
+      for (const h of _outputHandlers) h(id, ev.data as string);
+    } else {
+      const text = _decoder.decode(new Uint8Array(ev.data as ArrayBuffer));
+      for (const h of _outputHandlers) h(id, text);
+    }
+  };
+
+  ws.onclose = () => {
+    _sockets.delete(id);
+  };
+
+  _sockets.set(id, ws);
+  return ws;
+}
+
+function _sendFrame(id: string, frame: string | Uint8Array): void {
+  const ws = _sockets.get(id);
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(frame);
+    return;
+  }
+  // Queue for when the socket opens (resize may arrive before onopen fires)
+  const queue = _pendingSends.get(id) ?? [];
+  queue.push(frame);
+  _pendingSends.set(id, queue);
+}
+
 export const webTerminal: TerminalTransport = {
-  createSession(_opts: CreateSessionOpts): Promise<TerminalSessionInfo> {
-    throw new Error('webTerminal.createSession not implemented — filled in by W3 terminal transport');
+  createSession(opts: CreateSessionOpts): Promise<TerminalSessionInfo> {
+    const id = opts.maestroSessionId ?? opts.persistId;
+    _ensureSocket(id);
+    return Promise.resolve({
+      id,
+      name: opts.name ?? '',
+      command: opts.command ?? '',
+      cwd: opts.cwd ?? null,
+    });
   },
 
-  write(_id: string, _data: string, _source?: string): Promise<void> {
-    throw new Error('webTerminal.write not implemented — filled in by W3 terminal transport');
+  write(id: string, data: string, _source?: string): Promise<void> {
+    _sendFrame(id, new TextEncoder().encode(data));
+    return Promise.resolve();
   },
 
-  resize(_id: string, _cols: number, _rows: number): Promise<void> {
-    throw new Error('webTerminal.resize not implemented — filled in by W3 terminal transport');
+  resize(id: string, cols: number, rows: number): Promise<void> {
+    _sendFrame(id, JSON.stringify({ type: 'resize', cols, rows }));
+    return Promise.resolve();
   },
 
-  closeSession(_id: string): Promise<void> {
-    throw new Error('webTerminal.closeSession not implemented — filled in by W3 terminal transport');
+  closeSession(id: string): Promise<void> {
+    const ws = _sockets.get(id);
+    if (ws) {
+      ws.close();
+      _sockets.delete(id);
+    }
+    _pendingSends.delete(id);
+    return Promise.resolve();
   },
 
-  onOutput(_handler: (id: string, data: string) => void): Promise<Unlisten> {
-    return Promise.resolve(() => {});
+  onOutput(handler: (id: string, data: string) => void): Promise<Unlisten> {
+    _outputHandlers.push(handler);
+    return Promise.resolve(() => {
+      const idx = _outputHandlers.indexOf(handler);
+      if (idx >= 0) _outputHandlers.splice(idx, 1);
+    });
   },
 
-  onExit(_handler: (id: string, exitCode?: number | null) => void): Promise<Unlisten> {
-    return Promise.resolve(() => {});
+  onExit(handler: (id: string, exitCode?: number | null) => void): Promise<Unlisten> {
+    _exitHandlers.push(handler);
+    return Promise.resolve(() => {
+      const idx = _exitHandlers.indexOf(handler);
+      if (idx >= 0) _exitHandlers.splice(idx, 1);
+    });
   },
 };
