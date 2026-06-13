@@ -152,11 +152,11 @@ Open `http://localhost:4570`.
 
 The server serves the built browser UI as static files and routes all REST (`/api`), WebSocket (`/ws`), and PTY streaming (`/pty`) from the same origin. The browser bundle auto-targets the origin that served it — no hardcoded URLs needed.
 
-Or use the convenience script:
+Or use the one-command convenience script, which builds the browser UI + server and launches the single-origin server on port 4570:
 
 ```bash
-bun run build:web
-bun run web          # runs the single-origin server on port 4570
+bun run web            # build + run
+bun run web:nobuild    # run without rebuilding
 ```
 
 ### Dev (split-origin, hot reload)
@@ -201,6 +201,17 @@ For a full VPS deployment (nginx + systemd + TLS), see [`deploy/README.md`](./de
 ```
 
 After deployment, SSH into the VPS and run `claude login` — the CLI is installed but not pre-authenticated.
+
+#### EC2 + Tailscale (no public nginx)
+
+To deploy onto an EC2 (or any Ubuntu) box reached over [Tailscale](https://tailscale.com/) — server bound to `127.0.0.1`, no public nginx, with HTTPS + WebSocket terminated by `tailscale serve` on the tailnet — use [`deploy/deploy-ec2-tailscale.sh`](./deploy/deploy-ec2-tailscale.sh):
+
+```bash
+./deploy/deploy-ec2-tailscale.sh ubuntu@your-ec2-host -i ~/.ssh/my_key \
+  --password 'YourPassword' [--port 4570]
+```
+
+The script runs the privileged provision/build/env/systemd steps via `sudo`. Tailscale install, `tailscale up` (one-time interactive login), and `tailscale serve` are run by the operator on the box afterwards, then `claude login`.
 
 ---
 
