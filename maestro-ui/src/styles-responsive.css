@@ -1,0 +1,32 @@
+/* Responsive breakpoint tokens */
+:root {
+  --breakpoint-mobile: 768px;
+  --breakpoint-tablet: 1024px;
+  --mobile-nav-height: 56px;
+}
+
+/* Base mobile layout resets */
+@media (max-width: 768px) {
+  html,
+  body {
+    overflow: hidden;
+    touch-action: pan-y;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  /* Prevent layout overflow on mobile */
+  .app {
+    overflow: hidden;
+  }
+
+  /* Mobile content area fills available height minus tab bar */
+  .appContent {
+    height: calc(100% - var(--mobile-nav-height));
+    overflow: hidden;
+  }
+}

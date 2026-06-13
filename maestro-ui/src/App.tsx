@@ -26,6 +26,9 @@ import { initRedesignTheme } from "./components/maestro/redesign/useRedesignThem
 import { initZoom } from "./stores/useZoomStore";
 
 // Hooks
+import { useBreakpoint } from "./hooks/useBreakpoint";
+import { useMobilePanelStore } from "./stores/useMobilePanelStore";
+import { MobilePanelNav } from "./components/app/MobilePanelNav";
 import { useQuickLaunch } from "./hooks/useQuickLaunch";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useAppLayoutResizing } from "./hooks/useAppLayoutResizing";
@@ -505,6 +508,11 @@ export default function App() {
     handleRightPanelResizePointerDown,
   } = useAppLayoutResizing();
 
+  // ---------- responsive breakpoint ----------
+  const breakpoint = useBreakpoint();
+  const isMobile = breakpoint === "mobile";
+  const activePanel = useMobilePanelStore((s) => s.activePanel);
+
   // ---------- render ----------
   const isEmpty = projects.length === 0;
 
@@ -560,10 +568,10 @@ export default function App() {
           {/* -------- App Content -------- */}
           <div className="appContent">
                 {/* -------- Left Panel (Icon Rail + Maestro Sidebar) -------- */}
-                <AppLeftPanel />
+                {(!isMobile || activePanel === "left") && <AppLeftPanel />}
 
                 {/* -------- Left panel resize handle -------- */}
-                {iconRailActiveSection !== null && (
+                {!isMobile && iconRailActiveSection !== null && (
                   <div
                     className="sidebarRightResizeHandle"
                     role="separator"
@@ -578,21 +586,23 @@ export default function App() {
                 )}
 
                 {/* -------- Main content -------- */}
-                <main className="main">
-                  <div className="terminalArea">
-                    <AppWorkspace registry={registry} pendingData={pendingData} />
-                    <TaskDetailOverlay />
-                    <SessionDetailOverlay />
-                    {docOverlay && (
-                      <DocViewer doc={docOverlay} onClose={() => setDocOverlay(null)} />
-                    )}
-                    <AppModals />
-                    <AppSlidePanel />
-                  </div>
-                </main>
+                {(!isMobile || activePanel === "main") && (
+                  <main className="main">
+                    <div className="terminalArea">
+                      <AppWorkspace registry={registry} pendingData={pendingData} />
+                      <TaskDetailOverlay />
+                      <SessionDetailOverlay />
+                      {docOverlay && (
+                        <DocViewer doc={docOverlay} onClose={() => setDocOverlay(null)} />
+                      )}
+                      <AppModals />
+                      <AppSlidePanel />
+                    </div>
+                  </main>
+                )}
 
                 {/* -------- Right panel resize handle -------- */}
-                {spacesRailActiveSection !== null && (
+                {!isMobile && spacesRailActiveSection !== null && (
                   <div
                     className="sidebarLeftResizeHandle"
                     role="separator"
@@ -607,26 +617,31 @@ export default function App() {
                 )}
 
                 {/* -------- Spaces Panel (Sessions on right) -------- */}
-                <SpacesPanel
-                  agentShortcuts={agentShortcuts}
-                  sessions={projectSessions}
-                  activeSessionId={activeId}
-                  activeProjectId={activeProjectId}
-                  projectName={activeProject?.name ?? null}
-                  projectBasePath={activeProject?.basePath ?? null}
-                  onSelectSession={handleSelectSession}
-                  onCloseSession={handleCloseSession}
-                  onReorderSessions={reorderSessions}
-                  onQuickStart={handleQuickStart}
-                  onOpenNewSession={handleOpenNewSession}
-                  onOpenPersistentSessions={handleOpenPersistentSessions}
-                  onOpenSshManager={openSshManager}
-                  onOpenAgentShortcuts={handleOpenAgentShortcuts}
-                  onOpenManageTerminals={handleOpenManageTerminals}
-                  activeSection={spacesRailActiveSection}
-                  onToggle={toggleSpacesPanel}
-                />
+                {(!isMobile || activePanel === "right") && (
+                  <SpacesPanel
+                    agentShortcuts={agentShortcuts}
+                    sessions={projectSessions}
+                    activeSessionId={activeId}
+                    activeProjectId={activeProjectId}
+                    projectName={activeProject?.name ?? null}
+                    projectBasePath={activeProject?.basePath ?? null}
+                    onSelectSession={handleSelectSession}
+                    onCloseSession={handleCloseSession}
+                    onReorderSessions={reorderSessions}
+                    onQuickStart={handleQuickStart}
+                    onOpenNewSession={handleOpenNewSession}
+                    onOpenPersistentSessions={handleOpenPersistentSessions}
+                    onOpenSshManager={openSshManager}
+                    onOpenAgentShortcuts={handleOpenAgentShortcuts}
+                    onOpenManageTerminals={handleOpenManageTerminals}
+                    activeSection={spacesRailActiveSection}
+                    onToggle={toggleSpacesPanel}
+                  />
+                )}
           </div>
+
+          {/* -------- Mobile bottom tab bar -------- */}
+          {isMobile && <MobilePanelNav />}
         </>
       )}
 
