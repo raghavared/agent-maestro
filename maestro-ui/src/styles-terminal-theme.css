@@ -1232,3 +1232,42 @@
   font-weight: 600;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Mobile — terminal pane layout                                      */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+  /* Terminal pane should fill its container on mobile */
+  .terminalPane {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Hide the terminal window chrome (macOS traffic-light buttons) */
+  .terminalWindowChrome {
+    display: none;
+  }
+
+  /* Tighten the command bar on mobile */
+  .terminalCommandBar {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .terminalCommands {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .terminalCmd {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+
+  /* Task rows: reduce padding on tiny screens */
+  .terminalTaskMain {
+    padding: 4px;
+    gap: 4px;
+  }
+}
+
