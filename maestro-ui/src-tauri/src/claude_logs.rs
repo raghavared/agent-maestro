@@ -37,14 +37,24 @@ fn extract_maestro_session_id(path: &PathBuf) -> Option<String> {
 /// `jane.doe`), because the encoded dir would never match the real one on disk.
 /// A trailing slash is stripped first so it doesn't produce a trailing `-`.
 fn encode_project_path(cwd: &str) -> String {
-    cwd.trim_end_matches('/')
+    cwd.trim_end_matches(['/', '\\'])
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
         .collect()
 }
 
 /// Get the Claude projects directory.
+///
+/// Honors `CLAUDE_CONFIG_DIR` (Claude Code relocates the whole `~/.claude` tree
+/// there when set), falling back to `<home>/.claude`. On Windows the home dir
+/// resolves to `%USERPROFILE%`, so the default is `%USERPROFILE%\.claude\projects`.
 fn claude_projects_dir() -> Result<PathBuf, String> {
+    if let Ok(dir) = std::env::var("CLAUDE_CONFIG_DIR") {
+        let dir = dir.trim();
+        if !dir.is_empty() {
+            return Ok(PathBuf::from(dir).join("projects"));
+        }
+    }
     let home = dirs::home_dir().ok_or_else(|| "cannot determine home directory".to_string())?;
     Ok(home.join(".claude").join("projects"))
 }
