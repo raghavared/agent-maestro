@@ -116,6 +116,7 @@ export function normalizeWsUrl(
 
 const rawApiBaseUrl = normalizeCandidate(import.meta.env.VITE_API_URL);
 const rawWsUrl = normalizeCandidate(import.meta.env.VITE_WS_URL);
+const rawPtyWsUrl = normalizeCandidate(import.meta.env.VITE_PTY_WS_URL);
 
 const API_BASE_URL = normalizeApiBaseUrl(rawApiBaseUrl);
 const WS_URL = normalizeWsUrl(rawWsUrl, API_BASE_URL);
@@ -123,6 +124,12 @@ const WS_URL = normalizeWsUrl(rawWsUrl, API_BASE_URL);
 // Base server URL without /api path (e.g. "http://localhost:2357")
 // Used for MAESTRO_API_URL env var passed to CLI workers
 const SERVER_URL = deriveServerUrl(API_BASE_URL);
+
+// PTY WebSocket endpoint — ws://host/pty — sessionId is appended as ?id=<id> by the transport.
+// Overridable via VITE_PTY_WS_URL; otherwise derived from WS_URL with /pty suffix.
+const PTY_WS_URL = rawPtyWsUrl
+  ? normalizeWsUrl(rawPtyWsUrl, API_BASE_URL)
+  : `${WS_URL}/pty`;
 
 if (rawApiBaseUrl && API_BASE_URL !== rawApiBaseUrl) {
   console.warn(`[serverConfig] Invalid VITE_API_URL "${rawApiBaseUrl}", falling back to ${API_BASE_URL}`);
@@ -132,4 +139,4 @@ if (rawWsUrl && WS_URL !== rawWsUrl) {
   console.warn(`[serverConfig] Invalid VITE_WS_URL "${rawWsUrl}", falling back to ${WS_URL}`);
 }
 
-export { API_BASE_URL, WS_URL, SERVER_URL, DEFAULT_API_BASE_URL, DEFAULT_WS_URL, DEFAULT_SERVER_URL };
+export { API_BASE_URL, WS_URL, SERVER_URL, DEFAULT_API_BASE_URL, DEFAULT_WS_URL, DEFAULT_SERVER_URL, PTY_WS_URL };
