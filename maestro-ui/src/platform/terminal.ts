@@ -60,7 +60,24 @@ const _sockets = new Map<string, WebSocket>();
 const _pendingSends = new Map<string, Array<string | Uint8Array>>();
 const _outputHandlers: Array<(id: string, data: string) => void> = [];
 const _exitHandlers: Array<(id: string, exitCode?: number | null) => void> = [];
-const _decoder = new TextDecoder();
+const _sizeHandlers: Array<(id: string, size: { cols: number; rows: number }) => void> = [];
+
+// One streaming decoder per session. PTY output arrives as raw bytes split on
+// arbitrary boundaries, so a multi-byte UTF-8 glyph (box-drawing chars, emoji,
+// the ⏺/✻ symbols Claude prints) can straddle two WebSocket frames. A streaming
+// decoder holds the incomplete tail until the next frame instead of emitting a
+// replacement char (�). Must be per-session so interleaved sessions don't bleed
+// partial bytes into each other.
+const _decoders = new Map<string, TextDecoder>();
+
+function _decodeFor(id: string, bytes: Uint8Array): string {
+  let dec = _decoders.get(id);
+  if (!dec) {
+    dec = new TextDecoder();
+    _decoders.set(id, dec);
+  }
+  return dec.decode(bytes, { stream: true });
+}
 
 function _ensureSocket(id: string): WebSocket {
   const existing = _sockets.get(id);
@@ -86,9 +103,22 @@ function _ensureSocket(id: string): WebSocket {
   ws.onmessage = (ev) => {
     if (typeof ev.data === 'string') {
       try {
-        const msg = JSON.parse(ev.data) as { type?: string; exitCode?: number | null };
+        const msg = JSON.parse(ev.data) as {
+          type?: string;
+          exitCode?: number | null;
+          cols?: number;
+          rows?: number;
+        };
         if (msg.type === 'exit') {
           for (const h of _exitHandlers) h(id, msg.exitCode ?? null);
+          return;
+        }
+        if (
+          msg.type === 'size' &&
+          Number.isFinite(msg.cols) &&
+          Number.isFinite(msg.rows)
+        ) {
+          for (const h of _sizeHandlers) h(id, { cols: msg.cols!, rows: msg.rows! });
           return;
         }
       } catch {
@@ -96,13 +126,14 @@ function _ensureSocket(id: string): WebSocket {
       }
       for (const h of _outputHandlers) h(id, ev.data as string);
     } else {
-      const text = _decoder.decode(new Uint8Array(ev.data as ArrayBuffer));
+      const text = _decodeFor(id, new Uint8Array(ev.data as ArrayBuffer));
       for (const h of _outputHandlers) h(id, text);
     }
   };
 
   ws.onclose = () => {
     _sockets.delete(id);
+    _decoders.delete(id);
   };
 
   _sockets.set(id, ws);
@@ -150,6 +181,7 @@ export const webTerminal: TerminalTransport = {
       _sockets.delete(id);
     }
     _pendingSends.delete(id);
+    _decoders.delete(id);
     return Promise.resolve();
   },
 
@@ -158,6 +190,14 @@ export const webTerminal: TerminalTransport = {
     return Promise.resolve(() => {
       const idx = _outputHandlers.indexOf(handler);
       if (idx >= 0) _outputHandlers.splice(idx, 1);
+    });
+  },
+
+  onSize(handler: (id: string, size: { cols: number; rows: number }) => void): Promise<Unlisten> {
+    _sizeHandlers.push(handler);
+    return Promise.resolve(() => {
+      const idx = _sizeHandlers.indexOf(handler);
+      if (idx >= 0) _sizeHandlers.splice(idx, 1);
     });
   },
 

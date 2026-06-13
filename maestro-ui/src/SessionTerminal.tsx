@@ -4,6 +4,7 @@ import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import type { PendingDataBuffer } from "./app/types/app-state";
 import { useTerminalSettingsStore, buildITheme } from "./stores/useTerminalSettingsStore";
+import { serverPtySizes } from "./stores/useSessionStore";
 
 export type TerminalRegistry = Map<string, { term: Terminal; fit: FitAddon }>;
 
@@ -563,7 +564,20 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
 	        }
 	      }
 	    };
-	    flushPending(20);
+	    // Web mode: if the server already told us the PTY's authoritative size,
+    // adopt it before replaying scrollback so the buffered output renders at the
+    // column it was authored at (the subsequent fit() reflows to the pane and
+    // resizes the PTY for live output).
+    const serverSize = serverPtySizes.get(props.id);
+    if (serverSize && serverSize.cols > 0 && serverSize.rows > 0) {
+      try {
+        term.resize(serverSize.cols, serverSize.rows);
+      } catch {
+        // ignore
+      }
+      serverPtySizes.delete(props.id);
+    }
+    flushPending(20);
 
 		    // Create ResizeObserver inside useEffect for proper cleanup
 		    const resizeObserver = new ResizeObserver(() => scheduleResize());
