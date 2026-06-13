@@ -114,6 +114,10 @@ export BUN_INSTALL="\$HOME/.bun"; export PATH="\$BUN_INSTALL/bin:\$PATH"
 export NODE_OPTIONS="--max-old-space-size=4096"
 cd "${REPO_DIR}"
 echo "  bun install..."; bun install --frozen-lockfile 2>/dev/null || bun install
+# bun does not compile node-pty's native addon for this platform/Node ABI; rebuild
+# it from source (node-gyp) so the server's PTY host loads pty.node at runtime.
+echo "  rebuild node-pty native addon (node-gyp)..."; npm rebuild node-pty
+chmod +x node_modules/node-pty/build/Release/spawn-helper 2>/dev/null || true
 echo "  build maestro-server..."; (cd maestro-server && bun run build)
 echo "  build maestro-ui (build:web)..."; (cd maestro-ui && bun run build:web)
 [ -f maestro-ui/dist/index.html ] || { echo "ERROR: maestro-ui/dist/index.html missing"; exit 1; }
