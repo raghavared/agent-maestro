@@ -52,10 +52,16 @@ describe("extractImageFiles", () => {
         expect(result).toHaveLength(1);
     });
 
-    it("renames generic clipboard blobs to a meaningful pasted-image name", () => {
+    it("renames generic clipboard blobs to image1", () => {
         const generic = makeFile("image.png", "image/png");
         const [result] = extractImageFiles(makeDataTransfer({ itemFiles: [generic] }));
-        expect(result.name).toMatch(/^pasted-image-.*\.png$/);
+        expect(result.name).toBe("image1.png");
+    });
+
+    it("renames legacy pasted_image clipboard blobs to image1", () => {
+        const generic = makeFile("pasted_image.png", "image/png");
+        const [result] = extractImageFiles(makeDataTransfer({ itemFiles: [generic] }));
+        expect(result.name).toBe("image1.png");
     });
 
     it("keeps real filenames intact", () => {
@@ -67,7 +73,7 @@ describe("extractImageFiles", () => {
     it("maps jpeg mime to .jpg extension when renaming", () => {
         const generic = makeFile("image.jpeg", "image/jpeg");
         const [result] = extractImageFiles(makeDataTransfer({ itemFiles: [generic] }));
-        expect(result.name).toMatch(/\.jpg$/);
+        expect(result.name).toBe("image1.jpg");
     });
 
     it("handles multiple pasted images with distinct names", () => {
@@ -75,7 +81,7 @@ describe("extractImageFiles", () => {
         const b = makeFile("image.png", "image/png", "bbbb");
         const result = extractImageFiles(makeDataTransfer({ itemFiles: [a, b] }));
         expect(result).toHaveLength(2);
-        expect(result[0].name).not.toBe(result[1].name);
+        expect(result.map(f => f.name)).toEqual(["image1.png", "image2.png"]);
     });
 
     it("skips items whose getAsFile returns null", () => {
