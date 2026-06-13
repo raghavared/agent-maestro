@@ -51,8 +51,15 @@ async function startServer() {
   // requests always get proper CORS headers and are not blocked by 429.
   app.use(cors({
     origin: (origin, callback) => {
+      // Extra origins for web/VPS deployments (e.g. the Tailscale/HTTPS host the
+      // browser loads the SPA from). Comma-separated, set via env at deploy time.
+      const envOrigins = (process.env.MAESTRO_ALLOWED_ORIGINS || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       const allowedOrigins = [
         'tauri://localhost',
+        ...envOrigins,
       ];
       // In development, allow any localhost origin
       if (!origin || allowedOrigins.includes(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || '')) {

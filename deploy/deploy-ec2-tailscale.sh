@@ -21,19 +21,25 @@ SSH_TARGET=""
 SSH_KEY_OPT=""
 APP_PASSWORD=""
 APP_PORT="4570"
+ALLOWED_ORIGINS=""
 
 usage() {
   cat <<EOF
-Usage: $0 <user@host> -i <key> --password <pass> [--port <n>]
+Usage: $0 <user@host> -i <key> --password <pass> [--port <n>] [--allowed-origins <csv>]
+
+  --allowed-origins <csv>  Comma-separated browser origins the SPA is served from
+                           (e.g. https://maestro.<tailnet>.ts.net). Required for
+                           web access so CORS doesn't 500 the SPA's own assets.
 EOF
   exit 1
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -i)         SSH_KEY_OPT="-i $2"; shift 2 ;;
-    --password) APP_PASSWORD="$2"; shift 2 ;;
-    --port)     APP_PORT="$2"; shift 2 ;;
+    -i)               SSH_KEY_OPT="-i $2"; shift 2 ;;
+    --password)       APP_PASSWORD="$2"; shift 2 ;;
+    --port)           APP_PORT="$2"; shift 2 ;;
+    --allowed-origins) ALLOWED_ORIGINS="$2"; shift 2 ;;
     -h|--help)  usage ;;
     -*)         echo "Unknown option: $1"; usage ;;
     *)          if [[ -z "$SSH_TARGET" ]]; then SSH_TARGET="$1"; else echo "Unexpected arg: $1"; usage; fi; shift ;;
@@ -129,9 +135,9 @@ BUILDIT
 
 # --------------------------------------------------------------------------
 echo ""; echo "==> [4/5] Writing env file (sudo)..."
-ssh_run bash -s -- "$ENV_FILE" "$APP_PORT" "$DATA_DIR" "$SESSION_DIR" "$APP_PASSWORD" <<'ENVFILE'
+ssh_run bash -s -- "$ENV_FILE" "$APP_PORT" "$DATA_DIR" "$SESSION_DIR" "$APP_PASSWORD" "$ALLOWED_ORIGINS" <<'ENVFILE'
 set -euo pipefail
-ENV_FILE="$1"; APP_PORT="$2"; DATA_DIR="$3"; SESSION_DIR="$4"; APP_PASSWORD="$5"
+ENV_FILE="$1"; APP_PORT="$2"; DATA_DIR="$3"; SESSION_DIR="$4"; APP_PASSWORD="$5"; ALLOWED_ORIGINS="$6"
 sudo mkdir -p /etc/maestro && sudo chmod 755 /etc/maestro
 
 if [ -f "$ENV_FILE" ] && sudo grep -q "MAESTRO_AUTH_SECRET=" "$ENV_FILE"; then
@@ -153,6 +159,8 @@ MAESTRO_PTY_HOST=server
 MAESTRO_AUTH_ENABLED=true
 MAESTRO_AUTH_PASSWORD=${APP_PASSWORD}
 MAESTRO_AUTH_SECRET=${AUTH_SECRET}
+
+MAESTRO_ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
 
 MANIFEST_GENERATOR=server
 LOG_LEVEL=info
