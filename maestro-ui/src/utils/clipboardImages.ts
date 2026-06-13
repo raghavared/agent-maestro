@@ -7,7 +7,24 @@
  * copied from Finder, and they become attachments.
  */
 
-const GENERIC_CLIPBOARD_NAMES = new Set(["", "image.png", "image.jpg", "image.jpeg", "image.gif", "image.webp"]);
+const GENERIC_CLIPBOARD_NAMES = new Set([
+    "",
+    "image.png",
+    "image.jpg",
+    "image.jpeg",
+    "image.gif",
+    "image.webp",
+    "pasted_image.png",
+    "pasted_image.jpg",
+    "pasted_image.jpeg",
+    "pasted_image.gif",
+    "pasted_image.webp",
+]);
+
+function isGenericClipboardName(name: string): boolean {
+    const lower = name.toLowerCase();
+    return GENERIC_CLIPBOARD_NAMES.has(lower) || /^pasted[-_]image(?:[-_]\d+)?\.(png|jpe?g|gif|webp)$/i.test(name);
+}
 
 function fileKey(f: File): string {
     return `${f.name}:${f.size}:${f.type}`;
@@ -19,18 +36,6 @@ function extForMime(mimeType: string): string {
     if (sub === "jpeg") return "jpg";
     if (sub === "svg+xml") return "svg";
     return sub;
-}
-
-/**
- * Clipboard image blobs usually arrive named "image.png". Give them a
- * meaningful, unique-ish name so the attachment list stays readable.
- */
-function withMeaningfulName(file: File, index: number): File {
-    if (!GENERIC_CLIPBOARD_NAMES.has(file.name.toLowerCase())) return file;
-    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const suffix = index > 0 ? `-${index + 1}` : "";
-    const name = `pasted-image-${ts}${suffix}.${extForMime(file.type)}`;
-    return new File([file], name, { type: file.type, lastModified: file.lastModified });
 }
 
 /**
@@ -66,7 +71,21 @@ export function extractImageFiles(data: DataTransfer | null): File[] {
         }
     }
 
-    return out.map(withMeaningfulName);
+    let genericImageIndex = 0;
+    return out.map((file) => {
+        if (!isGenericClipboardName(file.name)) return file;
+        genericImageIndex += 1;
+        const name = `image${genericImageIndex}.${extForMime(file.type)}`;
+        const renamed = new File([file], name, { type: file.type, lastModified: file.lastModified });
+        if (renamed.name !== name) {
+            try {
+                Object.defineProperty(renamed, "name", { value: name, configurable: true });
+            } catch {
+                // Browser File constructors normally preserve the supplied name.
+            }
+        }
+        return renamed;
+    });
 }
 
 /** True if the DataTransfer carries files at all (used to accept drag-over). */
