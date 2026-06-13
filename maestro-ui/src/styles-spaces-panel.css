@@ -586,6 +586,59 @@
 }
 
 /* ------------------------------------------------------------------ */
+/*  Mobile: right/sessions panel — full-width, touch-friendly          */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+  /* Full-width: override inline pixel/var widths from JS */
+  .pn-sp,
+  .pn-sp--mobile {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-left: none;
+    flex-shrink: 1;
+    flex-grow: 1;
+  }
+
+  .spacesPanelContent {
+    width: 100% !important;
+  }
+
+  /* Touch-friendly session list items (44px minimum tap target) */
+  .sessionItem {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+
+  .spacesPanelContent .sessionItem {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+
+  .spacesPanelContent .sessionItem.sessionItemCompact {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+
+  /* Larger touch targets for rail icon buttons */
+  html[data-redesign] .pn-srail-s {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Hide horizontal overflow scrollbar in the rail sessions list */
+  .spacesRailSessions {
+    overflow-x: hidden;
+  }
+
+  /* Resource list items also need touch targets */
+  .resourcesViewItem {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Spaces Panel Content — scoped overrides for right panel context    */
 /* ------------------------------------------------------------------ */
 
