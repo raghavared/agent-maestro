@@ -25,11 +25,17 @@ import { createGitRoutes } from './api/gitRoutes';
 import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
 import { PtyWebSocketServer } from './infrastructure/websocket/PtyWebSocketServer';
 import { errorHandler } from './api/middleware/errorHandler';
+import { createAuthRoutes } from './api/authRoutes';
+import { createAuthMiddleware } from './api/middleware/authMiddleware';
+import { AuthService } from './infrastructure/auth/AuthService';
 
 async function startServer() {
   // Create and initialize dependency container
   const container = await createContainer();
   await container.initialize();
+
+  // Auth service — reads env vars; throws on misconfiguration before any port is bound
+  const authService = new AuthService(container.config.dataDir);
 
   const { config, logger, eventBus, projectService, taskService, taskListService, taskGraphService, sessionService, logDigestService, orderingService, teamMemberService, teamService, modelProfileService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, skillLoader, ptyHostService } = container;
 
@@ -70,6 +76,12 @@ async function startServer() {
       return compression.filter(req, res);
     },
   }));
+
+  // Auth routes (always public — mounted before the guard)
+  app.use('/api', createAuthRoutes(authService));
+
+  // Auth guard — protects all /api/* except /api/auth/* and health endpoints
+  app.use(createAuthMiddleware(authService));
 
   // Health check
   app.get('/health', (req: Request, res: Response) => {
@@ -212,7 +224,21 @@ async function startServer() {
   });
 
   server.on('upgrade', (req, socket, head) => {
-    const pathname = (req.url || '').split('?')[0];
+    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+    const pathname = url.pathname;
+
+    // Auth gate for WS upgrades — same logic as the HTTP guard
+    if (authService.enabled) {
+      const cookieToken = authService.extractTokenFromCookie(req.headers.cookie as string | undefined);
+      const queryToken = url.searchParams.get('token');
+      const token = cookieToken || queryToken;
+      if (!token || !authService.verifyToken(token)) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+    }
+
     if (pathname === '/pty') {
       ptyWss.handleUpgrade(req, socket, head, (ws) => {
         ptyWss.emit('connection', ws, req);

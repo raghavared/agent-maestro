@@ -44,10 +44,17 @@ import type {
 } from '../app/types/maestro';
 
 import { API_BASE_URL } from './serverConfig';
+import { IS_TAURI } from '../platform/detect';
+
+// Sentinel error type so callers can detect 401 without string-matching
+export class UnauthenticatedError extends Error {
+    readonly status = 401;
+    constructor() { super('Unauthenticated'); }
+}
 
 /**
  * Maestro API Client
- * 
+ *
  * Provides methods to interact with the Maestro server REST API.
  */
 class MaestroClient {
@@ -65,12 +72,22 @@ class MaestroClient {
 
         try {
             const response = await fetch(url, {
+                credentials: 'include',
                 ...options,
                 headers: {
                     'Content-Type': 'application/json',
                     ...options?.headers,
                 },
             });
+
+            if (response.status === 401 && !IS_TAURI) {
+                // Trigger login overlay via auth store (lazy import to avoid circular deps)
+                import('../stores/useAuthStore').then(({ useAuthStore }) => {
+                    const { authEnabled, setShowLogin } = useAuthStore.getState();
+                    if (authEnabled) setShowLogin(true);
+                });
+                throw new UnauthenticatedError();
+            }
 
             if (!response.ok) {
                 const errorText = await response.text().catch(() => 'Unknown error');
