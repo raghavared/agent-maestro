@@ -29,13 +29,32 @@ fn extract_maestro_session_id(path: &PathBuf) -> Option<String> {
 }
 
 /// Encode a cwd path to match Claude's project directory naming.
-/// Replace `/` with `-` (keeps the leading `-`).
+///
+/// Claude Code names the project dir by replacing every non-alphanumeric
+/// character in the absolute path with `-` (e.g. `/Users/jane.doe/my project`
+/// -> `-Users-jane-doe-my-project`). Replacing only `/` would break any path
+/// whose segments contain `.`, `_`, or spaces (such as a username like
+/// `jane.doe`), because the encoded dir would never match the real one on disk.
+/// A trailing slash is stripped first so it doesn't produce a trailing `-`.
 fn encode_project_path(cwd: &str) -> String {
-    cwd.replace('/', "-")
+    cwd.trim_end_matches(['/', '\\'])
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect()
 }
 
 /// Get the Claude projects directory.
+///
+/// Honors `CLAUDE_CONFIG_DIR` (Claude Code relocates the whole `~/.claude` tree
+/// there when set), falling back to `<home>/.claude`. On Windows the home dir
+/// resolves to `%USERPROFILE%`, so the default is `%USERPROFILE%\.claude\projects`.
 fn claude_projects_dir() -> Result<PathBuf, String> {
+    if let Ok(dir) = std::env::var("CLAUDE_CONFIG_DIR") {
+        let dir = dir.trim();
+        if !dir.is_empty() {
+            return Ok(PathBuf::from(dir).join("projects"));
+        }
+    }
     let home = dirs::home_dir().ok_or_else(|| "cannot determine home directory".to_string())?;
     Ok(home.join(".claude").join("projects"))
 }
@@ -195,4 +214,43 @@ pub fn tail_claude_session_log(
         new_offset: file_size,
         file_size,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::encode_project_path;
+
+    #[test]
+    fn encodes_plain_path() {
+        assert_eq!(
+            encode_project_path("/Users/subhang/Projects/agent-maestro"),
+            "-Users-subhang-Projects-agent-maestro"
+        );
+    }
+
+    #[test]
+    fn encodes_dot_in_segment() {
+        // A `.` in a path segment (e.g. the username) must become `-`,
+        // matching Claude's project directory naming.
+        assert_eq!(
+            encode_project_path("/Users/jane.doe/Projects/agent-maestro"),
+            "-Users-jane-doe-Projects-agent-maestro"
+        );
+    }
+
+    #[test]
+    fn encodes_underscores_and_spaces() {
+        assert_eq!(
+            encode_project_path("/Users/a_b/my project"),
+            "-Users-a-b-my-project"
+        );
+    }
+
+    #[test]
+    fn strips_trailing_slash() {
+        assert_eq!(
+            encode_project_path("/Users/subhang/Projects/agent-maestro/"),
+            "-Users-subhang-Projects-agent-maestro"
+        );
+    }
 }

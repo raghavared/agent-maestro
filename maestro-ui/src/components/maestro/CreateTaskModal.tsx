@@ -543,6 +543,7 @@ export function CreateTaskModal({
                                         selectedSkills={form.selectedSkills}
                                         onSelectionChange={form.setSelectedSkills}
                                         projectPath={project?.basePath || project?.workingDir || undefined}
+                                        alwaysExpanded
                                     />
                                 )}
                                 {form.activeTab === 'sessions' && effectiveEditMode && effectiveTask && (
@@ -572,6 +573,8 @@ export function CreateTaskModal({
                                         onDueDateChange={form.setDueDate}
                                         useWorktree={form.useWorktree}
                                         onUseWorktreeChange={form.setUseWorktree}
+                                        dangerousMode={form.dangerousMode}
+                                        onDangerousModeChange={form.setDangerousMode}
                                         isEditMode={effectiveEditMode}
                                         task={effectiveTask || undefined}
                                     />

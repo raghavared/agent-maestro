@@ -362,6 +362,88 @@ export interface MaestroSessionEvent {
   data?: any;
 }
 
+/**
+ * A prompt sent between two sessions (sender → receiver). Mirrors the
+ * server's GET /api/sessions/:id/prompts response — returned sorted by
+ * timestamp ascending, including prompts where this session is sender OR
+ * receiver. Reused by Session Stats and Huddles.
+ */
+export interface SessionPrompt {
+  id: string;
+  fromSessionId: string;
+  toSessionId: string;
+  fromProjectId: string | null;
+  toProjectId: string | null;
+  content: string;
+  mode: 'send' | 'paste';
+  fromTeamMember: TeamMemberSnapshot | null;
+  toTeamMember: TeamMemberSnapshot | null;
+  fromSessionName: string | null;
+  toSessionName: string | null;
+  timestamp: number;
+}
+
+/**
+ * One member of a Huddle — a session that exchanged prompts with the other
+ * members. Mirrors the server's Huddle.sessions[] entry (Phase 2A).
+ */
+export interface HuddleSessionMember {
+  sessionId: string;
+  sessionName: string | null;
+  projectId: string | null;
+  teamMember: TeamMemberSnapshot | null;
+}
+
+/**
+ * A connected component of cross-session prompting — a disjoint set of
+ * sessions plus the inter-session prompts they exchanged. Huddles are
+ * cross-project (a huddle can contain sessions from other projects, unlike
+ * the project-scoped open/done/archived tabs).
+ *
+ * Mirrors the server's GET /api/huddles response (Phase 2A) — sorted by
+ * lastActivity descending.
+ */
+export interface Huddle {
+  id: string;
+  sessionIds: string[];
+  sessions: HuddleSessionMember[];
+  prompts: SessionPrompt[];
+  promptCount: number;
+  lastActivity: number;
+}
+
+// One tracked maestro CLI invocation (written by the CLI command-tracker).
+export interface CommandUsageRecord {
+  ts: string;
+  sessionId: string | null;
+  projectId: string | null;
+  command: string | null;
+  argv: string[];
+  exitCode: number;
+  durationMs: number;
+  success: boolean;
+  cliVersion: string | null;
+}
+
+export interface CommandUsagePerCommand {
+  command: string;
+  total: number;
+  failed: number;
+}
+
+export interface CommandUsageSummary {
+  total: number;
+  succeeded: number;
+  failed: number;
+  byCommand: CommandUsagePerCommand[];
+}
+
+export interface SessionCommandUsage {
+  sessionId: string;
+  summary: CommandUsageSummary;
+  records: CommandUsageRecord[];
+}
+
 export interface MaestroTask {
   // Core Identity
   id: string;

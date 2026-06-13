@@ -108,9 +108,12 @@ html[data-redesign] .pn-mdl.pn-mdl--overlay {
   overflow: hidden;
 }
 
+/* Cancel the base .mentionsInput min-height: 250px / max-height: 400px caps
+   from styles-mentions.css so the input can grow to fill the overlay. */
 .pn-mdl--overlay .mentionsInput {
   flex: 1 1 0;
   min-height: 0;
+  max-height: none;
   display: flex;
   flex-direction: column;
 }
@@ -118,6 +121,7 @@ html[data-redesign] .pn-mdl.pn-mdl--overlay {
 .pn-mdl--overlay .mentionsInput > div {
   flex: 1 1 0;
   min-height: 0;
+  max-height: none;
   position: relative;
 }
 

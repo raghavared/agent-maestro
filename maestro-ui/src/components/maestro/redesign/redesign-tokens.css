@@ -168,6 +168,13 @@ html[data-redesign] .pn-chip {
   border-radius: var(--pn-r-pill);
   padding: 1px 7px; line-height: 1.6; white-space: nowrap; flex: 0 0 auto;
 }
+/* interactive chip (e.g. the "N live" filter toggle) */
+html[data-redesign] .pn-chip--btn {
+  border: none; cursor: pointer; font-family: var(--pn-mono);
+  transition: background 140ms, color 140ms;
+}
+html[data-redesign] .pn-chip--btn:hover { color: var(--pn-ink); background: var(--pn-hover); }
+html[data-redesign] .pn-chip--active { color: var(--pn-run); background: var(--pn-run-soft); }
 
 /* agent logo tile (NO left-border accent — a calm rounded tile) */
 html[data-redesign] .pn-agent {
