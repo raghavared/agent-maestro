@@ -2,7 +2,7 @@ use regex::Regex;
 use serde::Serialize;
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const MAX_LOG_FILE_BYTES: u64 = 10 * 1024 * 1024; // 10MB
 
@@ -15,15 +15,25 @@ pub struct ClaudeLogFile {
     pub maestro_session_id: Option<String>,
 }
 
-const SESSION_ID_PREFIX_BYTES: usize = 8 * 1024; // 8KB
+// Scan generously: the maestro <session_id> tag is embedded in the first user
+// message, which now runs ~20KB+ (CLAUDE.md + skills list + MCP instructions +
+// the maestro prompt). An 8KB window missed it, leaving the session log strip
+// unrendered. Matches the Codex sibling (see codex_logs.rs).
+const SESSION_ID_PREFIX_BYTES: usize = 256 * 1024; // 256KB
 
-/// Read the first ~8KB of a JSONL file and look for a Maestro session ID tag.
-fn extract_maestro_session_id(path: &PathBuf) -> Option<String> {
+/// Read the leading `bytes` of a file as lossy UTF-8. Mirrors the Codex log
+/// reader's helper (see codex_logs.rs) so both providers scan logs identically.
+fn read_prefix(path: &Path, bytes: usize) -> Option<String> {
     let mut file = fs::File::open(path).ok()?;
-    let mut buf = vec![0u8; SESSION_ID_PREFIX_BYTES];
+    let mut buf = vec![0u8; bytes];
     let n = file.read(&mut buf).ok()?;
     buf.truncate(n);
-    let text = String::from_utf8_lossy(&buf);
+    Some(String::from_utf8_lossy(&buf).to_string())
+}
+
+/// Read the leading chunk of a JSONL file and look for a Maestro session ID tag.
+fn extract_maestro_session_id(path: &Path) -> Option<String> {
+    let text = read_prefix(path, SESSION_ID_PREFIX_BYTES)?;
     let re = Regex::new(r"<session_id>(sess_[^<]+)</session_id>").ok()?;
     re.captures(&text).map(|c| c[1].to_string())
 }
@@ -218,7 +228,8 @@ pub fn tail_claude_session_log(
 
 #[cfg(test)]
 mod tests {
-    use super::encode_project_path;
+    use super::{encode_project_path, extract_maestro_session_id};
+    use std::fs;
 
     #[test]
     fn encodes_plain_path() {
@@ -252,5 +263,31 @@ mod tests {
             encode_project_path("/Users/subhang/Projects/agent-maestro/"),
             "-Users-subhang-Projects-agent-maestro"
         );
+    }
+
+    #[test]
+    fn finds_session_id_past_legacy_8kb_window() {
+        // Regression: the maestro <session_id> tag now lands ~23KB into a real
+        // Claude log — pushed down by a large first user message (CLAUDE.md +
+        // skills list + MCP instructions + the maestro prompt). The legacy 8KB
+        // scan window missed it, so extraction returned None and the session
+        // log strip never rendered. Place the tag ~20KB in (past the old 8KB
+        // window, inside the current one) and assert we still find it.
+        let mut path = std::env::temp_dir();
+        path.push(format!(
+            "maestro_claude_log_test_{}.jsonl",
+            std::process::id()
+        ));
+
+        let filler = "x".repeat(20_000);
+        let contents = format!(
+            "{{\"pad\":\"{filler}\"}}\n{{\"text\":\"<session_id>sess_test_abc123</session_id>\"}}\n"
+        );
+        fs::write(&path, &contents).unwrap();
+
+        let got = extract_maestro_session_id(&path);
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(got.as_deref(), Some("sess_test_abc123"));
     }
 }
