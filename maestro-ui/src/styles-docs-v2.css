@@ -1264,3 +1264,163 @@ html[data-redesign] .mermaidDiagramFallback {
   font-family: var(--pn-mono);
 }
 
+/* ================================================================== */
+/*  RESPONSIVE — Mobile (max-width: 768px)                             */
+/*  Desktop layout is UNCHANGED above this breakpoint.                 */
+/* ================================================================== */
+
+@media (max-width: 768px) {
+
+  /* ---- DocViewer Overlay: full-screen cover on mobile ---- */
+  .docViewerOverlay {
+    --doc-viewer-top: 0px;
+    top: 0;
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+    background: rgba(0, 0, 0, 0.92);
+  }
+
+  .docViewerOverlay--fullscreen {
+    padding: 0;
+    background: rgba(0, 0, 0, 0.92);
+  }
+
+  /* Panel fills the full screen on mobile */
+  .docViewerPanel {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    height: 100% !important;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    animation: none;
+  }
+
+  .docViewerPanel--fullscreen {
+    border-radius: 0;
+    border: none;
+  }
+
+  /* ---- Header: readable and accessible on mobile ---- */
+  .docViewerHeader {
+    padding: 10px 12px;
+  }
+
+  .docViewerTitle {
+    font-size: 13px;
+  }
+
+  /* ---- Close / Fullscreen buttons: touch-friendly (44px tap target) ---- */
+  .docViewerCloseBtn,
+  .docViewerFullscreenBtn {
+    width: 44px;
+    height: 44px;
+    font-size: 16px;
+    border-radius: 8px;
+  }
+
+  /* ---- Header actions: tighter gap on mobile ---- */
+  .docViewerHeaderActions {
+    gap: 4px;
+  }
+
+  /* ---- Meta bar: horizontal scroll, no overflow ---- */
+  .docViewerMeta {
+    gap: 10px;
+    padding: 6px 12px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .docViewerMetaValue {
+    max-width: 140px;
+  }
+
+  /* ---- Body: touch scroll ---- */
+  .docViewerBody {
+    padding: 14px 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ---- Markdown: readable font sizes ---- */
+  .docViewerMarkdown {
+    font-size: 14px;
+  }
+
+  .docViewerMarkdown pre {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ---- DocsListCard: touch-friendly rows (≥44px) ---- */
+  .docsListCard {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  .docsListCardTitle {
+    font-size: 13px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+
+  .docsListCardFile {
+    font-size: 11px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+
+  /* ---- ProjectDocsList items: touch-friendly ---- */
+  .projectDocsListItem {
+    min-height: 44px;
+    padding: 10px 12px;
+    width: 100%;
+  }
+
+  .projectDocsListItem__title {
+    font-size: 13px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+
+  .projectDocsListItem__meta {
+    font-size: 11px;
+  }
+
+  /* ---- pn-subtab / pn-subbar (Open/Done/All tabs): touch-friendly ---- */
+  .pn-subbar {
+    gap: 4px;
+    padding: 4px 8px 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+
+  .pn-subtab {
+    min-height: 36px;
+    padding: 6px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  /* ---- pn-filter bar (Terminals/Agents/Docs/Drawings): readable on mobile ---- */
+  .pn-filters {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }
+
+  .pn-filter {
+    min-height: 36px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
