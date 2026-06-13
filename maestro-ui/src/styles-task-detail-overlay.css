@@ -192,3 +192,20 @@ html[data-redesign] .pn-mdl--overlay .pn-mdl__foot {
   border-top: none !important;
   z-index: 5;
 }
+
+/* ── Mobile: ensure overlay fills the viewport correctly ──────────── */
+@media (max-width: 768px) {
+  .taskDetailOverlay {
+    position: fixed;
+    overflow-y: auto;
+  }
+
+  .taskDetailOverlay__backBtn {
+    padding: 8px 14px;
+    min-height: 44px;
+  }
+
+  .pn-mdl--overlay .pn-mdl__hd {
+    padding: 12px 16px;
+  }
+}
