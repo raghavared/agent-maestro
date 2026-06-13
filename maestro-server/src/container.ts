@@ -28,6 +28,7 @@ import { TeamMemberService } from './application/services/TeamMemberService';
 import { TeamService } from './application/services/TeamService';
 import { ModelProfileService } from './application/services/ModelProfileService';
 import { SpellService } from './application/services/SpellService';
+import { PtyHostService } from './application/services/PtyHostService';
 import { AnnouncementService } from './application/services/AnnouncementService';
 import { AlexaIngressService } from './application/services/AlexaIngressService';
 import { VoiceMonkeyClient } from './infrastructure/voicemonkey/VoiceMonkeyClient';
@@ -131,6 +132,7 @@ export interface Container {
   teamService: TeamService;
   modelProfileService: ModelProfileService;
   spellService: SpellService;
+  ptyHostService: PtyHostService;
   announcementService: AnnouncementService;
   alexaIngressService: AlexaIngressService;
 
@@ -194,6 +196,7 @@ export async function createContainer(): Promise<Container> {
     eventBus,
     idGenerator,
   );
+  const ptyHostService = new PtyHostService(sessionService, logger);
 
   // Voice / Alexa integration
   const voiceState: VoiceState = {};
@@ -253,6 +256,7 @@ export async function createContainer(): Promise<Container> {
     teamService,
     modelProfileService,
     spellService,
+    ptyHostService,
     announcementService,
     alexaIngressService,
 
@@ -284,6 +288,7 @@ export async function createContainer(): Promise<Container> {
 
     async shutdown() {
       logger.info('Shutting down container...');
+      ptyHostService.shutdownAll();
       logDigestService.shutdown();
       (skillLoader as MultiScopeSkillLoader).shutdown();
       sessionRepo.shutdown();

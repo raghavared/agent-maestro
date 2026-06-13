@@ -7,6 +7,7 @@ import { join, resolve as resolvePath, delimiter as pathDelimiter } from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import { SessionService } from '../application/services/SessionService';
+import { PtyHostService } from '../application/services/PtyHostService';
 import { GitService } from '../application/services/GitService';
 import { LogDigestService } from '../application/services/LogDigestService';
 import { IProjectRepository } from '../domain/repositories/IProjectRepository';
@@ -455,15 +456,49 @@ interface SessionRouteDependencies {
   modelProfileRepo: IModelProfileRepository;
   eventBus: IEventBus;
   config: Config;
+  ptyHostService: PtyHostService;
 }
 
 /**
  * Create session routes using the SessionService.
  */
 export function createSessionRoutes(deps: SessionRouteDependencies) {
-  const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, eventBus, config } = deps;
+  const { sessionService, logDigestService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, eventBus, config, ptyHostService } = deps;
   const gitService = new GitService();
   const router = express.Router();
+
+  // DEV ONLY: spawn a raw interactive shell PTY for browser-streaming tests,
+  // bypassing the manifest/CLI pipeline. Gated to server-hosted PTY mode and
+  // intended for the local, trusted-network POC only (no auth).
+  router.post('/dev/pty-test', async (req: Request, res: Response) => {
+    if (config.ptyHost !== 'server') {
+      return res.status(403).json({
+        error: true,
+        code: 'pty_host_not_server',
+        message: 'Server-hosted PTY is disabled. Start with MAESTRO_PTY_HOST=server.',
+      });
+    }
+    const shell = process.env.SHELL || '/bin/bash';
+    const sessionId = 'devpty-' + randomUUID().slice(0, 8);
+    const cwd = typeof req.body?.cwd === 'string' ? req.body.cwd : homedir();
+    try {
+      ptyHostService.spawn({
+        sessionId,
+        command: `${shell} -i`,
+        cwd,
+        env: { ...process.env } as Record<string, string>,
+        cols: 80,
+        rows: 24,
+      });
+      return res.status(201).json({ sessionId });
+    } catch (err) {
+      return res.status(500).json({
+        error: true,
+        code: 'pty_spawn_failed',
+        message: err instanceof Error ? err.message : 'Failed to spawn dev PTY',
+      });
+    }
+  });
 
   // Summary DTO for list views — strips env, events, timeline, metadata
   function toSessionSummary(session: any): Record<string, any> {
@@ -1846,6 +1881,25 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       };
 
       await eventBus.emit('session:spawn', spawnEvent);
+
+      // When the server hosts PTYs (headless/web), spawn the agent process here.
+      // The Tauri desktop path (ptyHost === 'tauri') relies on the event above instead.
+      if (config.ptyHost === 'server') {
+        try {
+          ptyHostService.spawn({
+            sessionId: session.id,
+            command,
+            cwd,
+            env: finalEnvVars,
+          });
+        } catch (ptyErr) {
+          return res.status(500).json({
+            error: true,
+            code: 'pty_spawn_failed',
+            message: ptyErr instanceof Error ? ptyErr.message : 'Failed to spawn server PTY',
+          });
+        }
+      }
 
       // Emit task:session_added events (parallelized)
       await Promise.all(

@@ -23,6 +23,7 @@ import { createSpellRoutes } from './api/spellRoutes';
 import { createAlexaRoutes } from './api/alexaRoutes';
 import { createGitRoutes } from './api/gitRoutes';
 import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
+import { PtyWebSocketServer } from './infrastructure/websocket/PtyWebSocketServer';
 import { errorHandler } from './api/middleware/errorHandler';
 
 async function startServer() {
@@ -30,7 +31,7 @@ async function startServer() {
   const container = await createContainer();
   await container.initialize();
 
-  const { config, logger, eventBus, projectService, taskService, taskListService, taskGraphService, sessionService, logDigestService, orderingService, teamMemberService, teamService, modelProfileService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, skillLoader } = container;
+  const { config, logger, eventBus, projectService, taskService, taskListService, taskGraphService, sessionService, logDigestService, orderingService, teamMemberService, teamService, modelProfileService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, skillLoader, ptyHostService } = container;
 
   // Create Express app
   const app = express();
@@ -106,7 +107,8 @@ async function startServer() {
     teamMemberRepo,
     modelProfileRepo,
     eventBus,
-    config
+    config,
+    ptyHostService
   });
 
   // Ordering routes
@@ -179,24 +181,43 @@ async function startServer() {
     }
   });
 
-  // Start WebSocket server with event bus bridge
+  // Start WebSocket servers. We route HTTP upgrades by path so the high-frequency
+  // PTY stream (/pty) is isolated from the entity-sync bridge (everything else).
   const MAX_WS_CLIENTS = parseInt(process.env.MAX_WS_CLIENTS || '50', 10);
   const wss = new WebSocketServer({
-    server,
+    noServer: true,
     maxPayload: 1024 * 1024, // 1MB max inbound message
-    verifyClient: (_info: any, cb: (result: boolean, code?: number, message?: string) => void) => {
-      if (wss.clients.size >= MAX_WS_CLIENTS) {
-        logger.warn('WebSocket connection rejected: max clients reached', {
-          current: wss.clients.size,
-          max: MAX_WS_CLIENTS,
-        });
-        cb(false, 429, 'Too many WebSocket connections');
-      } else {
-        cb(true);
-      }
-    },
   });
+  // PTY channel allows larger inbound frames (e.g. pasted input) and never batches.
+  const ptyWss = new WebSocketServer({
+    noServer: true,
+    maxPayload: 10 * 1024 * 1024,
+  });
+
+  server.on('upgrade', (req, socket, head) => {
+    const pathname = (req.url || '').split('?')[0];
+    if (pathname === '/pty') {
+      ptyWss.handleUpgrade(req, socket, head, (ws) => {
+        ptyWss.emit('connection', ws, req);
+      });
+      return;
+    }
+    // Bridge channel: enforce the max-clients cap that verifyClient used to handle.
+    if (wss.clients.size >= MAX_WS_CLIENTS) {
+      logger.warn('WebSocket connection rejected: max clients reached', {
+        current: wss.clients.size,
+        max: MAX_WS_CLIENTS,
+      });
+      socket.destroy();
+      return;
+    }
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit('connection', ws, req);
+    });
+  });
+
   wsBridge = new WebSocketBridge(wss, eventBus, logger);
+  new PtyWebSocketServer(ptyWss, ptyHostService, logger);
 
   // Graceful shutdown handler
   let isShuttingDown = false;
@@ -216,11 +237,15 @@ async function startServer() {
       wss.clients.forEach(client => {
         client.close();
       });
+      ptyWss.clients.forEach(client => {
+        client.close();
+      });
 
       // Clean up WebSocket bridge event listeners
       wsBridge.shutdown();
 
       wss.close(() => {});
+      ptyWss.close(() => {});
 
       // Shutdown container (cleans up event bus)
       await container.shutdown();

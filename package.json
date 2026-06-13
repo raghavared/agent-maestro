@@ -6,9 +6,11 @@
   "workspaces": [
     "maestro-ui",
     "maestro-server",
-    "maestro-cli"
+    "maestro-cli",
+    "maestro-web"
   ],
   "scripts": {
+    "postinstall": "chmod +x node_modules/node-pty/prebuilds/*/spawn-helper 2>/dev/null || true",
     "dev:ui": "cd maestro-ui && bun run dev",
     "dev:server": "cd maestro-server && bun run dev",
     "dev:all": "cd maestro-ui && bun run dev:all",
