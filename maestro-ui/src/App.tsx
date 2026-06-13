@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { IS_TAURI } from "./platform";
 import { TerminalRegistry } from "./SessionTerminal";
 import { PendingDataBuffer } from "./app/types/app-state";
 import * as DEFAULTS from "./app/constants/defaults";
@@ -417,6 +418,7 @@ export default function App() {
     };
 
     const registerCloseHandler = async () => {
+      if (!IS_TAURI) return;
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
         if (cancelled) return;
