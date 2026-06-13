@@ -2,7 +2,7 @@ use regex::Regex;
 use serde::Serialize;
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const MAX_LOG_FILE_BYTES: u64 = 10 * 1024 * 1024; // 10MB
 
@@ -21,13 +21,19 @@ pub struct ClaudeLogFile {
 // unrendered. Matches the Codex sibling (see codex_logs.rs).
 const SESSION_ID_PREFIX_BYTES: usize = 256 * 1024; // 256KB
 
-/// Read the leading chunk of a JSONL file and look for a Maestro session ID tag.
-fn extract_maestro_session_id(path: &PathBuf) -> Option<String> {
+/// Read the leading `bytes` of a file as lossy UTF-8. Mirrors the Codex log
+/// reader's helper (see codex_logs.rs) so both providers scan logs identically.
+fn read_prefix(path: &Path, bytes: usize) -> Option<String> {
     let mut file = fs::File::open(path).ok()?;
-    let mut buf = vec![0u8; SESSION_ID_PREFIX_BYTES];
+    let mut buf = vec![0u8; bytes];
     let n = file.read(&mut buf).ok()?;
     buf.truncate(n);
-    let text = String::from_utf8_lossy(&buf);
+    Some(String::from_utf8_lossy(&buf).to_string())
+}
+
+/// Read the leading chunk of a JSONL file and look for a Maestro session ID tag.
+fn extract_maestro_session_id(path: &Path) -> Option<String> {
+    let text = read_prefix(path, SESSION_ID_PREFIX_BYTES)?;
     let re = Regex::new(r"<session_id>(sess_[^<]+)</session_id>").ok()?;
     re.captures(&text).map(|c| c[1].to_string())
 }
