@@ -16,6 +16,7 @@ import {
 } from "../../stores/useWorkspaceStore";
 import { isSshCommandLine, sshTargetFromCommandLine } from "../../app/utils/ssh";
 import { invoke } from "@tauri-apps/api/core";
+import { IS_TAURI } from "../../platform";
 import { TerminalStrip } from "../session-log/TerminalStrip";
 import { ModeChip } from "../maestro/ModeChip";
 import { isCoordinatorRole } from "../../utils/coordinatorRole";
@@ -188,7 +189,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
 
   // --- Session action bar: attachment ---
   const handleAttach = useCallback(async () => {
-    if (!activeId) return;
+    if (!activeId || !IS_TAURI) return;
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({ multiple: true, title: 'Attach files to session' });
@@ -214,6 +215,7 @@ export const AppWorkspace = React.memo(function AppWorkspace(props: AppWorkspace
 
   const handleSendDrawingToSession = useCallback(
     async (originSessionId: string, png: Blob, sceneJson: string) => {
+      if (!IS_TAURI) return;
       try {
         const ts = Date.now();
         const pngBase64 = await blobToBase64(png);
