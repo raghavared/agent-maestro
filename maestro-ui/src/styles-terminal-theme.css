@@ -1241,6 +1241,21 @@
   .terminalPane {
     width: 100% !important;
     min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden;
+  }
+
+  /* Tighter gutter around xterm so the terminal body fills the narrow
+     viewport without leaving wasted padding. */
+  .terminalPane > .terminalContainer {
+    padding: 6px 0 6px 6px;
+  }
+
+  /* xterm itself should never push horizontal overflow on mobile. */
+  .terminalPane .xterm,
+  .terminalPane .xterm-viewport,
+  .terminalPane .xterm-screen {
+    max-width: 100%;
   }
 
   /* Hide the terminal window chrome (macOS traffic-light buttons) */
@@ -1248,20 +1263,38 @@
     display: none;
   }
 
-  /* Tighten the command bar on mobile */
+  /* Tighten the command bar on mobile but keep buttons reachable (>=44px). */
   .terminalCommandBar {
     padding: 8px;
     gap: 6px;
+    flex-wrap: wrap;
   }
 
   .terminalCommands {
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 6px;
+    width: 100%;
   }
 
   .terminalCmd {
-    padding: 5px 8px;
+    padding: 10px 12px;
+    font-size: 11px;
+    min-height: 44px;
+  }
+
+  /* Stats wrap rather than overflow on narrow widths. */
+  .terminalStats {
+    flex-wrap: wrap;
+    gap: 8px;
     font-size: 10px;
+  }
+
+  /* Error banner: tighten and prevent horizontal scroll. */
+  .terminalErrorBanner {
+    margin: 8px;
+    padding: 10px 12px;
+    font-size: 11px;
+    flex-wrap: wrap;
   }
 
   /* Task rows: reduce padding on tiny screens */

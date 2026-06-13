@@ -636,5 +636,30 @@ html[data-redesign] .terminalTaskModal .terminalModalHeader { background: var(--
   .terminalModalStats {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  /* Buttons should be reachable thumbs and not overflow horizontally. */
+  .terminalModalBtn,
+  .terminalModalEditBtn,
+  .terminalModalAddBtn {
+    min-height: 40px;
+    padding: 8px 14px;
+  }
+
+  .terminalModalFooterLeft,
+  .terminalModalFooterRight {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Subtask rows: stop the hover translateX on touch, keep them within width. */
+  .terminalModalSubtaskItem {
+    gap: 8px;
+    padding: 10px;
+    flex-wrap: wrap;
+  }
+
+  .terminalModalSubtaskItem:hover {
+    transform: none;
+  }
 }
 
