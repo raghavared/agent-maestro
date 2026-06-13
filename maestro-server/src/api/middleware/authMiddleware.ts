@@ -12,6 +12,12 @@ export function createAuthMiddleware(authService: AuthService) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!authService.enabled) return next();
 
+    // Only API routes are guarded. The static SPA (index.html + /assets/*) must
+    // load unauthenticated so the browser can render the login screen, which then
+    // POSTs to /api/auth/login. WebSocket upgrades (/ws, /pty) are gated separately
+    // in the server's upgrade handler.
+    if (!req.path.startsWith('/api')) return next();
+
     for (const prefix of EXEMPT_PREFIXES) {
       if (req.path === prefix || req.path.startsWith(prefix)) return next();
     }
