@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { IS_TAURI } from '../../platform';
 import { parseJsonlText, groupMessages, checkMessagesOngoing } from '../../utils/claude-log';
 import type { ParsedMessage, ConversationGroup } from '../../utils/claude-log';
 import { LogMessageGroup } from './LogMessageGroup';
@@ -227,6 +228,7 @@ export function TerminalStrip({ cwd, maestroSessionId, agentTool, onAttach, onDr
       : ['claude', 'codex'];
 
     const search = async () => {
+      if (!IS_TAURI) return;
       // Re-read the live cwd each attempt: the log lives under the launch
       // directory (an ancestor of any later cwd), so probe cwd and its
       // ancestors. Matching is by unique session id, so an extra ancestor
