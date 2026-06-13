@@ -27,7 +27,7 @@ import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
 import { PtyWebSocketServer } from './infrastructure/websocket/PtyWebSocketServer';
 import { errorHandler } from './api/middleware/errorHandler';
 import { createAuthRoutes } from './api/authRoutes';
-import { createAuthMiddleware } from './api/middleware/authMiddleware';
+import { createAuthMiddleware, isTrustedLocalRequest } from './api/middleware/authMiddleware';
 import { AuthService } from './infrastructure/auth/AuthService';
 
 async function startServer() {
@@ -239,8 +239,9 @@ async function startServer() {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     const pathname = url.pathname;
 
-    // Auth gate for WS upgrades — same logic as the HTTP guard
-    if (authService.enabled) {
+    // Auth gate for WS upgrades — same logic as the HTTP guard. Local CLI/tooling
+    // on the loopback interface (no proxy headers) is trusted and bypasses auth.
+    if (authService.enabled && !isTrustedLocalRequest(req)) {
       const cookieToken = authService.extractTokenFromCookie(req.headers.cookie as string | undefined);
       const queryToken = url.searchParams.get('token');
       const token = cookieToken || queryToken;
