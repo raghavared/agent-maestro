@@ -1356,6 +1356,81 @@ html[data-redesign] .mermaidDiagramFallback {
     -webkit-overflow-scrolling: touch;
   }
 
+  /* ---- DocViewer header left: allow title to shrink, tighter gap ---- */
+  .docViewerHeaderLeft {
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .docViewerHeaderInfo {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* ---- DocViewer diagram Edit/View button: touch-friendly (overrides inline style) ---- */
+  .docViewerHeaderActions .themedBtn {
+    min-height: 36px;
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+  }
+
+  /* ---- DocViewer inline (DocumentSpace) — ensure it fits inside the main panel ---- */
+  .docViewerInline {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .docViewerPanel--inline {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* ---- Diagram body inside DocViewer: take full remaining height ---- */
+  .docViewerBody--diagram {
+    padding: 0;
+    min-height: 0;
+  }
+
+  /* ---- Mermaid diagram: tighter padding, allow pinch-zoom on container ---- */
+  .mermaidDiagram {
+    padding: 12px;
+    margin: 0.8em 0;
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+
+  /* ---- Mermaid overlay: clear the mobile bottom nav (zoom controls live above it) ---- */
+  .mermaidDiagramOverlayContent {
+    padding: 16px 12px;
+    width: 100vw;
+    max-width: 100vw;
+    max-height: calc(100vh - var(--mobile-nav-height, 56px));
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+
+  .mermaidZoomControls {
+    bottom: calc(var(--mobile-nav-height, 56px) + 16px);
+  }
+
+  .mermaidZoomBtn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .mermaidZoomLevel {
+    min-width: 56px;
+    height: 40px;
+    font-size: 12px;
+  }
+
+  .mermaidDiagramOverlayClose {
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+  }
+
   /* ---- DocsListCard: touch-friendly rows (≥44px) ---- */
   .docsListCard {
     min-height: 44px;
