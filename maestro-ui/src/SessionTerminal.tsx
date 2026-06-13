@@ -72,7 +72,12 @@ function isXtermRendererReady(term: Terminal): boolean {
   const renderService = core?._renderService;
   const rendererRef = renderService?._renderer;
   const renderer = rendererRef?.value ?? rendererRef?._value ?? null;
-  return Boolean(renderer && renderer.dimensions);
+  // The DomRenderer publishes a zero-filled `dimensions` object in its ctor,
+  // before the first glyph measurement runs — so an existence check alone leaks
+  // past pre-measure dims and lets fit() ship a column count computed from a
+  // zero/fallback cell. Require a real, non-zero cell width.
+  const cellWidth = renderer?.dimensions?.css?.cell?.width ?? 0;
+  return Boolean(renderer && cellWidth > 0);
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -110,6 +115,14 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
   const lastSizeRef = useRef<{ cols: number; rows: number } | null>(null);
   const wheelRemainderRef = useRef<number>(0);
   const commandBufferRef = useRef<string>("");
+  // Becomes true once the terminal webfont has actually loaded. Until then we
+  // refuse to ship a fit()-derived size to the server PTY: in the browser the
+  // first synchronous measure in Terminal.open() runs against the fallback font
+  // (JetBrains Mono is woff2 + font-display:swap), so a pre-font fit() computes
+  // the wrong column count and the 80-col scrollback ring replays into a grid
+  // whose width is still flipping. WKWebView (Tauri) resolves the bundled font
+  // before that measure, so this gate is effectively always-true there.
+  const fontsReadyRef = useRef(false);
 
   const onCwdChangeRef = useRef(props.onCwdChange);
   onCwdChangeRef.current = props.onCwdChange;
@@ -211,6 +224,12 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
         void el.offsetHeight; // force synchronous reflow
         el.style.display = prevDisplay;
       }
+      // The font is now resolved and the grid re-measured: unblock the resize
+      // gate and ship a single authoritative size to the server PTY. Resetting
+      // the retry counter makes the next sendResize take the fast rAF path.
+      fontsReadyRef.current = true;
+      resizeRetryCountRef.current = 0;
+      scheduleResize();
     };
     if (typeof document !== "undefined" && document.fonts) {
       // Trigger the actual font fetch, then reflow on ready regardless of
@@ -507,6 +526,17 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
 	      const rect = container.getBoundingClientRect();
 	      if (rect.width === 0 || rect.height === 0) return;
 
+	      // Defer the first fit until the webfont has loaded. Fitting against
+	      // fallback-font metrics ships the wrong column count to the server PTY
+	      // and makes the 80-col scrollback ring replay at the wrong width.
+	      // forceFontReflow() flips fontsReadyRef and re-triggers this once the
+	      // font resolves (≤900ms via the belt-and-suspenders timers worst case).
+	      if (!fontsReadyRef.current) {
+	        resizeRetryCountRef.current += 1;
+	        scheduleResize();
+	        return;
+	      }
+
 	      if (!isXtermRendererReady(term)) {
 	        resizeRetryCountRef.current += 1;
 	        scheduleResize();
@@ -641,6 +671,15 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
 	      try {
 	        term.focus();
 	      } catch {
+	        if (attemptsLeft > 0) {
+	          window.requestAnimationFrame(() => attemptFit(attemptsLeft - 1));
+	        }
+	        return;
+	      }
+	      // Don't fit/ship a size before the webfont has loaded (see fontsReadyRef
+	      // and sendResize). The mount-effect resize path drives the first
+	      // authoritative size once forceFontReflow flips the gate.
+	      if (!fontsReadyRef.current) {
 	        if (attemptsLeft > 0) {
 	          window.requestAnimationFrame(() => attemptFit(attemptsLeft - 1));
 	        }
