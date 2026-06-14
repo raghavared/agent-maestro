@@ -121,6 +121,14 @@ export const updateModelProfileSchema = z.object({
   launchConfig: launchConfigSchema.optional(),
 }).strict();
 
+// --- Session prompt schemas ---
+
+export const sendSessionPromptSchema = z.object({
+  content: z.string().min(1, 'content is required'),
+  mode: z.enum(['send', 'paste']).optional().default('send'),
+  senderSessionId: safeId,
+}).strict();
+
 // --- Task schemas ---
 
 export const createTaskSchema = z.object({

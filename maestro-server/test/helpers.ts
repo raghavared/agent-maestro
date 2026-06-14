@@ -9,9 +9,14 @@ import { FileSystemSessionRepository } from '../src/infrastructure/repositories/
 import { FileSystemTaskListRepository } from '../src/infrastructure/repositories/FileSystemTaskListRepository';
 import { FileSystemTeamMemberRepository } from '../src/infrastructure/repositories/FileSystemTeamMemberRepository';
 import { FileSystemModelProfileRepository } from '../src/infrastructure/repositories/FileSystemModelProfileRepository';
+import { FileSystemSessionPromptRepository } from '../src/infrastructure/repositories/FileSystemSessionPromptRepository';
+import { FileSystemSessionCommandUsageRepository } from '../src/infrastructure/repositories/FileSystemSessionCommandUsageRepository';
 import { ProjectService } from '../src/application/services/ProjectService';
 import { TaskService } from '../src/application/services/TaskService';
 import { SessionService } from '../src/application/services/SessionService';
+import { SessionPromptService } from '../src/application/services/SessionPromptService';
+import { HuddleService } from '../src/application/services/HuddleService';
+import { CommandUsageService } from '../src/application/services/CommandUsageService';
 import { ILogger } from '../src/domain/common/ILogger';
 
 /**
@@ -60,6 +65,7 @@ export async function createTestContainer(dataDir: string) {
   const taskListRepo = new FileSystemTaskListRepository(dataDir, idGenerator, silentLogger);
   const teamMemberRepo = new FileSystemTeamMemberRepository(dataDir, idGenerator, silentLogger);
   const modelProfileRepo = new FileSystemModelProfileRepository(dataDir, idGenerator, silentLogger);
+  const sessionPromptRepo = new FileSystemSessionPromptRepository(dataDir, silentLogger);
   const projectRepo = new FileSystemProjectRepository(
     dataDir,
     idGenerator,
@@ -74,20 +80,30 @@ export async function createTestContainer(dataDir: string) {
   await taskListRepo.initialize();
   await teamMemberRepo.initialize();
   await modelProfileRepo.initialize();
+  await sessionPromptRepo.initialize();
 
   const projectService = new ProjectService(projectRepo, eventBus);
   const taskService = new TaskService(taskRepo, projectRepo, eventBus, idGenerator, taskListRepo);
   const sessionService = new SessionService(sessionRepo, taskRepo, projectRepo, eventBus, idGenerator);
+  const sessionPromptService = new SessionPromptService(sessionPromptRepo, sessionRepo, eventBus, idGenerator);
+  const huddleService = new HuddleService(sessionPromptService, sessionService);
+  const commandUsageService = new CommandUsageService(
+    new FileSystemSessionCommandUsageRepository(dataDir, silentLogger)
+  );
 
   return {
     projectService,
     taskService,
     sessionService,
+    sessionPromptService,
+    huddleService,
+    commandUsageService,
     projectRepo,
     taskRepo,
     sessionRepo,
     teamMemberRepo,
     modelProfileRepo,
+    sessionPromptRepo,
     eventBus,
     idGenerator,
   };

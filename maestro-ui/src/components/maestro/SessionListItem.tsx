@@ -12,7 +12,7 @@ import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { useSessionStore } from "../../stores/useSessionStore";
 import type { TeamColor } from "../../app/constants/teamColors";
-import type { SessionSubTab } from "../../utils/sessionLifecycle";
+import type { SessionLifecycleTab } from "../../utils/sessionLifecycle";
 import { willOpenStatsOnClick } from "../../utils/sessionClickRouting";
 import { copyToClipboard } from "../../utils/domUtils";
 import { isDiagramDoc } from "../../utils/docHelpers";
@@ -71,7 +71,7 @@ export interface SessionListItemProps {
   link: SessionTileLinkInfo | null;
   isSelected: boolean;
   maestroTasks: Record<string, MaestroTask>;
-  tab: SessionSubTab;
+  tab: SessionLifecycleTab;
   onOpenDetail: (sessionId: string) => void;
   onSelect: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;
   onJumpToTerminal: (session: MaestroSession, link: SessionTileLinkInfo | null) => void;

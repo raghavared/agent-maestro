@@ -38,7 +38,7 @@ async function startServer() {
   // Auth service — reads env vars; throws on misconfiguration before any port is bound
   const authService = new AuthService(container.config.dataDir);
 
-  const { config, logger, eventBus, projectService, taskService, taskListService, taskGraphService, sessionService, logDigestService, orderingService, teamMemberService, teamService, modelProfileService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, skillLoader, ptyHostService } = container;
+  const { config, logger, eventBus, projectService, taskService, taskListService, taskGraphService, sessionService, logDigestService, orderingService, teamMemberService, teamService, modelProfileService, sessionPromptService, huddleService, commandUsageService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, skillLoader, ptyHostService } = container;
 
   // Create Express app
   const app = express();
@@ -114,6 +114,9 @@ async function startServer() {
   const taskGraphRoutes = createTaskGraphRoutes(taskGraphService);
   const sessionRoutes = createSessionRoutes({
     sessionService,
+    sessionPromptService,
+    huddleService,
+    commandUsageService,
     logDigestService,
     projectRepo,
     taskRepo,

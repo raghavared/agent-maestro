@@ -15,6 +15,7 @@ import { FileSystemTeamMemberRepository } from './infrastructure/repositories/Fi
 import { FileSystemTeamRepository } from './infrastructure/repositories/FileSystemTeamRepository';
 import { FileSystemCustomPromptRepository } from './infrastructure/repositories/FileSystemCustomPromptRepository';
 import { FileSystemModelProfileRepository } from './infrastructure/repositories/FileSystemModelProfileRepository';
+import { FileSystemSessionPromptRepository } from './infrastructure/repositories/FileSystemSessionPromptRepository';
 import { MultiScopeSkillLoader } from './infrastructure/skills/MultiScopeSkillLoader';
 import { ProjectService } from './application/services/ProjectService';
 import { TaskService } from './application/services/TaskService';
@@ -27,6 +28,10 @@ import { OrderingService } from './application/services/OrderingService';
 import { TeamMemberService } from './application/services/TeamMemberService';
 import { TeamService } from './application/services/TeamService';
 import { ModelProfileService } from './application/services/ModelProfileService';
+import { SessionPromptService } from './application/services/SessionPromptService';
+import { HuddleService } from './application/services/HuddleService';
+import { CommandUsageService } from './application/services/CommandUsageService';
+import { FileSystemSessionCommandUsageRepository } from './infrastructure/repositories/FileSystemSessionCommandUsageRepository';
 import { SpellService } from './application/services/SpellService';
 import { PtyHostService } from './application/services/PtyHostService';
 import { AnnouncementService } from './application/services/AnnouncementService';
@@ -47,6 +52,7 @@ import { ITeamMemberRepository } from './domain/repositories/ITeamMemberReposito
 import { ITeamRepository } from './domain/repositories/ITeamRepository';
 import { ICustomPromptRepository } from './domain/repositories/ICustomPromptRepository';
 import { IModelProfileRepository } from './domain/repositories/IModelProfileRepository';
+import { ISessionPromptRepository } from './domain/repositories/ISessionPromptRepository';
 import { ISkillLoader } from './domain/services/ISkillLoader';
 
 /**
@@ -116,6 +122,7 @@ export interface Container {
   teamRepo: ITeamRepository;
   customPromptRepo: ICustomPromptRepository;
   modelProfileRepo: IModelProfileRepository;
+  sessionPromptRepo: ISessionPromptRepository;
 
   // Loaders
   skillLoader: ISkillLoader;
@@ -131,6 +138,9 @@ export interface Container {
   teamMemberService: TeamMemberService;
   teamService: TeamService;
   modelProfileService: ModelProfileService;
+  sessionPromptService: SessionPromptService;
+  huddleService: HuddleService;
+  commandUsageService: CommandUsageService;
   spellService: SpellService;
   ptyHostService: PtyHostService;
   announcementService: AnnouncementService;
@@ -171,6 +181,7 @@ export async function createContainer(): Promise<Container> {
   const teamRepo = new FileSystemTeamRepository(config.dataDir, idGenerator, logger);
   const customPromptRepo = new FileSystemCustomPromptRepository(config.dataDir, idGenerator, logger);
   const modelProfileRepo = new FileSystemModelProfileRepository(config.dataDir, idGenerator, logger);
+  const sessionPromptRepo = new FileSystemSessionPromptRepository(config.dataDir, logger);
 
   // 4. Loaders
   const skillLoader = new MultiScopeSkillLoader(logger);
@@ -186,6 +197,10 @@ export async function createContainer(): Promise<Container> {
   const teamMemberService = new TeamMemberService(teamMemberRepo, eventBus, idGenerator);
   const teamService = new TeamService(teamRepo, teamMemberRepo, eventBus, idGenerator);
   const modelProfileService = new ModelProfileService(modelProfileRepo, eventBus, idGenerator);
+  const sessionPromptService = new SessionPromptService(sessionPromptRepo, sessionRepo, eventBus, idGenerator);
+  const huddleService = new HuddleService(sessionPromptService, sessionService);
+  const commandUsageRepo = new FileSystemSessionCommandUsageRepository(config.dataDir, logger);
+  const commandUsageService = new CommandUsageService(commandUsageRepo);
   const spellService = new SpellService(
     projectRepo,
     taskRepo,
@@ -244,6 +259,7 @@ export async function createContainer(): Promise<Container> {
     teamRepo,
     customPromptRepo,
     modelProfileRepo,
+    sessionPromptRepo,
     skillLoader,
     projectService,
     taskService,
@@ -255,6 +271,9 @@ export async function createContainer(): Promise<Container> {
     teamMemberService,
     teamService,
     modelProfileService,
+    sessionPromptService,
+    huddleService,
+    commandUsageService,
     spellService,
     ptyHostService,
     announcementService,
@@ -275,6 +294,7 @@ export async function createContainer(): Promise<Container> {
         teamRepo.initialize(),
         customPromptRepo.initialize(),
         modelProfileRepo.initialize(),
+        sessionPromptRepo.initialize(),
       ]);
 
       // Migration: Delete old team member tasks (skip if already done)
