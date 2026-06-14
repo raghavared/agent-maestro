@@ -131,9 +131,17 @@ function _ensureSocket(id: string): WebSocket {
     }
   };
 
-  ws.onclose = () => {
+  ws.onclose = (ev) => {
     _sockets.delete(id);
     _decoders.delete(id);
+    // A plain close (reload, tab switch, network blip) is NOT a process exit —
+    // the server-hosted PTY keeps running and we simply detached, so do not fire
+    // onExit. The exceptions: 1011 means the server has no live PTY for this
+    // session (reattach to a dead/gone session), and a real process exit arrives
+    // as a {type:'exit'} text frame handled above. Both mean the session is over.
+    if (ev.code === 1011) {
+      for (const h of _exitHandlers) h(id, null);
+    }
   };
 
   _sockets.set(id, ws);

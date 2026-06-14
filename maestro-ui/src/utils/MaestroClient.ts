@@ -376,6 +376,17 @@ class MaestroClient {
         });
     }
 
+    /**
+     * Explicitly terminate a session's server-hosted PTY (MAESTRO_PTY_HOST=server).
+     * Unlike closing the /pty WebSocket — which only detaches and leaves the PTY
+     * running — this actually kills the process and marks the session stopped.
+     */
+    async stopSessionPty(id: string): Promise<{ success: boolean }> {
+        return this.fetch<{ success: boolean }>(`/sessions/${id}/pty/stop`, {
+            method: 'POST',
+        });
+    }
+
     // PHASE IV-A: New bidirectional relationship methods
 
     /**

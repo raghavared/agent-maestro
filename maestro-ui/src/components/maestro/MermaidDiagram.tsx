@@ -69,6 +69,11 @@ function ensureMermaidInit() {
     theme: "base",
     securityLevel: "strict",
     fontFamily: "'JetBrains Mono', monospace",
+    // Render labels as native SVG <text>, not HTML inside <foreignObject>.
+    // DOMPurify's svg profile strips foreignObject's inner HTML, which would
+    // erase every node/edge label and leave the diagram looking blank/broken.
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
     themeVariables: getThemeColors(),
   });
   mermaidInitialized = true;

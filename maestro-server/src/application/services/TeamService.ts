@@ -1,4 +1,4 @@
-import { Team, CreateTeamPayload, UpdateTeamPayload } from '../../types';
+import { Team, CreateTeamPayload, UpdateTeamPayload, TeamTreeNode, TeamTreeMember } from '../../types';
 import { ITeamRepository } from '../../domain/repositories/ITeamRepository';
 import { ITeamMemberRepository } from '../../domain/repositories/ITeamMemberRepository';
 import { IEventBus } from '../../domain/events/IEventBus';
@@ -418,6 +418,56 @@ export class TeamService {
       leaderId: team.leaderId,
       memberCount: team.memberIds.length,
     };
+  }
+
+  /**
+   * Resolve a team into a fully-hydrated recursive tree (members + nested sub-teams).
+   * Cycle-safe: a team already seen on the current path is not expanded again.
+   */
+  async getTeamTree(projectId: string, id: string): Promise<TeamTreeNode> {
+    if (!projectId) {
+      throw new ValidationError('Project ID is required');
+    }
+
+    const build = async (teamId: string, seen: Set<string>): Promise<TeamTreeNode> => {
+      const team = await this.getTeam(projectId, teamId);
+
+      const members: TeamTreeMember[] = [];
+      for (const memberId of team.memberIds) {
+        const member = await this.teamMemberRepo.findById(projectId, memberId);
+        if (!member) continue;
+        members.push({
+          id: member.id,
+          name: member.name,
+          role: member.role,
+          identity: member.identity,
+          avatar: member.avatar,
+          mode: member.mode,
+          isLeader: member.id === team.leaderId,
+        });
+      }
+
+      const subTeams: TeamTreeNode[] = [];
+      for (const subTeamId of team.subTeamIds) {
+        if (seen.has(subTeamId)) continue; // guard against cycles
+        const subTeam = await this.teamRepo.findById(projectId, subTeamId);
+        if (!subTeam) continue;
+        subTeams.push(await build(subTeamId, new Set([...seen, subTeamId])));
+      }
+
+      return {
+        id: team.id,
+        name: team.name,
+        description: team.description,
+        avatar: team.avatar,
+        leaderId: team.leaderId,
+        status: team.status,
+        members,
+        subTeams,
+      };
+    };
+
+    return build(id, new Set([id]));
   }
 
   // --- Private helpers ---

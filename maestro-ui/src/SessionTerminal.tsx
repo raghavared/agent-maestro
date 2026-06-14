@@ -4,7 +4,7 @@ import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import type { PendingDataBuffer } from "./app/types/app-state";
 import { useTerminalSettingsStore, buildITheme } from "./stores/useTerminalSettingsStore";
-import { serverPtySizes } from "./stores/useSessionStore";
+import { serverPtySizes, clientFittedSessions } from "./stores/useSessionStore";
 
 export type TerminalRegistry = Map<string, { term: Terminal; fit: FitAddon }>;
 
@@ -553,6 +553,11 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
 
 	      resizeRetryCountRef.current = 0;
 	      const { cols, rows } = term;
+	      // The client now owns the size: ignore any late server `size` snapshot
+	      // (see clientFittedSessions) and keep serverPtySizes coherent so a
+	      // remount adopts the fitted width, not the stale 80x24 spawn snapshot.
+	      clientFittedSessions.add(props.id);
+	      serverPtySizes.set(props.id, { cols, rows });
 	      const last = lastSizeRef.current;
 	      if (last && last.cols === cols && last.rows === rows) return;
 	      lastSizeRef.current = { cols, rows };
@@ -633,6 +638,7 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
 	        window.clearTimeout(resizeTimeoutRef.current);
 	      }
 	      for (const d of oscDisposables) d.dispose();
+	      clientFittedSessions.delete(props.id);
 	      props.registry.current.delete(props.id);
 	      props.pendingData.current.delete(props.id);
 	      term.dispose();
@@ -694,6 +700,8 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
 	        return;
 	      }
 	      const { cols, rows } = term;
+	      clientFittedSessions.add(props.id);
+	      serverPtySizes.set(props.id, { cols, rows });
 	      const last = lastSizeRef.current;
 	      if (!last || last.cols !== cols || last.rows !== rows) {
 	        lastSizeRef.current = { cols, rows };

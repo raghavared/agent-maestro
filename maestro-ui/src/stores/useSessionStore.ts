@@ -48,6 +48,19 @@ export const spawningSessionsRef = new Set<string>();
  */
 export const serverPtySizes = new Map<string, { cols: number; rows: number }>();
 
+/**
+ * Web mode only: sessions whose terminal has already fit to its pane and shipped
+ * that size to the PTY. From that point the client's size is authoritative and
+ * the server's one-shot `size` snapshot (sent at attach, e.g. 80x24) must NOT
+ * resize the xterm grid: over a high-latency link that stale frame can land
+ * AFTER the client fit, snapping the grid back to the snapshot while the PTY
+ * stays at the fitted width — Claude then addresses the cursor at one width and
+ * xterm renders at another, producing overlapping/garbled glyphs until the next
+ * manual resize. Set when a terminal ships its first authoritative fit, cleared
+ * on dispose/exit so a fresh mount re-adopts the server size before replay.
+ */
+export const clientFittedSessions = new Set<string>();
+
 /* ------------------------------------------------------------------ */
 /*  DOM-bound refs initialized by App.tsx                               */
 /* ------------------------------------------------------------------ */
@@ -107,6 +120,9 @@ export function initSessionStoreRefs(
 
     void platform.terminal.onSize?.((id, size) => {
       if (!size.cols || !size.rows) return;
+      // Once the client owns the size (has fit + shipped), the server's stale
+      // attach snapshot must not touch the grid — see clientFittedSessions.
+      if (clientFittedSessions.has(id)) return;
       // Remember it for terminals that haven't mounted yet (applied on mount).
       serverPtySizes.set(id, size);
       // If the terminal already exists, match the PTY width now so the scrollback
@@ -125,6 +141,7 @@ export function initSessionStoreRefs(
       useSessionStore.getState().clearAgentIdleTimer(id);
       lastResizeAtRef.delete(id);
       serverPtySizes.delete(id);
+      clientFittedSessions.delete(id);
 
       if (closingSessions.has(id)) {
         const timeout = closingSessions.get(id);
@@ -679,10 +696,24 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const wasPersistent = Boolean(session?.persistent && !session?.exited);
 
     if (session?.maestroSessionId) {
-      void maestroClient.updateSession(session.maestroSessionId, {
-        status: 'stopped',
-        completedAt: Date.now(),
-      }).catch(() => { /* best-effort server status update */ });
+      const maestroId = session.maestroSessionId;
+      if (!IS_TAURI) {
+        // Browser/server-PTY mode: an explicit close must actually terminate the
+        // server-hosted PTY. Merely flipping status would leave a zombie process
+        // running headless. This is the only user path that kills a server PTY;
+        // tab close / reload only detaches (see platform/terminal.ts).
+        void maestroClient.stopSessionPty(maestroId).catch(() => {
+          void maestroClient.updateSession(maestroId, {
+            status: 'stopped',
+            completedAt: Date.now(),
+          }).catch(() => {});
+        });
+      } else {
+        void maestroClient.updateSession(maestroId, {
+          status: 'stopped',
+          completedAt: Date.now(),
+        }).catch(() => { /* best-effort server status update */ });
+      }
     }
     if (session?.recordingActive) {
       try {

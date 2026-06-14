@@ -111,6 +111,21 @@ export class PtyHostService {
             { sessionId },
           ),
         );
+      // Signal a REAL process exit to subscribers before closing their sockets,
+      // so clients can distinguish "the agent finished/crashed" from a plain
+      // socket drop (tab close, reload, network blip — those only detach). The
+      // web adapter listens for this {type:'exit'} text frame. kill() does NOT
+      // emit this: an explicit user stop is initiated by the UI, which already
+      // knows the session ended.
+      for (const ws of entry.subscribers) {
+        try {
+          if (ws.readyState === 1) {
+            ws.send(JSON.stringify({ type: 'exit', exitCode: exitCode ?? null }));
+          }
+        } catch {
+          // best effort
+        }
+      }
       for (const ws of entry.subscribers) {
         try {
           ws.close();

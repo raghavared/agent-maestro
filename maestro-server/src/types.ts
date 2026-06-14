@@ -368,6 +368,29 @@ export interface TeamSnapshot {
   memberCount: number;
 }
 
+// Hydrated member shape used inside a resolved team tree.
+export interface TeamTreeMember {
+  id: string;
+  name: string;
+  role: string;
+  identity?: string;
+  avatar?: string;
+  mode?: AgentMode;
+  isLeader: boolean;
+}
+
+// Recursive, fully-resolved team tree used by the org chart, manifest, and CLI.
+export interface TeamTreeNode {
+  id: string;
+  name: string;
+  description?: string;
+  avatar?: string;
+  leaderId: string;
+  status: TeamStatus;
+  members: TeamTreeMember[];
+  subTeams: TeamTreeNode[];
+}
+
 export interface CreateTeamPayload {
   projectId: string;
   name: string;
@@ -425,6 +448,10 @@ export interface Task {
 
   // Multiple team member identities for this task (takes precedence over teamMemberId)
   teamMemberIds?: string[];
+
+  // Assigned team for this task. When set, spawning launches the team's leader as
+  // a coordinator that recursively delegates to members/sub-teams.
+  teamId?: string | null;
 
   // Per-member launch overrides saved on the task
   memberOverrides?: Record<string, MemberLaunchOverride>;
@@ -630,6 +657,7 @@ export interface CreateTaskPayload {
   referenceTaskIds?: string[];
   teamMemberId?: string;
   teamMemberIds?: string[];
+  teamId?: string | null;
   memberOverrides?: Record<string, MemberLaunchOverride>;
   dangerousMode?: boolean;
   useWorktree?: boolean;
@@ -653,6 +681,7 @@ export interface UpdateTaskPayload {
   pinned?: boolean;
   teamMemberId?: string;
   teamMemberIds?: string[];
+  teamId?: string | null;
   dueDate?: string | null;
   memberOverrides?: Record<string, MemberLaunchOverride>;  // Per-member launch overrides
   dangerousMode?: boolean;

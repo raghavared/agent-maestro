@@ -115,6 +115,7 @@ async function generateManifestViaCLI(options: {
   referenceTaskIds?: string[];
   teamMemberIds?: string[];
   teamMemberId?: string;
+  teamId?: string;
   serverUrl?: string;
   initialDirective?: { subject: string; message: string; fromSessionId?: string };
   coordinatorSessionId?: string;
@@ -125,7 +126,7 @@ async function generateManifestViaCLI(options: {
   sessionDir?: string;
   cliPathOverride?: string;
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { mode, projectId, taskIds, skills, sessionId, launchConfig, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective, memberOverrides, cliPathOverride } = options;
+  const { mode, projectId, taskIds, skills, sessionId, launchConfig, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, teamId, serverUrl, initialDirective, memberOverrides, cliPathOverride } = options;
 
   const resolvedSessionDir = options.sessionDir ?? join(homedir(), '.maestro', 'sessions');
   const maestroDir = join(resolvedSessionDir, sessionId);
@@ -145,6 +146,7 @@ async function generateManifestViaCLI(options: {
     ...(referenceTaskIds && referenceTaskIds.length > 0 ? ['--reference-task-ids', referenceTaskIds.join(',')] : []),
     ...(teamMemberIds && teamMemberIds.length > 0 ? ['--team-member-ids', teamMemberIds.join(',')] : []),
     ...(teamMemberId ? ['--team-member-id', teamMemberId] : []),
+    ...(teamId ? ['--team-id', teamId] : []),
   ];
 
   const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime(cliPathOverride);
@@ -519,6 +521,33 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
     }
   });
 
+  // Explicitly terminate a server-hosted PTY for a session. This is the ONLY
+  // user-initiated path that kills a server PTY (besides spawn-replace and
+  // server shutdown). Closing a /pty WebSocket — tab close, reload, device
+  // switch — only detaches a subscriber and leaves the process running, so the
+  // UI must call this when the user explicitly stops/closes a session.
+  router.post('/sessions/:id/pty/stop', validateParams(idParamSchema), async (req: Request, res: Response) => {
+    if (config.ptyHost !== 'server') {
+      return res.status(403).json({
+        error: true,
+        code: 'pty_host_not_server',
+        message: 'Server-hosted PTY is disabled. Start with MAESTRO_PTY_HOST=server.',
+      });
+    }
+    const id = req.params.id as string;
+    try {
+      ptyHostService.kill(id);
+      await sessionService.updateSession(id, { status: 'stopped' });
+      return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({
+        error: true,
+        code: 'pty_stop_failed',
+        message: err instanceof Error ? err.message : 'Failed to stop server PTY',
+      });
+    }
+  });
+
   // Summary DTO for list views — strips env, events, timeline, metadata
   function toSessionSummary(session: any): Record<string, any> {
     return {
@@ -821,6 +850,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       referenceTaskIds: referenceTaskIds.length > 0 ? referenceTaskIds : undefined,
       teamMemberIds: session.metadata?.teamMemberIds || undefined,
       teamMemberId: session.metadata?.teamMemberId || undefined,
+      teamId: session.teamId || undefined,
       permissionMode: (session.metadata?.permissionMode as string | undefined) || undefined,
       coordinatorSessionId,
       serverUrl: config.serverUrl,
@@ -1395,6 +1425,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         teamMemberIds,          // Multiple team member identities for this session
         delegateTeamMemberIds,  // Team member IDs for coordination delegation pool
         teamMemberId,           // Single team member assigned to this task (backward compat)
+        teamId: requestedTeamId, // Saved team this session belongs to (recursive team launch)
         launchConfig: rawRequestedLaunchConfig, // Canonical launch override for this run
         agentTool: legacyRequestedAgentTool,
         model: legacyRequestedModel,
@@ -1793,6 +1824,14 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       // Pre-generate Claude session ID for resume support
       const claudeSessionId = randomUUID();
 
+      // Resolve the saved team this session belongs to so the whole spawn tree stays
+      // team-bound: explicit request → inherited from parent (recursive spawn) → task.teamId.
+      const effectiveTeamId: string | null =
+        (requestedTeamId ?? null) ||
+        parentSession?.teamId ||
+        verifiedTasks.find(t => t?.teamId)?.teamId ||
+        null;
+
       const session = await sessionService.createSession({
         projectId,
         taskIds,
@@ -1800,6 +1839,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         claudeSessionId,
         status: 'spawning',
         env: {},
+        teamId: effectiveTeamId,
         metadata: {
           skills: skillsToUse,
           spawnedBy: resolvedParentSessionId,
@@ -1911,6 +1951,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
             : (effectiveDelegateTeamMemberIds.length > 0 ? effectiveDelegateTeamMemberIds : undefined),
           // Single identity: backward compat
           teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : undefined,
+          // Saved team this session belongs to (drives recursive team structure in manifest)
+          teamId: effectiveTeamId || undefined,
           // Pass server URL so CLI subprocess can reach the API
           serverUrl: config.serverUrl,
           // Pass initial directive for guaranteed delivery in manifest
@@ -2164,6 +2206,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
           teamMemberIds: session.metadata?.teamMemberIds || undefined,
           teamMemberId: session.metadata?.teamMemberId || undefined,
+          teamId: session.teamId || undefined,
           permissionMode: resumePermissionMode,
           serverUrl: config.serverUrl,
           isMaster: project.isMaster === true,

@@ -554,6 +554,55 @@ export function initApp(
         void s.ui.getState().checkForUpdates();
       }, 30 * 60 * 1000);
       unlisteners.push(() => window.clearInterval(updateCheckInterval));
+
+      // ──── BROWSER REATTACH ────
+      // Server-hosted PTYs outlive any single tab: closing a /pty WebSocket only
+      // detaches a subscriber, it never kills the process. On a fresh browser
+      // load the terminal store starts empty, so nothing reconnects to sessions
+      // that are still running on the server (reload / new device). Re-open a
+      // /pty socket for each live server session — handleSpawnTerminalSession in
+      // web mode just opens the socket keyed by maestroSessionId (the server
+      // replays its scrollback ring); it does NOT spawn a new process, so this is
+      // a pure reattach. Dead/gone sessions self-correct: the server closes the
+      // socket with 1011 and the adapter marks them exited.
+      void (async () => {
+        try {
+          await useMaestroStore.getState().fetchSessions();
+          if (cancelled) return;
+          const ALIVE = new Set(['spawning', 'idle', 'working']);
+          // Reattach EVERY live session, not just the active project's: the
+          // browser can host PTYs across projects and the user may switch to any
+          // of them. Filtering by active project silently drops live terminals,
+          // so clicking the session later falls through to the stats view.
+          const liveSessions = Object.values(useMaestroStore.getState().sessions)
+            .filter((ms) => Boolean(ms?.id) && ALIVE.has(ms.status));
+          for (const ms of liveSessions) {
+            if (cancelled) return;
+            // In web mode the local terminal id === maestroSessionId, so this
+            // both opens the /pty socket and links the session in the sidebar.
+            await useSessionStore.getState().handleSpawnTerminalSession({
+              maestroSessionId: ms.id,
+              name: ms.name || '',
+              command: null,
+              args: [],
+              cwd: '',
+              envVars: {},
+              projectId: ms.projectId || '',
+            });
+          }
+          // Open a live terminal instead of the empty hero / a stale stats view.
+          // Switch the active project to match, or the project-filtered sidebar
+          // wouldn't surface the session whose terminal we just focused.
+          const focus = liveSessions[0];
+          if (focus && !cancelled) {
+            if (focus.projectId) useProjectStore.getState().setActiveProjectId(focus.projectId);
+            useSessionStore.getState().setActiveId(focus.id);
+          }
+        } catch {
+          // best-effort reattach; live session:spawn events still populate tabs
+        }
+      })();
+
       return;
     }
 

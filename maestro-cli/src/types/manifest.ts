@@ -104,6 +104,13 @@ export interface MaestroManifest {
   /** Team members available for coordination (only in coordinate mode) */
   availableTeamMembers?: TeamMemberData[];
 
+  /**
+   * Recursive team structure (only in coordinator mode, when the session is bound
+   * to a saved team). Drives recursive delegation: the leader routes work to members
+   * by expertise and spawns sub-team leaders as sub-coordinators.
+   */
+  teamStructure?: TeamStructureNode;
+
   /** Team member ID for this session (single team member running this session) */
   teamMemberId?: string;
 
@@ -223,6 +230,28 @@ export interface TeamMemberData {
   };
   /** Persistent memory entries */
   memory?: string[];
+}
+
+/** A member inside a recursive team structure node. */
+export interface TeamStructureMember {
+  id: string;
+  name: string;
+  role: string;
+  identity?: string;
+  avatar?: string;
+  mode?: AgentMode;
+  isLeader: boolean;
+}
+
+/** A node in the recursive team structure (mirrors the server's TeamTreeNode). */
+export interface TeamStructureNode {
+  id: string;
+  name: string;
+  description?: string;
+  avatar?: string;
+  leaderId: string;
+  members: TeamStructureMember[];
+  subTeams: TeamStructureNode[];
 }
 
 /**
