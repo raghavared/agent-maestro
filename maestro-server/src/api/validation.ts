@@ -121,6 +121,14 @@ export const updateModelProfileSchema = z.object({
   launchConfig: launchConfigSchema.optional(),
 }).strict();
 
+// --- Session prompt schemas ---
+
+export const sendSessionPromptSchema = z.object({
+  content: z.string().min(1, 'content is required'),
+  mode: z.enum(['send', 'paste']).optional().default('send'),
+  senderSessionId: safeId,
+}).strict();
+
 // --- Task schemas ---
 
 export const createTaskSchema = z.object({
@@ -135,6 +143,7 @@ export const createTaskSchema = z.object({
   model: modelSchema.optional(),
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
+  teamId: safeId.nullable().optional(),
   memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
   dangerousMode: z.boolean().optional(),
   useWorktree: z.boolean().optional(),
@@ -157,6 +166,7 @@ export const updateTaskSchema = z.object({
   sessionId: safeId.optional(),
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
+  teamId: safeId.nullable().optional(),
   memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
   dangerousMode: z.boolean().optional(),
   useWorktree: z.boolean().optional(),
@@ -415,6 +425,7 @@ export const spawnSessionSchema = z.object({
   teamMemberId: safeId.optional(),
   teamMemberIds: z.array(safeId).optional(),
   delegateTeamMemberIds: z.array(safeId).optional(),
+  teamId: safeId.nullable().optional(),
   initialDirective: z.object({
     subject: shortString,
     message: longString,
