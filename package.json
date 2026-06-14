@@ -27,7 +27,8 @@
     "staging:server": "PORT=4569 DATA_DIR=~/.maestro-staging/data SESSION_DIR=~/.maestro-staging/sessions NODE_ENV=development node maestro-server/dist/server.js",
     "staging": "bun run staging:prepare && concurrently \"bun run staging:server\" \"cd maestro-ui && VITE_API_URL=http://localhost:4569/api VITE_WS_URL=ws://localhost:4569 bunx tauri dev\"",
     "build:binary:server": "cd maestro-server && bun run build && bun run build:binary:darwin-arm64",
-    "build:binary:cli": "cd maestro-cli && bun run build && bun run build:binary:darwin-arm64"
+    "build:binary:cli": "cd maestro-cli && bun run build && bun run build:binary:darwin-arm64",
+    "build:web": "cd maestro-ui && bun run build:web && cd ../maestro-server && bun run build && cd ../maestro-cli && bun run build"
   },
   "keywords": [
     "maestro",
