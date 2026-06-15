@@ -167,12 +167,16 @@ html[data-redesign] .pn-docpill:hover { border-color: var(--pn-line-2); backgrou
 html[data-redesign] .pn-docpill__ic { font-family: var(--pn-mono); font-size: 9px; font-weight: 700; color: var(--pn-ink-4); }
 html[data-redesign] .pn-docpill__t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html[data-redesign] .pn-docpill--add { border-style: dashed; color: var(--pn-ink-3); }
-/* diagram pills read as drawings (open on the Excalidraw board), visually distinct from doc pills */
+/* diagram pills read as drawings (open on the Excalidraw board), visually
+   distinct from doc pills and task chips: info-tinted, with a leading accent
+   bar and a board-style left edge so a drawing is recognisable at a glance. */
 html[data-redesign] .pn-docpill--diagram {
-  color: var(--pn-info); background: var(--pn-info-soft); border-color: rgba(63, 108, 144, 0.32);
+  color: var(--pn-info); background: var(--pn-info-soft);
+  border-color: rgba(63, 108, 144, 0.32); border-left-width: 3px; border-left-color: var(--pn-info);
+  padding-left: 6px; font-weight: 600;
 }
-html[data-redesign] .pn-docpill--diagram:hover { border-color: var(--pn-info); background: var(--pn-info-soft); }
-html[data-redesign] .pn-docpill--diagram .pn-docpill__ic { color: var(--pn-info); font-size: 11px; }
+html[data-redesign] .pn-docpill--diagram:hover { border-color: var(--pn-info); border-left-color: var(--pn-info); background: var(--pn-info-soft); }
+html[data-redesign] .pn-docpill--diagram .pn-docpill__ic { color: var(--pn-info); font-size: 12px; }
 
 /* ==========================================================================
    SESSION TILE
