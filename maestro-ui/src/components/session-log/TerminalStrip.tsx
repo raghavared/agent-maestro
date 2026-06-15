@@ -1,24 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { platform } from '../../platform';
+import type { AgentLogFile } from '../../platform';
 import { parseJsonlText, groupMessages, checkMessagesOngoing } from '../../utils/claude-log';
 import type { ParsedMessage, ConversationGroup } from '../../utils/claude-log';
 import { LogMessageGroup } from './LogMessageGroup';
 import { useSpellStore } from '../../stores/useSpellStore';
 import { Icon } from '../Icon';
-
-interface ClaudeLogFile {
-  filename: string;
-  relativePath?: string;
-  modifiedAt: number;
-  size: number;
-  maestroSessionId?: string | null;
-}
-
-interface LogTailResult {
-  content: string;
-  newOffset: number;
-  fileSize: number;
-}
+import { SessionDocsMenu } from '../maestro/SessionDocsMenu';
 
 interface TerminalStripProps {
   cwd: string;
@@ -197,7 +185,7 @@ export function TerminalStrip({ cwd, maestroSessionId, agentTool, onAttach, onDr
   // per session rather than tearing the strip down on every drift.
   const cwdRef = useRef(cwd);
   cwdRef.current = cwd;
-  const getLogFilePath = useCallback((f: ClaudeLogFile) => f.relativePath ?? f.filename, []);
+  const getLogFilePath = useCallback((f: AgentLogFile) => f.relativePath ?? f.filename, []);
 
   const autoScroll = useCallback(() => {
     const el = bodyRef.current;
@@ -233,10 +221,9 @@ export function TerminalStrip({ cwd, maestroSessionId, agentTool, onAttach, onDr
       // can't mis-match.
       const candidateCwds = cwdCandidates(cwdRef.current);
       for (const candidate of providerOrder) {
-        const listCommand = candidate === 'codex' ? 'list_codex_session_logs' : 'list_claude_session_logs';
         for (const candidateCwd of candidateCwds) {
           try {
-            const files = await invoke<ClaudeLogFile[]>(listCommand, { cwd: candidateCwd });
+            const files = await platform.logs.list(candidate, candidateCwd);
             if (cancelled) return;
             const match = files.find((f) => f.maestroSessionId === maestroSessionId);
             if (match) {
@@ -267,8 +254,7 @@ export function TerminalStrip({ cwd, maestroSessionId, agentTool, onAttach, onDr
     setAllMessages([]);
     offsetRef.current = 0;
 
-    const readCommand = resolvedProvider === 'codex' ? 'read_codex_session_log' : 'read_claude_session_log';
-    invoke<string>(readCommand, { cwd: resolvedCwd, filename: selectedFile })
+    platform.logs.read(resolvedProvider, resolvedCwd, selectedFile)
       .then((content) => {
         const messages = parseJsonlText(content);
         setAllMessages(messages);
@@ -284,12 +270,7 @@ export function TerminalStrip({ cwd, maestroSessionId, agentTool, onAttach, onDr
 
     const poll = async () => {
       try {
-        const tailCommand = resolvedProvider === 'codex' ? 'tail_codex_session_log' : 'tail_claude_session_log';
-        const result = await invoke<LogTailResult>(tailCommand, {
-          cwd: resolvedCwd,
-          filename: selectedFile,
-          offset: offsetRef.current,
-        });
+        const result = await platform.logs.tail(resolvedProvider, resolvedCwd, selectedFile, offsetRef.current);
         if (result.content.length > 0) {
           const newMessages = parseJsonlText(result.content);
           if (newMessages.length > 0) {
@@ -399,6 +380,7 @@ export function TerminalStrip({ cwd, maestroSessionId, agentTool, onAttach, onDr
 
         {/* 4. Actions */}
         <div className="termStripActions">
+          <SessionDocsMenu maestroSessionId={maestroSessionId} />
           <button
             type="button"
             className="termStripActionBtn"

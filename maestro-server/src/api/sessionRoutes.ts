@@ -7,11 +7,13 @@ import { join, resolve as resolvePath, delimiter as pathDelimiter } from 'path';
 import { homedir, platform } from 'os';
 import { randomUUID } from 'crypto';
 import { SessionService } from '../application/services/SessionService';
+import { PtyHostService } from '../application/services/PtyHostService';
 import { SessionPromptService } from '../application/services/SessionPromptService';
 import { HuddleService } from '../application/services/HuddleService';
 import { CommandUsageService } from '../application/services/CommandUsageService';
 import { GitService } from '../application/services/GitService';
 import { LogDigestService } from '../application/services/LogDigestService';
+import { TeamService } from '../application/services/TeamService';
 import { IProjectRepository } from '../domain/repositories/IProjectRepository';
 import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
@@ -114,6 +116,7 @@ async function generateManifestViaCLI(options: {
   referenceTaskIds?: string[];
   teamMemberIds?: string[];
   teamMemberId?: string;
+  teamId?: string;
   serverUrl?: string;
   initialDirective?: { subject: string; message: string; fromSessionId?: string };
   coordinatorSessionId?: string;
@@ -124,7 +127,7 @@ async function generateManifestViaCLI(options: {
   sessionDir?: string;
   cliPathOverride?: string;
 }): Promise<{ manifestPath: string; manifest: any }> {
-  const { mode, projectId, taskIds, skills, sessionId, launchConfig, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, serverUrl, initialDirective, memberOverrides, cliPathOverride } = options;
+  const { mode, projectId, taskIds, skills, sessionId, launchConfig, agentTool, referenceTaskIds, teamMemberIds, teamMemberId, teamId, serverUrl, initialDirective, memberOverrides, cliPathOverride } = options;
 
   const resolvedSessionDir = options.sessionDir ?? join(homedir(), '.maestro', 'sessions');
   const maestroDir = join(resolvedSessionDir, sessionId);
@@ -144,6 +147,7 @@ async function generateManifestViaCLI(options: {
     ...(referenceTaskIds && referenceTaskIds.length > 0 ? ['--reference-task-ids', referenceTaskIds.join(',')] : []),
     ...(teamMemberIds && teamMemberIds.length > 0 ? ['--team-member-ids', teamMemberIds.join(',')] : []),
     ...(teamMemberId ? ['--team-member-id', teamMemberId] : []),
+    ...(teamId ? ['--team-id', teamId] : []),
   ];
 
   const { maestroBin, monorepoRoot } = resolveMaestroCliRuntime(cliPathOverride);
@@ -468,21 +472,89 @@ interface SessionRouteDependencies {
   huddleService: HuddleService;
   commandUsageService: CommandUsageService;
   logDigestService: LogDigestService;
+  teamService: TeamService;
   projectRepo: IProjectRepository;
   taskRepo: ITaskRepository;
   teamMemberRepo: ITeamMemberRepository;
   modelProfileRepo: IModelProfileRepository;
   eventBus: IEventBus;
   config: Config;
+  ptyHostService: PtyHostService;
 }
 
 /**
  * Create session routes using the SessionService.
  */
 export function createSessionRoutes(deps: SessionRouteDependencies) {
-  const { sessionService, sessionPromptService, huddleService, commandUsageService, logDigestService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, eventBus, config } = deps;
+  const { sessionService, sessionPromptService, huddleService, commandUsageService, logDigestService, teamService, projectRepo, taskRepo, teamMemberRepo, modelProfileRepo, eventBus, config, ptyHostService } = deps;
   const gitService = new GitService();
   const router = express.Router();
+
+  // Clamp a browser-reported terminal dimension from an UNVALIDATED body (the
+  // resume route has no body schema). Mirrors ptyDimensionSchema; returns
+  // undefined for anything out of range so spawn falls back to its default.
+  const clampPtyDim = (v: unknown): number | undefined =>
+    typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 1000 ? v : undefined;
+
+  // DEV ONLY: spawn a raw interactive shell PTY for browser-streaming tests,
+  // bypassing the manifest/CLI pipeline. Gated to server-hosted PTY mode and
+  // intended for the local, trusted-network POC only (no auth).
+  router.post('/dev/pty-test', async (req: Request, res: Response) => {
+    if (config.ptyHost !== 'server') {
+      return res.status(403).json({
+        error: true,
+        code: 'pty_host_not_server',
+        message: 'Server-hosted PTY is disabled. Start with MAESTRO_PTY_HOST=server.',
+      });
+    }
+    const shell = process.env.SHELL || '/bin/bash';
+    const sessionId = 'devpty-' + randomUUID().slice(0, 8);
+    const cwd = typeof req.body?.cwd === 'string' ? req.body.cwd : homedir();
+    try {
+      ptyHostService.spawn({
+        sessionId,
+        command: `${shell} -i`,
+        cwd,
+        env: { ...process.env } as Record<string, string>,
+        cols: 80,
+        rows: 24,
+      });
+      return res.status(201).json({ sessionId });
+    } catch (err) {
+      return res.status(500).json({
+        error: true,
+        code: 'pty_spawn_failed',
+        message: err instanceof Error ? err.message : 'Failed to spawn dev PTY',
+      });
+    }
+  });
+
+  // Explicitly terminate a server-hosted PTY for a session. This is the ONLY
+  // user-initiated path that kills a server PTY (besides spawn-replace and
+  // server shutdown). Closing a /pty WebSocket — tab close, reload, device
+  // switch — only detaches a subscriber and leaves the process running, so the
+  // UI must call this when the user explicitly stops/closes a session.
+  router.post('/sessions/:id/pty/stop', validateParams(idParamSchema), async (req: Request, res: Response) => {
+    if (config.ptyHost !== 'server') {
+      return res.status(403).json({
+        error: true,
+        code: 'pty_host_not_server',
+        message: 'Server-hosted PTY is disabled. Start with MAESTRO_PTY_HOST=server.',
+      });
+    }
+    const id = req.params.id as string;
+    try {
+      ptyHostService.kill(id);
+      await sessionService.updateSession(id, { status: 'stopped' });
+      return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({
+        error: true,
+        code: 'pty_stop_failed',
+        message: err instanceof Error ? err.message : 'Failed to stop server PTY',
+      });
+    }
+  });
 
   // Summary DTO for list views — strips env, events, timeline, metadata
   function toSessionSummary(session: any): Record<string, any> {
@@ -786,6 +858,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       referenceTaskIds: referenceTaskIds.length > 0 ? referenceTaskIds : undefined,
       teamMemberIds: session.metadata?.teamMemberIds || undefined,
       teamMemberId: session.metadata?.teamMemberId || undefined,
+      teamId: session.teamId || undefined,
       permissionMode: (session.metadata?.permissionMode as string | undefined) || undefined,
       coordinatorSessionId,
       serverUrl: config.serverUrl,
@@ -1360,6 +1433,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         teamMemberIds,          // Multiple team member identities for this session
         delegateTeamMemberIds,  // Team member IDs for coordination delegation pool
         teamMemberId,           // Single team member assigned to this task (backward compat)
+        teamId: requestedTeamId, // Saved team this session belongs to (recursive team launch)
         launchConfig: rawRequestedLaunchConfig, // Canonical launch override for this run
         agentTool: legacyRequestedAgentTool,
         model: legacyRequestedModel,
@@ -1758,6 +1832,35 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       // Pre-generate Claude session ID for resume support
       const claudeSessionId = randomUUID();
 
+      // Resolve the saved team this session belongs to so the whole spawn tree stays
+      // team-bound. An explicit request always wins (passing teamId: null clears it);
+      // only when the request omits teamId do we inherit from the parent (recursive
+      // spawn) and then fall back to the task's team.
+      let effectiveTeamId: string | null =
+        requestedTeamId !== undefined
+          ? (requestedTeamId || null)
+          : (parentSession?.teamId || verifiedTasks.find(t => t?.teamId)?.teamId || null);
+
+      // Scope recursion: when a coordinator spawns a member who leads a sub-team within
+      // the bound team, re-root the child to that sub-team so each level only sees and
+      // delegates within its own branch (instead of re-rendering the whole org tree).
+      // Gated to coordinator spawns — only there does a single team member reliably mean
+      // "self" (a worker spawn could carry one member who merely happens to lead a sub-team).
+      if (effectiveTeamId && requestedCoordinatorMode && effectiveTeamMemberIds.length === 1) {
+        try {
+          const subTeamId = await teamService.findSubTeamLedBy(
+            projectId,
+            effectiveTeamId,
+            effectiveTeamMemberIds[0]
+          );
+          if (subTeamId) {
+            effectiveTeamId = subTeamId;
+          }
+        } catch {
+          // Non-fatal: keep the inherited team binding if sub-team lookup fails.
+        }
+      }
+
       const session = await sessionService.createSession({
         projectId,
         taskIds,
@@ -1765,6 +1868,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         claudeSessionId,
         status: 'spawning',
         env: {},
+        teamId: effectiveTeamId,
         metadata: {
           skills: skillsToUse,
           spawnedBy: resolvedParentSessionId,
@@ -1876,6 +1980,8 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
             : (effectiveDelegateTeamMemberIds.length > 0 ? effectiveDelegateTeamMemberIds : undefined),
           // Single identity: backward compat
           teamMemberId: effectiveTeamMemberIds.length === 1 ? effectiveTeamMemberIds[0] : undefined,
+          // Saved team this session belongs to (drives recursive team structure in manifest)
+          teamId: effectiveTeamId || undefined,
           // Pass server URL so CLI subprocess can reach the API
           serverUrl: config.serverUrl,
           // Pass initial directive for guaranteed delivery in manifest
@@ -1988,6 +2094,30 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       };
 
       await eventBus.emit('session:spawn', spawnEvent);
+
+      // When the server hosts PTYs (headless/web), spawn the agent process here.
+      // The Tauri desktop path (ptyHost === 'tauri') relies on the event above instead.
+      if (config.ptyHost === 'server') {
+        try {
+          ptyHostService.spawn({
+            sessionId: session.id,
+            command,
+            cwd,
+            env: finalEnvVars,
+            // Boot the PTY at the browser's measured size (validated by
+            // spawnSessionSchema) so the agent never renders at the 80x24
+            // default and then desyncs against the wider xterm grid.
+            cols: req.body.cols,
+            rows: req.body.rows,
+          });
+        } catch (ptyErr) {
+          return res.status(500).json({
+            error: true,
+            code: 'pty_spawn_failed',
+            message: ptyErr instanceof Error ? ptyErr.message : 'Failed to spawn server PTY',
+          });
+        }
+      }
 
       // Emit task:session_added events (parallelized)
       await Promise.all(
@@ -2110,6 +2240,7 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
           referenceTaskIds: allReferenceTaskIds.length > 0 ? allReferenceTaskIds : undefined,
           teamMemberIds: session.metadata?.teamMemberIds || undefined,
           teamMemberId: session.metadata?.teamMemberId || undefined,
+          teamId: session.teamId || undefined,
           permissionMode: resumePermissionMode,
           serverUrl: config.serverUrl,
           isMaster: project.isMaster === true,
@@ -2214,6 +2345,31 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
       };
 
       await eventBus.emit('session:resume', resumeEvent);
+
+      // When the server hosts PTYs (headless/web), spawn the agent process here.
+      // The Tauri desktop path (ptyHost === 'tauri') relies on the event above instead.
+      // Without this, the browser's PTY WebSocket attaches to a non-existent session
+      // and is immediately closed (1011 "no live PTY"), so resume hangs on web-ui.
+      if (config.ptyHost === 'server') {
+        try {
+          ptyHostService.spawn({
+            sessionId: session.id,
+            command,
+            cwd,
+            env: finalEnvVars,
+            // Resume body is unvalidated — clamp the browser's measured size so
+            // the resumed PTY boots at the real pane width, not the 80x24 default.
+            cols: clampPtyDim(req.body?.cols),
+            rows: clampPtyDim(req.body?.rows),
+          });
+        } catch (ptyErr) {
+          return res.status(500).json({
+            error: true,
+            code: 'pty_spawn_failed',
+            message: ptyErr instanceof Error ? ptyErr.message : 'Failed to spawn server PTY',
+          });
+        }
+      }
 
       res.json({
         success: true,

@@ -33,6 +33,7 @@ import { HuddleService } from './application/services/HuddleService';
 import { CommandUsageService } from './application/services/CommandUsageService';
 import { FileSystemSessionCommandUsageRepository } from './infrastructure/repositories/FileSystemSessionCommandUsageRepository';
 import { SpellService } from './application/services/SpellService';
+import { PtyHostService } from './application/services/PtyHostService';
 import { AnnouncementService } from './application/services/AnnouncementService';
 import { AlexaIngressService } from './application/services/AlexaIngressService';
 import { VoiceMonkeyClient } from './infrastructure/voicemonkey/VoiceMonkeyClient';
@@ -141,6 +142,7 @@ export interface Container {
   huddleService: HuddleService;
   commandUsageService: CommandUsageService;
   spellService: SpellService;
+  ptyHostService: PtyHostService;
   announcementService: AnnouncementService;
   alexaIngressService: AlexaIngressService;
 
@@ -209,6 +211,7 @@ export async function createContainer(): Promise<Container> {
     eventBus,
     idGenerator,
   );
+  const ptyHostService = new PtyHostService(sessionService, logger);
 
   // Voice / Alexa integration
   const voiceState: VoiceState = {};
@@ -272,6 +275,7 @@ export async function createContainer(): Promise<Container> {
     huddleService,
     commandUsageService,
     spellService,
+    ptyHostService,
     announcementService,
     alexaIngressService,
 
@@ -304,6 +308,7 @@ export async function createContainer(): Promise<Container> {
 
     async shutdown() {
       logger.info('Shutting down container...');
+      ptyHostService.shutdownAll();
       logDigestService.shutdown();
       (skillLoader as MultiScopeSkillLoader).shutdown();
       sessionRepo.shutdown();

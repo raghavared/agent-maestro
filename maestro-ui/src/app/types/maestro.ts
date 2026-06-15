@@ -101,6 +101,29 @@ export interface Team {
   updatedAt: string;
 }
 
+// Hydrated member inside a resolved team tree (mirrors server TeamTreeMember).
+export interface TeamTreeMember {
+  id: string;
+  name: string;
+  role: string;
+  identity?: string;
+  avatar?: string;
+  mode?: AgentMode;
+  isLeader: boolean;
+}
+
+// Recursive, fully-resolved team tree (mirrors server TeamTreeNode). Backs the org chart.
+export interface TeamTreeNode {
+  id: string;
+  name: string;
+  description?: string;
+  avatar?: string;
+  leaderId: string;
+  status?: TeamStatus;
+  members: TeamTreeMember[];
+  subTeams: TeamTreeNode[];
+}
+
 export interface CreateTeamPayload {
   projectId: string;
   name: string;
@@ -485,6 +508,10 @@ export interface MaestroTask {
   // Multiple team member identities for this task
   teamMemberIds?: string[];
 
+  // Assigned team for this task — spawning launches the team's leader as a
+  // coordinator that recursively delegates to members/sub-teams.
+  teamId?: string | null;
+
   // Per-member launch overrides saved on the task
   memberOverrides?: Record<string, MemberLaunchOverride>;
 
@@ -572,9 +599,11 @@ export interface CreateTaskPayload {
   referenceTaskIds?: string[];
   teamMemberId?: string;
   teamMemberIds?: string[];
+  teamId?: string | null;
   memberOverrides?: Record<string, MemberLaunchOverride>;
   dueDate?: string;
   useWorktree?: boolean;
+  dangerousMode?: boolean;
   clientRequestId?: string;
 }
 
@@ -593,6 +622,7 @@ export interface UpdateTaskPayload {
   pinned?: boolean;
   teamMemberId?: string;
   teamMemberIds?: string[];
+  teamId?: string | null;
   dueDate?: string | null;
   dangerousMode?: boolean;
   useWorktree?: boolean;
@@ -757,6 +787,7 @@ export interface SpawnSessionPayload {
   teamMemberId?: string;              // Team member running this session (backward compat)
   teamMemberIds?: string[];           // Multiple team member identities for this session
   delegateTeamMemberIds?: string[];   // Team member IDs for coordination delegation pool
+  teamId?: string | null;             // Saved team this session belongs to (recursive team launch)
   launchConfig?: LaunchConfig;        // Canonical launch override for this run
   agentTool?: AgentTool;              // Legacy launch override; normalized by server
   model?: ModelType | string;         // Legacy launch override; normalized by server
@@ -765,6 +796,8 @@ export interface SpawnSessionPayload {
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   delegatePermissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';
   useWorktree?: boolean;
+  cols?: number;                       // Web: browser's measured terminal size so the
+  rows?: number;                       // server PTY boots at the real pane width, not 80x24
 }
 
 /** Input shape for the UI-level session creation callback used by hooks/components. */
@@ -777,6 +810,7 @@ export interface CreateMaestroSessionInput {
   teamMemberId?: string;
   teamMemberIds?: string[];
   delegateTeamMemberIds?: string[];
+  teamId?: string | null;
   launchConfig?: LaunchConfig;
   memberOverrides?: Record<string, MemberLaunchOverride>;
   permissionMode?: 'acceptEdits' | 'interactive' | 'readOnly' | 'bypassPermissions';

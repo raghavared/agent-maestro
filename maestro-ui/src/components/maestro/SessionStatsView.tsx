@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { IS_TAURI } from "../../platform";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useProjectStore } from "../../stores/useProjectStore";
 import type {
@@ -144,6 +145,7 @@ async function loadTranscriptStats(
   preferred: LogProvider,
   lastN: number,
 ): Promise<TranscriptStats | null> {
+  if (!IS_TAURI) return null;
   const order: LogProvider[] = preferred === "codex" ? ["codex", "claude"] : ["claude", "codex"];
   for (const candidate of order) {
     try {
