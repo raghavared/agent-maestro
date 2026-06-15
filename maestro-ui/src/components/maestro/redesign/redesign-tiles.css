@@ -167,12 +167,16 @@ html[data-redesign] .pn-docpill:hover { border-color: var(--pn-line-2); backgrou
 html[data-redesign] .pn-docpill__ic { font-family: var(--pn-mono); font-size: 9px; font-weight: 700; color: var(--pn-ink-4); }
 html[data-redesign] .pn-docpill__t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html[data-redesign] .pn-docpill--add { border-style: dashed; color: var(--pn-ink-3); }
-/* diagram pills read as drawings (open on the Excalidraw board), visually distinct from doc pills */
+/* diagram pills read as drawings (open on the Excalidraw board), visually
+   distinct from doc pills and task chips: info-tinted, with a leading accent
+   bar and a board-style left edge so a drawing is recognisable at a glance. */
 html[data-redesign] .pn-docpill--diagram {
-  color: var(--pn-info); background: var(--pn-info-soft); border-color: rgba(63, 108, 144, 0.32);
+  color: var(--pn-info); background: var(--pn-info-soft);
+  border-color: rgba(63, 108, 144, 0.32); border-left-width: 3px; border-left-color: var(--pn-info);
+  padding-left: 6px; font-weight: 600;
 }
-html[data-redesign] .pn-docpill--diagram:hover { border-color: var(--pn-info); background: var(--pn-info-soft); }
-html[data-redesign] .pn-docpill--diagram .pn-docpill__ic { color: var(--pn-info); font-size: 11px; }
+html[data-redesign] .pn-docpill--diagram:hover { border-color: var(--pn-info); border-left-color: var(--pn-info); background: var(--pn-info-soft); }
+html[data-redesign] .pn-docpill--diagram .pn-docpill__ic { color: var(--pn-info); font-size: 12px; }
 
 /* ==========================================================================
    SESSION TILE
@@ -235,6 +239,16 @@ html[data-redesign] .pn-st__tasklines { padding: 0 14px 9px 39px; display: flex;
 html[data-redesign] .pn-st__taskline { display: flex; align-items: center; gap: 8px; min-width: 0; }
 html[data-redesign] .pn-st__taskline .pn-stat { width: 13px; }
 html[data-redesign] .pn-st__tasklineLabel { font-size: 12px; color: var(--pn-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* session inline info row (View menu: badges + elapsed) */
+html[data-redesign] .pn-st__inforow { padding: 0 14px 9px 39px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+html[data-redesign] .pn-st__infobadge {
+  display: inline-flex; align-items: center; height: 19px; padding: 0 7px;
+  border: 1px solid var(--pn-line); border-radius: var(--pn-r-pill); background: var(--pn-card);
+  font-family: var(--pn-mono); font-size: 9.5px; font-weight: 600; letter-spacing: 0.04em; color: var(--pn-ink-3);
+}
+html[data-redesign] .pn-st__infobadge--model { color: var(--pn-ink-2); }
+html[data-redesign] .pn-st__infotime { font-family: var(--pn-mono); font-size: 10px; color: var(--pn-ink-4); margin-left: auto; }
 
 /* session expanded meta */
 html[data-redesign] .pn-st__meta { padding: 2px 14px 12px 39px; display: flex; flex-direction: column; gap: 10px; }
