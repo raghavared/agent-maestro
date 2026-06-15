@@ -4,10 +4,12 @@ import remarkGfm from "remark-gfm";
 import type { DocEntry } from "../../app/types/maestro";
 import { maestroClient } from "../../utils/MaestroClient";
 import { isDiagramDoc } from "../../utils/docHelpers";
-const LazyMermaidDiagram = React.lazy(() =>
+import { lazyWithReload } from "../../utils/lazyWithReload";
+import { ErrorBoundary } from "../ErrorBoundary";
+const LazyMermaidDiagram = lazyWithReload(() =>
   import("./MermaidDiagram").then(m => ({ default: m.MermaidDiagram }))
 );
-const LazyExcalidrawBoard = React.lazy(() =>
+const LazyExcalidrawBoard = lazyWithReload(() =>
   import("../ExcalidrawBoard").then(m => ({ default: m.ExcalidrawBoard }))
 );
 
@@ -251,18 +253,20 @@ export function DocViewer({ doc, onClose, inline }: DocViewerProps) {
       {/* Content body */}
       <div className={`docViewerBody ${isDiagram ? 'docViewerBody--diagram' : ''}`}>
         {isDiagram ? (
-          <React.Suspense fallback={<div style={{ padding: 20, opacity: 0.5 }}>Loading diagram...</div>}>
-            <LazyExcalidrawBoard
-              key={`${doc.id}-${diagramEditMode ? 'edit' : 'view'}`}
-              inline
-              mode={diagramEditMode ? 'edit' : 'view'}
-              docId={doc.id}
-              docSessionId={doc.sessionId ?? doc.addedBy}
-              initialSceneJson={doc.content}
-              name={doc.title}
-              onClose={() => {}}
-            />
-          </React.Suspense>
+          <ErrorBoundary name="Diagram">
+            <React.Suspense fallback={<div style={{ padding: 20, opacity: 0.5 }}>Loading diagram...</div>}>
+              <LazyExcalidrawBoard
+                key={`${doc.id}-${diagramEditMode ? 'edit' : 'view'}`}
+                inline
+                mode={diagramEditMode ? 'edit' : 'view'}
+                docId={doc.id}
+                docSessionId={doc.sessionId ?? doc.addedBy}
+                initialSceneJson={doc.content}
+                name={doc.title}
+                onClose={() => {}}
+              />
+            </React.Suspense>
+          </ErrorBoundary>
         ) : doc.content ? (
           shouldRenderMarkdown ? (
             <div className="docViewerMarkdown">

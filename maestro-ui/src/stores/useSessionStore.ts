@@ -1360,7 +1360,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
       const info = await platform.terminal.createSession({
         name: sessionInfo.name,
-        command,
+        command: command ?? null,
         cwd: sessionInfo.cwd,
         envVars: sessionInfo.envVars,
         persistent: false,

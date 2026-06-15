@@ -100,6 +100,11 @@ export function CreateTaskModal({
         Object.values(teamMembersMap).filter((m: TeamMember) => m.status === 'active' && m.projectId === project?.id),
         [teamMembersMap, project?.id]
     );
+    const teamsMap = useMaestroStore(s => s.teams);
+    const teams = useMemo(() =>
+        Object.values(teamsMap).filter((t) => t.status === 'active' && t.projectId === project?.id),
+        [teamsMap, project?.id]
+    );
 
     // ==================== DRAFT LIFECYCLE ====================
 
@@ -119,6 +124,10 @@ export function CreateTaskModal({
         title: "", prompt: "", priority: "medium" as string,
         selectedTeamMemberIds: [] as string[], selectedSkills: [] as string[],
         selectedReferenceTasks: [] as MaestroTask[],
+        selectedTeamId: null as string | null,
+        dueDate: "" as string,
+        useWorktree: false,
+        dangerousMode: false,
     });
 
     const draft = useDraftTaskLifecycle({
@@ -134,10 +143,14 @@ export function CreateTaskModal({
                 ? formStateRef.current.selectedReferenceTasks.map(t => t.id) : undefined,
             teamMemberId: formStateRef.current.selectedTeamMemberIds.length === 1 ? formStateRef.current.selectedTeamMemberIds[0] : undefined,
             teamMemberIds: formStateRef.current.selectedTeamMemberIds.length > 0 ? formStateRef.current.selectedTeamMemberIds : undefined,
+            teamId: formStateRef.current.selectedTeamId ?? null,
+            dueDate: formStateRef.current.dueDate || undefined,
+            useWorktree: formStateRef.current.useWorktree || false,
+            dangerousMode: formStateRef.current.dangerousMode || false,
         }),
     }) as ReturnType<typeof useDraftTaskLifecycle> & { _triggerAutoCreate: () => void; _uploadStagedImages: (taskId: string, files: File[]) => Promise<TaskImage[]> };
 
-    const form = useTaskForm(mode, isOpen, task, draft.draftTask);
+    const form = useTaskForm(mode, isOpen, task, draft.draftTask, refPicker.selectedReferenceTasks);
 
     // Keep formStateRef in sync (read at create time, not in a stale closure)
     formStateRef.current = {
@@ -147,6 +160,10 @@ export function CreateTaskModal({
         selectedTeamMemberIds: form.selectedTeamMemberIds,
         selectedSkills: form.selectedSkills,
         selectedReferenceTasks: refPicker.selectedReferenceTasks,
+        selectedTeamId: form.selectedTeamId,
+        dueDate: form.dueDate,
+        useWorktree: form.useWorktree,
+        dangerousMode: form.dangerousMode,
     };
 
     const effectiveEditMode = isEditMode || draft.phase === "created";
@@ -600,8 +617,21 @@ export function CreateTaskModal({
                     isEditMode={isEditMode}
                     isValid={form.isValid}
                     selectedTeamMemberIds={form.selectedTeamMemberIds}
-                    onTeamMemberSelectionChange={form.setSelectedTeamMemberIds}
+                    onTeamMemberSelectionChange={(ids) => {
+                        if (ids.length > 0 && form.selectedTeamId) form.setSelectedTeamId(null);
+                        form.setSelectedTeamMemberIds(ids);
+                    }}
+                    teams={teams}
+                    selectedTeamId={form.selectedTeamId}
+                    onTeamChange={(teamId) => {
+                        if (teamId && form.selectedTeamMemberIds.length > 0) form.setSelectedTeamMemberIds([]);
+                        form.setSelectedTeamId(teamId);
+                    }}
                     teamMembers={teamMembers}
+                    dangerousMode={form.dangerousMode}
+                    onDangerousModeChange={form.setDangerousMode}
+                    useWorktree={form.useWorktree}
+                    onUseWorktreeChange={form.setUseWorktree}
                     onClose={handleClose}
                     onSave={handleSave}
                     onSubmit={handleSubmit}

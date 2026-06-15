@@ -37,6 +37,7 @@ import { SessionListItem, type SessionTileLinkInfo } from "./maestro/SessionList
 import type { SessionTreeNode } from "../app/types/maestro";
 import { resolveSessionTab, buildChildrenByParent, collectSubtreeIds as collectSubtreeIdsUtil, type SessionSubTab, type SessionLifecycleTab } from "../utils/sessionLifecycle";
 import { HuddlesList } from "./maestro/HuddlesList";
+import { ListEndFooter } from "./maestro/ListEndFooter";
 import type { Huddle } from "../app/types/maestro";
 import { maestroClient } from "../utils/MaestroClient";
 import { willOpenStatsOnClick } from "../utils/sessionClickRouting";
@@ -1577,6 +1578,9 @@ export const SessionsSection = React.memo(function SessionsSection({
                 </SortableContext>
               </DndContext>
             )}
+
+            {((showAgents && sessionSubTab !== 'huddles' && visibleRoots.length > 0) ||
+              (showTerminals && filteredTerminalSessions.length > 0)) && <ListEndFooter />}
           </>
         )}
       </div>

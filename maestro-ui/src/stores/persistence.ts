@@ -127,7 +127,7 @@ function scheduleSave() {
     if (!state) return;
     if (!IS_TAURI) {
       try {
-        localStorage.setItem('maestro-persisted-state-v1', JSON.stringify(state));
+        localStorage.setItem(DEFAULTS.STORAGE_PERSISTED_STATE_KEY, JSON.stringify(state));
       } catch {
         // best-effort
       }

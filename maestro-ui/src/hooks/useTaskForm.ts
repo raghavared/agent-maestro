@@ -3,7 +3,7 @@ import { TaskPriority, MaestroTask, MemberLaunchOverride, TeamMember, TaskImage 
 import { maestroClient } from "../utils/MaestroClient";
 import { MemberConfig, buildDefaultMemberConfig, buildMemberConfigFromOverride, buildOverridesFromConfigs } from "../components/maestro/task-modal/LaunchConfigPanel";
 
-export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: MaestroTask, draftTask?: MaestroTask | null) {
+export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: MaestroTask, draftTask?: MaestroTask | null, selectedReferenceTasks?: MaestroTask[]) {
     const isEditMode = mode === "edit" && !!task;
     const baselineTask = task || draftTask || null;
 
@@ -14,6 +14,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     const [prompt, _setPrompt] = useState("");
     const [priority, _setPriority] = useState<TaskPriority>("medium");
     const [selectedTeamMemberIds, _setSelectedTeamMemberIds] = useState<string[]>([]);
+    const [selectedTeamId, _setSelectedTeamId] = useState<string | null>(null);
     const [selectedSkills, _setSelectedSkills] = useState<string[]>([]);
     const [activeTab, setActiveTab] = useState<string | null>(null);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -25,6 +26,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
     const setPrompt = useCallback((v: string) => { _setPrompt(v); bumpVersion(); }, [bumpVersion]);
     const setPriority = useCallback((v: TaskPriority) => { _setPriority(v); bumpVersion(); }, [bumpVersion]);
     const setSelectedTeamMemberIds = useCallback((v: string[] | ((prev: string[]) => string[])) => { _setSelectedTeamMemberIds(v); bumpVersion(); }, [bumpVersion]);
+    const setSelectedTeamId = useCallback((v: string | null) => { _setSelectedTeamId(v); bumpVersion(); }, [bumpVersion]);
     const setSelectedSkills = useCallback((v: string[] | ((prev: string[]) => string[])) => { _setSelectedSkills(v); bumpVersion(); }, [bumpVersion]);
     const setDueDate = useCallback((v: string) => { _setDueDate(v); bumpVersion(); }, [bumpVersion]);
     const setUseWorktree = useCallback((v: boolean) => { _setUseWorktree(v); bumpVersion(); }, [bumpVersion]);
@@ -59,12 +61,13 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
                     ? task.teamMemberIds
                     : task.teamMemberId ? [task.teamMemberId] : []
             );
+            _setSelectedTeamId(task.teamId ?? null);
             _setSelectedSkills(task.skillIds || []);
             _setDueDate(task.dueDate || "");
             _setUseWorktree(task.useWorktree ?? false);
             _setDangerousMode(task.dangerousMode ?? false);
         }
-    }, [isEditMode, isOpen, task?.id, task?.title, task?.description, task?.priority, task?.teamMemberId, JSON.stringify(task?.teamMemberIds), JSON.stringify(task?.referenceTaskIds), task?.dueDate, task?.useWorktree, task?.dangerousMode]);
+    }, [isEditMode, isOpen, task?.id, task?.title, task?.description, task?.priority, task?.teamMemberId, JSON.stringify(task?.teamMemberIds), task?.teamId, JSON.stringify(task?.referenceTaskIds), task?.dueDate, task?.useWorktree, task?.dangerousMode]);
 
     // Fetch task docs in edit mode
     useEffect(() => {
@@ -91,6 +94,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
             _setPrompt("");
             _setPriority("medium");
             _setSelectedTeamMemberIds([]);
+            _setSelectedTeamId(null);
             _setSelectedSkills([]);
             _setDueDate("");
             _setUseWorktree(false);
@@ -111,12 +115,14 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
                 useWorktree !== (baselineTask.useWorktree ?? false) ||
                 dangerousMode !== (baselineTask.dangerousMode ?? false) ||
                 JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(baselineTask.teamMemberIds || (baselineTask.teamMemberId ? [baselineTask.teamMemberId] : [])) ||
-                JSON.stringify(selectedSkills) !== JSON.stringify(baselineTask.skillIds || [])
+                (selectedTeamId ?? null) !== (baselineTask.teamId ?? null) ||
+                JSON.stringify(selectedSkills) !== JSON.stringify(baselineTask.skillIds || []) ||
+                JSON.stringify(selectedReferenceTasks?.map(t => t.id) || []) !== JSON.stringify(baselineTask.referenceTaskIds || [])
             );
         }
         // No baseline — pure create mode, no draft yet
         return title.trim() !== "" || prompt.trim() !== "" || stagedImageFiles.length > 0;
-    }, [baselineTask, title, prompt, priority, dueDate, useWorktree, selectedTeamMemberIds, selectedSkills, stagedImageFiles.length]);
+    }, [baselineTask, title, prompt, priority, dueDate, useWorktree, dangerousMode, selectedTeamMemberIds, selectedTeamId, selectedSkills, selectedReferenceTasks, stagedImageFiles.length]);
 
     const isValid = title.trim() !== "" && prompt.trim() !== "";
 
@@ -183,6 +189,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         _setPrompt("");
         _setPriority("medium");
         _setSelectedTeamMemberIds([]);
+        _setSelectedTeamId(null);
         setActiveTab(null);
         _setSelectedSkills([]);
         setShowConfirmDialog(false);
@@ -212,6 +219,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         parentId,
         teamMemberId: selectedTeamMemberIds.length === 1 ? selectedTeamMemberIds[0] : undefined,
         teamMemberIds: selectedTeamMemberIds.length > 0 ? selectedTeamMemberIds : undefined,
+        teamId: selectedTeamId ?? null,
         // Staged image files — uploaded after task creation by the handler
         _stagedFiles: stagedImageFiles.length > 0 ? stagedImageFiles : undefined,
     });
@@ -227,6 +235,9 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         if (JSON.stringify(selectedTeamMemberIds) !== JSON.stringify(currentIds)) {
             updates.teamMemberIds = selectedTeamMemberIds.length > 0 ? selectedTeamMemberIds : undefined;
             updates.teamMemberId = selectedTeamMemberIds.length === 1 ? selectedTeamMemberIds[0] : undefined;
+        }
+        if ((selectedTeamId ?? null) !== (baselineTask.teamId ?? null)) {
+            updates.teamId = selectedTeamId ?? null;
         }
         const currentDueDate = baselineTask.dueDate || "";
         if (dueDate !== currentDueDate) updates.dueDate = dueDate || null;
@@ -253,6 +264,7 @@ export function useTaskForm(mode: "create" | "edit", isOpen: boolean, task?: Mae
         useWorktree, setUseWorktree,
         dangerousMode, setDangerousMode,
         selectedTeamMemberIds, setSelectedTeamMemberIds,
+        selectedTeamId, setSelectedTeamId,
         selectedSkills, setSelectedSkills,
         activeTab, setActiveTab, toggleTab,
         showConfirmDialog, setShowConfirmDialog,

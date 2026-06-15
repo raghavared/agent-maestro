@@ -5,6 +5,7 @@ import { FitAddon } from "xterm-addon-fit";
 import type { PendingDataBuffer } from "./app/types/app-state";
 import { useTerminalSettingsStore, buildITheme } from "./stores/useTerminalSettingsStore";
 import { serverPtySizes, clientFittedSessions, setLastFittedSize } from "./stores/useSessionStore";
+import { measureSpawnTerminalSize } from "./utils/terminalSize";
 
 export type TerminalRegistry = Map<string, { term: Terminal; fit: FitAddon }>;
 
@@ -600,19 +601,30 @@ const SessionTerminal = React.memo(function SessionTerminal(props: SessionTermin
 	        }
 	      }
 	    };
-	    // Web mode: if the server already told us the PTY's authoritative size,
-    // adopt it before replaying scrollback so the buffered output renders at the
-    // column it was authored at (the subsequent fit() reflows to the pane and
-    // resizes the PTY for live output).
+	    // Web mode: size the grid to the PTY width BEFORE replaying/flushing output,
+    // so the agent's first paint renders at the column it was authored at instead
+    // of xterm's 80x24 default. Two sources, in order:
+    //   1. serverPtySizes — the authoritative size the server reported on attach.
+    //   2. measureSpawnTerminalSize() — the same estimate sent in the spawn request
+    //      (so the PTY booted at it). On a fresh spawn the server `size` frame
+    //      hasn't arrived yet, so without this the grid sits at 80 cols; the agent
+    //      draws its TUI wide, it crams into 80 cols (overlapping glyphs), and the
+    //      later fit() can land on a no-op PTY resize (no SIGWINCH → no repaint),
+    //      leaving the garble frozen until a manual resize. Seeding the width here
+    //      keeps xterm and the PTY in agreement from the first byte.
     const serverSize = serverPtySizes.get(props.id);
-    if (serverSize && serverSize.cols > 0 && serverSize.rows > 0) {
+    const initialSize =
+      serverSize && serverSize.cols > 0 && serverSize.rows > 0
+        ? serverSize
+        : measureSpawnTerminalSize();
+    if (initialSize.cols && initialSize.rows && initialSize.cols > 0 && initialSize.rows > 0) {
       try {
-        term.resize(serverSize.cols, serverSize.rows);
+        term.resize(initialSize.cols, initialSize.rows);
       } catch {
         // ignore
       }
-      serverPtySizes.delete(props.id);
     }
+    serverPtySizes.delete(props.id);
     flushPending(20);
 
 		    // Create ResizeObserver inside useEffect for proper cleanup
