@@ -6,6 +6,7 @@ import type { ParsedMessage, ConversationGroup } from '../../utils/claude-log';
 import { LogMessageGroup } from './LogMessageGroup';
 import { useSpellStore } from '../../stores/useSpellStore';
 import { Icon } from '../Icon';
+import { SessionDocsMenu } from '../maestro/SessionDocsMenu';
 
 interface TerminalStripProps {
   cwd: string;
@@ -379,6 +380,7 @@ export function TerminalStrip({ cwd, maestroSessionId, agentTool, onAttach, onDr
 
         {/* 4. Actions */}
         <div className="termStripActions">
+          <SessionDocsMenu maestroSessionId={maestroSessionId} />
           <button
             type="button"
             className="termStripActionBtn"

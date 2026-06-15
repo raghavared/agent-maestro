@@ -30,6 +30,7 @@ import type {
     CreateModelProfilePayload,
     UpdateModelProfilePayload,
     Team,
+    TeamTreeNode,
     CreateTeamPayload,
     UpdateTeamPayload,
     WorkflowTemplate,
@@ -700,6 +701,10 @@ class MaestroClient {
 
     async getTeams(projectId: string): Promise<Team[]> {
         return this.fetch<Team[]>(`/teams?projectId=${encodeURIComponent(projectId)}`);
+    }
+
+    async getTeamTree(projectId: string, id: string): Promise<TeamTreeNode> {
+        return this.fetch<TeamTreeNode>(`/teams/${id}/tree?projectId=${encodeURIComponent(projectId)}`);
     }
 
     async createTeam(data: CreateTeamPayload): Promise<Team> {

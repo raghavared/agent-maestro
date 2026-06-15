@@ -292,6 +292,16 @@ export function initApp(
         }
         diskState = null;
       }
+    } else {
+      // Browser/web mode: persistence.ts saves to localStorage (not the Tauri
+      // native store), so restore from there. Without this, closedProjectIds is
+      // lost on reload and every server project re-opens as a tab.
+      try {
+        const raw = localStorage.getItem(DEFAULTS.STORAGE_PERSISTED_STATE_KEY);
+        diskState = raw ? (JSON.parse(raw) as PersistedStateV1) : null;
+      } catch {
+        diskState = null;
+      }
     }
 
     let state: PersistedStateV1 | null = diskState;
