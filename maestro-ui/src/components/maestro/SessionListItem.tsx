@@ -436,7 +436,7 @@ export const SessionListItem = React.memo(function SessionListItem({
         </div>
       </div>
 
-      {(showBadges || showElapsed) && (
+      {((showBadges && (mode || session.model)) || showElapsed) && (
         <div className="pn-st__inforow">
           {showBadges && mode && (
             <span className="pn-st__infobadge">{MODE_LABELS[mode]}</span>
