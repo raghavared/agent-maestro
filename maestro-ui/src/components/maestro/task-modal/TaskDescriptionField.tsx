@@ -85,10 +85,14 @@ export function TaskDescriptionField({
                 style={{
                     flex: 1,
                     minHeight: 0,
-                    background: 'var(--pn-surface)',
-                    border: '1px solid var(--pn-line-2)',
-                    borderRadius: 'var(--pn-r-sm)',
                     color: 'var(--pn-ink)',
+                    ...(isOverlay
+                        ? { background: 'transparent', border: 'none', borderRadius: 0 }
+                        : {
+                              background: 'var(--pn-surface)',
+                              border: '1px solid var(--pn-line-2)',
+                              borderRadius: 'var(--pn-r-sm)',
+                          }),
                 }}
             >
                 <MentionsInput

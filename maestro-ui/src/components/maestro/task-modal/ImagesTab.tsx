@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { TaskImage } from "../../../app/types/maestro";
 import { maestroClient } from "../../../utils/MaestroClient";
+import { extractImageFiles } from "../../../utils/clipboardImages";
 import { Icon } from "../redesign/kit";
 
 type ImagesTabProps = {
@@ -49,26 +50,23 @@ export function ImagesTab({ taskId, images, onImagesChange, variant = 'tab' }: I
     };
 
     const handlePaste = async (e: React.ClipboardEvent) => {
-        const items = e.clipboardData?.items;
-        if (!items) return;
+        const files = extractImageFiles(e.clipboardData);
+        if (files.length === 0) return;
+        e.preventDefault();
 
-        for (let i = 0; i < items.length; i++) {
-            const item = items[i];
-            if (item.type.startsWith('image/')) {
-                e.preventDefault();
-                const file = item.getAsFile();
-                if (!file) continue;
-
-                setUploading(true);
+        setUploading(true);
+        try {
+            const newImages: TaskImage[] = [];
+            for (const file of files) {
                 try {
-                    const img = await maestroClient.uploadTaskImage(taskId, file);
-                    onImagesChange([...images, img]);
+                    newImages.push(await maestroClient.uploadTaskImage(taskId, file));
                 } catch (err) {
-                    // Paste upload failed
-                } finally {
-                    setUploading(false);
+                    // Paste upload failed — skip this file
                 }
             }
+            if (newImages.length > 0) onImagesChange([...images, ...newImages]);
+        } finally {
+            setUploading(false);
         }
     };
 

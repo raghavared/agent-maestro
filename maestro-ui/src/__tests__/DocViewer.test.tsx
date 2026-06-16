@@ -67,6 +67,26 @@ describe("DocViewer – diagram doc", () => {
     expect(screen.getByText("⬡")).toBeTruthy();
   });
 
+  it("renders the board for a .excalidraw doc even when kind is missing", async () => {
+    // Regression: docs from session/task timelines often arrive without `kind`.
+    // They must still open on the board, not render their JSON as raw code.
+    const doc = makeDoc({ kind: undefined, filePath: "diagram.excalidraw", content: '{"elements":[]}' });
+    render(<DocViewer doc={doc} onClose={() => {}} inline />);
+    expect(await screen.findByTestId("excalidraw-board")).toBeTruthy();
+    expect(screen.queryByText('{"elements":[]}')).toBeNull();
+  });
+
+  it("renders the board for a content-only diagram (no kind, non-.excalidraw name)", async () => {
+    // Regression: CLI / timeline docs can arrive without `kind` AND without a
+    // .excalidraw filename — only the Excalidraw scene content identifies them.
+    // They must open on the board, not dump their JSON into the doc viewer.
+    const scene = '{"type":"excalidraw","elements":[],"appState":{}}';
+    const doc = makeDoc({ kind: undefined, filePath: "architecture.md", content: scene });
+    render(<DocViewer doc={doc} onClose={() => {}} inline />);
+    expect(await screen.findByTestId("excalidraw-board")).toBeTruthy();
+    expect(screen.queryByText(scene)).toBeNull();
+  });
+
   it("shows an Edit button for diagram docs", async () => {
     const doc = makeDoc({ kind: "diagram", filePath: "diagram.excalidraw", content: "{}" });
     render(<DocViewer doc={doc} onClose={() => {}} inline />);

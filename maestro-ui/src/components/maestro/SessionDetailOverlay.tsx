@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useUIStore } from "../../stores/useUIStore";
 import { useMaestroStore } from "../../stores/useMaestroStore";
 import { useProjectStore } from "../../stores/useProjectStore";
@@ -11,6 +12,7 @@ import { WorktreeBadge, getWorktreeInfo } from "./WorktreeBadge";
 import { SessionLiveIndicator } from "./SessionLiveIndicator";
 import { maestroClient } from "../../utils/MaestroClient";
 import { Icon, Glyph, type IconName } from "./redesign/kit";
+import { useBreakpoint } from "../../hooks/useBreakpoint";
 
 const SESSION_STATUS_LABELS: Record<MaestroSessionStatus, string> = {
   spawning: "Spawning",
@@ -34,6 +36,7 @@ export function SessionDetailOverlay() {
   const overlay = useUIStore((s) => s.sessionDetailOverlay);
   const setOverlay = useUIStore((s) => s.setSessionDetailOverlay);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
+  const isMobile = useBreakpoint() === "mobile";
 
   const sessions = useMaestroStore((s) => s.sessions);
   const tasks = useMaestroStore((s) => s.tasks);
@@ -117,21 +120,52 @@ export function SessionDetailOverlay() {
 
   const statusKind = session?.needsInput?.active ? "needsInput" : session?.status;
 
-  return (
+  return createPortal(
     <div
-      className="pn-mdl-scrim"
+      className={`pn-mdl-scrim${isMobile ? " pn-mdl-scrim--mobile" : ""}`}
       onClick={handleClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.45)",
-        display: "grid",
-        placeItems: "center",
-        zIndex: 1000,
-        padding: 24,
-      }}
+      style={
+        isMobile
+          ? {
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: "var(--mobile-nav-height)",
+              background: "rgba(0,0,0,0.45)",
+              display: "flex",
+              flexDirection: "column",
+              zIndex: 1000,
+              padding: 0,
+            }
+          : {
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.45)",
+              display: "grid",
+              placeItems: "center",
+              zIndex: 1000,
+              padding: 24,
+            }
+      }
     >
-      <div className="pn-mdl" onClick={(e) => e.stopPropagation()} style={{ width: 720, maxHeight: "90vh" }}>
+      <div
+        className={`pn-mdl${isMobile ? " pn-mdl--mobile-full" : ""}`}
+        onClick={(e) => e.stopPropagation()}
+        style={
+          isMobile
+            ? {
+                width: "100%",
+                maxWidth: "100%",
+                height: "100%",
+                maxHeight: "100%",
+                borderRadius: 0,
+                display: "flex",
+                flexDirection: "column",
+              }
+            : { width: 720, maxWidth: "calc(100vw - 48px)", maxHeight: "90vh" }
+        }
+      >
         {/* Header */}
         <div className="pn-mdl__hd">
           <div className="pn-mdl__hdmain">
@@ -320,6 +354,7 @@ export function SessionDetailOverlay() {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

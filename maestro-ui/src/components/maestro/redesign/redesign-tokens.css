@@ -104,6 +104,25 @@ html[data-redesign] .pn-fade {
 }
 html[data-redesign] .pn-fade--card { background: linear-gradient(180deg, transparent, var(--pn-surface) 86%); }
 
+/* end-of-list footer — gives the list breathing room past the bottom fade and
+   marks where the content stops so the last item never reads as clipped */
+html[data-redesign] .pn-list-end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 16px 80px;
+  user-select: none;
+}
+html[data-redesign] .pn-list-end__line { flex: 1; height: 1px; background: var(--pn-line); }
+html[data-redesign] .pn-list-end__label {
+  font-family: var(--pn-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pn-ink-4);
+  white-space: nowrap;
+}
+
 /* scroll region */
 html[data-redesign] .pn-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; position: relative; scrollbar-width: thin; scrollbar-color: var(--pn-line-2) transparent; }
 html[data-redesign] .pn-scroll::-webkit-scrollbar { width: 9px; }
@@ -168,6 +187,13 @@ html[data-redesign] .pn-chip {
   border-radius: var(--pn-r-pill);
   padding: 1px 7px; line-height: 1.6; white-space: nowrap; flex: 0 0 auto;
 }
+/* interactive chip (e.g. the "N live" filter toggle) */
+html[data-redesign] .pn-chip--btn {
+  border: none; cursor: pointer; font-family: var(--pn-mono);
+  transition: background 140ms, color 140ms;
+}
+html[data-redesign] .pn-chip--btn:hover { color: var(--pn-ink); background: var(--pn-hover); }
+html[data-redesign] .pn-chip--active { color: var(--pn-run); background: var(--pn-run-soft); }
 
 /* agent logo tile (NO left-border accent — a calm rounded tile) */
 html[data-redesign] .pn-agent {
@@ -309,18 +335,18 @@ html[data-redesign] .pn-search input::placeholder { color: var(--pn-ink-4); }
 /* filter tabs — single-row segmented control */
 html[data-redesign] .pn-filters {
   display: flex; align-items: stretch; gap: 2px; margin: 4px 14px 10px;
-  padding: 3px; flex-wrap: nowrap;
+  padding: 3px; flex-wrap: wrap;
   background: var(--pn-active); border: 1px solid var(--pn-line);
   border-radius: var(--pn-r-sm);
 }
 html[data-redesign] .pn-filter {
-  flex: 1 1 0; min-width: 0;
+  flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center; gap: 4px;
   font-size: 11px; font-weight: 600; color: var(--pn-ink-3);
   background: transparent; border: none;
-  border-radius: calc(var(--pn-r-sm) - 2px); padding: 5px 5px;
+  border-radius: calc(var(--pn-r-sm) - 2px); padding: 5px 8px;
   transition: color 140ms, background 140ms, box-shadow 140ms; cursor: pointer;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
 }
 html[data-redesign] .pn-filter:hover { color: var(--pn-ink-2); }
 html[data-redesign] .pn-filter--active {
@@ -731,6 +757,14 @@ html[data-redesign][data-theme='dark'] .pn-term-input { border-color: #221E15; }
 html[data-redesign][data-theme='dark'] .pn-tag { border-color: var(--pn-line-2); }
 
 /* tab background fills (used a near-white in light) stay subtle on dark */
-html[data-redesign][data-theme='dark'] body,
 html[data-redesign][data-theme='dark'] #stage,
 html[data-redesign][data-theme='dark'] #frame { background: var(--pn-paper); }
+
+/* App canvas behind and between panels. The legacy --bg (#0a0e16, near-black)
+   is the body background and shows through panel gaps — e.g. the transparent
+   resize-handle gutter — as a hard black vertical band. Repaint the canvas with
+   the warm paper token (flips per theme) so gutters read as the theme, not black. */
+html[data-redesign] body,
+html[data-redesign] #root,
+html[data-redesign] .app,
+html[data-redesign] .appContent { background: var(--pn-paper); }
