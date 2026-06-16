@@ -318,9 +318,9 @@ export function CreateTaskModal({
         onClose();
     };
 
-    const handleSave = () => {
-        if (!effectiveEditMode) return;
-        saveNow();
+    const handleSave = (): Promise<void> => {
+        if (!effectiveEditMode) return Promise.resolve();
+        return saveNow();
     };
 
     const handleAddSubtask = () => {
