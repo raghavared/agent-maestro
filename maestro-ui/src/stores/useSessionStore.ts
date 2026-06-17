@@ -866,9 +866,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       const launchCommand = newCommand.trim() || null;
       const desiredCwd =
         newCwd.trim() || activeProject?.basePath || homeDirRef?.current || '';
-      const validatedCwd = await invoke<string | null>('validate_directory', {
-        path: desiredCwd,
-      }).catch(() => null);
+      const validatedCwd = await platform.fs.validateDirectory(desiredCwd).catch(() => null);
       if (!validatedCwd) {
         setError('Working directory must be an existing folder.');
         return;
@@ -935,9 +933,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     try {
       const desiredCwd = activeProject?.basePath ?? homeDirRef?.current ?? '';
-      const validatedCwd = await invoke<string | null>('validate_directory', {
-        path: desiredCwd,
-      }).catch(() => null);
+      const validatedCwd = await platform.fs.validateDirectory(desiredCwd).catch(() => null);
       if (!validatedCwd) {
         ssh.setSshError('Working directory must be an existing folder.');
         return;
@@ -1034,9 +1030,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const active = sessions.find((s) => s.id === activeId) ?? null;
 
     if (provider === 'local') {
-      const validatedCwd = await invoke<string | null>('validate_directory', {
-        path: desiredPath,
-      }).catch(() => null);
+      const validatedCwd = await platform.fs.validateDirectory(desiredPath).catch(() => null);
       if (!validatedCwd) {
         showNotice('Working directory must be an existing folder.');
         return;
@@ -1066,10 +1060,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
     const localDesiredCwd =
       activeProject?.basePath ?? homeDirRef?.current ?? '';
-    const localValidatedCwd = await invoke<string | null>(
-      'validate_directory',
-      { path: localDesiredCwd },
-    ).catch(() => null);
+    const localValidatedCwd = await platform.fs.validateDirectory(localDesiredCwd).catch(() => null);
     if (localValidatedCwd) {
       await ensureAutoAssets(localValidatedCwd, activeProjectId);
     }

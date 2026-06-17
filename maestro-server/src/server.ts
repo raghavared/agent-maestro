@@ -23,6 +23,7 @@ import { createSpellRoutes } from './api/spellRoutes';
 import { createAlexaRoutes } from './api/alexaRoutes';
 import { createGitRoutes } from './api/gitRoutes';
 import { createAgentLogRoutes } from './api/agentLogRoutes';
+import { createFsRoutes } from './api/fsRoutes';
 import { WebSocketBridge } from './infrastructure/websocket/WebSocketBridge';
 import { PtyWebSocketServer } from './infrastructure/websocket/PtyWebSocketServer';
 import { errorHandler } from './api/middleware/errorHandler';
@@ -190,6 +191,10 @@ async function startServer() {
   // Agent session-log routes — let the browser web-ui read claude/codex logs
   // (the Tauri shell uses Rust invoke commands; the browser has none).
   app.use('/api', createAgentLogRoutes());
+
+  // Filesystem routes — folder picker (Browse) + File Explorer/editor for the
+  // browser web-ui, mirroring the Tauri Rust fs commands the browser lacks.
+  app.use('/api', createFsRoutes());
 
   // Browser SPA static serve — mounted AFTER all API/WS/PTY routes.
   // Serves maestro-ui/dist so a browser can access the full app from the server origin.
