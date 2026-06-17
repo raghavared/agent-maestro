@@ -1,23 +1,42 @@
 /**
- * Tests for onNewSubmit terminal creation bug.
+ * Tests for onNewSubmit terminal creation across desktop (Tauri) and web modes.
  *
- * Root causes confirmed by this test suite (both fail before the fix):
- * 1. homeDirRef.current is always null (App.tsx passes { current: null } and
- *    never updates it), so desiredCwd falls back to '' when the active project
- *    has no basePath. validate_directory('') returns null → silent early return,
- *    no terminal created.
- * 2. setError() writes to useUIStore.error, which no component renders, so the
- *    failure is invisible to the user.
+ * Desktop (IS_TAURI === true):
+ *   - validate_directory is invoked; a failed validation surfaces a visible
+ *     notice and creates no terminal.
+ *   - homeDir (from useUIStore) is used as the cwd fallback when the active
+ *     project has no basePath.
  *
- * Fix: read homeDir from useUIStore.getState().homeDir (not homeDirRef.current),
- * and use showNotice() for user-visible error feedback.
+ * Web / browser (IS_TAURI === false):
+ *   - There is NO Tauri runtime, so invoke('validate_directory') throws. The
+ *     pre-fix code swallowed that rejection (.catch(() => null)) and returned
+ *     early, so the [NEW TERMINAL] modal NEVER created a terminal in the web
+ *     build. The fix skips Tauri validation in browser mode and passes the cwd
+ *     through (project basePath when present, otherwise null so the server —
+ *     sessionRoutes.ts — defaults it to its own home dir).
+ *
+ * IS_TAURI is mutable per-test via vi.hoisted so the same suite can exercise
+ * both the desktop and the browser branch of onNewSubmit.
  */
 
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
-// ── Mock platform before any store import triggers side effects ────────────
+// ── Mutable mock state (hoisted so vi.mock factories may reference it) ───────
+const h = vi.hoisted(() => ({
+  isTauri: true,
+  homeDir: '/home/testuser' as string | null,
+  activeProjectId: null as string | null,
+  projects: [] as Array<{ id: string; basePath?: string | null }>,
+  showNotice: vi.fn(),
+  reportError: vi.fn(),
+  setError: vi.fn(),
+}));
+
+// ── Mock platform; IS_TAURI is a getter so it stays mutable across tests ─────
 vi.mock('../platform', () => ({
-  IS_TAURI: false,
+  get IS_TAURI() {
+    return h.isTauri;
+  },
   platform: {
     terminal: {
       onOutput: vi.fn(() => () => {}),
@@ -39,27 +58,23 @@ vi.mock('../services/sessionService', () => ({
 }));
 
 // ── Mock useUIStore ────────────────────────────────────────────────────────
-const mockShowNotice = vi.fn();
-const mockReportError = vi.fn();
-const mockSetError = vi.fn();
-
 vi.mock('../stores/useUIStore', () => ({
   useUIStore: {
     getState: vi.fn(() => ({
-      homeDir: '/home/testuser',
-      showNotice: mockShowNotice,
-      reportError: mockReportError,
-      setError: mockSetError,
+      homeDir: h.homeDir,
+      showNotice: h.showNotice,
+      reportError: h.reportError,
+      setError: h.setError,
     })),
   },
 }));
 
-// ── Mock useProjectStore (project with no basePath) ────────────────────────
+// ── Mock useProjectStore (driven by hoisted state) ─────────────────────────
 vi.mock('../stores/useProjectStore', () => ({
   useProjectStore: {
     getState: vi.fn(() => ({
-      activeProjectId: null,
-      projects: [],
+      activeProjectId: h.activeProjectId,
+      projects: h.projects,
     })),
   },
 }));
@@ -110,9 +125,18 @@ import { useSessionStore } from '../stores/useSessionStore';
 const mockTauriInvoke = tauriInvoke as ReturnType<typeof vi.fn>;
 const mockCreateSession = createSession as ReturnType<typeof vi.fn>;
 
+const submit = () =>
+  useSessionStore
+    .getState()
+    .onNewSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
+
 describe('onNewSubmit — new terminal creation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    h.isTauri = true;
+    h.homeDir = '/home/testuser';
+    h.activeProjectId = null;
+    h.projects = [];
     useSessionStore.setState({
       newName: 'my-terminal',
       newCommand: '',
@@ -121,40 +145,81 @@ describe('onNewSubmit — new terminal creation', () => {
     });
   });
 
-  it('creates terminal when project has no basePath but homeDir is available', async () => {
-    // validate_directory returns the path it receives (simulates a valid dir)
-    mockTauriInvoke.mockImplementation((cmd: string, args: { path: string }) => {
-      if (cmd === 'validate_directory') return Promise.resolve(args.path || null);
-      return Promise.resolve(null);
+  describe('desktop (IS_TAURI)', () => {
+    it('creates terminal using homeDir when project has no basePath', async () => {
+      // validate_directory echoes the path it receives (simulates a valid dir)
+      mockTauriInvoke.mockImplementation((cmd: string, args: { path: string }) =>
+        cmd === 'validate_directory'
+          ? Promise.resolve(args.path || null)
+          : Promise.resolve(null),
+      );
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-1',
+        name: 'my-terminal',
+        exited: false,
+        closing: false,
+      });
+
+      await submit();
+
+      expect(mockCreateSession).toHaveBeenCalledWith(
+        expect.objectContaining({ cwd: '/home/testuser' }),
+      );
     });
 
-    const mockSession = { id: 'sess-1', name: 'my-terminal', exited: false, closing: false };
-    mockCreateSession.mockResolvedValue(mockSession);
+    it('surfaces a visible notice when the working directory cannot be validated', async () => {
+      // validate_directory always fails (bad path, permission error, etc.)
+      mockTauriInvoke.mockResolvedValue(null);
 
-    const e = { preventDefault: vi.fn() } as unknown as React.FormEvent;
-    await useSessionStore.getState().onNewSubmit(e);
+      await submit();
 
-    // FAILS before fix: homeDirRef.current is null → desiredCwd='' →
-    // validate_directory('') returns '' (falsy) → silent early return, no terminal.
-    // PASSES after fix: homeDir from UIStore ('/home/testuser') is used as cwd.
-    expect(mockCreateSession).toHaveBeenCalledWith(
-      expect.objectContaining({ cwd: '/home/testuser' }),
-    );
+      expect(h.showNotice).toHaveBeenCalledWith(
+        expect.stringContaining('Working directory'),
+      );
+      expect(mockCreateSession).not.toHaveBeenCalled();
+    });
   });
 
-  it('surfaces a visible notice when the working directory cannot be validated', async () => {
-    // validate_directory always fails (bad path, permission error, etc.)
-    mockTauriInvoke.mockResolvedValue(null);
+  describe('web / browser (no Tauri runtime)', () => {
+    beforeEach(() => {
+      h.isTauri = false;
+      // In the browser, initApp only resolves homeDir under IS_TAURI, so it is null.
+      h.homeDir = null;
+      // Simulate the browser: any invoke() throws because there is no Tauri IPC.
+      mockTauriInvoke.mockRejectedValue(
+        new Error('Tauri IPC unavailable in browser'),
+      );
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-web',
+        name: 'my-terminal',
+        exited: false,
+        closing: false,
+      });
+    });
 
-    const e = { preventDefault: vi.fn() } as unknown as React.FormEvent;
-    await useSessionStore.getState().onNewSubmit(e);
+    it('creates the terminal with cwd=null (server defaults it) instead of returning early', async () => {
+      await submit();
 
-    // FAILS before fix: setError() is called but nothing in the UI renders
-    // useUIStore.error, so the failure is invisible to the user.
-    // PASSES after fix: showNotice() is called, which surfaces a visible notice.
-    expect(mockShowNotice).toHaveBeenCalledWith(
-      expect.stringContaining('Working directory'),
-    );
-    expect(mockCreateSession).not.toHaveBeenCalled();
+      // Before the fix: invoke('validate_directory') rejects → caught → null →
+      // showNotice + early return → createSession is NEVER called (this assertion fails).
+      // After the fix: browser mode skips Tauri validation → createSession runs once.
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      expect(mockCreateSession).toHaveBeenCalledWith(
+        expect.objectContaining({ cwd: null }),
+      );
+      expect(h.showNotice).not.toHaveBeenCalled();
+    });
+
+    it('passes the active project basePath through as cwd without invoking Tauri', async () => {
+      h.activeProjectId = 'proj-1';
+      h.projects = [{ id: 'proj-1', basePath: '/work/project' }];
+
+      await submit();
+
+      expect(mockTauriInvoke).not.toHaveBeenCalled();
+      expect(mockCreateSession).toHaveBeenCalledWith(
+        expect.objectContaining({ cwd: '/work/project' }),
+      );
+    });
   });
 });

@@ -866,14 +866,24 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       const launchCommand = newCommand.trim() || null;
       const desiredCwd =
         newCwd.trim() || activeProject?.basePath || homeDir || '';
-      const validatedCwd = await invoke<string | null>('validate_directory', {
-        path: desiredCwd,
-      }).catch(() => null);
-      if (!validatedCwd) {
-        showNotice('Working directory must be an existing folder.');
-        return;
+
+      let validatedCwd: string | null;
+      if (IS_TAURI) {
+        validatedCwd = await invoke<string | null>('validate_directory', {
+          path: desiredCwd,
+        }).catch(() => null);
+        if (!validatedCwd) {
+          showNotice('Working directory must be an existing folder.');
+          return;
+        }
+      } else {
+        // Web/browser mode: no Tauri FS access. The server hosts the PTY and
+        // defaults a missing cwd to its own home dir (sessionRoutes.ts), so pass
+        // the project basePath through when present, otherwise null.
+        validatedCwd = desiredCwd || null;
       }
-      await ensureAutoAssets(validatedCwd, activeProjectId);
+
+      await ensureAutoAssets(validatedCwd ?? '', activeProjectId);
       const createdRaw = await createSession({
         projectId: activeProjectId,
         name,
@@ -935,14 +945,23 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     try {
       const desiredCwd = activeProject?.basePath ?? homeDirRef?.current ?? '';
-      const validatedCwd = await invoke<string | null>('validate_directory', {
-        path: desiredCwd,
-      }).catch(() => null);
-      if (!validatedCwd) {
-        ssh.setSshError('Working directory must be an existing folder.');
-        return;
+
+      let validatedCwd: string | null;
+      if (IS_TAURI) {
+        validatedCwd = await invoke<string | null>('validate_directory', {
+          path: desiredCwd,
+        }).catch(() => null);
+        if (!validatedCwd) {
+          ssh.setSshError('Working directory must be an existing folder.');
+          return;
+        }
+      } else {
+        // Web/browser mode: no Tauri FS access; the server-hosted PTY resolves
+        // the cwd (defaulting a missing one to its own home dir).
+        validatedCwd = desiredCwd || null;
       }
-      await ensureAutoAssets(validatedCwd, activeProjectId);
+
+      await ensureAutoAssets(validatedCwd ?? '', activeProjectId);
 
       const name = `ssh ${target}`;
       const createdRaw = await createSession({
@@ -1034,14 +1053,21 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const active = sessions.find((s) => s.id === activeId) ?? null;
 
     if (provider === 'local') {
-      const validatedCwd = await invoke<string | null>('validate_directory', {
-        path: desiredPath,
-      }).catch(() => null);
-      if (!validatedCwd) {
-        showNotice('Working directory must be an existing folder.');
-        return;
+      let validatedCwd: string | null;
+      if (IS_TAURI) {
+        validatedCwd = await invoke<string | null>('validate_directory', {
+          path: desiredPath,
+        }).catch(() => null);
+        if (!validatedCwd) {
+          showNotice('Working directory must be an existing folder.');
+          return;
+        }
+      } else {
+        // Web/browser mode: no Tauri FS access; pass the requested path through
+        // to the server-hosted PTY (it resolves/defaults the cwd).
+        validatedCwd = desiredPath || null;
       }
-      await ensureAutoAssets(validatedCwd, activeProjectId);
+      await ensureAutoAssets(validatedCwd ?? '', activeProjectId);
       try {
         const createdRaw = await createSession({
           projectId: activeProjectId,
@@ -1066,10 +1092,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
     const localDesiredCwd =
       activeProject?.basePath ?? homeDirRef?.current ?? '';
-    const localValidatedCwd = await invoke<string | null>(
-      'validate_directory',
-      { path: localDesiredCwd },
-    ).catch(() => null);
+    let localValidatedCwd: string | null;
+    if (IS_TAURI) {
+      localValidatedCwd = await invoke<string | null>(
+        'validate_directory',
+        { path: localDesiredCwd },
+      ).catch(() => null);
+    } else {
+      // Web/browser mode: no Tauri FS access; pass through (server resolves cwd).
+      localValidatedCwd = localDesiredCwd || null;
+    }
     if (localValidatedCwd) {
       await ensureAutoAssets(localValidatedCwd, activeProjectId);
     }
