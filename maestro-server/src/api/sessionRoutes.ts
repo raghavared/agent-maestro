@@ -19,7 +19,7 @@ import { ITaskRepository } from '../domain/repositories/ITaskRepository';
 import { IEventBus } from '../domain/events/IEventBus';
 import { Config } from '../infrastructure/config';
 import { AppError } from '../domain/common/Errors';
-import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, MemberLaunchOverride, LaunchConfig, isCoordinatorMode, normalizeMode } from '../types';
+import { SessionStatus, AgentTool, AgentMode, TeamMember, TeamMemberSnapshot, MemberLaunchOverride, LaunchConfig, isCoordinatorMode, normalizeMode, normalizeModelId } from '../types';
 import { ITeamMemberRepository } from '../domain/repositories/ITeamMemberRepository';
 import { IModelProfileRepository } from '../domain/repositories/IModelProfileRepository';
 import { SessionFilter } from '../domain/repositories/ISessionRepository';
@@ -1673,8 +1673,6 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
 
       // Fetch team member defaults from the effective members (after task-level fallback)
       const MODEL_POWER: Record<string, number> = {
-        'claude-fable-5[1m]': 6.1,
-        'claude-fable-5': 6.0,
         'claude-opus-4-8[1m]': 5.9,
         'claude-opus-4-8': 5.8,
         'gpt-5.5': 5.5,
@@ -1711,7 +1709,9 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
                 : undefined;
               // Full launch config of the winning candidate (carries reasoning/speed/access).
               const effectiveLaunchConfig = override?.launchConfig || profileConfig || undefined;
-              const effectiveModel = override?.launchConfig?.model || profileConfig?.model || teamMember.model;
+              // Coerce any retired model id (e.g. claude-fable-5) to its active
+              // replacement so ranking, the snapshot, and the launched model agree.
+              const effectiveModel = normalizeModelId(override?.launchConfig?.model || profileConfig?.model || teamMember.model);
               const effectiveAgentTool = effectiveLaunchConfig
                 ? agentToolForProvider(effectiveLaunchConfig.provider)
                 : teamMember.agentTool;

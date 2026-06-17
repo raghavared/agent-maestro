@@ -45,6 +45,27 @@ export function normalizeMode(mode: AgentModeInput, hasCoordinator?: boolean): A
   return mode as AgentMode;
 }
 
+/**
+ * Retired model IDs mapped to their active replacements. Keep this map in sync
+ * with the copies in maestro-server (types.ts) and maestro-ui
+ * (constants/agentTools.ts). Claude Fable 5 was retired; persisted configs are
+ * migrated to Opus 4.8, preserving the 1M-context variant.
+ */
+export const LEGACY_MODEL_ALIASES: Record<string, string> = {
+  'claude-fable-5': 'claude-opus-4-8',
+  'claude-fable-5[1m]': 'claude-opus-4-8[1m]',
+  'anthropic:claude-fable-5': 'anthropic:claude-opus-4-8',
+  'anthropic/claude-fable-5': 'anthropic:claude-opus-4-8',
+};
+
+/** Normalize a (possibly retired) model id to its active replacement. */
+export function normalizeModelId(model: string): string;
+export function normalizeModelId(model: string | undefined): string | undefined;
+export function normalizeModelId(model: string | undefined): string | undefined {
+  if (!model) return model;
+  return LEGACY_MODEL_ALIASES[model] ?? model;
+}
+
 /** Helper: does this mode require exactly one self identity profile? */
 export function requiresSingleSelfIdentity(mode: AgentModeInput): boolean {
   return mode === 'coordinator' || mode === 'coordinated-coordinator' || mode === 'coordinate';
@@ -338,7 +359,7 @@ export interface TaskData {
  * Session configuration for Claude Code
  */
 export interface SessionConfig {
-  /** Model to use (e.g. sonnet, claude-fable-5, claude-opus-4-8, claude-opus-4-7[1m], gpt-5.5, hermes-default, gemini-3-pro-preview) */
+  /** Model to use (e.g. sonnet, claude-opus-4-8, claude-opus-4-8[1m], claude-opus-4-7[1m], gpt-5.5, hermes-default, gemini-3-pro-preview) */
   model: string;
 
   /** Permission mode for the session */

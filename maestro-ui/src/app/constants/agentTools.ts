@@ -15,8 +15,6 @@ const withIds = (models: { value: ModelType; label: string }[]) =>
 
 export const MODELS_BY_AGENT_TOOL: Record<AgentTool, { value: ModelType; label: string }[]> = {
   "claude-code": [
-    { value: "claude-fable-5", label: "Fable 5" },
-    { value: "claude-fable-5[1m]", label: "Fable 5 1M" },
     { value: "claude-opus-4-8", label: "Opus 4.8" },
     { value: "claude-opus-4-8[1m]", label: "Opus 4.8 1M" },
     { value: "claude-opus-4-7", label: "Opus 4.7" },
@@ -35,7 +33,6 @@ export const MODELS_BY_AGENT_TOOL: Record<AgentTool, { value: ModelType; label: 
   ],
   hermes: [
     { value: "hermes-default", label: "Hermes default" },
-    { value: "anthropic:claude-fable-5", label: "Anthropic Claude Fable 5" },
     { value: "anthropic:claude-opus-4-8", label: "Anthropic Claude Opus 4.8" },
     { value: "nous:anthropic/claude-opus-4.8", label: "Nous Claude Opus 4.8" },
     { value: "openrouter:anthropic/claude-opus-4.8", label: "OpenRouter Claude Opus 4.8" },
@@ -60,12 +57,27 @@ export const DEFAULT_MODEL_BY_AGENT_TOOL: Record<AgentTool, ModelType> = {
   gemini: "gemini-2.5-pro",
 };
 
+// Retired model IDs mapped to their active replacements. Keep this map in sync
+// with the copies in maestro-server (types.ts) and maestro-cli
+// (types/manifest.ts). Claude Fable 5 was retired; persisted configs are
+// migrated to Opus 4.8, preserving the 1M-context variant.
+export const LEGACY_MODEL_ALIASES: Record<string, string> = {
+  "claude-fable-5": "claude-opus-4-8",
+  "claude-fable-5[1m]": "claude-opus-4-8[1m]",
+  "anthropic:claude-fable-5": "anthropic:claude-opus-4-8",
+  "anthropic/claude-fable-5": "anthropic:claude-opus-4-8",
+};
+
+// Normalize a (possibly retired) model id to its active replacement.
+export function normalizeModelId(model?: string): string | undefined {
+  if (!model) return model;
+  return LEGACY_MODEL_ALIASES[model] ?? model;
+}
+
 // Relative capability ranking used to pick the "top" team member when a task
 // has several assigned. Must stay in sync with MODEL_POWER in
 // maestro-server/src/api/sessionRoutes.ts so the badge mirrors what launches.
 export const MODEL_POWER: Record<string, number> = {
-  "claude-fable-5[1m]": 6.1,
-  "claude-fable-5": 6.0,
   "claude-opus-4-8[1m]": 5.9,
   "claude-opus-4-8": 5.8,
   "gpt-5.5": 5.5,
@@ -92,7 +104,7 @@ export function pickTopMember<T extends { model?: string }>(members: T[]): T | u
   let top: T | undefined;
   let topPower = -1;
   for (const member of members) {
-    const power = member.model ? (MODEL_POWER[member.model] ?? 0) : -1;
+    const power = member.model ? (MODEL_POWER[normalizeModelId(member.model)!] ?? 0) : -1;
     if (!top || power > topPower) {
       top = member;
       topPower = power;
@@ -225,7 +237,7 @@ export function sanitizeLaunchConfig(config?: Partial<LaunchConfig> | null): Lau
 
   return {
     provider,
-    model: config.model,
+    model: normalizeModelId(config.model)!,
     ...(reasoningEffort ? { reasoningEffort } : {}),
     ...(speed ? { speed } : {}),
     ...(accessMode ? { accessMode } : {}),
@@ -233,8 +245,6 @@ export function sanitizeLaunchConfig(config?: Partial<LaunchConfig> | null): Lau
 }
 
 const MODEL_LABEL_OVERRIDES: Record<string, string> = {
-  "claude-fable-5": "Fable 5",
-  "claude-fable-5[1m]": "Fable 5 1M",
   "claude-opus-4-8": "Opus 4.8",
   "claude-opus-4-8[1m]": "Opus 4.8 1M",
   "claude-opus-4-7": "Opus 4.7",
@@ -254,8 +264,6 @@ const MODEL_LABEL_OVERRIDES: Record<string, string> = {
   "gpt-5.3-codex-spark": "Codex 5.3 Spark",
   "gpt-5.2": "Codex 5.2",
   "gpt-5.2-codex": "Codex 5.2",
-  "anthropic:claude-fable-5": "Claude Fable 5",
-  "anthropic/claude-fable-5": "Claude Fable 5",
   "anthropic:claude-opus-4-8": "Claude Opus 4.8",
   "nous:anthropic/claude-opus-4.8": "Claude Opus 4.8",
   "openrouter:anthropic/claude-opus-4.8": "Claude Opus 4.8",
@@ -266,7 +274,8 @@ const MODEL_LABEL_OVERRIDES: Record<string, string> = {
 
 export function getModelDisplayLabel(model?: string): string {
   if (!model) return "Default";
-  return MODEL_LABEL_OVERRIDES[model] || model;
+  const normalized = normalizeModelId(model)!;
+  return MODEL_LABEL_OVERRIDES[normalized] || normalized;
 }
 
 export function formatProviderModelLabel(agentTool?: AgentTool, model?: string): string {

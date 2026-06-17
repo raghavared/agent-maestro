@@ -9,7 +9,7 @@ import type {
   AgentMode,
   LaunchConfig,
 } from '../types/manifest.js';
-import { normalizeMode, isCoordinatorMode } from '../types/manifest.js';
+import { normalizeMode, normalizeModelId, isCoordinatorMode } from '../types/manifest.js';
 import { DEFAULT_ACCEPTANCE_CRITERIA, MODE_VALIDATION_ERROR, AGENT_TOOL_VALIDATION_PREFIX } from '../prompts/index.js';
 import { validateManifest } from '../schemas/manifest-schema.js';
 import { storage } from '../storage.js';
@@ -587,9 +587,10 @@ export class ManifestGeneratorCLICommand {
           if (teamMember.permissionMode) {
             manifest.session.permissionMode = teamMember.permissionMode;
           }
-          // Override model with team member's model (if not explicitly set by launch settings)
+          // Override model with team member's model (if not explicitly set by launch settings).
+          // Coerce any retired model id (e.g. claude-fable-5) to its active replacement.
           if (teamMember.model && !hasExplicitModel) {
-            manifest.session.model = teamMember.model;
+            manifest.session.model = normalizeModelId(teamMember.model);
           }
         } catch {
           // ignore team member load error
@@ -598,8 +599,6 @@ export class ManifestGeneratorCLICommand {
         // Multi-identity: fetch all and build profiles array
         const profiles: TeamMemberProfile[] = [];
         const MODEL_POWER: Record<string, number> = {
-          'claude-fable-5[1m]': 6.1,
-          'claude-fable-5': 6.0,
           'claude-opus-4-8[1m]': 5.9,
           'claude-opus-4-8': 5.8,
           'gpt-5.5': 5.5,
@@ -634,6 +633,9 @@ export class ManifestGeneratorCLICommand {
           try {
             const tmRaw: any = await api.get(`/api/team-members/${memberId}?projectId=${options.projectId}`);
             const tm = applyMemberOverride(tmRaw, memberOverrides[memberId]);
+            // Coerce any retired model id (e.g. claude-fable-5) so ranking and the
+            // collapsed model agree with what the spawner will launch.
+            if (tm.model) tm.model = normalizeModelId(tm.model);
             profiles.push({
               id: tm.id,
               name: tm.name,
