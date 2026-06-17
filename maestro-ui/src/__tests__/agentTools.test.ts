@@ -10,6 +10,8 @@ import {
   getReasoningOptionsForProvider,
   MODEL_POWER,
   MODELS_BY_AGENT_TOOL,
+  normalizeModelId,
+  pickTopMember,
   sanitizeLaunchConfig,
   supportsLaunchSpeed,
 } from '../app/constants/agentTools';
@@ -71,8 +73,8 @@ describe('agent tool UI constants', () => {
   it('matches Claude CLI effort support and excludes speed', () => {
     expect(DEFAULT_MODEL_BY_AGENT_TOOL['claude-code']).toBe('claude-opus-4-8');
     expect(MODELS_BY_AGENT_TOOL['claude-code'][0]).toEqual({
-      value: 'claude-fable-5',
-      label: 'Fable 5',
+      value: 'claude-opus-4-8',
+      label: 'Opus 4.8',
     });
     expect(getReasoningOptionsForProvider('claude').map((item) => item.value)).toEqual(claudeReasoningEfforts);
 
@@ -215,14 +217,38 @@ describe('agent tool UI constants', () => {
     expect(getModelDisplayLabel('gpt-5.2-codex')).toBe('Codex 5.2');
   });
 
-  it('offers Claude Fable 5 as the top Claude model while keeping Opus 4.8 the default', () => {
+  it('no longer offers retired Claude Fable 5 and tops the Claude list with Opus 4.8', () => {
     const claudeValues = MODELS_BY_AGENT_TOOL['claude-code'].map((model) => model.value);
-    expect(claudeValues).toEqual(expect.arrayContaining(['claude-fable-5', 'claude-fable-5[1m]']));
-    expect(claudeValues[0]).toBe('claude-fable-5');
+    expect(claudeValues).not.toContain('claude-fable-5');
+    expect(claudeValues).not.toContain('claude-fable-5[1m]');
+    expect(claudeValues[0]).toBe('claude-opus-4-8');
     expect(DEFAULT_MODEL_BY_AGENT_TOOL['claude-code']).toBe('claude-opus-4-8');
-    expect(getModelDisplayLabel('claude-fable-5')).toBe('Fable 5');
-    expect(getModelDisplayLabel('claude-fable-5[1m]')).toBe('Fable 5 1M');
-    expect(MODEL_POWER['claude-fable-5']).toBeGreaterThan(MODEL_POWER['claude-opus-4-8']);
-    expect(MODEL_POWER['claude-fable-5[1m]']).toBeGreaterThan(MODEL_POWER['claude-fable-5']);
+    expect(MODELS_BY_AGENT_TOOL.hermes.map((m) => m.value)).not.toContain('anthropic:claude-fable-5');
+    expect(MODEL_POWER['claude-fable-5']).toBeUndefined();
+    expect(MODEL_POWER['claude-fable-5[1m]']).toBeUndefined();
+  });
+
+  it('migrates retired Fable 5 model ids to their Opus 4.8 replacements', () => {
+    // Fable 5 -> Opus 4.8; Fable 5 1M -> Opus 4.8 1M (per-variant migration).
+    expect(normalizeModelId('claude-fable-5')).toBe('claude-opus-4-8');
+    expect(normalizeModelId('claude-fable-5[1m]')).toBe('claude-opus-4-8[1m]');
+    expect(normalizeModelId('anthropic:claude-fable-5')).toBe('anthropic:claude-opus-4-8');
+    expect(normalizeModelId('anthropic/claude-fable-5')).toBe('anthropic:claude-opus-4-8');
+    // Non-retired ids pass through unchanged.
+    expect(normalizeModelId('claude-opus-4-8')).toBe('claude-opus-4-8');
+    expect(normalizeModelId(undefined)).toBeUndefined();
+  });
+
+  it('keeps legacy Fable setups working: display, ranking, and launch config resolve to Opus', () => {
+    // A persisted team member still on Fable shows and launches as Opus 4.8.
+    expect(getModelDisplayLabel('claude-fable-5')).toBe('Opus 4.8');
+    expect(getModelDisplayLabel('claude-fable-5[1m]')).toBe('Opus 4.8 1M');
+    expect(sanitizeLaunchConfig({ provider: 'claude', model: 'claude-fable-5' })).toEqual({
+      provider: 'claude',
+      model: 'claude-opus-4-8',
+    });
+    // Ranking treats a legacy Fable member as its Opus 4.8 equivalent (not unranked/0).
+    const members = [{ model: 'claude-fable-5' }, { model: 'claude-sonnet-4-6' }];
+    expect(pickTopMember(members)?.model).toBe('claude-fable-5');
   });
 });

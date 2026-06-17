@@ -42,7 +42,7 @@ describe('Model profiles', () => {
     const byId = new Map(profiles.map((p) => [p.id, p]));
 
     expect(profiles.length).toBe(4);
-    expect(byId.get('mp_ultra')?.launchConfig.model).toBe('claude-fable-5');
+    expect(byId.get('mp_ultra')?.launchConfig.model).toBe('claude-opus-4-8[1m]');
     expect(byId.get('mp_heavy')?.launchConfig.model).toBe('claude-opus-4-8');
     expect(byId.get('mp_balanced')?.launchConfig.model).toBe('claude-sonnet-4-6');
     expect(byId.get('mp_fast')?.launchConfig.model).toBe('claude-haiku-4-5');

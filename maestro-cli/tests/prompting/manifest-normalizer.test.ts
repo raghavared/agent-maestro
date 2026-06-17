@@ -63,6 +63,44 @@ describe('manifest-normalizer', () => {
     expect(result.manifest.teamMemberProfiles?.[0].identity).toBe('Build backend APIs');
   });
 
+  it('coerces retired Fable 5 model ids to Opus 4.8 everywhere the spawner reads them', () => {
+    const manifest = buildManifest({
+      session: { model: 'claude-fable-5', permissionMode: 'acceptEdits' },
+      launchConfig: { provider: 'claude', model: 'claude-fable-5[1m]' },
+      availableTeamMembers: [
+        {
+          id: 'tm-2',
+          name: 'Bob',
+          role: 'Tester',
+          identity: 'Write tests',
+          avatar: 'B',
+          model: 'claude-fable-5',
+        },
+      ],
+    } as Partial<MaestroManifest>);
+
+    const result = normalizeManifest(manifest);
+
+    expect(result.manifest.session.model).toBe('claude-opus-4-8');
+    expect(result.manifest.launchConfig?.model).toBe('claude-opus-4-8[1m]');
+    expect(result.manifest.availableTeamMembers?.[0].model).toBe('claude-opus-4-8');
+  });
+
+  it('coerces a retired model id on session.launchConfig (the field the spawner launches)', () => {
+    const manifest = buildManifest({
+      session: {
+        model: 'claude-fable-5',
+        permissionMode: 'acceptEdits',
+        launchConfig: { provider: 'claude', model: 'claude-fable-5[1m]' },
+      },
+    } as Partial<MaestroManifest>);
+
+    const result = normalizeManifest(manifest);
+
+    expect(result.manifest.session.launchConfig?.model).toBe('claude-opus-4-8[1m]');
+    expect(result.manifest.session.model).toBe('claude-opus-4-8');
+  });
+
   it('flags deprecated workflow fields as warnings', () => {
     const manifest = buildManifest({
       teamMemberWorkflowTemplateId: 'execute-simple',
