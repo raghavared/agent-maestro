@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
-import { WorkspaceFsService } from '../application/services/WorkspaceFsService';
+import { WorkspaceFsService, AllowedRootsProvider } from '../application/services/WorkspaceFsService';
 import { handleRouteError } from './middleware/errorHandler';
 import { validateQuery, validateBody } from './validation';
 
@@ -42,9 +42,13 @@ const deleteBody = z.object({
  * picker ("Browse" in New Project / New Session) and the File Explorer + editor.
  *
  * Mounted behind the same auth middleware as every other /api route.
+ *
+ * @param getAllowedRoots server-derived allowlist of base dirs the client may
+ * touch (home + registered project working dirs). Confines every operation so a
+ * client cannot read/write/enumerate arbitrary host paths via these endpoints.
  */
-export function createFsRoutes() {
-  const service = new WorkspaceFsService();
+export function createFsRoutes(getAllowedRoots?: AllowedRootsProvider) {
+  const service = new WorkspaceFsService(getAllowedRoots);
   const router = express.Router();
 
   router.get('/fs/list-directories', validateQuery(listDirectoriesQuery), async (req: Request, res: Response) => {

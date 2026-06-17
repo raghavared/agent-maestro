@@ -37,6 +37,13 @@ export interface FsEntry {
   size: number;
 }
 
+/**
+ * Returns the set of base directories the client is permitted to touch. Derived
+ * from server-side state (never the client) — see createFsRoutes, which sources
+ * it from the user's home dir + every registered project's working dir.
+ */
+export type AllowedRootsProvider = () => Promise<string[]> | string[];
+
 /** Expand a leading `~` (or `~/...`) to the user's home directory. */
 function expandHome(p: string): string {
   const trimmed = p.trim();
@@ -55,14 +62,22 @@ async function isDirectory(p: string): Promise<boolean> {
 
 export class WorkspaceFsService {
   /**
+   * @param getAllowedRoots server-derived allowlist of permitted base dirs. The
+   * client never chooses these; every request is confined to (or under) one of
+   * them. Defaults to the user's home directory.
+   */
+  constructor(private readonly getAllowedRoots: AllowedRootsProvider = () => [os.homedir()]) {}
+
+  /**
    * Browse directories for the folder picker. Lists only subdirectories of the
-   * given path (defaulting to the home directory). NOT confined to a root — this
-   * matches the desktop picker, which can browse anywhere on the host.
+   * given path (defaulting to the home directory), confined to the allowlisted
+   * roots so the client cannot enumerate arbitrary host directories.
    */
   async listDirectories(inputPath: string | null): Promise<DirectoryListing> {
     const expanded = inputPath ? expandHome(inputPath) : '';
     const desired = expanded.trim() === '' ? os.homedir() : expanded;
 
+    await this.assertPermitted(desired);
     if (!(await isDirectory(desired))) {
       throw new ValidationError('not a directory');
     }
@@ -95,6 +110,7 @@ export class WorkspaceFsService {
     const expanded = expandHome(inputPath ?? '');
     if (expanded.trim() === '') return null;
 
+    await this.assertPermitted(expanded);
     if (await isDirectory(expanded)) return expanded;
 
     try {
@@ -227,7 +243,59 @@ export class WorkspaceFsService {
     if (!(await isDirectory(r))) {
       throw new ValidationError('root is not a directory');
     }
-    return fs.realpath(r);
+    const real = await fs.realpath(r);
+    await this.assertPermitted(real);
+    return real;
+  }
+
+  // --- server-side allowlist (mitigates client-chosen arbitrary roots) -------
+
+  /** Realpath'd, existing allowlisted base directories from server-side state. */
+  private async allowedRoots(): Promise<string[]> {
+    const raw = await this.getAllowedRoots();
+    const resolved: string[] = [];
+    for (const r of raw) {
+      if (!r || !r.trim()) continue;
+      try {
+        resolved.push(await fs.realpath(r));
+      } catch {
+        // Skip roots that don't exist on disk (e.g. a project dir was removed).
+      }
+    }
+    return resolved;
+  }
+
+  /**
+   * Resolve a path to its on-disk location: the realpath if it exists, otherwise
+   * the realpath of its nearest existing ancestor with the not-yet-created tail
+   * re-appended (the tail cannot contain symlinks, so this is escape-safe).
+   */
+  private async realResolve(input: string): Promise<string> {
+    let cur = path.resolve(input);
+    const tail: string[] = [];
+    for (;;) {
+      try {
+        const real = await fs.realpath(cur);
+        return tail.length ? path.join(real, ...tail.reverse()) : real;
+      } catch {
+        const parent = path.dirname(cur);
+        if (parent === cur) return path.resolve(input);
+        tail.push(path.basename(cur));
+        cur = parent;
+      }
+    }
+  }
+
+  /** Throw unless `input` resolves to a location within an allowlisted root. */
+  private async assertPermitted(input: string): Promise<void> {
+    if (input.split(/[\\/]/).includes('..')) {
+      throw new ValidationError('path must not contain ".."');
+    }
+    const resolved = await this.realResolve(input);
+    const roots = await this.allowedRoots();
+    if (!roots.some((root) => isWithin(root, resolved))) {
+      throw new ValidationError('path is not within an allowed workspace root');
+    }
   }
 
   /** Resolve `target` and assert it lies within the canonical `root`. */

@@ -14,11 +14,12 @@ describe('fsRoutes', () => {
   let root: string;
 
   beforeEach(async () => {
-    app = express();
-    app.use(express.json());
-    app.use('/api', createFsRoutes());
     const raw = await fs.mkdtemp(path.join(os.tmpdir(), 'maestro-fsroutes-'));
     root = realpathSync(raw);
+    app = express();
+    app.use(express.json());
+    // Allowlist the temp workspace + home (server-derived in production).
+    app.use('/api', createFsRoutes(() => [root, os.homedir()]));
   });
 
   afterEach(async () => {

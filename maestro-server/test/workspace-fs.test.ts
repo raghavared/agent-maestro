@@ -14,9 +14,10 @@ describe('WorkspaceFsService', () => {
   let root: string; // canonical temp workspace root
 
   beforeEach(async () => {
-    svc = new WorkspaceFsService();
     const raw = await fs.mkdtemp(path.join(os.tmpdir(), 'maestro-fs-'));
     root = realpathSync(raw); // macOS tmpdir is a symlink → canonicalize for confinement comparisons
+    // Allowlist the temp workspace + home (server-derived in production).
+    svc = new WorkspaceFsService(() => [root, os.homedir()]);
   });
 
   afterEach(async () => {
@@ -183,6 +184,45 @@ describe('WorkspaceFsService', () => {
     it('refuses to delete the root itself', async () => {
       // The root's parent lies outside the root, so confinement blocks it first.
       await expect(svc.deleteEntry(root, root)).rejects.toThrow(/outside root|cannot delete root/i);
+    });
+  });
+
+  describe('server-side allowlist (rejects client-chosen arbitrary roots)', () => {
+    it('rejects a root that is not in the allowlist', async () => {
+      const other = realpathSync(await fs.mkdtemp(path.join(os.tmpdir(), 'maestro-other-')));
+      try {
+        await fs.writeFile(path.join(other, 'a.txt'), 'x');
+        const locked = new WorkspaceFsService(() => [root]); // only `root` is allowed
+        await expect(locked.listEntries(other, other)).rejects.toThrow(/allowed workspace root/i);
+        await expect(locked.readTextFile(other, path.join(other, 'a.txt'))).rejects.toThrow(
+          /allowed workspace root/i,
+        );
+        await expect(locked.listDirectories(other)).rejects.toThrow(/allowed workspace root/i);
+      } finally {
+        await fs.rm(other, { recursive: true, force: true });
+      }
+    });
+
+    it('rejects browsing a directory outside the allowlist', async () => {
+      const locked = new WorkspaceFsService(() => [root]);
+      // The temp dir's parent is an ancestor of `root`, so it is not allowlisted.
+      await expect(locked.listDirectories(path.dirname(root))).rejects.toThrow(/allowed workspace root/i);
+    });
+
+    it('rejects validating/creating a directory outside the allowlist', async () => {
+      const locked = new WorkspaceFsService(() => [root]);
+      await expect(locked.validateDirectory(path.join(os.tmpdir(), 'maestro-should-not-exist'))).rejects.toThrow(
+        /allowed workspace root/i,
+      );
+    });
+
+    it('rejects a path containing ".."', async () => {
+      await expect(svc.listDirectories(`${root}/../escape`)).rejects.toThrow(/\.\./);
+    });
+
+    it('allows creating a new directory under an allowlisted root', async () => {
+      const target = path.join(root, 'fresh', 'nested');
+      expect(await svc.validateDirectory(target)).toBe(target);
     });
   });
 });
