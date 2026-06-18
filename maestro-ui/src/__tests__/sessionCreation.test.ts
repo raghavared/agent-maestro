@@ -1,43 +1,45 @@
 /**
- * Tests for onNewSubmit terminal creation across desktop (Tauri) and web modes.
+ * Tests for onNewSubmit terminal creation (Bug: "New terminals are not opening").
  *
- * Desktop (IS_TAURI === true):
- *   - validate_directory is invoked; a failed validation surfaces a visible
- *     notice and creates no terminal.
- *   - homeDir (from useUIStore) is used as the cwd fallback when the active
- *     project has no basePath.
+ * Root cause (pre-fix): onNewSubmit resolved the working directory to '' because
+ * its fallback was homeDirRef.current, which App.tsx wired as { current: null }
+ * (permanently null). validate_directory('') then returned null, the submit hit a
+ * silent early return, and the only feedback (setError) wrote to an unrendered
+ * UIStore.error field — so clicking "Create Terminal" did nothing.
  *
- * Web / browser (IS_TAURI === false):
- *   - There is NO Tauri runtime, so invoke('validate_directory') throws. The
- *     pre-fix code swallowed that rejection (.catch(() => null)) and returned
- *     early, so the [NEW TERMINAL] modal NEVER created a terminal in the web
- *     build. The fix skips Tauri validation in browser mode and passes the cwd
- *     through (project basePath when present, otherwise null so the server —
- *     sessionRoutes.ts — defaults it to its own home dir).
+ * Fix (verified here):
+ *   - The cwd fallback uses useUIStore.homeDir (populated at startup) instead of
+ *     the permanently-null homeDirRef.current.
+ *   - Directory validation goes through platform.fs.validateDirectory, the unified
+ *     provider that works in both desktop (Tauri invoke) and web (server REST)
+ *     runtimes — so the [NEW TERMINAL] modal works in either build.
+ *   - A failed validation surfaces a visible showNotice() toast instead of the
+ *     dead setError path.
  *
- * IS_TAURI is mutable per-test via vi.hoisted so the same suite can exercise
- * both the desktop and the browser branch of onNewSubmit.
+ * Note: the desktop-vs-web behaviour of validateDirectory itself lives in
+ * platform/fs.ts and is covered by its own tests; onNewSubmit no longer branches
+ * on IS_TAURI, so these tests mock platform.fs.validateDirectory directly.
  */
 
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // ── Mutable mock state (hoisted so vi.mock factories may reference it) ───────
 const h = vi.hoisted(() => ({
-  isTauri: true,
   homeDir: '/home/testuser' as string | null,
   activeProjectId: null as string | null,
   projects: [] as Array<{ id: string; basePath?: string | null }>,
   showNotice: vi.fn(),
   reportError: vi.fn(),
-  setError: vi.fn(),
+  validateDirectory: vi.fn(),
 }));
 
-// ── Mock platform; IS_TAURI is a getter so it stays mutable across tests ─────
+// ── Mock platform: fs.validateDirectory is the unified (Tauri/web) validator ─
 vi.mock('../platform', () => ({
-  get IS_TAURI() {
-    return h.isTauri;
-  },
+  IS_TAURI: true,
   platform: {
+    fs: {
+      validateDirectory: h.validateDirectory,
+    },
     terminal: {
       onOutput: vi.fn(() => () => {}),
       onSize: undefined,
@@ -46,7 +48,7 @@ vi.mock('../platform', () => ({
   },
 }));
 
-// ── Mock Tauri invoke ──────────────────────────────────────────────────────
+// ── Mock Tauri invoke (onNewSubmit no longer calls it; the module still imports it)
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }));
@@ -64,7 +66,6 @@ vi.mock('../stores/useUIStore', () => ({
       homeDir: h.homeDir,
       showNotice: h.showNotice,
       reportError: h.reportError,
-      setError: h.setError,
     })),
   },
 }));
@@ -93,7 +94,7 @@ vi.mock('../stores/useAssetStore', () => ({
   },
 }));
 
-// ── Stub stores used in other parts of useSessionStore (not by onNewSubmit) -
+// ── Stub stores used elsewhere in useSessionStore (not by onNewSubmit) ──────
 vi.mock('../stores/useSshStore', () => ({
   useSshStore: { getState: vi.fn(() => ({})) },
 }));
@@ -118,11 +119,9 @@ vi.mock('../utils/MaestroClient', () => ({
 }));
 
 // ── Imports (after all vi.mock calls) ──────────────────────────────────────
-import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { createSession } from '../services/sessionService';
 import { useSessionStore } from '../stores/useSessionStore';
 
-const mockTauriInvoke = tauriInvoke as ReturnType<typeof vi.fn>;
 const mockCreateSession = createSession as ReturnType<typeof vi.fn>;
 
 const submit = () =>
@@ -133,10 +132,19 @@ const submit = () =>
 describe('onNewSubmit — new terminal creation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    h.isTauri = true;
     h.homeDir = '/home/testuser';
     h.activeProjectId = null;
     h.projects = [];
+    // validate_directory echoes the path it receives (simulates a valid dir)
+    h.validateDirectory.mockImplementation((path: string) =>
+      Promise.resolve(path || null),
+    );
+    mockCreateSession.mockResolvedValue({
+      id: 'sess-1',
+      name: 'my-terminal',
+      exited: false,
+      closing: false,
+    });
     useSessionStore.setState({
       newName: 'my-terminal',
       newCommand: '',
@@ -145,81 +153,38 @@ describe('onNewSubmit — new terminal creation', () => {
     });
   });
 
-  describe('desktop (IS_TAURI)', () => {
-    it('creates terminal using homeDir when project has no basePath', async () => {
-      // validate_directory echoes the path it receives (simulates a valid dir)
-      mockTauriInvoke.mockImplementation((cmd: string, args: { path: string }) =>
-        cmd === 'validate_directory'
-          ? Promise.resolve(args.path || null)
-          : Promise.resolve(null),
-      );
-      mockCreateSession.mockResolvedValue({
-        id: 'sess-1',
-        name: 'my-terminal',
-        exited: false,
-        closing: false,
-      });
+  it('falls back to useUIStore.homeDir as the cwd when the project has no basePath', async () => {
+    // Regression for the original bug: the fallback was homeDirRef.current
+    // (permanently null) → desiredCwd '' → validation failed → silent no-op.
+    await submit();
 
-      await submit();
-
-      expect(mockCreateSession).toHaveBeenCalledWith(
-        expect.objectContaining({ cwd: '/home/testuser' }),
-      );
-    });
-
-    it('surfaces a visible notice when the working directory cannot be validated', async () => {
-      // validate_directory always fails (bad path, permission error, etc.)
-      mockTauriInvoke.mockResolvedValue(null);
-
-      await submit();
-
-      expect(h.showNotice).toHaveBeenCalledWith(
-        expect.stringContaining('Working directory'),
-      );
-      expect(mockCreateSession).not.toHaveBeenCalled();
-    });
+    expect(h.validateDirectory).toHaveBeenCalledWith('/home/testuser');
+    expect(mockCreateSession).toHaveBeenCalledWith(
+      expect.objectContaining({ cwd: '/home/testuser' }),
+    );
   });
 
-  describe('web / browser (no Tauri runtime)', () => {
-    beforeEach(() => {
-      h.isTauri = false;
-      // In the browser, initApp only resolves homeDir under IS_TAURI, so it is null.
-      h.homeDir = null;
-      // Simulate the browser: any invoke() throws because there is no Tauri IPC.
-      mockTauriInvoke.mockRejectedValue(
-        new Error('Tauri IPC unavailable in browser'),
-      );
-      mockCreateSession.mockResolvedValue({
-        id: 'sess-web',
-        name: 'my-terminal',
-        exited: false,
-        closing: false,
-      });
-    });
+  it('prefers the active project basePath over homeDir', async () => {
+    h.activeProjectId = 'proj-1';
+    h.projects = [{ id: 'proj-1', basePath: '/work/project' }];
 
-    it('creates the terminal with cwd=null (server defaults it) instead of returning early', async () => {
-      await submit();
+    await submit();
 
-      // Before the fix: invoke('validate_directory') rejects → caught → null →
-      // showNotice + early return → createSession is NEVER called (this assertion fails).
-      // After the fix: browser mode skips Tauri validation → createSession runs once.
-      expect(mockCreateSession).toHaveBeenCalledTimes(1);
-      expect(mockCreateSession).toHaveBeenCalledWith(
-        expect.objectContaining({ cwd: null }),
-      );
-      expect(h.showNotice).not.toHaveBeenCalled();
-    });
+    expect(h.validateDirectory).toHaveBeenCalledWith('/work/project');
+    expect(mockCreateSession).toHaveBeenCalledWith(
+      expect.objectContaining({ cwd: '/work/project' }),
+    );
+  });
 
-    it('passes the active project basePath through as cwd without invoking Tauri', async () => {
-      h.activeProjectId = 'proj-1';
-      h.projects = [{ id: 'proj-1', basePath: '/work/project' }];
+  it('surfaces a visible notice and creates no terminal when validation fails', async () => {
+    // Regression: failures used to go to setError (unrendered) → no feedback.
+    h.validateDirectory.mockResolvedValue(null);
 
-      await submit();
+    await submit();
 
-      expect(mockTauriInvoke).not.toHaveBeenCalled();
-      expect(mockCreateSession).toHaveBeenCalledWith(
-        expect.objectContaining({ cwd: '/work/project' }),
-      );
-    });
+    expect(h.showNotice).toHaveBeenCalledWith(
+      expect.stringContaining('Working directory'),
+    );
+    expect(mockCreateSession).not.toHaveBeenCalled();
   });
 });
