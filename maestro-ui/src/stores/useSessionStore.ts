@@ -859,16 +859,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       projects.find((p: MaestroProjectLike) => p.id === activeProjectId) ?? null;
     const { environments } = useEnvironmentStore.getState();
     const { ensureAutoAssets } = useAssetStore.getState();
-    const { reportError, setError } = useUIStore.getState();
+    const { reportError, showNotice, homeDir } = useUIStore.getState();
 
     const name = newName.trim() || undefined;
     try {
       const launchCommand = newCommand.trim() || null;
       const desiredCwd =
-        newCwd.trim() || activeProject?.basePath || homeDirRef?.current || '';
+        newCwd.trim() || activeProject?.basePath || homeDir || '';
       const validatedCwd = await platform.fs.validateDirectory(desiredCwd).catch(() => null);
       if (!validatedCwd) {
-        setError('Working directory must be an existing folder.');
+        showNotice('Working directory must be an existing folder.');
         return;
       }
       await ensureAutoAssets(validatedCwd, activeProjectId);
