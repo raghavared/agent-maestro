@@ -147,6 +147,7 @@ export const createTaskSchema = z.object({
   memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
   dangerousMode: z.boolean().optional(),
   useWorktree: z.boolean().optional(),
+  dueDate: z.string().optional(),
   clientRequestId: z.string().max(200).optional(),
 }).strict();
 
@@ -170,6 +171,7 @@ export const updateTaskSchema = z.object({
   memberOverrides: z.record(safeId, memberLaunchOverrideSchema).optional(),
   dangerousMode: z.boolean().optional(),
   useWorktree: z.boolean().optional(),
+  dueDate: z.string().nullable().optional(),
 }).strict();
 
 const docKindSchema = z.enum(['markdown', 'diagram']);
