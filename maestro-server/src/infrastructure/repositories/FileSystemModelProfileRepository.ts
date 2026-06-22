@@ -57,8 +57,8 @@ export class FileSystemModelProfileRepository implements IModelProfileRepository
       {
         id: 'mp_ultra',
         name: 'Ultra',
-        description: 'Most capable tier — Fable 5.',
-        launchConfig: { provider: 'claude', model: 'claude-fable-5' },
+        description: 'Most capable tier — Opus 4.8 (1M context).',
+        launchConfig: { provider: 'claude', model: 'claude-opus-4-8[1m]' },
         isDefault: true,
         createdAt: now,
         updatedAt: now,

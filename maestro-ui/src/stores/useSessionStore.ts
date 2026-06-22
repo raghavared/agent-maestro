@@ -859,18 +859,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       projects.find((p: MaestroProjectLike) => p.id === activeProjectId) ?? null;
     const { environments } = useEnvironmentStore.getState();
     const { ensureAutoAssets } = useAssetStore.getState();
-    const { reportError, setError } = useUIStore.getState();
+    const { reportError, showNotice, homeDir } = useUIStore.getState();
 
     const name = newName.trim() || undefined;
     try {
       const launchCommand = newCommand.trim() || null;
       const desiredCwd =
-        newCwd.trim() || activeProject?.basePath || homeDirRef?.current || '';
-      const validatedCwd = await invoke<string | null>('validate_directory', {
-        path: desiredCwd,
-      }).catch(() => null);
+        newCwd.trim() || activeProject?.basePath || homeDir || '';
+      const validatedCwd = await platform.fs.validateDirectory(desiredCwd).catch(() => null);
       if (!validatedCwd) {
-        setError('Working directory must be an existing folder.');
+        showNotice('Working directory must be an existing folder.');
         return;
       }
       await ensureAutoAssets(validatedCwd, activeProjectId);
@@ -935,9 +933,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     try {
       const desiredCwd = activeProject?.basePath ?? homeDirRef?.current ?? '';
-      const validatedCwd = await invoke<string | null>('validate_directory', {
-        path: desiredCwd,
-      }).catch(() => null);
+      const validatedCwd = await platform.fs.validateDirectory(desiredCwd).catch(() => null);
       if (!validatedCwd) {
         ssh.setSshError('Working directory must be an existing folder.');
         return;
@@ -1034,9 +1030,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const active = sessions.find((s) => s.id === activeId) ?? null;
 
     if (provider === 'local') {
-      const validatedCwd = await invoke<string | null>('validate_directory', {
-        path: desiredPath,
-      }).catch(() => null);
+      const validatedCwd = await platform.fs.validateDirectory(desiredPath).catch(() => null);
       if (!validatedCwd) {
         showNotice('Working directory must be an existing folder.');
         return;
@@ -1066,10 +1060,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
     const localDesiredCwd =
       activeProject?.basePath ?? homeDirRef?.current ?? '';
-    const localValidatedCwd = await invoke<string | null>(
-      'validate_directory',
-      { path: localDesiredCwd },
-    ).catch(() => null);
+    const localValidatedCwd = await platform.fs.validateDirectory(localDesiredCwd).catch(() => null);
     if (localValidatedCwd) {
       await ensureAutoAssets(localValidatedCwd, activeProjectId);
     }
