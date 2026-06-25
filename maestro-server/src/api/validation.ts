@@ -450,6 +450,20 @@ export const spawnSessionSchema = z.object({
   rows: ptyDimensionSchema.optional(),
 }).strict();
 
+// Web mode only: the browser asks the server to spawn a PTY it can then attach
+// to over /pty?sessionId=<id>. Plain terminals have no spawn step otherwise, so
+// the WS finds no live PTY, closes 1011, and the terminal dies instantly. This
+// endpoint lets the client request the PTY first. sessionId is the id it will
+// attach with; everything else is optional (empty command => interactive shell).
+export const ptySpawnSchema = z.object({
+  sessionId: z.string().min(1).max(200),
+  command: z.string().nullable().optional(),
+  cwd: z.string().nullable().optional(),
+  env: z.record(z.string(), z.string().max(5000)).optional(),
+  cols: ptyDimensionSchema.optional(),
+  rows: ptyDimensionSchema.optional(),
+}).strict();
+
 // --- Template schemas ---
 
 export const createTemplateSchema = z.object({
