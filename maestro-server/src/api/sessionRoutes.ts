@@ -34,6 +34,7 @@ import {
   sessionTimelineSchema,
   listSessionsQuerySchema,
   spawnSessionSchema,
+  ptySpawnSchema,
   modeBodySchema,
   idParamSchema,
   idAndTaskIdParamSchema,
@@ -552,6 +553,53 @@ export function createSessionRoutes(deps: SessionRouteDependencies) {
         error: true,
         code: 'pty_stop_failed',
         message: err instanceof Error ? err.message : 'Failed to stop server PTY',
+      });
+    }
+  });
+
+  // Spawn a server-hosted PTY the web client can then attach to over
+  // /pty?sessionId=<id>. In web mode the browser /pty transport only ATTACHES;
+  // nothing spawns a PTY for plain terminals, so the WS finds no live PTY,
+  // closes 1011, and the terminal dies instantly. This is the web-side
+  // equivalent of the Tauri transport spawning a native PTY locally.
+  router.post('/pty/spawn', validateBody(ptySpawnSchema), async (req: Request, res: Response) => {
+    if (config.ptyHost !== 'server') {
+      return res.status(400).json({ error: 'server PTY host not enabled' });
+    }
+    const sessionId = req.body.sessionId as string;
+    // Idempotent: the client may have raced an attach, or double-fired the
+    // request. If a PTY already exists, treat the spawn as a no-op success so we
+    // never kill+replace a live, attached terminal.
+    if (ptyHostService.hasSession(sessionId)) {
+      return res.status(201).json({ ok: true, sessionId });
+    }
+    const shell = process.env.SHELL || '/bin/bash';
+    const rawCommand = typeof req.body.command === 'string' ? req.body.command : '';
+    // PtyHostService runs `shell -c "<command>"`, so an empty command makes the
+    // shell exit instantly — the very bug we're fixing. For an empty command,
+    // spawn an interactive shell (matching /dev/pty-test). For a real command,
+    // append `; exec <shell>` so the PTY drops into a shell when the command
+    // finishes instead of exiting (desktop parity: the terminal stays open).
+    const finalCommand = rawCommand.trim()
+      ? `${rawCommand}; exec ${shell}`
+      : `${shell} -i`;
+    const cwd = typeof req.body.cwd === 'string' && req.body.cwd.trim() ? req.body.cwd : homedir();
+    try {
+      ptyHostService.spawn({
+        sessionId,
+        command: finalCommand,
+        cwd,
+        env: req.body.env ?? {},
+        cols: req.body.cols,
+        rows: req.body.rows,
+      });
+      return res.status(201).json({ ok: true, sessionId });
+    } catch (err) {
+      console.error('[pty/spawn] Failed to spawn server PTY:', err instanceof Error ? err.message : err);
+      return res.status(500).json({
+        error: true,
+        code: 'pty_spawn_failed',
+        message: err instanceof Error ? err.message : 'Failed to spawn server PTY',
       });
     }
   });
